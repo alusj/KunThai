@@ -266,7 +266,7 @@ export async function updateTransportTripStatus(tripId, status, patch = {}) {
 }
 
 export async function cancelTransportTrip(tripId) {
-  return updateTransportTripStatus(tripId, "cancelled");
+  return updateTransportTripStatus(tripId, "cancelled", { endedBy: "passenger" });
 }
 
 export async function requestTransportTripStart(tripId) {
@@ -329,18 +329,15 @@ export async function endTransportTrip(trip) {
 export async function updateTransportTripProgress(tripId, progress) {
   if (!tripId) return null;
 
-  const { data, error } = await supabase
-    .from("transport_trips")
-    .update({
-      distance_covered_meters: Math.max(0, Number(progress.distanceCoveredMeters || 0)),
-      last_location_latitude: Number(progress.latitude),
-      last_location_longitude: Number(progress.longitude),
-      last_location_at: new Date().toISOString(),
-      updated_at: new Date().toISOString(),
-    })
-    .eq("id", tripId)
-    .select()
-    .maybeSingle();
+  // Monotonic, authorized progress write: distance can only increase and only
+  // the passenger or the assigned operator may report it, so the driver's device
+  // can track distance without a lower/stale reading ever reducing the fare.
+  const { data, error } = await supabase.rpc("record_transport_trip_progress", {
+    p_trip_id: tripId,
+    p_distance_meters: Math.max(0, Number(progress.distanceCoveredMeters || 0)),
+    p_latitude: progress.latitude != null && progress.latitude !== "" ? Number(progress.latitude) : null,
+    p_longitude: progress.longitude != null && progress.longitude !== "" ? Number(progress.longitude) : null,
+  });
 
   if (error) throw new Error(error.message || "Unable to update live trip distance.");
   return data;

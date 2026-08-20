@@ -2,7 +2,7 @@ import { useEffect, useRef } from "react";
 
 import supabase from "../../Backend/lib/supabaseClient";
 import { haptics, sounds } from "../../Backend/services/feedbackService";
-import { requestExploreScreen, showNotificationBanner } from "../../Backend/services/notificationBannerService";
+import { requestExploreScreen, requestMarketplaceScreen, showNotificationBanner } from "../../Backend/services/notificationBannerService";
 import { showToast } from "../../Backend/services/toastService";
 import {
   getUnseenNotificationCount,
@@ -71,6 +71,17 @@ function announceActivity({ body, item, page, source, title }) {
   if (!body || !item) return;
   const contextKey = `${page}:${source}`;
 
+  // A new-message banner should land on the conversation list, not just the
+  // service home, so tapping it takes the user straight toward the message
+  // (works cross-service, e.g. tapped from UrRide). Buyer message items carry a
+  // "buyer-message:" id; other activity keeps the plain service switch.
+  const opensBuyerMessages = page === "marketplace"
+    && source === "messages"
+    && String(item.id || "").startsWith("buyer-message:");
+  const onOpen = opensBuyerMessages
+    ? () => requestMarketplaceScreen("messages")
+    : () => openService(page);
+
   haptics.light(page);
   sounds.notification(page);
   showNotificationBanner({
@@ -78,7 +89,7 @@ function announceActivity({ body, item, page, source, title }) {
     body,
     contextKey,
     openLabel: page === "marketplace" ? "Open UrMall" : "Open UrRide",
-    onOpen: () => openService(page),
+    onOpen,
   });
   showKunThaiSystemNotification({
     title,

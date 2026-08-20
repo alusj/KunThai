@@ -1,5 +1,7 @@
 const TRANSPORT_DASHBOARD_CACHE_PREFIX = "kuntai.transport.dashboard.v1";
-const MAX_SNAPSHOT_AGE_MS = 24 * 60 * 60 * 1000;
+// A long-lived first-paint snapshot is safe because every dashboard mount
+// revalidates it. It prevents an empty screen after a long inactive period.
+const MAX_SNAPSHOT_AGE_MS = 30 * 24 * 60 * 60 * 1000;
 
 function normalizeScopePart(value, fallback) {
   const normalized = String(value || "").trim().toLowerCase();
@@ -91,4 +93,3 @@ export function clearTransportDashboardSnapshots(userId = "") {
     // Best-effort cleanup only.
   }
 }
-

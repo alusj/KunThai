@@ -1,12 +1,11 @@
 import { Fragment, useEffect, useRef, useState } from "react";
 import { Share2, UserRoundPlus } from "lucide-react";
 
-import supabase from "../../../../../Backend/lib/supabaseClient";
 import { useExploreFollows } from "../../../../../Backend/hooks/useExploreFollows";
 import { readExploreSettings } from "../../../../../Backend/services/explore/preferencesService";
 import { shareKunThaiLink } from "../../../../../Backend/services/shareCtaService";
 import { isAdvertPost } from "../../../shared/advertUtils";
-import { getPostIdentity, recordExploreAdvertEvent, recordRecommendationSignal } from "../../../../../Backend/services/exploreService";
+import { fetchExploreConnections, getPostIdentity, recordExploreAdvertEvent, recordRecommendationSignal } from "../../../../../Backend/services/exploreService";
 import { useI18n } from "../../../../../i18n";
 import Avatar from "../../../shared/Avatar";
 import EmptyState from "../../../shared/EmptyState";
@@ -154,19 +153,6 @@ export default function FeedList({
 const SUGGESTIONS_PER_PAGE = 5;
 const SUGGESTIONS_AUTO_SLIDE_MS = 6000;
 
-function isRealSuggestionProfile(profile) {
-  const username = String(profile.username || "").trim().toLowerCase();
-  const displayName = String(profile.display_name || "").trim().toLowerCase();
-  // Guest visitors and half-created accounts have placeholder identities and
-  // must never be suggested.
-  return Boolean(
-    username &&
-      username !== "user" &&
-      displayName &&
-      !["profile", "user", "kunthai account", "guest"].includes(displayName),
-  );
-}
-
 function SuggestedAccountsCard({ currentUserId, followedUsers, onToggleFollow, onViewProfile }) {
   const { t } = useI18n();
   const [profiles, setProfiles] = useState([]);
@@ -184,20 +170,22 @@ function SuggestedAccountsCard({ currentUserId, followedUsers, onToggleFollow, o
   useEffect(() => {
     let alive = true;
 
-    supabase
-      .from("explore_profiles")
-      .select("user_id, display_name, username, avatar_url, account_type")
-      .is("deactivated_at", null)
-      .order("updated_at", { ascending: false })
-      .limit(30)
-      .then(({ data, error }) => {
-        if (!alive || error) return;
+    fetchExploreConnections("discover", currentUserId)
+      .then((items) => {
+        if (!alive) return;
         setProfiles(
-          (data || []).filter(
-            (profile) => profile.user_id && profile.user_id !== currentUserId && isRealSuggestionProfile(profile),
-          ),
+          (items || [])
+            .filter((item) => item.identity_type !== "space" && item.user_id)
+            .map((item) => ({
+              user_id: item.user_id,
+              display_name: item.name || item.display_name || "Profile",
+              username: item.username || "user",
+              avatar_url: item.avatar_url || "",
+              account_type: item.account_type || "personal",
+            })),
         );
-      });
+      })
+      .catch(() => {});
 
     return () => {
       alive = false;

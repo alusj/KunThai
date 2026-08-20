@@ -32,7 +32,7 @@ export default function CenteredModal({
       {open ? (
         <motion.div
           key="kt-modal-backdrop"
-          className="fixed inset-0 z-[2147483000] flex items-center justify-center overflow-y-auto bg-slate-950/70 p-4 backdrop-blur-md"
+          className="fixed inset-0 z-[2147483000] flex items-center justify-center overflow-y-auto overscroll-contain bg-slate-950/70 p-4 backdrop-blur-md"
           variants={backdrop}
           initial="hidden"
           animate="shown"

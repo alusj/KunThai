@@ -191,7 +191,7 @@ export default function ScreenshotVoiceCard({ category, currentScreen, onClose }
   }
 
   return createPortal(
-    <div className="fixed inset-0 z-[1360] flex items-end justify-center px-4 pb-[calc(env(safe-area-inset-bottom)+1rem)] sm:items-center sm:pb-0">
+    <div className="fixed inset-0 z-[1360] flex items-end justify-center overflow-hidden overscroll-none [contain:strict] px-4 pb-[calc(env(safe-area-inset-bottom)+1rem)] sm:items-center sm:pb-0">
       <button
         type="button"
         aria-label={i18nText("ui.literals.ka4fd93cee736")}

@@ -12,6 +12,7 @@ import {
 import { useEffect, useMemo, useState } from "react";
 
 import { fetchSellerProductInsights } from "../../../../../Backend/services/marketplace/sellerInsightService";
+import { resizedImageUrl } from "../../../../../Backend/lib/imageProxy";
 import { formatCurrency } from "../../../../../Backend/utils/formatCurrency";
 import { useI18n, t } from "../../../../../i18n";
 import AnimatedMetricValue from "../BusinessInsights/AnimatedMetricValue";
@@ -146,7 +147,7 @@ export default function ProductInsightsScreen({ product, fetchInsights = fetchSe
     <section className="overflow-hidden rounded-[28px] bg-[linear-gradient(145deg,#071120_0%,#0f172a_54%,#111c2f_100%)] p-4 text-white shadow-[0_24px_70px_rgba(15,23,42,0.2)] sm:p-5">
       <header className="kt-catalog-insight-hero relative overflow-hidden rounded-[24px] border border-white/10 bg-[linear-gradient(125deg,#082f49_0%,#0f172a_52%,#312e81_130%)] p-5">
         <div className="flex items-center gap-4">
-          {data?.mainImageUrl ? <img src={data.mainImageUrl} alt="" className="h-16 w-16 shrink-0 rounded-2xl border border-white/10 object-cover" /> : <span className="grid h-16 w-16 shrink-0 place-items-center rounded-2xl bg-white/10 text-sky-200"><BarChart3 size={25} /></span>}
+          {data?.mainImageUrl ? <img src={resizedImageUrl(data.mainImageUrl, { width: 128, quality: 70 })} alt="" className="h-16 w-16 shrink-0 rounded-2xl border border-white/10 object-cover" /> : <span className="grid h-16 w-16 shrink-0 place-items-center rounded-2xl bg-white/10 text-sky-200"><BarChart3 size={25} /></span>}
           <div className="min-w-0"><p className="text-[11px] font-black uppercase tracking-[0.24em] text-sky-300">{i18nText("ui.literals.k5f45a975ee2e")}</p><h2 className="mt-1 truncate text-xl font-black">{data?.name}</h2><p className="mt-2 flex items-center gap-1.5 text-xs font-semibold text-slate-300"><Sparkles size={14} /> {i18nText("ui.literals.kbfce985e839a")}</p></div>
         </div>
       </header>

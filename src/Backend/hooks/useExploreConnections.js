@@ -11,7 +11,7 @@ const BLOCK_STORAGE_KEY = "explore-blocked-users";
 const CONNECTIONS_MEMORY = new Map();
 const CONNECTIONS_MEMORY_TTL = 120_000;
 const CONNECTIONS_STORAGE_PREFIX = "kunthai.explore.connections.";
-const CONNECTIONS_CACHE_VERSION = "v2";
+const CONNECTIONS_CACHE_VERSION = "v3";
 
 function getConnectionsKey(kind, currentUserId) {
   return `${CONNECTIONS_CACHE_VERSION}:${kind || "discover"}:${currentUserId || "guest"}`;

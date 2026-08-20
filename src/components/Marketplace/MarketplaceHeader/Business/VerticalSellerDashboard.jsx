@@ -24,6 +24,7 @@ import {
   assertVisibilityCreditsAvailable,
 } from "../../../../Backend/services/visibilityCreditService";
 import { showToast } from "../../../../Backend/services/toastService";
+import { resizedImageUrl } from "../../../../Backend/lib/imageProxy";
 import { urMallShareToastOptions } from "../../../../Backend/services/shareCtaService";
 import { haptics, sounds } from "../../../../Backend/services/feedbackService";
 import { createEmptyVerticalMedia } from "../../../../Backend/services/marketplace/verticalMediaValidation";
@@ -678,7 +679,7 @@ function PropertyListingCard({ business, item, canManage = true, onDelete, onEdi
 function MediaImage({ alt, className, icon: Icon, src }) {
   const [failed, setFailed] = useState(false);
   if (!src || failed) return <span role="img" aria-label={t("urmall.biz.vert.imageUnavailable", { alt: alt || t("urmall.biz.vert.listing") })} className={`grid place-items-center bg-slate-100 text-slate-400 ${className}`}><Icon size={28} /></span>;
-  return <img src={src} alt={alt} className={className} onError={() => setFailed(true)} />;
+  return <img src={resizedImageUrl(src, { width: 720, quality: 72 })} alt={alt} className={className} onError={() => setFailed(true)} />;
 }
 
 function buildShareUrl(type, id) { if (typeof window === "undefined") return ""; return `${window.location.origin}${window.location.pathname}#urmall-${type}-${id}`; }

@@ -311,6 +311,19 @@ export async function getOnboardingProfile(sessionUser = null) {
     return authProfile;
   }
 
+  // A locally rendered profile is a strong continuity signal for an existing
+  // account. Consult it before the legacy cross-dashboard lookup so a slow
+  // network cannot briefly route a returning user into account creation.
+  const cachedProfile = readStoredProfile(user.id);
+  if (hasUsableReturningProfile(cachedProfile)) {
+    return {
+      ...authProfile,
+      ...cachedProfile,
+      onboardingComplete: true,
+      onboardingStep: 4,
+    };
+  }
+
   const returningRecords = await readReturningProfiles(user.id);
   const matchedReturningProfile = chooseReturningProfile(authProfile, returningRecords);
 
@@ -333,16 +346,6 @@ export async function getOnboardingProfile(sessionUser = null) {
     });
     syncReturningOnboardingMetadata(returningProfile);
     return returningProfile;
-  }
-
-  const cachedProfile = readStoredProfile(user.id);
-  if (hasUsableReturningProfile(cachedProfile)) {
-    return {
-      ...authProfile,
-      ...cachedProfile,
-      onboardingComplete: true,
-      onboardingStep: 4,
-    };
   }
 
   if (hasExplicitOnboardingState(user)) {

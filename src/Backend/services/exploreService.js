@@ -7,6 +7,7 @@ import { formatRelativeTime } from "./explore/time";
 import { fetchRecommendedPeople } from "./explore/recommendationService";
 import { fetchExploreSpacesForDiscovery } from "./explore/spaceService";
 import { PROFILE_IDENTITY_TYPE, SPACE_IDENTITY_TYPE, getIdentityKey } from "./explore/identityService";
+import { mergeExploreDiscoveryItems } from "./explore/connectionDirectoryModels";
 import { isGuestMode } from "./guestModeService";
 export {
   createExplorePost,
@@ -688,7 +689,6 @@ export async function fetchExploreConnections(kind = "discover", profileUserId =
     const liveItems = await fetchProfileConnections(kind, currentUserId);
     if (liveItems) {
       if (kind === "discover" && recommendedItems) {
-        const spaces = liveItems.filter((item) => item.identity_type === SPACE_IDENTITY_TYPE);
         const people = recommendedItems.map((profile) => ({
           ...profile,
           id: getIdentityKey(PROFILE_IDENTITY_TYPE, profile.user_id),
@@ -698,29 +698,63 @@ export async function fetchExploreConnections(kind = "discover", profileUserId =
           targetType: PROFILE_IDENTITY_TYPE,
           label: "A Profile",
         }));
-        return [...people, ...spaces].slice(0, 200);
+        return mergeExploreDiscoveryItems(people, liveItems);
       }
       return liveItems;
     }
   }
 
-  const { data, error } = await supabase.from("explore_connections").select("*").eq("kind", kind).limit(20);
+  const pageSize = 500;
+  const legacyItems = [];
+  for (let page = 0; ; page += 1) {
+    const from = page * pageSize;
+    const to = from + pageSize - 1;
+    const { data, error } = await supabase
+      .from("explore_connections")
+      .select("*")
+      .eq("kind", kind)
+      .range(from, to);
 
-  if (error) {
-    if (isMissingTable(error)) {
-      return [];
+    if (error) {
+      if (isMissingTable(error)) return [];
+      throw error;
     }
-    throw error;
+
+    legacyItems.push(...(data || []));
+    if (!data || data.length < pageSize) break;
   }
 
-  return data || [];
+  return legacyItems;
 }
 
-async function fetchAllExploreProfiles() {
+async function fetchExploreProfileDirectoryPages(currentUserId) {
   const pageSize = 500;
   const profiles = [];
 
-  for (let page = 0; page < 10; page += 1) {
+  for (let page = 0; ; page += 1) {
+    const from = page * pageSize;
+    const { data, error } = await supabase.rpc("get_explore_profile_directory", {
+      p_user_id: currentUserId,
+      p_limit: pageSize,
+      p_offset: from,
+    });
+
+    if (error) return null;
+    profiles.push(...(data || []));
+    if (!data || data.length < pageSize) break;
+  }
+
+  return profiles;
+}
+
+async function fetchAllExploreProfiles(currentUserId) {
+  const directoryProfiles = await fetchExploreProfileDirectoryPages(currentUserId);
+  if (directoryProfiles) return directoryProfiles;
+
+  const pageSize = 500;
+  const profiles = [];
+
+  for (let page = 0; ; page += 1) {
     const from = page * pageSize;
     const to = from + pageSize - 1;
     let { data, error } = await supabase
@@ -784,7 +818,10 @@ function normalizeConnectionItem(base, identityType, identityId) {
 }
 
 async function fetchProfileConnections(kind, currentUserId) {
-  const followsResult = await supabase.from("explore_follows").select("follower_id, following_id");
+  const followsResult = await supabase
+    .from("explore_follows")
+    .select("follower_id, following_id")
+    .or(`follower_id.eq.${currentUserId},following_id.eq.${currentUserId}`);
 
   if (followsResult.error) {
     if (isMissingTable(followsResult.error)) {
@@ -800,6 +837,21 @@ async function fetchProfileConnections(kind, currentUserId) {
   const followingSet = new Set(followingIds);
   const followerSet = new Set(followerIds);
   const mutualIds = followerIds.filter((id) => followingSet.has(id));
+  const mutualSet = new Set(mutualIds);
+  const blocksResult = await supabase
+    .from("explore_user_blocks")
+    .select("blocker_id, blocked_id")
+    .or(`blocker_id.eq.${currentUserId},blocked_id.eq.${currentUserId}`);
+
+  if (blocksResult.error && !isMissingTable(blocksResult.error)) {
+    throw blocksResult.error;
+  }
+
+  const blockedProfileIds = new Set(
+    (blocksResult.data || [])
+      .flatMap((item) => [item.blocker_id, item.blocked_id])
+      .filter((id) => id && id !== currentUserId),
+  );
   const connectedSpaceIds = new Set(
     identityRows
       .filter((item) => item.connector_user_id === currentUserId && item.target_type === SPACE_IDENTITY_TYPE)
@@ -809,12 +861,12 @@ async function fetchProfileConnections(kind, currentUserId) {
 
   let targetIds = [];
   if (kind === "mycircle" || kind === "following") {
-    targetIds = mutualIds;
+    targetIds = followingIds;
   } else if (kind === "followers") {
     targetIds = followerIds;
   }
 
-  const allProfiles = await fetchAllExploreProfiles();
+  const allProfiles = await fetchAllExploreProfiles(currentUserId);
 
   if (!allProfiles) {
     return null;
@@ -824,13 +876,14 @@ async function fetchProfileConnections(kind, currentUserId) {
 
   const profileItems = allProfiles
     .filter((profile) => profile.user_id !== currentUserId)
+    .filter((profile) => !blockedProfileIds.has(profile.user_id))
     .filter((profile) => {
       if (kind === "discover") return true;
       return targetSet.has(profile.user_id);
     })
     .filter((profile) => {
       if (kind !== "discover") return true;
-      return !followingSet.has(profile.user_id) && !followerSet.has(profile.user_id);
+      return !followingSet.has(profile.user_id);
     })
     .map((profile) => {
       const isFollowing = followingSet.has(profile.user_id);
@@ -847,7 +900,7 @@ async function fetchProfileConnections(kind, currentUserId) {
         status: followsYou && isFollowing ? "Mutual connection" : followsYou ? "Connected with you" : isFollowing ? "Connected" : "Suggested for you",
         isFollowing,
         followsYou,
-        mutual_count: followsYou && isFollowing ? 1 : 0,
+        mutual_count: mutualSet.has(profile.user_id) ? 1 : 0,
       }, PROFILE_IDENTITY_TYPE, profile.user_id);
     });
 
@@ -881,7 +934,7 @@ async function fetchProfileConnections(kind, currentUserId) {
     }, SPACE_IDENTITY_TYPE, space.spaceId));
 
   if (kind === "discover") {
-    return [...profileItems, ...spaceItems].slice(0, 40);
+    return [...profileItems, ...spaceItems];
   }
 
   return [...profileItems, ...spaceItems];

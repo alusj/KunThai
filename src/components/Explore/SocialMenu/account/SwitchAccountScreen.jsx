@@ -15,6 +15,7 @@ import {
 } from "../../../../Backend/services/sessionService";
 import { useI18n } from "../../../../i18n";
 import { t as i18nText } from "../../../../i18n/index";
+import { resizedImageUrl } from "../../../../Backend/lib/imageProxy";
 
 function getIdentifier(account = {}) {
   return account.identifier || account.email || account.phone || "";
@@ -22,7 +23,7 @@ function getIdentifier(account = {}) {
 
 function AccountAvatar({ account, active }) {
   if (account.avatarUrl) {
-    return <img src={account.avatarUrl} alt="" className="h-12 w-12 rounded-2xl object-cover" />;
+    return <img src={resizedImageUrl(account.avatarUrl, { width: 96, quality: 70 })} alt="" className="h-12 w-12 rounded-2xl object-cover" />;
   }
 
   return (

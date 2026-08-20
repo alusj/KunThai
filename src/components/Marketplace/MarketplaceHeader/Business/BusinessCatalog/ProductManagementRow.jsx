@@ -15,6 +15,7 @@ import {
 } from "lucide-react";
 
 import { formatCurrency } from "../../../../../Backend/utils/formatCurrency";
+import { resizedImageUrl } from "../../../../../Backend/lib/imageProxy";
 import { useI18n, t } from "../../../../../i18n";
 import AppPortal from "../../../../shared/AppPortal";
 import ProductStatusBadge from "./ProductStatusBadge";
@@ -168,7 +169,7 @@ export default function ProductManagementRow({ product, onAction, onViewProduct,
       <div className="h-[4.75rem] w-[4.75rem] overflow-hidden rounded-xl border border-gray-200 bg-gray-100 sm:h-[5.75rem] sm:w-[5.75rem]">
         {primaryImage ? (
           <img
-            src={primaryImage}
+            src={resizedImageUrl(primaryImage, { width: 192, quality: 70 })}
             alt={product.name}
             loading="lazy"
             decoding="async"

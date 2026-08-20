@@ -1,8 +1,6 @@
 import { useEffect, useState } from "react";
 
-import { buildProfileFromUser, getOnboardingProfile } from "../services/onboardingService";
-
-const ONBOARDING_BOOT_TIMEOUT_MS = 2200;
+import { getOnboardingProfile } from "../services/onboardingService";
 
 export function useOnboarding(session) {
   const sessionId = session?.id || "";
@@ -14,7 +12,8 @@ export function useOnboarding(session) {
 
   useEffect(() => {
     let active = true;
-    let timeoutId = null;
+    let resolved = false;
+    let retryId = null;
 
     async function load() {
       setChecked(false);
@@ -28,29 +27,25 @@ export function useOnboarding(session) {
       }
 
       setLoading(true);
-      const fallbackProfile = buildProfileFromUser(session);
-      timeoutId = window.setTimeout(() => {
-        if (!active) return;
-        setProfile(fallbackProfile);
-        setCheckedSessionId(session.id || "");
-        setLoading(false);
-        setChecked(true);
-      }, ONBOARDING_BOOT_TIMEOUT_MS);
 
       try {
         const nextProfile = await getOnboardingProfile(session);
         if (active) {
           setProfile(nextProfile);
           setCheckedSessionId(session.id || "");
+          resolved = true;
         }
       } catch {
+        // Keep the destination unresolved after a failed account lookup. An
+        // incomplete auth-metadata fallback can incorrectly route an existing
+        // UrMall/UrRide account into onboarding. Retry silently without
+        // exposing the wrong screen in the meantime.
         if (active) {
-          setProfile(fallbackProfile);
-          setCheckedSessionId(session.id || "");
+          retryId = window.setTimeout(() => setRefreshKey((value) => value + 1), 3000);
         }
+        return;
       } finally {
-        window.clearTimeout(timeoutId);
-        if (active) {
+        if (active && resolved) {
           setLoading(false);
           setChecked(true);
         }
@@ -61,7 +56,7 @@ export function useOnboarding(session) {
 
     return () => {
       active = false;
-      if (timeoutId) window.clearTimeout(timeoutId);
+      if (retryId) window.clearTimeout(retryId);
     };
   }, [session, refreshKey]);
 

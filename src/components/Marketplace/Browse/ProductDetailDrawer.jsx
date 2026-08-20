@@ -21,6 +21,7 @@ import {
 import AppBackTab from "../../shared/AppBackTab";
 import { useI18n, t } from "../../../i18n";
 import { ensureBuyerLocation, useBuyerLocation } from "../../../Backend/utils/buyerLocationContext";
+import { resizedImageUrl } from "../../../Backend/lib/imageProxy";
 import { BuyerProductCard } from "./BuyerProductGrid";
 import {
   AddressAreaResolutionCard,
@@ -264,7 +265,7 @@ function ImageViewer({ images, activeIndex, onChange, onClose }) {
                 }`}
                 aria-label={t("urmall.detail.openImageN", { index: index + 1 })}
               >
-                <img src={image} alt="" loading="lazy" decoding="async" className="h-full w-full object-cover" />
+                <img src={resizedImageUrl(image, { width: 160, quality: 70 })} alt="" loading="lazy" decoding="async" className="h-full w-full object-cover" />
               </button>
             ))}
           </div>
@@ -350,7 +351,7 @@ function Gallery({ product, onOpenImage }) {
         data-suppress-app-swipe="true"
         data-gesture-lock="product-gallery"
       >
-        <img src={activeImage} alt={product.name} className="aspect-square w-full object-cover transition hover:scale-[1.02]" />
+        <img src={resizedImageUrl(activeImage, { width: 800, quality: 75 })} alt={product.name} className="aspect-square w-full object-cover transition hover:scale-[1.02]" />
       </button>
       {hasMultiple && (
         <div className="flex gap-1.5 overflow-x-auto pb-1">
@@ -364,7 +365,7 @@ function Gallery({ product, onOpenImage }) {
               }`}
               aria-label={t("urmall.detail.showImageN", { index: index + 1 })}
             >
-              <img src={image} alt="" loading="lazy" decoding="async" className="h-full w-full object-cover transition hover:scale-105" />
+              <img src={resizedImageUrl(image, { width: 160, quality: 70 })} alt="" loading="lazy" decoding="async" className="h-full w-full object-cover transition hover:scale-105" />
             </button>
           ))}
         </div>
@@ -1006,7 +1007,7 @@ export default function ProductDetailDrawer({
                     aria-label={t("urmall.detail.openSellerProfile", { name: product.seller.name })}
                   >
                     {product.seller.logoUrl ? (
-                      <img src={product.seller.logoUrl} alt="" className="h-full w-full rounded-lg object-cover" />
+                      <img src={resizedImageUrl(product.seller.logoUrl, { width: 96, quality: 70 })} alt="" className="h-full w-full rounded-lg object-cover" />
                     ) : (
                       product.seller.name.slice(0, 2).toUpperCase()
                     )}

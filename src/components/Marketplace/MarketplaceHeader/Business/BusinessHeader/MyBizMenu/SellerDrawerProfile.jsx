@@ -1,6 +1,7 @@
 import { AlertTriangle, BadgeCheck, ChevronRight, Clock, Store } from "lucide-react";
 
 import { useSellerOverview } from "../../../../../../Backend/hooks/useSellerOverview";
+import { resizedImageUrl } from "../../../../../../Backend/lib/imageProxy";
 import { useI18n, t } from "../../../../../../i18n";
 
 function getVerificationTone(status, verified) {
@@ -50,7 +51,7 @@ export default function SellerDrawerProfile({ onOpenProfile }) {
         <div className="flex h-14 w-14 shrink-0 items-center justify-center overflow-hidden rounded-xl bg-white/10 text-sm font-black">
           {business.logoUrl ? (
             <img
-              src={business.logoUrl}
+              src={resizedImageUrl(business.logoUrl, { width: 112, quality: 70 })}
               alt=""
               className="h-full w-full object-cover"
             />

@@ -114,6 +114,10 @@ export default function Explore({ active = true, onNavigateMain, onScreenModeCha
   const [drawerMountedByDrag, setDrawerMountedByDrag] = useState(false);
   const [drawerClosing, setDrawerClosing] = useState(false);
   const [composerOpen, setComposerOpen] = useState(false);
+  // Tracks the composer being open regardless of its "blocking" flag; used only
+  // to lock the horizontal tab swipe so a drag in the composer cannot flip
+  // UrFeed<->Swip behind it.
+  const [composerVisible, setComposerVisible] = useState(false);
   const [headerOverlayOpen, setHeaderOverlayOpen] = useState(false);
   const [visibleMenuStack, setVisibleMenuStack] = useState([]);
   const [menuStackAction, setMenuStackAction] = useState("idle");
@@ -169,12 +173,20 @@ export default function Explore({ active = true, onNavigateMain, onScreenModeCha
 
   const goBackFullScreen = useBrowserBack(exploreNav.isFullScreen, exploreNav.goBackMenuScreen, `explore-${activeMenuScreen || "screen"}`);
   useBrowserBack(Boolean(swipPreviewTarget && activeTab === "Swip"), returnFromRepostedSwip, "explore-reposted-swip");
-  // While a message conversation is open, the conversation's own back-swipe must
-  // win (swipe returns to the conversation list, not the dashboard). Disabling
-  // the full-screen swipe here hands the gesture to the conversation; once back
-  // on the conversation list this re-enables so a swipe closes Messages to the
-  // dashboard.
-  const fullScreenSwipeRef = useBackSwipe(exploreNav.isFullScreen && !messageConversationActive, exploreNav.goBackMenuScreen, {
+  // The full-screen menu overlay carries data-local-back-swipe, so EVERY
+  // full-screen back-swipe is routed through this one node handler (the
+  // conversation's own AppBackTab swipe is suppressed there). Branch on context:
+  // inside an open message conversation, pop the conversation's own history
+  // layer so the swipe returns to the conversation LIST; otherwise fall back to
+  // the normal menu-back which returns to the Explore dashboard.
+  const handleFullScreenBackSwipe = () => {
+    if (messageConversationActive) {
+      window.history.back();
+      return;
+    }
+    exploreNav.goBackMenuScreen();
+  };
+  const fullScreenSwipeRef = useBackSwipe(exploreNav.isFullScreen, handleFullScreenBackSwipe, {
     edgeWidth: Math.min(280, Math.max(160, Math.round(window.innerWidth * 0.45))),
     minDistance: 58,
     minFlingDistance: 58,
@@ -184,6 +196,7 @@ export default function Explore({ active = true, onNavigateMain, onScreenModeCha
   useEffect(() => {
     function handleComposerVisibility(event) {
       setComposerOpen(Boolean(event.detail?.open && event.detail?.blocking !== false));
+      setComposerVisible(Boolean(event.detail?.open));
     }
 
     window.addEventListener("kuntai-explore-composer-visibility", handleComposerVisibility);
@@ -1063,7 +1076,7 @@ export default function Explore({ active = true, onNavigateMain, onScreenModeCha
   }
 
   function handleExploreTouchStart(event) {
-    if (!active || anyExploreOverlayVisible || drawerDragging || event.touches.length !== 1) {
+    if (!active || anyExploreOverlayVisible || composerVisible || drawerDragging || event.touches.length !== 1) {
       exploreGestureRef.current = null;
       return;
     }

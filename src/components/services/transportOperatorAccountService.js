@@ -773,7 +773,9 @@ async function loadOperatorDashboard(operatorId = null, preferredFleetId = null,
       count: reviews?.length || 0,
       items: (reviews || []).map(mapReview),
     },
-    alerts: (alerts || []).map(mapAlert),
+    // Financial alerts remain hidden until KunThai's transport payment tools
+    // are active. Operational, review, safety, and system alerts stay visible.
+    alerts: (alerts || []).filter((alert) => alert.alert_type !== "payment").map(mapAlert),
   };
 }
 

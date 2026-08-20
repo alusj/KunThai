@@ -1,4 +1,5 @@
 import { useEffect, useState } from "react";
+import { resizedImageUrl } from "../../../../../Backend/lib/imageProxy";
 
 export default function BusinessLogo({ initials, logoUrl }) {
   // While the logo image is loading (e.g. right after switching business) show a
@@ -17,7 +18,7 @@ export default function BusinessLogo({ initials, logoUrl }) {
       <div className="relative h-16 w-16 shrink-0 overflow-hidden rounded-xl">
         {!loaded ? <div className="absolute inset-0 animate-pulse rounded-xl bg-gray-200" /> : null}
         <img
-          src={logoUrl}
+          src={resizedImageUrl(logoUrl, { width: 128, quality: 70 })}
           alt=""
           onLoad={() => setLoaded(true)}
           onError={() => setFailed(true)}

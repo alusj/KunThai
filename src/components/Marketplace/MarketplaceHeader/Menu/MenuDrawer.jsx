@@ -39,6 +39,7 @@ import {
 } from "../../../shared/AddressAreaValidation";
 import NearbyAreaScreen from "../../../transport/NearbyAreaScreen";
 import { useI18n, t } from "../../../../i18n";
+import { resizedImageUrl } from "../../../../Backend/lib/imageProxy";
 import { formatCurrency } from "../../../../Backend/utils/formatCurrency";
 import { getOnboardingProfile } from "../../../../Backend/services/onboardingService";
 import {
@@ -200,7 +201,7 @@ function ProductMiniList({ products, emptyText, onProductSelect }) {
             className="kt-touchable flex w-full items-center gap-3 rounded-lg border border-gray-200 bg-white p-2 text-left transition hover:border-emerald-200 hover:bg-emerald-50/40"
           >
             {product.imageUrl ? (
-              <img src={product.imageUrl} alt="" className="h-12 w-12 rounded-lg bg-gray-100 object-cover" />
+              <img src={resizedImageUrl(product.imageUrl, { width: 96, quality: 70 })} alt="" className="h-12 w-12 rounded-lg bg-gray-100 object-cover" />
             ) : (
               <div className="flex h-12 w-12 items-center justify-center rounded-lg bg-gray-100 text-xs font-bold text-gray-400">
                 {t("urmall.cart.imgPlaceholder")}
@@ -864,7 +865,7 @@ export default function MenuDrawer({ open, onClose }) {
                 <div className="grid gap-3 sm:grid-cols-[120px_1fr]">
                   <div className="flex aspect-square items-center justify-center overflow-hidden rounded-xl border border-dashed border-gray-300 bg-gray-50">
                     {address.frontPictureUrl ? (
-                      <img src={address.frontPictureUrl} alt="" className="h-full w-full object-cover" />
+                      <img src={resizedImageUrl(address.frontPictureUrl, { width: 320, quality: 70 })} alt="" className="h-full w-full object-cover" />
                     ) : (
                       <Camera className="text-gray-400" size={30} />
                     )}

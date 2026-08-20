@@ -2,6 +2,7 @@ import { useCallback, useEffect, useLayoutEffect, useRef, useState } from "react
 import { createPortal } from "react-dom";
 import { HiOutlineArrowLeft, HiOutlineArrowPath, HiOutlinePhoto } from "react-icons/hi2";
 
+import { resizedImageUrl } from "../../../Backend/lib/imageProxy";
 import { useBrowserBack } from "../../../Backend/hooks/useBrowserBack";
 import { useI18n } from "../../../i18n";
 import useImageViewerGestures from "../../shared/useImageViewerGestures";
@@ -189,7 +190,7 @@ export default function ZoomableImage({
               key={`${src}-${imageRetryKey}`}
               loading={eager ? "eager" : "lazy"}
               fetchpriority={eager ? "high" : "auto"}
-              src={src}
+              src={resizedImageUrl(src, { width: 720, quality: 72 })}
               alt={alt}
               onLoad={() => setImageStatus("loaded")}
               onError={() => setImageStatus("error")}

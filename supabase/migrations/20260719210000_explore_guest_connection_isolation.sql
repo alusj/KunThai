@@ -26,11 +26,20 @@ as $$
 declare
   identity_user_id uuid;
 begin
-  identity_user_id := case
-    when tg_table_name = 'explore_profiles' then new.user_id
-    when tg_table_name = 'explore_spaces' then new.owner_user_id
-    else null
-  end;
+  -- NEW has the row type of the table that fired the trigger. Referencing both
+  -- NEW.user_id and NEW.owner_user_id in one CASE still makes PostgreSQL resolve
+  -- both fields, so one branch always fails. JSON field lookup keeps this
+  -- shared trigger safe for both table shapes.
+  identity_user_id := nullif(
+    to_jsonb(new) ->> (
+      case
+        when tg_table_name = 'explore_profiles' then 'user_id'
+        when tg_table_name = 'explore_spaces' then 'owner_user_id'
+        else ''
+      end
+    ),
+    ''
+  )::uuid;
 
   if public.kunthai_user_is_guest(identity_user_id) then
     raise exception using

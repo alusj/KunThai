@@ -4,6 +4,7 @@
 import { useState } from "react";
 import { Check, Copy, Eye, Minus, MoreHorizontal, Plus, Share2, Trash2 } from "lucide-react";
 import { formatCurrency } from "../../../../Backend/utils/formatCurrency";
+import { resizedImageUrl } from "../../../../Backend/lib/imageProxy";
 import { showToast } from "../../../../Backend/services/toastService";
 import { useI18n, t } from "../../../../i18n";
 
@@ -74,7 +75,7 @@ export default function CartItem({ item, onUpdateQty, onRemoveItem, onViewProduc
       className="flex cursor-pointer gap-3 rounded-lg border border-gray-200 bg-white p-2 text-left transition hover:border-emerald-200 hover:bg-emerald-50/40"
     >
       {item.imageUrl ? (
-        <img src={item.imageUrl} alt="" className="h-16 w-16 rounded-lg bg-slate-100 object-cover" />
+        <img src={resizedImageUrl(item.imageUrl, { width: 128, quality: 70 })} alt="" className="h-16 w-16 rounded-lg bg-slate-100 object-cover" />
       ) : (
         <div className="flex h-16 w-16 items-center justify-center rounded-lg bg-slate-100 text-xs font-bold text-gray-400">
           {t("urmall.cart.imgPlaceholder")}

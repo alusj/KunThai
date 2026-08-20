@@ -4,8 +4,6 @@ import supabase from "../lib/supabaseClient";
 import { clearExploreMessageCache } from "../services/explore/messageService";
 import { clearTransientSessionNavigation, readSessionContinuity, rememberSocialAccount, vaultSessionSnapshot } from "../services/sessionService";
 
-const AUTH_BOOT_TIMEOUT_MS = 1500;
-
 function isBrokenJwtUser(error) {
   const message = String(error?.message || error || "").toLowerCase();
   return message.includes("user from sub claim in jwt does not exist");
@@ -37,10 +35,6 @@ export const useAuth = () => {
 
   useEffect(() => {
     let active = true;
-
-    const bootTimeout = window.setTimeout(() => {
-      if (active) setLoading(false);
-    }, AUTH_BOOT_TIMEOUT_MS);
 
     async function loadAuth() {
       try {
@@ -93,7 +87,6 @@ export const useAuth = () => {
         activeUserIdRef.current = "";
         setUser(null);
       } finally {
-        window.clearTimeout(bootTimeout);
         if (active) setLoading(false);
       }
     }
@@ -136,7 +129,6 @@ export const useAuth = () => {
 
     return () => {
       active = false;
-      window.clearTimeout(bootTimeout);
       listener?.subscription?.unsubscribe?.();
     };
   }, []);

@@ -55,6 +55,7 @@ import {
 } from "../../../Backend/services/countryResolution/countryResolutionService";
 import { getRideFleetOptions } from "../../../data/globalTransportCapabilities";
 import { getOnboardingProfile } from "../../../Backend/services/onboardingService";
+import { resizedImageUrl } from "../../../Backend/lib/imageProxy";
 import { submitTransportSupportTicket } from "../../services/bookingService";
 import TransportCautionCard from "../shared/TransportCautionCard";
 import { useI18n, t } from "../../../i18n";
@@ -1087,7 +1088,7 @@ function SavedPlacesPage() {
           <div className="grid gap-3 sm:grid-cols-[120px_1fr]">
             <div className="flex aspect-square items-center justify-center overflow-hidden rounded-xl border border-dashed border-gray-300 bg-gray-50">
               {place.frontPictureUrl ? (
-                <img src={place.frontPictureUrl} alt="" className="h-full w-full object-cover" />
+                <img src={resizedImageUrl(place.frontPictureUrl, { width: 320, quality: 70 })} alt="" className="h-full w-full object-cover" />
               ) : (
                 <Camera className="text-gray-400" size={30} />
               )}

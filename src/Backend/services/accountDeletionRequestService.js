@@ -142,3 +142,14 @@ export async function requestUrRideAccountDeletion(reason = "") {
     snapshot,
   });
 }
+
+// Direct self-service deletion of the caller's UrRide operator account (their
+// operator profile, fleets, and trips cascade away). Replaces the admin-review
+// request flow so operators can delete their own UrRide account immediately.
+export async function deleteMyUrRideOperatorAccount() {
+  await getCurrentUser("Sign in to delete your UrRide account.");
+  const { error } = await supabase.rpc("delete_my_transport_operator");
+  if (error) {
+    throw new Error("KunThai could not delete your UrRide account right now. Please try again.");
+  }
+}

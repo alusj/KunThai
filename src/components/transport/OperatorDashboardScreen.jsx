@@ -37,7 +37,7 @@ import HealthScoreCard from "../Marketplace/MarketplaceHeader/Business/MyBizDash
 import RequestAccountDeletionPage from "./shared/RequestAccountDeletionPage";
 import AppBackTab from "../shared/AppBackTab";
 import useBodyScrollLock from "../shared/useBodyScrollLock";
-import { requestTransportTripStart, updateTransportTripStatus } from "../services/bookingService";
+import { requestTransportTripStart, updateTransportTripProgress, updateTransportTripStatus } from "../services/bookingService";
 import { showToast } from "../../Backend/services/toastService";
 import {
   applySeenNotificationState,
@@ -49,6 +49,7 @@ import { createSupportTicket } from "../../Backend/services/explore/supportServi
 import { formatCountryMoney, getCountryCurrencyCode } from "../../data/globalCountryProfiles";
 import {
   fetchOperatorDashboard,
+  markOperatorAlertRead,
   subscribeOperatorTrips,
   updateOperatorAvailability,
   updateTripControls,
@@ -60,6 +61,7 @@ import {
   syncOperatorLiveBookedState,
 } from "../services/operatorLiveLocationService";
 import {
+  distanceInMeters,
   formatTripDistance,
   formatTripElapsed,
   getElapsedTripSeconds,
@@ -267,7 +269,12 @@ export default function OperatorDashboardScreen({
   const alerts = dashboard?.alerts || [];
   const alertSeenScope = `transport:${account?.id || "operator"}`;
   const alertReadScope = `${alertSeenScope}:read`;
-  const alertNotificationItems = alerts.map((alert) => ({ ...alert, id: `operator-alert-${alert.id}`, unread: alert.status !== "read" }));
+  const alertNotificationItems = alerts.map((alert) => ({
+    ...alert,
+    alertId: alert.id,
+    id: `operator-alert-${alert.id}`,
+    unread: alert.status !== "read",
+  }));
   const alertRows = applySeenNotificationState(alertReadScope, alertNotificationItems).map((alert) => ({ ...alert, read: alert.unread === false }));
   const unreadAlertCount = getUnseenNotificationCount(alertSeenScope, alertNotificationItems, { unreadOnly: true });
   const tripHistory = dashboard?.tripHistory || [];
@@ -477,7 +484,7 @@ export default function OperatorDashboardScreen({
     try {
       setDashboardError("");
       if (status === "start_requested") await requestTransportTripStart(trip.id);
-      else await updateTransportTripStatus(trip.id, status, patch);
+      else await updateTransportTripStatus(trip.id, status, status === "cancelled" ? { ...patch, endedBy: "operator" } : patch);
       const statusCopy = {
         accepted: t("urride.opDash.tripAccepted"),
         arrived: t("urride.opDash.tripArrived"),
@@ -775,11 +782,13 @@ export default function OperatorDashboardScreen({
         onClose={() => setOperatorAlertsOpen(false)}
         onMarkAllRead={() => {
           markNotificationsSeen(alertReadScope, alertNotificationItems);
+          Promise.all(alertNotificationItems.filter((alert) => alert.unread).map((alert) => markOperatorAlertRead(alert.alertId))).catch(() => {});
           setSeenVersion((version) => version + 1);
           showToast(t("urride.opDash.allReadToast"), "success");
         }}
         onRead={(alert) => {
           markNotificationsSeen(alertReadScope, [alert]);
+          if (alert.alertId) markOperatorAlertRead(alert.alertId).catch(() => {});
           setSeenVersion((version) => version + 1);
         }}
         onOpenWaiting={hasWaitingPassengers ? () => {
@@ -1152,10 +1161,17 @@ export function OperatorLiveTripHeaderCard({ trip, fleetName, onViewRoute }) {
   );
 }
 
+const OPERATOR_MIN_DISTANCE_UPDATE_METERS = 8;
+const OPERATOR_MIN_PROGRESS_SAVE_MS = 7000;
+
 function OperatorLiveTripMetric({ trip }) {
   useI18n();
   const [clockNow, setClockNow] = useState(Date.now());
   const isTime = trip.bookingMethod === "time";
+  const [distanceMeters, setDistanceMeters] = useState(Number(trip?.distanceCoveredMeters || 0));
+  const latestDistanceRef = useRef(Number(trip?.distanceCoveredMeters || 0));
+  const previousPointRef = useRef(null);
+  const lastSavedAtRef = useRef(0);
 
   useEffect(() => {
     if (!trip?.startedAt || !["in_progress", "paused"].includes(trip.status)) return undefined;
@@ -1163,9 +1179,50 @@ function OperatorLiveTripMetric({ trip }) {
     return () => window.clearInterval(timer);
   }, [trip?.startedAt, trip?.status]);
 
+  // Keep the local accumulator at least as high as the server value (which is
+  // monotonic across both parties), so the driver's live number never regresses.
+  useEffect(() => {
+    const next = Number(trip?.distanceCoveredMeters || 0);
+    latestDistanceRef.current = Math.max(latestDistanceRef.current, next);
+    setDistanceMeters((current) => Math.max(current, next));
+  }, [trip?.distanceCoveredMeters]);
+
+  // The driver (operator) is the reliable distance source: meter the vehicle's
+  // GPS while the trip is live so distance keeps counting from the vehicle even
+  // if the passenger closes the app. Writes are monotonic server-side.
+  useEffect(() => {
+    if (isTime || trip?.status !== "in_progress" || !trip?.id) return undefined;
+    if (!navigator.geolocation) return undefined;
+
+    const watchId = navigator.geolocation.watchPosition(
+      ({ coords }) => {
+        const point = { lat: coords.latitude, lng: coords.longitude };
+        const moved = distanceInMeters(previousPointRef.current, point);
+        previousPointRef.current = point;
+        if (!moved || moved > 250) return;
+
+        latestDistanceRef.current += moved;
+        setDistanceMeters(latestDistanceRef.current);
+        const now = Date.now();
+        if (moved < OPERATOR_MIN_DISTANCE_UPDATE_METERS && now - lastSavedAtRef.current < OPERATOR_MIN_PROGRESS_SAVE_MS) return;
+
+        lastSavedAtRef.current = now;
+        updateTransportTripProgress(trip.id, {
+          distanceCoveredMeters: latestDistanceRef.current,
+          latitude: point.lat,
+          longitude: point.lng,
+        }).catch(() => {});
+      },
+      () => {},
+      { enableHighAccuracy: true, maximumAge: 1500, timeout: 12000 },
+    );
+
+    return () => navigator.geolocation.clearWatch(watchId);
+  }, [isTime, trip?.id, trip?.status]);
+
   const value = isTime
     ? formatTripElapsed(getElapsedTripSeconds({ ...trip, rawStatus: trip.status }, clockNow))
-    : formatTripDistance(trip.distanceCoveredMeters);
+    : formatTripDistance(distanceMeters);
   const label = isTime ? t("urride.opDash.liveTimeUpdate") : t("urride.opDash.liveDistanceUpdate");
   const detail = isTime
     ? trip.status === "paused" ? t("urride.opDash.timerPausedPassenger") : t("urride.opDash.countingFromStart")

@@ -34,6 +34,7 @@ import useImageViewerGestures from "../shared/useImageViewerGestures";
 import VerificationBadge from "./verification/VerificationBadge";
 import { verificationStatuses } from "./verification/verificationStatus";
 import { useBrowserBack } from "../../Backend/hooks/useBrowserBack";
+import { resizedImageUrl } from "../../Backend/lib/imageProxy";
 import { useI18n, t } from "../../i18n";
 import { t as i18nText } from "../../i18n/index";
 
@@ -420,7 +421,7 @@ function OperatorIdentityCard({
               className="group relative flex h-20 w-20 shrink-0 items-center justify-center overflow-hidden rounded-[1.65rem] border border-slate-200 bg-slate-100 text-2xl font-black text-slate-700 shadow-sm disabled:cursor-default"
               aria-label={fleet.operatorPhotoUrl ? t("urride.fleetProfile.openOperatorPhoto") : undefined}
             >
-              {fleet.operatorPhotoUrl ? <img src={fleet.operatorPhotoUrl} alt={`${fleet.operatorName || t("urride.fleetProfile.transportOperator")} profile`} className="h-full w-full object-cover transition duration-300 group-hover:scale-105" /> : initials}
+              {fleet.operatorPhotoUrl ? <img src={resizedImageUrl(fleet.operatorPhotoUrl, { width: 200, quality: 70 })} alt={`${fleet.operatorName || t("urride.fleetProfile.transportOperator")} profile`} className="h-full w-full object-cover transition duration-300 group-hover:scale-105" /> : initials}
               {fleet.operatorPhotoUrl ? (
                 <span className="absolute bottom-1.5 right-1.5 grid h-7 w-7 place-items-center rounded-full border border-white/70 bg-slate-950/80 text-white shadow-lg backdrop-blur">
                   <FiMaximize2 size={13} />
@@ -509,7 +510,7 @@ function FleetMediaGallery({ fleet, onOpen }) {
               data-suppress-app-swipe="true"
             >
               <img
-                src={photo.url}
+                src={resizedImageUrl(photo.url, { width: 720, quality: 72 })}
                 alt={`${fleet.fleetName} ${photo.label}`}
                 className={`w-full object-cover transition duration-300 group-hover:scale-[1.03] ${index === 0 ? "aspect-[16/10] h-full min-h-52" : "h-full"}`}
                 loading={index === 0 ? "eager" : "lazy"}
@@ -657,7 +658,7 @@ function ProfileMediaViewer({ activeIndex, images, onChange, onClose }) {
                   className={`h-14 w-14 shrink-0 overflow-hidden rounded-xl border-2 ${index === activeIndex ? "border-blue-400" : "border-white/15 opacity-65"}`}
                   aria-label={t("urride.fleetProfile.openFleetPhoto", { label: image.label })}
                 >
-                  <img src={image.url} alt="" className="h-full w-full object-cover" />
+                  <img src={resizedImageUrl(image.url, { width: 320, quality: 70 })} alt="" className="h-full w-full object-cover" />
                 </button>
               ))}
             </div>

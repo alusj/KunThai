@@ -370,7 +370,7 @@ export default function BuyerDiscoveryBar({
       ) : null}
 
       {filtersOpen ? createPortal(
-        <div className="fixed inset-0 z-[70] lg:hidden">
+        <div className="fixed inset-0 z-[70] overflow-hidden overscroll-none [contain:strict] lg:hidden">
           <button type="button" aria-label={t("urmall.browse.closeFilters")} onClick={() => setFiltersOpen(false)} className="absolute inset-0 bg-gray-950/45" />
           <div className="kt-urmall-search absolute inset-x-0 bottom-0 rounded-t-2xl bg-white p-4 shadow-2xl">
             <div className="flex items-center justify-between">

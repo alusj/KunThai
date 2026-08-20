@@ -3,6 +3,7 @@
   <head>
     <meta charset="UTF-8" />
     <link rel="icon" type="image/png" href="/brand/kunthai-official-logo.png" />
+    <link rel="preload" as="image" href="/brand/kunthai-official-logo.png" fetchpriority="high" />
     <meta
       name="viewport"
       content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover"
@@ -193,52 +194,45 @@
           opacity: 1;
         }
       }
+
+      /* This is the first browser paint, before the React bundle is ready.
+         It mirrors ReturningUserIntro so a dashboard skeleton, Login, or
+         onboarding screen can never flash ahead of the KunThai launch mark. */
+      .kt-boot-intro {
+        position: fixed;
+        inset: 0;
+        z-index: 2147483600;
+        display: grid;
+        width: 100%;
+        height: 100vh;
+        height: 100dvh;
+        place-items: center;
+        overflow: hidden;
+        background: #002a24;
+      }
+
+      .kt-boot-intro img {
+        display: block;
+        width: clamp(10rem, 48vmin, 16rem);
+        height: auto;
+        border-radius: 24%;
+        object-fit: contain;
+        user-select: none;
+        -webkit-user-drag: none;
+      }
     </style>
   </head>
   <body>
     <div id="root">
-      <div class="kt-startup-shell" aria-label="Loading KunThai">
-        <div class="kt-startup-header">
-          <div class="kt-startup-row">
-            <div class="kt-startup-dot"></div>
-            <div class="kt-startup-dot"></div>
-          </div>
-          <div class="kt-startup-brand">
-            <div class="kt-startup-line"></div>
-            <div class="kt-startup-line"></div>
-          </div>
-          <div class="kt-startup-actions">
-            <div class="kt-startup-dot"></div>
-            <div class="kt-startup-dot"></div>
-          </div>
-        </div>
-        <main class="kt-startup-main">
-          <div class="kt-startup-tabs">
-            <div class="kt-startup-tab"></div>
-            <div class="kt-startup-tab"></div>
-            <div class="kt-startup-tab"></div>
-          </div>
-          <section class="kt-startup-card">
-            <div class="kt-startup-card-head">
-              <div class="kt-startup-avatar"></div>
-              <div class="kt-startup-copy">
-                <div class="kt-startup-line"></div>
-                <div class="kt-startup-line"></div>
-              </div>
-            </div>
-            <div class="kt-startup-card-media"></div>
-          </section>
-          <section class="kt-startup-card">
-            <div class="kt-startup-card-head">
-              <div class="kt-startup-avatar"></div>
-              <div class="kt-startup-copy">
-                <div class="kt-startup-line"></div>
-                <div class="kt-startup-line"></div>
-              </div>
-            </div>
-            <div class="kt-startup-card-media"></div>
-          </section>
-        </main>
+      <div class="kt-boot-intro" role="status" aria-label="Loading KunThai">
+        <img
+          src="/brand/kunthai-official-logo.png"
+          alt="KunThai"
+          width="900"
+          height="900"
+          decoding="sync"
+          fetchpriority="high"
+        />
       </div>
     </div>
     <script type="module" src="/src/main.jsx"></script>

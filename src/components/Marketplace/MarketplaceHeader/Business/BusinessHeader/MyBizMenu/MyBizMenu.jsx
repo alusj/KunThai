@@ -11,8 +11,7 @@ import {
 } from "lucide-react";
 import { useEffect, useRef, useState } from "react";
 
-import { requestUrMallAccountDeletion } from "../../../../../../Backend/services/accountDeletionRequestService";
-import { readRegisteredBusiness } from "../../../../../../Backend/services/marketplace/sellerRegistrationService";
+import { deleteRegisteredBusiness, readRegisteredBusiness } from "../../../../../../Backend/services/marketplace/sellerRegistrationService";
 import { showToast } from "../../../../../../Backend/services/toastService";
 import { useI18n, t } from "../../../../../../i18n";
 import MenuHeader from "./MenuHeader";
@@ -396,7 +395,7 @@ export default function MyBizMenu({
                 onClick={async () => {
                   setRequestingDeletion(true);
                   try {
-                    await requestUrMallAccountDeletion(businessToDelete.id, deletionReason);
+                    await deleteRegisteredBusiness(businessToDelete.id);
                     showToast(t("urmall.biz.menu.deletionSent"), "success", { title: t("urmall.biz.menu.deletionSentTitle") });
                     setBusinessToDelete(null);
                     setDeletionReason("");

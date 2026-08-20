@@ -4,6 +4,7 @@ import { formatCurrency } from "../../../Backend/utils/formatCurrency";
 import { shareUrMallLink } from "../../../Backend/services/shareCtaService";
 import { getProductCardLocation, buildCardSellerLocation } from "../../../Backend/utils/productCardLocation";
 import { ensureBuyerLocation, useBuyerLocation } from "../../../Backend/utils/buyerLocationContext";
+import { resizedImageUrl } from "../../../Backend/lib/imageProxy";
 import { useI18n, t } from "../../../i18n";
 import { t as i18nText } from "../../../i18n/index";
 
@@ -11,7 +12,7 @@ function ProductImage({ product }) {
   if (product.imageUrl) {
     return (
       <img
-        src={product.imageUrl}
+        src={resizedImageUrl(product.imageUrl, { width: 480, quality: 70 })}
         alt={product.name}
         loading="lazy"
         decoding="async"

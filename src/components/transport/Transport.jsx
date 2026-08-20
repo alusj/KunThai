@@ -756,7 +756,9 @@ export default function Transport({ active = false, onActivityChange, onNotifica
     }
 
     refreshCompanyOperationBadge();
-    intervalId = window.setInterval(refreshCompanyOperationBadge, 20000);
+    // Realtime subscriptions + events (below) drive live updates; this interval is
+    // only a missed-event backstop, so it can run infrequently to save Egress.
+    intervalId = window.setInterval(refreshCompanyOperationBadge, 60000);
     const unsubscribe = subscribeTransportCompanyUpdates(refreshCompanyOperationBadge);
     const unsubscribeSeen = subscribeNotificationSeen(refreshCompanyOperationBadge);
     window.addEventListener("transport-trip-updated", refreshCompanyOperationBadge);
@@ -1291,6 +1293,11 @@ export default function Transport({ active = false, onActivityChange, onNotifica
         onNotificationCountChange={onNotificationCountChange}
         onActivityChange={setHeaderActivityOpen}
         onViewFleet={setActiveFleetId}
+        onViewTrip={() => {
+          setRouteDirection("forward");
+          setActiveTripsActionRequest(null);
+          setActiveTripsOpen(true);
+        }}
         onOpenEmergencyArea={(searchType = "") => {
           openNearbyAreaRoute(null, {
             emergency: {

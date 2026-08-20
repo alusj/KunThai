@@ -24,6 +24,7 @@ export default function Header({
   onNotificationCountChange,
   onRegisterFleet,
   onViewFleet,
+  onViewTrip,
   onOpenEmergencyArea,
 }) {
   useI18n();
@@ -50,16 +51,14 @@ export default function Header({
   })();
 
   function handleOperatorOpen() {
-    // Route a pending booking straight to its fleet. One booked fleet opens it;
-    // several show a picker; none falls back to the normal operator action.
-    if (bookedFleets.length === 1) {
-      onViewFleet?.(bookedFleets[0].fleetId);
-      return;
-    }
-    if (bookedFleets.length > 1) {
-      setFleetPickerOpen(true);
-      return;
-    }
+    // The operator icon must open the operator's OWN surface (their operator
+    // dashboard, or company workspace) so they can see and manage bookings.
+    // onRegisterFleet already routes: operatorAccount -> operator dashboard,
+    // companyAccount -> company workspace, neither -> registration chooser.
+    //
+    // It must NEVER route through onViewFleet: that opens the passenger-facing
+    // FleetProfileScreen, which is exactly the "viewing as a passenger" bug an
+    // operator hit after a passenger booked their ride.
     onRegisterFleet?.();
   }
   const hasOperatorAccount = Boolean(operatorAccount);
@@ -92,7 +91,9 @@ export default function Header({
     }
 
     refreshOperatorBadge();
-    intervalId = window.setInterval(refreshOperatorBadge, 20000);
+    // Events below drive live updates; this interval is only a missed-event
+    // backstop, so it can run infrequently to save Egress.
+    intervalId = window.setInterval(refreshOperatorBadge, 60000);
     const unsubscribeSeen = subscribeNotificationSeen(refreshOperatorBadge);
     window.addEventListener("transport-trip-updated", refreshOperatorBadge);
     window.addEventListener("transport-booking-created", refreshOperatorBadge);
@@ -148,6 +149,7 @@ export default function Header({
               onOpenChange={setNotificationsOpen}
               onUnreadCountChange={handleNotificationCountChange}
               onViewFleet={onViewFleet}
+              onViewTrip={onViewTrip}
             />
             <MenuButton onClick={() => setMenuOpen(true)} />
           </>

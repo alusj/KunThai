@@ -11,6 +11,10 @@ import {
 import { showToast } from "../../../Backend/services/toastService";
 import { getNetworkStatus, subscribeToNetworkStatus } from "../../../Backend/services/networkService";
 import { cacheAreaViewPosition, readAreaViewCache } from "../../../Backend/services/areaViewCacheService";
+import {
+  isImplausibleAreaLocationJump,
+  shouldAcceptAreaLocationAccuracy,
+} from "./areaLocationTracking";
 import { getActiveCountryProfile } from "../../../data/globalCountryProfiles";
 import { useI18n, t } from "../../../i18n";
 import { t as i18nText } from "../../../i18n/index";
@@ -52,7 +56,7 @@ const ROUTE_STATUS = {
 };
 
 const GPS_SETTINGS = {
-  ignoreAccuracyAboveMeters: 140,
+  rescueAccuracyMaxMeters: 140,
   lowAccuracyWarningMeters: 75,
   correctRouteMeters: 45,
   warningRouteMeters: 120,
@@ -1547,7 +1551,7 @@ export default function NearbyAreaMap({
   viewTarget = null,
 }) {
   useI18n();
-  const initialAreaCacheRef = useRef(readAreaViewCache());
+  const initialAreaCacheRef = useRef(readAreaViewCache({ allowStale: true }));
   const initialCachedPosition = initialAreaCacheRef.current.position || DEFAULT_CENTER;
   const mapContainerRef = useRef(null);
   const mapRef = useRef(null);
@@ -1585,6 +1589,7 @@ export default function NearbyAreaMap({
   const userLocationRef = useRef(initialCachedPosition);
   const lastRawPositionRef = useRef(initialCachedPosition);
   const lastRawTimestampRef = useRef(initialAreaCacheRef.current.position ? Date.now() : null);
+  const hasLiveDeviceFixRef = useRef(false);
   const headingRef = useRef(null);
   const smartCameraRef = useRef(true);
   const weatherCacheRef = useRef(weatherCache);
@@ -1638,6 +1643,7 @@ export default function NearbyAreaMap({
   const [alternativeLoading, setAlternativeLoading] = useState(false);
   const [alternativeError, setAlternativeError] = useState("");
   const [rerouteKey, setRerouteKey] = useState(0);
+  const [locationWatchRevision, setLocationWatchRevision] = useState(0);
   // Base-map render state. `mapTilesLoading` covers the normal "still fetching
   // tiles" case; `mapBlocked` is set to "offline" | "slow" when the base map
   // cannot draw because of the connection, so the overlay can explain it and
@@ -1923,7 +1929,7 @@ export default function NearbyAreaMap({
     try {
       const position = await requestHighAccuracyRescuePosition();
       const accuracy = Math.round(position.coords.accuracy || 0);
-      if (accuracy > GPS_SETTINGS.ignoreAccuracyAboveMeters) {
+      if (accuracy > GPS_SETTINGS.rescueAccuracyMaxMeters) {
         throw new Error(t("urride.areaMap.saveMeWeakGps", { m: accuracy }));
       }
 
@@ -1949,6 +1955,7 @@ export default function NearbyAreaMap({
       smoothedPositionRef.current = freshPosition;
       lastRawPositionRef.current = freshPosition;
       lastRawTimestampRef.current = Date.now();
+      hasLiveDeviceFixRef.current = true;
       markerRenderedPositionRef.current = markerTarget;
       routeSnappedRef.current = Boolean(recoveredOnRoute);
       userMarkerRef.current?.setLngLat([markerTarget.lng, markerTarget.lat]);
@@ -2390,6 +2397,10 @@ export default function NearbyAreaMap({
 
     navigator.geolocation.getCurrentPosition(
       (position) => {
+        // The high-accuracy watcher may have already delivered a newer fix
+        // while this fast first-paint request was resolving.
+        if (hasLiveDeviceFixRef.current) return;
+
         setDeviceLocationState("ready");
         const accuracy = Math.round(position.coords.accuracy || 0);
         const nextCenter = {
@@ -2407,6 +2418,7 @@ export default function NearbyAreaMap({
         markerRenderedPositionRef.current = nextCenter;
         lastRawPositionRef.current = nextCenter;
         lastRawTimestampRef.current = Date.now();
+        hasLiveDeviceFixRef.current = true;
         publishLocationToParent(nextCenter, { force: true });
         // In place-view mode the camera belongs to the tapped location, so the
         // viewer's GPS updates the marker/position without recentering.
@@ -2422,6 +2434,8 @@ export default function NearbyAreaMap({
         userMarkerRef.current?.setLngLat([nextCenter.lng, nextCenter.lat]);
       },
       () => {
+        if (hasLiveDeviceFixRef.current) return;
+
         setDeviceLocationState("unavailable");
         const fallbackCenter = initialAreaCacheRef.current.position || DEFAULT_CENTER;
         publishGpsUi(
@@ -2435,19 +2449,40 @@ export default function NearbyAreaMap({
         userLocationRef.current = fallbackCenter;
         smoothedPositionRef.current = fallbackCenter;
         markerRenderedPositionRef.current = fallbackCenter;
-        lastRawPositionRef.current = fallbackCenter;
-        lastRawTimestampRef.current = Date.now();
+        // Keep the fallback visible, but do not treat it as a real GPS fix.
+        // Otherwise the jump filter can reject every genuine watch update.
+        lastRawPositionRef.current = null;
+        lastRawTimestampRef.current = null;
         userMarkerRef.current?.setLngLat([fallbackCenter.lng, fallbackCenter.lat]);
         publishLocationToParent(fallbackCenter, { force: true });
       },
       {
-        enableHighAccuracy: true,
-        timeout: 8000,
-        maximumAge: 15000,
+        // Paint a recent/coarse device position quickly. The live watcher below
+        // immediately refines it with high-accuracy updates.
+        enableHighAccuracy: false,
+        timeout: 3500,
+        maximumAge: 60000,
       },
     );
     // eslint-disable-next-line react-hooks/exhaustive-deps -- initial geolocation publishes through refs; rerunning on every helper recreation would duplicate GPS work.
   }, [onLocationResolved]);
+
+  useEffect(() => {
+    if (!active) return undefined;
+
+    const restartVisibleLocationWatch = () => {
+      if (document.visibilityState === "visible") {
+        setLocationWatchRevision((current) => current + 1);
+      }
+    };
+
+    document.addEventListener("visibilitychange", restartVisibleLocationWatch);
+    window.addEventListener("online", restartVisibleLocationWatch);
+    return () => {
+      document.removeEventListener("visibilitychange", restartVisibleLocationWatch);
+      window.removeEventListener("online", restartVisibleLocationWatch);
+    };
+  }, [active]);
 
   useEffect(() => {
     const current = markerRenderedPositionRef.current || smoothedPositionRef.current || userLocation || DEFAULT_CENTER;
@@ -2785,13 +2820,15 @@ export default function NearbyAreaMap({
     watchIdRef.current = navigator.geolocation.watchPosition(
       (position) => {
         if (rescueActiveRef.current) return;
-        setDeviceLocationState("ready");
         const accuracy = Math.round(position.coords.accuracy || 0);
+        const hadLiveFix = hasLiveDeviceFixRef.current;
 
-        if (accuracy > GPS_SETTINGS.ignoreAccuracyAboveMeters) {
+        if (!shouldAcceptAreaLocationAccuracy(accuracy, { hasLiveFix: hadLiveFix })) {
           publishGpsUi(t("urride.areaMap.gpsWeak", { m: accuracy }), accuracy);
           return;
         }
+
+        setDeviceLocationState("ready");
 
         const rawLivePosition = {
           lat: position.coords.latitude,
@@ -2812,18 +2849,14 @@ export default function NearbyAreaMap({
         const now = Date.now();
         const elapsedMs = previousRawTimestamp ? now - previousRawTimestamp : 1000;
 
-        if (previousRawPosition && previousRawTimestamp) {
-          const rawDistance = distanceInMeters(previousRawPosition, rawLivePosition);
-          const seconds = Math.max(elapsedMs / 1000, 1);
-          const rawSpeed = rawDistance / seconds;
-
-          if (
-            rawDistance > GPS_SETTINGS.jumpDistanceMeters &&
-            rawSpeed > GPS_SETTINGS.maxRoadSpeedMetersPerSecond
-          ) {
-            publishGpsUi(t("urride.areaMap.gpsJump", { m: accuracy }), accuracy);
-            return;
-          }
+        if (isImplausibleAreaLocationJump(previousRawPosition, rawLivePosition, {
+          hasLiveFix: hadLiveFix,
+          elapsedMs,
+          jumpDistanceMeters: GPS_SETTINGS.jumpDistanceMeters,
+          maxSpeedMetersPerSecond: GPS_SETTINGS.maxRoadSpeedMetersPerSecond,
+        })) {
+          publishGpsUi(t("urride.areaMap.gpsJump", { m: accuracy }), accuracy);
+          return;
         }
 
         // Live speed estimate that powers the ETA. Prefer the device's own
@@ -2843,13 +2876,18 @@ export default function NearbyAreaMap({
 
         lastRawPositionRef.current = rawLivePosition;
         lastRawTimestampRef.current = now;
+        hasLiveDeviceFixRef.current = true;
         if (now - lastPositionCacheAtRef.current >= 4000) {
           cacheAreaViewPosition(rawLivePosition);
           lastPositionCacheAtRef.current = now;
         }
 
-        const previousSmoothedPosition = smoothedPositionRef.current || userLocationRef.current || DEFAULT_CENTER;
-        const livePosition = getSmoothedPosition(previousSmoothedPosition, rawLivePosition, elapsedMs);
+        const previousSmoothedPosition = hadLiveFix
+          ? smoothedPositionRef.current || userLocationRef.current || rawLivePosition
+          : rawLivePosition;
+        const livePosition = hadLiveFix
+          ? getSmoothedPosition(previousSmoothedPosition, rawLivePosition, elapsedMs)
+          : rawLivePosition;
         const movedMeters = distanceInMeters(previousSmoothedPosition, livePosition);
 
         if (movedMeters <= GPS_SETTINGS.ignoreTinyMoveMeters && instantSpeed < 0.45) {
@@ -2864,7 +2902,7 @@ export default function NearbyAreaMap({
           accuracy,
         );
         userLocationRef.current = livePosition;
-        publishLocationToParent(livePosition);
+        publishLocationToParent(livePosition, { force: !hadLiveFix });
 
         // Snap the DISPLAYED marker to the route line when the traveller is on
         // it (within GPS error), so the icon rides the route instead of
@@ -3003,7 +3041,9 @@ export default function NearbyAreaMap({
       },
       () => {
         setDeviceLocationState((current) => current === "ready" ? current : "unavailable");
-        publishGpsUi(t("urride.areaMap.gpsPermission"), null, { force: true });
+        if (!hasLiveDeviceFixRef.current) {
+          publishGpsUi(t("urride.areaMap.gpsPermission"), null, { force: true });
+        }
       },
       {
         enableHighAccuracy: true,
@@ -3019,7 +3059,7 @@ export default function NearbyAreaMap({
       }
     };
     // eslint-disable-next-line react-hooks/exhaustive-deps -- the GPS watcher stays stable except when user-facing navigation modes change.
-  }, [active, focusMode, headingMode, onLocationResolved, routePlan, selectedLocation]);
+  }, [active, focusMode, headingMode, locationWatchRevision, onLocationResolved, routePlan, selectedLocation]);
 
   useEffect(() => {
     if (!active || !mapRef.current) return undefined;

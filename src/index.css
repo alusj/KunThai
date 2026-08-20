@@ -631,6 +631,14 @@
     transition: padding-bottom 220ms var(--kt-ease-standard);
   }
 
+  /* Lift the comment field up a bit: keep enough room to clear the home
+     indicator, but drop the extra safe-area gap that left it sitting too low.
+     Scoped to the comment composer so the shared .kuntai-safe-bottom is
+     unaffected; the keyboard-open rule below still wins when typing. */
+  .kt-comment-composer.kuntai-safe-bottom {
+    padding-bottom: max(0.5rem, calc(var(--kt-safe-area-bottom) - 0.625rem));
+  }
+
   /* Above the keyboard there is no home-indicator gap to clear, so shed the
      safe-area padding and bring the comment field up snug against the keyboard
      instead of leaving it stranded low on the sheet. Mirrors the message
@@ -854,12 +862,12 @@
   }
 }
 
-/* Brief returning-user splash, intentionally closer to the restrained launch
-   screens used by major social apps. It is mounted only after a long absence. */
+/* Branded launch layer used during cold boot and after a long absence. It sits
+   above every app portal so auth, onboarding, and route loaders cannot cover it. */
 .kt-returning-intro {
   position: fixed;
   inset: 0;
-  z-index: 4000;
+  z-index: 2147483600;
   height: 100vh;
   height: 100dvh;
   overflow: hidden;

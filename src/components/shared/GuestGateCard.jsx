@@ -34,6 +34,7 @@ export default function GuestGateCard() {
   return (
     <AppPortal>
       <div className="pointer-events-none fixed inset-0 z-[1500] flex items-center justify-center px-4">
+        <div aria-hidden="true" className="pointer-events-auto absolute inset-0 touch-none bg-slate-950/40 backdrop-blur-[1px]" />
         <section
           role="alertdialog"
           aria-label={i18nText("ui.literals.k9a78430145b2")}

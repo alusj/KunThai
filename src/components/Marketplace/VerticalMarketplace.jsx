@@ -8,6 +8,7 @@ import {
   subscribeMarketplaceVerticalDiscovery,
 } from "../../Backend/services/marketplace/marketplaceVerticalService";
 import { createBuyerProductOrder, sendBuyerMarketplaceMessage } from "../../Backend/services/marketplace/buyerMarketplaceService";
+import { resizedImageUrl } from "../../Backend/lib/imageProxy";
 import { urMallShareToastOptions } from "../../Backend/services/shareCtaService";
 import { showToast } from "../../Backend/services/toastService";
 import { useI18n, t } from "../../i18n";
@@ -458,7 +459,7 @@ function VerticalCardShell({ badges, children, image, imageAlt, onClick }) {
     >
       <div className="relative aspect-[4/3] overflow-hidden bg-gray-100">
         {image ? (
-          <img src={image} alt={imageAlt} className="h-full w-full object-cover transition duration-300 group-hover:scale-105" />
+          <img src={resizedImageUrl(image, { width: 720, quality: 72 })} alt={imageAlt} className="h-full w-full object-cover transition duration-300 group-hover:scale-105" />
         ) : (
           <div className="flex h-full w-full items-center justify-center bg-gradient-to-br from-gray-100 via-white to-emerald-50 text-gray-400">
             <PackageSearch size={34} strokeWidth={1.8} />

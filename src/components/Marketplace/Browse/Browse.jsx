@@ -16,6 +16,7 @@ import {
   toggleSavedBuyerSeller,
 } from "../../../Backend/services/marketplace/buyerMarketplaceService";
 import { guardGuestAction } from "../../../Backend/services/guestModeService";
+import { readBrowseCatalogSnapshot, writeBrowseCatalogSnapshot } from "../../../Backend/services/marketplace/browseCatalogCache";
 import { showToast } from "../../../Backend/services/toastService";
 import { useI18n } from "../../../i18n";
 import { consumeSellerAreaViewReturn } from "../../../Backend/services/marketplace/navigationHandoffService";
@@ -112,8 +113,12 @@ function rememberRecentProduct(product) {
 export default function Browse({ activeTab = "new", onProductModeChange, onCloseSearch, searchOpen = false, supplementalContent = null, priorityCategory = null, onClearPriority }) {
   const { t } = useI18n();
   const initialQueryFilters = cloneFilters(BROWSE_MEMORY.queryFilters);
+  const initialCatalogKey = buildCatalogKey(initialQueryFilters);
+  const initialMemoryCatalog = BROWSE_CATALOG_MEMORY.get(initialCatalogKey)?.catalog || BROWSE_MEMORY.catalog;
+  // In-memory cache first (survives tab switches); on a cold reload it is empty,
+  // so fall back to the persisted snapshot for instant paint.
   const initialCatalog = normalizeCatalog(
-    BROWSE_CATALOG_MEMORY.get(buildCatalogKey(initialQueryFilters))?.catalog || BROWSE_MEMORY.catalog,
+    catalogHasProducts(initialMemoryCatalog) ? initialMemoryCatalog : (readBrowseCatalogSnapshot(initialCatalogKey) || initialMemoryCatalog),
   );
   const [filters, setFilters] = useState(() => cloneFilters(BROWSE_MEMORY.filters));
   const [queryFilters, setQueryFilters] = useState(() => initialQueryFilters);
@@ -270,6 +275,7 @@ export default function Browse({ activeTab = "new", onProductModeChange, onClose
       try {
         const products = normalizeCatalog(await fetchBuyerMarketplaceProducts(queryFilters));
         BROWSE_CATALOG_MEMORY.set(cacheKey, { catalog: products, savedAt: Date.now() });
+        writeBrowseCatalogSnapshot(cacheKey, products);
         if (alive) setCatalog(products);
       } catch (err) {
         if (alive) setError(hasExistingCatalog ? "" : err.message || t("urmall.browse.loadProductsFailed"));

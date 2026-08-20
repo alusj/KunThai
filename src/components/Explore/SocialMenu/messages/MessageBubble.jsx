@@ -8,6 +8,7 @@ import {
 } from "react-icons/hi2";
 
 import { useI18n } from "../../../../i18n";
+import { resizedImageUrl } from "../../../../Backend/lib/imageProxy";
 
 export default function MessageBubble({
   mine,
@@ -168,7 +169,7 @@ export default function MessageBubble({
     <div className={`flex min-w-0 ${mine ? "justify-end" : "justify-start"}`}>
       <div className={`${bubbleClass} relative cursor-pointer`} onClick={() => setOptionsOpen((open) => !open)}>
         {mediaType === "image" && mediaUrl ? (
-          <img src={mediaUrl} alt="Message attachment" className="mb-2 max-h-72 w-full rounded-2xl object-cover" />
+          <img src={resizedImageUrl(mediaUrl, { width: 720, quality: 72 })} alt="Message attachment" className="mb-2 max-h-72 w-full rounded-2xl object-cover" />
         ) : null}
         {!mine && actorName ? (
           <p className="mb-1 text-[10px] font-black uppercase tracking-[0.14em] text-sky-700">{actorName}</p>

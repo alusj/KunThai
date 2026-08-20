@@ -3,6 +3,7 @@ import {
   fetchPromotedMarketplaceProducts,
   readCachedPromotedMarketplaceProducts,
 } from "../../../Backend/services/marketplace/buyerMarketplaceService";
+import { resizedImageUrl } from "../../../Backend/lib/imageProxy";
 import { useI18n } from "../../../i18n";
 
 const SLIDE_INTERVAL_MS = 4500;
@@ -193,7 +194,7 @@ export default function PromotedAdsCarousel({ onProductSelect, dashboardLoading 
                 aria-label={t("urmall.browse.openPromotedAria", { name: product.seller?.name || t("urmall.browse.sellerFallback") })}
               >
                 <img
-                  src={product.imageUrl}
+                  src={resizedImageUrl(product.imageUrl, { width: 720, quality: 72 })}
                   alt=""
                   loading={index < Math.max(2, perView + 1) ? "eager" : "lazy"}
                   fetchPriority={index < 2 ? "high" : "auto"}

@@ -14,6 +14,7 @@ import {
 } from "lucide-react";
 
 import { formatCurrency } from "../../../../../Backend/utils/formatCurrency";
+import { resizedImageUrl } from "../../../../../Backend/lib/imageProxy";
 import { useI18n, t } from "../../../../../i18n";
 import AppBackTab from "../../../../shared/AppBackTab";
 import ProductStatusBadge from "./ProductStatusBadge";
@@ -115,7 +116,7 @@ export default function SellerProductDetail({ product, onBack, onEdit }) {
           <section className="space-y-3">
             <div className="overflow-hidden rounded-2xl border border-gray-200 bg-white shadow-sm">
               {displayImage ? (
-                <img src={displayImage} alt={product.name} className="aspect-square w-full object-cover" />
+                <img src={resizedImageUrl(displayImage, { width: 800, quality: 75 })} alt={product.name} className="aspect-square w-full object-cover" />
               ) : (
                 <div className="flex aspect-square w-full items-center justify-center bg-gray-100 text-gray-400">
                   <ImageIcon size={44} />
@@ -135,7 +136,7 @@ export default function SellerProductDetail({ product, onBack, onEdit }) {
                     }`}
                     aria-label={t("urmall.biz.cat.showImage", { n: index + 1 })}
                   >
-                    <img src={image} alt="" loading="lazy" decoding="async" className="h-full w-full object-cover" />
+                    <img src={resizedImageUrl(image, { width: 160, quality: 70 })} alt="" loading="lazy" decoding="async" className="h-full w-full object-cover" />
                   </button>
                 ))}
               </div>

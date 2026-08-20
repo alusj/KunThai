@@ -2,6 +2,7 @@ import { Building2, Check, ChevronDown, Hotel, House, Plus, ShieldCheck, Store, 
 import { useEffect, useMemo, useState } from "react";
 
 import { fetchBusinessAttentionCounts } from "../../../../../Backend/services/marketplace/sellerHeaderService";
+import { resizedImageUrl } from "../../../../../Backend/lib/imageProxy";
 import { useI18n, t } from "../../../../../i18n";
 import CenteredModal from "../../../../shared/CenteredModal";
 import useBodyScrollLock from "../../../../shared/useBodyScrollLock";
@@ -44,7 +45,8 @@ function useOtherBusinessAttention(businesses, activeBusinessId) {
     }
 
     load();
-    const interval = window.setInterval(load, 30000);
+    // Events below refresh on real changes; this interval is only a backstop.
+    const interval = window.setInterval(load, 60000);
     window.addEventListener("marketplace-orders-updated", load);
     window.addEventListener("marketplace-seller-messages-updated", load);
     window.addEventListener("marketplace-message-sent", load);
@@ -116,7 +118,7 @@ export default function BusinessSwitcher({ activeBusinessId, businesses = [], on
                     >
                       <span className="relative grid h-11 w-11 place-items-center overflow-hidden rounded-xl bg-gray-100 text-gray-600">
                         {business.identity.logoUrl ? (
-                          <img src={business.identity.logoUrl} alt="" className="h-full w-full object-cover" />
+                          <img src={resizedImageUrl(business.identity.logoUrl, { width: 96, quality: 70 })} alt="" className="h-full w-full object-cover" />
                         ) : (
                           <Icon size={20} />
                         )}

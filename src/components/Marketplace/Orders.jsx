@@ -10,6 +10,7 @@ import {
   sendBuyerMarketplaceMessage,
 } from "../../Backend/services/marketplace/buyerMarketplaceService";
 import { formatCurrency } from "../../Backend/utils/formatCurrency";
+import { resizedImageUrl } from "../../Backend/lib/imageProxy";
 import { useI18n, t } from "../../i18n";
 import { parseOrderDeliveryDetails, formatOrderFulfillment } from "../../Backend/utils/orderDeliveryDetails";
 import {
@@ -226,7 +227,7 @@ export default function Orders({ compact = false, onBack, onProductOpen }) {
               <button type="button" onClick={() => openProduct(order)} className="flex min-w-0 flex-1 items-start gap-3 rounded-lg text-left transition hover:bg-gray-50">
                 <div className="flex h-12 w-12 shrink-0 items-center justify-center rounded-lg bg-emerald-50 text-emerald-700">
                   {order.product?.imageUrl || order.sellerLogoUrl ? (
-                    <img src={order.product?.imageUrl || order.sellerLogoUrl} alt="" className="h-full w-full rounded-lg object-cover" />
+                    <img src={resizedImageUrl(order.product?.imageUrl || order.sellerLogoUrl, { width: 128, quality: 70 })} alt="" className="h-full w-full rounded-lg object-cover" />
                   ) : (
                     <PackageCheck size={22} />
                   )}

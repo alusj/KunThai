@@ -13,11 +13,14 @@ import {
   markNotificationsSeen,
   subscribeNotificationSeen,
 } from "../../../Backend/services/notificationSeenStore";
-import { fetchTransportNotifications } from "../../services/transportHeaderService";
+import {
+  fetchTransportNotifications,
+  markTransportPassengerNotificationRead,
+} from "../../services/transportHeaderService";
 import { subscribePassengerTrips } from "../../services/passengerTransportService";
 import { useI18n, t } from "../../../i18n";
 
-export default function NotificationButton({ companyAccount, operatorAccount, onOpenChange, onUnreadCountChange, onViewFleet }) {
+export default function NotificationButton({ companyAccount, operatorAccount, onOpenChange, onUnreadCountChange, onViewFleet, onViewTrip }) {
   useI18n();
   const [open, setOpen] = useState(false);
   const [notifications, setNotifications] = useState([]);
@@ -79,6 +82,9 @@ export default function NotificationButton({ companyAccount, operatorAccount, on
   function markNotificationRead(notification) {
     if (!notification || notification.read) return;
     markNotificationsSeen(readScope, [notification]);
+    if (notification.notificationId) {
+      markTransportPassengerNotificationRead(notification.notificationId).catch(() => {});
+    }
     setNotifications((current) => current.map((item) => item.id === notification.id ? { ...item, read: true } : item));
   }
 
@@ -200,7 +206,7 @@ export default function NotificationButton({ companyAccount, operatorAccount, on
             <div className="min-h-0 flex-1 overflow-y-auto bg-slate-50 p-4">
               {error ? (
                 <NotificationState title={t("urride.notifications.errorTitle")} body={error} />
-              ) : loading ? (
+              ) : loading && notifications.length === 0 ? (
                 <NotificationState title={t("urride.notifications.loadingTitle")} body={t("urride.notifications.loadingBody")} />
               ) : notifications.length === 0 ? (
                 <NotificationState title={t("urride.notifications.emptyTitle")} body={t("urride.notifications.emptyBody")} />
@@ -229,10 +235,25 @@ export default function NotificationButton({ companyAccount, operatorAccount, on
                             <p className="mt-1 text-xs font-bold text-slate-400">{notification.meta}</p>
                           ) : null}
 
-                          {notification.fleetId ? (
+                          {notification.tripId ? (
                             <button
                               type="button"
-                              onClick={() => {
+                              onClick={(event) => {
+                                event.stopPropagation();
+                                markNotificationRead(notification);
+                                setOpen(false);
+                                onViewTrip?.(notification.tripId);
+                              }}
+                              className="kt-touchable mt-3 text-sm font-black text-green-700 hover:text-green-800"
+                            >
+                              {notification.actionLabel || t("urride.notifications.viewTrip")}
+                            </button>
+                          ) : notification.fleetId ? (
+                            <button
+                              type="button"
+                              onClick={(event) => {
+                                event.stopPropagation();
+                                markNotificationRead(notification);
                                 setOpen(false);
                                 onViewFleet?.(notification.fleetId);
                               }}

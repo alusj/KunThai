@@ -1,4 +1,5 @@
 import { useState } from "react";
+import { resizedImageUrl } from "../../../Backend/lib/imageProxy";
 
 export default function Avatar({ name = "KunThai", src = "", size = "md" }) {
   const [failed, setFailed] = useState(false);
@@ -12,7 +13,7 @@ export default function Avatar({ name = "KunThai", src = "", size = "md" }) {
   if (src && !failed) {
     return (
       <img
-        src={src}
+        src={resizedImageUrl(src, { width: 128, quality: 70 })}
         alt={name}
         onError={() => setFailed(true)}
         className={`flex-none rounded-full object-cover ring-2 ring-white ${sizes[size] ?? sizes.md}`}

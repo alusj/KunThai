@@ -100,6 +100,7 @@ export default function VideoCard({
 
   const videoRef = useRef(null);
   const holdTimerRef = useRef(null);
+  const holdStartRef = useRef(null);
   const tapTimerRef = useRef(null);
   const lastTapAtRef = useRef(0);
   const likeBurstTimerRef = useRef(null);
@@ -566,15 +567,16 @@ export default function VideoCard({
       video.volume = 1;
       setNeedsSoundUnlock(false);
       video.play().catch(() => setNeedsSoundUnlock(true));
-      return;
-    }
-
-    if (video.paused) {
+    } else if (video.paused) {
       requestActivePlayback({ sound: true });
-      return;
     }
 
-    video.pause();
+    // A normal surface tap reveals the compact actions. Double-tap remains
+    // reserved for Like, while explicit buttons and the scrubber stop bubbling.
+    setActionMenuOpen(false);
+    setActionMenuClosing(false);
+    setQuickDeckClosing(false);
+    setQuickDeckOpen(true);
   }
 
   function triggerDoubleTapLike() {
@@ -617,6 +619,7 @@ export default function VideoCard({
   function handlePointerDown(event) {
     if (shouldIgnoreVideoGesture(event)) return;
     window.clearTimeout(holdTimerRef.current);
+    holdStartRef.current = { x: event.clientX, y: event.clientY };
     holdTriggeredRef.current = false;
     holdTimerRef.current = window.setTimeout(() => {
       holdTriggeredRef.current = true;
@@ -629,8 +632,20 @@ export default function VideoCard({
   }
 
   function handlePointerUp(event) {
-    if (shouldIgnoreVideoGesture(event)) return;
     window.clearTimeout(holdTimerRef.current);
+    holdStartRef.current = null;
+    if (shouldIgnoreVideoGesture(event)) return;
+  }
+
+  function handlePointerMove(event) {
+    const start = holdStartRef.current;
+    if (!start) return;
+
+    const moved = Math.hypot(event.clientX - start.x, event.clientY - start.y);
+    if (moved > 12) {
+      window.clearTimeout(holdTimerRef.current);
+      holdStartRef.current = null;
+    }
   }
 
   useEffect(() => {
@@ -704,8 +719,10 @@ export default function VideoCard({
       onPointerCancel={handlePointerUp}
       onPointerDown={handlePointerDown}
       onPointerLeave={handlePointerUp}
+      onPointerMove={handlePointerMove}
       onPointerUp={handlePointerUp}
-      className="kt-toast-expand-in relative h-full w-full min-w-0 overflow-hidden rounded-none border-0 bg-slate-950 shadow-sm"
+      className="kt-toast-expand-in relative h-full w-full min-w-0 select-none overflow-hidden rounded-none border-0 bg-slate-950 shadow-sm"
+      style={{ WebkitTouchCallout: "none" }}
     >
       <video
         ref={videoRef}
@@ -856,7 +873,16 @@ export default function VideoCard({
       {quickDeckOpen ? (
         <div
           className="absolute inset-0 z-30 flex items-center justify-center bg-slate-950/25 px-5 backdrop-blur-[2px]"
-          onClick={() => closeQuickDeck()}
+          onClick={(event) => {
+            // The synthetic click emitted when a long press is released must
+            // not immediately close the deck it just opened.
+            if (holdTriggeredRef.current) {
+              holdTriggeredRef.current = false;
+              event.stopPropagation();
+              return;
+            }
+            closeQuickDeck();
+          }}
         >
           <section
             className={`${quickDeckClosing ? "kt-toast-collapse-out" : "kt-toast-expand-in"} w-full max-w-sm rounded-[28px] border-2 border-white/35 bg-slate-950/82 p-4 text-white shadow-2xl backdrop-blur-xl`}
@@ -953,6 +979,30 @@ function SwipActionItem({ danger = false, icon, onClick, title }) {
       </span>
 
       <span className="truncate">{title}</span>
+    </button>
+  );
+}
+
+function SwipQuickAction({ danger = false, icon, label, onClick }) {
+  const ActionIcon = icon;
+
+  return (
+    <button
+      type="button"
+      aria-label={label}
+      onClick={(event) => {
+        event.stopPropagation();
+        onClick?.(event);
+      }}
+      onPointerDown={(event) => event.stopPropagation()}
+      className={`kt-pressable flex min-h-20 min-w-0 flex-col items-center justify-center gap-2 rounded-2xl border px-2 py-3 text-center text-[11px] font-black leading-tight transition ${
+        danger
+          ? "border-rose-300/25 bg-rose-500/15 text-rose-100 hover:bg-rose-500/25"
+          : "border-white/15 bg-white/10 text-white hover:bg-white/15"
+      }`}
+    >
+      <ActionIcon size={20} aria-hidden="true" />
+      <span className="w-full truncate">{label}</span>
     </button>
   );
 }

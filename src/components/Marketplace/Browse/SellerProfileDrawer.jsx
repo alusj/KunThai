@@ -30,6 +30,7 @@ import { useI18n, t } from "../../../i18n";
 import useBodyScrollLock from "../../shared/useBodyScrollLock";
 import { buildWhatsAppUrl } from "../../../Backend/services/marketplace/whatsappLink";
 import { formatCurrency } from "../../../Backend/utils/formatCurrency";
+import { resizedImageUrl } from "../../../Backend/lib/imageProxy";
 import {
   fetchBuyerReviews,
   fetchMarketplaceReviewEligibility,
@@ -397,7 +398,7 @@ function ProductCard({
     >
       <div className="relative overflow-hidden rounded-lg bg-gray-100">
         {product.imageUrl ? (
-          <img src={product.imageUrl} alt={productName} loading="lazy" decoding="async" className="aspect-square w-full object-cover transition group-hover:scale-[1.02]" />
+          <img src={resizedImageUrl(product.imageUrl, { width: 320, quality: 70 })} alt={productName} loading="lazy" decoding="async" className="aspect-square w-full object-cover transition group-hover:scale-[1.02]" />
         ) : (
           <div className="flex aspect-square w-full items-center justify-center text-xs font-black text-gray-400">
             {t("urmall.seller.productPlaceholder")}
@@ -1006,7 +1007,7 @@ export default function SellerProfileDrawer({
               </button>
 
               <div className="relative h-24 bg-gradient-to-r from-gray-950 via-emerald-900 to-emerald-700 sm:h-32">
-                {safeSeller.bannerUrl ? <img src={safeSeller.bannerUrl} alt="" className="h-full w-full object-cover opacity-75" /> : null}
+                {safeSeller.bannerUrl ? <img src={resizedImageUrl(safeSeller.bannerUrl, { width: 900, quality: 70 })} alt="" className="h-full w-full object-cover opacity-75" /> : null}
                 <div className="absolute inset-0 bg-gradient-to-t from-black/30 to-transparent" />
                 <div className="absolute bottom-3 right-3 flex max-w-[calc(100%-1.5rem)] items-center justify-end gap-2">
                   <SellerActionIcon icon={MessageCircle} label={t("urmall.detail.messageSellerTitle")} onClick={openMessagePanel} />
@@ -1023,7 +1024,7 @@ export default function SellerProfileDrawer({
                 <div className="space-y-3">
                   <div className="-mt-10 flex w-full max-w-full items-end gap-3">
                     <div className="flex h-24 w-24 shrink-0 items-center justify-center overflow-hidden rounded-lg border-4 border-white bg-gray-950 text-white shadow-lg sm:h-28 sm:w-28">
-                      {safeSeller.logoUrl ? <img src={safeSeller.logoUrl} alt="" className="h-full w-full object-cover" /> : <Store size={32} />}
+                      {safeSeller.logoUrl ? <img src={resizedImageUrl(safeSeller.logoUrl, { width: 224, quality: 70 })} alt="" className="h-full w-full object-cover" /> : <Store size={32} />}
                     </div>
 
                     <button

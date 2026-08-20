@@ -1,31 +1,50 @@
-import { useEffect, useState } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
+import { createPortal } from "react-dom";
 
 const HOLD_DURATION_MS = 760;
 const EXIT_DURATION_MS = 480;
 
 function prefersReducedMotion() {
-  return window.matchMedia?.("(prefers-reduced-motion: reduce)").matches;
+  return typeof window !== "undefined" && window.matchMedia?.("(prefers-reduced-motion: reduce)").matches;
 }
 
-export default function ReturningUserIntro({ onComplete }) {
+export default function ReturningUserIntro({ onComplete, ready = true }) {
+  const [minimumHoldElapsed, setMinimumHoldElapsed] = useState(false);
+  const [logoReady, setLogoReady] = useState(false);
   const [leaving, setLeaving] = useState(false);
+  const completedRef = useRef(false);
+
+  const finish = useCallback(() => {
+    if (completedRef.current) return;
+    completedRef.current = true;
+    onComplete?.();
+  }, [onComplete]);
 
   useEffect(() => {
     const reducedMotion = prefersReducedMotion();
-    const holdTimer = window.setTimeout(() => setLeaving(true), reducedMotion ? 260 : HOLD_DURATION_MS);
+    const holdTimer = window.setTimeout(
+      () => setMinimumHoldElapsed(true),
+      reducedMotion ? 260 : HOLD_DURATION_MS,
+    );
     return () => window.clearTimeout(holdTimer);
   }, []);
 
   useEffect(() => {
+    if (ready && logoReady && minimumHoldElapsed) setLeaving(true);
+  }, [logoReady, minimumHoldElapsed, ready]);
+
+  useEffect(() => {
     if (!leaving) return undefined;
     const removalTimer = window.setTimeout(
-      () => onComplete?.(),
+      finish,
       prefersReducedMotion() ? 80 : EXIT_DURATION_MS,
     );
     return () => window.clearTimeout(removalTimer);
-  }, [leaving, onComplete]);
+  }, [finish, leaving]);
 
-  return (
+  if (typeof document === "undefined") return null;
+
+  return createPortal(
     <div
       className={`kt-returning-intro ${leaving ? "kt-returning-intro--leaving" : ""}`}
       role="status"
@@ -34,7 +53,7 @@ export default function ReturningUserIntro({ onComplete }) {
       <div
         className="kt-returning-intro__panel"
         onAnimationEnd={(event) => {
-          if (leaving && event.target === event.currentTarget) onComplete?.();
+          if (leaving && event.target === event.currentTarget) finish();
         }}
       >
         <img
@@ -43,9 +62,14 @@ export default function ReturningUserIntro({ onComplete }) {
           alt="KunThai"
           width="900"
           height="900"
-          decoding="async"
+          loading="eager"
+          decoding="sync"
+          fetchpriority="high"
+          onLoad={() => setLogoReady(true)}
+          onError={() => setLogoReady(true)}
         />
       </div>
-    </div>
+    </div>,
+    document.body,
   );
 }

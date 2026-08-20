@@ -8,6 +8,7 @@ import {
 import { useI18n, t } from "../../../../../../../../../i18n";
 import SellerMenuPageHeader from "../../SellerMenuPageHeader";
 import { t as i18nText } from "../../../../../../../../../i18n/index";
+import { resizedImageUrl } from "../../../../../../../../../Backend/lib/imageProxy";
 
 const inputClass =
   "mt-2 w-full rounded-xl border border-gray-200 bg-white px-4 py-3 text-sm font-semibold text-gray-950 outline-none transition focus:border-gray-950 focus:ring-4 focus:ring-gray-950/10";
@@ -128,7 +129,7 @@ export default function EditProfile({ onBack }) {
             <div className="relative h-28 bg-gray-950 sm:h-40">
               {business?.identity?.bannerUrl ? (
                 <img
-                  src={business.identity.bannerUrl}
+                  src={resizedImageUrl(business.identity.bannerUrl, { width: 900, quality: 70 })}
                   alt=""
                   className="h-full w-full object-cover opacity-80"
                 />
@@ -140,7 +141,7 @@ export default function EditProfile({ onBack }) {
                 <div className="flex h-28 w-28 items-center justify-center overflow-hidden rounded-2xl border-4 border-white bg-gray-100 text-2xl font-black text-gray-700 shadow-md sm:h-36 sm:w-36">
                   {business?.identity?.logoUrl ? (
                     <img
-                      src={business.identity.logoUrl}
+                      src={resizedImageUrl(business.identity.logoUrl, { width: 288, quality: 70 })}
                       alt=""
                       className="h-full w-full object-cover"
                     />

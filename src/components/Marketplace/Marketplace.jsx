@@ -4,6 +4,7 @@ import MarketplaceSearchOverlay from "./Browse/MarketplaceSearchOverlay";
 import MarketplaceHeader from "./MarketplaceHeader/MarketplaceHeader";
 import Business from "./MarketplaceHeader/Business/Business";
 import Messages from "./Messages";
+import Orders from "./Orders";
 import ParentTabs from "./ParentTabs";
 import MarketplaceParentNav from "./MarketplaceParentNav";
 import VerticalMarketplace from "./VerticalMarketplace";
@@ -17,6 +18,10 @@ import {
   fetchMarketplaceParentAvailability,
   MARKETPLACE_PARENT_TAB_MIN_ITEMS,
 } from "../../Backend/services/marketplace/marketplaceVerticalService";
+import {
+  consumePendingMarketplaceScreen,
+  OPEN_MARKETPLACE_SCREEN_EVENT,
+} from "../../Backend/services/notificationBannerService";
 
 const MARKETPLACE_TAB_ORDER = ["new", "discounted", "high-demand", "top-rated"];
 
@@ -66,6 +71,22 @@ export default function Marketplace({ nav, setNav, onActivityChange, onNotificat
   const [verticalDetailOpen, setVerticalDetailOpen] = useState(false);
   const [tabSlideDirection, setTabSlideDirection] = useState("forward");
   const [activeUtility, setActiveUtility] = useState(null);
+
+  // Cross-service deep-link: a new-message banner tapped from another service
+  // (e.g. UrRide) switches to UrMall and asks it to open Messages. Consume the
+  // pending request on mount and also honor it live while already mounted.
+  useEffect(() => {
+    if (consumePendingMarketplaceScreen() === "messages") {
+      setActiveUtility("messages");
+    }
+    function handleOpenMarketplaceScreen(event) {
+      if (event.detail?.screen === "messages") {
+        setActiveUtility("messages");
+      }
+    }
+    window.addEventListener(OPEN_MARKETPLACE_SCREEN_EVENT, handleOpenMarketplaceScreen);
+    return () => window.removeEventListener(OPEN_MARKETPLACE_SCREEN_EVENT, handleOpenMarketplaceScreen);
+  }, []);
   const [productMode, setProductMode] = useState(false);
   const [headerActivityOpen, setHeaderActivityOpen] = useState(false);
   const [businessClosing, setBusinessClosing] = useState(false);
@@ -293,6 +314,7 @@ export default function Marketplace({ nav, setNav, onActivityChange, onNotificat
             onSearchClick={() => setSearchOpen((current) => !current)}
             searchOpen={searchOpen}
             onMessagesClick={() => setActiveUtility((current) => (current === "messages" ? null : "messages"))}
+            onOrdersClick={() => setActiveUtility("orders")}
             onMyBizClick={openMyBiz}
             onNotificationStateChange={setBuyerNotificationState}
             sellerNotificationCount={sellerNotificationCount}
@@ -361,6 +383,16 @@ export default function Marketplace({ nav, setNav, onActivityChange, onNotificat
         hideHeader
       >
         <Messages onBack={() => setActiveUtility(null)} onProductOpen={openProductFromUtility} />
+      </UtilityScreen>
+
+      <UtilityScreen
+        open={activeUtility === "orders"}
+        title={t("urmall.orders.title")}
+        subtitle={t("urmall.orders.subtitle")}
+        onClose={() => setActiveUtility(null)}
+        hideHeader
+      >
+        <Orders onBack={() => setActiveUtility(null)} onProductOpen={openProductFromUtility} />
       </UtilityScreen>
     </div>
   );

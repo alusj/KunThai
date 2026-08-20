@@ -10,6 +10,7 @@ import { guardGuestAction } from "../../../Backend/services/guestModeService";
 import { useI18n } from "../../../i18n";
 import { fetchBuyerMessages, fetchBuyerOrders } from "../../../Backend/services/marketplace/buyerMarketplaceService";
 import PremiumHeader, { PremiumHeaderButton } from "../../shared/PremiumHeader";
+import BuyerNotifications from "./BuyerNotifications";
 import Cart from "./Cart/Cart";
 import Menu from "./Menu/Menu";
 
@@ -29,6 +30,7 @@ function mapHeaderItem(prefix, item) {
 export default function MarketplaceHeader({
   onMyBizClick,
   onMessagesClick,
+  onOrdersClick,
   onSearchClick,
   searchOpen = false,
   activeUtility,
@@ -41,9 +43,11 @@ export default function MarketplaceHeader({
   const { loading, hasBusiness } = useSellerBusinessStatus();
   const [orderItems, setOrderItems] = useState([]);
   const [messageItems, setMessageItems] = useState([]);
+  const [notificationCount, setNotificationCount] = useState(0);
   const [, setSeenVersion] = useState(0);
   const [cartOpen, setCartOpen] = useState(false);
   const [menuOpen, setMenuOpen] = useState(false);
+  const [notificationsOpen, setNotificationsOpen] = useState(false);
   const businessLabel = loading || hasBusiness ? t("urmall.header.openWorkspace") : t("urmall.header.registerBusiness");
   // Pending orders are actionable. Merely viewing them must not clear the
   // badge; it disappears only after the order status changes.
@@ -53,21 +57,22 @@ export default function MarketplaceHeader({
   // the header is merely glanced at.
   const messageCount = messageItems.length;
   const activeHint = messageCount ? "messages" : "";
-  const unreadCount = orderCount + messageCount;
+  const unreadCount = notificationCount + messageCount;
 
   useEffect(() => {
     onNotificationCountChange?.(unreadCount);
     onNotificationStateChange?.({
       orderCount,
       messageCount,
+      notificationCount,
       totalCount: unreadCount,
     });
-  }, [messageCount, onNotificationCountChange, onNotificationStateChange, orderCount, unreadCount]);
+  }, [messageCount, notificationCount, onNotificationCountChange, onNotificationStateChange, orderCount, unreadCount]);
 
   useEffect(() => {
-    onActivityChange?.(cartOpen || menuOpen);
+    onActivityChange?.(cartOpen || menuOpen || notificationsOpen);
     return () => onActivityChange?.(false);
-  }, [cartOpen, menuOpen, onActivityChange]);
+  }, [cartOpen, menuOpen, notificationsOpen, onActivityChange]);
 
   useEffect(() => {
     let alive = true;
@@ -88,7 +93,9 @@ export default function MarketplaceHeader({
     }
 
     loadOrderCount();
-    const interval = window.setInterval(loadOrderCount, 20000);
+    // The events below refresh the badge the moment an order changes; this poll is
+    // only a missed-event backstop, so it runs infrequently to save Egress.
+    const interval = window.setInterval(loadOrderCount, 60000);
     window.addEventListener("marketplace-orders-updated", loadOrderCount);
     return () => {
       alive = false;
@@ -112,7 +119,8 @@ export default function MarketplaceHeader({
     }
 
     loadMessageCount();
-    const interval = window.setInterval(loadMessageCount, 20000);
+    // Events below refresh on new/read messages; this poll is only a backstop.
+    const interval = window.setInterval(loadMessageCount, 60000);
     window.addEventListener("marketplace-message-sent", loadMessageCount);
     window.addEventListener("marketplace-seller-messages-updated", loadMessageCount);
     return () => {
@@ -180,6 +188,11 @@ export default function MarketplaceHeader({
               onClick={openMessages}
             />
           </HeaderButtonWithHint>
+          <BuyerNotifications
+            onOpenChange={setNotificationsOpen}
+            onUnreadCountChange={setNotificationCount}
+            onViewOrders={onOrdersClick}
+          />
           <Cart onOpenChange={setCartOpen} />
           <Menu badge={orderCount} onOpenChange={setMenuOpen} />
         </>

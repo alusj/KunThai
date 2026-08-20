@@ -20,7 +20,7 @@ export default function PostCautionDialog({ open, onCancel, onConfirm, submittin
   if (!open) return null;
 
   return createPortal(
-    <div className="fixed inset-0 z-[1450] flex items-center justify-center" role="presentation">
+    <div className="fixed inset-0 z-[1450] flex items-center justify-center overflow-hidden overscroll-none [contain:strict]" role="presentation">
       <button
         type="button"
         aria-label={t("post.goBackEditAria")}

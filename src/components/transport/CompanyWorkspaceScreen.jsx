@@ -488,7 +488,7 @@ export default function CompanyWorkspaceScreen({ company, onBack, onCompanyLeft,
     if (!basicOperator) return;
     try {
       if (status === "start_requested") await requestTransportTripStart(trip.id);
-      else await updateTransportTripStatus(trip.id, status, patch);
+      else await updateTransportTripStatus(trip.id, status, status === "cancelled" ? { ...patch, endedBy: "operator" } : patch);
       const statusCopy = {
         accepted: t("urride.companyWs.tripAccepted"),
         arrived: t("urride.companyWs.tripArrived"),

@@ -8,6 +8,7 @@ import {
 } from "../../../Backend/services/marketplace/buyerMarketplaceService";
 import { fetchMarketplaceVerticalDiscovery } from "../../../Backend/services/marketplace/marketplaceVerticalService";
 import { MIN_QUERY_LENGTH, normalizeSearchQuery, rankSearchResults } from "../../../Backend/services/marketplace/productSearch";
+import { resizedImageUrl } from "../../../Backend/lib/imageProxy";
 import {
   addRecentMarketplaceSearch,
   clearRecentMarketplaceSearches,
@@ -340,7 +341,7 @@ export default function MarketplaceSearchOverlay({
                       className="kt-pressable flex w-full items-center gap-3 rounded-2xl bg-gray-50 px-3 py-2.5 text-left hover:bg-gray-100"
                     >
                       <span className="grid h-10 w-10 flex-none place-items-center overflow-hidden rounded-full bg-gray-200 text-gray-500">
-                        {store.logoUrl ? <img src={store.logoUrl} alt="" className="h-full w-full object-cover" /> : <Store size={17} />}
+                        {store.logoUrl ? <img src={resizedImageUrl(store.logoUrl, { width: 96, quality: 70 })} alt="" className="h-full w-full object-cover" /> : <Store size={17} />}
                       </span>
                       <span className="min-w-0 flex-1">
                         <span className="block truncate text-sm font-black text-gray-950">{store.name}</span>
@@ -404,7 +405,7 @@ function ResultRow({ row, onClick }) {
       className="kt-pressable flex w-full items-center gap-3 rounded-2xl bg-gray-50 px-3 py-2.5 text-left hover:bg-gray-100"
     >
       <span className="grid h-10 w-10 flex-none place-items-center overflow-hidden rounded-xl bg-gray-200 text-gray-500">
-        {row.image ? <img src={row.image} alt="" loading="lazy" decoding="async" className="h-full w-full object-cover" /> : <Icon size={17} />}
+        {row.image ? <img src={resizedImageUrl(row.image, { width: 96, quality: 70 })} alt="" loading="lazy" decoding="async" className="h-full w-full object-cover" /> : <Icon size={17} />}
       </span>
       <span className="min-w-0 flex-1">
         <span className="block truncate text-sm font-black text-gray-950">{row.name}</span>

@@ -11,6 +11,7 @@ import {
 } from "react-icons/hi2";
 
 import { readExploreSettings } from "../../../../Backend/services/explore/preferencesService";
+import { resizedImageUrl } from "../../../../Backend/lib/imageProxy";
 import { useI18n } from "../../../../i18n";
 import { t as i18nText } from "../../../../i18n/index";
 
@@ -246,7 +247,7 @@ export default function MessageComposer({ focused = false, onAction, onActivity,
       {attachment ? (
         <div className="mb-2 flex items-center gap-3 rounded-2xl border border-slate-200 bg-slate-50 p-2">
           {attachment.type === "image" ? (
-            <img src={attachment.mediaUrl} alt={t("messages.selectedAttachment")} className="h-12 w-12 rounded-xl object-cover" />
+            <img src={resizedImageUrl(attachment.mediaUrl, { width: 96, quality: 70 })} alt={t("messages.selectedAttachment")} className="h-12 w-12 rounded-xl object-cover" />
           ) : (
             <div className="flex h-12 w-12 items-center justify-center rounded-xl bg-rose-50 text-rose-600">
               <HiOutlineMicrophone />

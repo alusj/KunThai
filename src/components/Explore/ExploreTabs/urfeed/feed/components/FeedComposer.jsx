@@ -33,6 +33,7 @@ import { startPendingVideoReviewJob } from "../../../../../../Backend/services/e
 import { fetchExploreTopics } from "../../../../../../Backend/services/explore/topicService";
 import Avatar from "../../../../shared/Avatar";
 import VideoTrimmerScreen from "../../../../../shared/VideoTrimmerScreen";
+import useBodyScrollLock from "../../../../../shared/useBodyScrollLock";
 import { getAdvertObjectiveRequirement, hasAdvertCoordinates } from "../../../../shared/advertUtils";
 import AdvertComposerFields from "../composer/AdvertComposerFields";
 import CompactComposer from "../composer/CompactComposer";
@@ -526,6 +527,9 @@ export default function FeedComposer({ profile, creating, onSubmit }) {
   }, []);
 
   useBrowserBack(open, () => closeComposer(), "explore-composer");
+  // Freeze the background while the composer is open so the feed behind it is
+  // neither scrollable nor tappable.
+  useBodyScrollLock(open);
 
   useLayoutEffect(() => {
     if (!open) return undefined;
@@ -1978,6 +1982,8 @@ if (!isMobileVideoDevice) {
         // Rendered through a portal: the tab panels animate with transforms,
         // which would otherwise turn this fixed overlay into a panel-relative
         // box instead of a viewport one.
+        <>
+        <div aria-hidden="true" className="fixed inset-0 z-[79] bg-slate-950/40 backdrop-blur-[1px]" />
         <div
           className={`pointer-events-none fixed inset-x-0 z-[80] flex justify-center ${
             composerDisplay === "full"
@@ -2412,7 +2418,8 @@ if (!isMobileVideoDevice) {
               className="hidden"
             />
           </form>
-        </div>,
+        </div>
+        </>,
         document.body,
       ) : null}
 

@@ -1,4 +1,5 @@
 import { useSellerCustomerCare } from "../../../../../Backend/hooks/useSellerCustomerCare";
+import { resizedImageUrl } from "../../../../../Backend/lib/imageProxy";
 import RecentConversations from "./RecentConversations";
 import { useEffect, useMemo, useRef, useState } from "react";
 import { ImagePlus, Send, X } from "lucide-react";
@@ -278,7 +279,7 @@ export default function CustomerCare({ onBack } = {}) {
                 }`}
               >
                 {message.mediaType === "image" && message.mediaUrl ? (
-                  <img src={message.mediaUrl} alt={t("urmall.biz.care.msgAttachment")} className="mb-2 max-h-72 w-full rounded-xl object-cover" />
+                  <img src={resizedImageUrl(message.mediaUrl, { width: 720, quality: 72 })} alt={t("urmall.biz.care.msgAttachment")} className="mb-2 max-h-72 w-full rounded-xl object-cover" />
                 ) : null}
                 {message.text ? <p>{message.text}</p> : null}
                 <span className={`mt-1 block text-[10px] font-bold ${fromSeller ? "text-white/70" : "text-gray-400"}`}>

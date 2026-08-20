@@ -19,11 +19,29 @@ function mapTripNotification(trip) {
     id: `trip-${trip.id}:${trip.rawStatus || trip.status || trip.stage || "updated"}`,
     type: "trip",
     title: trip.title,
-    body: `${trip.status} - ${trip.stage}`,
-    meta: [trip.mode, trip.fare].filter(Boolean).join(" - "),
+    body: trip.stage || trip.status,
+    meta: [trip.mode, formatTime(trip.updatedAt || trip.createdAt)].filter(Boolean).join(" - "),
     fleetId: trip.fleetId,
-    createdAt: "",
+    tripId: trip.id,
+    actionLabel: "View trip",
+    createdAt: trip.updatedAt || trip.createdAt || "",
     unread: trip.priority === "live",
+  };
+}
+
+function mapPassengerNotification(row) {
+  return {
+    id: `passenger-alert-${row.id}`,
+    type: row.notification_type || "trip_update",
+    title: row.title || "Trip updated",
+    body: row.body || "Open your trip for the latest details.",
+    meta: formatTime(row.created_at),
+    fleetId: row.fleet_id || null,
+    tripId: row.trip_id || null,
+    notificationId: row.id,
+    actionLabel: row.trip_id ? "View trip" : row.fleet_id ? "View fleet" : "",
+    createdAt: row.created_at || "",
+    unread: row.status === "unread",
   };
 }
 
@@ -73,15 +91,51 @@ function sortNotifications(items = []) {
   });
 }
 
+function isMissingPassengerNotificationTable(error) {
+  return /transport_passenger_notifications|schema cache|relation .* does not exist/i.test(String(error?.message || ""));
+}
+
+async function fetchPassengerNotificationItems() {
+  const { data: authData } = await supabase.auth.getUser();
+  const passengerId = authData?.user?.id || "";
+  if (!passengerId) return { available: true, items: [] };
+
+  const { data, error } = await supabase
+    .from("transport_passenger_notifications")
+    .select("*")
+    .eq("passenger_id", passengerId)
+    .neq("status", "archived")
+    .order("created_at", { ascending: false })
+    .limit(40);
+
+  if (error && isMissingPassengerNotificationTable(error)) return { available: false, items: [] };
+  if (error) throw error;
+  return { available: true, items: (data || []).map(mapPassengerNotification) };
+}
+
+export async function markTransportPassengerNotificationRead(notificationId) {
+  if (!notificationId) return;
+  const { error } = await supabase
+    .from("transport_passenger_notifications")
+    .update({ status: "read", read_at: new Date().toISOString() })
+    .eq("id", notificationId)
+    .eq("status", "unread");
+
+  if (error && !isMissingPassengerNotificationTable(error)) throw error;
+}
+
 export async function fetchTransportNotifications(operatorAccount, companyAccount, options = {}) {
   const includePassenger = options.includePassenger !== false;
   const includeOperator = options.includeOperator !== false;
   const includeCompany = options.includeCompany !== false;
 
   const tripNotifications = includePassenger
-    ? (await fetchActiveTrips())
-      .filter((trip) => !["requested", "waiting_operator", "pending_confirmation"].includes(trip.rawStatus))
-      .map(mapTripNotification)
+    ? await fetchPassengerNotificationItems().then(async ({ available, items }) => {
+        if (available) return items;
+        return (await fetchActiveTrips())
+          .filter((trip) => !["requested", "waiting_operator", "pending_confirmation"].includes(trip.rawStatus))
+          .map(mapTripNotification);
+      })
     : [];
 
   const companyItems = includeCompany && companyAccount?.id
@@ -112,7 +166,11 @@ export async function fetchTransportNotifications(operatorAccount, companyAccoun
     throw error;
   }
 
-  return sortNotifications([...(data || []).map(mapOperatorAlert), ...companyItems, ...tripNotifications]);
+  return sortNotifications([
+    ...(data || []).filter((row) => row.alert_type !== "payment").map(mapOperatorAlert),
+    ...companyItems,
+    ...tripNotifications,
+  ]);
 }
 
 export async function fetchTransportOperationBadgeCount(operatorAccount, companyAccount) {

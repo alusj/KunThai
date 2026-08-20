@@ -888,7 +888,9 @@ export default function NearbyAreaScreen({
   backLabel = "Back to transport",
 }) {
   useI18n();
-  const [initialAreaCache] = useState(() => readAreaViewCache({ allowStale: !getNetworkStatus().online }));
+  // Stale-while-refresh: paint the last successful Area View immediately, then
+  // let the existing live subscriptions and fetch effects refresh it.
+  const [initialAreaCache] = useState(() => readAreaViewCache({ allowStale: true }));
   const [activeCategory, setActiveCategory] = useState("All");
   const [activeLocation, setActiveLocation] = useState(nearbyLocations[0]);
   const [locationPanelOpen, setLocationPanelOpen] = useState(false);

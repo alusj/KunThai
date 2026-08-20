@@ -10,9 +10,11 @@ import { readExploreSettings } from "./explore/preferencesService";
 
 export const BANNER_EVENT = "kuntai-notification-banner";
 export const OPEN_EXPLORE_SCREEN_EVENT = "kuntai-open-explore-screen";
+export const OPEN_MARKETPLACE_SCREEN_EVENT = "kuntai-open-marketplace-screen";
 
 const activeContexts = new Set();
 let pendingExploreScreen = "";
+let pendingMarketplaceScreen = "";
 
 export function setBannerContext(key, active) {
   if (!key) return;
@@ -58,5 +60,22 @@ export function requestExploreScreen(screen) {
 export function consumePendingExploreScreen() {
   const screen = pendingExploreScreen;
   pendingExploreScreen = "";
+  return screen;
+}
+
+// Marketplace deep-link: a cross-service banner (e.g. a new UrMall message
+// arriving while the user is in UrRide) can ask the app to switch to UrMall and
+// land on a specific screen. Mirrors requestExploreScreen: the pending value
+// survives UrMall mounting lazily and is consumed on mount, while the event
+// covers the already-mounted case.
+export function requestMarketplaceScreen(screen) {
+  pendingMarketplaceScreen = String(screen || "");
+  window.dispatchEvent(new CustomEvent("kuntai-return-main-page", { detail: { page: "marketplace" } }));
+  window.dispatchEvent(new CustomEvent(OPEN_MARKETPLACE_SCREEN_EVENT, { detail: { screen: pendingMarketplaceScreen } }));
+}
+
+export function consumePendingMarketplaceScreen() {
+  const screen = pendingMarketplaceScreen;
+  pendingMarketplaceScreen = "";
   return screen;
 }

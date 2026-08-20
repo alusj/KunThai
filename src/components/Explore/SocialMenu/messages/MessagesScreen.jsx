@@ -1,4 +1,4 @@
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 
 import { useExploreMessages } from "../../../../Backend/hooks/useExploreMessages";
 import { useI18n } from "../../../../i18n";
@@ -9,6 +9,8 @@ import ConversationRow from "./ConversationRow";
 import ConversationScreen from "./ConversationScreen";
 import MessageTabs from "./MessageTabs";
 
+const CONVERSATION_TRANSITION_MS = 280;
+
 export default function MessagesScreen({ currentProfile, hideHeader = false, initialRecipient, onConversationActiveChange, onViewProfile }) {
   const { t } = useI18n();
   const [tab, setTab] = useState("inbox");
@@ -16,10 +18,52 @@ export default function MessagesScreen({ currentProfile, hideHeader = false, ini
   const currentUserId = currentProfile?.userId || "";
   const activeItems = tab === "requests" ? messages.requests : messages.inbox;
 
+  // Slide the conversation in/out over the list (same feel as other back-nav)
+  // instead of an instant swap. The outgoing conversation and its last messages
+  // are kept for the exit animation, then dropped.
+  const [screenAction, setScreenAction] = useState("idle");
+  const [closingConversation, setClosingConversation] = useState(null);
+  const [closingMessages, setClosingMessages] = useState([]);
+  const previousConversationRef = useRef(null);
+  const lastMessagesRef = useRef([]);
+  const visibleConversation = messages.activeConversation || closingConversation;
+
   useEffect(() => {
     onConversationActiveChange?.(Boolean(messages.activeConversation));
     return () => onConversationActiveChange?.(false);
   }, [messages.activeConversation, onConversationActiveChange]);
+
+  // Keep the latest messages of the open conversation so the exit animation can
+  // still show them (closeConversation clears messages synchronously).
+  useEffect(() => {
+    if (messages.activeConversation) lastMessagesRef.current = messages.messages;
+  }, [messages.activeConversation, messages.messages]);
+
+  useEffect(() => {
+    const current = messages.activeConversation;
+    const previous = previousConversationRef.current;
+    previousConversationRef.current = current;
+
+    if (current) {
+      setScreenAction("push");
+      setClosingConversation(null);
+      return undefined;
+    }
+
+    if (previous) {
+      setClosingConversation(previous);
+      setClosingMessages(lastMessagesRef.current);
+      setScreenAction("pop");
+      const timer = window.setTimeout(() => {
+        setClosingConversation(null);
+        setClosingMessages([]);
+        setScreenAction("idle");
+      }, CONVERSATION_TRANSITION_MS);
+      return () => window.clearTimeout(timer);
+    }
+
+    return undefined;
+  }, [messages.activeConversation]);
 
   useEffect(() => {
     if (tab === "inbox" && !messages.inbox.length && messages.requests.length) {
@@ -27,56 +71,70 @@ export default function MessagesScreen({ currentProfile, hideHeader = false, ini
     }
   }, [messages.inbox.length, messages.requests.length, tab]);
 
-  if (messages.activeConversation) {
-    return (
-      <ConversationScreen
-        conversation={messages.activeConversation}
-        currentUserId={currentUserId}
-        messages={messages.messages}
-        onBack={messages.closeConversation}
-        onAction={messages.handleConversationAction}
-        onSend={messages.sendMessage}
-        onActivity={messages.setActivity}
-        onViewProfile={onViewProfile}
-      />
-    );
-  }
+  const panelClass = screenAction === "push"
+    ? "kt-explore-stack-enter"
+    : screenAction === "pop"
+      ? "kt-explore-stack-leave-right"
+      : "";
+  const conversationMessages = messages.activeConversation ? messages.messages : closingMessages;
 
   return (
-    <div className="flex h-full min-h-0 flex-col overflow-hidden">
-      {!hideHeader ? <div className="shrink-0"><SocialScreenHeader title={t("messages.headerTitle")} subtitle={t("messages.headerSubtitle")} /></div> : null}
+    <div className="relative flex h-full min-h-0 flex-col overflow-hidden">
+      <div
+        className="flex h-full min-h-0 flex-col overflow-hidden"
+        aria-hidden={visibleConversation ? true : undefined}
+        inert={visibleConversation ? "true" : undefined}
+      >
+        {!hideHeader ? <div className="shrink-0"><SocialScreenHeader title={t("messages.headerTitle")} subtitle={t("messages.headerSubtitle")} /></div> : null}
 
-      <div className="min-h-0 w-full flex-1 space-y-4 overflow-y-auto overscroll-contain px-4 py-4 sm:px-5">
-        <MessageTabs
-          active={tab}
-          requestCount={messages.requests.length}
-          onChange={setTab}
-        />
-
-        {messages.error ? <ErrorState message={messages.error} onRetry={messages.reload} /> : null}
-
-        {messages.loading ? (
-          <MessagesSkeleton />
-        ) : !activeItems.length ? (
-          <EmptyState
-            title={tab === "requests" ? t("messages.noRequests") : t("messages.noConversations")}
-            message={tab === "requests" ? t("messages.noRequestsMsg") : t("messages.noConversationsMsg")}
+        <div className="min-h-0 w-full flex-1 space-y-4 overflow-y-auto overscroll-contain px-4 py-4 sm:px-5">
+          <MessageTabs
+            active={tab}
+            requestCount={messages.requests.length}
+            onChange={setTab}
           />
-        ) : (
-          <div className="space-y-3">
-            {activeItems.map((conversation) => (
-              <ConversationRow
-                key={conversation.id}
-                conversation={conversation}
-                currentUserId={currentUserId}
-                onOpen={messages.openConversation}
-                onRespond={messages.respondToRequest}
-                request={tab === "requests"}
-              />
-            ))}
-          </div>
-        )}
+
+          {messages.error ? <ErrorState message={messages.error} onRetry={messages.reload} /> : null}
+
+          {messages.loading ? (
+            <MessagesSkeleton />
+          ) : !activeItems.length ? (
+            <EmptyState
+              title={tab === "requests" ? t("messages.noRequests") : t("messages.noConversations")}
+              message={tab === "requests" ? t("messages.noRequestsMsg") : t("messages.noConversationsMsg")}
+            />
+          ) : (
+            <div className="space-y-3">
+              {activeItems.map((conversation) => (
+                <ConversationRow
+                  key={conversation.id}
+                  conversation={conversation}
+                  currentUserId={currentUserId}
+                  onOpen={messages.openConversation}
+                  onRespond={messages.respondToRequest}
+                  request={tab === "requests"}
+                />
+              ))}
+            </div>
+          )}
+        </div>
       </div>
+
+      {visibleConversation ? (
+        <div className={`absolute inset-0 z-10 ${panelClass}`}>
+          <ConversationScreen
+            key={visibleConversation.id}
+            conversation={visibleConversation}
+            currentUserId={currentUserId}
+            messages={conversationMessages}
+            onBack={messages.closeConversation}
+            onAction={messages.handleConversationAction}
+            onSend={messages.sendMessage}
+            onActivity={messages.setActivity}
+            onViewProfile={onViewProfile}
+          />
+        </div>
+      ) : null}
     </div>
   );
 }

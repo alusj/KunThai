@@ -1,5 +1,6 @@
 import supabase from "../../lib/supabaseClient";
 import { isMissingColumn } from "../explore/errors";
+import { buildSellerProductNotificationSignals } from "./marketplaceNotificationModels";
 import { readRegisteredBusiness } from "./sellerRegistrationService";
 
 const PROMOTION_EXPIRY_WARNING_MS = 3 * 24 * 60 * 60 * 1000;
@@ -98,7 +99,7 @@ export async function fetchSellerActivities() {
   if (!business) return [];
 
   const historyCutoff = new Date(Date.now() - PROMOTION_HISTORY_MS).toISOString();
-  const [activityResult, promotionResult] = await Promise.all([
+  const [activityResult, promotionResult, productResult] = await Promise.all([
     supabase
       .from("marketplace_activities")
       .select("*")
@@ -112,11 +113,21 @@ export async function fetchSellerActivities() {
       .gte("created_at", historyCutoff)
       .order("created_at", { ascending: false })
       .limit(30),
+    supabase
+      .from("marketplace_products")
+      .select("id,name,status,stock,low_stock_alert,views,sales,published_at,created_at,updated_at")
+      .eq("business_id", business.id)
+      .eq("status", "active")
+      .order("updated_at", { ascending: false })
+      .limit(100),
   ]);
 
   if (activityResult.error) throw new Error(activityResult.error.message);
 
-  const persistedActivities = (activityResult.data || []).filter((activity) => !activity.dismissed_at).map((activity) => ({
+  const persistedActivities = (activityResult.data || [])
+    .filter((activity) => !activity.dismissed_at)
+    .filter((activity) => !["payment", "payout", "refund", "transaction"].includes(String(activity.activity_type || "").toLowerCase()))
+    .map((activity) => ({
     id: activity.id,
     type: activity.activity_type,
     title: activity.title,
@@ -135,8 +146,14 @@ export async function fetchSellerActivities() {
   const promotionActivities = promotionResult.error
     ? []
     : buildPromotionLifecycleActivities(promotionResult.data || []);
+  const productSignalActivities = productResult.error
+    ? []
+    : buildSellerProductNotificationSignals(productResult.data || []).map((activity) => ({
+        ...activity,
+        time: formatActivityDate(activity.createdAt),
+      }));
 
-  return [...persistedActivities, ...promotionActivities]
+  return [...persistedActivities, ...promotionActivities, ...productSignalActivities]
     .sort((a, b) => b.sortTimestamp - a.sortTimestamp)
     .slice(0, 30);
 }

@@ -24,6 +24,7 @@ import { AnimatePresence, motion } from "framer-motion";
 import { FaFacebookF, FaInstagram, FaTiktok, FaTwitter, FaWhatsapp, FaYoutube } from "react-icons/fa";
 
 import { normalizeSocialLinks } from "../../../../Backend/services/explore/socialLinks";
+import { resizedImageUrl } from "../../../../Backend/lib/imageProxy";
 import { getKunThaiPublicUserId } from "../../../../Backend/services/identityCodeService";
 import {
   fetchVisibilityCreditPackages,
@@ -847,7 +848,7 @@ function getCoverStyle(coverUrl) {
   }
 
   return {
-    backgroundImage: `linear-gradient(120deg, rgba(15,23,42,0.08), rgba(255,255,255,0.12)), url("${value}")`,
+    backgroundImage: `linear-gradient(120deg, rgba(15,23,42,0.08), rgba(255,255,255,0.12)), url("${resizedImageUrl(value, { width: 1080, quality: 72 })}")`,
     backgroundSize: "cover",
     backgroundPosition: "center",
   };

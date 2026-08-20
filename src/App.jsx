@@ -29,6 +29,8 @@ import {
   verifyFlutterwavePaymentReturn,
 } from "./Backend/services/visibilityCreditService";
 import { showToast } from "./Backend/services/toastService";
+import { ensureExploreProfile } from "./Backend/services/explore/profileService";
+import { preloadMainDashboardData } from "./Backend/services/dashboardPreloadService";
 import { haptics } from "./Backend/services/feedbackService";
 import { canStartNavigationGesture, navigationGesturesLocked } from "./Backend/services/gestureArbitration";
 import { hasUnstableNetwork, areGlobalNetworkToastsSuppressed, runConnectivityChecks } from "./Backend/services/networkService";
@@ -37,6 +39,7 @@ import {
   readReturningUserActivity,
   shouldShowReturningUserIntro,
 } from "./Backend/services/returningUserIntroService";
+import { isStartupDestinationReady } from "./Backend/services/startupRevealService";
 import supabase from "./Backend/lib/supabaseClient";
 import { t as i18nText } from "./i18n/index";
 
@@ -55,6 +58,7 @@ const PAGE_LOADERS = {
   marketplace: loadMarketplace,
   transport: loadTransport,
 };
+const PRELOADED_MAIN_PAGES = new Set();
 const Explore = lazy(loadExplore);
 const Marketplace = lazy(loadMarketplace);
 const Transport = lazy(loadTransport);
@@ -63,6 +67,13 @@ function normalizeMainPage(value) {
   const page = String(value || "").toLowerCase();
   if (page === "urmall") return "marketplace";
   return PAGE_ORDER.includes(page) ? page : "";
+}
+
+function canPreloadMainPages() {
+  if (typeof navigator === "undefined" || navigator.onLine === false) return false;
+  const connection = navigator.connection || navigator.mozConnection || navigator.webkitConnection;
+  const effectiveType = String(connection?.effectiveType || "").toLowerCase();
+  return connection?.saveData !== true && effectiveType !== "slow-2g" && effectiveType !== "2g";
 }
 
 function getMainPageFromHash(hashValue = "") {
@@ -273,25 +284,43 @@ export default function App() {
   const paymentReturnHandledRef = useRef(false);
   const [accountControl, setAccountControl] = useState(null);
   const [twoFactorPending, setTwoFactorPending] = useState(null);
+  const [twoFactorChallengeRequired, setTwoFactorChallengeRequired] = useState(null);
+  const [startupIntroOpen, setStartupIntroOpen] = useState(true);
   const [returningIntroOpen, setReturningIntroOpen] = useState(false);
+  const [activePageReady, setActivePageReady] = useState(() => PRELOADED_MAIN_PAGES.has(page));
   const appGestureRef = useRef(null);
   const pagePanelRef = useRef(null);
   const userId = user?.id || "";
   const guestSession = Boolean(user?.is_anonymous);
+  const introUserIdRef = useRef(userId);
   setNotificationSeenUser(userId);
+
+  const handleIntroComplete = useCallback(() => {
+    setStartupIntroOpen(false);
+    setReturningIntroOpen(false);
+  }, []);
+
+  const handleTwoFactorResolved = useCallback((required) => {
+    setTwoFactorChallengeRequired(Boolean(required));
+  }, []);
 
   useEffect(() => {
     if (page === "transport") setTransportMounted(true);
   }, [page]);
 
   useLayoutEffect(() => {
-    setReturningIntroOpen(false);
-    if (!userId || guestSession || !onboardingComplete || twoFactorPending !== false) return undefined;
+    const previousUserId = introUserIdRef.current;
+    introUserIdRef.current = userId;
+    if (userId && userId !== previousUserId) setStartupIntroOpen(true);
+  }, [userId]);
+
+  useLayoutEffect(() => {
+    if (!userId || guestSession || !onboardingComplete || twoFactorPending !== false) {
+      setReturningIntroOpen(false);
+      return undefined;
+    }
 
     const now = Date.now();
-    if (shouldShowReturningUserIntro(userId, now)) {
-      setReturningIntroOpen(true);
-    }
     markReturningUserActivity(userId, now);
 
     let backgroundedAt = 0;
@@ -412,6 +441,7 @@ export default function App() {
   // Each new sign-in re-checks whether the account needs its authenticator code.
   useEffect(() => {
     setTwoFactorPending(null);
+    setTwoFactorChallengeRequired(null);
   }, [userId]);
 
   // The inviter's credit is only granted once the invited account is fully
@@ -432,6 +462,15 @@ export default function App() {
       .catch(() => {});
   }, [guestSession, userId, onboardingComplete]);
 
+  // Every fully onboarded KunThai account gets one shared public identity,
+  // regardless of whether its first dashboard is Explore, UrMall, or UrRide.
+  // This keeps UrFeed people discovery complete for returning/legacy accounts
+  // that may have reached another dashboard before Explore was initialized.
+  useEffect(() => {
+    if (!userId || guestSession || !onboardingComplete) return;
+    ensureExploreProfile(user).catch(() => {});
+  }, [guestSession, onboardingComplete, user, userId]);
+
   // A guest visit lives for one tab session only. When the tab was closed and
   // the visitor returns with a leftover anonymous session, the visit ends
   // automatically: the anonymous account is deleted and Login is shown.
@@ -450,8 +489,72 @@ export default function App() {
   }, []);
 
   useEffect(() => {
-    PAGE_LOADERS[page]?.();
+    let active = true;
+    if (!PRELOADED_MAIN_PAGES.has(page)) setActivePageReady(false);
+
+    Promise.resolve(PAGE_LOADERS[page]?.())
+      .then(() => PRELOADED_MAIN_PAGES.add(page))
+      .catch(() => {
+        // Suspense and the root error boundary own the visible retry path.
+      })
+      .finally(() => {
+        if (active) setActivePageReady(true);
+      });
+
+    return () => {
+      active = false;
+    };
   }, [page]);
+
+  useEffect(() => {
+    if (!onboardingComplete || twoFactorPending !== false || !canPreloadMainPages()) return undefined;
+
+    let cancelled = false;
+    let startTimer = null;
+    let idleHandle = null;
+    const pendingPages = PAGE_ORDER.filter(
+      (candidate) => candidate !== page && !PRELOADED_MAIN_PAGES.has(candidate),
+    );
+
+    const scheduleNext = () => {
+      if (cancelled || !pendingPages.length || !canPreloadMainPages()) return;
+
+      const preloadNext = () => {
+        if (cancelled || document.visibilityState === "hidden") return;
+        const nextPage = pendingPages.shift();
+        if (!nextPage) return;
+
+        PRELOADED_MAIN_PAGES.add(nextPage);
+        Promise.resolve(PAGE_LOADERS[nextPage]?.())
+          .then(() => preloadMainDashboardData(nextPage, { userId }))
+          .catch(() => {
+            // Navigation still has its regular Suspense/loading path if a
+            // speculative preload fails.
+            PRELOADED_MAIN_PAGES.delete(nextPage);
+          })
+          .finally(scheduleNext);
+      };
+
+      if (typeof window.requestIdleCallback === "function") {
+        idleHandle = window.requestIdleCallback(preloadNext, { timeout: 2200 });
+      } else {
+        idleHandle = window.setTimeout(preloadNext, 650);
+      }
+    };
+
+    // Give the visible dashboard priority, then fetch one inactive main chunk
+    // per idle period. Hidden screens are not mounted, so they cannot start
+    // subscriptions, media, GPS, or other background side effects.
+    startTimer = window.setTimeout(scheduleNext, 700);
+
+    return () => {
+      cancelled = true;
+      window.clearTimeout(startTimer);
+      if (idleHandle == null) return;
+      if (typeof window.cancelIdleCallback === "function") window.cancelIdleCallback(idleHandle);
+      else window.clearTimeout(idleHandle);
+    };
+  }, [onboardingComplete, page, twoFactorPending, userId]);
 
   useEffect(() => {
     try {
@@ -581,40 +684,70 @@ export default function App() {
     };
   }, [page]);
 
+  const startupDestinationReady = isStartupDestinationReady({
+    activePageReady,
+    authLoading: loading,
+    guestSession,
+    hasUser: Boolean(user),
+    onboardingChecked,
+    onboardingComplete,
+    onboardingLoading,
+    twoFactorChallengeRequired,
+    twoFactorPassed: twoFactorPending === false,
+  });
+  const introOpen = startupIntroOpen || returningIntroOpen;
+
+  function withStartupIntro(content) {
+    return (
+      <>
+        {content}
+        {introOpen ? (
+          <ReturningUserIntro
+            key={startupIntroOpen ? `startup:${userId || "visitor"}` : "returning"}
+            ready={startupIntroOpen ? startupDestinationReady : true}
+            onComplete={handleIntroComplete}
+          />
+        ) : null}
+      </>
+    );
+  }
+
   // While auth is still resolving we do not yet know whether this leads to the
   // login screen, onboarding, or the app - so show a plain backdrop rather than
   // the app skeleton, which never matches the login or onboarding screens.
   if (loading) {
-    return <div className="kt-mobile-viewport bg-slate-100" aria-label={i18nText("ui.literals.k721d964bf95b")} />;
+    return withStartupIntro(
+      <div className="kt-mobile-viewport bg-slate-100" aria-label={i18nText("ui.literals.k721d964bf95b")} />,
+    );
   }
 
   if (user && !guestSession && (!onboardingChecked || onboardingLoading) && !onboardingReveal) {
     // Users heading into onboarding get the onboarding backdrop; only a
     // returning, onboarded user waiting for their page keeps the app skeleton.
     if (!user.user_metadata?.onboarding_complete) {
-      return (
+      return withStartupIntro(
         <div
           className="kt-mobile-viewport bg-[linear-gradient(180deg,#f7fafc_0%,#eff6ff_28%,#f8fafc_100%)]"
           aria-label={i18nText("ui.literals.k1467547ea632")}
-        />
+        />,
       );
     }
-    return <AppLoading page={page} />;
+    return withStartupIntro(<AppLoading page={page} />);
   }
   if (!user) {
-    return <Login />;
+    return withStartupIntro(<Login />);
   }
 
   if (!guestSession && twoFactorPending !== false) {
-    return (
-      <TwoFactorGate key={userId} user={user}>
+    return withStartupIntro(
+      <TwoFactorGate key={userId} user={user} onResolved={handleTwoFactorResolved}>
         <TwoFactorPassed onPassed={() => setTwoFactorPending(false)} />
-      </TwoFactorGate>
+      </TwoFactorGate>,
     );
   }
 
   if (!guestSession && !onboardingComplete && !onboardingReveal) {
-    return (
+    return withStartupIntro(
       <OnboardingFlow
         profile={onboardingProfile}
         onComplete={(origin, finishedProfile) => {
@@ -627,7 +760,7 @@ export default function App() {
           }
           refreshOnboarding();
         }}
-      />
+      />,
     );
   }
 
@@ -637,13 +770,13 @@ export default function App() {
     && (restrictedSectors.includes("all") || restrictedSectors.includes(page));
   if (blocksEverything || blocksCurrentPage) {
     const availablePage = blocksEverything ? "" : PAGE_ORDER.find((item) => !restrictedSectors.includes(item));
-    return (
+    return withStartupIntro(
       <AccountRestrictionNotice
         control={accountControl}
         availablePage={availablePage}
         onOpenAvailablePage={() => availablePage && setPage(availablePage)}
         onSignOut={() => supabase.auth.signOut({ scope: "local" })}
-      />
+      />,
     );
   }
 
@@ -801,7 +934,7 @@ export default function App() {
     return `${mainPageDirection === "backward" ? "kt-main-slide-backward" : "kt-main-slide-forward"} block min-h-screen`;
   }
 
-  return (
+  return withStartupIntro(
     <div
       className={`kt-mobile-viewport w-full max-w-full overflow-x-clip bg-slate-100 ${onboardingReveal ? "kt-main-grow-from-onboarding" : ""}`}
       style={onboardingReveal ? {
@@ -870,8 +1003,7 @@ export default function App() {
         />
       ) : null}
       <NotificationBannerHost userId={userId} />
-      {returningIntroOpen ? <ReturningUserIntro onComplete={() => setReturningIntroOpen(false)} /> : null}
-    </div>
+    </div>,
   );
 }
 

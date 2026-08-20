@@ -15,6 +15,7 @@ import {
 } from "react-icons/fi";
 
 import AppPortal from "../../shared/AppPortal";
+import useBodyScrollLock from "../../shared/useBodyScrollLock";
 import {
   AddressAreaResolutionCard,
   AddressAreaStatusIcon,
@@ -129,6 +130,9 @@ function getBookingPickerLabels(kind, bookingMode) {
 
 export default function TransportBookingDrawer({ open, target, onClose, onCreated, onLocateArea }) {
   useI18n();
+  // Freeze the page behind the ride-booking drawer so it can't scroll or be
+  // tapped while the drawer is open.
+  useBodyScrollLock(open);
   const initialSelection = useMemo(() => selectionFromTarget(target), [target]);
   const [selection, setSelection] = useState(initialSelection);
   const [availableFleets, setAvailableFleets] = useState([]);
