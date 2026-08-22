@@ -627,7 +627,6 @@ export default function ProfileHeaderCard({
                 <div className="min-w-0">
                   <p className="text-xs font-black uppercase tracking-[0.18em] text-sky-700">{t("profile.creditCard")}</p>
                   <h2 id="buy-credits-title" className="mt-1 text-xl font-black text-slate-950">{t("profile.chooseCreditPackage")}</h2>
-                  <p className="mt-1 text-sm font-semibold text-slate-500">{t("profile.completeOnFlutterwave")}</p>
                 </div>
               </div>
 

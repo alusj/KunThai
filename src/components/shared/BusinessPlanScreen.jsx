@@ -446,7 +446,7 @@ export default function BusinessPlanScreen({ surface, entityId, entityName = "Yo
       ) : null}
 
       {selectedPlan ? (
-        <div className="fixed inset-0 z-[1600] flex items-end justify-center bg-slate-950/55 p-4 backdrop-blur-sm sm:items-center" role="presentation">
+        <div className="fixed inset-0 z-[1600] flex items-center justify-center bg-slate-950/55 p-4 backdrop-blur-sm" role="presentation">
           <section role="dialog" aria-modal="true" aria-label="Confirm plan change" className="w-full max-w-md rounded-[28px] bg-white p-6 shadow-2xl">
             <div className="flex items-start justify-between gap-4">
               <span className={`grid h-12 w-12 place-items-center rounded-2xl ${PLAN_ICON_STYLES[selectedPlan.planCode]}`}>

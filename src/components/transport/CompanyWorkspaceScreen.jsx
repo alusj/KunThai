@@ -34,6 +34,7 @@ import { HiOutlineCheckCircle } from "react-icons/hi2";
 
 import AppBackTab from "../shared/AppBackTab";
 import AppPortal from "../shared/AppPortal";
+import HealthScoreCard from "../Marketplace/MarketplaceHeader/Business/MyBizDashboardHeader/HealthScoreCard";
 import { useI18n, t } from "../../i18n";
 import { useNavigationStack } from "../../Backend/hooks/useNavigationStack";
 import { useBrowserBack } from "../../Backend/hooks/useBrowserBack";
@@ -260,6 +261,32 @@ export default function CompanyWorkspaceScreen({ company, onBack, onCompanyLeft,
     ],
     [acceptedOperators.length, canManagePlans, company?.verificationStatus, fleets.length, pendingRequests.length, planState?.entitlement?.planName],
   );
+
+  // Company setup completion, mirroring UrMall's store-setup widget and the solo
+  // operator's fleet-setup card, so a company sees and finishes the details that
+  // build trust and unlock verification.
+  const companyHealth = useMemo(() => {
+    const checklist = [
+      { label: t("urride.companyWs.health.name"), complete: Boolean(company?.companyName) },
+      { label: t("urride.companyWs.health.type"), complete: Boolean(company?.companyType) },
+      { label: t("urride.companyWs.health.base"), complete: Boolean(company?.city || company?.address) },
+      { label: t("urride.companyWs.health.areas"), complete: (company?.operatingAreas || []).length > 0 },
+      { label: t("urride.companyWs.health.policy"), complete: Boolean(company?.supportPolicy) },
+      { label: t("urride.companyWs.health.documents"), complete: Object.keys(company?.documents || {}).length > 0 },
+      { label: t("urride.companyWs.health.fleet"), complete: fleets.length > 0 },
+      { label: t("urride.companyWs.health.operator"), complete: acceptedOperators.length > 0 },
+      { label: t("urride.companyWs.health.verification"), complete: company?.verificationStatus === "verified" },
+    ];
+    const completeCount = checklist.filter((item) => item.complete).length;
+    const score = Math.round((completeCount / checklist.length) * 100);
+    return {
+      score,
+      label: t("urride.companyWs.health.label"),
+      nextStep: score >= 100 ? t("urride.companyWs.health.complete") : t("urride.companyWs.health.nextStep"),
+      missingItems: checklist.filter((item) => !item.complete).map((item) => item.label),
+    };
+  }, [company, fleets.length, acceptedOperators.length]);
+
   const menuItems = useMemo(
     () => [
       {
@@ -835,7 +862,13 @@ export default function CompanyWorkspaceScreen({ company, onBack, onCompanyLeft,
         </main>
       ) : (
         <main className="w-full px-4 py-5 sm:px-6 lg:px-8">
-          {!basicOperator ? <section className="rounded-3xl border border-blue-100 bg-white p-5 shadow-sm">
+          {!basicOperator ? <>
+          {companyHealth.score < 100 ? (
+            <div className="mb-4">
+              <HealthScoreCard health={companyHealth} onEditProfile={openCompanyEditor} />
+            </div>
+          ) : null}
+          <section className="rounded-3xl border border-blue-100 bg-white p-5 shadow-sm">
             <div className="flex flex-col gap-4 lg:flex-row lg:items-end lg:justify-between">
               <div className="min-w-0">
                 <p className="text-xs font-black uppercase tracking-wide text-blue-700">{company.companyCode}</p>
@@ -854,7 +887,8 @@ export default function CompanyWorkspaceScreen({ company, onBack, onCompanyLeft,
                 <MetricCard key={metric.label} metric={metric} />
               ))}
             </div>
-          </section> : null}
+          </section>
+          </> : null}
 
          <section className={basicOperator ? "" : "mt-4"}>
             {statusMessage || localStatus ? (
