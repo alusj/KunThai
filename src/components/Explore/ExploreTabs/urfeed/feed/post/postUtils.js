@@ -1,9 +1,10 @@
 import { haptics, sounds } from "../../../../../../Backend/services/feedbackService";
+import { appendVisibilityReferral } from "../../../../../../Backend/services/visibilityCreditService";
 
 export function getPostUrl(postId) {
   const url = new URL(window.location.href);
   url.hash = `post-${postId}`;
-  return url.toString();
+  return appendVisibilityReferral(url.toString());
 }
 
 export async function copyPostLink(postId) {

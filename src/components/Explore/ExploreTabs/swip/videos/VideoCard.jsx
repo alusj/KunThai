@@ -562,21 +562,20 @@ export default function VideoCard({
     const video = videoRef.current;
     if (!video) return;
 
-    if (needsSoundUnlock || video.muted || video.volume === 0) {
-      video.muted = false;
-      video.volume = 1;
-      setNeedsSoundUnlock(false);
-      video.play().catch(() => setNeedsSoundUnlock(true));
-    } else if (video.paused) {
+    // A plain tap simply toggles play/pause. The options deck is reserved for
+    // tap-and-hold; double-tap stays reserved for Like.
+    if (video.paused) {
+      // Resuming also lifts any pending mute lock so the clip returns with
+      // sound rather than silently.
+      if (needsSoundUnlock || video.muted || video.volume === 0) {
+        video.muted = false;
+        video.volume = 1;
+        setNeedsSoundUnlock(false);
+      }
       requestActivePlayback({ sound: true });
+    } else {
+      video.pause();
     }
-
-    // A normal surface tap reveals the compact actions. Double-tap remains
-    // reserved for Like, while explicit buttons and the scrubber stop bubbling.
-    setActionMenuOpen(false);
-    setActionMenuClosing(false);
-    setQuickDeckClosing(false);
-    setQuickDeckOpen(true);
   }
 
   function triggerDoubleTapLike() {

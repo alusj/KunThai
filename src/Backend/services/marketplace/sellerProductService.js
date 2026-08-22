@@ -2,6 +2,7 @@ import supabase from "../../lib/supabaseClient";
 import { getActiveCountryProfile } from "../../../data/globalCountryProfiles";
 import { isMissingColumn } from "../explore/errors";
 import {
+  appendVisibilityReferral,
   assertVisibilityCreditsAvailable,
   MINIMUM_VISIBILITY_CREDITS,
   normalizeVisibilityCreditSpend,
@@ -707,7 +708,7 @@ export function createSellerProductShareLink(product) {
   const origin = typeof window === "undefined" ? "" : window.location.origin;
   const productId = encodeURIComponent(product?.id || "");
   if (!origin || !productId) return "";
-  return `${origin}/#urmall/product/${productId}`;
+  return appendVisibilityReferral(`${origin}/#urmall/product/${productId}`);
 }
 
 export async function promoteSellerProduct(product, options = {}) {

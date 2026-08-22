@@ -1,5 +1,7 @@
 import { useEffect, useRef, useState } from "react";
 
+import { appendVisibilityReferral } from "../../../../Backend/services/visibilityCreditService";
+
 import { useExploreFeed } from "../../../../Backend/hooks/useExploreFeed";
 import { useExploreFollows } from "../../../../Backend/hooks/useExploreFollows";
 import { useExploreFollowStats } from "../../../../Backend/hooks/useExploreFollowStats";
@@ -48,7 +50,7 @@ function shareProfile(values, t) {
   const data = {
     title: t("profile.shareTitle", { name: values.displayName || t("feed.profileFallback") }),
     text: values.bio || t("profile.shareText", { username: values.username || t("post.userFallback") }),
-    url: url.toString(),
+    url: appendVisibilityReferral(url.toString()),
   };
 
   if (navigator.share) {

@@ -5,6 +5,7 @@ import {
   Building2,
   CalendarClock,
   Check,
+  ChevronRight,
   ClipboardList,
   Clock3,
   Copy,
@@ -248,9 +249,16 @@ export default function CompanyWorkspaceScreen({ company, onBack, onCompanyLeft,
       { label: t("urride.companyWs.metricFleets"), value: fleets.length, icon: Truck, tone: "emerald" },
       { label: t("urride.companyWs.metricOperators"), value: acceptedOperators.length, icon: UsersRound, tone: "blue" },
       { label: t("urride.companyWs.metricRequests"), value: pendingRequests.length, icon: ClipboardList, tone: "amber" },
+      ...(canManagePlans ? [{
+        label: "Plan",
+        value: planState?.entitlement?.planName || "Free",
+        icon: Crown,
+        tone: "blue",
+        onClick: () => openMenuScreen("plans"),
+      }] : []),
       { label: t("urride.companyWs.metricStatus"), value: company?.verificationStatus || t("urride.companyWs.statusNotStarted"), icon: ShieldCheck, tone: "slate" },
     ],
-    [acceptedOperators.length, company?.verificationStatus, fleets.length, pendingRequests.length],
+    [acceptedOperators.length, canManagePlans, company?.verificationStatus, fleets.length, pendingRequests.length, planState?.entitlement?.planName],
   );
   const menuItems = useMemo(
     () => [
@@ -1454,19 +1462,32 @@ function formatDocumentValue(value) {
 
 function MetricCard({ metric }) {
   const Icon = metric.icon;
-  return (
-    <div className="rounded-2xl border border-slate-100 bg-slate-50 p-4">
-      <div className="flex items-center gap-3">
-        <span className="flex h-10 w-10 items-center justify-center rounded-2xl bg-white text-blue-700 shadow-sm">
-          <Icon size={20} />
-        </span>
-        <div className="min-w-0">
-          <p className="text-xs font-black uppercase tracking-wide text-slate-400">{metric.label}</p>
-          <p className="mt-1 truncate text-xl font-black text-slate-950">{metric.value}</p>
-        </div>
+  const body = (
+    <div className="flex items-center gap-3">
+      <span className="flex h-10 w-10 items-center justify-center rounded-2xl bg-white text-blue-700 shadow-sm">
+        <Icon size={20} />
+      </span>
+      <div className="min-w-0 flex-1">
+        <p className="text-xs font-black uppercase tracking-wide text-slate-400">{metric.label}</p>
+        <p className="mt-1 truncate text-xl font-black text-slate-950">{metric.value}</p>
       </div>
+      {metric.onClick ? <ChevronRight size={18} className="shrink-0 text-blue-400" /> : null}
     </div>
   );
+
+  if (metric.onClick) {
+    return (
+      <button
+        type="button"
+        onClick={metric.onClick}
+        className="rounded-2xl border border-blue-100 bg-blue-50 p-4 text-left transition-all duration-300 hover:-translate-y-0.5 hover:border-blue-200 hover:shadow-sm"
+      >
+        {body}
+      </button>
+    );
+  }
+
+  return <div className="rounded-2xl border border-slate-100 bg-slate-50 p-4">{body}</div>;
 }
 
 function Overview({ company, fleets, pendingRequests }) {

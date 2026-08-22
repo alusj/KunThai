@@ -1,4 +1,6 @@
 import { useEffect, useMemo, useRef, useState } from "react";
+
+import { appendVisibilityReferral } from "../../../Backend/services/visibilityCreditService";
 import { createPortal } from "react-dom";
 import {
   BadgeCheck,
@@ -67,12 +69,12 @@ function StarRatingInput({ value, onChange }) {
 
 function productLink(product) {
   const base = `${window.location.origin}${window.location.pathname}`;
-  return `${base}#marketplace-product-${encodeURIComponent(product?.id || "unknown")}`;
+  return appendVisibilityReferral(`${base}#marketplace-product-${encodeURIComponent(product?.id || "unknown")}`);
 }
 
 function sellerLink(seller) {
   const base = `${window.location.origin}${window.location.pathname}`;
-  return `${base}#marketplace-seller-${encodeURIComponent(seller?.id || "unknown")}`;
+  return appendVisibilityReferral(`${base}#marketplace-seller-${encodeURIComponent(seller?.id || "unknown")}`);
 }
 
 function asObject(value) {

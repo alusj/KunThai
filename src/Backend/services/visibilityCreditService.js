@@ -2,7 +2,13 @@ import supabase from "../lib/supabaseClient";
 
 const INVITE_STORAGE_KEY = "kunthai.visibilityInviteCode";
 const INVITE_RESOLVED_KEY_PREFIX = "kunthai.visibilityInviteResolved:";
+const MY_INVITE_CODE_KEY = "kunthai.myVisibilityInviteCode";
 const CREDIT_SHARE_PARAM = "kt_ref";
+
+// The signed-in user's own invite code, cached so every share link can be
+// decorated with it synchronously (no per-share RPC). Primed by
+// fetchVisibilityCreditWallet and by primeVisibilityInviteCode on login.
+let cachedInviteCode = "";
 
 export const VERIFIED_INVITE_CREDIT_REWARD = 5;
 export const MINIMUM_VISIBILITY_CREDITS = 5;
@@ -106,6 +112,67 @@ export function buildVisibilityInviteUrl(code = "") {
   return url.toString();
 }
 
+// Remember the signed-in user's own invite code so any share link can be
+// stamped with it. Called after the wallet loads and after login.
+export function primeVisibilityInviteCode(code = "") {
+  const normalized = normalizeInviteCode(code);
+  if (!normalized) return;
+  cachedInviteCode = normalized;
+  try {
+    localStorage.setItem(MY_INVITE_CODE_KEY, normalized);
+  } catch {
+    // Caching is best-effort; sharing still works without it.
+  }
+}
+
+export function getCachedVisibilityInviteCode() {
+  if (cachedInviteCode) return cachedInviteCode;
+  try {
+    const stored = normalizeInviteCode(localStorage.getItem(MY_INVITE_CODE_KEY) || "");
+    if (stored) cachedInviteCode = stored;
+    return stored;
+  } catch {
+    return "";
+  }
+}
+
+// Ensures the invite code is known, fetching the wallet once if needed. Safe to
+// await before a share; resolves to "" (no decoration) if unavailable.
+export async function ensureVisibilityInviteCode() {
+  const cached = getCachedVisibilityInviteCode();
+  if (cached) return cached;
+  try {
+    const wallet = await fetchVisibilityCreditWallet();
+    primeVisibilityInviteCode(wallet.inviteCode);
+  } catch {
+    // Leave the code empty; links still function, just without attribution.
+  }
+  return getCachedVisibilityInviteCode();
+}
+
+// Stamps a KunThai app URL with the sharer's referral code so a new account
+// created through it credits the sharer. No-ops on non-app URLs, empty codes,
+// or a link that already carries a code.
+export function appendVisibilityReferral(url, code = getCachedVisibilityInviteCode()) {
+  if (!url || !code) return url;
+  try {
+    const decorated = new URL(url, typeof window !== "undefined" ? window.location.origin : undefined);
+    if (typeof window !== "undefined" && decorated.origin !== window.location.origin) return url;
+    // Always stamp the sharer's own code — overwriting any stale referral the
+    // sharer may still carry in their address bar from arriving via someone
+    // else's link — so a share always credits the person doing the sharing.
+    decorated.searchParams.set(CREDIT_SHARE_PARAM, code);
+    return decorated.toString();
+  } catch {
+    return url;
+  }
+}
+
+// Async form for the primary invite CTAs: guarantees the code is loaded first.
+export async function decorateShareUrl(url) {
+  return appendVisibilityReferral(url, await ensureVisibilityInviteCode());
+}
+
 export function buildVisibilityShareMessage(inviteUrl = "") {
   return [
     "Join me on KunThai.",
@@ -188,7 +255,9 @@ export async function fetchVisibilityCreditWallet() {
     throw new Error(error.message || "Unable to load Visibility Credits.");
   }
 
-  return normalizeWallet(Array.isArray(wallet) ? wallet[0] : wallet, Array.isArray(invite) ? invite[0] : invite);
+  const normalized = normalizeWallet(Array.isArray(wallet) ? wallet[0] : wallet, Array.isArray(invite) ? invite[0] : invite);
+  primeVisibilityInviteCode(normalized.inviteCode);
+  return normalized;
 }
 
 export async function fetchVisibilityCreditPackages() {

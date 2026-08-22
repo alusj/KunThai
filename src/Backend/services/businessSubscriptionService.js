@@ -30,6 +30,8 @@ const FALLBACK_PLANS = Object.freeze({
       planCode: "pro",
       displayName: "Pro",
       creditCost: 30,
+      yearlyCreditCost: 300,
+      yearlyDurationDays: 365,
       durationDays: 30,
       graceDays: 7,
       productLimit: 50,
@@ -44,6 +46,8 @@ const FALLBACK_PLANS = Object.freeze({
       planCode: "premium",
       displayName: "Premium",
       creditCost: 75,
+      yearlyCreditCost: 750,
+      yearlyDurationDays: 365,
       durationDays: 30,
       graceDays: 7,
       productLimit: null,
@@ -74,6 +78,8 @@ const FALLBACK_PLANS = Object.freeze({
       planCode: "pro",
       displayName: "Pro",
       creditCost: 40,
+      yearlyCreditCost: 400,
+      yearlyDurationDays: 365,
       durationDays: 30,
       graceDays: 7,
       productLimit: null,
@@ -88,6 +94,8 @@ const FALLBACK_PLANS = Object.freeze({
       planCode: "premium",
       displayName: "Premium",
       creditCost: 100,
+      yearlyCreditCost: 1000,
+      yearlyDurationDays: 365,
       durationDays: 30,
       graceDays: 7,
       productLimit: null,
@@ -99,6 +107,15 @@ const FALLBACK_PLANS = Object.freeze({
     },
   ],
 });
+
+export const PLAN_TIER_RANK = Object.freeze({ free: 1, pro: 2, premium: 3 });
+
+// True when `planCode` is at least the `requiredCode` tier (free < pro < premium).
+export function planTierMeets(planCode, requiredCode) {
+  const have = PLAN_TIER_RANK[String(planCode || "free").toLowerCase()] || 1;
+  const need = PLAN_TIER_RANK[String(requiredCode || "free").toLowerCase()] || 1;
+  return have >= need;
+}
 
 const RESOURCE_CONFIG = Object.freeze({
   products: { limitKey: "productLimit", label: "active products" },
@@ -119,6 +136,8 @@ function normalizePlan(plan = {}, fallbackSurface = "urmall") {
     planCode: String(plan.plan_code || plan.planCode || "free").toLowerCase(),
     displayName: plan.display_name || plan.displayName || "Free",
     creditCost: Number(plan.credit_cost ?? plan.creditCost ?? 0),
+    yearlyCreditCost: numberOrNull(plan.yearly_credit_cost ?? plan.yearlyCreditCost),
+    yearlyDurationDays: numberOrNull(plan.yearly_duration_days ?? plan.yearlyDurationDays),
     durationDays: Number(plan.duration_days ?? plan.durationDays ?? 30),
     graceDays: Number(plan.grace_days ?? plan.graceDays ?? 7),
     productLimit: numberOrNull(plan.product_limit ?? plan.productLimit),
@@ -149,6 +168,8 @@ function normalizeSubscription(subscription = {}) {
     planCode: String(subscription.plan_code || subscription.planCode || "free").toLowerCase(),
     status: String(subscription.status || "active").toLowerCase(),
     pendingPlanCode: subscription.pending_plan_code || subscription.pendingPlanCode || "",
+    billingInterval: String(subscription.billing_interval || subscription.billingInterval || "monthly").toLowerCase() === "yearly" ? "yearly" : "monthly",
+    pendingBillingInterval: subscription.pending_billing_interval || subscription.pendingBillingInterval || "",
     autoRenew: Boolean(subscription.auto_renew ?? subscription.autoRenew),
     payerUserId: subscription.payer_user_id || subscription.payerUserId || "",
     currentPeriodStart: subscription.current_period_start || subscription.currentPeriodStart || null,
@@ -237,13 +258,29 @@ export async function fetchBusinessSubscription(surface, entityId, { sync = fals
   return data ? normalizeBusinessSubscriptionState(data, surface, entityId) : fallbackState(surface, entityId);
 }
 
-export async function changeBusinessPlan(surface, entityId, planCode, autoRenew = true) {
-  const data = await callSubscriptionRpc("change_kunthai_business_plan", {
+export async function changeBusinessPlan(surface, entityId, planCode, autoRenew = true, billingInterval = "monthly") {
+  const interval = String(billingInterval).toLowerCase() === "yearly" ? "yearly" : "monthly";
+  const params = {
     p_surface: String(surface).toLowerCase(),
     p_entity_id: entityId,
     p_plan_code: String(planCode).toLowerCase(),
     p_auto_renew: Boolean(autoRenew),
-  });
+  };
+  // Only send the cadence argument for yearly. Monthly stays a four-argument
+  // call so it works whether or not the yearly-billing migration is installed.
+  if (interval === "yearly") params.p_billing_interval = "yearly";
+
+  let data;
+  try {
+    data = await callSubscriptionRpc("change_kunthai_business_plan", params);
+  } catch (error) {
+    if (interval === "yearly" && unavailableFeature(error)) {
+      const friendly = new Error("Yearly billing is being rolled out. Please choose the monthly option for now.");
+      friendly.code = "YEARLY_UNAVAILABLE";
+      throw friendly;
+    }
+    throw error;
+  }
   notifyBusinessPlanUpdated(surface, entityId);
   return normalizeBusinessSubscriptionState(data, surface, entityId);
 }

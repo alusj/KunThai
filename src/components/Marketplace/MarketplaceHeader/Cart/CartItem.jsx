@@ -4,6 +4,7 @@
 import { useState } from "react";
 import { Check, Copy, Eye, Minus, MoreHorizontal, Plus, Share2, Trash2 } from "lucide-react";
 import { formatCurrency } from "../../../../Backend/utils/formatCurrency";
+import { appendVisibilityReferral } from "../../../../Backend/services/visibilityCreditService";
 import { resizedImageUrl } from "../../../../Backend/lib/imageProxy";
 import { showToast } from "../../../../Backend/services/toastService";
 import { useI18n, t } from "../../../../i18n";
@@ -11,7 +12,7 @@ import { useI18n, t } from "../../../../i18n";
 function productLink(item) {
   const productId = item.productId || item.product?.id;
   const base = `${window.location.origin}${window.location.pathname}`;
-  return `${base}#marketplace-product-${encodeURIComponent(productId)}`;
+  return appendVisibilityReferral(`${base}#marketplace-product-${encodeURIComponent(productId)}`);
 }
 
 export default function CartItem({ item, onUpdateQty, onRemoveItem, onViewProduct }) {

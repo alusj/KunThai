@@ -24,6 +24,7 @@ import { endGuestVisit, isGuestMode } from "./Backend/services/guestModeService"
 import {
   captureVisibilityInviteFromLocation,
   clearFlutterwavePaymentReturn,
+  ensureVisibilityInviteCode,
   finalizeStoredVisibilityInvite,
   readFlutterwavePaymentReturn,
   verifyFlutterwavePaymentReturn,
@@ -144,6 +145,25 @@ function readPreferredMainPage(fallback = "", userId = "") {
 function clearBrowserHash() {
   if (!window.location.hash) return;
   window.history.replaceState(window.history.state, "", window.location.pathname + window.location.search);
+}
+
+// The welcome-back logo splash is only for returning users who already created
+// an account and stayed logged in. A persisted Supabase session in localStorage
+// (`sb-<ref>-auth-token`) is exactly that signal, and reading it synchronously
+// lets us decide before first paint — so first-time users on the signup screen
+// never see the splash even for a frame.
+function hasStoredAuthSession() {
+  try {
+    for (let i = 0; i < localStorage.length; i += 1) {
+      const key = localStorage.key(i);
+      if (key && key.startsWith("sb-") && key.includes("-auth-token") && localStorage.getItem(key)) {
+        return true;
+      }
+    }
+  } catch {
+    // Storage unavailable (private mode): safest to skip the splash.
+  }
+  return false;
 }
 
 function readStoredMarketplaceNav() {
@@ -285,7 +305,9 @@ export default function App() {
   const [accountControl, setAccountControl] = useState(null);
   const [twoFactorPending, setTwoFactorPending] = useState(null);
   const [twoFactorChallengeRequired, setTwoFactorChallengeRequired] = useState(null);
-  const [startupIntroOpen, setStartupIntroOpen] = useState(true);
+  // Only a returning user with a persisted session gets the boot splash; a
+  // first-time / logged-out user heading to the signup screen starts with none.
+  const [startupIntroOpen, setStartupIntroOpen] = useState(hasStoredAuthSession);
   const [returningIntroOpen, setReturningIntroOpen] = useState(false);
   const [activePageReady, setActivePageReady] = useState(() => PRELOADED_MAIN_PAGES.has(page));
   const appGestureRef = useRef(null);
@@ -293,6 +315,7 @@ export default function App() {
   const userId = user?.id || "";
   const guestSession = Boolean(user?.is_anonymous);
   const introUserIdRef = useRef(userId);
+  const bootAuthSettledRef = useRef(false);
   setNotificationSeenUser(userId);
 
   const handleIntroComplete = useCallback(() => {
@@ -311,8 +334,15 @@ export default function App() {
   useLayoutEffect(() => {
     const previousUserId = introUserIdRef.current;
     introUserIdRef.current = userId;
+
+    // The splash may only be opened by the very first auth resolution at boot
+    // (a restored session). Once that has settled, a userId change comes from an
+    // interactive signup or login in this session — first-time users included —
+    // which must never trigger the welcome-back splash.
+    if (bootAuthSettledRef.current || loading) return;
+    bootAuthSettledRef.current = true;
     if (userId && userId !== previousUserId) setStartupIntroOpen(true);
-  }, [userId]);
+  }, [loading, userId]);
 
   useLayoutEffect(() => {
     if (!userId || guestSession || !onboardingComplete || twoFactorPending !== false) {
@@ -450,6 +480,10 @@ export default function App() {
   // the client; the server RPC re-checks the same condition.
   useEffect(() => {
     if (!userId || guestSession || !onboardingComplete) return;
+
+    // Warm the sharer's own invite code so every share link this session can be
+    // stamped with it synchronously (see appendVisibilityReferral).
+    ensureVisibilityInviteCode();
 
     finalizeStoredVisibilityInvite(userId)
       .then((result) => {
@@ -703,7 +737,12 @@ export default function App() {
         {content}
         {introOpen ? (
           <ReturningUserIntro
-            key={startupIntroOpen ? `startup:${userId || "visitor"}` : "returning"}
+            // A stable key per mode: including userId here used to remount the
+            // splash the instant auth resolved, restarting its minimum-hold
+            // timer (and reloading the logo) from that later point — which made
+            // it linger. Mounting once at boot lets the hold run from boot and
+            // only flips `ready` via props as the destination settles.
+            key={startupIntroOpen ? "startup" : "returning"}
             ready={startupIntroOpen ? startupDestinationReady : true}
             onComplete={handleIntroComplete}
           />

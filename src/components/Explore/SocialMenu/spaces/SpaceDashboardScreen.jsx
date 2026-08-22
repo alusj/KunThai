@@ -1,4 +1,6 @@
 import { useEffect, useRef, useState } from "react";
+
+import { appendVisibilityReferral } from "../../../../Backend/services/visibilityCreditService";
 import {
   HiOutlineArrowRightOnRectangle,
   HiOutlineArrowTopRightOnSquare,
@@ -117,7 +119,7 @@ export default function SpaceDashboardScreen({
   function getSpaceUrl() {
     const url = new URL(window.location.href);
     url.hash = `space-${space?.spaceId || space?.username || "space"}`;
-    return url.toString();
+    return appendVisibilityReferral(url.toString());
   }
 
   async function writeClipboard(text) {

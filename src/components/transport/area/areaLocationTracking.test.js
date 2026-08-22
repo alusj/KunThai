@@ -46,8 +46,8 @@ test("GPS uncertainty does not turn a legitimate accuracy refinement into a jump
   );
 });
 
-test("live movement fills most of the time between GPS fixes instead of teleporting early", () => {
-  assert.equal(getAreaLocationMotionDuration(1_000, 8), 900);
+test("live movement fills the whole time between GPS fixes instead of teleporting early", () => {
+  assert.equal(getAreaLocationMotionDuration(1_000, 8), 1_000);
   assert.equal(getAreaLocationMotionDuration(500, 18), 600);
 });
 

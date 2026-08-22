@@ -745,6 +745,15 @@ function easeInOutSine(value) {
   return -(Math.cos(Math.PI * value) - 1) / 2;
 }
 
+// Constant velocity. Used for the live-tracking marker and its follow camera so
+// that when one GPS fix's animation is cancelled and re-targeted by the next,
+// speed stays continuous across the seam. Eased curves decelerate to a stop at
+// every fix, which reads as the marker "jumping" once per second instead of
+// gliding.
+function linear(value) {
+  return value;
+}
+
 
 function normalizeBearing(value) {
   if (value == null || Number.isNaN(Number(value))) return null;
@@ -1880,7 +1889,11 @@ export default function NearbyAreaMap({
     if (!followLockRef.current || hasOperatorRoutePlan) return;
     applySmartCamera(target, selectedLocation, routeSegmentIndex, {
       duration,
-      easing: easeInOutSine,
+      // Same linear curve and duration as the marker animation below so the
+      // viewport slides underneath the icon at a matched, constant speed and
+      // the traveller stays pinned to the centre instead of drifting as the
+      // two animations decelerate out of sync.
+      easing: linear,
       syncWithMarker: true,
     });
   }
@@ -2972,7 +2985,11 @@ export default function NearbyAreaMap({
           (renderedPosition) => {
             markerRenderedPositionRef.current = renderedPosition;
           },
-          easeInOutSine,
+          // Constant velocity: each fix's glide is routinely interrupted and
+          // re-targeted by the next fix, so a linear curve keeps the marker's
+          // speed continuous across that seam instead of braking to a halt and
+          // lurching forward again every second.
+          linear,
         );
 
         smoothedPositionRef.current = livePosition;

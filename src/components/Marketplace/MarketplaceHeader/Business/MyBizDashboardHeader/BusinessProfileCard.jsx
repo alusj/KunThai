@@ -4,7 +4,9 @@ import {
   BrainCircuit,
   ChevronRight,
   Clock,
+  Crown,
   LayoutDashboard,
+  Lock,
   MapPin,
   Megaphone,
   MoreHorizontal,
@@ -17,7 +19,10 @@ import { useState } from "react";
 import BusinessLogo from "./BusinessLogo";
 import VerificationBadge from "./VerificationBadge";
 import { MarketplaceVerificationInline, MarketplaceVerificationModal } from "../../../shared/MarketplaceVerification";
+import { planTierMeets } from "../../../../../Backend/services/businessSubscriptionService";
 import { useI18n, t } from "../../../../../i18n";
+
+const TIER_BADGE = { pro: "Pro", premium: "Premium" };
 
 function StatusPill({ icon: Icon, label, active }) {
   return (
@@ -33,7 +38,7 @@ function StatusPill({ icon: Icon, label, active }) {
   );
 }
 
-export default function BusinessProfileCard({ business, status, onEditProfile, onOpenSection }) {
+export default function BusinessProfileCard({ business, status, onEditProfile, onOpenSection, onOpenPlans, planName = "Free", planCode = "free", planAvailable = false }) {
   useI18n();
   const [verificationOpen, setVerificationOpen] = useState(false);
   const [verificationAnchor, setVerificationAnchor] = useState(null);
@@ -54,6 +59,7 @@ export default function BusinessProfileCard({ business, status, onEditProfile, o
       title: t("urmall.biz.intel.title"),
       description: t("urmall.biz.intel.subtitle"),
       tone: "bg-violet-50 text-violet-700",
+      requiredTier: "premium",
     },
     {
       id: "overview",
@@ -129,7 +135,20 @@ export default function BusinessProfileCard({ business, status, onEditProfile, o
       ) : null}
 
       <div className={`relative flex flex-col gap-4 sm:flex-row sm:items-start ${onOpenSection ? "sm:pr-12" : ""}`}>
-        <BusinessLogo initials={business.logoInitials} logoUrl={business.logoUrl} />
+        <div className="flex flex-col items-center gap-2">
+          <BusinessLogo initials={business.logoInitials} logoUrl={business.logoUrl} />
+          {onOpenPlans ? (
+            <button
+              type="button"
+              onClick={onOpenPlans}
+              aria-label={t("urmall.biz.vert.actionsFor", { label: `Plan ${planName}` })}
+              className="inline-flex items-center gap-1.5 rounded-full border border-emerald-200 bg-emerald-50 px-3 py-1.5 text-[11px] font-black uppercase tracking-wide text-emerald-700 transition-all duration-300 hover:-translate-y-0.5 hover:border-emerald-300 hover:bg-emerald-100 hover:shadow-sm"
+            >
+              <Crown size={13} strokeWidth={2.4} />
+              Plan · {planName}
+            </button>
+          ) : null}
+        </div>
 
         <div className="min-w-0 flex-1">
           <div className="flex flex-wrap items-center gap-2">
@@ -229,6 +248,7 @@ export default function BusinessProfileCard({ business, status, onEditProfile, o
             <div className="space-y-1">
               {actionItems.map((item, index) => {
                 const Icon = item.icon;
+                const locked = item.requiredTier && planAvailable && !planTierMeets(planCode, item.requiredTier);
                 return (
                   <button
                     key={item.id}
@@ -242,7 +262,15 @@ export default function BusinessProfileCard({ business, status, onEditProfile, o
                       <Icon size={19} />
                     </span>
                     <span className="min-w-0 flex-1">
-                      <span className="block text-sm font-black text-gray-900">{item.title}</span>
+                      <span className="flex items-center gap-1.5">
+                        <span className="block text-sm font-black text-gray-900">{item.title}</span>
+                        {locked ? (
+                          <span className="inline-flex items-center gap-1 rounded-full bg-violet-100 px-1.5 py-0.5 text-[10px] font-black uppercase tracking-wide text-violet-700">
+                            <Lock size={10} strokeWidth={2.6} />
+                            {TIER_BADGE[item.requiredTier]}
+                          </span>
+                        ) : null}
+                      </span>
                       <span className="mt-0.5 block truncate text-xs font-semibold text-gray-500">{item.description}</span>
                     </span>
                     <ChevronRight size={17} className="shrink-0 text-gray-300 transition-transform duration-300 group-hover:translate-x-0.5 group-hover:text-gray-500" />

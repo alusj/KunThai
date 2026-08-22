@@ -21,6 +21,7 @@ import {
   toggleRestaurantMenuItem,
 } from "../../../../Backend/services/marketplace/marketplaceVerticalService";
 import {
+  appendVisibilityReferral,
   assertVisibilityCreditsAvailable,
 } from "../../../../Backend/services/visibilityCreditService";
 import { showToast } from "../../../../Backend/services/toastService";
@@ -682,7 +683,7 @@ function MediaImage({ alt, className, icon: Icon, src }) {
   return <img src={resizedImageUrl(src, { width: 720, quality: 72 })} alt={alt} className={className} onError={() => setFailed(true)} />;
 }
 
-function buildShareUrl(type, id) { if (typeof window === "undefined") return ""; return `${window.location.origin}${window.location.pathname}#urmall-${type}-${id}`; }
+function buildShareUrl(type, id) { if (typeof window === "undefined") return ""; return appendVisibilityReferral(`${window.location.origin}${window.location.pathname}#urmall-${type}-${id}`); }
 
 function SellerItemActions({ label, canManage = true, onDelete, onEdit, onInsights, onPromote, shareUrl }) {
   const [open, setOpen] = useState(false);

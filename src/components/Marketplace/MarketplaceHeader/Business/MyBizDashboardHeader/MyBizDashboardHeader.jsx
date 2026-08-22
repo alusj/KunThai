@@ -2,7 +2,15 @@ import { useSellerOverview } from "../../../../../Backend/hooks/useSellerOvervie
 import BusinessProfileCard from "./BusinessProfileCard";
 import HealthScoreCard from "./HealthScoreCard";
 
-export default function MyBizDashboardHeader({ onEditProfile, onOpenSection, overview }) {
+export default function MyBizDashboardHeader({
+  onEditProfile,
+  onOpenSection,
+  onOpenPlans,
+  overview,
+  planName = "Free",
+  planCode = "free",
+  planAvailable = false,
+}) {
   const fallbackOverview = useSellerOverview({ enabled: !overview });
   const { business, storeStatus, health, today, loading } = overview || fallbackOverview;
 
@@ -23,6 +31,10 @@ export default function MyBizDashboardHeader({ onEditProfile, onOpenSection, ove
         status={storeStatus}
         onEditProfile={onEditProfile}
         onOpenSection={onOpenSection}
+        onOpenPlans={onOpenPlans}
+        planName={planName}
+        planCode={planCode}
+        planAvailable={planAvailable}
       />
     </div>
   );

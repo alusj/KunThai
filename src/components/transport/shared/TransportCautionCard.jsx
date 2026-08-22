@@ -1,6 +1,7 @@
 import { BadgeCheck, Building2, BusFront, Clock, FileText, ShieldAlert, Truck, UserRound } from "lucide-react";
 
 import { useI18n, t } from "../../../i18n";
+import PlanStagesCard from "../../shared/PlanStagesCard";
 
 const VERIFICATION_GUIDES = [
   { icon: FileText, titleKey: "urride.caution.v1Title", bodyKey: "urride.caution.v1Body" },
@@ -61,6 +62,8 @@ export default function TransportCautionCard({ showMenuNote = true }) {
           ))}
         </div>
       </div>
+
+      <PlanStagesCard surface="urride" accent="emerald" />
 
       <div className="mt-4 flex items-start gap-3 rounded-2xl border border-amber-200 bg-amber-50 p-3 text-amber-950">
         <ShieldAlert size={19} className="mt-0.5 shrink-0 text-amber-700" />

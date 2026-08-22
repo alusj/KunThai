@@ -8,7 +8,10 @@ export const AREA_LOCATION_ACCURACY = {
 export const AREA_LOCATION_MOTION = {
   minDurationMs: 360,
   maxDurationMs: 1_400,
-  intervalCoverage: 0.9,
+  // Span the full expected gap between GPS fixes (rather than 90% of it) so the
+  // marker is still gliding when the next fix arrives and is re-targeted, with
+  // no frozen slice at the tail that reads as a stop-start jump.
+  intervalCoverage: 1,
 };
 
 function toRadians(value) {

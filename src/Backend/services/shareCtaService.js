@@ -1,4 +1,5 @@
 import { showToast } from "./toastService";
+import { appendVisibilityReferral, ensureVisibilityInviteCode } from "./visibilityCreditService";
 
 function getAppUrl(hash = "") {
   if (typeof window === "undefined") return "";
@@ -45,14 +46,15 @@ async function shareLink({ fallbackMessage, text, title, url }) {
 }
 
 export function getKunThaiShareUrl() {
-  return getAppUrl("explore");
+  return appendVisibilityReferral(getAppUrl("explore"));
 }
 
 export function getUrMallShareUrl() {
-  return getAppUrl("marketplace");
+  return appendVisibilityReferral(getAppUrl("marketplace"));
 }
 
-export function shareKunThaiLink() {
+export async function shareKunThaiLink() {
+  await ensureVisibilityInviteCode();
   return shareLink({
     title: "KunThai",
     text: "Join me on KunThai for Explore, Spaces, UrMall, and everyday community tools.",
@@ -61,7 +63,8 @@ export function shareKunThaiLink() {
   });
 }
 
-export function shareUrMallLink() {
+export async function shareUrMallLink() {
+  await ensureVisibilityInviteCode();
   return shareLink({
     title: "UrMall on KunThai",
     text: "Discover products, sellers, and local business tools on UrMall by KunThai.",

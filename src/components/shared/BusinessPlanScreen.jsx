@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useMemo, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import {
   AlertTriangle,
   ArrowRight,
@@ -42,6 +42,27 @@ const PLAN_ICON_STYLES = {
 };
 const PLAN_RANK = { free: 1, pro: 2, premium: 3 };
 
+// Resolves the credit price and term for a plan at a given billing cadence.
+// Yearly falls back to ~10x the monthly price (two months free) when the
+// catalog has no explicit yearly figure yet.
+function planPricing(plan, interval) {
+  if (interval === "yearly") {
+    const cost = plan.yearlyCreditCost ?? (plan.creditCost ? plan.creditCost * 10 : 0);
+    return {
+      cost,
+      unit: "year",
+      priceLabel: cost === 0 ? "No credits" : `${cost} Visibility Credits / year`,
+      monthlySaving: plan.creditCost ? plan.creditCost * 12 - cost : 0,
+    };
+  }
+  return {
+    cost: plan.creditCost,
+    unit: "30 days",
+    priceLabel: plan.creditCost === 0 ? "No credits" : `${plan.creditCost} Visibility Credits / 30 days`,
+    monthlySaving: 0,
+  };
+}
+
 function UsageMeter({ label, current, limit, icon: Icon }) {
   const unlimited = limit === null;
   const percent = unlimited ? 0 : Math.min(100, Math.round((current / Math.max(1, limit)) * 100));
@@ -76,11 +97,15 @@ function UsageMeter({ label, current, limit, icon: Icon }) {
   );
 }
 
-function PlanCard({ plan, currentCode, pendingCode, busy, onChoose }) {
+function PlanCard({ plan, currentCode, currentInterval, pendingCode, interval, busy, onChoose }) {
   const Icon = PLAN_ICONS[plan.planCode] || Sparkles;
-  const isCurrent = currentCode === plan.planCode;
+  const isFree = plan.planCode === "free";
+  // Free ignores cadence; a paid plan is "current" only when both tier and
+  // cadence match, so a monthly subscriber can still switch to yearly.
+  const isCurrent = currentCode === plan.planCode && (isFree || currentInterval === interval);
   const isPending = pendingCode === plan.planCode;
   const isDowngrade = PLAN_RANK[plan.planCode] < PLAN_RANK[currentCode];
+  const pricing = planPricing(plan, isFree ? "monthly" : interval);
 
   return (
     <article className={`relative overflow-hidden rounded-[26px] border p-5 shadow-sm ${PLAN_STYLES[plan.planCode] || PLAN_STYLES.free}`}>
@@ -95,9 +120,10 @@ function PlanCard({ plan, currentCode, pendingCode, busy, onChoose }) {
         </span>
         <div className="min-w-0 flex-1">
           <h3 className="text-lg font-black text-slate-950">{plan.displayName}</h3>
-          <p className="mt-0.5 text-sm font-bold text-slate-500">
-            {plan.creditCost === 0 ? "No credits" : `${plan.creditCost} Visibility Credits / 30 days`}
-          </p>
+          <p className="mt-0.5 text-sm font-bold text-slate-500">{pricing.priceLabel}</p>
+          {!isFree && interval === "yearly" && pricing.monthlySaving > 0 ? (
+            <p className="mt-0.5 text-xs font-black text-emerald-600">Save {pricing.monthlySaving} credits a year</p>
+          ) : null}
         </div>
       </div>
 
@@ -137,10 +163,16 @@ export default function BusinessPlanScreen({ surface, entityId, entityName = "Yo
   const [error, setError] = useState("");
   const [busy, setBusy] = useState("");
   const [selectedPlan, setSelectedPlan] = useState(null);
+  const [billingInterval, setBillingInterval] = useState("monthly");
+  const [selectedInterval, setSelectedInterval] = useState("monthly");
+  const intervalInitRef = useRef(false);
 
   const load = useCallback(async ({ quiet = false } = {}) => {
     if (!entityId) {
-      setLoading(false);
+      // The business/company id is still resolving (UrMall looks it up
+      // asynchronously). Stay on the loader instead of flashing the
+      // "unavailable" state until an id arrives and load() re-runs.
+      setLoading(true);
       return;
     }
     if (!quiet) setLoading(true);
@@ -157,6 +189,14 @@ export default function BusinessPlanScreen({ surface, entityId, entityName = "Yo
   useEffect(() => {
     load();
   }, [load]);
+
+  // Reflect the cadence the business is actually on the first time it loads,
+  // so a yearly subscriber opens on the Yearly view.
+  useEffect(() => {
+    if (!state || intervalInitRef.current) return;
+    intervalInitRef.current = true;
+    if (state.subscription?.billingInterval === "yearly") setBillingInterval("yearly");
+  }, [state]);
 
   useEffect(() => {
     function handlePlanUpdate(event) {
@@ -186,16 +226,22 @@ export default function BusinessPlanScreen({ surface, entityId, entityName = "Yo
     if (!selectedPlan || busy) return;
     setBusy(`plan:${selectedPlan.planCode}`);
     try {
-      const updated = await changeBusinessPlan(surface, entityId, selectedPlan.planCode, true);
+      const updated = await changeBusinessPlan(surface, entityId, selectedPlan.planCode, true, selectedInterval);
       setState(updated);
       const scheduled = PLAN_RANK[selectedPlan.planCode] < PLAN_RANK[state.entitlement.planCode];
-      showToast(scheduled ? `${selectedPlan.displayName} is scheduled for the next renewal.` : `${selectedPlan.displayName} plan is active.`, "success");
+      const cadence = selectedPlan.planCode !== "free" && selectedInterval === "yearly" ? " (yearly)" : "";
+      showToast(scheduled ? `${selectedPlan.displayName} is scheduled for the next renewal.` : `${selectedPlan.displayName} plan${cadence} is active.`, "success");
       setSelectedPlan(null);
     } catch (changeError) {
       showToast(changeError.message || "Unable to change this plan.", "danger");
     } finally {
       setBusy("");
     }
+  }
+
+  function choosePlan(plan) {
+    setSelectedInterval(plan.planCode === "free" ? "monthly" : billingInterval);
+    setSelectedPlan(plan);
   }
 
   async function toggleAutoRenew() {
@@ -249,6 +295,9 @@ export default function BusinessPlanScreen({ surface, entityId, entityName = "Yo
   const renewalDate = formatBusinessPlanDate(subscription.currentPeriodEnd);
   const graceDate = formatBusinessPlanDate(subscription.graceEndsAt);
   const selectedIsDowngrade = selectedPlan && PLAN_RANK[selectedPlan.planCode] < PLAN_RANK[entitlement.planCode];
+  const selectedPricing = selectedPlan
+    ? planPricing(selectedPlan, selectedPlan.planCode === "free" ? "monthly" : selectedInterval)
+    : null;
 
   return (
     <div className="mx-auto w-full max-w-3xl space-y-6 px-4 pb-12 pt-5">
@@ -265,7 +314,7 @@ export default function BusinessPlanScreen({ surface, entityId, entityName = "Yo
             <p className="text-xs font-black uppercase tracking-[0.18em] text-emerald-300">Plans & capacity</p>
             <h2 className="mt-2 truncate text-2xl font-black">{entityName}</h2>
             <p className="mt-1 text-sm font-semibold text-slate-300">
-              {entitlement.planName} plan · {entitlement.status === "grace" ? `Grace until ${graceDate}` : renewalDate ? `Renews ${renewalDate}` : "No renewal required"}
+              {entitlement.planName} plan{subscription.planCode !== "free" ? ` · ${subscription.billingInterval === "yearly" ? "Yearly" : "Monthly"}` : ""} · {entitlement.status === "grace" ? `Grace until ${graceDate}` : renewalDate ? `Renews ${renewalDate}` : "No renewal required"}
             </p>
           </div>
           <span className="grid h-12 w-12 shrink-0 place-items-center rounded-2xl bg-white/10 text-emerald-300">
@@ -336,15 +385,45 @@ export default function BusinessPlanScreen({ surface, entityId, entityName = "Yo
         <p className="text-xs font-black uppercase tracking-wider text-slate-400">Plan options</p>
         <h2 className="mt-1 text-xl font-black text-slate-950">Choose room to grow</h2>
         <p className="mt-1 text-sm font-semibold leading-6 text-slate-500">Upgrades start immediately. Downgrades are scheduled for the next renewal, and no existing resources are deleted.</p>
+
+        <div className="mt-4 inline-flex items-center gap-1 rounded-full border border-slate-200 bg-slate-100 p-1">
+          {[
+            { id: "monthly", label: "Monthly" },
+            { id: "yearly", label: "Yearly" },
+          ].map((option) => {
+            const active = billingInterval === option.id;
+            return (
+              <button
+                key={option.id}
+                type="button"
+                onClick={() => setBillingInterval(option.id)}
+                aria-pressed={active}
+                className={`inline-flex items-center gap-1.5 rounded-full px-4 py-2 text-sm font-black transition ${
+                  active ? "bg-white text-slate-950 shadow-sm" : "text-slate-500 hover:text-slate-700"
+                }`}
+              >
+                {option.label}
+                {option.id === "yearly" ? (
+                  <span className={`rounded-full px-1.5 py-0.5 text-[10px] font-black uppercase tracking-wide ${active ? "bg-emerald-100 text-emerald-700" : "bg-emerald-600/10 text-emerald-600"}`}>
+                    2 months free
+                  </span>
+                ) : null}
+              </button>
+            );
+          })}
+        </div>
+
         <div className="mt-4 grid gap-4 lg:grid-cols-3">
           {state.plans.map((plan) => (
             <PlanCard
               key={plan.planCode}
               plan={plan}
               currentCode={entitlement.planCode}
+              currentInterval={subscription.billingInterval || "monthly"}
               pendingCode={subscription.pendingPlanCode}
+              interval={billingInterval}
               busy={Boolean(busy)}
-              onChoose={setSelectedPlan}
+              onChoose={choosePlan}
             />
           ))}
         </div>
@@ -379,11 +458,13 @@ export default function BusinessPlanScreen({ surface, entityId, entityName = "Yo
             <p className="mt-2 text-sm font-semibold leading-6 text-slate-600">
               {selectedIsDowngrade
                 ? "The change starts at your next renewal. Current capacity remains available until then, and nothing is deleted."
-                : selectedPlan.creditCost > 0
-                  ? `This uses up to ${selectedPlan.creditCost} Visibility Credits. Active-period upgrades are automatically prorated.`
+                : selectedPricing.cost > 0
+                  ? selectedInterval === "yearly"
+                    ? `This starts a 12-month term and uses up to ${selectedPricing.cost} Visibility Credits.`
+                    : `This uses up to ${selectedPricing.cost} Visibility Credits. Active-period upgrades are automatically prorated.`
                   : "The Free plan has no credit charge."}
             </p>
-            {selectedPlan.creditCost > state.walletBalance && !selectedIsDowngrade ? (
+            {selectedPricing.cost > state.walletBalance && !selectedIsDowngrade ? (
               <p className="mt-3 rounded-2xl bg-amber-50 p-3 text-sm font-bold text-amber-800">Your wallet may need more credits before this plan can activate.</p>
             ) : null}
             <div className="mt-5 grid grid-cols-2 gap-2">

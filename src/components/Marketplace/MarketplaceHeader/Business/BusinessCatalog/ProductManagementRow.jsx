@@ -2,6 +2,7 @@ import { createElement, useCallback, useEffect, useRef, useState } from "react";
 import {
   BarChart3,
   Eye,
+  Lock,
   Megaphone,
   MoreHorizontal,
   Package,
@@ -27,7 +28,7 @@ const PRODUCT_MENU_MARGIN = 12;
 const PRODUCT_MENU_ROW_HEIGHT = 48;
 const PRODUCT_MENU_VERTICAL_PADDING = 12;
 
-export default function ProductManagementRow({ product, onAction, onViewProduct, mode = "store" }) {
+export default function ProductManagementRow({ product, onAction, onViewProduct, mode = "store", insightsLocked = false }) {
   useI18n();
   const [menuOpen, setMenuOpen] = useState(false);
   const [menuClosing, setMenuClosing] = useState(false);
@@ -253,7 +254,7 @@ export default function ProductManagementRow({ product, onAction, onViewProduct,
               ) : (
                 <>
                   <MenuAction icon={Eye} label={t("urmall.biz.cat.viewProduct")} onClick={() => runAction("view-product")} />
-                  <MenuAction icon={BarChart3} label={t("urmall.biz.intel.insightsTab")} onClick={() => runAction("insights")} />
+                  <MenuAction icon={BarChart3} label={t("urmall.biz.intel.insightsTab")} badge={insightsLocked ? "Pro" : null} onClick={() => runAction("insights")} />
                   {isCatalog ? (
                     <MenuAction icon={Share2} label={t("urmall.biz.cat.shareLink")} onClick={() => runAction("share")} />
                   ) : null}
@@ -289,7 +290,7 @@ function Metric({ label, value }) {
   );
 }
 
-function MenuAction({ icon: Icon, label, onClick, tone = "default" }) {
+function MenuAction({ icon: Icon, label, onClick, tone = "default", badge = null }) {
   return (
     <button
       type="button"
@@ -304,6 +305,12 @@ function MenuAction({ icon: Icon, label, onClick, tone = "default" }) {
     >
       {createElement(Icon, { size: 17 })}
       <span className="truncate">{label}</span>
+      {badge ? (
+        <span className="ml-auto inline-flex items-center gap-1 rounded-full bg-emerald-100 px-1.5 py-0.5 text-[10px] font-black uppercase tracking-wide text-emerald-700">
+          {createElement(Lock, { size: 10, strokeWidth: 2.6 })}
+          {badge}
+        </span>
+      ) : null}
     </button>
   );
 }

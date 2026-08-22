@@ -29,7 +29,10 @@ import ProductSuccessToast from "./ProductSuccessToast";
 //import RecentOrders from "./RecentOrders";
 //import RecentMessages from "./RecentMessages";
 import BusinessRegistration from "./BusinessRegistration/BusinessRegistration";
+import SubscriptionPlans from "./BusinessHeader/MyBizMenu/MyBizPages/SubscriptionPlans/SubscriptionPlans";
+import PlanFeatureGate from "../../../shared/PlanFeatureGate";
 import { resolveSellerActivityProduct } from "../../../../Backend/services/marketplace/sellerProductService";
+import { BUSINESS_PLAN_UPDATED_EVENT, fetchBusinessSubscription, planTierMeets } from "../../../../Backend/services/businessSubscriptionService";
 import { useSellerBusinessStatus } from "../../../../Backend/hooks/useSellerBusinessStatus";
 import { useSellerOverview } from "../../../../Backend/hooks/useSellerOverview";
 import { useNavigationStack } from "../../../../Backend/hooks/useNavigationStack";
@@ -112,6 +115,7 @@ export default function Business({ onBack }) {
   const [screenPanelOpen, setScreenPanelOpen] = useState(false);
   const [dashboardReveal, setDashboardReveal] = useState(null);
   const [businesses, setBusinesses] = useState([]);
+  const [sellerPlan, setSellerPlan] = useState({ planCode: "free", planName: "Free", available: false });
   const [switchingBusiness, setSwitchingBusiness] = useState(false);
   const switchTargetRef = useRef(null);
   const pendingSwitchToastRef = useRef(false);
@@ -131,6 +135,40 @@ export default function Business({ onBack }) {
   // overview from trapping the overlay. The "switched" toast is announced only
   // once the overlay closes, so it appears after the animation instead of
   // sitting behind it.
+  // The current plan tier drives both the dashboard "PLAN · <tier>" pill and
+  // the Pro/Premium feature locks. Fetched once here so the header and the
+  // catalog share a single lookup, and refreshed when a plan change fires.
+  const planEntityId = sellerOverview.business?.id || "";
+  useEffect(() => {
+    if (!planEntityId) return undefined;
+    let alive = true;
+    function loadPlan() {
+      fetchBusinessSubscription("urmall", planEntityId)
+        .then((state) => {
+          if (!alive) return;
+          setSellerPlan({
+            planCode: state?.entitlement?.planCode || "free",
+            planName: state?.entitlement?.planName || "Free",
+            available: state?.available !== false,
+          });
+        })
+        .catch(() => null);
+    }
+    loadPlan();
+
+    function handlePlanUpdate(event) {
+      const detail = event.detail || {};
+      if (detail.surface === "urmall" && detail.entityId === planEntityId) loadPlan();
+    }
+    window.addEventListener(BUSINESS_PLAN_UPDATED_EVENT, handlePlanUpdate);
+    return () => {
+      alive = false;
+      window.removeEventListener(BUSINESS_PLAN_UPDATED_EVENT, handlePlanUpdate);
+    };
+  }, [planEntityId]);
+
+  const productInsightsLocked = sellerPlan.available && !planTierMeets(sellerPlan.planCode, "pro");
+
   useEffect(() => {
     if (!switchingBusiness) return undefined;
 
@@ -371,6 +409,14 @@ export default function Business({ onBack }) {
       );
     }
 
+    if (visibleScreen === "plans") {
+      return (
+        <SellerFullScreen key="plans" hideHeader open={screenPanelOpen} onBack={goBackSellerScreen}>
+          <SubscriptionPlans onBack={goBackSellerScreen} />
+        </SellerFullScreen>
+      );
+    }
+
     if (visibleScreen === "orders") {
       return (
         <SellerFullScreen
@@ -397,7 +443,16 @@ export default function Business({ onBack }) {
           open={screenPanelOpen}
         >
           <div className="kt-seller-screen-content mx-auto w-full max-w-5xl">
-            <ProductInsightsScreen product={selectedProduct} />
+            <PlanFeatureGate
+              surface="urmall"
+              entityId={sellerOverview.business?.id}
+              requiredTier="pro"
+              featureName={t("urmall.biz.intel.insightsTab")}
+              description="Advanced product insights are part of the Pro plan. Upgrade to see per-product performance."
+              onOpenPlans={() => openSellerScreen("plans")}
+            >
+              <ProductInsightsScreen product={selectedProduct} />
+            </PlanFeatureGate>
           </div>
         </SellerFullScreen>
       );
@@ -455,7 +510,16 @@ export default function Business({ onBack }) {
           open={screenPanelOpen}
         >
           <div className="kt-seller-screen-content mx-auto w-full max-w-5xl">
-            <SellerIntelligence />
+            <PlanFeatureGate
+              surface="urmall"
+              entityId={sellerOverview.business?.id}
+              requiredTier="premium"
+              featureName={t("urmall.biz.intel.title")}
+              description="Full business insights are part of the Premium plan. Upgrade to unlock Seller Intelligence."
+              onOpenPlans={() => openSellerScreen("plans")}
+            >
+              <SellerIntelligence />
+            </PlanFeatureGate>
           </div>
         </SellerFullScreen>
       );
@@ -693,7 +757,11 @@ export default function Business({ onBack }) {
               <MyBizDashboardHeader
                 onEditProfile={openProfileEditor}
                 onOpenSection={openSellerScreen}
+                onOpenPlans={permissions.canManagePlans ? () => openSellerScreen("plans") : undefined}
                 overview={sellerOverview}
+                planName={sellerPlan.planName}
+                planCode={sellerPlan.planCode}
+                planAvailable={sellerPlan.available}
               />
             ) : null}
 
@@ -717,6 +785,7 @@ export default function Business({ onBack }) {
                       mode="store"
                       onPromoteProduct={openProductPromotion}
                       onViewInsights={openProductInsights}
+                      insightsLocked={productInsightsLocked}
                       onViewProduct={openSellerProductDetail}
                       onEditProduct={(product) => {
                         setEditingProduct(product);
@@ -729,6 +798,7 @@ export default function Business({ onBack }) {
                       mode="catalog"
                       onPromoteProduct={openProductPromotion}
                       onViewInsights={openProductInsights}
+                      insightsLocked={productInsightsLocked}
                       onViewProduct={openSellerProductDetail}
                       onEditProduct={(product) => {
                         setEditingProduct(product);
@@ -741,6 +811,7 @@ export default function Business({ onBack }) {
                       mode="drafts"
                       onPromoteProduct={openProductPromotion}
                       onViewInsights={openProductInsights}
+                      insightsLocked={productInsightsLocked}
                       onViewProduct={openSellerProductDetail}
                       onEditProduct={(product) => {
                         setEditingProduct(product);

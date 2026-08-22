@@ -1,6 +1,7 @@
 import { BadgeCheck, Clock, FileText, House, Landmark, ShieldAlert, ShoppingBag, Store, UtensilsCrossed } from "lucide-react";
 
 import { useI18n, t } from "../../../i18n";
+import PlanStagesCard from "../../shared/PlanStagesCard";
 
 // Three primary business types. Hotels now live inside Real Estate (a real
 // estate account adds a hotel as one of its property types), so there is no
@@ -78,6 +79,8 @@ export default function UrMallCautionCard({ showMenuNote = true }) {
           ))}
         </div>
       </div>
+
+      <PlanStagesCard surface="urmall" accent="blue" />
 
       <div className="mt-4 flex items-start gap-3 rounded-2xl border border-amber-200 bg-amber-50 p-3 text-amber-950">
         <ShieldAlert size={19} className="mt-0.5 shrink-0 text-amber-700" />
