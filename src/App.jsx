@@ -1,4 +1,4 @@
-import { lazy, Suspense, useCallback, useEffect, useLayoutEffect, useRef, useState } from "react";
+import { Suspense, useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState } from "react";
 import { HiOutlineCamera, HiOutlineLightBulb, HiOutlineXMark } from "react-icons/hi2";
 
 import { useAuth } from "./Backend/hooks/useAuth";
@@ -41,6 +41,8 @@ import {
   shouldShowReturningUserIntro,
 } from "./Backend/services/returningUserIntroService";
 import { isStartupDestinationReady } from "./Backend/services/startupRevealService";
+import { lazyWithRetry } from "./Backend/utils/lazyWithRetry";
+import LazyRouteBoundary from "./components/shared/LazyRouteBoundary";
 import supabase from "./Backend/lib/supabaseClient";
 import { t as i18nText } from "./i18n/index";
 
@@ -60,9 +62,6 @@ const PAGE_LOADERS = {
   transport: loadTransport,
 };
 const PRELOADED_MAIN_PAGES = new Set();
-const Explore = lazy(loadExplore);
-const Marketplace = lazy(loadMarketplace);
-const Transport = lazy(loadTransport);
 
 function normalizeMainPage(value) {
   const page = String(value || "").toLowerCase();
@@ -289,6 +288,21 @@ export default function App() {
     return getMainPageFromHash(window.location.hash) || readLastMainPage();
   });
   const [transportMounted, setTransportMounted] = useState(() => page === "transport");
+  // Bumped by LazyRouteBoundary after a chunk-load failure to build fresh lazy
+  // modules (React caches a failed import, so a new factory is what retries).
+  const [chunkReloadKey, setChunkReloadKey] = useState(0);
+  const pages = useMemo(
+    () => ({
+      explore: lazyWithRetry(loadExplore),
+      marketplace: lazyWithRetry(loadMarketplace),
+      transport: lazyWithRetry(loadTransport),
+    }),
+    // eslint-disable-next-line react-hooks/exhaustive-deps -- recreate only to retry a failed chunk
+    [chunkReloadKey],
+  );
+  const Explore = pages.explore;
+  const Marketplace = pages.marketplace;
+  const Transport = pages.transport;
   const [mainPageDirection, setMainPageDirection] = useState("forward");
   const [exploreFullScreen, setExploreFullScreen] = useState(false);
   const [marketplaceNav, setMarketplaceNav] = useState(readStoredMarketplaceNav);
@@ -989,6 +1003,10 @@ export default function App() {
       }}
     >
       <PageTransition active className="kt-mobile-viewport">
+        <LazyRouteBoundary
+          fallback={<AppLoading page={page} />}
+          onRecover={() => setChunkReloadKey((key) => key + 1)}
+        >
         <Suspense fallback={<AppLoading page={page} />}>
           {page === "explore" ? (
             <section className={pagePanelClass("explore")} aria-hidden={false}>
@@ -1029,6 +1047,7 @@ export default function App() {
             </section>
           ) : null}
         </Suspense>
+        </LazyRouteBoundary>
       </PageTransition>
 
       {!bottomTabsHidden ? <BottomTabs badges={mainPageBadges} page={page} setPage={changePage} /> : null}

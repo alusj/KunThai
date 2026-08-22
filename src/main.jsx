@@ -1,5 +1,5 @@
 /* eslint-disable react-refresh/only-export-components -- application entry point owns the root boundary and route split. */
-import { Component, lazy, Suspense } from 'react'
+import { Component, Suspense } from 'react'
 import { createRoot } from 'react-dom/client'
 import './index.css'
 import App from './App.jsx'
@@ -11,13 +11,14 @@ import { registerKunThaiServiceWorker } from "./Backend/services/pushService.js"
 import { initCountryConfig } from "./Backend/services/countryConfigService.js";
 import { t as i18nText } from "./i18n/index";
 import { installMobileViewportVariables } from "./Backend/services/mobileViewportService";
+import { lazyWithRetry } from "./Backend/utils/lazyWithRetry";
 
 registerKunThaiServiceWorker();
 initCountryConfig();
 installMobileViewportVariables();
 
-const AdminApp = lazy(() => import("./admin/AdminApp.jsx"));
-const PublicPolicyPage = lazy(() => import("./components/public/PublicPolicyPage.jsx"));
+const AdminApp = lazyWithRetry(() => import("./admin/AdminApp.jsx"));
+const PublicPolicyPage = lazyWithRetry(() => import("./components/public/PublicPolicyPage.jsx"));
 
 function RootApplication() {
   const pathname = window.location.pathname;
