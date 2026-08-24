@@ -1,4 +1,5 @@
 import supabase from "../lib/supabaseClient";
+import { friendlyErrorMessage } from "./friendlyErrorService";
 
 const INVITE_STORAGE_KEY = "kunthai.visibilityInviteCode";
 const INVITE_RESOLVED_KEY_PREFIX = "kunthai.visibilityInviteResolved:";
@@ -289,14 +290,23 @@ async function authenticatedPaymentRequest(path, body, fallbackMessage = "Paymen
   const accessToken = data?.session?.access_token;
   if (!accessToken) throw new Error("Sign in to buy Visibility Credits.");
 
-  const response = await fetch(path, {
-    method: "POST",
-    headers: {
-      Authorization: `Bearer ${accessToken}`,
-      "Content-Type": "application/json",
-    },
-    body: JSON.stringify(body),
-  });
+  let response;
+  try {
+    response = await fetch(path, {
+      method: "POST",
+      headers: {
+        Authorization: `Bearer ${accessToken}`,
+        "Content-Type": "application/json",
+      },
+      body: JSON.stringify(body),
+    });
+  } catch (networkError) {
+    // fetch() itself throws (no connection, DNS failure, CORS, a dropped
+    // network) before any response exists — that's a raw "Failed to fetch"
+    // TypeError with no relevance to a real user. Never let it reach the UI.
+    throw new Error(friendlyErrorMessage(networkError, fallbackMessage));
+  }
+
   const result = await response.json().catch(() => null);
   if (!response.ok || !result?.ok) {
     const error = new Error(result?.message || fallbackMessage);
