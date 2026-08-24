@@ -9,6 +9,7 @@ import {
   HiOutlineKey,
   HiOutlineLanguage,
   HiOutlineDevicePhoneMobile,
+  HiOutlineHome,
   HiOutlineRectangleStack,
   HiOutlineSignal,
   HiOutlineShieldCheck,
@@ -16,6 +17,7 @@ import {
 } from "react-icons/hi2";
 
 import { useExplorePreferences } from "../../../../Backend/hooks/useExplorePreferences";
+import { readDefaultMainPage, setDefaultMainPage } from "../../../../Backend/services/mainDashboardPreference";
 import { haptics, sounds } from "../../../../Backend/services/feedbackService";
 import { disablePushNotifications, enablePushNotifications, getPushStatus } from "../../../../Backend/services/pushService";
 import { showToast } from "../../../../Backend/services/toastService";
@@ -92,6 +94,7 @@ export default function SettingsScreen({ hideHeader = false, onOpenDataMobile, o
   const { notifications, video, feed, messages, account, feedbackFx } = settings;
   const [pushStatus, setPushStatus] = useState("loading");
   const [pushBusy, setPushBusy] = useState(false);
+  const [defaultDashboard, setDefaultDashboard] = useState(() => readDefaultMainPage() || "auto");
 
   async function handleSignOut(allDevices) {
     try {
@@ -279,6 +282,21 @@ export default function SettingsScreen({ hideHeader = false, onOpenDataMobile, o
           </SettingsSection>
 
           <SettingsSection title={i18n.t("settings.feedTitle")} subtitle={i18n.t("settings.feedSubtitle")}>
+            <SettingRow icon={HiOutlineHome} title="Default dashboard" description="Choose which dashboard KunThai opens on. Auto keeps the last one you used.">
+              <SelectControl
+                value={defaultDashboard}
+                onChange={(value) => {
+                  setDefaultDashboard(value);
+                  setDefaultMainPage(value === "auto" ? "" : value);
+                }}
+                options={[
+                  { value: "auto", label: "Auto (last used)" },
+                  { value: "explore", label: "Explore" },
+                  { value: "marketplace", label: "UrMall" },
+                  { value: "transport", label: "UrRide" },
+                ]}
+              />
+            </SettingRow>
             <SettingRow icon={HiOutlineRectangleStack} title={i18n.t("settings.defaultTabTitle")} description={i18n.t("settings.defaultTabDesc")}>
               <SelectControl
                 value={feed.defaultTab}

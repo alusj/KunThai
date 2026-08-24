@@ -1,4 +1,5 @@
 import supabase from "../../Backend/lib/supabaseClient";
+import { friendlyErrorMessage } from "../../Backend/services/friendlyErrorService";
 import { getKunThaiPublicUserId, normalizeKunThaiPublicId } from "../../Backend/services/identityCodeService";
 import { getOnboardingProfile } from "../../Backend/services/onboardingService";
 import {
@@ -902,7 +903,7 @@ export async function getTransportCompanyAccounts() {
     return accounts;
   } catch (error) {
     if (isMissingTable(error)) return [];
-    throw new Error(error.message || "Unable to load company workspace.");
+    throw new Error(friendlyErrorMessage(error, "Unable to load company workspace."));
   }
 }
 
@@ -1011,7 +1012,7 @@ export async function getOperatorCompanyInvites(operatorAccount = null) {
     return dedupeInvites([...cloudInvites, ...localInvites]).filter(isOperatorFacingInvite);
   } catch (error) {
     if (isMissingTable(error)) return dedupeInvites(localInvites).filter(isOperatorFacingInvite);
-    throw new Error(error.message || "Unable to load company registration requests.");
+    throw new Error(friendlyErrorMessage(error, "Unable to load company registration requests."));
   }
 }
 
@@ -1125,7 +1126,7 @@ export async function updateOperatorCompanyInvite(invite, patch = {}) {
     return upsertLocalInviteStore(normalizedInvite);
   } catch (error) {
     if (isMissingTable(error)) return localInvite;
-    throw new Error(error.message || "Unable to update this company request.");
+    throw new Error(friendlyErrorMessage(error, "Unable to update this company request."));
   }
 }
 
@@ -1300,7 +1301,7 @@ export async function ensureInvitedOperatorProfile(invite = {}) {
     return await ensureInvitedOperatorRecord(user, profile || {}, invite || {});
   } catch (error) {
     if (isMissingTable(error)) return null;
-    throw new Error(error.message || "Unable to prepare your operator profile for this company.");
+    throw new Error(friendlyErrorMessage(error, "Unable to prepare your operator profile for this company."));
   }
 }
 
@@ -1359,7 +1360,7 @@ export async function submitOperatorCompanyInviteDocuments(invite, documents = {
         warning: "Operator documents were attached to the invitation locally because the verification tables are not available.",
       };
     }
-    throw new Error(error.message || "Unable to save operator documents.");
+    throw new Error(friendlyErrorMessage(error, "Unable to save operator documents."));
   }
 }
 
@@ -1637,7 +1638,7 @@ export async function saveTransportCompanyAccount(account) {
     if (isMissingTable(error)) {
       throw new Error("Transport company tables are not installed in Supabase. Run the latest database migration, then submit again.");
     }
-    throw new Error(error.message || "Company registration could not be saved to Supabase.");
+    throw new Error(friendlyErrorMessage(error, "Company registration could not be saved to Supabase."));
   }
 }
 
@@ -1649,7 +1650,7 @@ export async function updateTransportCompanyOperatorAvailability(assignment, act
     company_fleet_uuid: companyFleetId,
     active: Boolean(active),
   });
-  if (error) throw new Error(error.message || "Unable to update company fleet availability.");
+  if (error) throw new Error(friendlyErrorMessage(error, "Unable to update company fleet availability."));
 
   return Array.isArray(data) ? data[0] || null : data || null;
 }

@@ -1,4 +1,5 @@
 import { useEffect, useMemo, useState } from "react";
+import { friendlyErrorMessage } from "../services/friendlyErrorService";
 
 import {
   INITIAL_PRODUCT_FORM,
@@ -235,13 +236,14 @@ export function useSellerProductForm({ onComplete, mode = "create", product = nu
       setSaveStatus("");
       clearProductDraft();
       setDraftRestored(false);
+      showToast(product ? "Product updated." : "Product added.", "success");
       haptics.medium("marketplace");
       sounds.success("marketplace");
       onComplete?.(savedProduct);
     } catch (error) {
       setErrors((current) => ({
         ...current,
-        submit: error.message || "Unable to save product. Please try again.",
+        submit: friendlyErrorMessage(error, "Unable to save product. Please try again."),
       }));
       setSaveStatus("");
     } finally {

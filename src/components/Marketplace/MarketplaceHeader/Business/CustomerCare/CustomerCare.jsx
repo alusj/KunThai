@@ -1,5 +1,5 @@
 import { useSellerCustomerCare } from "../../../../../Backend/hooks/useSellerCustomerCare";
-import { resizedImageUrl } from "../../../../../Backend/lib/imageProxy";
+import MessageImage from "../../../../shared/MessageImage";
 import RecentConversations from "./RecentConversations";
 import { useEffect, useMemo, useRef, useState } from "react";
 import { ImagePlus, Send, X } from "lucide-react";
@@ -9,6 +9,8 @@ import {
   subscribeSellerMarketplaceMessages,
 } from "../../../../../Backend/services/marketplace/sellerCustomerCareService";
 import { formatMessageTime } from "../../../../../Backend/utils/formatMessageTime";
+import { optimizeImageFile } from "../../../../../Backend/services/marketplace/imageOptimization";
+import { friendlyErrorMessage } from "../../../../../Backend/services/friendlyErrorService";
 import { useI18n, t } from "../../../../../i18n";
 import AppBackTab from "../../../../shared/AppBackTab";
 import { useKeyboardAwareConversation } from "../../../../../Backend/hooks/useKeyboardAwareConversation";
@@ -164,11 +166,11 @@ export default function CustomerCare({ onBack } = {}) {
     }
 
     try {
-      const dataUrl = await readFileAsDataUrl(file);
+      const dataUrl = await readFileAsDataUrl(await optimizeImageFile(file));
       setAttachment({ dataUrl, name: file.name || t("urmall.biz.care.selectedPhoto") });
       setSendError("");
     } catch (err) {
-      setSendError(err.message || t("urmall.biz.care.prepareFail"));
+      setSendError(friendlyErrorMessage(err, t("urmall.biz.care.prepareFail")));
     }
   }
 
@@ -279,7 +281,7 @@ export default function CustomerCare({ onBack } = {}) {
                 }`}
               >
                 {message.mediaType === "image" && message.mediaUrl ? (
-                  <img src={resizedImageUrl(message.mediaUrl, { width: 720, quality: 72 })} alt={t("urmall.biz.care.msgAttachment")} className="mb-2 max-h-72 w-full rounded-xl object-cover" />
+                  <MessageImage mediaUrl={message.mediaUrl} alt={t("urmall.biz.care.msgAttachment")} pending={message.pending} className="mb-2" />
                 ) : null}
                 {message.text ? <p>{message.text}</p> : null}
                 <span className={`mt-1 block text-[10px] font-bold ${fromSeller ? "text-white/70" : "text-gray-400"}`}>

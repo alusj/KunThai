@@ -1,4 +1,5 @@
 import supabase from "../../Backend/lib/supabaseClient";
+import { friendlyErrorMessage } from "../../Backend/services/friendlyErrorService";
 import {
   formatCountryMoney,
   getActiveCountryProfile,
@@ -513,7 +514,7 @@ export async function fetchTransportFleetReviews(fleet) {
     .limit(50);
 
   if (error) {
-    throw new Error(error.message || "Unable to load operator reviews.");
+    throw new Error(friendlyErrorMessage(error, "Unable to load operator reviews."));
   }
 
   return (data || []).map(mapOperatorReview);
@@ -534,7 +535,7 @@ export async function fetchTransportFleetReviewEligibility(fleet, tripId = null)
     p_trip_id: tripId || null,
   });
 
-  if (error) throw new Error(error.message || "Unable to verify review access.");
+  if (error) throw new Error(friendlyErrorMessage(error, "Unable to verify review access."));
 
   const result = Array.isArray(data) ? data[0] : data;
   return {
@@ -559,7 +560,7 @@ export async function submitTransportFleetReview(fleet, { rating, reviewText }) 
   });
 
   if (error) {
-    throw new Error(error.message || "Unable to submit this review.");
+    throw new Error(friendlyErrorMessage(error, "Unable to submit this review."));
   }
 
   return data ? mapOperatorReview(data) : null;

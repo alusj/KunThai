@@ -221,6 +221,8 @@ export const TRANSLATIONS = {
       networkLost: "Sorry, you've lost your network connection. Please check your internet and try again.",
       networkUnstable: "Your network is slow right now. Please wait a moment and try again.",
       tryAgain: "Something went wrong. Please try again.",
+      offlineBanner: "You're offline — some features may be limited until your connection returns.",
+      backOnline: "Back online",
     },
     language: {
       title: "Language",

@@ -29,6 +29,31 @@ const NETWORK_ERROR_PATTERNS = [
   "err_timed_out",
 ];
 
+// Raw runtime / protocol noise that must never reach a user as a message. These
+// are matched on message CONTENT only (never on the online flag), so ordinary
+// human messages — including success toasts shown while offline — pass through
+// untouched.
+const TECHNICAL_NOISE_PATTERNS = [
+  "typeerror",
+  "referenceerror",
+  "syntaxerror",
+  "rangeerror",
+  "is not a function",
+  "is not defined",
+  "cannot read propert",
+  "undefined is not",
+  "null is not",
+  "[object object]",
+  "unexpected token",
+  "json.parse",
+  "json parse",
+  "internal server error",
+  "bad gateway",
+  "service unavailable",
+  "gateway timeout",
+  "xmlhttprequest",
+];
+
 function errorText(error) {
   if (!error) return "";
   if (typeof error === "string") return error;
@@ -55,6 +80,25 @@ export function friendlyErrorMessage(error, fallback = "") {
     return t("common.networkLost");
   }
   const message = typeof error === "string" ? error : String(error?.message || "").trim();
-  if (message) return message;
+  if (message) return sanitizeUserMessage(message);
   return fallback || t("common.tryAgain");
+}
+
+// Sanitizes an already-built string message right before it is shown (toast or
+// inline). Network faults become the friendly "lost connection" line, raw
+// technical noise becomes a gentle "something went wrong", and everything else
+// — normal human copy — is returned unchanged. Content-only: a success message
+// is never rewritten just because the device happens to be offline.
+export function sanitizeUserMessage(message) {
+  if (typeof message !== "string") return message;
+  const text = message.trim();
+  if (!text) return text;
+  const lower = text.toLowerCase();
+  if (NETWORK_ERROR_PATTERNS.some((pattern) => lower.includes(pattern))) {
+    return t("common.networkLost");
+  }
+  if (TECHNICAL_NOISE_PATTERNS.some((pattern) => lower.includes(pattern))) {
+    return t("common.tryAgain");
+  }
+  return text;
 }

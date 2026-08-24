@@ -1,4 +1,5 @@
 import { useEffect, useRef, useState } from "react";
+import { friendlyErrorMessage } from "../../../../Backend/services/friendlyErrorService";
 
 import { appendVisibilityReferral } from "../../../../Backend/services/visibilityCreditService";
 import {
@@ -148,7 +149,7 @@ export default function SpaceDashboardScreen({
       await action();
     } catch (error) {
       if (error?.name === "AbortError") return;
-      const message = error.message || "Unable to complete this Space action.";
+      const message = friendlyErrorMessage(error, "Unable to complete this Space action.");
       setFeedback(message);
       showToast(message, "danger");
     } finally {

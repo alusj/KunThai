@@ -11,33 +11,94 @@ const tabs = [
   { id: "transport", label: "UrRide", icon: Truck },
 ];
 
+// Scroll-hide tuning. These MATCH the Explore header's useScrollHidden config so
+// the header and the bottom tabs hide/show at the same scroll positions instead
+// of each toggling on its own threshold (which read as flicker). Direction is
+// anchored and only a sustained move past hide/show distance toggles, with a
+// cooldown — so momentum, a small bounce at the end of a scroll, or content
+// loading in can't oscillate the chrome.
+const HIDE_DISTANCE = 72;
+const SHOW_DISTANCE = 52;
+const MIN_SCROLL_Y = 96;
+const TOGGLE_COOLDOWN_MS = 280;
+
 export default function BottomTabs({ badges = {}, page, setPage }) {
   const { t } = useI18n();
   const [hidden, setHidden] = useState(false);
-  const scrollPositions = useRef(new WeakMap());
+  const hiddenRef = useRef(false);
+  const scrollStateRef = useRef(new WeakMap());
+  const lastToggleAtRef = useRef(0);
+  const frameRef = useRef(null);
   const activeIndex = Math.max(0, tabs.findIndex((tab) => tab.id === page));
 
   useEffect(() => {
+    function commitHidden(nextHidden, target, y) {
+      if (hiddenRef.current === nextHidden) return;
+      hiddenRef.current = nextHidden;
+      lastToggleAtRef.current = performance.now();
+      scrollStateRef.current.set(target, { lastY: y, dir: "idle", dirStartY: y });
+      setHidden(nextHidden);
+    }
+
+    function evaluate(scrollTarget) {
+      const y = Math.max(0, Number(scrollTarget.scrollTop || window.scrollY || 0));
+      const state = scrollStateRef.current.get(scrollTarget) || { lastY: y, dir: "idle", dirStartY: y };
+      const delta = y - state.lastY;
+
+      // Near the very top the chrome is always visible.
+      if (y < MIN_SCROLL_Y) {
+        if (hiddenRef.current) commitHidden(false, scrollTarget, y);
+        else scrollStateRef.current.set(scrollTarget, { lastY: y, dir: "idle", dirStartY: y });
+        return;
+      }
+      // Ignore sub-pixel jitter.
+      if (Math.abs(delta) < 1) return;
+
+      const nextDir = delta > 0 ? "down" : "up";
+      const dirStartY = state.dir !== nextDir ? state.lastY : state.dirStartY;
+      const directionDistance = Math.abs(y - dirStartY);
+      const canToggle = performance.now() - lastToggleAtRef.current >= TOGGLE_COOLDOWN_MS;
+
+      if (canToggle && !hiddenRef.current && nextDir === "down" && directionDistance >= HIDE_DISTANCE) {
+        commitHidden(true, scrollTarget, y);
+        return;
+      }
+      if (canToggle && hiddenRef.current && nextDir === "up" && directionDistance >= SHOW_DISTANCE) {
+        commitHidden(false, scrollTarget, y);
+        return;
+      }
+      scrollStateRef.current.set(scrollTarget, { lastY: y, dir: nextDir, dirStartY });
+    }
+
     const onScroll = (event) => {
       const target = event.target === document ? document.scrollingElement : event.target;
       const scrollTarget = target instanceof Element ? target : document.scrollingElement;
-      if (!scrollTarget) return;
-
-      const y = Number(scrollTarget.scrollTop || window.scrollY || 0);
-      const previous = Number(scrollPositions.current.get(scrollTarget) || 0);
-      if (y <= 8 || y < previous - 8) setHidden(false);
-      else if (y > previous + 8) setHidden(true);
-      scrollPositions.current.set(scrollTarget, y);
+      if (!scrollTarget || frameRef.current) return;
+      frameRef.current = window.requestAnimationFrame(() => {
+        frameRef.current = null;
+        evaluate(scrollTarget);
+      });
     };
 
     // Most KunThai screens scroll inside a bounded panel rather than `window`.
     // Scroll does not bubble, so capture it at document level to keep the main
     // navigation behaviour consistent across all three services.
     document.addEventListener("scroll", onScroll, { passive: true, capture: true });
-    return () => document.removeEventListener("scroll", onScroll, true);
+    return () => {
+      document.removeEventListener("scroll", onScroll, true);
+      if (frameRef.current) {
+        window.cancelAnimationFrame(frameRef.current);
+        frameRef.current = null;
+      }
+    };
   }, []);
 
   useEffect(() => {
+    // A page switch resets to visible and clears the per-target scroll memory so
+    // the new page starts from a clean anchor.
+    hiddenRef.current = false;
+    scrollStateRef.current = new WeakMap();
+    lastToggleAtRef.current = performance.now();
     setHidden(false);
   }, [page]);
 

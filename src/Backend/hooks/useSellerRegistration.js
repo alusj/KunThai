@@ -1,4 +1,5 @@
 import { useEffect, useMemo, useState } from "react";
+import { friendlyErrorMessage } from "../services/friendlyErrorService";
 
 import {
   BUSINESS_CATEGORIES,
@@ -297,7 +298,7 @@ export function useSellerRegistration({ mode = "create", onComplete } = {}) {
         if (alive) {
           setErrors((current) => ({
             ...current,
-            submit: error.message || "Unable to load your business profile for editing.",
+            submit: friendlyErrorMessage(error, "Unable to load your business profile for editing."),
           }));
         }
       })
@@ -663,7 +664,7 @@ export function useSellerRegistration({ mode = "create", onComplete } = {}) {
     } catch (error) {
       setErrors((current) => ({
         ...current,
-        submit: error.message || "Unable to save changes. Please try again.",
+        submit: friendlyErrorMessage(error, "Unable to save changes. Please try again."),
       }));
       return { ok: false };
     } finally {
@@ -691,7 +692,7 @@ export function useSellerRegistration({ mode = "create", onComplete } = {}) {
     } catch (error) {
       setErrors((current) => ({
         ...current,
-        submit: error.message || "Unable to submit business. Please try again.",
+        submit: friendlyErrorMessage(error, "Unable to submit business. Please try again."),
       }));
     } finally {
       setSubmitting(false);

@@ -1,6 +1,6 @@
 import supabase from "../../lib/supabaseClient";
 import { CONTENT_MODERATION_ENABLED } from "../../../config/contentModeration";
-import { isMissingColumn, isMissingTable } from "./errors";
+import { isMissingColumn, isMissingTable, isUniqueViolation } from "./errors";
 import { MAX_EXPLORE_VIDEO_BYTES, removeUploadedMediaUrl, uploadMediaDataUrl, uploadMediaFile } from "./mediaService";
 import { buildExploreProfileFromUser } from "./profileStorage";
 import { recordHashtagUsage } from "./hashtagService";
@@ -540,6 +540,9 @@ export async function createExplorePost(input, scope = "feed") {
 
   const draft = {
     user_id: user.id,
+    // Idempotency key from the outbox (Phase 0). Optional: dropped gracefully
+    // by insertExplorePostDraft when the column isn't installed yet.
+    client_post_id: payload.client_post_id || null,
     actor_type: actor.actorType,
     actor_id: actor.actorId,
     space_id: actor.spaceId,
@@ -582,6 +585,21 @@ export async function createExplorePost(input, scope = "feed") {
   const { data, error } = await insertExplorePostDraft(draft);
 
   if (error) {
+    // Idempotency: a retry of a post that actually succeeded conflicts on the
+    // (user_id, client_post_id) unique index. Return the row that already
+    // exists instead of failing or creating a duplicate.
+    if (draft.client_post_id && isUniqueViolation(error)) {
+      const existing = await supabase
+        .from("explore_posts")
+        .select()
+        .eq("user_id", user.id)
+        .eq("client_post_id", draft.client_post_id)
+        .maybeSingle();
+      if (existing.data) {
+        return { ...draft, ...existing.data };
+      }
+    }
+
     if (isMissingColumn(error, "feed_scope")) {
       const fallbackPost = await createPostWithoutFeedScope(draft, classification.feedScope);
       await recordHashtagUsage(hashtags, user.id).catch(() => {});
@@ -668,10 +686,19 @@ async function notifyMentionedUsers(post, draft) {
   );
 }
 
+// Columns we've already learned are absent in this environment. Pre-dropping
+// them avoids re-probing (an extra failed insert) on every post — matters most
+// for client_post_id before the idempotency migration is applied.
+const knownMissingPostColumns = new Set();
+
 async function insertExplorePostDraft(draft) {
   let payload = { ...draft };
+  for (const column of knownMissingPostColumns) {
+    delete payload[column];
+  }
 
   const optionalColumns = [
+    "client_post_id",
     "post_privacy",
     "hashtags",
     "mentions",
@@ -700,6 +727,8 @@ async function insertExplorePostDraft(draft) {
     if (!missingColumn) {
       return { data: null, error };
     }
+
+    knownMissingPostColumns.add(missingColumn);
 
     const { [missingColumn]: _removed, ...nextPayload } = payload;
     payload = nextPayload;

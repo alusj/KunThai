@@ -1,4 +1,5 @@
 import { useState } from "react";
+import { friendlyErrorMessage } from "../../../../../Backend/services/friendlyErrorService";
 
 import { promoteSellerProduct } from "../../../../../Backend/services/marketplace/sellerProductService";
 import { haptics, sounds } from "../../../../../Backend/services/feedbackService";
@@ -29,7 +30,7 @@ export default function ProductPromotionScreen({ onPromoted, product }) {
       sounds.success("marketplace");
       onPromoted?.({ ...nextSettings, promotionCredits: chargedCredits, promotion });
     } catch (nextError) {
-      setError(nextError.message || "Unable to launch this promotion.");
+      setError(friendlyErrorMessage(nextError, "Unable to launch this promotion."));
     } finally {
       setSubmitting(false);
     }

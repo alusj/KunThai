@@ -67,6 +67,7 @@ import ExploreHeader from "./components/header/ExploreHeader";
 import { SocialMenuContent } from "./components/header/HeaderMenu";
 import ExploreTabs from "./ExploreTabs/ExploreTabs";
 import PostingStatusBanner from "./shared/PostingStatusBanner";
+import PostOutboxIndicator from "./shared/PostOutboxIndicator";
 import { stopAllExploreMedia } from "./shared/singleMediaPlayback";
 
 const EXPLORE_TAB_ORDER = ["UrFeed", "Swip", "Connections"];
@@ -1488,6 +1489,7 @@ export default function Explore({ active = true, onNavigateMain, onScreenModeCha
       onTouchCancel={cancelHorizontalDrag}
     >
       <PostingStatusBanner notice={postingNotice} onDismiss={dismissPostingNotice} onShareKunThai={shareKunThaiLink} />
+      <PostOutboxIndicator />
 
       {/* =========================
           HEADER + PARENT TABS

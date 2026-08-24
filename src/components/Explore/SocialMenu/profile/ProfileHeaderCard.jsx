@@ -29,7 +29,14 @@ import { getKunThaiPublicUserId } from "../../../../Backend/services/identityCod
 import {
   fetchVisibilityCreditPackages,
   startFlutterwaveCardPurchase,
+  startMonimeMobileMoneyPurchase,
+  pollMonimePaymentStatus,
+  MONIME_MIN_CREDITS,
+  monimeCustomPriceMinor,
+  CARD_MIN_CREDITS,
+  cardCustomUsdPriceMinor,
 } from "../../../../Backend/services/visibilityCreditService";
+import { showToast } from "../../../../Backend/services/toastService";
 import { t } from "../../../../i18n";
 import CenteredModal from "../../../shared/CenteredModal";
 import Avatar from "../../shared/Avatar";
@@ -85,6 +92,17 @@ export default function ProfileHeaderCard({
   const [creditPackagesLoading, setCreditPackagesLoading] = useState(false);
   const [cardCheckoutPackageId, setCardCheckoutPackageId] = useState("");
   const [cardCheckoutError, setCardCheckoutError] = useState("");
+  const [cardCustomCredits, setCardCustomCredits] = useState("");
+  const [momoProvider, setMomoProvider] = useState("orange");
+  const [momoCustomCredits, setMomoCustomCredits] = useState("");
+  const [momoPhone, setMomoPhone] = useState("");
+  const [momoBusy, setMomoBusy] = useState(false);
+  const [momoError, setMomoError] = useState("");
+  // "select" (choosing amount + phone) -> "waiting" (approve on phone, polling
+  // for confirmation) -> the sheet closes itself the moment it's confirmed.
+  const [momoStage, setMomoStage] = useState("select");
+  const [momoPending, setMomoPending] = useState(null); // { purchaseId, ussdCode, credits }
+  const momoPollRef = useRef(null);
   const [publicIdHelpOpen, setPublicIdHelpOpen] = useState(false);
   const menuRef = useRef(null);
   const creditMenuRef = useRef(null);
@@ -123,7 +141,13 @@ export default function ProfileHeaderCard({
   }, [creditMenuOpen]);
 
   useEffect(() => {
-    if (!buyCreditsOpen || buyCreditsMethod !== "card") return undefined;
+    return () => {
+      if (momoPollRef.current) window.clearTimeout(momoPollRef.current);
+    };
+  }, []);
+
+  useEffect(() => {
+    if (!buyCreditsOpen || (buyCreditsMethod !== "card" && buyCreditsMethod !== "mobile-money")) return undefined;
     let active = true;
     setCreditPackagesLoading(true);
     setCardCheckoutError("");
@@ -189,21 +213,82 @@ export default function ProfileHeaderCard({
   }
 
   function closeBuyCredits() {
+    stopMomoPolling();
     setBuyCreditsOpen(false);
     setBuyCreditsMethod("");
     setCardCheckoutPackageId("");
     setCardCheckoutError("");
+    setMomoStage("select");
+    setMomoPending(null);
+    setMomoError("");
   }
 
-  async function startCardCheckout(packageId) {
+  async function startCardCheckout({ packageId, credits } = {}) {
     try {
-      setCardCheckoutPackageId(packageId);
+      setCardCheckoutPackageId(packageId || "custom");
       setCardCheckoutError("");
-      const result = await startFlutterwaveCardPurchase(packageId);
+      const result = await startFlutterwaveCardPurchase(packageId ? { packageId } : { credits });
       window.location.assign(result.checkoutUrl);
     } catch (error) {
       setCardCheckoutPackageId("");
       setCardCheckoutError(error.message || t("profile.unableOpenCardCheckout"));
+    }
+  }
+
+  function stopMomoPolling() {
+    if (momoPollRef.current) {
+      window.clearTimeout(momoPollRef.current);
+      momoPollRef.current = null;
+    }
+  }
+
+  // Poll the purchase status while the customer approves the Orange Money
+  // prompt on their phone. Stops on success, terminal failure, or timeout.
+  function pollMomoStatus(purchaseId, attempt = 0) {
+    const MAX_ATTEMPTS = 40; // ~2 minutes at the cadence below
+    pollMonimePaymentStatus(purchaseId)
+      .then((result) => {
+        window.dispatchEvent(new CustomEvent("kuntai-visibility-credits-updated"));
+        showToast(`${Number(result.credits || 0)} Visibility Credits added.`, "success", { title: "Orange Money" });
+        setMomoStage("select");
+        setMomoPending(null);
+        setMomoBusy(false);
+        closeBuyCredits();
+      })
+      .catch((error) => {
+        if (error.pending && attempt < MAX_ATTEMPTS) {
+          momoPollRef.current = window.setTimeout(() => pollMomoStatus(purchaseId, attempt + 1), 3000);
+          return;
+        }
+        setMomoBusy(false);
+        setMomoStage("select");
+        setMomoError(
+          error.pending
+            ? "This is taking longer than expected. Check your phone, or try again."
+            : error.message || "Orange Money couldn't confirm this payment. Please try again.",
+        );
+      });
+  }
+
+  async function startMonimeCheckout({ packageId, credits } = {}) {
+    if (momoBusy) return;
+    const phoneNumber = momoPhone.replace(/[^\d]/g, "");
+    if (phoneNumber.length < 8) {
+      setMomoError("Enter your Orange Money phone number.");
+      return;
+    }
+    try {
+      setMomoBusy(true);
+      setMomoError("");
+      const result = await startMonimeMobileMoneyPurchase(
+        packageId ? { packageId, phoneNumber } : { credits, phoneNumber },
+      );
+      setMomoPending({ purchaseId: result.purchaseId, ussdCode: result.ussdCode || "", credits: result.credits });
+      setMomoStage("waiting");
+      pollMomoStatus(result.purchaseId);
+    } catch (error) {
+      setMomoBusy(false);
+      setMomoError(error.message || "Orange Money couldn't start this payment. Please try again.");
     }
   }
 
@@ -635,14 +720,14 @@ export default function ProfileHeaderCard({
                   <div className="space-y-3" aria-label={t("profile.loadingCreditPackages")}>
                     {[1, 2, 3].map((item) => <div key={item} className="h-[74px] animate-pulse rounded-2xl bg-slate-100" />)}
                   </div>
-                ) : creditPackages.length ? (
-                  creditPackages.map((item) => {
+                ) : creditPackages.filter((pkg) => pkg.usdPriceMinor > 0).length ? (
+                  creditPackages.filter((pkg) => pkg.usdPriceMinor > 0).map((item) => {
                     const opening = cardCheckoutPackageId === item.id;
                     return (
                       <motion.button
                         key={item.id}
                         type="button"
-                        onClick={() => startCardCheckout(item.id)}
+                        onClick={() => startCardCheckout({ packageId: item.id })}
                         disabled={Boolean(cardCheckoutPackageId)}
                         whileHover={{ y: -2, scale: 1.01 }}
                         whileTap={{ scale: 0.98 }}
@@ -656,7 +741,7 @@ export default function ProfileHeaderCard({
                           <span className="mt-0.5 block text-xs font-semibold text-slate-500">{t("profile.creditCount", { count: item.credits })}</span>
                         </span>
                         <span className="shrink-0 text-sm font-black text-sky-800">
-                          {opening ? t("profile.openingCheckout") : formatPackagePrice(item)}
+                          {opening ? t("profile.openingCheckout") : formatPackagePrice({ priceMinor: item.usdPriceMinor, currency: "USD" })}
                         </span>
                       </motion.button>
                     );
@@ -666,6 +751,32 @@ export default function ProfileHeaderCard({
                     {t("profile.creditPackagesUnavailable")}
                   </div>
                 )}
+
+                <div className="rounded-2xl border border-slate-200 bg-slate-50 p-4">
+                  <label className="block text-xs font-black uppercase tracking-wide text-slate-500">Custom amount (min {CARD_MIN_CREDITS})</label>
+                  <div className="mt-2 flex items-center gap-2">
+                    <input
+                      inputMode="numeric"
+                      value={cardCustomCredits}
+                      onChange={(event) => setCardCustomCredits(event.target.value.replace(/[^\d]/g, ""))}
+                      placeholder={String(CARD_MIN_CREDITS)}
+                      className="h-11 w-24 rounded-xl border border-slate-200 bg-white px-3 text-sm font-black text-slate-950"
+                    />
+                    <span className="min-w-0 flex-1 truncate text-xs font-bold text-slate-500">
+                      {Number(cardCustomCredits) >= CARD_MIN_CREDITS
+                        ? `${Number(cardCustomCredits)} credits · ${formatPackagePrice({ priceMinor: cardCustomUsdPriceMinor(cardCustomCredits), currency: "USD" })}`
+                        : "credits"}
+                    </span>
+                    <button
+                      type="button"
+                      disabled={Boolean(cardCheckoutPackageId) || Number(cardCustomCredits) < CARD_MIN_CREDITS}
+                      onClick={() => startCardCheckout({ credits: Number(cardCustomCredits) })}
+                      className="h-11 shrink-0 rounded-xl bg-sky-700 px-4 text-sm font-black text-white transition hover:bg-sky-800 disabled:opacity-50"
+                    >
+                      {cardCheckoutPackageId === "custom" ? t("profile.openingCheckout") : "Continue"}
+                    </button>
+                  </div>
+                </div>
               </div>
 
               {cardCheckoutError ? (
@@ -676,6 +787,182 @@ export default function ProfileHeaderCard({
                 {t("profile.cardDetailsPrivacy")}
               </div>
               <button type="button" onClick={closeBuyCredits} disabled={Boolean(cardCheckoutPackageId)} className="mt-3 h-12 w-full rounded-2xl border border-slate-200 bg-white px-4 text-sm font-black text-slate-700 disabled:opacity-50">
+                {t("common.close")}
+              </button>
+            </motion.div>
+          ) : buyCreditsMethod === "mobile-money" && momoStage === "waiting" ? (
+            <motion.div
+              key="buy-credit-mobile-money-waiting"
+              initial={{ opacity: 0, x: 28, scale: 0.98 }}
+              animate={{ opacity: 1, x: 0, scale: 1 }}
+              exit={{ opacity: 0, x: 28, scale: 0.98 }}
+              transition={{ type: "spring", stiffness: 360, damping: 28 }}
+              className="py-2 text-center"
+            >
+              <span className="mx-auto flex h-16 w-16 items-center justify-center rounded-full bg-orange-50 text-orange-600">
+                <span className="h-9 w-9 animate-spin rounded-full border-[3px] border-orange-200 border-t-orange-600" aria-hidden="true" />
+              </span>
+              <h2 className="mt-4 text-xl font-black text-slate-950">Approve on your phone</h2>
+              <p className="mt-2 text-sm font-semibold leading-6 text-slate-500">
+                We sent an Orange Money prompt to <span className="font-black text-slate-800">{momoPhone}</span>. Enter your PIN there to confirm{momoPending?.credits ? ` ${momoPending.credits} Visibility Credits` : ""}.
+              </p>
+              {momoPending?.ussdCode ? (
+                <p className="mt-3 rounded-2xl bg-slate-50 px-4 py-3 text-sm font-bold text-slate-600">
+                  Didn’t get the prompt? Dial <span className="font-black text-slate-900">{momoPending.ussdCode}</span>
+                </p>
+              ) : null}
+              {momoError ? (
+                <p role="alert" className="mt-3 rounded-2xl bg-rose-50 px-4 py-3 text-sm font-bold text-rose-700">{momoError}</p>
+              ) : null}
+              <button
+                type="button"
+                onClick={() => {
+                  stopMomoPolling();
+                  setMomoBusy(false);
+                  setMomoStage("select");
+                  setMomoPending(null);
+                }}
+                className="mt-5 h-12 w-full rounded-2xl border border-slate-200 bg-white px-4 text-sm font-black text-slate-700"
+              >
+                Cancel
+              </button>
+            </motion.div>
+          ) : buyCreditsMethod === "mobile-money" ? (
+            <motion.div
+              key="buy-credit-mobile-money"
+              initial={{ opacity: 0, x: 28, scale: 0.98 }}
+              animate={{ opacity: 1, x: 0, scale: 1 }}
+              exit={{ opacity: 0, x: 28, scale: 0.98 }}
+              transition={{ type: "spring", stiffness: 360, damping: 28 }}
+            >
+              <div className="flex items-start gap-3">
+                <button
+                  type="button"
+                  onClick={() => { setBuyCreditsMethod(""); setMomoError(""); }}
+                  className="flex h-11 w-11 shrink-0 items-center justify-center rounded-full bg-slate-100 text-xl text-slate-700 transition hover:bg-sky-50 hover:text-sky-700"
+                  aria-label={t("profile.chooseAnotherPaymentMethod")}
+                >
+                  <HiOutlineArrowLeft />
+                </button>
+                <div className="min-w-0">
+                  <p className="text-xs font-black uppercase tracking-[0.18em] text-sky-700">{t("profile.mobileMoney")}</p>
+                  <h2 id="buy-credits-title" className="mt-1 text-xl font-black text-slate-950">Choose a wallet</h2>
+                </div>
+              </div>
+
+              <div className="mt-5 grid grid-cols-2 gap-2.5">
+                {[
+                  { id: "orange", name: "Orange Money", tone: "bg-orange-500", status: "instant" },
+                  { id: "afrimoney", name: "Afrimoney", tone: "bg-rose-600", status: "soon" },
+                  { id: "qmoney", name: "QMoney", tone: "bg-emerald-600", status: "soon" },
+                  { id: "sieratel", name: "Sieratel Money", tone: "bg-blue-600", status: "soon" },
+                ].map((wallet) => {
+                  const active = momoProvider === wallet.id;
+                  const disabled = wallet.status !== "instant";
+                  return (
+                    <button
+                      key={wallet.id}
+                      type="button"
+                      disabled={disabled}
+                      onClick={() => setMomoProvider(wallet.id)}
+                      className={`relative flex flex-col items-start gap-2 rounded-2xl border p-3 text-left transition ${
+                        active ? "border-sky-500 bg-sky-50 shadow-sm" : "border-slate-200 bg-white"
+                      } ${disabled ? "cursor-not-allowed opacity-60" : "hover:border-sky-300"}`}
+                    >
+                      <span className={`grid h-9 w-9 place-items-center rounded-xl ${wallet.tone} text-sm font-black text-white`}>
+                        {wallet.name.charAt(0)}
+                      </span>
+                      <span className="block text-sm font-black text-slate-950">{wallet.name}</span>
+                      <span className={`rounded-full px-2 py-0.5 text-[10px] font-black uppercase tracking-wide ${
+                        disabled ? "bg-slate-100 text-slate-500" : "bg-emerald-100 text-emerald-700"
+                      }`}>
+                        {disabled ? "Coming soon" : "Instant"}
+                      </span>
+                    </button>
+                  );
+                })}
+              </div>
+
+              <div className="mt-5">
+                <label htmlFor="momo-phone" className="block text-xs font-black uppercase tracking-[0.14em] text-slate-400">
+                  Orange Money number
+                </label>
+                <input
+                  id="momo-phone"
+                  type="tel"
+                  inputMode="tel"
+                  autoComplete="tel"
+                  value={momoPhone}
+                  onChange={(event) => setMomoPhone(event.target.value.replace(/[^\d+\s]/g, ""))}
+                  placeholder="076 123 456"
+                  className="mt-2 h-12 w-full rounded-2xl border border-slate-300 px-4 text-sm font-black text-slate-950 focus:border-orange-400 focus:outline-none"
+                />
+              </div>
+
+              <div className="mt-5">
+                <p className="text-xs font-black uppercase tracking-[0.14em] text-slate-400">Credit amount</p>
+                {creditPackagesLoading ? (
+                  <div className="mt-3 space-y-3">
+                    {[1, 2, 3].map((item) => <div key={item} className="h-[64px] animate-pulse rounded-2xl bg-slate-100" />)}
+                  </div>
+                ) : (
+                  <div className="mt-3 space-y-2.5">
+                    {creditPackages.filter((item) => item.currency === "SLE").map((item) => (
+                      <button
+                        key={item.id}
+                        type="button"
+                        disabled={momoBusy}
+                        onClick={() => startMonimeCheckout({ packageId: item.id })}
+                        className="flex w-full items-center gap-3 rounded-2xl border border-orange-100 bg-gradient-to-r from-orange-50 to-white p-3.5 text-left shadow-sm transition hover:border-orange-300 disabled:cursor-wait disabled:opacity-65"
+                      >
+                        <span className="grid h-10 min-w-10 shrink-0 place-items-center rounded-2xl bg-orange-500 px-2 text-sm font-black text-white">{item.credits}</span>
+                        <span className="min-w-0 flex-1">
+                          <span className="block truncate text-sm font-black text-slate-950">{item.label}</span>
+                          <span className="mt-0.5 block text-xs font-semibold text-slate-500">{t("profile.creditCount", { count: item.credits })}</span>
+                        </span>
+                        <span className="shrink-0 text-sm font-black text-orange-700">{formatPackagePrice(item)}</span>
+                      </button>
+                    ))}
+
+                    <div className="rounded-2xl border border-slate-200 bg-white p-3.5">
+                      <label className="block text-xs font-black uppercase tracking-wide text-slate-500">Custom amount (min {MONIME_MIN_CREDITS})</label>
+                      <div className="mt-2 flex items-center gap-2">
+                        <input
+                          type="number"
+                          inputMode="numeric"
+                          min={MONIME_MIN_CREDITS}
+                          value={momoCustomCredits}
+                          onChange={(event) => setMomoCustomCredits(event.target.value.replace(/[^\d]/g, ""))}
+                          placeholder={`${MONIME_MIN_CREDITS}`}
+                          className="h-11 w-24 rounded-xl border border-slate-300 px-3 text-sm font-black text-slate-950 focus:border-orange-400 focus:outline-none"
+                        />
+                        <span className="flex-1 text-xs font-semibold text-slate-500">
+                          {Number(momoCustomCredits) >= MONIME_MIN_CREDITS
+                            ? `${Number(momoCustomCredits)} credits · ${formatPackagePrice({ priceMinor: monimeCustomPriceMinor(momoCustomCredits), currency: "SLE" })}`
+                            : "credits"}
+                        </span>
+                        <button
+                          type="button"
+                          disabled={momoBusy || Number(momoCustomCredits) < MONIME_MIN_CREDITS}
+                          onClick={() => startMonimeCheckout({ credits: Number(momoCustomCredits) })}
+                          className="h-11 shrink-0 rounded-xl bg-orange-500 px-4 text-sm font-black text-white transition hover:bg-orange-600 disabled:opacity-50"
+                        >
+                          {momoBusy ? t("profile.openingCheckout") : "Continue"}
+                        </button>
+                      </div>
+                    </div>
+                  </div>
+                )}
+              </div>
+
+              {momoError ? (
+                <p role="alert" className="mt-3 rounded-2xl bg-rose-50 px-4 py-3 text-sm font-bold text-rose-700">{momoError}</p>
+              ) : null}
+              <div className="mt-4 flex items-center justify-center gap-2 text-xs font-bold text-slate-500">
+                <HiOutlineDevicePhoneMobile className="text-base text-orange-600" />
+                You’ll approve the payment on your phone. Credits arrive the moment it’s confirmed.
+              </div>
+              <button type="button" onClick={closeBuyCredits} disabled={momoBusy} className="mt-3 h-12 w-full rounded-2xl border border-slate-200 bg-white px-4 text-sm font-black text-slate-700 disabled:opacity-50">
                 {t("common.close")}
               </button>
             </motion.div>

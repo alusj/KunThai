@@ -32,6 +32,24 @@ self.addEventListener("activate", (event) => {
   event.waitUntil(self.clients.claim());
 });
 
+// Post outbox Background Sync (Phase 1). When the browser wakes us on reconnect,
+// ask any KunThai client to drain its outbox — publishing always runs through
+// the app's real, correct code path, so the worker never reimplements it. If no
+// client is reachable, the post stays safely queued and drains the next time the
+// app is opened. Supported on Chromium; a no-op elsewhere.
+async function askClientsToDrainOutbox() {
+  const clientList = await self.clients.matchAll({ type: "window", includeUncontrolled: true });
+  for (const client of clientList) {
+    client.postMessage({ type: "kunthai-drain-outbox" });
+  }
+}
+
+self.addEventListener("sync", (event) => {
+  if (event.tag === "kunthai-post-outbox") {
+    event.waitUntil(askClientsToDrainOutbox());
+  }
+});
+
 self.addEventListener("fetch", (event) => {
   if (!isAreaTileRequest(event.request)) return;
 

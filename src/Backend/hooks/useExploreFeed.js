@@ -1,4 +1,5 @@
 import { useEffect, useRef, useState } from "react";
+import { friendlyErrorMessage } from "../services/friendlyErrorService";
 
 import supabase from "../lib/supabaseClient";
 import {
@@ -18,6 +19,14 @@ import { haptics } from "../services/feedbackService";
 import { readExploreSettings } from "../services/explore/preferencesService";
 import { guardGuestAction } from "../services/guestModeService";
 import { canRunSafetyAction, contentHasModerationFlags, readBlockedUsers } from "../services/explore/safetyService";
+import {
+  POST_OUTBOX_EVENT,
+  enqueuePost,
+  isPostOutboxReady,
+  setOutboxPublisher,
+  startOutboxAutoDrain,
+} from "../services/explore/postOutbox";
+import { newClientPostId } from "../services/explore/postOutboxCore";
 import { showToast } from "../services/toastService";
 import {
   createExploreNotification,
@@ -366,6 +375,40 @@ export function useExploreFeed(scope = "feed") {
     postsRef.current = posts;
     writeFeedMemory(scope, { posts });
   }, [posts, scope]);
+
+  // Post outbox (Phase 0). When enabled, teach the outbox how to publish, start
+  // the automatic drain (reconnect / focus / next open), and reconcile a
+  // background-published post into this feed by swapping the optimistic entry
+  // for the real server row. No-op entirely when the flag is off.
+  useEffect(() => {
+    if (!isPostOutboxReady()) return undefined;
+    setOutboxPublisher(createExplorePost);
+    startOutboxAutoDrain();
+
+    function handleOutboxEvent(event) {
+      const detail = event.detail || {};
+
+      // A user discarded a queued post — drop its optimistic entry from the feed.
+      if (detail.type === "discarded" && detail.id) {
+        setPosts((current) => current.filter((post) => post.client_post_id !== detail.id));
+        return;
+      }
+
+      if (detail.type !== "published" || !detail.serverPost) return;
+      const clientId = detail.record?.id;
+      setPosts((current) => {
+        const withoutServerDup = current.filter((post) => post.id !== detail.serverPost.id);
+        const index = withoutServerDup.findIndex((post) => post.client_post_id && post.client_post_id === clientId);
+        if (index === -1) return mergePosts([detail.serverPost], withoutServerDup);
+        const next = [...withoutServerDup];
+        next[index] = { ...next[index], ...detail.serverPost, outbox_pending: false };
+        return next;
+      });
+    }
+
+    window.addEventListener(POST_OUTBOX_EVENT, handleOutboxEvent);
+    return () => window.removeEventListener(POST_OUTBOX_EVENT, handleOutboxEvent);
+  }, []);
 
   useEffect(() => {
     likedPostsRef.current = likedPosts;
@@ -779,7 +822,12 @@ export function useExploreFeed(scope = "feed") {
   async function submitPost(postInput) {
     haptics.medium("explore");
     const localId = `local-${scope}-${Date.now()}`;
+    // With the outbox on, the first attempt and any retry share one idempotency
+    // key so a lost-response retry can never create a duplicate post.
+    const outboxOn = isPostOutboxReady();
+    const clientPostId = outboxOn ? newClientPostId() : "";
     const optimisticPost = buildLocalPost(postInput, scope, localId);
+    if (clientPostId) optimisticPost.client_post_id = clientPostId;
     const optimisticScopes = getPostTargetScopes(optimisticPost, scope);
     const optimisticVisible = isLocallyVisiblePost(optimisticPost);
 
@@ -796,7 +844,10 @@ export function useExploreFeed(scope = "feed") {
         setPosts((current) => mergePosts([optimisticPost], current));
       }
 
-      const createdPost = await createExplorePost(postInput, scope);
+      const createdPost = await createExplorePost(
+        clientPostId ? { ...postInput, client_post_id: clientPostId } : postInput,
+        scope,
+      );
       let created = createdPost;
       if (isAdvertDraft(createdPost)) {
         try {
@@ -901,11 +952,32 @@ export function useExploreFeed(scope = "feed") {
         warning: "",
       };
     } catch (err) {
-      const message = err.message || "Unable to sync post to backend right now.";
+      const message = friendlyErrorMessage(err, "Unable to sync post to backend right now.");
       const hasMediaUpload = Boolean(postInput?.image_url || postInput?.audio_url || postInput?.video_url);
       const isAdvertInput = isAdvertDraft(postInput);
 
       setError(message);
+
+      // Durable retry: hand the post to the outbox to finish automatically when
+      // the connection returns, and KEEP the optimistic post instead of
+      // discarding it. Falls through to the legacy behaviour if the outbox is
+      // off or the enqueue itself fails.
+      if (outboxOn) {
+        try {
+          await enqueuePost(postInput, scope, { id: clientPostId });
+          setPosts((current) => {
+            const next = current.map((post) => (post.id === localId ? { ...post, outbox_pending: true } : post));
+            writeStoredPosts(scope, next);
+            return next;
+          });
+          return {
+            ok: true,
+            warning: "We'll finish posting this automatically as soon as your connection is back.",
+          };
+        } catch {
+          // Outbox unavailable — continue to the original handling below.
+        }
+      }
 
       if (hasMediaUpload || isAdvertInput) {
         setPosts((current) => {
@@ -1080,7 +1152,7 @@ export function useExploreFeed(scope = "feed") {
         });
       }
     } catch (err) {
-      setError(err.message || "Unable to add comment.");
+      setError(friendlyErrorMessage(err, "Unable to add comment."));
     }
   }
 
@@ -1122,7 +1194,7 @@ export function useExploreFeed(scope = "feed") {
         setPosts((current) => current.map((item) => (item.id === postId ? { ...item, ...updated } : item)));
       }
     } catch (err) {
-      setError(err.message || "Unable to edit post.");
+      setError(friendlyErrorMessage(err, "Unable to edit post."));
     }
   }
 
@@ -1138,10 +1210,11 @@ export function useExploreFeed(scope = "feed") {
       await deleteExplorePost(postId);
       removePostFromAllCaches(postId);
       showToast("Post deleted.", "success");
+      haptics.medium("explore");
       return true;
     } catch (err) {
       setPosts(previousPosts);
-      setError(err.message || "Unable to delete post.");
+      setError(friendlyErrorMessage(err, "Unable to delete post."));
       return false;
     }
   }
@@ -1223,8 +1296,10 @@ export function useExploreFeed(scope = "feed") {
       }
       hidePost(postId);
       showToast(isAdvertDraft(post) ? "Report received. The advertisement was hidden." : "Report received. The post was hidden.", "success");
+      haptics.medium("explore");
     } catch (err) {
-      setError(err.message || "Unable to report post.");
+      setError(friendlyErrorMessage(err, "Unable to report post."));
+      showToast(friendlyErrorMessage(err, "Unable to report post."), "danger");
     }
   }
 

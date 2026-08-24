@@ -1,4 +1,5 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
+import { friendlyErrorMessage } from "../../Backend/services/friendlyErrorService";
 import {
   AlertTriangle,
   ArrowRight,
@@ -180,7 +181,7 @@ export default function BusinessPlanScreen({ surface, entityId, entityName = "Yo
     try {
       setState(await fetchBusinessSubscription(surface, entityId, { sync: true }));
     } catch (loadError) {
-      setError(loadError.message || "Unable to load plans right now.");
+      setError(friendlyErrorMessage(loadError, "Unable to load plans right now."));
     } finally {
       if (!quiet) setLoading(false);
     }
@@ -233,7 +234,7 @@ export default function BusinessPlanScreen({ surface, entityId, entityName = "Yo
       showToast(scheduled ? `${selectedPlan.displayName} is scheduled for the next renewal.` : `${selectedPlan.displayName} plan${cadence} is active.`, "success");
       setSelectedPlan(null);
     } catch (changeError) {
-      showToast(changeError.message || "Unable to change this plan.", "danger");
+      showToast(friendlyErrorMessage(changeError, "Unable to change this plan."), "danger");
     } finally {
       setBusy("");
     }
@@ -252,7 +253,7 @@ export default function BusinessPlanScreen({ surface, entityId, entityName = "Yo
       setState(await setBusinessPlanAutoRenew(surface, entityId, next));
       showToast(next ? "Automatic renewal is on." : "Automatic renewal is off.", "success");
     } catch (renewError) {
-      showToast(renewError.message || "Unable to change automatic renewal.", "danger");
+      showToast(friendlyErrorMessage(renewError, "Unable to change automatic renewal."), "danger");
     } finally {
       setBusy("");
     }
@@ -265,7 +266,7 @@ export default function BusinessPlanScreen({ surface, entityId, entityName = "Yo
       setState(await buyOperatorCapacityPack(entityId));
       showToast(`${OPERATOR_CAPACITY_PACK_SIZE} operator spaces were added.`, "success");
     } catch (packError) {
-      showToast(packError.message || "Unable to add operator capacity.", "danger");
+      showToast(friendlyErrorMessage(packError, "Unable to add operator capacity."), "danger");
     } finally {
       setBusy("");
     }

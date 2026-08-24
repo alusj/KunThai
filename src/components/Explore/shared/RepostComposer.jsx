@@ -6,6 +6,8 @@ import { useBrowserBack } from "../../../Backend/hooks/useBrowserBack";
 import { createExploreRepost } from "../../../Backend/services/explore/repostService";
 import { guardGuestAction } from "../../../Backend/services/guestModeService";
 import { showToast } from "../../../Backend/services/toastService";
+import { haptics } from "../../../Backend/services/feedbackService";
+import { friendlyErrorMessage } from "../../../Backend/services/friendlyErrorService";
 import { useI18n } from "../../../i18n";
 import Avatar from "../shared/Avatar";
 import RepostPreview from "./RepostPreview";
@@ -45,11 +47,12 @@ export default function RepostComposer({ onClose, onSuccess, profile, sourcePost
     try {
       const created = await createExploreRepost(sourcePost, { commentary, privacy });
       showToast(i18nText("ui.literals.k55c8a595e72e"), "success", { title: i18nText("ui.literals.k0c3053e49f81") });
+      haptics.medium("explore");
       onSuccess?.(created);
       setClosing(true);
       closeTimerRef.current = window.setTimeout(() => onClose?.(), EXIT_MS);
     } catch (submitError) {
-      setError(submitError.message || t("explore.unableRepost"));
+      setError(friendlyErrorMessage(submitError, t("explore.unableRepost")));
       setSubmitting(false);
     }
   }

@@ -862,6 +862,17 @@
   }
 }
 
+/* Persistent connection status strip (NetworkStatusBanner). Slides in from the
+   top edge and stays put while offline. */
+.kt-network-banner > div {
+  animation: kt-network-slide-down 260ms var(--kt-ease-emphasized, ease-out) both;
+}
+
+@keyframes kt-network-slide-down {
+  from { transform: translateY(-100%); }
+  to { transform: translateY(0); }
+}
+
 /* Branded launch layer used during cold boot and after a long absence. It sits
    above every app portal so auth, onboarding, and route loaders cannot cover it. */
 .kt-returning-intro {

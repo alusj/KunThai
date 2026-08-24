@@ -1,4 +1,5 @@
 import { useEffect, useRef, useState } from "react";
+import { friendlyErrorMessage } from "../services/friendlyErrorService";
 
 import {
   blockExploreUser,
@@ -75,7 +76,7 @@ export function useTrustSafety() {
       setFeedback("User blocked.");
       showToast("User blocked.", "success");
     } catch (error) {
-      setFeedback(error.message || "Unable to block user.");
+      setFeedback(friendlyErrorMessage(error, "Unable to block user."));
     }
   }
 
@@ -89,8 +90,8 @@ export function useTrustSafety() {
       setFeedback("User unblocked.");
       showToast("User unblocked.", "success");
     } catch (error) {
-      setFeedback(error.message || "Unable to unblock user.");
-      showToast(error.message || "Unable to unblock user.", "danger");
+      setFeedback(friendlyErrorMessage(error, "Unable to unblock user."));
+      showToast(friendlyErrorMessage(error, "Unable to unblock user."), "danger");
     } finally {
       setUnblockingUsers((current) => {
         const next = new Set(current);
@@ -128,8 +129,8 @@ export function useTrustSafety() {
       setFeedback("Privacy settings updated.");
       showToast("Privacy settings updated.", "success");
     } catch (error) {
-      setFeedback(error.message || "Privacy settings saved on this device.");
-      showToast(error.message || "Privacy setting was saved on this device, but could not sync yet.", "warning");
+      setFeedback(friendlyErrorMessage(error, "Privacy settings saved on this device."));
+      showToast(friendlyErrorMessage(error, "Privacy setting was saved on this device, but could not sync yet."), "warning");
     } finally {
       setUpdatingSettings((current) => {
         const next = new Set(current);

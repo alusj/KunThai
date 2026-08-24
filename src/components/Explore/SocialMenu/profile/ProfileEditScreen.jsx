@@ -1,6 +1,9 @@
 import { useEffect, useRef, useState } from "react";
 
 import { SPACE_IDENTITY_TYPE, getProfileIdentity, updateExploreProfile, updateExploreSpace } from "../../../../Backend/services/exploreService";
+import { optimizeImageFile } from "../../../../Backend/services/marketplace/imageOptimization";
+import { friendlyErrorMessage } from "../../../../Backend/services/friendlyErrorService";
+import { haptics } from "../../../../Backend/services/feedbackService";
 import { showToast } from "../../../../Backend/services/toastService";
 import { useI18n } from "../../../../i18n";
 import ProfileEditForm from "./ProfileEditForm";
@@ -44,7 +47,9 @@ export default function ProfileEditScreen({
     if (!file) return;
 
     try {
-      updateField("avatarUrl", await fileToDataUrl(file));
+      // Downscale + re-encode before turning it into a data URL, so the save
+      // uploads a small image instead of a multi-megabyte phone photo.
+      updateField("avatarUrl", await fileToDataUrl(await optimizeImageFile(file)));
     } catch (error) {
       setFeedback(error.message || t("profile.unableLoadImage"));
     } finally {
@@ -57,7 +62,9 @@ export default function ProfileEditScreen({
     if (!file) return;
 
     try {
-      updateField("coverUrl", await fileToDataUrl(file));
+      // Cover photos are the biggest profile upload; optimize before saving so
+      // it no longer takes a long time on a normal connection.
+      updateField("coverUrl", await fileToDataUrl(await optimizeImageFile(file)));
     } catch (error) {
       setFeedback(error.message || t("profile.unableLoadCover"));
     } finally {
@@ -79,8 +86,9 @@ export default function ProfileEditScreen({
       onProfileUpdate?.(updated);
       setFeedback(updated.avatarWarning || (isSpace ? t("profile.spaceUpdated") : t("profile.profileUpdated")));
       showToast(isSpace ? t("profile.spaceUpdated") : t("profile.profileUpdated"), "success");
+      haptics.light("explore");
     } catch (error) {
-      setFeedback(error.message || t("profile.unableUpdateProfile"));
+      setFeedback(friendlyErrorMessage(error, t("profile.unableUpdateProfile")));
     } finally {
       setSaving(false);
     }

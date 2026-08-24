@@ -6,6 +6,7 @@ import App from './App.jsx'
 import "./styles/bankTheme.css";
 import "./styles/appearance.css";
 import ToastProvider from "./components/Explore/shared/ToastProvider.jsx";
+import NetworkStatusBanner from "./components/shared/NetworkStatusBanner.jsx";
 import { AppearanceProvider } from "./components/AppearanceProvider.jsx";
 import { registerKunThaiServiceWorker } from "./Backend/services/pushService.js";
 import { initCountryConfig } from "./Backend/services/countryConfigService.js";
@@ -119,6 +120,7 @@ createRoot(document.getElementById('root')).render(
   <AppErrorBoundary>
     <AppearanceProvider>
       <ToastProvider>
+        <NetworkStatusBanner />
         <RootApplication />
       </ToastProvider>
     </AppearanceProvider>

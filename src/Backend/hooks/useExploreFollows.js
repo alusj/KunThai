@@ -1,4 +1,5 @@
 import { useEffect, useState } from "react";
+import { friendlyErrorMessage } from "../services/friendlyErrorService";
 
 import {
   SPACE_IDENTITY_TYPE,
@@ -116,7 +117,7 @@ export function useExploreFollows(currentUserId) {
     } catch (error) {
       setFollowedUsers(previous);
       writeStoredFollows(previous);
-      showToast(error.message || "Unable to update connection.", "error");
+      showToast(friendlyErrorMessage(error, "Unable to update connection."), "error");
       return !nextActive;
     }
     window.dispatchEvent(new CustomEvent(EXPLORE_FOLLOW_CHANGED_EVENT, {

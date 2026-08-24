@@ -1,4 +1,5 @@
 import supabase from "../../Backend/lib/supabaseClient";
+import { friendlyErrorMessage } from "../../Backend/services/friendlyErrorService";
 import { cachedQuery, invalidateCache } from "../../Backend/lib/queryCache";
 import { isMissingColumn, isMissingTable } from "../../Backend/services/explore/errors";
 import {
@@ -979,7 +980,7 @@ export async function saveOperatorAccount(account) {
     try {
       await saveOperatorDocumentRows(operator.id, publicMedia.uploads);
     } catch (error) {
-      if (!isMissingTable(error)) throw new Error(error.message || "Unable to save operator documents.");
+      if (!isMissingTable(error)) throw new Error(friendlyErrorMessage(error, "Unable to save operator documents."));
     }
   }
 

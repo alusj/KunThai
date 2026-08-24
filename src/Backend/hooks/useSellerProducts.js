@@ -1,4 +1,6 @@
 import { useEffect, useState } from "react";
+import { friendlyErrorMessage } from "../services/friendlyErrorService";
+import { notifyActionDone, notifyActionFailed } from "../services/actionFeedbackService";
 
 import {
   createSellerProductShareLink,
@@ -89,24 +91,24 @@ export function useSellerProducts() {
           stock: nextStock,
           status: nextStock > 0 ? "active" : "out-of-stock",
         });
-        setActionMessage("Stock updated.");
+        notifyActionDone("Stock updated.", { module: "marketplace" });
       }
 
       if (action === "edit-price") {
         const nextPrice = Number(window.prompt("Enter new price", String(product.price)));
         if (Number.isNaN(nextPrice) || nextPrice <= 0) return;
         await updateSellerProduct(product.id, { price: nextPrice });
-        setActionMessage("Price updated.");
+        notifyActionDone("Price updated.", { module: "marketplace" });
       }
 
       if (action === "pause") {
         await updateSellerProduct(product.id, { status: product.status === "paused" ? "active" : "paused" });
-        setActionMessage(product.status === "paused" ? "Product resumed." : "Product paused.");
+        notifyActionDone(product.status === "paused" ? "Product resumed." : "Product paused.", { module: "marketplace" });
       }
 
       if (action === "promote") {
         await promoteSellerProduct(product);
-        setActionMessage("Small Boost started with 5 Visibility Credits.");
+        notifyActionDone("Small Boost started with 5 Visibility Credits.", { module: "marketplace" });
       }
 
       if (action === "publish") {
@@ -114,14 +116,14 @@ export function useSellerProducts() {
           status: "active",
           published_at: product.publishedAt || new Date().toISOString(),
         });
-        setActionMessage("Draft published.");
+        notifyActionDone("Draft published.", { module: "marketplace" });
       }
 
       if (action === "delete") {
         const confirmed = window.confirm(`Delete ${product.name}? This removes it from Store, Catalog, and Drafts.`);
         if (!confirmed) return;
         await deleteSellerProduct(product.id);
-        setActionMessage("Product deleted.");
+        notifyActionDone("Product deleted.", { module: "marketplace" });
       }
 
       if (action === "share") {
@@ -132,7 +134,7 @@ export function useSellerProducts() {
         } else {
           window.prompt("Copy product link", link);
         }
-        setActionMessage("Product link copied.");
+        notifyActionDone("Product link copied.", { module: "marketplace" });
         shouldReload = false;
       }
 
@@ -140,7 +142,8 @@ export function useSellerProducts() {
         await loadProducts(() => true);
       }
     } catch (error) {
-      setActionError(error.message || "Unable to update product.");
+      setActionError(friendlyErrorMessage(error, "Unable to update product."));
+      notifyActionFailed(error, "Unable to update product.", { module: "marketplace" });
     }
   }
 

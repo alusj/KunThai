@@ -39,26 +39,52 @@ export default async function handler(req, res) {
     const user = await authenticatePaymentRequest(req, adminClient);
     if (!user) return json(res, 401, { ok: false, message: "Sign in to buy Visibility Credits." });
 
+    // Card is billed in USD — a preset package, or a custom credit amount priced
+    // at the starter (no bulk-discount) rate so it stays server-authoritative.
+    const CARD_MIN_CREDITS = 15;
+    const CARD_MAX_CREDITS = 100000;
+    const CARD_USD_PRICE_PER_CREDIT_MINOR = 7;
+
     const packageId = clean(req.body?.packageId, 64);
-    if (!/^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i.test(packageId)) {
-      return json(res, 400, { ok: false, message: "Choose an available credit package." });
-    }
+    const customCredits = Math.round(Number(req.body?.credits) || 0);
 
-    const { data: creditPackage, error: packageError } = await adminClient
-      .from("visibility_credit_packages")
-      .select("id,credits,price_minor,currency,label,active")
-      .eq("id", packageId)
-      .eq("active", true)
-      .maybeSingle();
+    let credits;
+    let usdPriceMinor;
+    let packageDbId = null;
+    let packageLabel = "Custom";
 
-    if (packageError || !creditPackage) {
-      return json(res, 404, { ok: false, message: "That credit package is no longer available." });
+    if (packageId) {
+      if (!/^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i.test(packageId)) {
+        return json(res, 400, { ok: false, message: "Choose an available credit package." });
+      }
+      const { data: creditPackage, error: packageError } = await adminClient
+        .from("visibility_credit_packages")
+        .select("id,credits,price_minor,usd_price_minor,currency,label,active")
+        .eq("id", packageId)
+        .eq("active", true)
+        .maybeSingle();
+
+      if (packageError || !creditPackage) {
+        return json(res, 404, { ok: false, message: "That credit package is no longer available." });
+      }
+      usdPriceMinor = Number(creditPackage.usd_price_minor || 0);
+      if (!usdPriceMinor) {
+        return json(res, 400, { ok: false, message: "This package isn't available for card payment." });
+      }
+      credits = creditPackage.credits;
+      packageDbId = creditPackage.id;
+      packageLabel = creditPackage.label || "";
+    } else if (customCredits >= CARD_MIN_CREDITS && customCredits <= CARD_MAX_CREDITS) {
+      credits = customCredits;
+      usdPriceMinor = customCredits * CARD_USD_PRICE_PER_CREDIT_MINOR;
+    } else {
+      return json(res, 400, { ok: false, message: `Enter at least ${CARD_MIN_CREDITS} credits.` });
     }
 
     const purchaseId = randomUUID();
     const txRef = createFlutterwaveReference(purchaseId);
-    const currency = String(creditPackage.currency || "").toUpperCase();
-    const amount = formatMinorAmount(creditPackage.price_minor, currency);
+    const currency = "USD";
+    const amount = formatMinorAmount(usdPriceMinor, currency);
     const metadata = user.user_metadata || {};
     const candidateEmail = clean(user.email || metadata.contact_email, 320).toLowerCase();
     // Flutterwave Standard requires an email. Phone-first KunThai accounts may
@@ -77,14 +103,14 @@ export default async function handler(req, res) {
       .insert({
         id: purchaseId,
         user_id: user.id,
-        package_id: creditPackage.id,
-        credits: creditPackage.credits,
-        amount_minor: creditPackage.price_minor,
+        package_id: packageDbId,
+        credits,
+        amount_minor: usdPriceMinor,
         currency,
         provider: "flutterwave",
         provider_reference: txRef,
         status: "pending",
-        metadata: { checkout: "card", packageLabel: creditPackage.label || "" },
+        metadata: { checkout: "card", packageLabel },
       });
 
     if (purchaseError) {
@@ -105,12 +131,12 @@ export default async function handler(req, res) {
       },
       customizations: {
         title: "KunThai Visibility Credits",
-        description: `${creditPackage.credits} Visibility Credits`,
+        description: `${credits} Visibility Credits`,
       },
       meta: {
         purchase_id: purchaseId,
         product: "visibility_credits",
-        credits: creditPackage.credits,
+        credits,
       },
       configurations: {
         session_duration: 15,

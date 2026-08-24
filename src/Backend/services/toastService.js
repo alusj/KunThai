@@ -1,3 +1,5 @@
+import { sanitizeUserMessage } from "./friendlyErrorService";
+
 export const TOAST_EVENT = "kuntai-toast";
 
 // The most recent pointer press, used to draw a small arrow on the toast that
@@ -22,7 +24,12 @@ function readToastOrigin() {
   return { x: lastPointerPress.x, y: lastPointerPress.y };
 }
 
-export function showToast(message, tone = "info", options = {}) {
+export function showToast(rawMessage, tone = "info", options = {}) {
+  if (!rawMessage) return;
+  // Never surface raw network/technical errors — rewrite them to plain language
+  // before anything else (including dedup, so a burst of the same fault shows
+  // one friendly toast rather than several cryptic ones).
+  const message = sanitizeUserMessage(rawMessage);
   if (!message) return;
   const now = Date.now();
   const dedupKey = `${options.title || ""}:${message}`;

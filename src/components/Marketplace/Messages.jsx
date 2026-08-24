@@ -7,7 +7,9 @@ import {
   subscribeBuyerMarketplaceMessages,
 } from "../../Backend/services/marketplace/buyerMarketplaceService";
 import { formatMessageTime } from "../../Backend/utils/formatMessageTime";
-import { resizedImageUrl } from "../../Backend/lib/imageProxy";
+import MessageImage from "../shared/MessageImage";
+import { optimizeImageFile } from "../../Backend/services/marketplace/imageOptimization";
+import { friendlyErrorMessage } from "../../Backend/services/friendlyErrorService";
 import { useI18n, t } from "../../i18n";
 import AppBackTab from "../shared/AppBackTab";
 import { useKeyboardAwareConversation } from "../../Backend/hooks/useKeyboardAwareConversation";
@@ -160,11 +162,11 @@ export default function Messages({ onBack, onProductOpen }) {
     }
 
     try {
-      const dataUrl = await readFileAsDataUrl(file);
+      const dataUrl = await readFileAsDataUrl(await optimizeImageFile(file));
       setAttachment({ dataUrl, name: file.name || "Selected photo" });
       setSendError("");
     } catch (err) {
-      setSendError(err.message || t("urmall.messages.imagePrepFailed"));
+      setSendError(friendlyErrorMessage(err, t("urmall.messages.imagePrepFailed")));
     }
   }
 
@@ -347,7 +349,7 @@ export default function Messages({ onBack, onProductOpen }) {
                   }`}
                 >
                   {item.mediaType === "image" && item.mediaUrl ? (
-                    <img src={resizedImageUrl(item.mediaUrl, { width: 720, quality: 72 })} alt={t("urmall.messages.attachmentAlt")} className="mb-2 max-h-72 w-full rounded-xl object-cover" />
+                    <MessageImage mediaUrl={item.mediaUrl} alt={t("urmall.messages.attachmentAlt")} pending={item.pending} className="mb-2" />
                   ) : null}
                   {item.text ? <p>{item.text}</p> : null}
                   <span className={`mt-1 block text-[10px] font-bold ${fromBuyer ? "text-white/70" : "text-gray-400"}`}>

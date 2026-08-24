@@ -1,4 +1,5 @@
 import supabase from "../../Backend/lib/supabaseClient";
+import { friendlyErrorMessage } from "../../Backend/services/friendlyErrorService";
 import { getActiveCountryProfile, getCountryCurrencyCode } from "../../data/globalCountryProfiles";
 import { calculateFleetFare } from "./transportPricingService";
 
@@ -199,7 +200,7 @@ export async function createTransportBooking(booking) {
   }
 
   if (error) {
-    throw new Error(error.message || "Unable to send this booking to the operator.");
+    throw new Error(friendlyErrorMessage(error, "Unable to send this booking to the operator."));
   }
 
   const trips = Array.isArray(data) ? data : [data].filter(Boolean);
@@ -255,7 +256,7 @@ export async function updateTransportTripStatus(tripId, status, patch = {}) {
     .maybeSingle();
 
   if (error) {
-    throw new Error(error.message || "Unable to update this trip.");
+    throw new Error(friendlyErrorMessage(error, "Unable to update this trip."));
   }
 
   if (typeof window !== "undefined") {
@@ -339,7 +340,7 @@ export async function updateTransportTripProgress(tripId, progress) {
     p_longitude: progress.longitude != null && progress.longitude !== "" ? Number(progress.longitude) : null,
   });
 
-  if (error) throw new Error(error.message || "Unable to update live trip distance.");
+  if (error) throw new Error(friendlyErrorMessage(error, "Unable to update live trip distance."));
   return data;
 }
 
@@ -376,7 +377,7 @@ export async function submitTransportSupportTicket(input) {
     .maybeSingle();
 
   if (error) {
-    throw new Error(error.message || "Unable to send this request to KunThai UrRide support.");
+    throw new Error(friendlyErrorMessage(error, "Unable to send this request to KunThai UrRide support."));
   }
   return { synced: true, ticket: data };
 }
@@ -394,6 +395,6 @@ export async function submitTransportTripReview({ trip, rating, comment }) {
     p_trip_id: trip.id,
   });
 
-  if (error) throw new Error(error.message || "Unable to submit this review.");
+  if (error) throw new Error(friendlyErrorMessage(error, "Unable to submit this review."));
   return updateTransportTripStatus(trip.id, "completed");
 }

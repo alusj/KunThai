@@ -1,4 +1,5 @@
 import { useEffect, useMemo, useRef, useState } from "react";
+import { friendlyErrorMessage } from "../services/friendlyErrorService";
 
 import supabase from "../lib/supabaseClient";
 import { subscribeToCurrentUserCommentLikes, subscribeToExploreComments } from "../services/explore/realtimeService";
@@ -15,6 +16,7 @@ import {
 import { guardGuestAction } from "../services/guestModeService";
 import { haptics } from "../services/feedbackService";
 import { showToast } from "../services/toastService";
+import { notifyActionDone } from "../services/actionFeedbackService";
 
 function getMentions(value) {
   return Array.from(new Set((String(value || "").match(/@[a-z0-9_]+/gi) || []).map((item) => item.slice(1).toLowerCase())));
@@ -99,7 +101,7 @@ export function useExploreComments(postId, currentUserId = "", post = null, enab
       setLikedComments(new Set(likedIds));
       writeCommentMemory(postId, { comments: nextComments, likedIds });
     } catch (err) {
-      setError(err.message || "Unable to load comments.");
+      setError(friendlyErrorMessage(err, "Unable to load comments."));
     } finally {
       setLoading(false);
     }
@@ -319,7 +321,7 @@ export function useExploreComments(postId, currentUserId = "", post = null, enab
       });
       setError("Comment failed. Try again.");
       showToast("Comment failed. Try again.", "danger");
-      return { ok: false, error: err.message || "Comment failed. Try again." };
+      return { ok: false, error: friendlyErrorMessage(err, "Comment failed. Try again.") };
     } finally {
       setPendingKeys((current) => {
         const next = new Set(current);
@@ -339,10 +341,12 @@ export function useExploreComments(postId, currentUserId = "", post = null, enab
 
     try {
       await deleteExploreComment(commentId);
+      notifyActionDone("Comment deleted.");
     } catch (err) {
       setComments(previous);
       writeCommentMemory(postId, { comments: previous });
-      setError(err.message || "Unable to delete comment.");
+      setError(friendlyErrorMessage(err, "Unable to delete comment."));
+      showToast(friendlyErrorMessage(err, "Unable to delete comment."), "danger");
     }
   }
 
@@ -398,8 +402,8 @@ export function useExploreComments(postId, currentUserId = "", post = null, enab
       if (uiActive !== entry.synced) {
         applyCommentLikeState(commentId, entry.synced);
       }
-      setError(err.message || "Unable to update comment like.");
-      showToast(err.message || "Unable to update comment like.", "danger");
+      setError(friendlyErrorMessage(err, "Unable to update comment like."));
+      showToast(friendlyErrorMessage(err, "Unable to update comment like."), "danger");
     }
   }
 
@@ -407,8 +411,10 @@ export function useExploreComments(postId, currentUserId = "", post = null, enab
     if (guardGuestAction("report", "comment")) return;
     try {
       await reportExploreComment(commentId, reason);
+      notifyActionDone("Thanks — your report was sent. Our team will review it.");
     } catch (err) {
-      setError(err.message || "Unable to report comment.");
+      setError(friendlyErrorMessage(err, "Unable to report comment."));
+      showToast(friendlyErrorMessage(err, "Unable to report comment."), "danger");
     }
   }
 

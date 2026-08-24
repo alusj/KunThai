@@ -11,6 +11,7 @@ import {
 } from "react-icons/hi2";
 
 import { readExploreSettings } from "../../../../Backend/services/explore/preferencesService";
+import { optimizeImageFile } from "../../../../Backend/services/marketplace/imageOptimization";
 import { resizedImageUrl } from "../../../../Backend/lib/imageProxy";
 import { useI18n } from "../../../../i18n";
 import { t as i18nText } from "../../../../i18n/index";
@@ -131,7 +132,9 @@ export default function MessageComposer({ focused = false, onAction, onActivity,
     }
 
     try {
-      const mediaUrl = await readFileAsDataUrl(file);
+      // Downscale + re-encode before attaching so the photo uploads quickly
+      // even on a slow connection.
+      const mediaUrl = await readFileAsDataUrl(await optimizeImageFile(file));
       setAttachment({ type: "image", mediaUrl, label: file.name || "Selected photo" });
       setNotice("");
       onActivity?.("active");

@@ -1,4 +1,5 @@
 import { useEffect, useLayoutEffect, useRef, useState } from "react";
+import { friendlyErrorMessage, sanitizeUserMessage } from "../../../../../../Backend/services/friendlyErrorService";
 import { createPortal } from "react-dom";
 import {
   HiOutlineArrowsUpDown,
@@ -399,7 +400,9 @@ function friendlyPublishError(rawMessage, fallback) {
   if (looksLikeNetwork) {
     return "KunThai couldn't reach the network to finish uploading. Check your connection and try again — your draft is still here.";
   }
-  return message || fallback;
+  // Never leak a raw runtime/technical error into the composer: sanitize it to
+  // plain language (a real human message passes through unchanged).
+  return sanitizeUserMessage(message) || fallback;
 }
 
 export default function FeedComposer({ profile, creating, onSubmit }) {
@@ -974,7 +977,7 @@ export default function FeedComposer({ profile, creating, onSubmit }) {
       showComposer();
       setFeedback("");
     } catch (error) {
-      const message = error.message || "Unable to attach media.";
+      const message = friendlyErrorMessage(error, "Unable to attach media.");
       const videoSpecError = error.name === "VideoSpecError";
       setFeedback("");
       if (videoSpecError) {
@@ -1071,7 +1074,7 @@ export default function FeedComposer({ profile, creating, onSubmit }) {
       return sourcePreview;
     } catch (error) {
       if (trimRequestRef.current === 0) return "";
-      const message = error.message || "Unable to prepare this clip. Try a shorter section or another video.";
+      const message = friendlyErrorMessage(error, "Unable to prepare this clip. Try a shorter section or another video.");
       setTrimError(message);
       setFeedback(message);
       return "";

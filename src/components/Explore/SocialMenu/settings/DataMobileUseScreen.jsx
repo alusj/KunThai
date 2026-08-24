@@ -1,12 +1,15 @@
+import { useState } from "react";
 import {
   HiOutlineArrowPath,
   HiOutlineCircleStack,
+  HiOutlineCloudArrowUp,
   HiOutlineFilm,
   HiOutlineSignal,
   HiOutlineSpeakerWave,
 } from "react-icons/hi2";
 
 import { useExplorePreferences } from "../../../../Backend/hooks/useExplorePreferences";
+import { isPostOutboxEnabled, setPostOutboxEnabled } from "../../../../Backend/services/explore/postOutboxConfig";
 import SocialScreenHeader from "../shared/SocialScreenHeader";
 import { t as i18nText } from "../../../../i18n/index";
 
@@ -33,6 +36,7 @@ function DataRow({ children, description, icon: Icon, title }) {
 export default function DataMobileUseScreen({ hideHeader = false }) {
   const { clearCache, feedback, settings, updateSection } = useExplorePreferences();
   const { video } = settings;
+  const [backgroundPosting, setBackgroundPosting] = useState(isPostOutboxEnabled());
 
   return (
     <div>
@@ -55,6 +59,15 @@ export default function DataMobileUseScreen({ hideHeader = false }) {
           </DataRow>
           <DataRow icon={HiOutlineSpeakerWave} title={i18nText("ui.literals.k852ed2593e28")} description={i18nText("ui.literals.kd5fe1510e61f")}>
             <Toggle active={!video.defaultMuted} onChange={(value) => updateSection("video", { defaultMuted: !value })} />
+          </DataRow>
+          <DataRow icon={HiOutlineCloudArrowUp} title="Keep posts publishing in the background" description="If your connection drops while posting, KunThai keeps the post and finishes it automatically once you're back online.">
+            <Toggle
+              active={backgroundPosting}
+              onChange={(value) => {
+                setPostOutboxEnabled(value);
+                setBackgroundPosting(value);
+              }}
+            />
           </DataRow>
           <DataRow icon={HiOutlineCircleStack} title={i18nText("ui.literals.kb0fea8410b50")} description={i18nText("ui.literals.kec86adf3452a")}>
             <button type="button" onClick={clearCache} className="inline-flex h-11 items-center gap-2 rounded-2xl bg-slate-100 px-4 text-sm font-black text-slate-700"><HiOutlineArrowPath /> {i18nText("ui.literals.k22bc1a4e0718")}</button>

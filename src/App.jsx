@@ -41,6 +41,7 @@ import {
   shouldShowReturningUserIntro,
 } from "./Backend/services/returningUserIntroService";
 import { isStartupDestinationReady } from "./Backend/services/startupRevealService";
+import { readDefaultMainPage } from "./Backend/services/mainDashboardPreference";
 import { lazyWithRetry } from "./Backend/utils/lazyWithRetry";
 import LazyRouteBoundary from "./components/shared/LazyRouteBoundary";
 import supabase from "./Backend/lib/supabaseClient";
@@ -283,9 +284,9 @@ export default function App() {
     isComplete: onboardingComplete,
   } = useOnboarding(user);
   const [page, setPage] = useState(() => {
-    // A hard refresh must land on the page the user was on, so the last
-    // visited page wins over the visit-frequency preference here.
-    return getMainPageFromHash(window.location.hash) || readLastMainPage();
+    // Order: an explicit deep link (hash) wins, then the user's chosen default
+    // main dashboard, then the last dashboard they were on ("auto").
+    return getMainPageFromHash(window.location.hash) || readDefaultMainPage() || readLastMainPage();
   });
   const [transportMounted, setTransportMounted] = useState(() => page === "transport");
   // Bumped by LazyRouteBoundary after a chunk-load failure to build fresh lazy
@@ -429,9 +430,13 @@ export default function App() {
       .finally(() => clearFlutterwavePaymentReturn());
   }, [guestSession, userId]);
 
+  // Orange Money is now a direct in-app collection (Monime payment codes) — the
+  // customer approves a prompt on their phone without leaving KunThai, so there
+  // is no redirect-return URL to confirm here. ProfileHeaderCard polls the
+  // purchase status itself while the sheet stays open.
+
   useEffect(() => {
     const connection = navigator.connection || navigator.mozConnection || navigator.webkitConnection;
-    let previousOnline = navigator.onLine;
     let previousUnstable = hasUnstableNetwork(connection);
 
     function announceNetworkState({ initial = false } = {}) {
@@ -442,24 +447,14 @@ export default function App() {
       // the global one. Keep the trackers current so no stale transition fires
       // once suppression lifts.
       if (areGlobalNetworkToastsSuppressed()) {
-        previousOnline = online;
         previousUnstable = unstable;
         return;
       }
 
-      if (!online && (initial || previousOnline)) {
-        showToast(i18nText("ui.literals.k5c9fe986a7bd"), "warning", {
-          title: i18nText("ui.literals.kd589e58dce1b"),
-          duration: 2800,
-          origin: false,
-        });
-      } else if (online && previousOnline === false) {
-        showToast(i18nText("ui.literals.k44b2cd5f7f58"), "success", {
-          title: i18nText("ui.literals.kd589e58dce1b"),
-          duration: 2600,
-          origin: false,
-        });
-      } else if (unstable && (initial || !previousUnstable)) {
+      // The persistent NetworkStatusBanner owns the offline and back-online
+      // indicators now (a transient toast would just duplicate the strip), so
+      // only the "slow / unstable connection" hint stays a toast here.
+      if (unstable && (initial || !previousUnstable)) {
         showToast(i18nText("ui.literals.k131cd2aeb63b"), "warning", {
           title: i18nText("ui.literals.kd589e58dce1b"),
           duration: 2800,
@@ -467,7 +462,6 @@ export default function App() {
         });
       }
 
-      previousOnline = online;
       previousUnstable = unstable;
     }
 

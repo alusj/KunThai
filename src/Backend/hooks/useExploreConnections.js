@@ -1,4 +1,5 @@
 import { useEffect, useState } from "react";
+import { friendlyErrorMessage } from "../services/friendlyErrorService";
 
 import { fetchExploreConnections } from "../services/exploreService";
 import { getIdentityKey, normalizeIdentityTarget } from "../services/exploreService";
@@ -133,7 +134,7 @@ export function useExploreConnections(kind, currentUserId = "") {
       setItems(nextItems);
       writeConnectionsMemory(cacheKey, nextItems);
     } catch (err) {
-      setError(hasCachedItems ? "" : err.message || "Unable to load connections.");
+      setError(hasCachedItems ? "" : friendlyErrorMessage(err, "Unable to load connections."));
     } finally {
       setLoading(false);
       setRefreshing(false);
@@ -182,7 +183,7 @@ export function useExploreConnections(kind, currentUserId = "") {
         }
       } catch (err) {
         if (active) {
-          setError(hasCachedItems ? "" : err.message || "Unable to load connections.");
+          setError(hasCachedItems ? "" : friendlyErrorMessage(err, "Unable to load connections."));
         }
       } finally {
         if (active) {
@@ -266,7 +267,7 @@ export function useExploreConnections(kind, currentUserId = "") {
       const synced = await blockExploreIdentity(targetIdentity, "blocked from Explore connections");
       setBlockedUsers(new Set(synced));
     } catch (error) {
-      showToast(error.message || "Account blocked on this device.", "danger");
+      showToast(friendlyErrorMessage(error, "Account blocked on this device."), "danger");
     }
 
     showToast("Account blocked.", "danger", {
