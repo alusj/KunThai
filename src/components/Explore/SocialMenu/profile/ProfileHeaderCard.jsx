@@ -105,7 +105,9 @@ export default function ProfileHeaderCard({
   // "select" (choosing amount + phone) -> "waiting" (approve on phone, polling
   // for confirmation) -> the sheet closes itself the moment it's confirmed.
   const [momoStage, setMomoStage] = useState("select");
-  const [momoPending, setMomoPending] = useState(null); // { purchaseId, ussdCode, credits }
+  const [momoPending, setMomoPending] = useState(null); // { purchaseId, ussdCode, credits, expireTime, phoneNumber }
+  const [momoSecondsLeft, setMomoSecondsLeft] = useState(null);
+  const [momoCodeCopied, setMomoCodeCopied] = useState(false);
   const momoPollRef = useRef(null);
   const [publicIdHelpOpen, setPublicIdHelpOpen] = useState(false);
   const menuRef = useRef(null);
@@ -239,12 +241,65 @@ export default function ProfileHeaderCard({
     }
   }
 
+  // Tap-to-dial link for a USSD string. The "#" has to be percent-encoded or
+  // the dialler silently drops everything after it.
+  function ussdDialHref(code) {
+    return `tel:${String(code || "").replace(/#/g, "%23")}`;
+  }
+
+  function formatCountdown(totalSeconds) {
+    const safe = Math.max(0, Math.floor(Number(totalSeconds) || 0));
+    return `${String(Math.floor(safe / 60)).padStart(2, "0")}:${String(safe % 60).padStart(2, "0")}`;
+  }
+
+  const stopMomoPollingRef = useRef(null);
+
+  // Count the payment code down to its Monime expiry. When it runs out the code
+  // is dead, so polling stops and the customer is told to start again rather
+  // than left watching a spinner forever.
+  useEffect(() => {
+    if (momoStage !== "waiting" || !momoPending?.expireTime) {
+      setMomoSecondsLeft(null);
+      return undefined;
+    }
+
+    const expiresAt = new Date(momoPending.expireTime).getTime();
+    if (!Number.isFinite(expiresAt)) {
+      setMomoSecondsLeft(null);
+      return undefined;
+    }
+
+    let expired = false;
+    const tick = () => {
+      const remaining = Math.max(0, Math.round((expiresAt - Date.now()) / 1000));
+      setMomoSecondsLeft(remaining);
+      if (remaining === 0 && !expired) {
+        expired = true;
+        stopMomoPollingRef.current?.();
+      }
+    };
+
+    tick();
+    const timer = window.setInterval(tick, 1000);
+    return () => window.clearInterval(timer);
+  }, [momoStage, momoPending?.expireTime]);
+
   function stopMomoPolling() {
     if (momoPollRef.current) {
       window.clearTimeout(momoPollRef.current);
       momoPollRef.current = null;
     }
   }
+
+  // The code has expired: nothing more can confirm this purchase, so stop
+  // polling and say so instead of spinning indefinitely.
+  function expireMomoPayment() {
+    stopMomoPolling();
+    setMomoBusy(false);
+    setMomoError("This payment code expired. Start again to get a new one.");
+  }
+
+  stopMomoPollingRef.current = expireMomoPayment;
 
   // Poll the purchase status while the customer approves the mobile money
   // prompt on their phone. Stops on success, terminal failure, or timeout.
@@ -278,9 +333,11 @@ export default function ProfileHeaderCard({
 
   async function startMonimeCheckout({ packageId, credits } = {}) {
     if (momoBusy) return;
+    // The number is optional: with one, Monime pushes an approval prompt to it;
+    // without one, the customer dials the USSD code shown on the next screen.
     const phoneNumber = momoPhone.replace(/[^\d]/g, "");
-    if (phoneNumber.length < 8) {
-      setMomoError(`Enter your ${momoWalletName} phone number.`);
+    if (phoneNumber && phoneNumber.replace(/^(232|0)/, "").length !== 8) {
+      setMomoError("Enter a valid Sierra Leone number, or leave it blank to pay by code.");
       return;
     }
     try {
@@ -291,7 +348,13 @@ export default function ProfileHeaderCard({
           ? { packageId, phoneNumber, wallet: momoProvider }
           : { credits, phoneNumber, wallet: momoProvider },
       );
-      setMomoPending({ purchaseId: result.purchaseId, ussdCode: result.ussdCode || "", credits: result.credits });
+      setMomoPending({
+        purchaseId: result.purchaseId,
+        ussdCode: result.ussdCode || "",
+        credits: result.credits,
+        expireTime: result.expireTime || "",
+        phoneNumber: result.phoneNumber || "",
+      });
       setMomoStage("waiting");
       pollMomoStatus(result.purchaseId);
     } catch (error) {
@@ -810,14 +873,46 @@ export default function ProfileHeaderCard({
               <span className="mx-auto flex h-16 w-16 items-center justify-center rounded-full bg-orange-50 text-orange-600">
                 <span className="h-9 w-9 animate-spin rounded-full border-[3px] border-orange-200 border-t-orange-600" aria-hidden="true" />
               </span>
-              <h2 className="mt-4 text-xl font-black text-slate-950">Approve on your phone</h2>
+              <h2 className="mt-4 text-xl font-black text-slate-950">
+                {momoPending?.phoneNumber ? "Approve on your phone" : `Pay with ${momoWalletName}`}
+              </h2>
               <p className="mt-2 text-sm font-semibold leading-6 text-slate-500">
-                We sent a mobile money prompt to <span className="font-black text-slate-800">{momoPhone}</span>. Enter your PIN there to confirm{momoPending?.credits ? ` ${momoPending.credits} Visibility Credits` : ""}.
+                {momoPending?.phoneNumber
+                  ? <>We sent a {momoWalletName} prompt to <span className="font-black text-slate-800">{momoPending.phoneNumber}</span>. Enter your PIN there to confirm{momoPending?.credits ? ` ${momoPending.credits} Visibility Credits` : ""}.</>
+                  : <>Tap the code below to dial it, then enter your PIN to confirm{momoPending?.credits ? ` ${momoPending.credits} Visibility Credits` : ""}.</>}
               </p>
+
               {momoPending?.ussdCode ? (
-                <p className="mt-3 rounded-2xl bg-slate-50 px-4 py-3 text-sm font-bold text-slate-600">
-                  Didn’t get the prompt? Dial <span className="font-black text-slate-900">{momoPending.ussdCode}</span>
-                </p>
+                <div className="mt-4 rounded-2xl border border-slate-200 bg-slate-50 p-4">
+                  {momoPending?.phoneNumber ? (
+                    <p className="text-xs font-black uppercase tracking-[0.14em] text-slate-400">Didn’t get the prompt?</p>
+                  ) : null}
+                  <a
+                    href={ussdDialHref(momoPending.ussdCode)}
+                    className={`flex h-12 w-full items-center justify-center gap-2 rounded-2xl bg-slate-900 px-4 text-base font-black tracking-wide text-white transition hover:bg-slate-800 ${
+                      momoPending?.phoneNumber ? "mt-2" : ""
+                    } ${momoSecondsLeft === 0 ? "pointer-events-none opacity-50" : ""}`}
+                  >
+                    <HiOutlineDevicePhoneMobile className="text-lg" aria-hidden="true" />
+                    Dial {momoPending.ussdCode}
+                  </a>
+                  <button
+                    type="button"
+                    onClick={() => {
+                      navigator.clipboard?.writeText(momoPending.ussdCode);
+                      setMomoCodeCopied(true);
+                      window.setTimeout(() => setMomoCodeCopied(false), 2000);
+                    }}
+                    className="mt-2 text-xs font-black text-slate-500 underline decoration-slate-300 underline-offset-2"
+                  >
+                    {momoCodeCopied ? "Code copied" : "Copy code instead"}
+                  </button>
+                  {momoSecondsLeft !== null ? (
+                    <p className="mt-3 text-xs font-black uppercase tracking-[0.14em] text-slate-400">
+                      {momoSecondsLeft === 0 ? "Code expired" : <>Code expires in <span className="text-slate-700">{formatCountdown(momoSecondsLeft)}</span></>}
+                    </p>
+                  ) : null}
+                </div>
               ) : null}
               {momoError ? (
                 <p role="alert" className="mt-3 rounded-2xl bg-rose-50 px-4 py-3 text-sm font-bold text-rose-700">{momoError}</p>
@@ -893,7 +988,7 @@ export default function ProfileHeaderCard({
 
               <div className="mt-5">
                 <label htmlFor="momo-phone" className="block text-xs font-black uppercase tracking-[0.14em] text-slate-400">
-                  {momoWalletName} number
+                  {momoWalletName} number <span className="text-slate-300">(optional)</span>
                 </label>
                 <input
                   id="momo-phone"

@@ -285,3 +285,26 @@ test("without a phone number the code locks to the chosen wallet's provider", as
     globalThis.fetch = originalFetch;
   }
 });
+
+test("a payment code carries an expiry the approval screen can count down", async () => {
+  const originalFetch = globalThis.fetch;
+  globalThis.fetch = async () =>
+    new Response(
+      JSON.stringify({
+        success: true,
+        result: { id: "pmc-5", ussdCode: "*715*123#", status: "pending", expireTime: "2026-08-25T14:52:06Z" },
+      }),
+      { status: 200, headers: { "Content-Type": "application/json" } },
+    );
+
+  try {
+    const code = await createMonimePaymentCode(
+      { credits: 15, priceMinor: 2000, purchaseId: "p5", phoneNumber: "+23279722036" },
+      { apiUrl: "https://api.monime.test/v1", monimeAccessToken: "t", monimeSpaceId: "spc-1" },
+    );
+    assert.equal(code.expireTime, "2026-08-25T14:52:06Z");
+    assert.equal(code.ussdCode, "*715*123#");
+  } finally {
+    globalThis.fetch = originalFetch;
+  }
+});

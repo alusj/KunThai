@@ -77,8 +77,13 @@ export default async function handler(req, res) {
       currency = custom.currency;
     }
 
-    const phoneNumber = normalizeSierraLeonePhone(req.body?.phoneNumber || req.body?.phone);
-    if (!phoneNumber) {
+    // The number is optional. Supplied, the code is locked to it and Monime
+    // pushes an approval prompt there; left blank, the code is locked to the
+    // chosen wallet instead and the customer pays by dialling the USSD code —
+    // Monime forbids sending both, so it is one or the other.
+    const rawPhone = String(req.body?.phoneNumber || req.body?.phone || "").trim();
+    const phoneNumber = rawPhone ? normalizeSierraLeonePhone(rawPhone) : "";
+    if (rawPhone && !phoneNumber) {
       return json(res, 400, { ok: false, message: "Enter a valid Sierra Leone mobile number (e.g. 076 123456)." });
     }
 
@@ -171,6 +176,10 @@ export default async function handler(req, res) {
       credits,
       wallet: wallet.id,
       walletName: wallet.name,
+      // Drives the countdown on the approval screen; the code stops working
+      // once Monime expires it.
+      expireTime: String(paymentCode?.expireTime || ""),
+      phoneNumber,
     });
   } catch (error) {
     const missing = Array.isArray(error.missing) ? error.missing : null;
