@@ -4,6 +4,8 @@ import { appendVisibilityReferral } from "../../../Backend/services/visibilityCr
 import { createPortal } from "react-dom";
 import {
   BadgeCheck,
+  Bath,
+  BedDouble,
   CalendarDays,
   Check,
   Clock,
@@ -11,6 +13,7 @@ import {
   CreditCard,
   Eye,
   Heart,
+  House,
   Info,
   Mail,
   MapPin,
@@ -25,6 +28,8 @@ import {
   Star,
   Store,
   Truck,
+  UsersRound,
+  UtensilsCrossed,
 } from "lucide-react";
 import { FaWhatsapp } from "react-icons/fa";
 import AppBackTab from "../../shared/AppBackTab";
@@ -42,6 +47,19 @@ import {
   submitMarketplaceReview,
 } from "../../../Backend/services/marketplace/buyerMarketplaceService";
 import { storeSellerAreaViewReturn } from "../../../Backend/services/marketplace/navigationHandoffService";
+import {
+  fetchSellerVerticalCatalog,
+  getMarketplaceBusinessDay,
+  menuItemServedOnDay,
+} from "../../../Backend/services/marketplace/marketplaceVerticalService";
+import VerticalBuyerDetail from "../VerticalBuyerDetail";
+import {
+  bookVerticalListing,
+  buildPropertySpecifications,
+  mapVerticalProduct,
+  messageVerticalSeller,
+  orderVerticalMeal,
+} from "../verticalListingModel";
 import { MarketplaceVerificationModal } from "../shared/MarketplaceVerification";
 import { normalizeCoordinates } from "../../../Backend/utils/coordinates";
 import { haversineKm, distanceBand, resolveDistanceLabel } from "../../../Backend/utils/distance";
@@ -504,6 +522,343 @@ function MenuAction({ icon, label, onClick }) {
   );
 }
 
+const VERTICAL_BY_BUSINESS_KIND = {
+  restaurant: "restaurant",
+  hotel: "hotel",
+  property: "property",
+  property_agent: "property",
+};
+
+// A seller's profile lists what that seller actually sells: retail sellers have
+// catalog products, restaurants have a menu that changes by weekday, property
+// agents have listings, and hotels have bookable rooms.
+function getSellerVertical(seller) {
+  const safeSeller = asObject(seller);
+  const explicit = VERTICAL_BY_BUSINESS_KIND[String(safeSeller.verticalType || "").toLowerCase()];
+  if (explicit) return explicit;
+  const kind = String(safeSeller.businessKind || safeSeller.business_kind || "retail").toLowerCase();
+  return VERTICAL_BY_BUSINESS_KIND[kind] || "retail";
+}
+
+const MEAL_PERIOD_ORDER = ["all_day", "breakfast", "lunch", "dinner", "drinks"];
+const MEAL_PERIOD_KEYS = { all_day: "allDay", breakfast: "breakfast", lunch: "lunch", dinner: "dinner", drinks: "drinks" };
+const WEEKDAYS = [0, 1, 2, 3, 4, 5, 6];
+
+const dayShortLabel = (index) => t(`urmall.biz.vert.dayShort${index}`);
+const dayLongLabel = (index) => t(`urmall.biz.vert.dayLong${index}`);
+const rentPeriodLabel = (period) => t(`urmall.biz.vert.per${{ day: "Day", week: "Week", month: "Month", year: "Year" }[period] || "Month"}`);
+
+function mealPeriodTitle(period) {
+  const key = MEAL_PERIOD_KEYS[period || "all_day"];
+  return key ? t(`urmall.biz.vert.${key}`) : String(period).replaceAll("_", " ");
+}
+
+function verticalMoneyScope(item, seller) {
+  const safeSeller = asObject(seller);
+  return item?.currency || item?.countryIso || item?.country || safeSeller.currency || safeSeller.countryCode || safeSeller.country || "";
+}
+
+// Shared shell for a vertical listing row so meals, properties and rooms sit on
+// the same card as the retail catalog's ProductCard.
+function VerticalListingCard({ imageUrl, imageAlt, fallbackIcon, title, subtitle, price, chips, onOpen }) {
+  const FallbackIcon = fallbackIcon;
+  return (
+    <article
+      role="button"
+      tabIndex={0}
+      onClick={onOpen}
+      onKeyDown={(event) => {
+        if (event.key === "Enter" || event.key === " ") {
+          event.preventDefault();
+          onOpen?.();
+        }
+      }}
+      className="group grid min-w-0 grid-cols-[92px_minmax(0,1fr)] gap-3 rounded-lg border border-gray-200 bg-white p-3 text-left shadow-sm transition hover:border-emerald-200 hover:shadow-md sm:grid-cols-[124px_minmax(0,1fr)]"
+    >
+      <div className="relative overflow-hidden rounded-lg bg-gray-100">
+        {imageUrl ? (
+          <img src={resizedImageUrl(imageUrl, { width: 320, quality: 70 })} alt={imageAlt} loading="lazy" decoding="async" className="aspect-square w-full object-cover transition group-hover:scale-[1.02]" />
+        ) : (
+          <div className="flex aspect-square w-full items-center justify-center text-gray-400">
+            <FallbackIcon size={24} />
+          </div>
+        )}
+      </div>
+
+      <div className="min-w-0">
+        <h3 className="line-clamp-2 text-sm font-black text-gray-950 sm:text-base">{title}</h3>
+        {subtitle ? <p className="mt-1 line-clamp-2 text-xs font-bold text-gray-500">{subtitle}</p> : null}
+        <p className="mt-2 text-lg font-black text-gray-950">{price}</p>
+        <div className="mt-2 flex flex-wrap gap-2 text-[11px] font-black">{chips}</div>
+      </div>
+    </article>
+  );
+}
+
+function ListingChip({ icon, tone = "gray", children }) {
+  const IconComponent = icon;
+  const tones = {
+    gray: "bg-gray-100 text-gray-600",
+    emerald: "bg-emerald-50 text-emerald-700",
+    amber: "bg-amber-50 text-amber-700",
+    violet: "bg-violet-50 text-violet-700",
+    red: "bg-red-50 text-red-700",
+  };
+  return (
+    <span className={`inline-flex max-w-full items-center gap-1 rounded-full px-2 py-1 ${tones[tone] || tones.gray}`}>
+      {IconComponent ? <IconComponent size={12} className="shrink-0" /> : null}
+      <span className="truncate">{children}</span>
+    </span>
+  );
+}
+
+// "Served" line for a meal: every day, or the weekdays the kitchen cooks it.
+function mealServedLabel(meal) {
+  if (meal?.available_everyday !== false) return t("urmall.seller.menuEveryday");
+  const days = Array.isArray(meal?.available_days) && meal.available_days.length
+    ? meal.available_days.map(Number).sort((a, b) => a - b)
+    : [Number(meal?.day_of_week || 0)];
+  return t("urmall.seller.menuServedDays", { days: days.map(dayShortLabel).join(", ") });
+}
+
+function MealListingCard({ meal, seller, onOpen }) {
+  return (
+    <VerticalListingCard
+      imageUrl={meal.image_url || (Array.isArray(meal.image_urls) ? meal.image_urls[0] : "")}
+      imageAlt={meal.name}
+      fallbackIcon={UtensilsCrossed}
+      title={meal.name || t("urmall.seller.unnamedProduct")}
+      subtitle={meal.description}
+      price={formatCurrency(toSafeNumber(meal.price, 0), verticalMoneyScope(meal, seller))}
+      onOpen={onOpen}
+      chips={
+        <>
+          <ListingChip tone="amber">{mealPeriodTitle(meal.meal_period)}</ListingChip>
+          <ListingChip icon={Clock}>{t("urmall.seller.menuPrepMinutes", { count: toSafeNumber(meal.preparation_minutes, 20) })}</ListingChip>
+          <ListingChip icon={CalendarDays} tone="emerald">{mealServedLabel(meal)}</ListingChip>
+        </>
+      }
+    />
+  );
+}
+
+function PropertyListingCard({ listing, seller, onOpen }) {
+  const isRent = String(listing.purpose || "").toLowerCase() === "rent";
+  const price = formatCurrency(toSafeNumber(listing.price, 0), verticalMoneyScope(listing, seller));
+  return (
+    <VerticalListingCard
+      imageUrl={Array.isArray(listing.image_urls) ? listing.image_urls[0] : ""}
+      imageAlt={listing.title}
+      fallbackIcon={House}
+      title={listing.title || t("urmall.seller.unnamedProduct")}
+      subtitle={buildPropertySpecifications(listing)}
+      price={
+        <>
+          {price}
+          {isRent ? <span className="ml-1 text-xs font-bold text-gray-400">{rentPeriodLabel(listing.rent_period)}</span> : null}
+        </>
+      }
+      onOpen={onOpen}
+      chips={
+        <>
+          <ListingChip tone="violet">{isRent ? t("urmall.seller.propertyForRent") : t("urmall.seller.propertyForSale")}</ListingChip>
+          {toSafeNumber(listing.bedrooms, 0) > 0 ? <ListingChip icon={BedDouble}>{listing.bedrooms}</ListingChip> : null}
+          {toSafeNumber(listing.bathrooms, 0) > 0 ? <ListingChip icon={Bath}>{listing.bathrooms}</ListingChip> : null}
+          {listing.address || listing.city ? <ListingChip icon={MapPin}>{cleanAddressString([listing.address, listing.city].filter(Boolean).join(", "))}</ListingChip> : null}
+        </>
+      }
+    />
+  );
+}
+
+function HotelRoomCard({ room, seller, onOpen }) {
+  const roomsLeft = toSafeNumber(room.rooms_available, 0);
+  return (
+    <VerticalListingCard
+      imageUrl={Array.isArray(room.image_urls) ? room.image_urls[0] : ""}
+      imageAlt={room.name}
+      fallbackIcon={BedDouble}
+      title={room.name || t("urmall.seller.unnamedProduct")}
+      subtitle={room.description}
+      price={
+        <>
+          {formatCurrency(toSafeNumber(room.nightly_rate, 0), verticalMoneyScope(room, seller))}
+          <span className="ml-1 text-xs font-bold text-gray-400">{t("urmall.seller.roomPerNight")}</span>
+        </>
+      }
+      onOpen={onOpen}
+      chips={
+        <>
+          <ListingChip icon={UsersRound}>{t("urmall.seller.roomSleeps", { count: toSafeNumber(room.capacity, 1) })}</ListingChip>
+          {roomsLeft > 0
+            ? <ListingChip tone="emerald">{t("urmall.seller.roomsLeft", { count: roomsLeft })}</ListingChip>
+            : <ListingChip tone="red">{t("urmall.seller.roomFullyBooked")}</ListingChip>}
+        </>
+      }
+    />
+  );
+}
+
+function MenuDaySelector({ day, today, onChange }) {
+  return (
+    <div className="flex gap-2 overflow-x-auto pb-1 [scrollbar-width:none] [&::-webkit-scrollbar]:hidden">
+      {WEEKDAYS.map((index) => (
+        <button
+          key={index}
+          type="button"
+          onClick={() => onChange(index)}
+          aria-pressed={day === index}
+          className={`inline-flex h-11 min-w-[84px] shrink-0 flex-col items-center justify-center rounded-lg px-3 text-sm font-black transition ${
+            day === index ? "bg-emerald-600 text-white shadow-sm" : "bg-gray-100 text-gray-700 hover:bg-gray-200"
+          }`}
+        >
+          {dayShortLabel(index)}
+          {index === today ? (
+            <span className={`text-[9px] font-black uppercase ${day === index ? "text-emerald-100" : "text-emerald-700"}`}>
+              {t("urmall.seller.menuToday")}
+            </span>
+          ) : null}
+        </button>
+      ))}
+    </div>
+  );
+}
+
+function PropertyPurposeFilter({ purpose, onChange, counts }) {
+  const options = [
+    { id: "all", label: t("urmall.seller.propertyFilterAll"), count: counts.all },
+    { id: "sale", label: t("urmall.seller.propertyForSale"), count: counts.sale },
+    { id: "rent", label: t("urmall.seller.propertyForRent"), count: counts.rent },
+  ].filter((option) => option.count > 0);
+  if (options.length < 2) return null;
+
+  return (
+    <div className="flex gap-2 overflow-x-auto pb-1 [scrollbar-width:none] [&::-webkit-scrollbar]:hidden">
+      {options.map((option) => (
+        <button
+          key={option.id}
+          type="button"
+          onClick={() => onChange(option.id)}
+          aria-pressed={purpose === option.id}
+          className={`inline-flex h-10 shrink-0 items-center gap-2 rounded-lg px-3 text-sm font-black transition ${
+            purpose === option.id ? "bg-emerald-600 text-white shadow-sm" : "bg-gray-100 text-gray-700 hover:bg-gray-200"
+          }`}
+        >
+          {option.label}
+          <span className={purpose === option.id ? "text-emerald-100" : "text-gray-500"}>{option.count}</span>
+        </button>
+      ))}
+    </div>
+  );
+}
+
+// The catalog tab for a restaurant, property agent or hotel: the same listings
+// the buyer sees in the vertical feed, scoped to this one seller.
+function VerticalCatalogSection({ vertical, catalog, loading, sellerName, seller, menuDay, onMenuDayChange, today, propertyPurpose, onPropertyPurposeChange, onOpenListing }) {
+  if (loading) {
+    return (
+      <div className="grid gap-3 md:grid-cols-2">
+        {[1, 2, 3, 4].map((item) => <SkeletonBlock key={item} className="h-36" />)}
+      </div>
+    );
+  }
+
+  if (vertical === "restaurant") {
+    const mealsForDay = asArray(catalog.meals).filter((meal) => menuItemServedOnDay(meal, menuDay));
+    const groups = MEAL_PERIOD_ORDER
+      .map((period) => ({ period, meals: mealsForDay.filter((meal) => (meal.meal_period || "all_day") === period) }))
+      .filter((group) => group.meals.length);
+    const otherMeals = mealsForDay.filter((meal) => !MEAL_PERIOD_ORDER.includes(meal.meal_period || "all_day"));
+    if (otherMeals.length) groups.push({ period: "other", meals: otherMeals });
+
+    return (
+      <section className="space-y-4">
+        <MenuDaySelector day={menuDay} today={today} onChange={onMenuDayChange} />
+        <h3 className="text-sm font-black uppercase tracking-wide text-gray-500">
+          {t("urmall.seller.menuDayHeading", { day: dayLongLabel(menuDay) })}
+        </h3>
+        {groups.length ? (
+          groups.map((group) => (
+            <div key={group.period} className="space-y-3">
+              <p className="text-xs font-black uppercase tracking-wide text-emerald-700">
+                {group.period === "other" ? t("urmall.seller.menuOtherItems") : mealPeriodTitle(group.period)}
+              </p>
+              <div className="grid gap-3 md:grid-cols-2">
+                {group.meals.map((meal) => (
+                  <MealListingCard key={meal.id} meal={meal} seller={seller} onOpen={() => onOpenListing("restaurant", meal)} />
+                ))}
+              </div>
+            </div>
+          ))
+        ) : (
+          <EmptyState
+            icon={UtensilsCrossed}
+            title={t("urmall.seller.noMealsTitle", { day: dayLongLabel(menuDay) })}
+            text={t("urmall.seller.noMealsText", { name: sellerName })}
+          />
+        )}
+      </section>
+    );
+  }
+
+  if (vertical === "property") {
+    const listings = asArray(catalog.properties);
+    const counts = {
+      all: listings.length,
+      rent: listings.filter((listing) => String(listing.purpose || "").toLowerCase() === "rent").length,
+      sale: listings.filter((listing) => String(listing.purpose || "").toLowerCase() !== "rent").length,
+    };
+    const visible = propertyPurpose === "all"
+      ? listings
+      : listings.filter((listing) => (String(listing.purpose || "").toLowerCase() === "rent") === (propertyPurpose === "rent"));
+
+    return (
+      <section className="space-y-4">
+        <PropertyPurposeFilter purpose={propertyPurpose} onChange={onPropertyPurposeChange} counts={counts} />
+        {visible.length ? (
+          <div className="grid gap-3 md:grid-cols-2">
+            {visible.map((listing) => (
+              <PropertyListingCard key={listing.id} listing={listing} seller={seller} onOpen={() => onOpenListing("property", listing)} />
+            ))}
+          </div>
+        ) : (
+          <EmptyState icon={House} title={t("urmall.seller.noPropertiesTitle")} text={t("urmall.seller.noPropertiesText", { name: sellerName })} />
+        )}
+      </section>
+    );
+  }
+
+  const hotel = catalog.hotel;
+  const rooms = asArray(hotel?.rooms);
+  return (
+    <section className="space-y-4">
+      {asArray(hotel?.images).length ? (
+        <div className="flex gap-2 overflow-x-auto pb-1 [scrollbar-width:none] [&::-webkit-scrollbar]:hidden">
+          {hotel.images.slice(0, 10).map((image, index) => (
+            <img
+              key={`${image}-${index}`}
+              src={resizedImageUrl(image, { width: 320, quality: 70 })}
+              alt={t("urmall.seller.hotelPhotoAlt", { name: sellerName, index: index + 1 })}
+              loading="lazy"
+              decoding="async"
+              className="h-24 w-32 shrink-0 rounded-lg object-cover"
+            />
+          ))}
+        </div>
+      ) : null}
+      {rooms.length ? (
+        <div className="grid gap-3 md:grid-cols-2">
+          {rooms.map((room) => (
+            <HotelRoomCard key={room.id} room={room} seller={seller} onOpen={() => onOpenListing("hotel", hotel)} />
+          ))}
+        </div>
+      ) : (
+        <EmptyState icon={BedDouble} title={t("urmall.seller.noRoomsTitle")} text={t("urmall.seller.noRoomsText", { name: sellerName })} />
+      )}
+    </section>
+  );
+}
+
 export default function SellerProfileDrawer({
   seller,
   open,
@@ -520,6 +875,10 @@ export default function SellerProfileDrawer({
   useI18n();
   const [activeView, setActiveView] = useState("catalog");
   const [catalog, setCatalog] = useState([]);
+  const [verticalCatalog, setVerticalCatalog] = useState({ meals: [], properties: [], hotel: null });
+  const [menuDay, setMenuDay] = useState(() => new Date().getDay());
+  const [propertyPurpose, setPropertyPurpose] = useState("all");
+  const [selectedListing, setSelectedListing] = useState(null);
   const [reviews, setReviews] = useState({ rating: 0, reviewCount: 0, reviews: [] });
   const [reviewEligibility, setReviewEligibility] = useState({
     eligible: false,
@@ -544,6 +903,9 @@ export default function SellerProfileDrawer({
     [safeSeller.whatsapp, safeSeller.name],
   );
   const safeCatalog = useMemo(() => asArray(catalog).filter((item) => item && typeof item === "object"), [catalog]);
+  const sellerVertical = useMemo(() => getSellerVertical(safeSeller), [safeSeller]);
+  const sellerCountryIso = safeSeller.countryIso || safeSeller.country_iso || safeSeller.countryCode || "";
+  const businessToday = useMemo(() => getMarketplaceBusinessDay(sellerCountryIso), [sellerCountryIso]);
   const safeReviews = useMemo(
     () => ({
       rating: toSafeNumber(reviews?.rating, 0),
@@ -566,6 +928,8 @@ export default function SellerProfileDrawer({
       setLocationWarning("");
       setOpenActionProductId(null);
       setStoreLocationRows([]);
+      setPropertyPurpose("all");
+      setMenuDay(businessToday);
       setReviewEligibility({
         eligible: false,
         orderId: null,
@@ -574,7 +938,9 @@ export default function SellerProfileDrawer({
 
       try {
         const [catalogItems, marketplaceReviews, sellerLocations, eligibility] = await Promise.all([
-          fetchSellerCatalog(safeSeller.id),
+          sellerVertical === "retail"
+            ? fetchSellerCatalog(safeSeller.id)
+            : fetchSellerVerticalCatalog(safeSeller.id, sellerVertical),
           fetchBuyerReviews({ businessId: safeSeller.id, reviewType: "marketplace" }),
           fetchSellerLocations(safeSeller.id).catch(() => []),
           fetchMarketplaceReviewEligibility({ businessId: safeSeller.id, reviewType: "marketplace" }).catch(() => ({
@@ -584,7 +950,13 @@ export default function SellerProfileDrawer({
           })),
         ]);
         if (alive) {
-          setCatalog(asArray(catalogItems));
+          if (sellerVertical === "retail") {
+            setCatalog(asArray(catalogItems));
+            setVerticalCatalog({ meals: [], properties: [], hotel: null });
+          } else {
+            setCatalog([]);
+            setVerticalCatalog(asObject(catalogItems));
+          }
           setStoreLocationRows(asArray(sellerLocations));
           setReviews({
             rating: toSafeNumber(marketplaceReviews?.rating, 0),
@@ -605,14 +977,24 @@ export default function SellerProfileDrawer({
     return () => {
       alive = false;
     };
-  }, [open, safeSeller.id]);
+  }, [businessToday, open, safeSeller.id, sellerVertical]);
 
   useBodyScrollLock(open);
 
   useEffect(() => {
+    if (!open) setSelectedListing(null);
+  }, [open]);
+
+  useEffect(() => {
     if (!open) return undefined;
     function handleKeyDown(event) {
-      if (event.key === "Escape") onClose?.();
+      if (event.key !== "Escape") return;
+      // An open listing sits above the profile, so it closes first.
+      if (selectedListing) {
+        setSelectedListing(null);
+        return;
+      }
+      onClose?.();
     }
 
     window.addEventListener("keydown", handleKeyDown);
@@ -620,7 +1002,7 @@ export default function SellerProfileDrawer({
     return () => {
       window.removeEventListener("keydown", handleKeyDown);
     };
-  }, [onClose, open]);
+  }, [onClose, open, selectedListing]);
 
   useEffect(() => {
     const lat = toOptionalCoordinate(safeSeller.latitude ?? safeSeller.lat);
@@ -667,6 +1049,25 @@ export default function SellerProfileDrawer({
   }, [open, safeSeller.latitude, safeSeller.lat, safeSeller.longitude, safeSeller.lng, storeLocationRows]);
 
   const sellerName = useMemo(() => getSellerName(safeSeller), [safeSeller]);
+  const catalogTab = {
+    restaurant: { icon: UtensilsCrossed, label: t("urmall.seller.tabMenu") },
+    property: { icon: House, label: t("urmall.seller.tabProperties") },
+    hotel: { icon: BedDouble, label: t("urmall.seller.tabRooms") },
+  }[sellerVertical] || { icon: PackageSearch, label: t("urmall.seller.tabCatalog") };
+  const selectedListingProduct = selectedListing ? mapVerticalProduct(selectedListing) : null;
+  // "More from this seller" inside an open listing stays within this seller's
+  // own catalog, so a shopper can hop between their meals or listings.
+  const listingSiblings = selectedListing?.type === "restaurant"
+    ? asArray(verticalCatalog.meals)
+    : selectedListing?.type === "property"
+      ? asArray(verticalCatalog.properties)
+      : [];
+  const relatedListings = selectedListing
+    ? listingSiblings
+      .filter((item) => item.id !== selectedListing.item?.id)
+      .slice(0, 8)
+      .map((item) => mapVerticalProduct({ type: selectedListing.type, item }))
+    : [];
   const sellerCategory = useMemo(() => getSellerCategory(safeSeller, safeCatalog), [safeCatalog, safeSeller]);
   const fullAddress = useMemo(() => getFullAddress(safeSeller), [safeSeller]);
   const cityCountry = useMemo(
@@ -1152,13 +1553,29 @@ export default function SellerProfileDrawer({
             <section className="w-full max-w-full space-y-4 overflow-x-hidden">
               <div className="sticky top-0 z-10 -mx-3 border-y border-gray-100 bg-gray-50/95 px-3 py-3 backdrop-blur sm:mx-0 sm:rounded-lg sm:border">
                 <div className="flex max-w-full gap-2 overflow-x-auto pb-1">
-                  <TabButton icon={PackageSearch} label={t("urmall.seller.tabCatalog")} active={activeView === "catalog"} onClick={() => setActiveView("catalog")} />
+                  <TabButton icon={catalogTab.icon} label={catalogTab.label} active={activeView === "catalog"} onClick={() => setActiveView("catalog")} />
                   <TabButton icon={Star} label={t("urmall.seller.tabReviews")} active={activeView === "reviews"} onClick={() => setActiveView("reviews")} />
                   <TabButton icon={Info} label={t("urmall.seller.tabAbout")} active={activeView === "about"} onClick={() => setActiveView("about")} />
                 </div>
               </div>
 
-              {activeView === "catalog" ? (
+              {activeView === "catalog" && sellerVertical !== "retail" ? (
+                <VerticalCatalogSection
+                  vertical={sellerVertical}
+                  catalog={verticalCatalog}
+                  loading={loadingProfile}
+                  sellerName={sellerName}
+                  seller={safeSeller}
+                  menuDay={menuDay}
+                  onMenuDayChange={setMenuDay}
+                  today={businessToday}
+                  propertyPurpose={propertyPurpose}
+                  onPropertyPurposeChange={setPropertyPurpose}
+                  onOpenListing={(type, item) => setSelectedListing({ type, item })}
+                />
+              ) : null}
+
+              {activeView === "catalog" && sellerVertical === "retail" ? (
                   <section className="space-y-3">
                     {loadingProfile ? (
                       <div className="grid gap-3 md:grid-cols-2">
@@ -1342,6 +1759,22 @@ export default function SellerProfileDrawer({
           />
         ) : null}
       </aside>
+
+      {selectedListingProduct ? (
+        <VerticalBuyerDetail
+          product={selectedListingProduct}
+          type={selectedListing.type}
+          onClose={() => setSelectedListing(null)}
+          onOpenSeller={() => setSelectedListing(null)}
+          onMessage={messageVerticalSeller}
+          onOrder={selectedListing.type === "restaurant" ? orderVerticalMeal : bookVerticalListing}
+          relatedProducts={relatedListings}
+          onRelatedProductSelect={(product) => {
+            const item = listingSiblings.find((entry) => entry.id === product?.id);
+            if (item) setSelectedListing({ type: selectedListing.type, item });
+          }}
+        />
+      ) : null}
     </>,
     document.body,
   );

@@ -373,6 +373,67 @@ export async function deletePropertyListing(item) {
   await removeMarketplaceMedia([...(item.image_urls || []), item.video_url]);
 }
 
+// Buyer-facing catalog for one vertical seller's profile. Retail sellers keep
+// using fetchSellerCatalog (products); a restaurant, hotel or property seller
+// has no products at all, so their profile lists live menu items, bookable
+// rooms or published listings instead. The business row is joined so a tapped
+// listing opens the same vertical detail the discovery feed uses.
+export async function fetchSellerVerticalCatalog(businessId, vertical) {
+  const empty = { meals: [], properties: [], hotel: null };
+  if (!businessId) return empty;
+  const select = `*, marketplace_businesses (${BUSINESS_SELECT})`;
+
+  if (vertical === "restaurant") {
+    // Every available meal, not just today's — the profile groups them by day.
+    const { data, error } = await supabase
+      .from("marketplace_restaurant_menu_items")
+      .select(select)
+      .eq("business_id", businessId)
+      .eq("available", true)
+      .order("sort_order")
+      .order("created_at");
+    const fallback = throwOrEmpty(error, "Unable to load this restaurant menu.");
+    return { ...empty, meals: (fallback || data || []).map(normalizeBusinessRow) };
+  }
+
+  if (vertical === "property") {
+    const { data, error } = await supabase
+      .from("marketplace_property_listings")
+      .select(select)
+      .eq("business_id", businessId)
+      .eq("published", true)
+      .eq("availability_status", "available")
+      .gt("expires_at", new Date().toISOString())
+      .order("created_at", { ascending: false });
+    const fallback = throwOrEmpty(error, "Unable to load these property listings.");
+    return { ...empty, properties: (fallback || data || []).map(normalizeBusinessRow) };
+  }
+
+  if (vertical === "hotel") {
+    const [imagesResult, roomsResult] = await Promise.all([
+      supabase.from("marketplace_hotel_images").select(select).eq("business_id", businessId).order("is_cover", { ascending: false }).order("sort_order"),
+      supabase.from("marketplace_hotel_rooms").select(select).eq("business_id", businessId).eq("active", true).order("nightly_rate"),
+    ]);
+    const images = throwOrEmpty(imagesResult.error, "Unable to load this hotel.") || imagesResult.data || [];
+    const rooms = throwOrEmpty(roomsResult.error, "Unable to load these rooms.") || roomsResult.data || [];
+    const source = images[0] || rooms[0];
+    if (!source) return empty;
+    const rates = rooms.map((room) => Number(room.nightly_rate || 0)).filter((rate) => rate > 0);
+    return {
+      ...empty,
+      hotel: {
+        ...normalizeBusinessRow(source),
+        id: businessId,
+        images: images.map((image) => image.image_url).filter(Boolean),
+        rooms,
+        fromPrice: rates.length ? Math.min(...rates) : 0,
+      },
+    };
+  }
+
+  return empty;
+}
+
 // Boost a meal or property into the UrMall "Sponsored" slider using the same
 // Visibility Credits wallet as retail products. `listingType` is "meal" or
 // "property"; `listing` is the saved row (needs an id).

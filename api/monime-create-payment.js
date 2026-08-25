@@ -146,11 +146,18 @@ export default async function handler(req, res) {
       credits,
     });
   } catch (error) {
-    console.error("[Monime create payment failed]", error.message);
-    const unavailable = error.message === "Payment service environment variables are incomplete.";
-    return json(res, unavailable ? 503 : 502, {
+    const missing = Array.isArray(error.missing) ? error.missing : null;
+    console.error("[Monime create payment failed]", error.message, missing ? `missing: ${missing.join(", ")}` : "");
+    if (missing) {
+      // Names only, never values — turns a dead end into an actionable setup fix.
+      return json(res, 503, {
+        ok: false,
+        message: `Mobile money is not configured yet. Missing on the server: ${missing.join(", ")}.`,
+      });
+    }
+    return json(res, 502, {
       ok: false,
-      message: unavailable ? "Mobile money is not configured yet." : "Orange Money could not start this payment. Please try again.",
+      message: "Orange Money could not start this payment. Please try again.",
     });
   }
 }

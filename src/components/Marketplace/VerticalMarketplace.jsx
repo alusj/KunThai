@@ -2,22 +2,25 @@ import { useCallback, useEffect, useMemo, useState } from "react";
 import { Bath, BedDouble, Clock3, MapPin, PackageSearch } from "lucide-react";
 
 import {
-  createVerticalBooking,
   fetchMarketplaceVerticalDiscovery,
-  incrementVerticalListingView,
   subscribeMarketplaceVerticalDiscovery,
 } from "../../Backend/services/marketplace/marketplaceVerticalService";
-import { createBuyerProductOrder, sendBuyerMarketplaceMessage } from "../../Backend/services/marketplace/buyerMarketplaceService";
 import { resizedImageUrl } from "../../Backend/lib/imageProxy";
-import { urMallShareToastOptions } from "../../Backend/services/shareCtaService";
 import { showToast } from "../../Backend/services/toastService";
 import { useI18n, t } from "../../i18n";
 import { getProductCardLocation, buildCardSellerLocation } from "../../Backend/utils/productCardLocation";
 import { ensureBuyerLocation, useBuyerLocation } from "../../Backend/utils/buyerLocationContext";
 import { rankSimilarVerticalListings } from "../../Backend/services/marketplace/marketplaceDiscovery";
 import useBodyScrollLock from "../shared/useBodyScrollLock";
-import ProductDetailDrawer from "./Browse/ProductDetailDrawer";
 import SellerProfileDrawer from "./Browse/SellerProfileDrawer";
+import VerticalBuyerDetail from "./VerticalBuyerDetail";
+import {
+  bookVerticalListing,
+  mapVerticalProduct,
+  mealPeriodLabel,
+  messageVerticalSeller,
+  orderVerticalMeal,
+} from "./verticalListingModel";
 import { t as i18nText } from "../../i18n/index";
 
 const EMPTY = { restaurants: [], hotels: [], properties: [] };
@@ -84,141 +87,6 @@ function money(value, currency = "") {
   return `${currency ? `${currency} ` : ""}${Number(value || 0).toLocaleString()}`;
 }
 
-function mealPeriodLabel(period) {
-  return period ? String(period).replaceAll("_", " ") : t("urmall.vertical.allDay");
-}
-
-function propertyUnitSymbol(unit) {
-  return { sqm: "m²", sqft: "ft²", acres: "acres", plots: "plots", hectares: "ha" }[unit] || unit || "";
-}
-
-// Buyer-facing property spec line — shows only the attributes that apply to the
-// listing's type (land size for land, floor area for commercial, rooms for the
-// rest) so each category reads uniquely.
-function buildPropertySpecifications(item) {
-  const isLandType = item.property_type === "land";
-  const isCommercialType = item.property_type === "commercial";
-  const isHotelType = item.property_type === "hotel";
-  const parts = [item.property_type];
-  if (isLandType && Number(item.land_size) > 0) parts.push(`${Number(item.land_size).toLocaleString()} ${propertyUnitSymbol(item.land_size_unit)}`.trim());
-  if ((isCommercialType || isHotelType) && Number(item.floor_area) > 0) parts.push(`${Number(item.floor_area).toLocaleString()} ${propertyUnitSymbol(item.floor_area_unit)}`.trim());
-  if (isHotelType) {
-    if (Number(item.rooms) > 0) parts.push(t("urmall.vertical.roomsN", { count: item.rooms }));
-    if (Number(item.star_rating) > 0) parts.push(t("urmall.vertical.starN", { count: item.star_rating }));
-  }
-  if (!isLandType && !isHotelType) {
-    parts.push(t("urmall.vertical.bedroomsN", { count: item.bedrooms || 0 }));
-    parts.push(t("urmall.vertical.bathroomsN", { count: item.bathrooms || 0 }));
-  }
-  if (Number(item.parking_spaces) > 0) parts.push(t("urmall.vertical.parkingN", { count: item.parking_spaces }));
-  if (!isLandType && !isHotelType) parts.push(item.furnished ? t("urmall.vertical.furnished") : t("urmall.vertical.notFurnished"));
-  return parts.filter(Boolean).join(" · ");
-}
-
-function mapVerticalProduct({ item, type }) {
-  const seller = {
-    id: item.businessId || (type === "hotel" ? item.id : item.business_id),
-    name: item.businessName || t("urmall.vertical.businessFallback"),
-    city: item.city || "",
-    country: item.country || "",
-    countryCode: item.countryIso || "",
-    currency: item.currency || "",
-    location: item.address || item.city || "",
-    address: item.address || "",
-    latitude: item.latitude ?? null,
-    longitude: item.longitude ?? null,
-    phone: item.phone || "",
-    whatsappEnabled: Boolean(item.whatsappEnabled),
-    whatsapp: item.whatsapp || "",
-    bannerUrl: item.bannerUrl || "",
-    description: item.description || "",
-    businessKind: item.businessKind || (type === "restaurant" ? "restaurant" : type === "hotel" ? "hotel" : "property_agent"),
-    category: type === "restaurant" ? t("urmall.vertical.catRestaurant") : type === "hotel" ? t("urmall.vertical.catHotel") : t("urmall.vertical.catProperty"),
-    deliveryEnabled: Boolean(item.deliveryEnabled),
-    pickupEnabled: Boolean(item.pickupEnabled),
-    logoUrl: item.logoUrl || "",
-    verificationStatus: item.verificationStatus || "pending",
-  };
-  const shared = {
-    id: item.id,
-    businessId: seller.id,
-    isVertical: true,
-    verticalType: type,
-    seller,
-    currency: item.currency || "",
-    country: item.country || "",
-    countryCode: item.countryIso || "",
-    location: item.address || item.city || t("urmall.vertical.locationFromBusiness"),
-    stock: 999,
-    sales: 0,
-    condition: "active",
-    rating: 0,
-    reviewCount: 0,
-    createdAt: item.created_at || item.createdAt || "",
-    allowNegotiation: false,
-    deliveryAvailable: Boolean(item.deliveryEnabled),
-    pickupAvailable: Boolean(item.pickupEnabled),
-  };
-
-  if (type === "restaurant") return {
-    ...shared,
-    name: item.name,
-    category: t("urmall.vertical.restaurantMeal"),
-    badgePrimary: t("urmall.vertical.catRestaurant"),
-    badgeSecondary: mealPeriodLabel(item.meal_period),
-    price: Number(item.price || 0),
-    description: item.description || t("urmall.vertical.mealDescription", { name: seller.name }),
-    imageUrl: item.image_url || item.bannerUrl || "",
-    imageUrls: [item.image_url, ...(item.image_urls || [])].filter(Boolean),
-    videoUrl: item.video_url || "",
-    details: {
-      subcategory: item.meal_period || "",
-      cuisine: item.cuisine || item.cuisine_type || "",
-      preparationMinutes: item.preparation_minutes || 20,
-      specifications: t("urmall.vertical.mealSpec", { period: mealPeriodLabel(item.meal_period), minutes: item.preparation_minutes || 20 }),
-    },
-  };
-
-  if (type === "hotel") return {
-    ...shared,
-    id: item.id || seller.id,
-    name: item.businessName,
-    category: t("urmall.vertical.catHotel"),
-    badgePrimary: t("urmall.vertical.catHotel"),
-    badgeSecondary: t("urmall.vertical.availableRooms"),
-    price: Number(item.fromPrice || 0),
-    description: item.description || t("urmall.vertical.hotelDescription", { name: seller.name }),
-    imageUrl: item.images?.[0] || item.bannerUrl || "",
-    imageUrls: item.images || [],
-    videoUrl: item.videoUrl || "",
-    details: {
-      subcategory: "hotel",
-      roomTypes: (item.rooms || []).map((room) => room.name || room.type).filter(Boolean).join(" "),
-      specifications: t(item.rooms?.length === 1 ? "urmall.vertical.hotelSpecOne" : "urmall.vertical.hotelSpecMany", { count: item.rooms?.length || 0 }),
-    },
-  };
-
-  return {
-    ...shared,
-    name: item.title,
-    category: t("urmall.vertical.propertyForPurpose", { purpose: item.purpose || "viewing" }),
-    badgePrimary: t("urmall.vertical.catProperty"),
-    badgeSecondary: t("urmall.vertical.forPurpose", { purpose: item.purpose || "viewing" }),
-    price: Number(item.price || 0),
-    description: item.description || t("urmall.vertical.propertyDescription", { name: seller.name }),
-    imageUrl: item.image_urls?.[0] || item.bannerUrl || "",
-    imageUrls: item.image_urls || [],
-    videoUrl: item.video_url || "",
-    allowNegotiation: true,
-    details: {
-      subcategory: item.property_type || "",
-      purpose: item.purpose || "",
-      bedrooms: item.bedrooms || 0,
-      bathrooms: item.bathrooms || 0,
-      specifications: buildPropertySpecifications(item),
-    },
-  };
-}
 
 export default function VerticalMarketplace({ mode = "all", onDetailChange, priorityType = null }) {
   useI18n();
@@ -259,41 +127,6 @@ export default function VerticalMarketplace({ mode = "all", onDetailChange, prio
     if (item) setSelected({ type, item });
   }
 
-  async function messageSeller(product, options = {}) {
-    try {
-      await sendBuyerMarketplaceMessage({
-        seller: product.seller,
-        product,
-        topic: product.name,
-        message: options.message || t("urmall.vertical.messageGreeting", { name: product.name }),
-        messageType: options.messageType || "question",
-      });
-      showToast(t("urmall.vertical.messageSent"), "success");
-    } catch (error) {
-      showToast(error.message || t("urmall.vertical.messageFailed"), "danger");
-      throw error;
-    }
-  }
-
-  async function orderRestaurant(product, orderInput) {
-    try {
-      await createBuyerProductOrder(product, orderInput);
-      showToast(t("urmall.vertical.orderSent"), "success", urMallShareToastOptions());
-    } catch (error) {
-      showToast(error.message || t("urmall.vertical.orderFailed"), "danger");
-      throw error;
-    }
-  }
-
-  async function bookVertical(product, bookingInput) {
-    try {
-      await createVerticalBooking(product, bookingInput);
-      showToast(t("urmall.vertical.bookingSent"), "success", urMallShareToastOptions());
-    } catch (error) {
-      showToast(error.message || t("urmall.vertical.bookingFailed"), "danger");
-      throw error;
-    }
-  }
 
   const loadCatalog = useCallback(async () => {
     const hasCachedCatalog = VERTICAL_CATALOG_MEMORY.loaded;
@@ -390,7 +223,7 @@ export default function VerticalMarketplace({ mode = "all", onDetailChange, prio
           : type === "hotel"
             ? <HotelCard key={`hotel-${item.id}`} item={item} onClick={() => setSelected({ type, item })} />
             : <PropertyCard key={`property-${item.id}`} item={item} onClick={() => setSelected({ type, item })} />)}
-        {selectedProduct ? <VerticalBuyerDetail product={selectedProduct} relatedProducts={relatedProducts} onRelatedProductSelect={openRelatedProduct} type={selected.type} onClose={() => setSelected(null)} onMessage={messageSeller} onOpenSeller={setProfileSeller} onOrder={selected.type === "restaurant" ? orderRestaurant : bookVertical} /> : null}
+        {selectedProduct ? <VerticalBuyerDetail product={selectedProduct} relatedProducts={relatedProducts} onRelatedProductSelect={openRelatedProduct} type={selected.type} onClose={() => setSelected(null)} onMessage={messageVerticalSeller} onOpenSeller={setProfileSeller} onOrder={selected.type === "restaurant" ? orderVerticalMeal : bookVerticalListing} /> : null}
         <VerticalSellerProfile seller={profileSeller} onClose={() => setProfileSeller(null)} />
       </>
     );
@@ -421,7 +254,7 @@ export default function VerticalMarketplace({ mode = "all", onDetailChange, prio
         </VerticalSection>
       ) : null}
 
-      {selectedProduct ? <VerticalBuyerDetail product={selectedProduct} relatedProducts={relatedProducts} onRelatedProductSelect={openRelatedProduct} type={selected.type} onClose={() => setSelected(null)} onMessage={messageSeller} onOpenSeller={setProfileSeller} onOrder={selected.type === "restaurant" ? orderRestaurant : bookVertical} /> : null}
+      {selectedProduct ? <VerticalBuyerDetail product={selectedProduct} relatedProducts={relatedProducts} onRelatedProductSelect={openRelatedProduct} type={selected.type} onClose={() => setSelected(null)} onMessage={messageVerticalSeller} onOpenSeller={setProfileSeller} onOrder={selected.type === "restaurant" ? orderVerticalMeal : bookVerticalListing} /> : null}
       <VerticalSellerProfile seller={profileSeller} onClose={() => setProfileSeller(null)} />
     </div>
   );
@@ -585,52 +418,6 @@ function PropertyCard({ item, onClick }) {
   );
 }
 
-function VerticalBuyerDetail({ onClose, onMessage, onOpenSeller, onOrder, onRelatedProductSelect, product, relatedProducts, type }) {
-  const isRestaurant = type === "restaurant";
-
-  // Count one organic view whenever a buyer opens a vertical listing, so the
-  // seller's Insights reflect real reach (parity with retail product views).
-  useEffect(() => {
-    const listingType = type === "restaurant" ? "meal" : type === "hotel" ? "room" : "property";
-    incrementVerticalListingView(listingType, product?.id);
-  }, [product?.id, type]);
-
-  const serviceValue = isRestaurant
-    ? product.deliveryAvailable && product.pickupAvailable ? t("urmall.vertical.serviceDeliveryPickup") : product.deliveryAvailable ? t("urmall.vertical.serviceDelivery") : t("urmall.vertical.servicePickup")
-    : type === "hotel" ? t("urmall.vertical.serviceHotelDates") : t("urmall.vertical.servicePropertyViewing");
-  return (
-    <ProductDetailDrawer
-      product={product}
-      open
-      onClose={onClose}
-      onMessageSeller={onMessage}
-      onOpenSeller={(seller) => onOpenSeller?.({ ...seller, verticalType: type })}
-      onOrderProduct={onOrder}
-      onNotice={(message, tone = "success") => showToast(message, tone)}
-      actionLabel={isRestaurant ? t("urmall.vertical.actionOrder") : t("urmall.vertical.actionBook")}
-      actionMode={isRestaurant ? "order" : "booking"}
-      bookingStartLabel={type === "hotel" ? t("urmall.vertical.checkIn") : t("urmall.vertical.viewingDate")}
-      bookingEndLabel={t("urmall.vertical.checkOut")}
-      bookingUsesEndDate={type === "hotel"}
-      showAddToCart={false}
-      showMessage={isRestaurant}
-      showOrder
-      showInventory={false}
-      showSave={false}
-      relatedProducts={relatedProducts}
-      onRelatedProductSelect={onRelatedProductSelect}
-      reviewLabel={t("urmall.vertical.review")}
-      reviewHeading={t("urmall.vertical.reviews")}
-      reviewType="marketplace"
-      detailsHeading={type === "restaurant" ? t("urmall.vertical.detailsMeal") : type === "hotel" ? t("urmall.vertical.detailsHotel") : t("urmall.vertical.detailsProperty")}
-      historyKey={`marketplace-${type}-detail`}
-      messageContextLabel={type === "restaurant" ? t("urmall.vertical.inquiryMeal") : type === "hotel" ? t("urmall.vertical.inquiryHotel") : t("urmall.vertical.inquiryProperty")}
-      messageLabel={t("urmall.vertical.message")}
-      serviceLabel={type === "restaurant" ? t("urmall.vertical.fulfilment") : type === "hotel" ? t("urmall.vertical.stay") : t("urmall.vertical.viewing")}
-      serviceValue={serviceValue}
-    />
-  );
-}
 
 function VerticalSellerProfile({ onClose, seller }) {
   return <SellerProfileDrawer seller={seller} open={Boolean(seller)} onClose={onClose} onNotice={(message, tone = "success") => showToast(message, tone)} showSaveStore={false} />;

@@ -8,6 +8,7 @@ import {
   checkoutSessionTotal,
   normalizeSierraLeonePhone,
   paymentCodeAmount,
+  resolveMonimeApiUrl,
   priceCustomCredits,
   verifyAndGrantMonimeCredits,
   verifyAndGrantMonimePaymentCode,
@@ -94,6 +95,18 @@ test("normalizeSierraLeonePhone accepts common local formats and rejects junk", 
 
 test("MONIME_ORANGE_MONEY_PROVIDER is the m17 financial-account code", () => {
   assert.equal(MONIME_ORANGE_MONEY_PROVIDER, "m17");
+});
+
+test("resolveMonimeApiUrl honours MONIME_API_URL and always lands on a version path", () => {
+  // Unset / blank falls back to the documented production base.
+  assert.equal(resolveMonimeApiUrl(undefined), "https://api.monime.io/v1");
+  assert.equal(resolveMonimeApiUrl("   "), "https://api.monime.io/v1");
+  // A bare host gains /v1; an explicit version is left alone.
+  assert.equal(resolveMonimeApiUrl("https://api.monime.io"), "https://api.monime.io/v1");
+  assert.equal(resolveMonimeApiUrl("https://api.monime.io/v1"), "https://api.monime.io/v1");
+  // Trailing slashes never produce a double slash in the request path.
+  assert.equal(resolveMonimeApiUrl("https://api.monime.io/"), "https://api.monime.io/v1");
+  assert.equal(resolveMonimeApiUrl("https://api.monime.io/v1/"), "https://api.monime.io/v1");
 });
 
 test("paymentCodeAmount reads the code's minor-unit amount and currency", () => {

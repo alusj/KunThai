@@ -21,17 +21,37 @@ export const MONIME_MIN_CREDITS = 15;
 export const MONIME_MAX_CREDITS = 100000;
 export const MONIME_PRICE_PER_CREDIT_MINOR = 134; // ≈ 1.34 SLE / credit
 
+// Default Monime API base. MONIME_API_URL overrides it (e.g. to point at a
+// sandbox); a trailing slash or an included /v1 is tolerated either way.
+const MONIME_DEFAULT_API_URL = "https://api.monime.io/v1";
+
+export function resolveMonimeApiUrl(raw = process.env.MONIME_API_URL) {
+  const value = String(raw || "").trim().replace(/\/+$/, "");
+  if (!value) return MONIME_DEFAULT_API_URL;
+  return /\/v\d+$/.test(value) ? value : `${value}/v1`;
+}
+
 export function getMonimeConfig() {
   const supabaseUrl = process.env.SUPABASE_URL || process.env.VITE_SUPABASE_URL;
   const serviceRoleKey = process.env.SUPABASE_SERVICE_ROLE_KEY;
   const monimeAccessToken = process.env.MONIME_ACCESS_TOKEN || process.env.MONIME_TOKEN;
   const monimeSpaceId = process.env.MONIME_SPACE_ID;
 
-  if (!supabaseUrl || !serviceRoleKey || !monimeAccessToken || !monimeSpaceId) {
-    throw new Error("Payment service environment variables are incomplete.");
+  // Report WHICH variables are missing (names only — never values) so a setup
+  // problem is diagnosable from the logs instead of a generic failure.
+  const missing = [];
+  if (!supabaseUrl) missing.push("SUPABASE_URL (or VITE_SUPABASE_URL)");
+  if (!serviceRoleKey) missing.push("SUPABASE_SERVICE_ROLE_KEY");
+  if (!monimeAccessToken) missing.push("MONIME_ACCESS_TOKEN");
+  if (!monimeSpaceId) missing.push("MONIME_SPACE_ID");
+
+  if (missing.length) {
+    const error = new Error("Payment service environment variables are incomplete.");
+    error.missing = missing;
+    throw error;
   }
 
-  return { supabaseUrl, serviceRoleKey, monimeAccessToken, monimeSpaceId };
+  return { supabaseUrl, serviceRoleKey, monimeAccessToken, monimeSpaceId, apiUrl: resolveMonimeApiUrl() };
 }
 
 // Server-authoritative price for a custom credit amount. Returns null when the
@@ -52,7 +72,7 @@ async function monimeFetch(path, options, config) {
   const controller = new AbortController();
   const timeoutId = setTimeout(() => controller.abort(), 15_000);
   try {
-    const response = await fetch(`https://api.monime.io/v1${path}`, {
+    const response = await fetch(`${config.apiUrl || resolveMonimeApiUrl()}${path}`, {
       ...options,
       signal: controller.signal,
       headers: {
