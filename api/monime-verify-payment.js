@@ -4,6 +4,7 @@ import {
   getMonimeConfig,
   getMonimePaymentCode,
   json,
+  resolveMonimeWallet,
   verifyAndGrantMonimePaymentCode,
 } from "../server/monimeVisibilityCredits.js";
 
@@ -41,8 +42,10 @@ export default async function handler(req, res) {
     if (purchaseError) throw purchaseError;
     if (!purchase) return json(res, 404, { ok: false, message: "We couldn't find that purchase." });
 
+    const walletName = resolveMonimeWallet(purchase.metadata?.wallet).name;
+
     if (purchase.status === "paid") {
-      return json(res, 200, { ok: true, alreadyGranted: true });
+      return json(res, 200, { ok: true, alreadyGranted: true, wallet: purchase.metadata?.wallet || null, walletName });
     }
 
     const paymentCodeId = String(purchase.metadata?.paymentCodeId || "").trim();
@@ -54,12 +57,14 @@ export default async function handler(req, res) {
     return json(res, 200, {
       ok: true,
       credits: purchase.credits,
-      wallet: result.wallet || null,
+      wallet: purchase.metadata?.wallet || null,
+      walletName,
+      balance: result.wallet || null,
     });
   } catch (error) {
     console.error("[Monime verify payment failed]", error.code || "error", error.message);
     if (error.code === "payment_not_completed") {
-      return json(res, 202, { ok: false, pending: Boolean(error.pending), message: "Your Orange Money payment is still processing." });
+      return json(res, 202, { ok: false, pending: Boolean(error.pending), message: "Your mobile money payment is still processing." });
     }
     if (error.code === "payment_mismatch") {
       return json(res, 409, { ok: false, message: "This payment could not be matched to your purchase." });
@@ -67,7 +72,7 @@ export default async function handler(req, res) {
     const unavailable = error.message === "Payment service environment variables are incomplete.";
     return json(res, unavailable ? 503 : 502, {
       ok: false,
-      message: unavailable ? "Mobile money is not configured yet." : "We couldn't confirm your Orange Money payment yet.",
+      message: unavailable ? "Mobile money is not configured yet." : "We couldn't confirm your mobile money payment yet.",
     });
   }
 }

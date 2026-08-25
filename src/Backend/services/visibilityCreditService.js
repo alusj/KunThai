@@ -355,19 +355,32 @@ export function monimeCustomPriceMinor(credits) {
   return Math.round(value) * MONIME_PRICE_PER_CREDIT_MINOR;
 }
 
-// Start a direct Orange Money collection for a package (packageId) or a custom
-// credit amount ({ credits }), locked to the customer's phoneNumber. Monime
-// prompts that number to approve; the credits arrive once approved, confirmed
-// via pollMonimePaymentStatus (or the server webhook, whichever lands first).
-export async function startMonimeMobileMoneyPurchase({ packageId, credits, phoneNumber } = {}) {
+// The mobile-money wallets Monime can actually collect from today. Probing the
+// API shows it accepts only these two provider codes; the others are listed in
+// the UI as "coming soon" because Monime genuinely rejects them.
+export const MONIME_WALLETS = [
+  { id: "orange", name: "Orange Money" },
+  { id: "afrimoney", name: "Afrimoney" },
+];
+
+export function monimeWalletName(walletId) {
+  return MONIME_WALLETS.find((wallet) => wallet.id === walletId)?.name || "Mobile money";
+}
+
+// Start a direct mobile-money collection (Orange Money or Afrimoney) for a
+// package (packageId) or a custom credit amount ({ credits }), locked to the
+// customer's phoneNumber. Monime prompts that number to approve; the credits
+// arrive once approved, confirmed via pollMonimePaymentStatus.
+export async function startMonimeMobileMoneyPurchase({ packageId, credits, phoneNumber, wallet } = {}) {
   const body = {
     ...(packageId ? { packageId } : { credits: Math.round(Number(credits) || 0) }),
     phoneNumber,
+    wallet,
   };
   return authenticatedPaymentRequest(
     "/api/monime-create-payment",
     body,
-    "Orange Money is temporarily unavailable. Please try again.",
+    `${monimeWalletName(wallet)} is temporarily unavailable. Please try again.`,
   );
 }
 
@@ -377,7 +390,7 @@ export async function pollMonimePaymentStatus(purchaseId) {
   return authenticatedPaymentRequest(
     "/api/monime-verify-payment",
     { purchase: purchaseId },
-    "Orange Money is temporarily unavailable. Please try again.",
+    "Mobile money is temporarily unavailable. Please try again.",
   );
 }
 

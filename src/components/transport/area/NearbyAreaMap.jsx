@@ -14,7 +14,11 @@ import { cacheAreaViewPosition, readAreaViewCache } from "../../../Backend/servi
 import {
   getAreaLocationMotionDuration,
   isImplausibleAreaLocationJump,
+  isPointOutsideSafeBox,
+  normalizeBearing,
+  shortestBearingDelta,
   shouldAcceptAreaLocationAccuracy,
+  smoothBearing,
 } from "./areaLocationTracking";
 import { getActiveCountryProfile } from "../../../data/globalCountryProfiles";
 import { useI18n, t } from "../../../i18n";
@@ -76,6 +80,42 @@ const GPS_SETTINGS = {
   gpsUiAccuracyDeltaMeters: 8,
   headingUiThrottleMs: 700,
   headingUiDeltaDegrees: 6,
+};
+
+// Course-up camera tuning. The map should turn with the traveller — through a
+// bend, around a corner, or when the phone itself is turned — without spinning
+// on GPS noise while standing still.
+const HEADING_SETTINGS = {
+  // Below this speed a direction derived from GPS is noise, so the last
+  // confident heading is kept instead of the map spinning on the spot.
+  movingSpeedMps: 0.8,
+  // Minimum movement between fixes before a travel direction is trusted.
+  minTravelMeters: 2.5,
+  // Circular smoothing weight for the travel bearing (0 = frozen, 1 = raw).
+  smoothing: 0.4,
+  // How long a travel bearing stays usable after the traveller stops moving.
+  travelBearingMaxAgeMs: 12_000,
+  // Camera rotations smaller than this are skipped so the view does not
+  // shimmer between near-identical bearings.
+  minCameraDeltaDegrees: 2.5,
+  // Look-ahead used for the road-ahead bearing, measured in metres along the
+  // route rather than in vertices: a straight road has few, far-apart points
+  // while a bend has many close ones, so a fixed vertex count either points
+  // across a curve or under-reads a straight.
+  routeLookAheadMeters: 38,
+};
+
+// The live-location icon must never wander off screen. When it crosses out of
+// the safe box (the viewport inset by this ratio on each side) the camera
+// re-centres on it and follow resumes.
+const EDGE_RECENTER_SETTINGS = {
+  insetRatio: 0.2,
+  checkThrottleMs: 220,
+  minIntervalMs: 900,
+  // Grace period after the traveller finishes a manual pan, so a quick look
+  // around is possible before the camera pulls back to the traveller.
+  settleAfterPanMs: 1_800,
+  duration: 520,
 };
 
 const TRAFFIC_AHEAD_SETTINGS = {
@@ -755,11 +795,6 @@ function linear(value) {
 }
 
 
-function normalizeBearing(value) {
-  if (value == null || Number.isNaN(Number(value))) return null;
-  return ((Number(value) % 360) + 360) % 360;
-}
-
 function bearingBetweenPoints(from, to) {
   if (!from || !to) return 0;
   const startLat = toRadians(from.lat);
@@ -773,14 +808,31 @@ function bearingBetweenPoints(from, to) {
   return normalizeBearing((Math.atan2(y, x) * 180) / Math.PI) || 0;
 }
 
-function getNextRouteBearing(position, coordinates = [], segmentIndex = 0) {
+function getNextRouteBearing(
+  position,
+  coordinates = [],
+  segmentIndex = 0,
+  lookAheadMeters = HEADING_SETTINGS.routeLookAheadMeters,
+) {
   if (!position || coordinates.length < 2) return null;
 
   const safeIndex = Math.max(0, Math.min(segmentIndex, coordinates.length - 2));
-  const lookAheadIndex = Math.max(safeIndex + 1, Math.min(safeIndex + 6, coordinates.length - 1));
-  const target = normalizeRoutePoint(coordinates[lookAheadIndex]);
+  let travelled = 0;
+  let target = normalizeRoutePoint(coordinates[safeIndex + 1]);
 
-  return bearingBetweenPoints(position, target);
+  // Walk the route forward until roughly `lookAheadMeters` of road has been
+  // covered, so the camera points along the piece of road actually being
+  // driven — the tangent through a bend, not the chord across it.
+  for (let index = safeIndex; index < coordinates.length - 1; index += 1) {
+    const from = normalizeRoutePoint(coordinates[index]);
+    const to = normalizeRoutePoint(coordinates[index + 1]);
+    if (!from || !to) continue;
+    travelled += distanceInMeters(from, to);
+    target = to;
+    if (travelled >= lookAheadMeters) break;
+  }
+
+  return target ? bearingBetweenPoints(position, target) : null;
 }
 
 function getSmartCameraCenter(position) {
@@ -1598,6 +1650,18 @@ export default function NearbyAreaMap({
   const lastRawTimestampRef = useRef(initialAreaCacheRef.current.position ? Date.now() : null);
   const hasLiveDeviceFixRef = useRef(false);
   const headingRef = useRef(null);
+  // Direction of travel derived from consecutive GPS fixes. Many devices never
+  // report coords.heading, so this is what keeps the map turning with the
+  // traveller through bends and corners.
+  const travelBearingRef = useRef(null);
+  const travelBearingAtRef = useRef(0);
+  const isTravellerMovingRef = useRef(false);
+  // Edge auto-recentre bookkeeping.
+  const lastEdgeCheckAtRef = useRef(0);
+  const lastEdgeRecenterAtRef = useRef(0);
+  const lastUserPanAtRef = useRef(0);
+  const edgeRecenterTimerRef = useRef(null);
+  const hasOperatorRoutePlanRef = useRef(false);
   const smartCameraRef = useRef(true);
   const weatherCacheRef = useRef(weatherCache);
   const onMapInteractionStartRef = useRef(onMapInteractionStart);
@@ -1682,6 +1746,16 @@ export default function NearbyAreaMap({
   const canUseHeading = headingMode !== "north";
   const weatherInsight = getSmartWeatherMessage(weather);
   const showWeatherBadge = Boolean(weatherError || weatherInsight.relevant);
+
+  useEffect(() => {
+    hasOperatorRoutePlanRef.current = hasOperatorRoutePlan;
+  }, [hasOperatorRoutePlan]);
+
+  // The map is created once, so its listeners reach the edge-recentre helpers
+  // through refs that always hold the current render's versions.
+  const keepTravellerOnScreenRef = useRef(null);
+  const scheduleEdgeRecenterCheckRef = useRef(null);
+  const applySmartCameraRef = useRef(null);
 
   useEffect(() => {
     onMapInteractionStartRef.current = onMapInteractionStart;
@@ -1832,6 +1906,16 @@ export default function NearbyAreaMap({
     });
   }
 
+  // The travel bearing is only trusted while the traveller is actually moving,
+  // and for a short while after they stop, so a parked marker keeps the last
+  // real direction instead of snapping to a stale one.
+  function getUsableTravelBearing() {
+    if (travelBearingRef.current == null) return null;
+    if (isTravellerMovingRef.current) return travelBearingRef.current;
+    const age = Date.now() - travelBearingAtRef.current;
+    return age <= HEADING_SETTINGS.travelBearingMaxAgeMs ? travelBearingRef.current : null;
+  }
+
   function getCameraBearing(position, destination, routeSegmentIndex = lastRouteSegmentIndexRef.current) {
     if (headingMode === "north") return 0;
 
@@ -1841,6 +1925,10 @@ export default function NearbyAreaMap({
 
     const routeBearing = getNextRouteBearing(position, routeCoordinatesRef.current, routeSegmentIndex);
     if (routeBearing != null) return routeBearing;
+    // Off-route (or no route at all): face the way the traveller is actually
+    // going, so entering a bend turns the map without anyone touching it.
+    const travelBearing = getUsableTravelBearing();
+    if (travelBearing != null) return travelBearing;
     if (destination) return bearingBetweenPoints(position, destination);
     return headingRef.current || mapRef.current?.getBearing?.() || 0;
   }
@@ -1859,7 +1947,15 @@ export default function NearbyAreaMap({
     lastCameraMoveRef.current = now;
 
     const hasDestination = Boolean(destination?.lat && destination?.lng);
-    const bearing = getCameraBearing(position, destination, routeSegmentIndex);
+    const nextBearing = getCameraBearing(position, destination, routeSegmentIndex);
+    // Skip hair-thin rotations so the view does not shimmer between two nearly
+    // identical bearings on every fix.
+    const currentBearing = normalizeBearing(map.getBearing?.());
+    const bearing =
+      currentBearing != null &&
+      Math.abs(shortestBearingDelta(currentBearing, nextBearing)) < HEADING_SETTINGS.minCameraDeltaDegrees
+        ? currentBearing
+        : nextBearing;
     const cameraCenter = getSmartCameraCenter(
       position,
       destination,
@@ -1897,6 +1993,66 @@ export default function NearbyAreaMap({
       syncWithMarker: true,
     });
   }
+
+  // True when the traveller's icon has drifted out of the safe box — the
+  // viewport inset on every side — including when it is fully off screen.
+  function isTravellerOutsideSafeBox(map, point) {
+    const canvas = map.getCanvas?.();
+    const width = canvas?.clientWidth || 0;
+    const height = canvas?.clientHeight || 0;
+    if (!width || !height) return false;
+
+    const screenPoint = map.project([point.lng, point.lat]);
+
+    return isPointOutsideSafeBox(
+      screenPoint,
+      { width, height },
+      EDGE_RECENTER_SETTINGS.insetRatio,
+    );
+  }
+
+  // Pulls the camera back to the traveller as soon as their icon reaches the
+  // edge of the screen, whether it drifted there while moving or was pushed
+  // there by a manual pan. Place view and operator route previews are camera
+  // modes of their own, so they are left alone.
+  function keepTravellerOnScreen(point, options = {}) {
+    const map = mapRef.current;
+    if (!map || !Number.isFinite(Number(point?.lat)) || !Number.isFinite(Number(point?.lng))) return;
+    if (viewTargetActiveRef.current || hasOperatorRoutePlanRef.current) return;
+    if (!smartCameraRef.current) return;
+    // Never fight a gesture that is still in progress.
+    if (isUserInteractingRef.current) return;
+
+    const now = performance.now();
+    if (!options.force && now - lastEdgeCheckAtRef.current < EDGE_RECENTER_SETTINGS.checkThrottleMs) return;
+    lastEdgeCheckAtRef.current = now;
+
+    if (now - lastEdgeRecenterAtRef.current < EDGE_RECENTER_SETTINGS.minIntervalMs) return;
+    if (now - lastUserPanAtRef.current < EDGE_RECENTER_SETTINGS.settleAfterPanMs) return;
+    if (!isTravellerOutsideSafeBox(map, point)) return;
+
+    lastEdgeRecenterAtRef.current = now;
+    followLockRef.current = true;
+    applySmartCamera(point, selectedLocation, lastRouteSegmentIndexRef.current, {
+      force: true,
+      duration: EDGE_RECENTER_SETTINGS.duration,
+    });
+  }
+
+  function scheduleEdgeRecenterCheck(delay = EDGE_RECENTER_SETTINGS.settleAfterPanMs + 120) {
+    if (edgeRecenterTimerRef.current) window.clearTimeout(edgeRecenterTimerRef.current);
+    edgeRecenterTimerRef.current = window.setTimeout(() => {
+      edgeRecenterTimerRef.current = null;
+      keepTravellerOnScreen(
+        markerRenderedPositionRef.current || smoothedPositionRef.current || userLocationRef.current,
+        { force: true },
+      );
+    }, delay);
+  }
+
+  keepTravellerOnScreenRef.current = keepTravellerOnScreen;
+  scheduleEdgeRecenterCheckRef.current = scheduleEdgeRecenterCheck;
+  applySmartCameraRef.current = applySmartCamera;
 
   async function requestCompassPermissionIfNeeded() {
     try {
@@ -2171,6 +2327,11 @@ export default function NearbyAreaMap({
       // A manual pan means the traveller wants to look around: release the
       // centre-lock until they tap recenter. Zoom/rotate/pitch keep following.
       if (event.type === "dragstart") followLockRef.current = false;
+      lastUserPanAtRef.current = performance.now();
+      if (edgeRecenterTimerRef.current) {
+        window.clearTimeout(edgeRecenterTimerRef.current);
+        edgeRecenterTimerRef.current = null;
+      }
       onMapInteractionStartRef.current?.({ type: event.type });
     };
 
@@ -2187,6 +2348,10 @@ export default function NearbyAreaMap({
         isUserInteractingRef.current = false;
         userInteractionIdleTimerRef.current = null;
       }, 750);
+      // After a manual pan settles, pull the traveller back on screen if the
+      // gesture pushed their icon out to the edge.
+      lastUserPanAtRef.current = performance.now();
+      scheduleEdgeRecenterCheckRef.current?.();
     };
 
     map.on("dragstart", markUserInteractionStart);
@@ -2270,6 +2435,7 @@ export default function NearbyAreaMap({
       map.off("idle", handleMapIdle);
       map.off("error", handleMapError);
       if (userInteractionIdleTimerRef.current) window.clearTimeout(userInteractionIdleTimerRef.current);
+      if (edgeRecenterTimerRef.current) window.clearTimeout(edgeRecenterTimerRef.current);
       markerAnimationCancelRef.current?.();
       operatorAnimations.forEach((cancel) => cancel?.());
       operatorAnimations.clear();
@@ -2371,8 +2537,21 @@ export default function NearbyAreaMap({
 
       publishHeadingUi(nextHeading);
 
+      // Compass mode is unchanged: the map always faces the way the phone
+      // faces. Smart mode normally follows the course being travelled, but
+      // while the traveller is standing still there is no course to follow, so
+      // the phone's own facing becomes the best direction to show — turning on
+      // the spot turns the map with you.
+      const cameraFollowsCompass =
+        headingMode === "compass" ||
+        (headingMode === "smart" &&
+          !isTravellerMovingRef.current &&
+          followLockRef.current &&
+          !isUserInteractingRef.current &&
+          !hasOperatorRoutePlanRef.current);
+
       if (
-        headingMode === "compass" &&
+        cameraFollowsCompass &&
         userLocationRef.current &&
         !routeCoordinatesRef.current.length &&
         !viewTargetActiveRef.current
@@ -2897,6 +3076,27 @@ export default function NearbyAreaMap({
           lastMovingSpeedRef.current = liveSpeedRef.current;
         }
 
+        // Course over ground. The device's own heading is used when it reports
+        // one; otherwise the direction is measured between consecutive fixes.
+        // Either way it is smoothed circularly, so the camera follows a bend
+        // instead of stepping around it.
+        isTravellerMovingRef.current = instantSpeed >= HEADING_SETTINGS.movingSpeedMps;
+        const travelMeters = previousRawPosition
+          ? distanceInMeters(previousRawPosition, rawLivePosition)
+          : 0;
+        if (isTravellerMovingRef.current && travelMeters >= HEADING_SETTINGS.minTravelMeters) {
+          const measuredBearing = gpsHeading != null
+            ? gpsHeading
+            : bearingBetweenPoints(previousRawPosition, rawLivePosition);
+          travelBearingRef.current = smoothBearing(
+            travelBearingRef.current,
+            measuredBearing,
+            HEADING_SETTINGS.smoothing,
+          );
+          travelBearingAtRef.current = now;
+          publishHeadingUi(travelBearingRef.current);
+        }
+
         lastRawPositionRef.current = rawLivePosition;
         lastRawTimestampRef.current = now;
         hasLiveDeviceFixRef.current = true;
@@ -2984,6 +3184,10 @@ export default function NearbyAreaMap({
           motionDuration,
           (renderedPosition) => {
             markerRenderedPositionRef.current = renderedPosition;
+            // Catch the icon before it slides off screen — either because the
+            // camera fell behind a fast move, or because a manual pan left it
+            // near the edge.
+            keepTravellerOnScreen(renderedPosition);
           },
           // Constant velocity: each fix's glide is routinely interrupted and
           // re-targeted by the next fix, so a linear curve keeps the marker's
@@ -3115,6 +3319,50 @@ export default function NearbyAreaMap({
     if (!active || !mapRef.current) return undefined;
     const frame = window.requestAnimationFrame(() => mapRef.current?.resize?.());
     return () => window.cancelAnimationFrame(frame);
+  }, [active]);
+
+  // Turning the phone changes the viewport's shape, so the canvas is resized
+  // and the camera re-applied: the traveller stays centred and the view keeps
+  // facing the way they are actually going instead of being left pointing the
+  // way it did before the rotation.
+  useEffect(() => {
+    if (!active) return undefined;
+
+    let frame = 0;
+    const handleViewportChange = () => {
+      window.cancelAnimationFrame(frame);
+      frame = window.requestAnimationFrame(() => {
+        const map = mapRef.current;
+        if (!map) return;
+        map.resize?.();
+
+        const point =
+          markerRenderedPositionRef.current ||
+          smoothedPositionRef.current ||
+          userLocationRef.current;
+        if (!point || viewTargetActiveRef.current || hasOperatorRoutePlanRef.current) return;
+        if (isUserInteractingRef.current) return;
+
+        if (followLockRef.current) {
+          applySmartCameraRef.current?.(point, undefined, undefined, { force: true, duration: 320 });
+          return;
+        }
+        // The traveller had panned away: only step in if the new viewport
+        // shape pushed their icon out to the edge.
+        keepTravellerOnScreenRef.current?.(point, { force: true });
+      });
+    };
+
+    window.addEventListener("orientationchange", handleViewportChange);
+    window.addEventListener("resize", handleViewportChange);
+    window.screen?.orientation?.addEventListener?.("change", handleViewportChange);
+
+    return () => {
+      window.cancelAnimationFrame(frame);
+      window.removeEventListener("orientationchange", handleViewportChange);
+      window.removeEventListener("resize", handleViewportChange);
+      window.screen?.orientation?.removeEventListener?.("change", handleViewportChange);
+    };
   }, [active]);
 
   useEffect(() => {

@@ -102,22 +102,44 @@ export default function VerticalMarketplace({ mode = "all", onDetailChange, prio
   }, []);
 
   const selectedProduct = selected ? mapVerticalProduct(selected) : null;
+  // Opening a hotel lists its own bookable rooms underneath, and opening one of
+  // those rooms lists the hotel's other rooms, so a shopper can reach the exact
+  // room they want instead of only ever seeing the hotel as a whole.
+  const selectedHotel = selected?.type === "hotel"
+    ? selected.item
+    : selected?.type === "room"
+      ? catalog.hotels.find((hotel) => hotel.id === selected.item?.businessId || hotel.id === selected.item?.business_id)
+      : null;
+  const relatedRooms = selectedHotel && Array.isArray(selectedHotel.rooms) ? selectedHotel.rooms : [];
   const relatedSource = selected?.type === "restaurant"
     ? catalog.restaurants
-    : selected?.type === "hotel"
-      ? catalog.hotels
-      : catalog.properties;
-  const relatedProducts = selectedProduct
-    ? rankSimilarVerticalListings(
-        selectedProduct,
-        relatedSource.map((item) => mapVerticalProduct({ type: selected.type, item })),
-        buyerLocation,
-        8,
-      )
-    : [];
+    : selected?.type === "property"
+      ? catalog.properties
+      : [];
+  const relatedProducts = !selectedProduct
+    ? []
+    : relatedSource.length
+      ? rankSimilarVerticalListings(
+          selectedProduct,
+          relatedSource.map((item) => mapVerticalProduct({ type: selected.type, item })),
+          buyerLocation,
+          8,
+        )
+      : relatedRooms
+        .filter((room) => room.id !== selected.item?.id)
+        .slice(0, 8)
+        .map((item) => mapVerticalProduct({ type: "room", item }));
 
   function openRelatedProduct(product) {
     const type = product?.verticalType;
+    if (type === "room") {
+      const room = relatedRooms.find((entry) => entry.id === product?.id)
+        || catalog.hotels.flatMap((hotel) => (Array.isArray(hotel.rooms) ? hotel.rooms : []))
+          .find((entry) => entry.id === product?.id);
+      if (room) setSelected({ type: "room", item: room });
+      return;
+    }
+
     const source = type === "restaurant"
       ? catalog.restaurants
       : type === "hotel"

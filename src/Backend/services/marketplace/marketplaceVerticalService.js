@@ -425,7 +425,9 @@ export async function fetchSellerVerticalCatalog(businessId, vertical) {
         ...normalizeBusinessRow(source),
         id: businessId,
         images: images.map((image) => image.image_url).filter(Boolean),
-        rooms,
+        // Normalized so a tapped room opens its own detail with the hotel's
+        // name, currency and contact details already attached.
+        rooms: rooms.map(normalizeBusinessRow),
         fromPrice: rates.length ? Math.min(...rates) : 0,
       },
     };
@@ -542,6 +544,10 @@ export async function fetchVerticalListingInsights(listingType, listing) {
   };
 }
 
+// A room booking is still a hotel stay as far as the bookings table is
+// concerned; only the listing it points at is more specific.
+const BOOKING_LISTING_TYPES = { hotel: "hotel", room: "hotel", property: "property" };
+
 export async function createVerticalBooking(product, input = {}) {
   const { data: authData, error: authError } = await supabase.auth.getUser();
   const buyerId = authData?.user?.id;
@@ -551,7 +557,7 @@ export async function createVerticalBooking(product, input = {}) {
     business_id: product.businessId || product.seller?.id,
     buyer_id: buyerId,
     listing_id: product.id || null,
-    listing_type: product.verticalType,
+    listing_type: BOOKING_LISTING_TYPES[product.verticalType] || product.verticalType,
     listing_name: String(product.name || "").trim(),
     buyer_name: String(input.buyerName || "").trim(),
     phone: String(input.phone || "").trim(),
@@ -642,7 +648,9 @@ export async function fetchMarketplaceVerticalDiscovery({ limit = 30 } = {}) {
       rooms: [],
       fromPrice: Number(room.nightly_rate || 0),
     };
-    current.rooms.push(room);
+    // Normalized so a room carries its hotel's name, currency and contact
+    // details and can open its own detail from the hotel.
+    current.rooms.push(normalizeBusinessRow(room));
     current.fromPrice = current.rooms.length === 1
       ? Number(room.nightly_rate || 0)
       : Math.min(current.fromPrice, Number(room.nightly_rate || 0));

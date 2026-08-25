@@ -4,8 +4,11 @@ import test from "node:test";
 import {
   MONIME_MIN_CREDITS,
   MONIME_ORANGE_MONEY_PROVIDER,
+  MONIME_WALLETS,
+  resolveMonimeWallet,
   MONIME_PRICE_PER_CREDIT_MINOR,
   checkoutSessionTotal,
+  createMonimePaymentCode,
   normalizeSierraLeonePhone,
   paymentCodeAmount,
   resolveMonimeApiUrl,
@@ -167,4 +170,118 @@ test("payment code verify falls back to the code id when no processed-payment id
   const paymentCode = { id: "pc_fallback", status: "completed", amount: { currency: "SLE", value: 2000 } };
   const result = await verifyAndGrantMonimePaymentCode({ adminClient, config: {}, purchase, paymentCode });
   assert.deepEqual(result.wallet, { balance: 1 });
+});
+
+// Monime rejects a payment code that carries both a provider and a paying phone
+// number. Sending both is what made every Orange Money purchase fail with a
+// contentless "temporarily unavailable".
+test("a payment code with a phone number does not also send a provider", async () => {
+  const sent = [];
+  const originalFetch = globalThis.fetch;
+  globalThis.fetch = async (url, options) => {
+    sent.push({ url, body: JSON.parse(options.body) });
+    return new Response(JSON.stringify({ success: true, result: { id: "pmc-1", ussdCode: "*715*1#", status: "pending" } }), {
+      status: 200,
+      headers: { "Content-Type": "application/json" },
+    });
+  };
+
+  try {
+    const code = await createMonimePaymentCode(
+      { credits: 15, priceMinor: 2000, purchaseId: "p1", phoneNumber: "+23279722036", customerName: "Buyer" },
+      { apiUrl: "https://api.monime.test/v1", monimeAccessToken: "t", monimeSpaceId: "spc-1" },
+    );
+    assert.equal(code.id, "pmc-1");
+    assert.equal(sent.length, 1);
+    assert.equal(sent[0].body.authorizedPhoneNumber, "+23279722036");
+    assert.equal("authorizedProviders" in sent[0].body, false);
+  } finally {
+    globalThis.fetch = originalFetch;
+  }
+});
+
+test("without a phone number the code stays locked to Orange Money", async () => {
+  const sent = [];
+  const originalFetch = globalThis.fetch;
+  globalThis.fetch = async (url, options) => {
+    sent.push(JSON.parse(options.body));
+    return new Response(JSON.stringify({ success: true, result: { id: "pmc-2" } }), {
+      status: 200,
+      headers: { "Content-Type": "application/json" },
+    });
+  };
+
+  try {
+    await createMonimePaymentCode(
+      { credits: 15, priceMinor: 2000, purchaseId: "p2", phoneNumber: "", customerName: "Buyer" },
+      { apiUrl: "https://api.monime.test/v1", monimeAccessToken: "t", monimeSpaceId: "spc-1" },
+    );
+    assert.deepEqual(sent[0].authorizedProviders, [MONIME_ORANGE_MONEY_PROVIDER]);
+    assert.equal("authorizedPhoneNumber" in sent[0], false);
+  } finally {
+    globalThis.fetch = originalFetch;
+  }
+});
+
+test("a Monime rejection carries its real reason and message, not a generic one", async () => {
+  const originalFetch = globalThis.fetch;
+  globalThis.fetch = async () =>
+    new Response(
+      JSON.stringify({
+        success: false,
+        messages: [],
+        error: { code: 400, reason: "arguments_invalid", message: "A payment provider must not be set.", details: [] },
+      }),
+      { status: 400, headers: { "Content-Type": "application/json" } },
+    );
+
+  try {
+    await assert.rejects(
+      () => createMonimePaymentCode(
+        { credits: 15, priceMinor: 2000, purchaseId: "p3", phoneNumber: "+23279722036" },
+        { apiUrl: "https://api.monime.test/v1", monimeAccessToken: "t", monimeSpaceId: "spc-1" },
+      ),
+      (error) =>
+        error.status === 400 &&
+        error.reason === "arguments_invalid" &&
+        error.message === "A payment provider must not be set.",
+    );
+  } finally {
+    globalThis.fetch = originalFetch;
+  }
+});
+
+test("Monime accepts exactly two Sierra Leone wallets", () => {
+  assert.equal(MONIME_WALLETS.orange.provider, "m17");
+  assert.equal(MONIME_WALLETS.afrimoney.provider, "m18");
+  assert.deepEqual(Object.keys(MONIME_WALLETS), ["orange", "afrimoney"]);
+});
+
+test("an unknown or missing wallet falls back to the default instead of failing", () => {
+  assert.equal(resolveMonimeWallet("afrimoney").name, "Afrimoney");
+  assert.equal(resolveMonimeWallet("AFRIMONEY").provider, "m18");
+  assert.equal(resolveMonimeWallet("qmoney").id, "orange");
+  assert.equal(resolveMonimeWallet(undefined).id, "orange");
+});
+
+test("without a phone number the code locks to the chosen wallet's provider", async () => {
+  const sent = [];
+  const originalFetch = globalThis.fetch;
+  globalThis.fetch = async (url, options) => {
+    sent.push(JSON.parse(options.body));
+    return new Response(JSON.stringify({ success: true, result: { id: "pmc-3" } }), {
+      status: 200,
+      headers: { "Content-Type": "application/json" },
+    });
+  };
+
+  try {
+    await createMonimePaymentCode(
+      { credits: 15, priceMinor: 2000, purchaseId: "p4", phoneNumber: "", wallet: "afrimoney" },
+      { apiUrl: "https://api.monime.test/v1", monimeAccessToken: "t", monimeSpaceId: "spc-1" },
+    );
+    assert.deepEqual(sent[0].authorizedProviders, ["m18"]);
+  } finally {
+    globalThis.fetch = originalFetch;
+  }
 });

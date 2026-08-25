@@ -30,6 +30,7 @@ import {
   fetchVisibilityCreditPackages,
   startFlutterwaveCardPurchase,
   startMonimeMobileMoneyPurchase,
+  monimeWalletName,
   pollMonimePaymentStatus,
   MONIME_MIN_CREDITS,
   monimeCustomPriceMinor,
@@ -94,6 +95,9 @@ export default function ProfileHeaderCard({
   const [cardCheckoutError, setCardCheckoutError] = useState("");
   const [cardCustomCredits, setCardCustomCredits] = useState("");
   const [momoProvider, setMomoProvider] = useState("orange");
+  // Every label, error and toast in this flow names the wallet the customer
+  // actually picked, so Afrimoney never reads as "Orange Money".
+  const momoWalletName = monimeWalletName(momoProvider);
   const [momoCustomCredits, setMomoCustomCredits] = useState("");
   const [momoPhone, setMomoPhone] = useState("");
   const [momoBusy, setMomoBusy] = useState(false);
@@ -242,14 +246,16 @@ export default function ProfileHeaderCard({
     }
   }
 
-  // Poll the purchase status while the customer approves the Orange Money
+  // Poll the purchase status while the customer approves the mobile money
   // prompt on their phone. Stops on success, terminal failure, or timeout.
   function pollMomoStatus(purchaseId, attempt = 0) {
     const MAX_ATTEMPTS = 40; // ~2 minutes at the cadence below
     pollMonimePaymentStatus(purchaseId)
       .then((result) => {
         window.dispatchEvent(new CustomEvent("kuntai-visibility-credits-updated"));
-        showToast(`${Number(result.credits || 0)} Visibility Credits added.`, "success", { title: "Orange Money" });
+        showToast(`${Number(result.credits || 0)} Visibility Credits added.`, "success", {
+          title: result.walletName || momoWalletName,
+        });
         setMomoStage("select");
         setMomoPending(null);
         setMomoBusy(false);
@@ -265,7 +271,7 @@ export default function ProfileHeaderCard({
         setMomoError(
           error.pending
             ? "This is taking longer than expected. Check your phone, or try again."
-            : error.message || "Orange Money couldn't confirm this payment. Please try again.",
+            : error.message || `${momoWalletName} couldn't confirm this payment. Please try again.`,
         );
       });
   }
@@ -274,21 +280,23 @@ export default function ProfileHeaderCard({
     if (momoBusy) return;
     const phoneNumber = momoPhone.replace(/[^\d]/g, "");
     if (phoneNumber.length < 8) {
-      setMomoError("Enter your Orange Money phone number.");
+      setMomoError(`Enter your ${momoWalletName} phone number.`);
       return;
     }
     try {
       setMomoBusy(true);
       setMomoError("");
       const result = await startMonimeMobileMoneyPurchase(
-        packageId ? { packageId, phoneNumber } : { credits, phoneNumber },
+        packageId
+          ? { packageId, phoneNumber, wallet: momoProvider }
+          : { credits, phoneNumber, wallet: momoProvider },
       );
       setMomoPending({ purchaseId: result.purchaseId, ussdCode: result.ussdCode || "", credits: result.credits });
       setMomoStage("waiting");
       pollMomoStatus(result.purchaseId);
     } catch (error) {
       setMomoBusy(false);
-      setMomoError(error.message || "Orange Money couldn't start this payment. Please try again.");
+      setMomoError(error.message || `${momoWalletName} couldn't start this payment. Please try again.`);
     }
   }
 
@@ -804,7 +812,7 @@ export default function ProfileHeaderCard({
               </span>
               <h2 className="mt-4 text-xl font-black text-slate-950">Approve on your phone</h2>
               <p className="mt-2 text-sm font-semibold leading-6 text-slate-500">
-                We sent an Orange Money prompt to <span className="font-black text-slate-800">{momoPhone}</span>. Enter your PIN there to confirm{momoPending?.credits ? ` ${momoPending.credits} Visibility Credits` : ""}.
+                We sent a mobile money prompt to <span className="font-black text-slate-800">{momoPhone}</span>. Enter your PIN there to confirm{momoPending?.credits ? ` ${momoPending.credits} Visibility Credits` : ""}.
               </p>
               {momoPending?.ussdCode ? (
                 <p className="mt-3 rounded-2xl bg-slate-50 px-4 py-3 text-sm font-bold text-slate-600">
@@ -853,7 +861,7 @@ export default function ProfileHeaderCard({
               <div className="mt-5 grid grid-cols-2 gap-2.5">
                 {[
                   { id: "orange", name: "Orange Money", tone: "bg-orange-500", status: "instant" },
-                  { id: "afrimoney", name: "Afrimoney", tone: "bg-rose-600", status: "soon" },
+                  { id: "afrimoney", name: "Afrimoney", tone: "bg-rose-600", status: "instant" },
                   { id: "qmoney", name: "QMoney", tone: "bg-emerald-600", status: "soon" },
                   { id: "sieratel", name: "Sieratel Money", tone: "bg-blue-600", status: "soon" },
                 ].map((wallet) => {
@@ -885,7 +893,7 @@ export default function ProfileHeaderCard({
 
               <div className="mt-5">
                 <label htmlFor="momo-phone" className="block text-xs font-black uppercase tracking-[0.14em] text-slate-400">
-                  Orange Money number
+                  {momoWalletName} number
                 </label>
                 <input
                   id="momo-phone"

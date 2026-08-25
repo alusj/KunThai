@@ -85,9 +85,20 @@ async function monimeFetch(path, options, config) {
     });
     const data = await response.json().catch(() => null);
     if (!response.ok || !data || data.success === false) {
-      const message = Array.isArray(data?.messages) ? data.messages.join(" ") : "";
-      const error = new Error(message || "Monime could not process the request.");
+      // Monime reports failures as { error: { code, reason, message, details } }
+      // and leaves `messages` empty. Reading only `messages` turned every
+      // failure into the same contentless error, which is what made a plain
+      // request-shape mistake look like an outage for days.
+      const failure = data?.error || {};
+      const details = Array.isArray(failure.details)
+        ? failure.details.map((entry) => (typeof entry === "string" ? entry : entry?.message || "")).filter(Boolean).join(" ")
+        : "";
+      const messages = Array.isArray(data?.messages) ? data.messages.filter(Boolean).join(" ") : "";
+      const error = new Error(
+        [failure.message, details].filter(Boolean).join(" ") || messages || "Monime could not process the request.",
+      );
       error.status = response.status;
+      error.reason = String(failure.reason || "");
       throw error;
     }
     return data;
@@ -180,8 +191,27 @@ export async function verifyAndGrantMonimeCredits({ adminClient, purchase, sessi
 
 // ---- Payment Code flow (direct in-app Orange Money USSD prompt) -------------
 
-// Monime financial-account code for Orange Money Sierra Leone.
+// Monime financial-account codes for the Sierra Leone wallets. Probing the API
+// shows these two are the only codes it accepts today — every other code is
+// rejected with `arguments_invalid` — so QMoney and Sieratel genuinely cannot
+// be offered yet.
 export const MONIME_ORANGE_MONEY_PROVIDER = "m17";
+export const MONIME_AFRIMONEY_PROVIDER = "m18";
+
+export const MONIME_WALLETS = {
+  orange: { id: "orange", provider: MONIME_ORANGE_MONEY_PROVIDER, name: "Orange Money" },
+  afrimoney: { id: "afrimoney", provider: MONIME_AFRIMONEY_PROVIDER, name: "Afrimoney" },
+};
+
+export const MONIME_DEFAULT_WALLET = "orange";
+
+// Resolve a caller-supplied wallet id. Unknown or missing ids fall back to the
+// default rather than failing the purchase — the payer's number is what
+// actually routes the collection.
+export function resolveMonimeWallet(rawWallet) {
+  const key = String(rawWallet || "").trim().toLowerCase();
+  return MONIME_WALLETS[key] || MONIME_WALLETS[MONIME_DEFAULT_WALLET];
+}
 const MONIME_API_VERSION = "caph.2025-08-23";
 
 // Normalize a Sierra Leone mobile number to +232XXXXXXXX (8 subscriber digits).
@@ -196,15 +226,20 @@ export function normalizeSierraLeonePhone(raw) {
 
 // Create a one-time payment code locked to the customer's Orange Money number.
 // Monime prompts that phone to approve; the returned ussdCode is the fallback.
-export async function createMonimePaymentCode({ credits, priceMinor, purchaseId, phoneNumber, customerName }, config) {
+export async function createMonimePaymentCode({ credits, priceMinor, purchaseId, phoneNumber, customerName, wallet }, config) {
   const body = {
     name: "KunThai Visibility Credits",
     mode: "one_time",
     amount: { currency: MONIME_CURRENCY, value: Number(priceMinor) },
     enable: true,
     duration: "10m",
-    authorizedProviders: [MONIME_ORANGE_MONEY_PROVIDER],
-    authorizedPhoneNumber: phoneNumber,
+    // Monime rejects a request that carries BOTH a provider and a paying phone
+    // number ("A payment provider must not be set when a paying phone number is
+    // specified") — the wallet is inferred from the number. The provider lock is
+    // only meaningful when no number was given.
+    ...(phoneNumber
+      ? { authorizedPhoneNumber: phoneNumber }
+      : { authorizedProviders: [resolveMonimeWallet(wallet).provider] }),
     reference: purchaseId,
     metadata: { purchase_id: purchaseId, product: "visibility_credits", credits: String(credits) },
     ...(customerName ? { customer: { name: customerName } } : {}),

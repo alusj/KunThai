@@ -8,6 +8,7 @@ import {
   json,
   normalizeSierraLeonePhone,
   priceCustomCredits,
+  resolveMonimeWallet,
   MONIME_CURRENCY,
 } from "../server/monimeVisibilityCredits.js";
 
@@ -81,6 +82,11 @@ export default async function handler(req, res) {
       return json(res, 400, { ok: false, message: "Enter a valid Sierra Leone mobile number (e.g. 076 123456)." });
     }
 
+    // Orange Money and Afrimoney are both live; the payer's number is what
+    // routes the collection, so an unrecognised wallet id is a label problem,
+    // not a reason to refuse the purchase.
+    const wallet = resolveMonimeWallet(req.body?.wallet);
+
     const purchaseId = randomUUID();
     const meta = user.user_metadata || {};
     const customerName = clean(meta.display_name || meta.full_name || meta.username || "KunThai customer");
@@ -97,7 +103,7 @@ export default async function handler(req, res) {
         provider: "monime",
         provider_reference: purchaseId,
         status: "pending",
-        metadata: { checkout: "payment_code", phone: phoneNumber, packageLabel: label },
+        metadata: { checkout: "payment_code", phone: phoneNumber, packageLabel: label, wallet: wallet.id },
       });
 
     if (purchaseError) {
@@ -107,15 +113,34 @@ export default async function handler(req, res) {
 
     let paymentCode;
     try {
-      paymentCode = await createMonimePaymentCode({ credits, priceMinor, purchaseId, phoneNumber, customerName }, config);
+      paymentCode = await createMonimePaymentCode(
+        { credits, priceMinor, purchaseId, phoneNumber, customerName, wallet: wallet.id },
+        config,
+      );
     } catch (error) {
-      console.error("[Monime payment code creation failed]", error.status || "", error.message);
+      console.error(
+        "[Monime payment code creation failed]",
+        error.status || "",
+        error.reason || "",
+        error.message,
+      );
       await adminClient
         .from("visibility_credit_purchases")
         .update({ status: "failed", updated_at: new Date().toISOString() })
         .eq("id", purchaseId)
         .eq("status", "pending");
-      return json(res, 502, { ok: false, message: "Orange Money is temporarily unavailable. Please try again." });
+      // A 4xx means Monime rejected the request itself — retrying changes
+      // nothing. The reason code rides along in the body (never shown to the
+      // customer) so the failure is diagnosable from the network tab instead of
+      // only from server logs.
+      const rejected = Number(error.status) >= 400 && Number(error.status) < 500;
+      return json(res, rejected ? 400 : 502, {
+        ok: false,
+        reason: error.reason || "monime_error",
+        message: rejected
+          ? `${wallet.name} could not start this payment. Please check the number and try again.`
+          : `${wallet.name} is temporarily unavailable. Please try again.`,
+      });
     }
 
     const paymentCodeId = String(paymentCode?.id || "");
@@ -125,14 +150,14 @@ export default async function handler(req, res) {
         .update({ status: "failed", updated_at: new Date().toISOString() })
         .eq("id", purchaseId)
         .eq("status", "pending");
-      return json(res, 502, { ok: false, message: "Orange Money could not start this payment. Please try again." });
+      return json(res, 502, { ok: false, message: `${wallet.name} could not start this payment. Please try again.` });
     }
 
     const ussdCode = String(paymentCode?.ussdCode || "");
     await adminClient
       .from("visibility_credit_purchases")
       .update({
-        metadata: { checkout: "payment_code", phone: phoneNumber, packageLabel: label, paymentCodeId, ussdCode },
+        metadata: { checkout: "payment_code", phone: phoneNumber, packageLabel: label, wallet: wallet.id, paymentCodeId, ussdCode },
         updated_at: new Date().toISOString(),
       })
       .eq("id", purchaseId);
@@ -144,6 +169,8 @@ export default async function handler(req, res) {
       ussdCode,
       status: String(paymentCode?.status || "pending"),
       credits,
+      wallet: wallet.id,
+      walletName: wallet.name,
     });
   } catch (error) {
     const missing = Array.isArray(error.missing) ? error.missing : null;

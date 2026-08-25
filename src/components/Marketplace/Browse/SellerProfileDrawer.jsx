@@ -725,12 +725,13 @@ function MenuDaySelector({ day, today, onChange }) {
 }
 
 function PropertyPurposeFilter({ purpose, onChange, counts }) {
+  // The filter only earns its space when the agent lists both sales and rentals.
+  if (!counts.sale || !counts.rent) return null;
   const options = [
     { id: "all", label: t("urmall.seller.propertyFilterAll"), count: counts.all },
     { id: "sale", label: t("urmall.seller.propertyForSale"), count: counts.sale },
     { id: "rent", label: t("urmall.seller.propertyForRent"), count: counts.rent },
-  ].filter((option) => option.count > 0);
-  if (options.length < 2) return null;
+  ];
 
   return (
     <div className="flex gap-2 overflow-x-auto pb-1 [scrollbar-width:none] [&::-webkit-scrollbar]:hidden">
@@ -849,7 +850,7 @@ function VerticalCatalogSection({ vertical, catalog, loading, sellerName, seller
       {rooms.length ? (
         <div className="grid gap-3 md:grid-cols-2">
           {rooms.map((room) => (
-            <HotelRoomCard key={room.id} room={room} seller={seller} onOpen={() => onOpenListing("hotel", hotel)} />
+            <HotelRoomCard key={room.id} room={room} seller={seller} onOpen={() => onOpenListing("room", room)} />
           ))}
         </div>
       ) : (
@@ -1061,7 +1062,9 @@ export default function SellerProfileDrawer({
     ? asArray(verticalCatalog.meals)
     : selectedListing?.type === "property"
       ? asArray(verticalCatalog.properties)
-      : [];
+      : selectedListing?.type === "room"
+        ? asArray(verticalCatalog.hotel?.rooms)
+        : [];
   const relatedListings = selectedListing
     ? listingSiblings
       .filter((item) => item.id !== selectedListing.item?.id)

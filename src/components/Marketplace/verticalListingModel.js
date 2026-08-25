@@ -42,7 +42,14 @@ export function buildPropertySpecifications(item) {
   return parts.filter(Boolean).join(" · ");
 }
 
+// "hotel" is the whole property (its gallery and room types); "room" is one
+// bookable room type inside it. Both belong to the same hotel business.
+function isHotelVerticalType(type) {
+  return type === "hotel" || type === "room";
+}
+
 export function mapVerticalProduct({ item, type }) {
+  const isHotelType = isHotelVerticalType(type);
   const seller = {
     id: item.businessId || (type === "hotel" ? item.id : item.business_id),
     name: item.businessName || t("urmall.vertical.businessFallback"),
@@ -59,8 +66,8 @@ export function mapVerticalProduct({ item, type }) {
     whatsapp: item.whatsapp || "",
     bannerUrl: item.bannerUrl || "",
     description: item.description || "",
-    businessKind: item.businessKind || (type === "restaurant" ? "restaurant" : type === "hotel" ? "hotel" : "property_agent"),
-    category: type === "restaurant" ? t("urmall.vertical.catRestaurant") : type === "hotel" ? t("urmall.vertical.catHotel") : t("urmall.vertical.catProperty"),
+    businessKind: item.businessKind || (type === "restaurant" ? "restaurant" : isHotelType ? "hotel" : "property_agent"),
+    category: type === "restaurant" ? t("urmall.vertical.catRestaurant") : isHotelType ? t("urmall.vertical.catHotel") : t("urmall.vertical.catProperty"),
     deliveryEnabled: Boolean(item.deliveryEnabled),
     pickupEnabled: Boolean(item.pickupEnabled),
     logoUrl: item.logoUrl || "",
@@ -124,6 +131,35 @@ export function mapVerticalProduct({ item, type }) {
       specifications: t(item.rooms?.length === 1 ? "urmall.vertical.hotelSpecOne" : "urmall.vertical.hotelSpecMany", { count: item.rooms?.length || 0 }),
     },
   };
+
+  // One bookable room type inside a hotel, so a shopper can open the exact room
+  // they want rather than only the hotel as a whole.
+  if (type === "room") {
+    const roomsAvailable = Number(item.rooms_available || 0);
+    return {
+      ...shared,
+      name: item.name,
+      category: t("urmall.vertical.catHotelRoom"),
+      badgePrimary: t("urmall.vertical.catHotel"),
+      badgeSecondary: t("urmall.vertical.perNightSuffix"),
+      price: Number(item.nightly_rate || 0),
+      description: item.description || t("urmall.vertical.roomDescription", { name: seller.name }),
+      imageUrl: item.image_urls?.[0] || item.bannerUrl || "",
+      imageUrls: item.image_urls || [],
+      videoUrl: item.video_url || "",
+      stock: roomsAvailable,
+      details: {
+        subcategory: "room",
+        capacity: Number(item.capacity || 1),
+        roomsAvailable,
+        amenities: Array.isArray(item.amenities) ? item.amenities.join(", ") : "",
+        specifications: t("urmall.vertical.roomSpec", {
+          count: Number(item.capacity || 1),
+          rooms: roomsAvailable,
+        }),
+      },
+    };
+  }
 
   return {
     ...shared,

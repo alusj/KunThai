@@ -92,3 +92,47 @@ export function isImplausibleAreaLocationJump(
 
   return distance > meaningfulJumpMeters && distance / seconds > maxSpeedMetersPerSecond;
 }
+
+// --- Course-up camera helpers -------------------------------------------------
+// The camera should turn with the traveller and keep their icon on screen.
+// These are the pure pieces of that behaviour, kept here so they can be
+// reasoned about (and tested) without a live map.
+
+export function normalizeBearing(value) {
+  if (value == null || Number.isNaN(Number(value))) return null;
+  return ((Number(value) % 360) + 360) % 360;
+}
+
+// Signed shortest turn from one bearing to another, in [-180, 180).
+export function shortestBearingDelta(from, to) {
+  return ((((Number(to) - Number(from)) % 360) + 540) % 360) - 180;
+}
+
+// Circular interpolation. Smoothing bearings arithmetically would swing the
+// camera the long way round every time a heading crosses north.
+export function smoothBearing(previous, next, weight) {
+  const target = normalizeBearing(next);
+  if (target == null) return previous ?? null;
+  if (previous == null) return target;
+  return normalizeBearing(previous + shortestBearingDelta(previous, target) * weight);
+}
+
+// True when a screen point has left the safe box — the viewport inset by
+// `insetRatio` on every side — including when it is fully off screen.
+export function isPointOutsideSafeBox(point, viewport, insetRatio) {
+  const width = Number(viewport?.width) || 0;
+  const height = Number(viewport?.height) || 0;
+  if (!width || !height) return false;
+  if (!Number.isFinite(Number(point?.x)) || !Number.isFinite(Number(point?.y))) return false;
+
+  const ratio = Math.min(Math.max(Number(insetRatio) || 0, 0), 0.49);
+  const insetX = width * ratio;
+  const insetY = height * ratio;
+
+  return (
+    point.x < insetX ||
+    point.x > width - insetX ||
+    point.y < insetY ||
+    point.y > height - insetY
+  );
+}
