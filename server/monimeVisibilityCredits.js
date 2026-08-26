@@ -293,10 +293,148 @@ export async function getMonimePaymentCode(codeId, config) {
   return data.result || {};
 }
 
+// A payment code's processed-payment details are event-only. Once Monime has
+// told us which Payment was created, fetch that Payment with our own token so
+// the webhook body is only a pointer — never the proof that grants credits.
+export async function getMonimePayment(paymentId, config) {
+  const id = encodeURIComponent(String(paymentId || "").trim());
+  if (!id) throw new Error("A Monime payment id is required.");
+  const data = await monimeFetch(`/payments/${id}`, {
+    method: "GET",
+    headers: { "Monime-Version": MONIME_API_VERSION },
+  }, config);
+  return data.result || {};
+}
+
+export async function listMonimePayments(config, { limit = 50, after = "" } = {}) {
+  const safeLimit = Math.min(50, Math.max(1, Math.trunc(Number(limit) || 50)));
+  const query = new URLSearchParams({ limit: String(safeLimit) });
+  if (after) query.set("after", String(after));
+  const data = await monimeFetch(`/payments?${query.toString()}`, {
+    method: "GET",
+    headers: { "Monime-Version": MONIME_API_VERSION },
+  }, config);
+  return {
+    payments: Array.isArray(data.result) ? data.result : [],
+    next: String(data.pagination?.next || ""),
+  };
+}
+
+function nestedOwnerIds(value, ids = new Set()) {
+  if (!value || typeof value !== "object") return ids;
+  if (typeof value.id === "string") ids.add(value.id);
+  if (value.owner) nestedOwnerIds(value.owner, ids);
+  return ids;
+}
+
+export function monimePaymentMatchesPurchase(payment, purchase, paymentCodeId = "") {
+  const purchaseIds = new Set([
+    String(purchase?.id || ""),
+    String(purchase?.provider_reference || ""),
+  ].filter(Boolean));
+  const references = [
+    payment?.reference,
+    payment?.metadata?.purchase_id,
+    payment?.metadata?.purchaseId,
+  ].map((value) => String(value || "")).filter(Boolean);
+  if (references.some((value) => purchaseIds.has(value))) return true;
+
+  const expectedCodeId = String(paymentCodeId || purchase?.metadata?.paymentCodeId || "").trim();
+  if (!expectedCodeId) return false;
+  return nestedOwnerIds(payment?.ownershipGraph).has(expectedCodeId);
+}
+
+// Parse both Monime's current caph event envelope and the legacy envelope that
+// is still shown in parts of their webhook guide. In both, the important event
+// name lives at event.name — treating `event` itself as a string caused every
+// real payment webhook to be silently ignored.
+export function extractMonimeWebhookEvent(payload = {}) {
+  const eventNode = payload?.event;
+  const eventName = String(
+    (eventNode && typeof eventNode === "object" ? eventNode.name : eventNode)
+      || payload?.eventName
+      || payload?.type
+      || "",
+  ).trim().toLowerCase();
+  const data = payload?.data || payload?.result || payload?.paymentCode || payload?.payment || {};
+  const object = payload?.object || {};
+  const processedPaymentData =
+    data?.processedPaymentData
+    || data?.paymentData
+    || payload?.processedPaymentData
+    || payload?.paymentData
+    || {};
+  const objectType = String(object?.type || "").trim().toLowerCase();
+  const objectId = String(object?.id || "").trim();
+  const paymentCodeId = String(
+    data?.paymentCodeId
+      || data?.paymentCode?.id
+      || (objectType === "payment_code" ? objectId : "")
+      || (String(data?.id || "").startsWith("pmc-") ? data.id : "")
+      || "",
+  ).trim();
+  const paymentId = String(
+    processedPaymentData?.paymentId
+      || data?.paymentId
+      || (objectType === "payment" ? objectId : "")
+      || (String(data?.id || "").startsWith("pay-") || String(data?.id || "").startsWith("spm-") ? data.id : "")
+      || "",
+  ).trim();
+  const reference = String(
+    data?.reference
+      || data?.metadata?.purchase_id
+      || data?.metadata?.purchaseId
+      || processedPaymentData?.metadata?.purchase_id
+      || processedPaymentData?.metadata?.purchaseId
+      || payload?.reference
+      || "",
+  ).trim();
+
+  return { eventName, data, objectType, paymentCodeId, paymentId, processedPaymentData, reference };
+}
+
 export function paymentCodeAmount(code) {
   const value = BigInt(Math.trunc(Number(code?.amount?.value || 0)));
   const currency = String(code?.amount?.currency || "").toUpperCase();
   return { totalMinor: value, currency };
+}
+
+export async function verifyAndGrantMonimePayment({ adminClient, purchase, payment, paymentCodeId = "" }) {
+  const status = String(payment?.status || "").toLowerCase();
+  if (status !== "completed") {
+    const error = new Error("Monime has not confirmed this payment as completed.");
+    error.code = "payment_not_completed";
+    error.pending = ["pending", "processing"].includes(status);
+    throw error;
+  }
+
+  const { totalMinor, currency } = paymentCodeAmount(payment);
+  if (
+    currency !== purchase.currency
+    || totalMinor !== BigInt(purchase.amount_minor)
+    || !monimePaymentMatchesPurchase(payment, purchase, paymentCodeId)
+  ) {
+    const error = new Error("The confirmed Monime payment does not match this purchase.");
+    error.code = "payment_mismatch";
+    throw error;
+  }
+
+  const providerTransactionId = String(payment.id || "").trim();
+  const { data: wallet, error } = await adminClient.rpc("grant_purchased_visibility_credits", {
+    p_purchase_id: purchase.id,
+    p_provider_reference: purchase.provider_reference,
+    p_provider_transaction_id: providerTransactionId,
+    p_verified_amount_minor: totalMinor.toString(),
+    p_verified_currency: currency,
+  });
+
+  if (error) throw new Error(error.message || "Unable to add Visibility Credits.");
+  await notifyVisibilityCreditPurchase({
+    adminClient,
+    purchase,
+    methodName: resolveMonimeWallet(purchase.metadata?.wallet).name,
+  });
+  return { purchase, payment, wallet: Array.isArray(wallet) ? wallet[0] : wallet };
 }
 
 // Confirm a completed payment code matches the pending purchase, then grant the

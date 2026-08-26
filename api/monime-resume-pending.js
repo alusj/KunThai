@@ -2,16 +2,21 @@ import {
   authenticatePaymentRequest,
   createAdminClient,
   getMonimeConfig,
+  getMonimePayment,
   getMonimePaymentCode,
   json,
+  listMonimePayments,
+  monimePaymentMatchesPurchase,
+  verifyAndGrantMonimePayment,
   verifyAndGrantMonimePaymentCode,
 } from "../server/monimeVisibilityCredits.js";
 
 // Only look at purchases young enough that their payment code could still have
-// been paid. Monime codes live minutes, but a payment can settle a little after
-// the code itself lapses, so a day of slack costs nothing.
-const LOOKBACK_MS = 24 * 60 * 60 * 1000;
-const MAX_PURCHASES = 10;
+// been paid. The saved Payment id remains authoritative after its short-lived
+// payment code expires, so keep enough history to recover a customer who does
+// not reopen KunThai immediately after paying.
+const LOOKBACK_MS = 30 * 24 * 60 * 60 * 1000;
+const MAX_PURCHASES = 25;
 
 // Settles mobile-money purchases that were paid while nobody was watching.
 //
@@ -51,19 +56,79 @@ export default async function handler(req, res) {
     let granted = 0;
     let credits = 0;
     let stillPending = 0;
+    let recentPayments = null;
 
     for (const purchase of pendingPurchases || []) {
       const codeId = String(purchase.metadata?.paymentCodeId || "").trim();
-      if (!codeId) continue;
+      const paymentId = String(purchase.metadata?.paymentId || "").trim();
+      if (!codeId && !paymentId) continue;
 
       try {
-        const paymentCode = await getMonimePaymentCode(codeId, config);
-        const status = String(paymentCode?.status || "").toLowerCase();
+        // A webhook-captured Payment id is the strongest recovery route. It is
+        // durable after the one-time code expires and is fetched afresh using
+        // our own Monime credentials before granting anything.
+        if (paymentId) {
+          const payment = await getMonimePayment(paymentId, config);
+          if (String(payment?.status || "").toLowerCase() === "completed") {
+            await verifyAndGrantMonimePayment({ adminClient, purchase, payment, paymentCodeId: codeId });
+            granted += 1;
+            credits += Number(purchase.credits || 0);
+            continue;
+          }
+
+          console.warn(
+            "[Monime resume] payment not settled",
+            purchase.id,
+            "payment status:",
+            String(payment?.status || "unknown").toLowerCase(),
+          );
+          stillPending += 1;
+          continue;
+        }
+
+        let paymentCode = null;
+        let status = "";
+        try {
+          paymentCode = await getMonimePaymentCode(codeId, config);
+          status = String(paymentCode?.status || "").toLowerCase();
+        } catch (codeError) {
+          // An expired/deleted one-time code may no longer be fetchable. The
+          // resulting completed Payment remains in Monime and is checked below.
+          console.warn(
+            "[Monime resume] code lookup failed",
+            purchase.id,
+            codeError.status || codeError.code || "",
+            codeError.message,
+          );
+        }
 
         // Same proof-of-payment rule as the poll and the webhook: a completed
         // code, or any code Monime says has actually processed a payment.
         if (status === "completed" || paymentCode?.processedPaymentData) {
           await verifyAndGrantMonimePaymentCode({ adminClient, config, purchase, paymentCode });
+          granted += 1;
+          credits += Number(purchase.credits || 0);
+          continue;
+        }
+
+        // Recovery for payments made before the fixed webhook was deployed:
+        // scan Monime's latest completed Payments once per request and require
+        // their reference/ownership graph to point to this exact purchase/code.
+        // Amount and currency are independently rechecked by the grant helper.
+        if (recentPayments === null) {
+          ({ payments: recentPayments } = await listMonimePayments(config, { limit: 50 }));
+        }
+        const recoveredPayment = recentPayments.find((candidate) => (
+          String(candidate?.status || "").toLowerCase() === "completed"
+          && monimePaymentMatchesPurchase(candidate, purchase, codeId)
+        ));
+        if (recoveredPayment) {
+          await verifyAndGrantMonimePayment({
+            adminClient,
+            purchase,
+            payment: recoveredPayment,
+            paymentCodeId: codeId,
+          });
           granted += 1;
           credits += Number(purchase.credits || 0);
           continue;

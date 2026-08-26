@@ -9,12 +9,17 @@ import {
   MONIME_PRICE_PER_CREDIT_MINOR,
   checkoutSessionTotal,
   createMonimePaymentCode,
+  extractMonimeWebhookEvent,
+  getMonimePayment,
   isMonimeTestToken,
+  listMonimePayments,
+  monimePaymentMatchesPurchase,
   normalizeSierraLeonePhone,
   paymentCodeAmount,
   resolveMonimeApiUrl,
   priceCustomCredits,
   verifyAndGrantMonimeCredits,
+  verifyAndGrantMonimePayment,
   verifyAndGrantMonimePaymentCode,
 } from "./monimeVisibilityCredits.js";
 
@@ -458,6 +463,156 @@ test("an amount mismatch is still refused even with a processed payment", async 
         status: "expired",
         amount: { currency: "SLE", value: 500 },
         processedPaymentData: { paymentId: "pay-14" },
+      },
+    }),
+    (error) => error.code === "payment_mismatch",
+  );
+});
+
+test("the caph payment-code webhook envelope exposes its real event and payment", () => {
+  const parsed = extractMonimeWebhookEvent({
+    event: { id: "wke-1", name: "payment_code.processed", timestamp: "1" },
+    object: { id: "pmc-1", type: "payment_code" },
+    data: {
+      id: "pmc-1",
+      reference: "purchase-1",
+      processedPaymentData: { paymentId: "pay-1", orderNumber: "1001" },
+    },
+  });
+
+  assert.equal(parsed.eventName, "payment_code.processed");
+  assert.equal(parsed.paymentCodeId, "pmc-1");
+  assert.equal(parsed.paymentId, "pay-1");
+  assert.equal(parsed.reference, "purchase-1");
+});
+
+test("the legacy Monime webhook envelope is also understood", () => {
+  const parsed = extractMonimeWebhookEvent({
+    event: { name: "payment_code.processed" },
+    object: { id: "pmc-old", type: "payment_code" },
+    data: {
+      id: "pmc-old",
+      metadata: { purchase_id: "purchase-old" },
+      paymentData: { paymentId: "spm-old" },
+    },
+  });
+
+  assert.equal(parsed.eventName, "payment_code.processed");
+  assert.equal(parsed.paymentCodeId, "pmc-old");
+  assert.equal(parsed.paymentId, "spm-old");
+  assert.equal(parsed.reference, "purchase-old");
+});
+
+test("getMonimePayment re-fetches the payment from Monime", async () => {
+  const originalFetch = globalThis.fetch;
+  const calls = [];
+  globalThis.fetch = async (url, options) => {
+    calls.push({ url, options });
+    return new Response(JSON.stringify({
+      success: true,
+      result: { id: "pay-1", status: "completed", amount: { currency: "SLE", value: 2000 } },
+    }), { status: 200, headers: { "Content-Type": "application/json" } });
+  };
+
+  try {
+    const payment = await getMonimePayment("pay-1", {
+      apiUrl: "https://api.monime.test/v1",
+      monimeAccessToken: "token",
+      monimeSpaceId: "spc-1",
+    });
+    assert.equal(payment.status, "completed");
+    assert.equal(calls[0].url, "https://api.monime.test/v1/payments/pay-1");
+  } finally {
+    globalThis.fetch = originalFetch;
+  }
+});
+
+test("listMonimePayments returns the latest page for historical reconciliation", async () => {
+  const originalFetch = globalThis.fetch;
+  let requestedUrl = "";
+  globalThis.fetch = async (url) => {
+    requestedUrl = url;
+    return new Response(JSON.stringify({
+      success: true,
+      result: [{ id: "pay-recent", status: "completed" }],
+      pagination: { next: "cursor-2" },
+    }), { status: 200, headers: { "Content-Type": "application/json" } });
+  };
+
+  try {
+    const result = await listMonimePayments({
+      apiUrl: "https://api.monime.test/v1",
+      monimeAccessToken: "token",
+      monimeSpaceId: "spc-1",
+    });
+    assert.equal(requestedUrl, "https://api.monime.test/v1/payments?limit=50");
+    assert.equal(result.payments[0].id, "pay-recent");
+    assert.equal(result.next, "cursor-2");
+  } finally {
+    globalThis.fetch = originalFetch;
+  }
+});
+
+test("historical reconciliation matches only the owning purchase code", () => {
+  const purchase = {
+    id: "purchase-old",
+    provider_reference: "purchase-old",
+    metadata: { paymentCodeId: "pmc-old" },
+  };
+  assert.equal(monimePaymentMatchesPurchase({
+    ownershipGraph: { owner: { id: "pmc-old", type: "payment_code" } },
+  }, purchase), true);
+  assert.equal(monimePaymentMatchesPurchase({
+    ownershipGraph: { owner: { id: "pmc-somebody-else", type: "payment_code" } },
+  }, purchase), false);
+});
+
+test("an authoritative completed Monime payment grants its matching purchase", async () => {
+  const calls = [];
+  const adminClient = {
+    rpc: async (name, args) => {
+      calls.push({ name, args });
+      return { data: [{ balance: 25 }], error: null };
+    },
+  };
+  const purchase = {
+    id: "purchase-15",
+    provider_reference: "purchase-15",
+    amount_minor: 2000,
+    currency: "SLE",
+    credits: 15,
+    metadata: { paymentCodeId: "pmc-15", wallet: "orange" },
+  };
+  const payment = {
+    id: "pay-15",
+    status: "completed",
+    amount: { currency: "SLE", value: 2000 },
+    ownershipGraph: { owner: { id: "pmc-15", type: "payment_code" } },
+  };
+
+  const result = await verifyAndGrantMonimePayment({ adminClient, purchase, payment });
+  assert.equal(calls.length, 1);
+  assert.equal(calls[0].args.p_provider_transaction_id, "pay-15");
+  assert.equal(result.wallet.balance, 25);
+});
+
+test("a completed payment for a different payment code cannot grant credits", async () => {
+  await assert.rejects(
+    () => verifyAndGrantMonimePayment({
+      adminClient: { rpc: async () => ({ data: null, error: null }) },
+      purchase: {
+        id: "purchase-16",
+        provider_reference: "purchase-16",
+        amount_minor: 2000,
+        currency: "SLE",
+        credits: 15,
+        metadata: { paymentCodeId: "pmc-16" },
+      },
+      payment: {
+        id: "pay-other",
+        status: "completed",
+        amount: { currency: "SLE", value: 2000 },
+        ownershipGraph: { owner: { id: "pmc-other", type: "payment_code" } },
       },
     }),
     (error) => error.code === "payment_mismatch",
