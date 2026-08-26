@@ -354,6 +354,7 @@ export default function ProfileHeaderCard({
         credits: result.credits,
         expireTime: result.expireTime || "",
         phoneNumber: result.phoneNumber || "",
+        testMode: Boolean(result.testMode),
       });
       setMomoStage("waiting");
       pollMomoStatus(result.purchaseId);
@@ -913,6 +914,12 @@ export default function ProfileHeaderCard({
                     </p>
                   ) : null}
                 </div>
+              ) : null}
+              {momoPending?.testMode ? (
+                <p className="mt-3 rounded-2xl bg-amber-50 px-4 py-3 text-left text-xs font-bold leading-5 text-amber-800">
+                  Monime is in test mode, so this code runs on simulated rails — dialling it on a real phone will say the
+                  reference code cannot be found. Swap in a live Monime token to take real payments.
+                </p>
               ) : null}
               {momoError ? (
                 <p role="alert" className="mt-3 rounded-2xl bg-rose-50 px-4 py-3 text-sm font-bold text-rose-700">{momoError}</p>

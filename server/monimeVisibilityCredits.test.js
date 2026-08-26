@@ -9,6 +9,7 @@ import {
   MONIME_PRICE_PER_CREDIT_MINOR,
   checkoutSessionTotal,
   createMonimePaymentCode,
+  isMonimeTestToken,
   normalizeSierraLeonePhone,
   paymentCodeAmount,
   resolveMonimeApiUrl,
@@ -307,4 +308,14 @@ test("a payment code carries an expiry the approval screen can count down", asyn
   } finally {
     globalThis.fetch = originalFetch;
   }
+});
+
+// Monime picks Test vs Live from the token, not the URL. Test codes run on
+// simulated rails and cannot be dialled on a real handset, so the flow needs to
+// know which mode it is in.
+test("test tokens are detected by their mon_test_ prefix", () => {
+  assert.equal(isMonimeTestToken("mon_test_abc123"), true);
+  assert.equal(isMonimeTestToken("mon_abc123"), false);
+  assert.equal(isMonimeTestToken(""), false);
+  assert.equal(isMonimeTestToken(undefined), false);
 });

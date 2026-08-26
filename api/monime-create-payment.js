@@ -180,6 +180,10 @@ export default async function handler(req, res) {
       // once Monime expires it.
       expireTime: String(paymentCode?.expireTime || ""),
       phoneNumber,
+      // Test tokens run on simulated rails, so the USSD code will not resolve on
+      // a real handset. Saying so on the approval screen stops that being
+      // mistaken for a broken integration.
+      testMode: Boolean(config.testMode),
     });
   } catch (error) {
     const missing = Array.isArray(error.missing) ? error.missing : null;

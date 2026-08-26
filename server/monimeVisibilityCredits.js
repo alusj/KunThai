@@ -31,6 +31,14 @@ export function resolveMonimeApiUrl(raw = process.env.MONIME_API_URL) {
   return /\/v\d+$/.test(value) ? value : `${value}/v1`;
 }
 
+// Monime decides Test vs Live from the ACCESS TOKEN, not the URL: test tokens
+// carry a `mon_test_` prefix. Test mode runs on simulated payment rails, so its
+// payment codes are not registered with Orange/Africell and a real handset
+// dialling one gets "The reference code cannot be found".
+export function isMonimeTestToken(token) {
+  return /^mon_test_/.test(String(token || ""));
+}
+
 export function getMonimeConfig() {
   const supabaseUrl = process.env.SUPABASE_URL || process.env.VITE_SUPABASE_URL;
   const serviceRoleKey = process.env.SUPABASE_SERVICE_ROLE_KEY;
@@ -51,7 +59,14 @@ export function getMonimeConfig() {
     throw error;
   }
 
-  return { supabaseUrl, serviceRoleKey, monimeAccessToken, monimeSpaceId, apiUrl: resolveMonimeApiUrl() };
+  return {
+    supabaseUrl,
+    serviceRoleKey,
+    monimeAccessToken,
+    monimeSpaceId,
+    apiUrl: resolveMonimeApiUrl(),
+    testMode: isMonimeTestToken(monimeAccessToken),
+  };
 }
 
 // Server-authoritative price for a custom credit amount. Returns null when the
