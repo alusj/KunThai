@@ -422,3 +422,44 @@ test("an already-notified purchase is not notified twice", async () => {
 
   assert.equal(inserted.length, 0);
 });
+
+// A paid code must never be stranded just because its status moved on: money
+// having actually moved is proof enough to credit the buyer.
+test("a code showing a processed payment still grants, even if not completed", async () => {
+  const calls = [];
+  const adminClient = {
+    rpc: async (name, args) => { calls.push(args); return { data: [{ balance: 15 }], error: null }; },
+  };
+
+  const result = await verifyAndGrantMonimePaymentCode({
+    adminClient,
+    config: {},
+    purchase: { id: "p13", user_id: "u1", provider_reference: "p13", amount_minor: 2000, currency: "SLE", credits: 15 },
+    paymentCode: {
+      id: "pmc-13",
+      status: "expired",
+      amount: { currency: "SLE", value: 2000 },
+      processedPaymentData: { paymentId: "pay-13", orderNumber: "B94F-YVX3-NTT7" },
+    },
+  });
+
+  assert.equal(calls.length, 1);
+  assert.equal(calls[0].p_provider_transaction_id, "pay-13");
+  assert.equal(result.wallet.balance, 15);
+});
+
+test("an amount mismatch is still refused even with a processed payment", async () => {
+  await assert.rejects(
+    () => verifyAndGrantMonimePaymentCode({
+      adminClient: { rpc: async () => ({ data: null, error: null }) },
+      config: {},
+      purchase: { id: "p14", user_id: "u1", provider_reference: "p14", amount_minor: 2000, currency: "SLE", credits: 15 },
+      paymentCode: {
+        status: "expired",
+        amount: { currency: "SLE", value: 500 },
+        processedPaymentData: { paymentId: "pay-14" },
+      },
+    }),
+    (error) => error.code === "payment_mismatch",
+  );
+});

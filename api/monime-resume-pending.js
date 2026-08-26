@@ -60,24 +60,21 @@ export default async function handler(req, res) {
         const paymentCode = await getMonimePaymentCode(codeId, config);
         const status = String(paymentCode?.status || "").toLowerCase();
 
-        if (status === "completed") {
+        // Same proof-of-payment rule as the poll and the webhook: a completed
+        // code, or any code Monime says has actually processed a payment.
+        if (status === "completed" || paymentCode?.processedPaymentData) {
           await verifyAndGrantMonimePaymentCode({ adminClient, config, purchase, paymentCode });
           granted += 1;
           credits += Number(purchase.credits || 0);
           continue;
         }
 
-        // A code that can never be paid now is closed off, so it is not
-        // re-checked on every app open for the next day.
-        if (status === "expired" || status === "cancelled") {
-          await adminClient
-            .from("visibility_credit_purchases")
-            .update({ status: "failed", updated_at: new Date().toISOString() })
-            .eq("id", purchase.id)
-            .eq("status", "pending");
-          continue;
-        }
-
+        // Deliberately NOT writing anything off here. An earlier version marked
+        // expired/cancelled codes as failed, but real money is involved: if a
+        // paid code ever reports something other than "completed", writing it
+        // off would bury a payment the customer actually made. Unsettled rows
+        // simply stay pending and age out of the lookback window instead.
+        console.warn("[Monime resume] not settled", purchase.id, "code status:", status || "unknown");
         stillPending += 1;
       } catch (purchaseError) {
         // One bad purchase must not stop the others from settling.

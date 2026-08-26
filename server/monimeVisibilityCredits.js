@@ -303,7 +303,12 @@ export function paymentCodeAmount(code) {
 // credits through the same idempotent RPC the card flow uses.
 export async function verifyAndGrantMonimePaymentCode({ adminClient, purchase, paymentCode }) {
   const status = String(paymentCode?.status || "").toLowerCase();
-  if (status !== "completed") {
+  // "completed" is the normal proof of payment. Monime also attaches
+  // processedPaymentData once money has actually moved, so that counts as proof
+  // too — otherwise a paid code whose status had moved on (say to "expired")
+  // would leave the customer debited with no credits.
+  const hasProcessedPayment = Boolean(paymentCode?.processedPaymentData);
+  if (status !== "completed" && !hasProcessedPayment) {
     const error = new Error("Orange Money has not confirmed this payment yet.");
     error.code = "payment_not_completed";
     error.pending = ["pending", "processing", "active"].includes(status);
