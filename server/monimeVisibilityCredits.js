@@ -7,11 +7,20 @@ import {
   currencyExponent,
   getRequestOrigin,
   json,
+  notifyVisibilityCreditPurchase,
 } from "./flutterwaveVisibilityCredits.js";
 
 // Re-export the provider-agnostic helpers the Monime API handlers also use, so
 // they can import everything from one place.
-export { amountToMinor, authenticatePaymentRequest, createAdminClient, currencyExponent, getRequestOrigin, json };
+export {
+  amountToMinor,
+  authenticatePaymentRequest,
+  createAdminClient,
+  currencyExponent,
+  getRequestOrigin,
+  json,
+  notifyVisibilityCreditPurchase,
+};
 
 // Launch pricing for custom top-ups (Sierra Leone Leone). Minor units are SLE
 // cents (x100). The DB packages table holds the fixed bundles; this constant
@@ -201,6 +210,11 @@ export async function verifyAndGrantMonimeCredits({ adminClient, purchase, sessi
 
   if (error) throw new Error(error.message || "Unable to add Visibility Credits.");
   const normalizedWallet = Array.isArray(wallet) ? wallet[0] : wallet;
+  await notifyVisibilityCreditPurchase({
+    adminClient,
+    purchase,
+    methodName: resolveMonimeWallet(purchase.metadata?.wallet).name,
+  });
   return { purchase, session, wallet: normalizedWallet };
 }
 
@@ -314,6 +328,11 @@ export async function verifyAndGrantMonimePaymentCode({ adminClient, purchase, p
   });
 
   if (error) throw new Error(error.message || "Unable to add Visibility Credits.");
+  await notifyVisibilityCreditPurchase({
+    adminClient,
+    purchase,
+    methodName: resolveMonimeWallet(purchase.metadata?.wallet).name,
+  });
   return { purchase, paymentCode, wallet: Array.isArray(wallet) ? wallet[0] : wallet };
 }
 

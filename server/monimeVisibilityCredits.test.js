@@ -348,3 +348,77 @@ test("only a completed code settles; expired and pending do not grant", async ()
   assert.deepEqual(granted, ["p9"]);
   assert.equal(result.wallet.balance, 15);
 });
+
+// The buyer must be told their money went through — but a notification failure
+// can never cost them the credits they paid for.
+test("a settled purchase writes one notification naming the wallet and amount", async () => {
+  const inserted = [];
+  const adminClient = {
+    rpc: async () => ({ data: [{ balance: 15 }], error: null }),
+    from: (table) => ({
+      select: () => ({
+        eq: function () { return this; },
+        maybeSingle: async () => ({ data: null }),
+      }),
+      insert: async (row) => { inserted.push({ table, row }); return { error: null }; },
+    }),
+  };
+
+  const purchase = {
+    id: "p10", user_id: "u1", provider_reference: "p10",
+    amount_minor: 2000, currency: "SLE", credits: 15,
+    metadata: { wallet: "afrimoney" },
+  };
+
+  await verifyAndGrantMonimePaymentCode({
+    adminClient, config: {}, purchase,
+    paymentCode: { id: "pmc-10", status: "completed", amount: { currency: "SLE", value: 2000 } },
+  });
+
+  assert.equal(inserted.length, 1);
+  assert.equal(inserted[0].table, "platform_notifications");
+  assert.equal(inserted[0].row.user_id, "u1");
+  assert.equal(inserted[0].row.notification_type, "visibility_credit_purchase");
+  assert.equal(inserted[0].row.action_target, "visibility-credit-purchase:p10");
+  assert.match(inserted[0].row.title, /15 Visibility Credits added/);
+  assert.match(inserted[0].row.body, /Afrimoney payment of SLE 20\.00/);
+  assert.match(inserted[0].row.body, /credited to your balance/);
+});
+
+test("a notification failure never blocks the credit grant", async () => {
+  const adminClient = {
+    rpc: async () => ({ data: [{ balance: 15 }], error: null }),
+    from: () => { throw new Error("notifications table unavailable"); },
+  };
+
+  const result = await verifyAndGrantMonimePaymentCode({
+    adminClient,
+    config: {},
+    purchase: { id: "p11", user_id: "u1", provider_reference: "p11", amount_minor: 2000, currency: "SLE", credits: 15 },
+    paymentCode: { id: "pmc-11", status: "completed", amount: { currency: "SLE", value: 2000 } },
+  });
+
+  assert.equal(result.wallet.balance, 15);
+});
+
+test("an already-notified purchase is not notified twice", async () => {
+  const inserted = [];
+  const adminClient = {
+    rpc: async () => ({ data: [{ balance: 15 }], error: null }),
+    from: () => ({
+      select: () => ({
+        eq: function () { return this; },
+        maybeSingle: async () => ({ data: { id: "existing" } }),
+      }),
+      insert: async (row) => { inserted.push(row); return { error: null }; },
+    }),
+  };
+
+  await verifyAndGrantMonimePaymentCode({
+    adminClient, config: {},
+    purchase: { id: "p12", user_id: "u1", provider_reference: "p12", amount_minor: 2000, currency: "SLE", credits: 15 },
+    paymentCode: { id: "pmc-12", status: "completed", amount: { currency: "SLE", value: 2000 } },
+  });
+
+  assert.equal(inserted.length, 0);
+});

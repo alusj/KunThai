@@ -207,5 +207,51 @@ export async function verifyAndGrantVisibilityCredits({
 
   if (error) throw new Error(error.message || "Unable to add Visibility Credits.");
   const normalizedWallet = Array.isArray(wallet) ? wallet[0] : wallet;
+  await notifyVisibilityCreditPurchase({ adminClient, purchase, methodName: "Card" });
   return { purchase, transaction: verified, wallet: normalizedWallet };
+}
+
+// Tells the buyer, in their notifications, that the money went through and the
+// credits are on their balance.
+//
+// This is a courtesy that runs AFTER the credits are safely granted, and every
+// failure is swallowed: a notification problem must never cost someone the
+// credits they paid for. Writing it here means the poll, the webhook and the
+// settle-on-return pass all produce exactly one notification.
+export async function notifyVisibilityCreditPurchase({ adminClient, purchase, methodName = "Payment" }) {
+  if (typeof adminClient?.from !== "function" || !purchase?.user_id) return;
+
+  const actionTarget = `visibility-credit-purchase:${purchase.id}`;
+
+  try {
+    // No unique index covers this notification type, so the duplicate check is
+    // done here — the same purchase can legitimately be confirmed twice.
+    const { data: existing } = await adminClient
+      .from("platform_notifications")
+      .select("id")
+      .eq("user_id", purchase.user_id)
+      .eq("notification_type", "visibility_credit_purchase")
+      .eq("action_target", actionTarget)
+      .maybeSingle();
+    if (existing) return;
+
+    const credits = Number(purchase.credits || 0);
+    const currency = String(purchase.currency || "").toUpperCase();
+    const amount = (
+      Number(purchase.amount_minor || 0) / 10 ** currencyExponent(currency)
+    ).toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 });
+
+    await adminClient.from("platform_notifications").insert({
+      user_id: purchase.user_id,
+      sector: "platform",
+      notification_type: "visibility_credit_purchase",
+      title: `${credits} Visibility Credits added`,
+      body: `Your ${methodName} payment of ${currency} ${amount} was successful and ${credits} Visibility Credits have been credited to your balance.`,
+      priority: "normal",
+      status: "unread",
+      action_target: actionTarget,
+    });
+  } catch (notifyError) {
+    console.error("[Visibility credit purchase notification failed]", purchase.id, notifyError.message);
+  }
 }
