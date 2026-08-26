@@ -530,9 +530,11 @@ export default function FeedComposer({ profile, creating, onSubmit }) {
   }, []);
 
   useBrowserBack(open, () => closeComposer(), "explore-composer");
-  // Freeze the background while the composer is open so the feed behind it is
-  // neither scrollable nor tappable.
-  useBodyScrollLock(open);
+  // Only the full-screen composer freezes the page. The half-screen sheet is
+  // deliberately a companion panel, not a modal: it docks over the feed while
+  // the feed behind it stays readable, scrollable and tappable, and the sheet
+  // itself persists through all of that.
+  useBodyScrollLock(open && composerDisplay === "full");
 
   useLayoutEffect(() => {
     if (!open) return undefined;
@@ -1986,7 +1988,11 @@ if (!isMobileVideoDevice) {
         // which would otherwise turn this fixed overlay into a panel-relative
         // box instead of a viewport one.
         <>
-        <div aria-hidden="true" className="fixed inset-0 z-[79] bg-slate-950/40 backdrop-blur-[1px]" />
+        {/* Only the full-screen composer dims the page behind it. The sheet
+            leaves the feed clear and interactive. */}
+        {composerDisplay === "full" ? (
+          <div aria-hidden="true" className="fixed inset-0 z-[79] bg-slate-950/40 backdrop-blur-[1px]" />
+        ) : null}
         <div
           className={`pointer-events-none fixed inset-x-0 z-[80] flex justify-center ${
             composerDisplay === "full"
