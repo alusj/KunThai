@@ -253,6 +253,7 @@ export default function ProfileHeaderCard({
   }
 
   const stopMomoPollingRef = useRef(null);
+  const pollMomoStatusRef = useRef(null);
 
   // Count the payment code down to its Monime expiry. When it runs out the code
   // is dead, so polling stops and the customer is told to start again rather
@@ -284,6 +285,21 @@ export default function ProfileHeaderCard({
     return () => window.clearInterval(timer);
   }, [momoStage, momoPending?.expireTime]);
 
+  // Paying takes the customer out to the phone dialler, and a backgrounded tab
+  // has its timers suspended — so the poll is restarted from scratch the moment
+  // they come back, rather than waiting on a timer that may never fire.
+  useEffect(() => {
+    if (momoStage !== "waiting" || !momoPending?.purchaseId) return undefined;
+
+    function repollOnReturn() {
+      if (document.visibilityState !== "visible") return;
+      pollMomoStatusRef.current?.(momoPending.purchaseId);
+    }
+
+    document.addEventListener("visibilitychange", repollOnReturn);
+    return () => document.removeEventListener("visibilitychange", repollOnReturn);
+  }, [momoStage, momoPending?.purchaseId]);
+
   function stopMomoPolling() {
     if (momoPollRef.current) {
       window.clearTimeout(momoPollRef.current);
@@ -300,6 +316,10 @@ export default function ProfileHeaderCard({
   }
 
   stopMomoPollingRef.current = expireMomoPayment;
+  pollMomoStatusRef.current = (purchaseId) => {
+    stopMomoPolling();
+    pollMomoStatus(purchaseId, 0);
+  };
 
   // Poll the purchase status while the customer approves the mobile money
   // prompt on their phone. Stops on success, terminal failure, or timeout.

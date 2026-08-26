@@ -27,6 +27,7 @@ import {
   ensureVisibilityInviteCode,
   finalizeStoredVisibilityInvite,
   readFlutterwavePaymentReturn,
+  resumePendingMonimePurchases,
   verifyFlutterwavePaymentReturn,
 } from "./Backend/services/visibilityCreditService";
 import { showToast } from "./Backend/services/toastService";
@@ -430,10 +431,39 @@ export default function App() {
       .finally(() => clearFlutterwavePaymentReturn());
   }, [guestSession, userId]);
 
-  // Orange Money is now a direct in-app collection (Monime payment codes) — the
-  // customer approves a prompt on their phone without leaving KunThai, so there
-  // is no redirect-return URL to confirm here. ProfileHeaderCard polls the
-  // purchase status itself while the sheet stays open.
+  // Mobile money (Monime payment codes) is collected in-app, so there is no
+  // redirect-return URL to confirm. ProfileHeaderCard polls while its sheet is
+  // open, but paying means leaving for the phone dialler — which suspends that
+  // poll — so a purchase can be paid with nobody listening. Settle any such
+  // purchase on app open and whenever the app is brought back to the front.
+  useEffect(() => {
+    if (guestSession || !userId) return undefined;
+
+    let cancelled = false;
+
+    async function settlePaidPurchases() {
+      const result = await resumePendingMonimePurchases();
+      if (cancelled || !result?.granted) return;
+
+      window.dispatchEvent(new CustomEvent("kuntai-visibility-credits-updated"));
+      showToast(
+        `${Number(result.credits || 0)} Visibility Credits added.`,
+        "success",
+        { title: "Mobile money" },
+      );
+    }
+
+    function settleOnReturn() {
+      if (document.visibilityState === "visible") settlePaidPurchases();
+    }
+
+    settlePaidPurchases();
+    document.addEventListener("visibilitychange", settleOnReturn);
+    return () => {
+      cancelled = true;
+      document.removeEventListener("visibilitychange", settleOnReturn);
+    };
+  }, [guestSession, userId]);
 
   useEffect(() => {
     const connection = navigator.connection || navigator.mozConnection || navigator.webkitConnection;

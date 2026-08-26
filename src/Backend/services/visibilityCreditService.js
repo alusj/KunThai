@@ -394,6 +394,22 @@ export async function pollMonimePaymentStatus(purchaseId) {
   );
 }
 
+// Settle any mobile-money purchase that was paid while the approval screen was
+// not watching (paying means leaving the browser for the dialler, which
+// suspends the poll). Safe to call often — granting is idempotent — and it
+// resolves rather than throws so a background check never surfaces an error.
+export async function resumePendingMonimePurchases() {
+  try {
+    return await authenticatedPaymentRequest(
+      "/api/monime-resume-pending",
+      {},
+      "We couldn't check your mobile money purchases.",
+    );
+  } catch {
+    return { ok: false, granted: 0, credits: 0 };
+  }
+}
+
 export function readFlutterwavePaymentReturn() {
   if (typeof window === "undefined") return null;
   const url = new URL(window.location.href);

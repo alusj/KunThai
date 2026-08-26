@@ -319,3 +319,32 @@ test("test tokens are detected by their mon_test_ prefix", () => {
   assert.equal(isMonimeTestToken(""), false);
   assert.equal(isMonimeTestToken(undefined), false);
 });
+
+// The settle-on-return pass must only grant codes Monime reports as completed.
+test("only a completed code settles; expired and pending do not grant", async () => {
+  const purchase = { id: "p9", provider_reference: "p9", amount_minor: 2000, currency: "SLE", credits: 15 };
+  const granted = [];
+  const adminClient = { rpc: async () => { granted.push("p9"); return { data: [{ balance: 15 }], error: null }; } };
+
+  for (const status of ["pending", "processing", "expired", "cancelled"]) {
+    await assert.rejects(
+      () => verifyAndGrantMonimePaymentCode({
+        adminClient,
+        config: {},
+        purchase,
+        paymentCode: { status, amount: { currency: "SLE", value: 2000 } },
+      }),
+      (error) => error.code === "payment_not_completed",
+    );
+  }
+  assert.equal(granted.length, 0);
+
+  const result = await verifyAndGrantMonimePaymentCode({
+    adminClient,
+    config: {},
+    purchase,
+    paymentCode: { id: "pmc-9", status: "completed", amount: { currency: "SLE", value: 2000 } },
+  });
+  assert.deepEqual(granted, ["p9"]);
+  assert.equal(result.wallet.balance, 15);
+});

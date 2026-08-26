@@ -45,7 +45,13 @@ export default async function handler(req, res) {
     const walletName = resolveMonimeWallet(purchase.metadata?.wallet).name;
 
     if (purchase.status === "paid") {
-      return json(res, 200, { ok: true, alreadyGranted: true, wallet: purchase.metadata?.wallet || null, walletName });
+      return json(res, 200, {
+        ok: true,
+        alreadyGranted: true,
+        credits: purchase.credits,
+        wallet: purchase.metadata?.wallet || null,
+        walletName,
+      });
     }
 
     const paymentCodeId = String(purchase.metadata?.paymentCodeId || "").trim();
