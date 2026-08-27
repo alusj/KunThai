@@ -5,6 +5,7 @@ import {
   BANNER_EVENT,
   isBannerContextActive,
   requestExploreScreen,
+  requestMarketplaceScreen,
   showNotificationBanner,
 } from "../../Backend/services/notificationBannerService";
 import {
@@ -23,8 +24,6 @@ import { t as i18nText } from "../../i18n/index";
 const BANNER_EXIT_MS = 280;
 const BANNER_DURATION_MS = 6000;
 const PER_SOURCE_COOLDOWN_MS = 4000;
-const REFERRAL_NOTIFICATION_TYPES = new Set(["visibility_credit_reward", "visibility_invite_success"]);
-
 const NOTIFICATION_LABELS = {
   reaction: "liked your post",
   comment: "commented on your post",
@@ -64,6 +63,7 @@ export default function NotificationBannerHost({ userId = "" }) {
   const [items, setItems] = useState([]);
   const timersRef = useRef(new Map());
   const cooldownRef = useRef(new Map());
+  const platformFloatingEnabledRef = useRef(true);
 
   function dismissBanner(id) {
     if (!id) return;
@@ -99,6 +99,16 @@ export default function NotificationBannerHost({ userId = "" }) {
   useEffect(() => {
     if (!userId) return undefined;
     const cooldowns = cooldownRef.current;
+
+    supabase
+      .from("user_notification_preferences")
+      .select("floating_enabled")
+      .eq("user_id", userId)
+      .maybeSingle()
+      .then(({ data }) => {
+        platformFloatingEnabledRef.current = data?.floating_enabled !== false;
+      })
+      .catch(() => {});
 
     function underCooldown(key) {
       const now = Date.now();
@@ -176,11 +186,12 @@ export default function NotificationBannerHost({ userId = "" }) {
       });
     }
 
-    function handleReferralNotification(payload) {
+    function handlePlatformNotification(payload) {
       const row = payload?.new;
       if (!row?.id || row.user_id !== userId || row.status !== "unread") return;
-      if (!REFERRAL_NOTIFICATION_TYPES.has(row.notification_type)) return;
-      if (underCooldown(`referral:${row.notification_type}:${row.id}`)) return;
+      if (!platformFloatingEnabledRef.current && !["urgent", "critical"].includes(row.priority)) return;
+      if (!["floating", "urgent"].includes(row.presentation) && !["urgent", "critical"].includes(row.priority)) return;
+      if (underCooldown(`platform:${row.notification_type}:${row.id}`)) return;
 
       if (row.notification_type === "visibility_credit_reward") {
         window.dispatchEvent(new CustomEvent("kuntai-visibility-credits-updated"));
@@ -188,14 +199,23 @@ export default function NotificationBannerHost({ userId = "" }) {
 
       haptics.light("explore");
       sounds.notification("explore");
-      showNotificationBanner({
-        title: row.title || "Visibility Credits update",
-        body: row.body || "Your KunThai invite activity has been updated.",
+      const shown = showNotificationBanner({
+        title: row.title || "KunThai update",
+        body: row.body || "Your KunThai account has a new update.",
         tone: "activity",
-        contextKey: `referral-notification:${row.id}`,
+        contextKey: `platform-notification:${row.id}`,
         openLabel: "View",
-        onOpen: () => requestExploreScreen("Notifications"),
+        onOpen: () => {
+          const target = String(row.action_target || "");
+          if (row.sector === "marketplace" || target.startsWith("urmall")) requestMarketplaceScreen(target.includes("messages") ? "messages" : "");
+          else if (row.sector === "transport" || target.startsWith("urride")) window.dispatchEvent(new CustomEvent("kuntai-return-main-page", { detail: { page: "transport", target } }));
+          else requestExploreScreen("Notifications");
+          supabase.from("platform_notifications").update({ actioned_at: new Date().toISOString(), status: "read", read_at: new Date().toISOString() }).eq("id", row.id).then(() => {});
+        },
       });
+      if (shown) {
+        supabase.from("platform_notifications").update({ displayed_at: new Date().toISOString(), seen_at: new Date().toISOString() }).eq("id", row.id).then(() => {});
+      }
     }
 
     const unsubscribeMessages = subscribeToIncomingExploreMessages(userId, handleIncomingMessage);
@@ -210,7 +230,7 @@ export default function NotificationBannerHost({ userId = "" }) {
           table: "platform_notifications",
           filter: `user_id=eq.${userId}`,
         },
-        handleReferralNotification,
+        handlePlatformNotification,
       )
       .subscribe();
     return () => {

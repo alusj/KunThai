@@ -2,6 +2,7 @@ import { useEffect, useMemo, useState } from "react";
 import {
   Activity,
   AlertTriangle,
+  BarChart3,
   BadgeCheck,
   BellRing,
   Check,
@@ -9,6 +10,7 @@ import {
   CircleDollarSign,
   Clock3,
   FileWarning,
+  FlaskConical,
   LoaderCircle,
   LockKeyhole,
   MailPlus,
@@ -24,20 +26,24 @@ import {
   UsersRound,
   X,
 } from "lucide-react";
-import { ADMIN_ROLES, ADMIN_SECTORS, formatDateTime, titleCase } from "../adminConfig";
+import { ADMIN_RESPONSIBILITIES, ADMIN_ROLES, ADMIN_SECTORS, formatDateTime, titleCase } from "../adminConfig";
 import { NOTIFICATION_MESSAGE_SUGGESTIONS, NOTIFICATION_TITLE_SUGGESTIONS } from "../adminTextSuggestions";
 import {
   approveNotificationCampaign,
+  cancelNotificationCampaign,
   createNotificationCampaign,
+  estimateNotificationCampaignAudience,
   getCaseSearchText,
   getCaseTypeLabel,
   getAdminTeam,
   getAuditLog,
   getFeatureFlags,
+  getNotificationCampaignMetrics,
   getNotificationCampaigns,
   grantAdminAccess,
   publishNotificationCampaign,
   revokeAdminAccess,
+  sendNotificationCampaignTest,
   updateFeatureFlag,
 } from "../adminService";
 import CaseTable from "../components/CaseTable";
@@ -219,7 +225,17 @@ export function NotificationsView({ access }) {
   const [composerOpen, setComposerOpen] = useState(false);
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState("");
-  const [form, setForm] = useState({ title: "", body: "", sector: "platform", audience: "all", audienceValue: "", priority: "normal", schedule: "" });
+  const [estimate, setEstimate] = useState(null);
+  const [metrics, setMetrics] = useState({});
+  const emptyForm = { title: "", body: "", sector: "platform", audience: "all", audienceValue: "", priority: "normal", schedule: "", channels: ["in_app"], presentation: "inbox", category: "announcement", actionTarget: "", expiresAt: "" };
+  const [form, setForm] = useState(emptyForm);
+
+  function audienceFilter(value = form) {
+    if (value.audience === "specific_users") return { emails: value.audienceValue.split(",").map((entry) => entry.trim()).filter(Boolean) };
+    if (value.audience === "region") return { region: value.audienceValue.trim() };
+    if (value.audience === "account_type") return { accountType: value.audienceValue };
+    return {};
+  }
 
   function load() { getNotificationCampaigns().then(setCampaigns).catch((nextError) => setError(nextError.message)); }
   useEffect(load, []);
@@ -227,16 +243,15 @@ export function NotificationsView({ access }) {
   async function create(event) {
     event.preventDefault(); setBusy(true); setError("");
     try {
-      const filter = form.audience === "specific_users"
-        ? { emails: form.audienceValue.split(",").map((value) => value.trim()).filter(Boolean) }
-        : form.audience === "region"
-          ? { region: form.audienceValue.trim() }
-          : form.audience === "account_type"
-            ? { accountType: form.audienceValue }
-            : {};
-      const created = await createNotificationCampaign({ ...form, filter });
-      setCampaigns((current) => [created, ...current]); setComposerOpen(false); setForm({ title: "", body: "", sector: "platform", audience: "all", audienceValue: "", priority: "normal", schedule: "" });
+      const created = await createNotificationCampaign({ ...form, filter: audienceFilter(), actionData: {} });
+      setCampaigns((current) => [created, ...current]); setComposerOpen(false); setForm(emptyForm); setEstimate(null);
     }
+    catch (nextError) { setError(nextError.message); } finally { setBusy(false); }
+  }
+
+  async function estimateAudience() {
+    setBusy(true); setError("");
+    try { setEstimate(await estimateNotificationCampaignAudience({ ...form, filter: audienceFilter() })); }
     catch (nextError) { setError(nextError.message); } finally { setBusy(false); }
   }
 
@@ -252,25 +267,45 @@ export function NotificationsView({ access }) {
     catch (nextError) { setError(nextError.message); } finally { setBusy(false); }
   }
 
+  async function testCampaign(id) {
+    setBusy(true); setError("");
+    try { await sendNotificationCampaignTest(id); }
+    catch (nextError) { setError(nextError.message); } finally { setBusy(false); }
+  }
+
+  async function cancelCampaign(id) {
+    const reason = window.prompt("Why is this campaign being cancelled?");
+    if (!reason?.trim()) return;
+    setBusy(true); setError("");
+    try { const updated = await cancelNotificationCampaign(id, reason.trim()); setCampaigns((current) => current.map((item) => item.id === id ? { ...item, ...updated } : item)); }
+    catch (nextError) { setError(nextError.message); } finally { setBusy(false); }
+  }
+
+  async function showMetrics(id) {
+    if (metrics[id]) { setMetrics((current) => ({ ...current, [id]: null })); return; }
+    setBusy(true); setError("");
+    try { const value = await getNotificationCampaignMetrics(id); setMetrics((current) => ({ ...current, [id]: value })); }
+    catch (nextError) { setError(nextError.message); } finally { setBusy(false); }
+  }
+
+  function toggleChannel(channel) {
+    setForm((current) => {
+      const channels = current.channels.includes(channel) ? current.channels.filter((item) => item !== channel) : [...current.channels, channel];
+      return { ...current, channels: channels.length ? channels : ["in_app"] };
+    });
+  }
+
   return (
     <>
       <PageHeading eyebrow="Communications" title="Notifications" description="Draft, review, approve, schedule, and audit targeted platform messages." action={access.permissions.includes("notifications.manage") ? <button type="button" onClick={() => setComposerOpen(true)} className="inline-flex h-10 items-center gap-2 rounded-lg bg-zinc-950 px-4 text-sm font-black text-white hover:bg-zinc-800"><Plus size={17} /> New campaign</button> : null} />
       <div className="overflow-hidden border-y border-zinc-200 bg-white sm:rounded-lg sm:border">
-        {campaigns.map((item) => (
-          <article key={item.id} className="flex flex-col gap-4 border-b border-zinc-100 p-4 last:border-0 lg:flex-row lg:items-center">
-            <span className="grid h-10 w-10 shrink-0 place-items-center rounded-lg bg-amber-50 text-amber-700"><BellRing size={19} /></span>
-            <div className="min-w-0 flex-1"><div className="flex flex-wrap items-center gap-2"><p className="text-sm font-black text-zinc-950">{item.title}</p><span className="rounded-full bg-zinc-100 px-2 py-1 text-[10px] font-black text-zinc-700">{titleCase(item.status)}</span></div><p className="mt-1 line-clamp-2 text-xs font-medium leading-5 text-zinc-500">{item.body}</p></div>
-            <div className="text-xs font-semibold text-zinc-500"><p>{item.sector === "marketplace" ? "UrMall" : titleCase(item.sector)} · {titleCase(item.audience_type)}</p><p className="mt-1">{item.delivery_count || 0} delivered · {item.failure_count || 0} failed</p></div>
-            {access.permissions.includes("notifications.approve") && ["draft", "pending_approval"].includes(item.status) ? <button type="button" disabled={busy} onClick={() => approve(item.id)} className="inline-flex h-9 items-center justify-center gap-2 rounded-lg border border-emerald-300 px-3 text-xs font-black text-emerald-800 hover:bg-emerald-50 disabled:opacity-50"><Check size={15} /> Approve</button> : null}
-            {access.permissions.includes("notifications.approve") && item.status === "approved" ? <button type="button" disabled={busy} onClick={() => publish(item.id)} className="inline-flex h-9 items-center justify-center gap-2 rounded-lg bg-zinc-950 px-3 text-xs font-black text-white hover:bg-zinc-800 disabled:opacity-50"><Send size={15} /> Publish</button> : null}
-          </article>
-        ))}
+        {campaigns.map((item) => <article key={item.id} className="border-b border-zinc-100 p-4 last:border-0"><div className="flex flex-col gap-4 lg:flex-row lg:items-center"><span className="grid h-10 w-10 shrink-0 place-items-center rounded-lg bg-amber-50 text-amber-700"><BellRing size={19} /></span><div className="min-w-0 flex-1"><div className="flex flex-wrap items-center gap-2"><p className="text-sm font-black text-zinc-950">{item.title}</p><span className="rounded-full bg-zinc-100 px-2 py-1 text-[10px] font-black text-zinc-700">{titleCase(item.status)}</span><span className="rounded-full bg-sky-50 px-2 py-1 text-[10px] font-black text-sky-700">{titleCase(item.presentation || "inbox")}</span></div><p className="mt-1 line-clamp-2 text-xs font-medium leading-5 text-zinc-500">{item.body}</p><p className="mt-2 text-[10px] font-bold uppercase text-zinc-400">{(item.channels || ["in_app"]).map(titleCase).join(" · ")} · estimated {item.estimated_audience || 0}</p></div><div className="text-xs font-semibold text-zinc-500"><p>{item.sector === "marketplace" ? "UrMall" : titleCase(item.sector)} · {titleCase(item.audience_type)}</p><p className="mt-1">{item.delivery_count || 0} recipient rows · {item.failure_count || 0} failures</p></div><div className="flex flex-wrap gap-2">{access.permissions.includes("notifications.manage") ? <button type="button" disabled={busy} onClick={() => testCampaign(item.id)} className="inline-flex h-9 items-center justify-center gap-2 rounded-lg border border-sky-300 px-3 text-xs font-black text-sky-800 hover:bg-sky-50 disabled:opacity-50"><FlaskConical size={15} /> Test</button> : null}<button type="button" disabled={busy} onClick={() => showMetrics(item.id)} className="inline-flex h-9 items-center justify-center gap-2 rounded-lg border border-zinc-300 px-3 text-xs font-black text-zinc-700 hover:bg-zinc-50 disabled:opacity-50"><BarChart3 size={15} /> Analytics</button>{access.permissions.includes("notifications.approve") && ["draft", "pending_approval"].includes(item.status) ? <button type="button" disabled={busy} onClick={() => approve(item.id)} className="inline-flex h-9 items-center justify-center gap-2 rounded-lg border border-emerald-300 px-3 text-xs font-black text-emerald-800 hover:bg-emerald-50 disabled:opacity-50"><Check size={15} /> Approve</button> : null}{access.permissions.includes("notifications.approve") && item.status === "approved" ? <button type="button" disabled={busy} onClick={() => publish(item.id)} className="inline-flex h-9 items-center justify-center gap-2 rounded-lg bg-zinc-950 px-3 text-xs font-black text-white hover:bg-zinc-800 disabled:opacity-50"><Send size={15} /> Publish</button> : null}{access.permissions.includes("notifications.manage") && ["draft", "pending_approval", "approved", "scheduled"].includes(item.status) ? <button type="button" disabled={busy} onClick={() => cancelCampaign(item.id)} className="inline-flex h-9 items-center justify-center gap-2 rounded-lg border border-red-200 px-3 text-xs font-black text-red-700 hover:bg-red-50 disabled:opacity-50"><X size={15} /> Cancel</button> : null}</div></div>{metrics[item.id] ? <div className="mt-4 grid gap-2 rounded-lg border border-zinc-200 bg-zinc-50 p-3 sm:grid-cols-3 lg:grid-cols-6">{[["Recipient rows", "created"], ["Displayed", "displayed"], ["Read", "read"], ["Actioned", "actioned"], ["Push sent", "pushSent"], ["Push failures", "pushFailures"]].map(([label, key]) => <div key={key}><p className="text-lg font-black text-zinc-950">{metrics[item.id][key] || 0}</p><p className="text-[10px] font-black uppercase text-zinc-400">{label}</p></div>)}</div> : null}</article>)}
         {!campaigns.length ? <div className="px-5 py-14 text-center"><MailPlus className="mx-auto text-zinc-300" size={30} /><p className="mt-3 text-sm font-black text-zinc-900">No campaigns yet</p></div> : null}
       </div>
       {error ? <p className="mt-3 text-sm font-semibold text-red-700">{error}</p> : null}
 
       {composerOpen ? (
-        <div className="fixed inset-0 z-[70] flex items-center justify-center p-4"><button type="button" aria-label="Close composer" className="absolute inset-0 bg-zinc-950/50" onClick={() => setComposerOpen(false)} /><form onSubmit={create} className="relative w-full max-w-xl rounded-lg bg-white p-5 shadow-2xl sm:p-6"><div className="flex items-center justify-between"><div><p className="text-xs font-black uppercase text-emerald-700">Notification campaign</p><h2 className="mt-1 text-xl font-black text-zinc-950">Compose message</h2></div><button type="button" title="Close" onClick={() => setComposerOpen(false)} className="grid h-9 w-9 place-items-center rounded-md text-zinc-500 hover:bg-zinc-100"><X size={19} /></button></div>
+        <div className="fixed inset-0 z-[70] flex items-center justify-center p-4"><button type="button" aria-label="Close composer" className="absolute inset-0 bg-zinc-950/50" onClick={() => setComposerOpen(false)} /><form onSubmit={create} className="relative max-h-[92vh] w-full max-w-xl overflow-y-auto rounded-lg bg-white p-5 shadow-2xl sm:p-6"><div className="flex items-center justify-between"><div><p className="text-xs font-black uppercase text-emerald-700">Notification campaign</p><h2 className="mt-1 text-xl font-black text-zinc-950">Compose message</h2></div><button type="button" title="Close" onClick={() => setComposerOpen(false)} className="grid h-9 w-9 place-items-center rounded-md text-zinc-500 hover:bg-zinc-100"><X size={19} /></button></div>
           <div className="mt-5 space-y-4">
             <div className="space-y-3">
               <SuggestedTextSelect label="Suggested notification titles" suggestions={NOTIFICATION_TITLE_SUGGESTIONS} onSelect={(text) => setForm((current) => ({ ...current, title: text }))} />
@@ -280,12 +315,16 @@ export function NotificationsView({ access }) {
               <SuggestedTextSelect label="Suggested notification messages" suggestions={NOTIFICATION_MESSAGE_SUGGESTIONS} onSelect={(text) => setForm((current) => ({ ...current, body: text }))} />
               <label className="block"><span className="mb-1.5 block text-sm font-bold">Message</span><textarea required rows={4} value={form.body} onChange={(event) => setForm((current) => ({ ...current, body: event.target.value }))} className="w-full resize-none rounded-lg border border-zinc-300 p-3 text-sm font-medium outline-none focus:border-emerald-600" /></label>
             </div>
-            <div className="grid gap-3 sm:grid-cols-3"><label><span className="mb-1.5 block text-xs font-black text-zinc-600">Sector</span><select value={form.sector} onChange={(event) => setForm((current) => ({ ...current, sector: event.target.value }))} className="h-11 w-full rounded-lg border border-zinc-300 px-2 text-sm font-bold"><option value="platform">Platform</option><option value="explore">Explore</option><option value="marketplace">UrMall</option><option value="transport">Transport</option></select></label><label><span className="mb-1.5 block text-xs font-black text-zinc-600">Audience</span><select value={form.audience} onChange={(event) => setForm((current) => ({ ...current, audience: event.target.value, audienceValue: "" }))} className="h-11 w-full rounded-lg border border-zinc-300 px-2 text-sm font-bold"><option value="all">All users</option><option value="sector_users">Sector users</option><option value="specific_users">Specific users</option><option value="region">Region</option><option value="account_type">Account type</option></select></label><label><span className="mb-1.5 block text-xs font-black text-zinc-600">Priority</span><select value={form.priority} onChange={(event) => setForm((current) => ({ ...current, priority: event.target.value }))} className="h-11 w-full rounded-lg border border-zinc-300 px-2 text-sm font-bold"><option value="normal">Normal</option><option value="high">High</option><option value="urgent">Urgent</option></select></label></div>
+            <div className="grid gap-3 sm:grid-cols-3"><label><span className="mb-1.5 block text-xs font-black text-zinc-600">Sector</span><select value={form.sector} onChange={(event) => { setEstimate(null); setForm((current) => ({ ...current, sector: event.target.value })); }} className="h-11 w-full rounded-lg border border-zinc-300 px-2 text-sm font-bold"><option value="platform">Platform</option><option value="explore">Explore</option><option value="marketplace">UrMall</option><option value="transport">UrRide</option></select></label><label><span className="mb-1.5 block text-xs font-black text-zinc-600">Audience</span><select value={form.audience} onChange={(event) => { setEstimate(null); setForm((current) => ({ ...current, audience: event.target.value, audienceValue: "" })); }} className="h-11 w-full rounded-lg border border-zinc-300 px-2 text-sm font-bold"><option value="all">All users</option><option value="sector_users">Sector users</option><option value="specific_users">Specific users</option><option value="region">Region</option><option value="account_type">Account type</option></select></label><label><span className="mb-1.5 block text-xs font-black text-zinc-600">Priority</span><select value={form.priority} onChange={(event) => setForm((current) => ({ ...current, priority: event.target.value, presentation: event.target.value === "urgent" ? "urgent" : current.presentation === "urgent" ? "floating" : current.presentation }))} className="h-11 w-full rounded-lg border border-zinc-300 px-2 text-sm font-bold"><option value="normal">Normal</option><option value="high">High</option><option value="urgent">Urgent</option></select></label></div>
             {form.audience === "specific_users" ? <label className="block"><span className="mb-1.5 block text-sm font-bold">User emails</span><input required value={form.audienceValue} onChange={(event) => setForm((current) => ({ ...current, audienceValue: event.target.value }))} placeholder="first@example.com, second@example.com" className="h-11 w-full rounded-lg border border-zinc-300 px-3 text-sm font-semibold outline-none focus:border-emerald-600" /></label> : null}
             {form.audience === "region" ? <label className="block"><span className="mb-1.5 block text-sm font-bold">Country or city</span><input required value={form.audienceValue} onChange={(event) => setForm((current) => ({ ...current, audienceValue: event.target.value }))} placeholder="Sierra Leone" className="h-11 w-full rounded-lg border border-zinc-300 px-3 text-sm font-semibold outline-none focus:border-emerald-600" /></label> : null}
             {form.audience === "account_type" ? <label className="block"><span className="mb-1.5 block text-sm font-bold">Account type</span><select required value={form.audienceValue} onChange={(event) => setForm((current) => ({ ...current, audienceValue: event.target.value }))} className="h-11 w-full rounded-lg border border-zinc-300 px-3 text-sm font-bold"><option value="">Choose an account type</option><option value="personal">Personal</option><option value="business">Business</option><option value="operator">Operator</option></select></label> : null}
-            <label className="block"><span className="mb-1.5 block text-sm font-bold">Schedule (optional)</span><input type="datetime-local" value={form.schedule} onChange={(event) => setForm((current) => ({ ...current, schedule: event.target.value }))} className="h-11 w-full rounded-lg border border-zinc-300 px-3 text-sm font-semibold outline-none focus:border-emerald-600" /></label></div>
-          <div className="mt-6 flex justify-end gap-2"><button type="button" onClick={() => setComposerOpen(false)} className="h-10 rounded-lg border border-zinc-300 px-4 text-sm font-black text-zinc-700">Cancel</button><button type="submit" disabled={busy} className="inline-flex h-10 items-center gap-2 rounded-lg bg-zinc-950 px-4 text-sm font-black text-white disabled:opacity-50">{busy ? <LoaderCircle className="animate-spin" size={16} /> : <MailPlus size={16} />} Save campaign</button></div></form></div>
+            <div className="grid gap-3 sm:grid-cols-3"><label><span className="mb-1.5 block text-xs font-black text-zinc-600">Presentation</span><select value={form.presentation} onChange={(event) => setForm((current) => ({ ...current, presentation: event.target.value }))} className="h-11 w-full rounded-lg border border-zinc-300 px-2 text-sm font-bold"><option value="inbox">Notification centre</option><option value="floating">Floating card + inbox</option><option value="inline">Inline + inbox</option><option value="urgent">Urgent alert</option></select></label><label><span className="mb-1.5 block text-xs font-black text-zinc-600">Category</span><select value={form.category} onChange={(event) => setForm((current) => ({ ...current, category: event.target.value }))} className="h-11 w-full rounded-lg border border-zinc-300 px-2 text-sm font-bold"><option value="announcement">Announcement</option><option value="marketing">Marketing</option><option value="account">Account</option><option value="payment">Payment</option><option value="safety">Safety</option><option value="security">Security</option></select></label><label><span className="mb-1.5 block text-xs font-black text-zinc-600">Action target</span><input value={form.actionTarget} onChange={(event) => setForm((current) => ({ ...current, actionTarget: event.target.value }))} placeholder="urmall:orders" className="h-11 w-full rounded-lg border border-zinc-300 px-3 text-sm font-semibold" /></label></div>
+            <fieldset><legend className="text-sm font-bold">Delivery channels</legend><div className="mt-2 flex flex-wrap gap-2">{[["in_app", "In-app"], ["push", "Device push"]].map(([value, label]) => <label key={value} className="flex h-10 items-center gap-2 rounded-lg border border-zinc-200 px-3 text-sm font-semibold"><input type="checkbox" checked={form.channels.includes(value)} onChange={() => toggleChannel(value)} className="accent-emerald-700" /> {label}</label>)}</div></fieldset>
+            <div className="grid gap-3 sm:grid-cols-2"><label className="block"><span className="mb-1.5 block text-sm font-bold">Schedule <span className="font-semibold text-zinc-400">(optional)</span></span><input type="datetime-local" value={form.schedule} onChange={(event) => setForm((current) => ({ ...current, schedule: event.target.value }))} className="h-11 w-full rounded-lg border border-zinc-300 px-3 text-sm font-semibold outline-none focus:border-emerald-600" /></label><label className="block"><span className="mb-1.5 block text-sm font-bold">Expires <span className="font-semibold text-zinc-400">(optional)</span></span><input type="datetime-local" value={form.expiresAt} onChange={(event) => setForm((current) => ({ ...current, expiresAt: event.target.value }))} className="h-11 w-full rounded-lg border border-zinc-300 px-3 text-sm font-semibold outline-none focus:border-emerald-600" /></label></div>
+            <div className="rounded-xl border border-zinc-200 bg-zinc-50 p-4"><p className="text-[10px] font-black uppercase text-zinc-500">User preview · {titleCase(form.presentation)}</p><div className="mt-3 rounded-xl border border-white bg-white p-3 shadow-sm"><p className="text-sm font-black text-zinc-950">{form.title || "Notification title"}</p><p className="mt-1 text-xs font-semibold leading-5 text-zinc-500">{form.body || "Your message preview will appear here."}</p></div></div>
+          </div>
+          <div className="mt-6 flex flex-wrap justify-end gap-2"><button type="button" onClick={() => setComposerOpen(false)} className="h-10 rounded-lg border border-zinc-300 px-4 text-sm font-black text-zinc-700">Cancel</button><button type="button" onClick={estimateAudience} disabled={busy} className="h-10 rounded-lg border border-sky-300 px-4 text-sm font-black text-sky-800 disabled:opacity-50">{estimate === null ? "Estimate audience" : `${estimate} recipients`}</button><button type="submit" disabled={busy || !form.channels.length} className="inline-flex h-10 items-center gap-2 rounded-lg bg-zinc-950 px-4 text-sm font-black text-white disabled:opacity-50">{busy ? <LoaderCircle className="animate-spin" size={16} /> : <MailPlus size={16} />} Save campaign</button></div></form></div>
       ) : null}
     </>
   );
@@ -319,7 +358,7 @@ export function TeamView({ access }) {
   const [dialogOpen, setDialogOpen] = useState(false);
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState("");
-  const [form, setForm] = useState({ email: "", roleKey: "support_officer", sectors: ["all"], regions: ["all"], authority: 2, reason: "" });
+  const [form, setForm] = useState({ email: "", roleKey: "support_officer", sectors: ["all"], regions: ["all"], responsibilities: ["user_support"], authority: 2, expiresAt: "", reason: "" });
   const canManage = access.permissions.includes("team.manage");
   const currentRank = Math.max(...(access.roles || []).map((role) => role.rank || 0), 0);
   const roles = ADMIN_ROLES.filter((role) => access.roles?.some((item) => item.key === "super_admin") || role.rank < currentRank);
@@ -329,7 +368,7 @@ export function TeamView({ access }) {
 
   async function grant(event) {
     event.preventDefault(); setBusy(true); setError("");
-    try { await grantAdminAccess(form); setDialogOpen(false); setForm({ email: "", roleKey: "support_officer", sectors: ["all"], regions: ["all"], authority: 2, reason: "" }); load(); }
+    try { await grantAdminAccess(form); setDialogOpen(false); setForm({ email: "", roleKey: "support_officer", sectors: ["all"], regions: ["all"], responsibilities: ["user_support"], authority: 2, expiresAt: "", reason: "" }); load(); }
     catch (nextError) { setError(nextError.message); } finally { setBusy(false); }
   }
 
@@ -350,6 +389,15 @@ export function TeamView({ access }) {
     });
   }
 
+  function toggleResponsibility(value) {
+    setForm((current) => ({
+      ...current,
+      responsibilities: current.responsibilities.includes(value)
+        ? current.responsibilities.filter((item) => item !== value)
+        : [...current.responsibilities, value],
+    }));
+  }
+
   return (
     <>
       <PageHeading eyebrow="Access governance" title="Admin team" description="Assignments combine role, sector, region, and authority. Chief Admins see the complete operational panel." action={canManage ? <button type="button" onClick={() => setDialogOpen(true)} className="inline-flex h-10 items-center gap-2 rounded-lg bg-zinc-950 px-4 text-sm font-black text-white hover:bg-zinc-800"><UserPlus size={17} /> Add administrator</button> : null} />
@@ -357,8 +405,8 @@ export function TeamView({ access }) {
         {team.map((item) => (
           <article key={item.assignment_id} className="grid gap-3 border-b border-zinc-100 p-4 last:border-0 md:grid-cols-[minmax(0,1.3fr)_minmax(10rem,0.7fr)_minmax(10rem,0.8fr)_auto] md:items-center">
             <div className="flex items-center gap-3"><span className="grid h-10 w-10 shrink-0 place-items-center rounded-lg bg-zinc-100 text-sm font-black text-zinc-700">{(item.display_name || item.email || "A").slice(0, 1).toUpperCase()}</span><div className="min-w-0"><p className="truncate text-sm font-black text-zinc-950">{item.display_name || "Administrator"}</p><p className="mt-1 truncate text-xs font-medium text-zinc-500">{item.email}</p></div></div>
-            <div><p className="text-xs font-black text-zinc-800">{item.role_name}</p><p className="mt-1 text-[11px] font-semibold text-zinc-500">Authority {item.authority_level}</p></div>
-            <div className="flex flex-wrap gap-1">{item.sector_scopes?.map((sector) => <span key={sector} className="rounded-full bg-emerald-50 px-2 py-1 text-[10px] font-black text-emerald-800">{sector === "all" ? "All sectors" : sector === "marketplace" ? "UrMall" : titleCase(sector)}</span>)}</div>
+            <div><p className="text-xs font-black text-zinc-800">{item.role_name}</p><p className="mt-1 text-[11px] font-semibold text-zinc-500">Authority {item.authority_level}{item.expires_at ? ` · expires ${formatDateTime(item.expires_at)}` : " · ongoing"}</p></div>
+            <div><div className="flex flex-wrap gap-1">{item.sector_scopes?.map((sector) => <span key={sector} className="rounded-full bg-emerald-50 px-2 py-1 text-[10px] font-black text-emerald-800">{sector === "all" ? "All sectors" : sector === "marketplace" ? "UrMall" : titleCase(sector)}</span>)}</div>{item.responsibilities?.length ? <p className="mt-2 line-clamp-2 text-[10px] font-semibold text-zinc-500">{item.responsibilities.map(titleCase).join(" · ")}</p> : null}</div>
             {canManage && item.status === "active" ? <button type="button" title="Revoke access" disabled={busy} onClick={() => revoke(item)} className="grid h-9 w-9 place-items-center rounded-md text-zinc-400 hover:bg-red-50 hover:text-red-700 disabled:opacity-50"><UserMinus size={17} /></button> : <span className="text-xs font-bold text-zinc-400">{titleCase(item.status)}</span>}
           </article>
         ))}
@@ -368,7 +416,10 @@ export function TeamView({ access }) {
       {dialogOpen ? <div className="fixed inset-0 z-[70] flex items-center justify-center p-4"><button type="button" className="absolute inset-0 bg-zinc-950/50" aria-label="Close" onClick={() => setDialogOpen(false)} /><form onSubmit={grant} className="relative max-h-[90vh] w-full max-w-xl overflow-y-auto rounded-lg bg-white p-5 shadow-2xl sm:p-6"><div className="flex justify-between"><div><p className="text-xs font-black uppercase text-emerald-700">Admin assignment</p><h2 className="mt-1 text-xl font-black">Add administrator</h2></div><button type="button" title="Close" onClick={() => setDialogOpen(false)} className="grid h-9 w-9 place-items-center rounded-md hover:bg-zinc-100"><X size={19} /></button></div>
         <div className="mt-5 space-y-4"><label className="block"><span className="mb-1.5 block text-sm font-bold">Existing KunThai account email</span><input type="email" required value={form.email} onChange={(event) => setForm((current) => ({ ...current, email: event.target.value }))} className="h-11 w-full rounded-lg border border-zinc-300 px-3 text-sm font-semibold outline-none focus:border-emerald-600" /></label><label className="block"><span className="mb-1.5 block text-sm font-bold">Role</span><select value={form.roleKey} onChange={(event) => { const role = ADMIN_ROLES.find((item) => item.key === event.target.value); setForm((current) => ({ ...current, roleKey: event.target.value, authority: role?.authority || current.authority })); }} className="h-11 w-full rounded-lg border border-zinc-300 px-3 text-sm font-bold">{roles.map((role) => <option key={role.key} value={role.key}>{role.name}</option>)}</select></label>
           <fieldset><legend className="text-sm font-bold">Sector scope</legend><div className="mt-2 grid grid-cols-2 gap-2">{ADMIN_SECTORS.map((sector) => <label key={sector.value} className="flex h-10 items-center gap-2 rounded-lg border border-zinc-200 px-3 text-sm font-semibold"><input type="checkbox" checked={form.sectors.includes(sector.value)} onChange={() => toggleSector(sector.value)} className="accent-emerald-700" /> {sector.label}</label>)}</div></fieldset>
-          <label className="block"><span className="mb-1.5 flex justify-between text-sm font-bold"><span>Authority level</span><span>{form.authority}</span></span><input type="range" min="1" max="5" value={form.authority} onChange={(event) => setForm((current) => ({ ...current, authority: Number(event.target.value) }))} className="w-full accent-emerald-700" /></label><label className="block"><span className="mb-1.5 block text-sm font-bold">Assignment reason</span><textarea required rows={3} value={form.reason} onChange={(event) => setForm((current) => ({ ...current, reason: event.target.value }))} className="w-full resize-none rounded-lg border border-zinc-300 p-3 text-sm font-medium outline-none focus:border-emerald-600" /></label></div>
+          <label className="block"><span className="mb-1.5 block text-sm font-bold">Region scope</span><input value={form.regions.join(", ")} onChange={(event) => setForm((current) => ({ ...current, regions: event.target.value.split(",").map((value) => value.trim()).filter(Boolean) }))} placeholder="all, Sierra Leone, Freetown" className="h-11 w-full rounded-lg border border-zinc-300 px-3 text-sm font-semibold outline-none focus:border-emerald-600" /><span className="mt-1 block text-xs font-semibold text-zinc-400">Use “all” or comma-separated countries and cities.</span></label>
+          <fieldset><legend className="text-sm font-bold">Assigned responsibilities</legend><div className="mt-2 grid gap-2 sm:grid-cols-2">{ADMIN_RESPONSIBILITIES.map((responsibility) => <label key={responsibility.value} className="flex min-h-10 items-center gap-2 rounded-lg border border-zinc-200 px-3 py-2 text-sm font-semibold"><input type="checkbox" checked={form.responsibilities.includes(responsibility.value)} onChange={() => toggleResponsibility(responsibility.value)} className="accent-emerald-700" /> {responsibility.label}</label>)}</div></fieldset>
+          <div className="rounded-lg border border-sky-200 bg-sky-50 p-3 text-xs font-semibold leading-5 text-sky-900"><span className="font-black">Assignment preview:</span> {ADMIN_ROLES.find((role) => role.key === form.roleKey)?.name} · {form.sectors.map((sector) => sector === "marketplace" ? "UrMall" : titleCase(sector)).join(", ")} · authority {form.authority} · {form.responsibilities.length} responsibilities.</div>
+          <label className="block"><span className="mb-1.5 flex justify-between text-sm font-bold"><span>Authority level</span><span>{form.authority}</span></span><input type="range" min="1" max="5" value={form.authority} onChange={(event) => setForm((current) => ({ ...current, authority: Number(event.target.value) }))} className="w-full accent-emerald-700" /></label><label className="block"><span className="mb-1.5 block text-sm font-bold">Access expiry <span className="font-semibold text-zinc-400">(optional)</span></span><input type="datetime-local" value={form.expiresAt} onChange={(event) => setForm((current) => ({ ...current, expiresAt: event.target.value }))} className="h-11 w-full rounded-lg border border-zinc-300 px-3 text-sm font-semibold outline-none focus:border-emerald-600" /></label><label className="block"><span className="mb-1.5 block text-sm font-bold">Assignment reason</span><textarea required minLength={5} rows={3} value={form.reason} onChange={(event) => setForm((current) => ({ ...current, reason: event.target.value }))} className="w-full resize-none rounded-lg border border-zinc-300 p-3 text-sm font-medium outline-none focus:border-emerald-600" /></label></div>
         <button type="submit" disabled={busy} className="mt-6 inline-flex h-11 w-full items-center justify-center gap-2 rounded-lg bg-zinc-950 px-4 text-sm font-black text-white disabled:opacity-50">{busy ? <LoaderCircle className="animate-spin" size={17} /> : <UserPlus size={17} />} Grant admin access</button></form></div> : null}
     </>
   );

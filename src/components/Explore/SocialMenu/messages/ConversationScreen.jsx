@@ -12,6 +12,7 @@ import { useI18n } from "../../../../i18n";
 import MessageBubble from "./MessageBubble";
 import MessageComposer from "./MessageComposer";
 import { t as i18nText } from "../../../../i18n/index";
+import MessagePrivacyNotice from "../../../shared/MessagePrivacyNotice";
 
 const TYPING_FRESH_MS = 12000;
 const PRESENCE_FRESH_MS = 45000;
@@ -148,6 +149,8 @@ export default function ConversationScreen({ conversation, currentUserId, messag
           )}
         </button>
       </div>
+
+      <MessagePrivacyNotice compact variant="explore" />
 
       <div ref={messagesRef} className="kt-message-thread space-y-3 bg-slate-50 px-4 py-4 kuntai-scrollbar-none">
         {!messages.length ? (

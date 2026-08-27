@@ -17,8 +17,10 @@ import AccountRestrictionNotice from "./components/shared/AccountRestrictionNoti
 import ReturningUserIntro from "./components/shared/ReturningUserIntro";
 import TwoFactorGate from "./components/auth/TwoFactorGate";
 import GuestGateCard from "./components/shared/GuestGateCard";
+import InlineNotificationHost from "./components/shared/InlineNotificationHost";
 import NotificationBannerHost from "./components/shared/NotificationBannerHost";
 import CrossServiceActivityHost from "./components/shared/CrossServiceActivityHost";
+import UnifiedNotificationCenter from "./components/shared/UnifiedNotificationCenter";
 import ScreenshotVoiceCard from "./components/shared/ScreenshotVoiceCard";
 import { endGuestVisit, isGuestMode } from "./Backend/services/guestModeService";
 import {
@@ -312,6 +314,8 @@ export default function App() {
   const [transportActivityOpen, setTransportActivityOpen] = useState(false);
   const [transportAreaRequest, setTransportAreaRequest] = useState(null);
   const [mainPageBadges, setMainPageBadges] = useState({ marketplace: 0, transport: 0 });
+  const [notificationCenterOpen, setNotificationCenterOpen] = useState(false);
+  const [unifiedNotificationCount, setUnifiedNotificationCount] = useState(0);
   const [onboardingReveal, setOnboardingReveal] = useState(null);
   // The landing surface the user picked on the last onboarding step. Held in a
   // ref so it survives the reveal effect re-running before the refreshed
@@ -1074,16 +1078,33 @@ export default function App() {
         </LazyRouteBoundary>
       </PageTransition>
 
-      {!bottomTabsHidden ? <BottomTabs badges={mainPageBadges} page={page} setPage={changePage} /> : null}
+      {!bottomTabsHidden ? (
+        <BottomTabs
+          badges={{ ...mainPageBadges, notifications: unifiedNotificationCount }}
+          notificationOpen={notificationCenterOpen}
+          onNotifications={() => setNotificationCenterOpen(true)}
+          page={page}
+          setPage={changePage}
+        />
+      ) : null}
       <ScreenshotVoicePrompt page={page} />
       {guestSession ? <GuestGateCard /> : null}
       {!guestSession ? (
-        <CrossServiceActivityHost
-          onMarketplaceCountChange={updateMarketplaceBadge}
-          onTransportCountChange={updateTransportBadge}
-          userId={userId}
-        />
+        <>
+          <CrossServiceActivityHost
+            onMarketplaceCountChange={updateMarketplaceBadge}
+            onTransportCountChange={updateTransportBadge}
+            userId={userId}
+          />
+          <UnifiedNotificationCenter
+            open={notificationCenterOpen}
+            onOpenChange={setNotificationCenterOpen}
+            onCountChange={setUnifiedNotificationCount}
+            userId={userId}
+          />
+        </>
       ) : null}
+      {!guestSession ? <InlineNotificationHost bottomTabsHidden={bottomTabsHidden} userId={userId} /> : null}
       <NotificationBannerHost userId={userId} />
     </div>,
   );

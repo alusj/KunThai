@@ -23,6 +23,20 @@ export const ADMIN_ROLES = [
   { key: "analyst", name: "Analyst", rank: 20, authority: 1 },
 ];
 
+export const ADMIN_RESPONSIBILITIES = [
+  { value: "case_triage", label: "Case triage" },
+  { value: "user_support", label: "User support" },
+  { value: "seller_support", label: "Seller support" },
+  { value: "commerce_disputes", label: "Commerce disputes" },
+  { value: "urmall_message_review", label: "UrMall message review" },
+  { value: "fraud_review", label: "Fraud review" },
+  { value: "verification", label: "Verification" },
+  { value: "transport_safety", label: "Transport safety" },
+  { value: "finance_reconciliation", label: "Finance reconciliation" },
+  { value: "notification_campaigns", label: "Notification campaigns" },
+  { value: "audit_review", label: "Audit review" },
+];
+
 export const ADMIN_NAV_GROUPS = [
   {
     label: "Workspace",
@@ -46,6 +60,7 @@ export const ADMIN_NAV_GROUPS = [
       { id: "verification", label: "Verification", icon: "BadgeCheck", permission: "verification.view" },
       { id: "reports", label: "Reports and safety", icon: "ShieldAlert", permission: "reports.view" },
       { id: "support", label: "Support and disputes", icon: "LifeBuoy", permission: "support.view" },
+      { id: "message-supervision", label: "UrMall message review", icon: "MessagesSquare", permission: "marketplace.messages.review", sector: "marketplace" },
       { id: "notifications", label: "Notifications", icon: "BellRing", permission: "notifications.view" },
       { id: "finance", label: "Finance", icon: "Landmark", permission: "finance.view" },
       { id: "analytics", label: "Analytics", icon: "ChartNoAxesCombined", permission: "analytics.view" },
@@ -121,4 +136,3 @@ export function canAccess(access, permission, sector = null) {
   if (!sector || access.sectors?.includes("all")) return true;
   return access.sectors?.includes(sector) || access.roles?.some((role) => role.sectors?.includes("all") || role.sectors?.includes(sector));
 }
-

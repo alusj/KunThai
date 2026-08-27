@@ -13,6 +13,7 @@ import { optimizeImageFile } from "../../../../../Backend/services/marketplace/i
 import { friendlyErrorMessage } from "../../../../../Backend/services/friendlyErrorService";
 import { useI18n, t } from "../../../../../i18n";
 import AppBackTab from "../../../../shared/AppBackTab";
+import MessagePrivacyNotice from "../../../../shared/MessagePrivacyNotice";
 import { useKeyboardAwareConversation } from "../../../../../Backend/hooks/useKeyboardAwareConversation";
 
 const CONVERSATION_TRANSITION_MS = 360;
@@ -267,6 +268,8 @@ export default function CustomerCare({ onBack } = {}) {
           </div>
         </header>
 
+        <MessagePrivacyNotice compact variant="urmall" />
+
         <div ref={threadScrollRef} className="kt-message-thread space-y-3 px-4 py-4 sm:px-6 lg:px-8">
           {threadMessages.map((message) => {
             const fromSeller = message.from === "seller";
@@ -364,6 +367,7 @@ export default function CustomerCare({ onBack } = {}) {
       >
         {renderListHeader()}
         <div className={standalone ? "min-h-0 flex-1 overflow-y-auto px-4 py-5 sm:px-6 lg:px-8" : ""}>
+          <div className="mb-4"><MessagePrivacyNotice variant="urmall" /></div>
           <RecentConversations conversations={conversations} onOpen={openConversation} activeId={activeConversation?.id} />
         </div>
       </section>

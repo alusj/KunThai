@@ -1,7 +1,7 @@
 // web/src/components/BottomTabs.jsx
 
 import { createElement, useEffect, useRef, useState } from "react";
-import { Compass, ShoppingBag, Truck } from "lucide-react";
+import { Bell, Compass, ShoppingBag, Truck } from "lucide-react";
 
 import { useI18n } from "../i18n";
 
@@ -9,6 +9,7 @@ const tabs = [
   { id: "explore", label: "Explore", icon: Compass },
   { id: "marketplace", label: "UrMall", icon: ShoppingBag },
   { id: "transport", label: "UrRide", icon: Truck },
+  { id: "notifications", label: "Alerts", icon: Bell },
 ];
 
 // Scroll-hide tuning. These MATCH the Explore header's useScrollHidden config so
@@ -22,14 +23,15 @@ const SHOW_DISTANCE = 52;
 const MIN_SCROLL_Y = 96;
 const TOGGLE_COOLDOWN_MS = 280;
 
-export default function BottomTabs({ badges = {}, page, setPage }) {
+export default function BottomTabs({ badges = {}, notificationOpen = false, onNotifications, page, setPage }) {
   const { t } = useI18n();
   const [hidden, setHidden] = useState(false);
   const hiddenRef = useRef(false);
   const scrollStateRef = useRef(new WeakMap());
   const lastToggleAtRef = useRef(0);
   const frameRef = useRef(null);
-  const activeIndex = Math.max(0, tabs.findIndex((tab) => tab.id === page));
+  const activeId = notificationOpen ? "notifications" : page;
+  const activeIndex = Math.max(0, tabs.findIndex((tab) => tab.id === activeId));
 
   useEffect(() => {
     function commitHidden(nextHidden, target, y) {
@@ -100,20 +102,20 @@ export default function BottomTabs({ badges = {}, page, setPage }) {
     scrollStateRef.current = new WeakMap();
     lastToggleAtRef.current = performance.now();
     setHidden(false);
-  }, [page]);
+  }, [notificationOpen, page]);
 
   const Btn = ({ id, label, icon }) => (
     <button
       type="button"
-      onClick={() => setPage(id)}
-      aria-current={page === id ? "page" : undefined}
+      onClick={() => id === "notifications" ? onNotifications?.() : setPage(id)}
+      aria-current={activeId === id ? "page" : undefined}
       className={`kt-pressable flex min-h-[48px] w-full flex-col items-center justify-center gap-0.5 rounded-[20px] px-1.5 py-1.5 text-[11px] font-black select-none ${
-        page === id ? "text-white dark:text-slate-950" : "text-slate-500 hover:text-slate-950 dark:text-slate-400 dark:hover:text-white"
+        activeId === id ? "text-white dark:text-slate-950" : "text-slate-500 hover:text-slate-950 dark:text-slate-400 dark:hover:text-white"
       }`}
     >
       <span
         className={`grid h-7 w-7 place-items-center rounded-xl ${
-          page === id ? "bg-white/10 dark:bg-slate-950/10" : "bg-white/[0.82] dark:bg-white/10"
+          activeId === id ? "bg-white/10 dark:bg-slate-950/10" : "bg-white/[0.82] dark:bg-white/10"
         } relative`}
       >
         {createElement(icon, { size: 18, strokeWidth: 2.25, absoluteStrokeWidth: true })}
@@ -143,12 +145,12 @@ export default function BottomTabs({ badges = {}, page, setPage }) {
       aria-hidden={hidden}
       aria-label={t("nav.mainNavigation")}
     >
-      <div className="relative mx-auto grid max-w-md grid-cols-3 gap-1 rounded-[26px] border border-white/80 bg-white/65 p-1 shadow-2xl shadow-slate-950/15 ring-1 ring-slate-950/10 backdrop-blur-2xl supports-[backdrop-filter]:bg-white/55 dark:border-slate-700/60 dark:bg-slate-900/85 dark:shadow-black/40 dark:ring-white/10 dark:supports-[backdrop-filter]:bg-slate-900/75">
+      <div className="relative mx-auto grid max-w-md grid-cols-4 gap-1 rounded-[26px] border border-white/80 bg-white/65 p-1 shadow-2xl shadow-slate-950/15 ring-1 ring-slate-950/10 backdrop-blur-2xl supports-[backdrop-filter]:bg-white/55 dark:border-slate-700/60 dark:bg-slate-900/85 dark:shadow-black/40 dark:ring-white/10 dark:supports-[backdrop-filter]:bg-slate-900/75">
         <span
           className="pointer-events-none absolute bottom-1 top-1 z-0 rounded-[22px] bg-slate-950/90 shadow-lg shadow-slate-950/20 transition-[left] duration-300 ease-out dark:bg-white dark:shadow-black/40"
           style={{
-            left: `calc(0.25rem + ${activeIndex} * ((100% - 1rem) / 3 + 0.25rem))`,
-            width: "calc((100% - 1rem) / 3)",
+            left: `calc(0.25rem + ${activeIndex} * ((100% - 1.25rem) / 4 + 0.25rem))`,
+            width: "calc((100% - 1.25rem) / 4)",
           }}
           aria-hidden="true"
         />

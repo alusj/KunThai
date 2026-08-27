@@ -11,6 +11,7 @@ import AdminShell from "./components/AdminShell";
 import CaseDrawer from "./components/CaseDrawer";
 import ActionHistoryView from "./views/ActionHistoryView";
 import UsersView from "./views/UsersView";
+import UrMallMessageSupervisionView from "./views/UrMallMessageSupervisionView";
 import {
   AnalyticsView,
   AuditView,
@@ -165,6 +166,7 @@ function AdminWorkspace({ access, user, preview }) {
   else if (page === "verification") content = <QueueView title="Verification" description="Seller, operator, company, fleet, document, and profile review work." cases={countryCases} defaultQueue="verification" onOpenCase={setSelectedCase} />;
   else if (page === "reports") content = <QueueView title="Reports and safety" description="Content reports, fraud, safety incidents, and Area View validation." cases={countryCases} defaultQueue="reports" onOpenCase={setSelectedCase} />;
   else if (page === "support") content = <QueueView title="Support and disputes" description="My Voice, user, seller, order, trip, and operator support requiring administrative action." cases={countryCases} defaultQueue="support" onOpenCase={setSelectedCase} />;
+  else if (page === "message-supervision") content = <UrMallMessageSupervisionView />;
   else if (page === "notifications") content = <NotificationsView access={access} />;
   else if (page === "finance") content = <FinanceView cases={countryCases} onOpenCase={setSelectedCase} />;
   else if (page === "analytics") content = <AnalyticsView summary={visibleSummary} cases={countryCases} />;

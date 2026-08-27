@@ -821,6 +821,8 @@ export async function grantAdminAccess(input) {
     target_regions: input.regions,
     target_authority: input.authority,
     reason: input.reason,
+    target_responsibilities: input.responsibilities || [],
+    target_expires_at: input.expiresAt || null,
   }), "Unable to grant admin access."), { action: "team.access_granted" });
 }
 
@@ -844,7 +846,22 @@ export async function createNotificationCampaign(input) {
     campaign_priority: input.priority,
     campaign_filter: input.filter || {},
     campaign_schedule: input.schedule || null,
+    campaign_channels: input.channels || ["in_app"],
+    campaign_presentation: input.presentation || "inbox",
+    campaign_category: input.category || "announcement",
+    campaign_action_target: input.actionTarget || null,
+    campaign_action_data: input.actionData || {},
+    campaign_expires_at: input.expiresAt || null,
   }), "Unable to create the campaign."), { action: "notification.campaign_created" });
+}
+
+export async function estimateNotificationCampaignAudience(input) {
+  if (isAdminPreview()) return previewDelay(3842);
+  return unwrap(await supabase.rpc("admin_estimate_campaign_audience", {
+    campaign_sector: input.sector,
+    campaign_audience: input.audience,
+    campaign_filter: input.filter || {},
+  }), "Unable to estimate this audience.") || 0;
 }
 
 export async function approveNotificationCampaign(campaignId) {
@@ -854,7 +871,47 @@ export async function approveNotificationCampaign(campaignId) {
 
 export async function publishNotificationCampaign(campaignId) {
   if (isAdminPreview()) return runAdminMutation(() => previewDelay({ id: campaignId, status: "completed", sent_at: new Date().toISOString(), delivery_count: 3842, failure_count: 0 }), { action: "notification.campaign_published", campaignId });
-  return runAdminMutation(async () => unwrap(await supabase.rpc("admin_publish_campaign", { campaign_uuid: campaignId }), "Unable to publish the campaign."), { action: "notification.campaign_published", campaignId });
+  return runAdminMutation(async () => {
+    const campaign = unwrap(await supabase.rpc("admin_publish_campaign", { campaign_uuid: campaignId }), "Unable to publish the campaign.");
+    if (campaign?.channels?.includes("push")) {
+      supabase.functions.invoke("send-notification-push", { body: { campaignId } }).catch(() => {});
+    }
+    return campaign;
+  }, { action: "notification.campaign_published", campaignId });
+}
+
+export async function sendNotificationCampaignTest(campaignId) {
+  if (isAdminPreview()) return runAdminMutation(() => previewDelay({ id: crypto.randomUUID(), campaign_id: campaignId, status: "unread" }), { action: "notification.campaign_tested", campaignId });
+  return runAdminMutation(async () => unwrap(await supabase.rpc("admin_send_campaign_test", { campaign_uuid: campaignId }), "Unable to send the test notification."), { action: "notification.campaign_tested", campaignId });
+}
+
+export async function cancelNotificationCampaign(campaignId, reason) {
+  if (isAdminPreview()) return runAdminMutation(() => previewDelay({ id: campaignId, status: "cancelled" }), { action: "notification.campaign_cancelled", campaignId });
+  return runAdminMutation(async () => unwrap(await supabase.rpc("admin_cancel_campaign", { campaign_uuid: campaignId, cancel_reason: reason }), "Unable to cancel the campaign."), { action: "notification.campaign_cancelled", campaignId });
+}
+
+export async function getNotificationCampaignMetrics(campaignId) {
+  if (isAdminPreview()) return previewDelay({ created: 3842, displayed: 3210, read: 1840, actioned: 930, dismissed: 110, pushSent: 2700, pushFailures: 12 });
+  return unwrap(await supabase.rpc("admin_get_campaign_metrics", { campaign_uuid: campaignId }), "Unable to load campaign delivery analytics.") || {};
+}
+
+export async function getAdminMarketplaceConversations(search = "", limit = 100) {
+  if (isAdminPreview()) return previewDelay([]);
+  return unwrap(await supabase.rpc("admin_list_marketplace_conversations", {
+    search_text: search,
+    result_limit: limit,
+  }), "Unable to load supervised UrMall conversations.") || [];
+}
+
+export async function readAdminMarketplaceConversation({ businessId, buyerId, reason, caseId = null, limit = 400 }) {
+  if (isAdminPreview()) return previewDelay([]);
+  return unwrap(await supabase.rpc("admin_read_marketplace_conversation", {
+    business_uuid: businessId,
+    buyer_uuid: buyerId,
+    access_reason: reason,
+    case_uuid: caseId || null,
+    result_limit: limit,
+  }), "Unable to open this supervised UrMall conversation.") || [];
 }
 
 export async function getAuditLog() {

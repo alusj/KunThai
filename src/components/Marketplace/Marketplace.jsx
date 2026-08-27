@@ -72,21 +72,28 @@ export default function Marketplace({ nav, setNav, onActivityChange, onNotificat
   const [tabSlideDirection, setTabSlideDirection] = useState("forward");
   const [activeUtility, setActiveUtility] = useState(null);
 
-  // Cross-service deep-link: a new-message banner tapped from another service
-  // (e.g. UrRide) switches to UrMall and asks it to open Messages. Consume the
-  // pending request on mount and also honor it live while already mounted.
+  // Cross-service deep-links switch to UrMall and open the requested buyer or
+  // seller workspace. Consume pending requests on mount and also honor them
+  // while Marketplace is already mounted.
   useEffect(() => {
-    if (consumePendingMarketplaceScreen() === "messages") {
-      setActiveUtility("messages");
-    }
-    function handleOpenMarketplaceScreen(event) {
-      if (event.detail?.screen === "messages") {
-        setActiveUtility("messages");
+    function openRequestedScreen(screen) {
+      if (screen === "messages" || screen === "orders") {
+        setActiveUtility(screen);
+        return;
       }
+      if (screen === "business" || screen === "business-messages") {
+        setActiveUtility(null);
+        setNav({ root: "marketplace", sub: "business" });
+      }
+    }
+
+    openRequestedScreen(consumePendingMarketplaceScreen());
+    function handleOpenMarketplaceScreen(event) {
+      openRequestedScreen(event.detail?.screen);
     }
     window.addEventListener(OPEN_MARKETPLACE_SCREEN_EVENT, handleOpenMarketplaceScreen);
     return () => window.removeEventListener(OPEN_MARKETPLACE_SCREEN_EVENT, handleOpenMarketplaceScreen);
-  }, []);
+  }, [setNav]);
   const [productMode, setProductMode] = useState(false);
   const [headerActivityOpen, setHeaderActivityOpen] = useState(false);
   const [businessClosing, setBusinessClosing] = useState(false);

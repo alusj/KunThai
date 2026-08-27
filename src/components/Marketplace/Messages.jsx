@@ -12,6 +12,7 @@ import { optimizeImageFile } from "../../Backend/services/marketplace/imageOptim
 import { friendlyErrorMessage } from "../../Backend/services/friendlyErrorService";
 import { useI18n, t } from "../../i18n";
 import AppBackTab from "../shared/AppBackTab";
+import MessagePrivacyNotice from "../shared/MessagePrivacyNotice";
 import { useKeyboardAwareConversation } from "../../Backend/hooks/useKeyboardAwareConversation";
 
 function readFileAsDataUrl(file) {
@@ -261,6 +262,7 @@ export default function Messages({ onBack, onProductOpen }) {
 
         <div className="min-h-0 flex-1 overflow-y-auto px-4 py-4 sm:px-6 lg:px-8">
           <div className="w-full">
+            <div className="mb-4"><MessagePrivacyNotice variant="urmall" /></div>
             <div className="mb-3 flex items-center justify-between gap-3">
               <h2 className="text-lg font-black text-gray-950">{t("urmall.messages.conversations")}</h2>
               {unreadCount ? <span className="rounded-full bg-emerald-600 px-2.5 py-1 text-xs font-black text-white">{unreadCount}</span> : null}
@@ -333,6 +335,8 @@ export default function Messages({ onBack, onProductOpen }) {
             </p>
           </div>
         </header>
+
+        <MessagePrivacyNotice compact variant="urmall" />
 
         <div ref={threadScrollRef} className="kt-message-thread px-4 py-4 sm:px-6 lg:px-8">
           <div className="flex min-h-full w-full flex-col gap-3">

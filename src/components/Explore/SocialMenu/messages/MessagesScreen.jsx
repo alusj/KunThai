@@ -8,6 +8,7 @@ import SocialScreenHeader from "../shared/SocialScreenHeader";
 import ConversationRow from "./ConversationRow";
 import ConversationScreen from "./ConversationScreen";
 import MessageTabs from "./MessageTabs";
+import MessagePrivacyNotice from "../../../shared/MessagePrivacyNotice";
 
 const CONVERSATION_TRANSITION_MS = 280;
 
@@ -88,6 +89,7 @@ export default function MessagesScreen({ currentProfile, hideHeader = false, ini
         {!hideHeader ? <div className="shrink-0"><SocialScreenHeader title={t("messages.headerTitle")} subtitle={t("messages.headerSubtitle")} /></div> : null}
 
         <div className="min-h-0 w-full flex-1 space-y-4 overflow-y-auto overscroll-contain px-4 py-4 sm:px-5">
+          <MessagePrivacyNotice variant="explore" />
           <MessageTabs
             active={tab}
             requestCount={messages.requests.length}
