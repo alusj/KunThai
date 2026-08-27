@@ -6,6 +6,8 @@ import {
   isImplausibleAreaLocationJump,
   isPointOutsideSafeBox,
   normalizeBearing,
+  shouldAllowTravellerCameraRecovery,
+  shouldAutoCenterInitialAreaLocation,
   shortestBearingDelta,
   shouldAcceptAreaLocationAccuracy,
   smoothBearing,
@@ -95,4 +97,25 @@ test("the traveller icon is only pulled back once it reaches the edge of the scr
 test("a viewport that has not been measured yet never triggers a re-centre", () => {
   assert.equal(isPointOutsideSafeBox({ x: 0, y: 0 }, { width: 0, height: 0 }, 0.2), false);
   assert.equal(isPointOutsideSafeBox(null, { width: 400, height: 800 }, 0.2), false);
+});
+
+test("a manually positioned drop pin keeps the camera instead of yielding to GPS", () => {
+  assert.equal(shouldAllowTravellerCameraRecovery(), true);
+  assert.equal(
+    shouldAllowTravellerCameraRecovery({ pinSelectionActive: true }),
+    false,
+  );
+});
+
+test("camera recovery remains disabled for other camera owners and active gestures", () => {
+  assert.equal(shouldAllowTravellerCameraRecovery({ viewTargetActive: true }), false);
+  assert.equal(shouldAllowTravellerCameraRecovery({ hasOperatorRoutePlan: true }), false);
+  assert.equal(shouldAllowTravellerCameraRecovery({ smartCameraEnabled: false }), false);
+  assert.equal(shouldAllowTravellerCameraRecovery({ userInteracting: true }), false);
+});
+
+test("a late first GPS fix does not replace a map centre the user already moved", () => {
+  assert.equal(shouldAutoCenterInitialAreaLocation(), true);
+  assert.equal(shouldAutoCenterInitialAreaLocation({ followLockActive: false }), false);
+  assert.equal(shouldAutoCenterInitialAreaLocation({ viewTargetActive: true }), false);
 });

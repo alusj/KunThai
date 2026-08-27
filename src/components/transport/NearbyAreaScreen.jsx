@@ -957,6 +957,11 @@ export default function NearbyAreaScreen({
   const isOneKmPreview = mode === "oneKmPreview";
   const isBusinessLocationPicker = mode === "businessLocationPicker";
   const isSpecialMode = isOneKmPreview || isBusinessLocationPicker;
+  const isDropPinPositioning =
+    (isBusinessLocationPicker && businessPickerMode === "dropPin") ||
+    (!isSpecialMode && adding && addLocationMode === "dropPin");
+  const isDropPinPositioningRef = useRef(isDropPinPositioning);
+  isDropPinPositioningRef.current = isDropPinPositioning;
   // A tapped post/place location (no auto-route) is a "place view": the map
   // should centre and pin the poster's coordinates, not follow the viewer's
   // own GPS. Only engages when the destination carries real coordinates and we
@@ -1196,7 +1201,7 @@ export default function NearbyAreaScreen({
     if (!nextPosition) return;
 
     userLocationRef.current = nextPosition;
-    mapCenterRef.current = nextPosition;
+    if (!isDropPinPositioningRef.current) mapCenterRef.current = nextPosition;
     updateAreaCountryFromPoint(nextPosition);
 
     const previousPosition = lastPublishedCenterRef.current;
@@ -1210,7 +1215,10 @@ export default function NearbyAreaScreen({
     mapCenterPublishTimerRef.current = window.setTimeout(() => {
       lastPublishedCenterRef.current = nextPosition;
       setUserLocation(nextPosition);
-      setMapCenter(nextPosition);
+      if (!isDropPinPositioningRef.current) {
+        mapCenterRef.current = nextPosition;
+        setMapCenter(nextPosition);
+      }
       mapCenterPublishTimerRef.current = null;
     }, MAP_CENTER_PUBLISH_DEBOUNCE_MS);
   }, [updateAreaCountryFromPoint]);
@@ -2253,6 +2261,7 @@ export default function NearbyAreaScreen({
           recenterSignal={recenterSignal}
           measurementPreview={oneKmMeasurementPreview}
           viewTarget={viewTarget}
+          pinSelectionActive={isDropPinPositioning}
         >
           <div className="pointer-events-none absolute inset-0 z-10">
             {!isSpecialMode && !focusMode &&

@@ -136,3 +136,32 @@ export function isPointOutsideSafeBox(point, viewport, insetRatio) {
     point.y > height - insetY
   );
 }
+
+// The edge-recovery camera is useful during normal travel, but must stand down
+// while the map centre represents a pin the user is positioning. GPS can keep
+// updating the traveller marker without taking ownership of the camera back.
+export function shouldAllowTravellerCameraRecovery({
+  pinSelectionActive = false,
+  viewTargetActive = false,
+  hasOperatorRoutePlan = false,
+  smartCameraEnabled = true,
+  userInteracting = false,
+} = {}) {
+  return !(
+    pinSelectionActive ||
+    viewTargetActive ||
+    hasOperatorRoutePlan ||
+    !smartCameraEnabled ||
+    userInteracting
+  );
+}
+
+// A first GPS response can arrive after the user has already dragged the map.
+// Once that gesture releases follow-lock, the late response must update only
+// the traveller marker and leave the chosen map centre untouched.
+export function shouldAutoCenterInitialAreaLocation({
+  viewTargetActive = false,
+  followLockActive = true,
+} = {}) {
+  return !viewTargetActive && followLockActive;
+}

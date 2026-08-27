@@ -16,6 +16,8 @@ import {
   isImplausibleAreaLocationJump,
   isPointOutsideSafeBox,
   normalizeBearing,
+  shouldAllowTravellerCameraRecovery,
+  shouldAutoCenterInitialAreaLocation,
   shortestBearingDelta,
   shouldAcceptAreaLocationAccuracy,
   smoothBearing,
@@ -1608,6 +1610,7 @@ export default function NearbyAreaMap({
   recenterSignal = 0,
   measurementPreview = null,
   viewTarget = null,
+  pinSelectionActive = false,
 }) {
   useI18n();
   const initialAreaCacheRef = useRef(readAreaViewCache({ allowStale: true }));
@@ -1690,6 +1693,7 @@ export default function NearbyAreaMap({
   // post's location) rather than following the viewer. While active, the
   // viewer's own GPS must not steal the camera.
   const viewTargetActiveRef = useRef(false);
+  const pinSelectionActiveRef = useRef(pinSelectionActive);
   const viewTargetMarkerRef = useRef(null);
   // Tracks whether the marker is currently snapped to the route line, so the
   // snap can be released with hysteresis rather than flickering.
@@ -1750,6 +1754,14 @@ export default function NearbyAreaMap({
   useEffect(() => {
     hasOperatorRoutePlanRef.current = hasOperatorRoutePlan;
   }, [hasOperatorRoutePlan]);
+
+  useEffect(() => {
+    pinSelectionActiveRef.current = pinSelectionActive;
+    if (!pinSelectionActive || !edgeRecenterTimerRef.current) return;
+
+    window.clearTimeout(edgeRecenterTimerRef.current);
+    edgeRecenterTimerRef.current = null;
+  }, [pinSelectionActive]);
 
   // The map is created once, so its listeners reach the edge-recentre helpers
   // through refs that always hold the current render's versions.
@@ -2018,10 +2030,13 @@ export default function NearbyAreaMap({
   function keepTravellerOnScreen(point, options = {}) {
     const map = mapRef.current;
     if (!map || !Number.isFinite(Number(point?.lat)) || !Number.isFinite(Number(point?.lng))) return;
-    if (viewTargetActiveRef.current || hasOperatorRoutePlanRef.current) return;
-    if (!smartCameraRef.current) return;
-    // Never fight a gesture that is still in progress.
-    if (isUserInteractingRef.current) return;
+    if (!shouldAllowTravellerCameraRecovery({
+      pinSelectionActive: pinSelectionActiveRef.current,
+      viewTargetActive: viewTargetActiveRef.current,
+      hasOperatorRoutePlan: hasOperatorRoutePlanRef.current,
+      smartCameraEnabled: smartCameraRef.current,
+      userInteracting: isUserInteractingRef.current,
+    })) return;
 
     const now = performance.now();
     if (!options.force && now - lastEdgeCheckAtRef.current < EDGE_RECENTER_SETTINGS.checkThrottleMs) return;
@@ -2041,6 +2056,10 @@ export default function NearbyAreaMap({
 
   function scheduleEdgeRecenterCheck(delay = EDGE_RECENTER_SETTINGS.settleAfterPanMs + 120) {
     if (edgeRecenterTimerRef.current) window.clearTimeout(edgeRecenterTimerRef.current);
+    if (pinSelectionActiveRef.current) {
+      edgeRecenterTimerRef.current = null;
+      return;
+    }
     edgeRecenterTimerRef.current = window.setTimeout(() => {
       edgeRecenterTimerRef.current = null;
       keepTravellerOnScreen(
@@ -2624,7 +2643,10 @@ export default function NearbyAreaMap({
         publishLocationToParent(nextCenter, { force: true });
         // In place-view mode the camera belongs to the tapped location, so the
         // viewer's GPS updates the marker/position without recentering.
-        if (!viewTargetActiveRef.current) {
+        if (shouldAutoCenterInitialAreaLocation({
+          viewTargetActive: viewTargetActiveRef.current,
+          followLockActive: followLockRef.current,
+        })) {
           mapRef.current?.easeTo({
             center: [nextCenter.lng, nextCenter.lat],
             zoom: 15,
