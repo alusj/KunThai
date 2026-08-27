@@ -4,6 +4,10 @@ import {
   readCachedPromotedMarketplaceProducts,
 } from "../../../Backend/services/marketplace/buyerMarketplaceService";
 import { resizedImageUrl } from "../../../Backend/lib/imageProxy";
+import {
+  groupPromotedProducts,
+  PROMOTED_CAROUSEL_FETCH_LIMIT,
+} from "../../../Backend/services/marketplace/promotedCarouselLayout";
 import { useI18n } from "../../../i18n";
 
 const SLIDE_INTERVAL_MS = 4500;
@@ -17,10 +21,10 @@ const SLIDE_TRANSITION = "transform 620ms cubic-bezier(0.22, 1, 0.36, 1)";
 // Shows only the listing cover image; renders nothing when no seller has an
 // active promoted listing.
 //
-// Layout rules requested by sellers:
-//   - More than 3 promoted products -> show 2 at a time.
-//   - Exactly 3 promoted products   -> show 1 at a time.
-//   - 1-2 promoted products         -> show 1 at a time.
+// Adaptive layout rules:
+//   - Up to 10 promoted listings -> one full sponsored product per slide.
+//   - 11-24 promoted listings    -> two sponsored products per slide.
+//   - 25+ promoted listings      -> three sponsored products per slide.
 // The card floats (sticky) so it stays visible while the header and the rest of
 // the catalog scroll behind it, and manual swipes are contained here so they
 // never bubble up to the app-level page swipe (Explore / UrRide).
@@ -33,7 +37,7 @@ const MAX_SKELETON_MS = 8000;
 export default function PromotedAdsCarousel({ onProductSelect, dashboardLoading }) {
   const { t } = useI18n();
   const [ads, setAds] = useState(() => (
-    readCachedPromotedMarketplaceProducts().filter((product) => product.imageUrl)
+    readCachedPromotedMarketplaceProducts(PROMOTED_CAROUSEL_FETCH_LIMIT).filter((product) => product.imageUrl)
   ));
   const [loading, setLoading] = useState(() => ads.length === 0);
   const [activeIndex, setActiveIndex] = useState(0);
@@ -43,20 +47,19 @@ export default function PromotedAdsCarousel({ onProductSelect, dashboardLoading 
   const dragRef = useRef({ startX: 0, dx: 0, active: false, moved: false });
   const viewportRef = useRef(null);
 
-  const perView = ads.length > 3 ? 2 : 1;
-  const maxIndex = Math.max(0, ads.length - perView);
+  const { perSlide, slides } = useMemo(() => groupPromotedProducts(ads), [ads]);
+  const maxIndex = Math.max(0, slides.length - 1);
   const canSlide = maxIndex > 0;
-  const itemBasis = useMemo(() => `${100 / perView}%`, [perView]);
 
   const loadAds = useCallback(async (force = false) => {
     try {
-      const products = await fetchPromotedMarketplaceProducts(12, { force });
+      const products = await fetchPromotedMarketplaceProducts(PROMOTED_CAROUSEL_FETCH_LIMIT, { force });
       setAds(products.filter((product) => product.imageUrl));
     } catch {
       // Keep the last known sponsored cards on weak/offline connections.
       setAds((current) => current.length
         ? current
-        : readCachedPromotedMarketplaceProducts(12, { allowStale: true }).filter((product) => product.imageUrl));
+        : readCachedPromotedMarketplaceProducts(PROMOTED_CAROUSEL_FETCH_LIMIT, { allowStale: true }).filter((product) => product.imageUrl));
     } finally {
       setLoading(false);
     }
@@ -164,7 +167,7 @@ export default function PromotedAdsCarousel({ onProductSelect, dashboardLoading 
     onProductSelect?.(product);
   }
 
-  const baseShiftPercent = activeIndex * (100 / perView);
+  const baseShiftPercent = activeIndex * 100;
 
   return (
     <section
@@ -185,24 +188,30 @@ export default function PromotedAdsCarousel({ onProductSelect, dashboardLoading 
             touchAction: "pan-y",
           }}
         >
-          {ads.map((product, index) => (
-            <div key={product.id} className="h-full shrink-0 px-0.5" style={{ flexBasis: itemBasis, maxWidth: itemBasis }}>
-              <button
-                type="button"
-                onClick={() => handleProductClick(product)}
-                className="relative block h-full w-full overflow-hidden rounded-xl bg-gray-950"
-                aria-label={t("urmall.browse.openPromotedAria", { name: product.seller?.name || t("urmall.browse.sellerFallback") })}
-              >
-                <img
-                  src={resizedImageUrl(product.imageUrl, { width: 720, quality: 72 })}
-                  alt=""
-                  loading={index < Math.max(2, perView + 1) ? "eager" : "lazy"}
-                  fetchPriority={index < 2 ? "high" : "auto"}
-                  decoding="async"
-                  draggable={false}
-                  className="h-full w-full select-none object-cover"
-                />
-              </button>
+          {slides.map((slide, slideIndex) => (
+            <div key={slide.map((product) => product.id).join(":")} className="grid h-full w-full shrink-0 gap-1 px-0.5" style={{ gridTemplateColumns: `repeat(${perSlide}, minmax(0, 1fr))` }}>
+              {slide.map((product, productIndex) => {
+                const absoluteIndex = slideIndex * perSlide + productIndex;
+                return (
+                  <button
+                    key={product.id}
+                    type="button"
+                    onClick={() => handleProductClick(product)}
+                    className="relative block h-full min-w-0 overflow-hidden rounded-xl bg-gray-950"
+                    aria-label={t("urmall.browse.openPromotedAria", { name: product.seller?.name || t("urmall.browse.sellerFallback") })}
+                  >
+                    <img
+                      src={resizedImageUrl(product.imageUrl, { width: perSlide === 1 ? 960 : 560, quality: 72 })}
+                      alt=""
+                      loading={absoluteIndex < Math.max(3, perSlide + 1) ? "eager" : "lazy"}
+                      fetchPriority={absoluteIndex < perSlide ? "high" : "auto"}
+                      decoding="async"
+                      draggable={false}
+                      className="h-full w-full select-none object-cover"
+                    />
+                  </button>
+                );
+              })}
             </div>
           ))}
         </div>

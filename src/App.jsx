@@ -20,7 +20,6 @@ import GuestGateCard from "./components/shared/GuestGateCard";
 import InlineNotificationHost from "./components/shared/InlineNotificationHost";
 import NotificationBannerHost from "./components/shared/NotificationBannerHost";
 import CrossServiceActivityHost from "./components/shared/CrossServiceActivityHost";
-import UnifiedNotificationCenter from "./components/shared/UnifiedNotificationCenter";
 import ScreenshotVoiceCard from "./components/shared/ScreenshotVoiceCard";
 import { endGuestVisit, isGuestMode } from "./Backend/services/guestModeService";
 import {
@@ -56,7 +55,12 @@ const PAGE_VISITS_KEY = "kuntai-main-page-visits";
 const MARKETPLACE_NAV_KEY = "kuntai-marketplace-nav";
 const SCREENSHOT_PROMPT_AUTO_HIDE_MS = 12_000;
 const SCREENSHOT_PROMPT_EXIT_MS = 280;
-const SCREENSHOT_RETURN_WINDOW_MS = 2_200;
+const SCREENSHOT_RETURN_WINDOW_MS = 6_000;
+const NATIVE_SCREENSHOT_EVENTS = [
+  "kuntai-native-screenshot",
+  "nativeScreenshot",
+  "screenshot",
+];
 const loadExplore = () => import("./components/Explore/Explore");
 const loadMarketplace = () => import("./components/Marketplace/Marketplace");
 const loadTransport = () => import("./components/transport/Transport");
@@ -314,8 +318,6 @@ export default function App() {
   const [transportActivityOpen, setTransportActivityOpen] = useState(false);
   const [transportAreaRequest, setTransportAreaRequest] = useState(null);
   const [mainPageBadges, setMainPageBadges] = useState({ marketplace: 0, transport: 0 });
-  const [notificationCenterOpen, setNotificationCenterOpen] = useState(false);
-  const [unifiedNotificationCount, setUnifiedNotificationCount] = useState(0);
   const [onboardingReveal, setOnboardingReveal] = useState(null);
   // The landing surface the user picked on the last onboarding step. Held in a
   // ref so it survives the reveal effect re-running before the refreshed
@@ -1078,15 +1080,7 @@ export default function App() {
         </LazyRouteBoundary>
       </PageTransition>
 
-      {!bottomTabsHidden ? (
-        <BottomTabs
-          badges={{ ...mainPageBadges, notifications: unifiedNotificationCount }}
-          notificationOpen={notificationCenterOpen}
-          onNotifications={() => setNotificationCenterOpen(true)}
-          page={page}
-          setPage={changePage}
-        />
-      ) : null}
+      {!bottomTabsHidden ? <BottomTabs badges={mainPageBadges} page={page} setPage={changePage} /> : null}
       <ScreenshotVoicePrompt page={page} />
       {guestSession ? <GuestGateCard /> : null}
       {!guestSession ? (
@@ -1094,12 +1088,6 @@ export default function App() {
           <CrossServiceActivityHost
             onMarketplaceCountChange={updateMarketplaceBadge}
             onTransportCountChange={updateTransportBadge}
-            userId={userId}
-          />
-          <UnifiedNotificationCenter
-            open={notificationCenterOpen}
-            onOpenChange={setNotificationCenterOpen}
-            onCountChange={setUnifiedNotificationCount}
             userId={userId}
           />
         </>
@@ -1183,11 +1171,18 @@ function ScreenshotVoicePrompt({ page }) {
       suppressUntilRef.current = Math.max(suppressUntilRef.current, Date.now() + duration);
     }
 
+    function handleNativeScreenshot() {
+      revealPrompt();
+    }
+
     window.addEventListener("keydown", handleKeyDown);
     window.addEventListener("keyup", handleKeyUp);
     window.addEventListener("blur", handleBlur);
     window.addEventListener("focus", handleFocus);
     window.addEventListener("kuntai-suppress-screenshot-prompt", handleSuppressPrompt);
+    NATIVE_SCREENSHOT_EVENTS.forEach((eventName) => {
+      window.addEventListener(eventName, handleNativeScreenshot);
+    });
     document.addEventListener("visibilitychange", handleVisibilityChange);
 
     return () => {
@@ -1196,6 +1191,9 @@ function ScreenshotVoicePrompt({ page }) {
       window.removeEventListener("blur", handleBlur);
       window.removeEventListener("focus", handleFocus);
       window.removeEventListener("kuntai-suppress-screenshot-prompt", handleSuppressPrompt);
+      NATIVE_SCREENSHOT_EVENTS.forEach((eventName) => {
+        window.removeEventListener(eventName, handleNativeScreenshot);
+      });
       document.removeEventListener("visibilitychange", handleVisibilityChange);
     };
   }, []);

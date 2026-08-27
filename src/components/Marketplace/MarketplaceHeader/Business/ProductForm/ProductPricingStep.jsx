@@ -2,6 +2,7 @@ import { useState } from "react";
 
 import { useVisibilityCredits } from "../../../../../Backend/hooks/useVisibilityCredits";
 import {
+  getMarketplacePromotionDurationDays,
   MINIMUM_VISIBILITY_CREDITS,
   normalizeVisibilityCreditSpend,
   VISIBILITY_BOOST_PACKAGES,
@@ -32,7 +33,7 @@ export default function ProductPricingStep({ productForm }) {
   const selectedPromotionPackage = form.pricing.promotionCreditPackage || (
     VISIBILITY_BOOST_PACKAGES.find((item) => item.id !== "custom" && item.credits === promotionCredits)?.id || "custom"
   );
-  const estimatedPromotionDays = Math.max(1, Math.min(30, Math.ceil(promotionCredits / MINIMUM_VISIBILITY_CREDITS) * 3));
+  const estimatedPromotionDays = getMarketplacePromotionDurationDays(promotionCredits);
   const availableCredits = Number(visibilityCredits.balance || 0);
   const hasEnoughCredits = availableCredits >= promotionCredits;
 

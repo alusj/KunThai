@@ -1,6 +1,7 @@
 import { useEffect, useState } from "react";
 import { friendlyErrorMessage } from "../services/friendlyErrorService";
 import { notifyActionDone, notifyActionFailed } from "../services/actionFeedbackService";
+import { decorateShareUrl } from "../services/visibilityCreditService";
 
 import {
   createSellerProductShareLink,
@@ -127,7 +128,7 @@ export function useSellerProducts() {
       }
 
       if (action === "share") {
-        const link = createSellerProductShareLink(product);
+        const link = await decorateShareUrl(createSellerProductShareLink(product));
         if (!link) throw new Error("Unable to create product link.");
         if (typeof navigator !== "undefined" && navigator.clipboard?.writeText) {
           await navigator.clipboard.writeText(link);

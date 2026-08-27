@@ -12,10 +12,13 @@ import {
   HiOutlineFlag,
   HiOutlineGift,
   HiOutlineInformationCircle,
+  HiOutlineMegaphone,
   HiOutlineNoSymbol,
   HiOutlinePencilSquare,
   HiOutlinePhoto,
   HiOutlineShare,
+  HiOutlineShoppingBag,
+  HiOutlineTruck,
   HiOutlineUserPlus,
   HiOutlineUserMinus,
 } from "react-icons/hi2";
@@ -1142,7 +1145,7 @@ export default function ProfileHeaderCard({
         </AnimatePresence>
       </CenteredModal>
 
-      <CenteredModal open={creditHelpOpen} onClose={() => setCreditHelpOpen(false)} labelledBy="visibility-credit-help-title">
+      <CenteredModal open={creditHelpOpen} onClose={() => setCreditHelpOpen(false)} labelledBy="visibility-credit-help-title" maxWidth="max-w-lg">
         <div className="flex items-start gap-3">
           <span className="flex h-11 w-11 shrink-0 items-center justify-center rounded-full bg-gradient-to-br from-sky-500 to-sky-700 text-lg font-black text-white shadow-md shadow-sky-500/30">?</span>
           <div className="min-w-0">
@@ -1152,7 +1155,32 @@ export default function ProfileHeaderCard({
         </div>
         <div className="mt-4 space-y-3 text-sm font-semibold leading-6 text-slate-600">
           <p>{t("profile.creditsExplain1")}</p>
-          <p>{t("profile.creditsExplainMid")}</p>
+
+          <section className="overflow-hidden rounded-[24px] bg-gradient-to-br from-slate-950 via-slate-900 to-sky-950 p-4 text-white shadow-lg shadow-slate-950/10">
+            <p className="text-[11px] font-black uppercase tracking-[0.16em] text-sky-300">{t("profile.creditsUsesTitle")}</p>
+            <div className="mt-3 grid gap-2.5">
+              <VisibilityCreditUse
+                icon={HiOutlineMegaphone}
+                title={t("profile.creditUseExploreTitle")}
+                description={t("profile.creditUseExplore")}
+                iconClassName="bg-sky-400/15 text-sky-300"
+              />
+              <VisibilityCreditUse
+                icon={HiOutlineShoppingBag}
+                title={t("profile.creditUseUrMallTitle")}
+                description={t("profile.creditUseUrMall")}
+                iconClassName="bg-emerald-400/15 text-emerald-300"
+              />
+              <VisibilityCreditUse
+                icon={HiOutlineTruck}
+                title={t("profile.creditUseUrRideTitle")}
+                description={t("profile.creditUseUrRide")}
+                iconClassName="bg-violet-400/15 text-violet-300"
+              />
+            </div>
+          </section>
+
+          <p className="rounded-2xl border border-sky-100 bg-sky-50 px-4 py-3 text-sky-950">{t("profile.creditsExplainMid")}</p>
           <p className="rounded-2xl bg-slate-50 px-4 py-3 text-slate-700">{t("profile.creditsExplain2")}</p>
         </div>
         <button type="button" onClick={() => setCreditHelpOpen(false)} className="mt-5 h-12 w-full rounded-2xl bg-slate-950 px-4 text-sm font-black text-white">
@@ -1170,6 +1198,20 @@ export default function ProfileHeaderCard({
         onTransfer={onTransferCredits}
       />
     </section>
+  );
+}
+
+function VisibilityCreditUse({ description, icon: Icon, iconClassName, title }) {
+  return (
+    <div className="flex items-start gap-3 rounded-2xl border border-white/10 bg-white/[0.07] p-3">
+      <span className={`grid h-10 w-10 shrink-0 place-items-center rounded-xl text-xl ${iconClassName}`}>
+        <Icon />
+      </span>
+      <div className="min-w-0">
+        <p className="text-sm font-black text-white">{title}</p>
+        <p className="mt-0.5 text-xs font-semibold leading-5 text-slate-300">{description}</p>
+      </div>
+    </div>
   );
 }
 

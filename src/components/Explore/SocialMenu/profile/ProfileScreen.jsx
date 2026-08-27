@@ -1,6 +1,6 @@
 import { useEffect, useRef, useState } from "react";
 
-import { appendVisibilityReferral } from "../../../../Backend/services/visibilityCreditService";
+import { decorateShareUrl } from "../../../../Backend/services/visibilityCreditService";
 
 import { useExploreFeed } from "../../../../Backend/hooks/useExploreFeed";
 import { useExploreFollows } from "../../../../Backend/hooks/useExploreFollows";
@@ -41,7 +41,7 @@ function fileToDataUrl(file) {
   });
 }
 
-function shareProfile(values, t) {
+async function shareProfile(values, t) {
   const url = new URL(window.location.href);
   const identity = getProfileIdentity(values);
   url.hash = identity.type === SPACE_IDENTITY_TYPE
@@ -50,7 +50,7 @@ function shareProfile(values, t) {
   const data = {
     title: t("profile.shareTitle", { name: values.displayName || t("feed.profileFallback") }),
     text: values.bio || t("profile.shareText", { username: values.username || t("post.userFallback") }),
-    url: appendVisibilityReferral(url.toString()),
+    url: await decorateShareUrl(url.toString()),
   };
 
   if (navigator.share) {

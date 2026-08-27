@@ -4,7 +4,7 @@
 import { useState } from "react";
 import { Check, Copy, Eye, Minus, MoreHorizontal, Plus, Share2, Trash2 } from "lucide-react";
 import { formatCurrency } from "../../../../Backend/utils/formatCurrency";
-import { appendVisibilityReferral } from "../../../../Backend/services/visibilityCreditService";
+import { decorateShareUrl } from "../../../../Backend/services/visibilityCreditService";
 import { resizedImageUrl } from "../../../../Backend/lib/imageProxy";
 import { showToast } from "../../../../Backend/services/toastService";
 import { useI18n, t } from "../../../../i18n";
@@ -12,7 +12,7 @@ import { useI18n, t } from "../../../../i18n";
 function productLink(item) {
   const productId = item.productId || item.product?.id;
   const base = `${window.location.origin}${window.location.pathname}`;
-  return appendVisibilityReferral(`${base}#marketplace-product-${encodeURIComponent(productId)}`);
+  return `${base}#marketplace-product-${encodeURIComponent(productId)}`;
 }
 
 export default function CartItem({ item, onUpdateQty, onRemoveItem, onViewProduct }) {
@@ -23,7 +23,7 @@ export default function CartItem({ item, onUpdateQty, onRemoveItem, onViewProduc
   const moneyScope = item.product?.currency || item.product?.countryCode || item.product?.country;
 
   async function copyProduct() {
-    const link = productLink(item);
+    const link = await decorateShareUrl(productLink(item));
     try {
       if (!navigator.clipboard) throw new Error("Clipboard unavailable");
       await navigator.clipboard.writeText(link);
@@ -36,7 +36,7 @@ export default function CartItem({ item, onUpdateQty, onRemoveItem, onViewProduc
   }
 
   async function shareProduct() {
-    const link = productLink(item);
+    const link = await decorateShareUrl(productLink(item));
     const sharePayload = {
       title: item.name,
       text: t("urmall.seller.shareProductText", { name: item.name }),

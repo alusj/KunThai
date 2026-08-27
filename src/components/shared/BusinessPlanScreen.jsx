@@ -43,6 +43,17 @@ const PLAN_ICON_STYLES = {
 };
 const PLAN_RANK = { free: 1, pro: 2, premium: 3 };
 
+function isDeferredPlanChange(currentCode, currentInterval, targetCode, targetInterval) {
+  const currentRank = PLAN_RANK[currentCode] || PLAN_RANK.free;
+  const targetRank = PLAN_RANK[targetCode] || PLAN_RANK.free;
+  return targetRank < currentRank || (
+    targetCode === currentCode
+    && currentCode !== "free"
+    && currentInterval === "yearly"
+    && targetInterval === "monthly"
+  );
+}
+
 // Resolves the credit price and term for a plan at a given billing cadence.
 // Yearly falls back to ~10x the monthly price (two months free) when the
 // catalog has no explicit yearly figure yet.
@@ -98,14 +109,15 @@ function UsageMeter({ label, current, limit, icon: Icon }) {
   );
 }
 
-function PlanCard({ plan, currentCode, currentInterval, pendingCode, interval, busy, onChoose }) {
+function PlanCard({ plan, currentCode, currentInterval, pendingCode, pendingInterval, interval, busy, onChoose }) {
   const Icon = PLAN_ICONS[plan.planCode] || Sparkles;
   const isFree = plan.planCode === "free";
   // Free ignores cadence; a paid plan is "current" only when both tier and
   // cadence match, so a monthly subscriber can still switch to yearly.
   const isCurrent = currentCode === plan.planCode && (isFree || currentInterval === interval);
-  const isPending = pendingCode === plan.planCode;
-  const isDowngrade = PLAN_RANK[plan.planCode] < PLAN_RANK[currentCode];
+  const isPending = pendingCode === plan.planCode
+    && (isFree || (pendingInterval || currentInterval) === interval);
+  const isDeferred = isDeferredPlanChange(currentCode, currentInterval, plan.planCode, isFree ? "monthly" : interval);
   const pricing = planPricing(plan, isFree ? "monthly" : interval);
 
   return (
@@ -151,7 +163,7 @@ function PlanCard({ plan, currentCode, currentInterval, pendingCode, interval, b
                 : "bg-slate-950 text-white hover:bg-slate-800"
         }`}
       >
-        {isCurrent ? "Current plan" : isPending ? "Scheduled" : isDowngrade ? "Schedule this plan" : `Choose ${plan.displayName}`}
+        {isCurrent ? "Current plan" : isPending ? "Scheduled" : isDeferred ? "Schedule this plan" : `Choose ${plan.displayName}`}
         {!isCurrent && !isPending ? <ArrowRight size={16} /> : null}
       </button>
     </article>
@@ -165,6 +177,7 @@ export default function BusinessPlanScreen({ surface, entityId, entityName = "Yo
   const [busy, setBusy] = useState("");
   const [selectedPlan, setSelectedPlan] = useState(null);
   const [billingInterval, setBillingInterval] = useState("monthly");
+  const [billingDirection, setBillingDirection] = useState("forward");
   const [selectedInterval, setSelectedInterval] = useState("monthly");
   const intervalInitRef = useRef(false);
 
@@ -229,7 +242,12 @@ export default function BusinessPlanScreen({ surface, entityId, entityName = "Yo
     try {
       const updated = await changeBusinessPlan(surface, entityId, selectedPlan.planCode, true, selectedInterval);
       setState(updated);
-      const scheduled = PLAN_RANK[selectedPlan.planCode] < PLAN_RANK[state.entitlement.planCode];
+      const scheduled = isDeferredPlanChange(
+        state.entitlement.planCode,
+        state.subscription.billingInterval,
+        selectedPlan.planCode,
+        selectedInterval,
+      );
       const cadence = selectedPlan.planCode !== "free" && selectedInterval === "yearly" ? " (yearly)" : "";
       showToast(scheduled ? `${selectedPlan.displayName} is scheduled for the next renewal.` : `${selectedPlan.displayName} plan${cadence} is active.`, "success");
       setSelectedPlan(null);
@@ -243,6 +261,12 @@ export default function BusinessPlanScreen({ surface, entityId, entityName = "Yo
   function choosePlan(plan) {
     setSelectedInterval(plan.planCode === "free" ? "monthly" : billingInterval);
     setSelectedPlan(plan);
+  }
+
+  function switchBillingInterval(nextInterval) {
+    if (nextInterval === billingInterval) return;
+    setBillingDirection(nextInterval === "yearly" ? "forward" : "backward");
+    setBillingInterval(nextInterval);
   }
 
   async function toggleAutoRenew() {
@@ -295,7 +319,12 @@ export default function BusinessPlanScreen({ surface, entityId, entityName = "Yo
   const { entitlement, subscription } = state;
   const renewalDate = formatBusinessPlanDate(subscription.currentPeriodEnd);
   const graceDate = formatBusinessPlanDate(subscription.graceEndsAt);
-  const selectedIsDowngrade = selectedPlan && PLAN_RANK[selectedPlan.planCode] < PLAN_RANK[entitlement.planCode];
+  const selectedIsDeferred = selectedPlan && isDeferredPlanChange(
+    entitlement.planCode,
+    subscription.billingInterval,
+    selectedPlan.planCode,
+    selectedInterval,
+  );
   const selectedPricing = selectedPlan
     ? planPricing(selectedPlan, selectedPlan.planCode === "free" ? "monthly" : selectedInterval)
     : null;
@@ -309,7 +338,10 @@ export default function BusinessPlanScreen({ surface, entityId, entityName = "Yo
         </div>
       ) : null}
 
-      <section className="overflow-hidden rounded-[30px] bg-gradient-to-br from-slate-950 via-slate-900 to-emerald-950 p-6 text-white shadow-xl">
+      <section
+        key={`${subscription.planCode}:${subscription.billingInterval}:${subscription.status}`}
+        className="kt-route-transition overflow-hidden rounded-[30px] bg-gradient-to-br from-slate-950 via-slate-900 to-emerald-950 p-6 text-white shadow-xl"
+      >
         <div className="flex items-start justify-between gap-4">
           <div className="min-w-0">
             <p className="text-xs font-black uppercase tracking-[0.18em] text-emerald-300">Plans & capacity</p>
@@ -353,7 +385,13 @@ export default function BusinessPlanScreen({ surface, entityId, entityName = "Yo
             <p className="text-xs font-black uppercase tracking-wider text-slate-400">Current usage</p>
             <h2 className="mt-1 text-xl font-black text-slate-950">Capacity at a glance</h2>
           </div>
-          {subscription.pendingPlanCode ? <span className="rounded-full bg-amber-100 px-3 py-1 text-xs font-black text-amber-800">{subscription.pendingPlanCode} scheduled</span> : null}
+          {subscription.pendingPlanCode ? (
+            <span className="rounded-full bg-amber-100 px-3 py-1 text-xs font-black text-amber-800">
+              {subscription.pendingPlanCode === "free"
+                ? "Free scheduled"
+                : `${subscription.pendingPlanCode} ${subscription.pendingBillingInterval || "monthly"} scheduled`}
+            </span>
+          ) : null}
         </div>
         <div className="grid gap-3 sm:grid-cols-2">
           {usageRows.map((row) => {
@@ -387,7 +425,15 @@ export default function BusinessPlanScreen({ surface, entityId, entityName = "Yo
         <h2 className="mt-1 text-xl font-black text-slate-950">Choose room to grow</h2>
         <p className="mt-1 text-sm font-semibold leading-6 text-slate-500">Upgrades start immediately. Downgrades are scheduled for the next renewal, and no existing resources are deleted.</p>
 
-        <div className="mt-4 inline-flex items-center gap-1 rounded-full border border-slate-200 bg-slate-100 p-1">
+        <div className="relative mt-4 grid w-full max-w-sm grid-cols-2 gap-1 rounded-full border border-slate-200 bg-slate-100 p-1">
+          <span
+            aria-hidden="true"
+            className="absolute bottom-1 left-1 top-1 rounded-full bg-white shadow-sm transition-transform duration-300 ease-out motion-reduce:transition-none"
+            style={{
+              width: "calc(50% - 0.375rem)",
+              transform: billingInterval === "yearly" ? "translateX(calc(100% + 0.25rem))" : "translateX(0)",
+            }}
+          />
           {[
             { id: "monthly", label: "Monthly" },
             { id: "yearly", label: "Yearly" },
@@ -397,10 +443,10 @@ export default function BusinessPlanScreen({ surface, entityId, entityName = "Yo
               <button
                 key={option.id}
                 type="button"
-                onClick={() => setBillingInterval(option.id)}
+                onClick={() => switchBillingInterval(option.id)}
                 aria-pressed={active}
-                className={`inline-flex items-center gap-1.5 rounded-full px-4 py-2 text-sm font-black transition ${
-                  active ? "bg-white text-slate-950 shadow-sm" : "text-slate-500 hover:text-slate-700"
+                className={`relative z-10 inline-flex items-center justify-center gap-1.5 rounded-full px-3 py-2 text-sm font-black transition-colors ${
+                  active ? "text-slate-950" : "text-slate-500 hover:text-slate-700"
                 }`}
               >
                 {option.label}
@@ -414,7 +460,10 @@ export default function BusinessPlanScreen({ surface, entityId, entityName = "Yo
           })}
         </div>
 
-        <div className="mt-4 grid gap-4 lg:grid-cols-3">
+        <div
+          key={billingInterval}
+          className={`mt-4 grid gap-4 lg:grid-cols-3 ${billingDirection === "backward" ? "kt-parent-tab-slide-backward" : "kt-parent-tab-slide-forward"}`}
+        >
           {state.plans.map((plan) => (
             <PlanCard
               key={plan.planCode}
@@ -422,6 +471,7 @@ export default function BusinessPlanScreen({ surface, entityId, entityName = "Yo
               currentCode={entitlement.planCode}
               currentInterval={subscription.billingInterval || "monthly"}
               pendingCode={subscription.pendingPlanCode}
+              pendingInterval={subscription.pendingBillingInterval}
               interval={billingInterval}
               busy={Boolean(busy)}
               onChoose={choosePlan}
@@ -448,16 +498,16 @@ export default function BusinessPlanScreen({ surface, entityId, entityName = "Yo
 
       {selectedPlan ? (
         <div className="fixed inset-0 z-[1600] flex items-center justify-center bg-slate-950/55 p-4 backdrop-blur-sm" role="presentation">
-          <section role="dialog" aria-modal="true" aria-label="Confirm plan change" className="w-full max-w-md rounded-[28px] bg-white p-6 shadow-2xl">
+          <section role="dialog" aria-modal="true" aria-label="Confirm plan change" className="kt-modal-enter w-full max-w-md rounded-[28px] bg-white p-6 shadow-2xl">
             <div className="flex items-start justify-between gap-4">
               <span className={`grid h-12 w-12 place-items-center rounded-2xl ${PLAN_ICON_STYLES[selectedPlan.planCode]}`}>
                 {(() => { const Icon = PLAN_ICONS[selectedPlan.planCode] || Sparkles; return <Icon size={21} />; })()}
               </span>
               <button type="button" onClick={() => setSelectedPlan(null)} disabled={Boolean(busy)} className="grid h-10 w-10 place-items-center rounded-xl bg-slate-100 text-slate-600"><X size={18} /></button>
             </div>
-            <h2 className="mt-4 text-xl font-black text-slate-950">{selectedIsDowngrade ? `Schedule ${selectedPlan.displayName}?` : `Activate ${selectedPlan.displayName}?`}</h2>
+            <h2 className="mt-4 text-xl font-black text-slate-950">{selectedIsDeferred ? `Schedule ${selectedPlan.displayName}?` : `Activate ${selectedPlan.displayName}?`}</h2>
             <p className="mt-2 text-sm font-semibold leading-6 text-slate-600">
-              {selectedIsDowngrade
+              {selectedIsDeferred
                 ? "The change starts at your next renewal. Current capacity remains available until then, and nothing is deleted."
                 : selectedPricing.cost > 0
                   ? selectedInterval === "yearly"
@@ -465,7 +515,7 @@ export default function BusinessPlanScreen({ surface, entityId, entityName = "Yo
                     : `This uses up to ${selectedPricing.cost} Visibility Credits. Active-period upgrades are automatically prorated.`
                   : "The Free plan has no credit charge."}
             </p>
-            {selectedPricing.cost > state.walletBalance && !selectedIsDowngrade ? (
+            {selectedPricing.cost > state.walletBalance && !selectedIsDeferred ? (
               <p className="mt-3 rounded-2xl bg-amber-50 p-3 text-sm font-bold text-amber-800">Your wallet may need more credits before this plan can activate.</p>
             ) : null}
             <div className="mt-5 grid grid-cols-2 gap-2">
@@ -481,4 +531,3 @@ export default function BusinessPlanScreen({ surface, entityId, entityName = "Yo
     </div>
   );
 }
-

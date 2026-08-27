@@ -1,7 +1,7 @@
 import { useEffect, useRef, useState } from "react";
 import { friendlyErrorMessage } from "../../../../Backend/services/friendlyErrorService";
 
-import { appendVisibilityReferral } from "../../../../Backend/services/visibilityCreditService";
+import { decorateShareUrl } from "../../../../Backend/services/visibilityCreditService";
 import {
   HiOutlineArrowRightOnRectangle,
   HiOutlineArrowTopRightOnSquare,
@@ -120,7 +120,7 @@ export default function SpaceDashboardScreen({
   function getSpaceUrl() {
     const url = new URL(window.location.href);
     url.hash = `space-${space?.spaceId || space?.username || "space"}`;
-    return appendVisibilityReferral(url.toString());
+    return url.toString();
   }
 
   async function writeClipboard(text) {
@@ -158,7 +158,7 @@ export default function SpaceDashboardScreen({
   }
 
   async function shareSpace() {
-    const url = getSpaceUrl();
+    const url = await decorateShareUrl(getSpaceUrl());
     const shareData = {
       title: i18nText("ui.literals.k383a4e679b44", { value0: space.displayName || "Space" }),
       text: space.bio || `Connect with @${space.username || "space"} on KunThai Explore`,
@@ -175,7 +175,7 @@ export default function SpaceDashboardScreen({
   }
 
   async function copySpaceLink() {
-    await writeClipboard(getSpaceUrl());
+    await writeClipboard(await decorateShareUrl(getSpaceUrl()));
     showToast(i18nText("ui.literals.k7590b20d3a81"), "success");
   }
 

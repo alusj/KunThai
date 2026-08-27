@@ -596,7 +596,9 @@ function stableKey(value) {
 }
 
 function promotedDiscoveryKey(limit = 12) {
-  const normalizedLimit = Math.max(1, Math.min(Number(limit) || 12, 24));
+  // The adaptive sponsored carousel needs to distinguish a 25+ inventory, so
+  // its cache must not collapse larger requests into the old 24-item key.
+  const normalizedLimit = Math.max(1, Math.min(Number(limit) || 12, 60));
   return `${PROMOTED_DISCOVERY_STORAGE_PREFIX}|${getActiveCountryProfile().iso2}|${normalizedLimit}`;
 }
 

@@ -1,6 +1,7 @@
 import { Compass, MapPin, Sparkles } from "lucide-react";
 
 import {
+  getMarketplacePromotionDurationDays,
   MINIMUM_VISIBILITY_CREDITS,
   normalizeVisibilityCreditSpend,
   VISIBILITY_BOOST_PACKAGES,
@@ -13,7 +14,7 @@ export const PROMOTION_AUDIENCES = [
 ];
 
 export function estimatePromotionDays(credits) {
-  return Math.max(1, Math.min(30, Math.ceil(normalizeVisibilityCreditSpend(credits) / MINIMUM_VISIBILITY_CREDITS) * 3));
+  return getMarketplacePromotionDurationDays(credits);
 }
 
 export function normalizePromotionSettings(settings = {}) {

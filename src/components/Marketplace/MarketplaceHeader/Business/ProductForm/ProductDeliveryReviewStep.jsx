@@ -1,5 +1,6 @@
 import { getActiveCountryProfile } from "../../../../../data/globalCountryProfiles";
 import {
+  getMarketplacePromotionDurationDays,
   MINIMUM_VISIBILITY_CREDITS,
   normalizeVisibilityCreditSpend,
 } from "../../../../../Backend/services/visibilityCreditService";
@@ -21,7 +22,7 @@ export default function ProductDeliveryReviewStep({ productForm }) {
     form.pricing.promotionCredits,
     MINIMUM_VISIBILITY_CREDITS,
   );
-  const estimatedPromotionDays = Math.max(1, Math.min(30, Math.ceil(promotionCredits / MINIMUM_VISIBILITY_CREDITS) * 3));
+  const estimatedPromotionDays = getMarketplacePromotionDurationDays(promotionCredits);
 
   return (
     <div className="space-y-5">

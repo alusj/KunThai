@@ -21,8 +21,8 @@ import {
   toggleRestaurantMenuItem,
 } from "../../../../Backend/services/marketplace/marketplaceVerticalService";
 import {
-  appendVisibilityReferral,
   assertVisibilityCreditsAvailable,
+  decorateShareUrl,
 } from "../../../../Backend/services/visibilityCreditService";
 import { showToast } from "../../../../Backend/services/toastService";
 import { resizedImageUrl } from "../../../../Backend/lib/imageProxy";
@@ -683,7 +683,7 @@ function MediaImage({ alt, className, icon: Icon, src }) {
   return <img src={resizedImageUrl(src, { width: 720, quality: 72 })} alt={alt} className={className} onError={() => setFailed(true)} />;
 }
 
-function buildShareUrl(type, id) { if (typeof window === "undefined") return ""; return appendVisibilityReferral(`${window.location.origin}${window.location.pathname}#urmall-${type}-${id}`); }
+function buildShareUrl(type, id) { if (typeof window === "undefined") return ""; return `${window.location.origin}${window.location.pathname}#urmall-${type}-${id}`; }
 
 function SellerItemActions({ label, canManage = true, onDelete, onEdit, onInsights, onPromote, shareUrl }) {
   const [open, setOpen] = useState(false);
@@ -691,14 +691,15 @@ function SellerItemActions({ label, canManage = true, onDelete, onEdit, onInsigh
   const [deleting, setDeleting] = useState(false);
 
   async function copyLink() {
-    try { await navigator.clipboard.writeText(shareUrl); showToast(t("urmall.biz.vert.linkCopied"), "success"); } catch { showToast(t("urmall.biz.vert.copyFailed"), "danger"); }
+    try { await navigator.clipboard.writeText(await decorateShareUrl(shareUrl)); showToast(t("urmall.biz.vert.linkCopied"), "success"); } catch { showToast(t("urmall.biz.vert.copyFailed"), "danger"); }
     setOpen(false);
   }
 
   async function share() {
     try {
-      if (navigator.share) await navigator.share({ title: label, text: t("urmall.biz.vert.shareText", { label }), url: shareUrl });
-      else await navigator.clipboard.writeText(shareUrl);
+      const decoratedUrl = await decorateShareUrl(shareUrl);
+      if (navigator.share) await navigator.share({ title: label, text: t("urmall.biz.vert.shareText", { label }), url: decoratedUrl });
+      else await navigator.clipboard.writeText(decoratedUrl);
       showToast(navigator.share ? t("urmall.biz.vert.shared") : t("urmall.biz.vert.linkCopiedShare"), "success");
     } catch (error) { if (error?.name !== "AbortError") showToast(t("urmall.biz.vert.shareFailed"), "danger"); }
     setOpen(false);

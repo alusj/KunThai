@@ -1,14 +1,14 @@
 import { haptics, sounds } from "../../../../../../Backend/services/feedbackService";
-import { appendVisibilityReferral } from "../../../../../../Backend/services/visibilityCreditService";
+import { decorateShareUrl } from "../../../../../../Backend/services/visibilityCreditService";
 
 export function getPostUrl(postId) {
   const url = new URL(window.location.href);
   url.hash = `post-${postId}`;
-  return appendVisibilityReferral(url.toString());
+  return url.toString();
 }
 
 export async function copyPostLink(postId) {
-  const postUrl = getPostUrl(postId);
+  const postUrl = await decorateShareUrl(getPostUrl(postId));
 
   try {
     await navigator.clipboard.writeText(postUrl);
@@ -19,7 +19,7 @@ export async function copyPostLink(postId) {
 }
 
 export async function sharePost(post) {
-  const postUrl = getPostUrl(post.id);
+  const postUrl = await decorateShareUrl(getPostUrl(post.id));
   const shareData = {
     title: `${post.author_name || "KunThai"}'s post`,
     text: post.body || "View this post on KunThai",

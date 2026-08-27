@@ -13,6 +13,8 @@ let cachedInviteCode = "";
 
 export const VERIFIED_INVITE_CREDIT_REWARD = 5;
 export const MINIMUM_VISIBILITY_CREDITS = 5;
+export const MINIMUM_EXPLORE_AD_VISIBILITY_CREDITS = 10;
+export const MINIMUM_EXPLORE_DUAL_MEDIA_VISIBILITY_CREDITS = 15;
 export const MINIMUM_CREDIT_TRANSFER_BALANCE = 10;
 
 const FLUTTERWAVE_RETURN_PARAMS = ["kt_payment", "status", "tx_ref", "transaction_id"];
@@ -41,6 +43,33 @@ export const VISIBILITY_BOOST_PACKAGES = [
     label: "Custom",
     credits: 5,
     helper: "Choose how many credits to spend now.",
+  },
+];
+
+export const EXPLORE_AD_VISIBILITY_BOOST_PACKAGES = [
+  {
+    id: "small",
+    label: "Starter Advert",
+    credits: 10,
+    helper: "Promote one image or one video.",
+  },
+  {
+    id: "medium",
+    label: "Dual Media Advert",
+    credits: 15,
+    helper: "Use both an UrFeed image and a Swip video.",
+  },
+  {
+    id: "strong",
+    label: "Strong Advert",
+    credits: 20,
+    helper: "Stronger delivery with image and video support.",
+  },
+  {
+    id: "custom",
+    label: "Custom",
+    credits: 10,
+    helper: "Choose 10 or more credits for this advert.",
   },
 ];
 
@@ -99,6 +128,12 @@ function normalizeInviteCode(code = "") {
 export function normalizeVisibilityCreditSpend(value, fallback = MINIMUM_VISIBILITY_CREDITS) {
   const amount = Math.floor(Number(value || fallback));
   return Number.isFinite(amount) ? Math.max(0, amount) : fallback;
+}
+
+export function getMarketplacePromotionDurationDays(credits) {
+  const amount = normalizeVisibilityCreditSpend(credits, MINIMUM_VISIBILITY_CREDITS);
+  if (amount === MINIMUM_VISIBILITY_CREDITS) return 1;
+  return Math.max(1, Math.min(30, Math.ceil(amount / MINIMUM_VISIBILITY_CREDITS) * 3));
 }
 
 export function getVisibilityPackageByCredits(credits) {
@@ -177,7 +212,7 @@ export async function decorateShareUrl(url) {
 export function buildVisibilityShareMessage(inviteUrl = "") {
   return [
     "Join me on KunThai.",
-    `When you verify your account and complete setup, I earn ${VERIFIED_INVITE_CREDIT_REWARD} Visibility Credits for adverts and UrMall boosts.`,
+    `When you verify your account and complete setup, I earn ${VERIFIED_INVITE_CREDIT_REWARD} Visibility Credits for KunThai promotions and eligible UrMall or UrRide upgrades.`,
     inviteUrl,
   ].filter(Boolean).join("\n");
 }

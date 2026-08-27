@@ -5,10 +5,30 @@ import Capacitor
 class AppDelegate: UIResponder, UIApplicationDelegate {
 
     var window: UIWindow?
+    private var screenshotObserver: NSObjectProtocol?
 
     func application(_ application: UIApplication, didFinishLaunchingWithOptions launchOptions: [UIApplication.LaunchOptionsKey: Any]?) -> Bool {
-        // Override point for customization after application launch.
+        screenshotObserver = NotificationCenter.default.addObserver(
+            forName: UIApplication.userDidTakeScreenshotNotification,
+            object: nil,
+            queue: .main
+        ) { [weak self] _ in
+            self?.notifyWebAppOfScreenshot()
+        }
         return true
+    }
+
+    deinit {
+        if let screenshotObserver {
+            NotificationCenter.default.removeObserver(screenshotObserver)
+        }
+    }
+
+    private func notifyWebAppOfScreenshot() {
+        guard let bridgeViewController = window?.rootViewController as? CAPBridgeViewController else { return }
+        bridgeViewController.webView?.evaluateJavaScript(
+            "window.dispatchEvent(new CustomEvent('kuntai-native-screenshot'))"
+        )
     }
 
     func applicationWillResignActive(_ application: UIApplication) {

@@ -1,6 +1,6 @@
 import supabase from "../../lib/supabaseClient";
 import { getCountryCurrencyCode } from "../../../data/globalCountryProfiles";
-import { MINIMUM_VISIBILITY_CREDITS, normalizeVisibilityCreditSpend } from "../visibilityCreditService";
+import { MINIMUM_EXPLORE_AD_VISIBILITY_CREDITS, normalizeVisibilityCreditSpend } from "../visibilityCreditService";
 
 const AD_SESSION_KEY = "kunthai_explore_ad_session_v1";
 const AD_SEEN_SESSION_KEY = "kunthai_explore_seen_ads_v1";
@@ -98,7 +98,7 @@ export async function createExploreAdvertCampaign(post, advertInput = {}) {
   const { durationDays, startsAt, endsAt } = getCampaignDates(advert);
   const creditBudget = normalizeVisibilityCreditSpend(
     advert.creditBudget || advert.creditSpend || advert.budgetAmount,
-    MINIMUM_VISIBILITY_CREDITS,
+    MINIMUM_EXPLORE_AD_VISIBILITY_CREDITS,
   );
   const minimumAge = advert.ageRange === "18+"
     ? 18

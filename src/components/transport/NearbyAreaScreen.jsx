@@ -60,6 +60,8 @@ import EmergencySheet from "../emergency/EmergencySheet";
 import { useI18n, t } from "../../i18n";
 import { t as i18nText } from "../../i18n/index";
 
+const DROP_PIN_CARD_REVEAL_DELAY_MS = 4_000;
+
 const CATEGORY_LABEL_KEYS = {
   All: "urride.areaView.catAll",
   Fleets: "urride.areaView.catFleets",
@@ -951,6 +953,7 @@ export default function NearbyAreaScreen({
   const initialEmergencyHandledRef = useRef("");
   const oneKmPreviewRequestRef = useRef(0);
   const dropPinResolveRequestRef = useRef(0);
+  const dropPinExpandTimerRef = useRef(null);
   const isOneKmPreview = mode === "oneKmPreview";
   const isBusinessLocationPicker = mode === "businessLocationPicker";
   const isSpecialMode = isOneKmPreview || isBusinessLocationPicker;
@@ -1217,6 +1220,7 @@ export default function NearbyAreaScreen({
       if (mapCenterPublishTimerRef.current) window.clearTimeout(mapCenterPublishTimerRef.current);
       if (weatherRefreshTimerRef.current) window.clearTimeout(weatherRefreshTimerRef.current);
       if (liveAreaRefreshTimerRef.current) window.clearTimeout(liveAreaRefreshTimerRef.current);
+      if (dropPinExpandTimerRef.current) window.clearTimeout(dropPinExpandTimerRef.current);
       searchRequestRef.current += 1;
     };
   }, []);
@@ -1363,7 +1367,6 @@ export default function NearbyAreaScreen({
         setAddLocationStatus(t("urride.areaView.addExactPinSaved"));
       }
 
-      setDropPinExpandSignal((value) => value + 1);
     } catch (error) {
       if (dropPinResolveRequestRef.current !== requestId) return;
       const message = getFriendlyLocationError(error, t("urride.areaView.errUnableReadPinned"));
@@ -1372,7 +1375,6 @@ export default function NearbyAreaScreen({
       } else {
         setAddLocationStatus(message);
       }
-      setDropPinExpandSignal((value) => value + 1);
     } finally {
       if (dropPinResolveRequestRef.current === requestId) {
         if (isBusinessTarget) {
@@ -1384,8 +1386,23 @@ export default function NearbyAreaScreen({
     }
   }, [areaAddLocationPickerLabels.droppedName, resolvedPickerLabels.droppedName]);
 
+  const scheduleDropPinCardReveal = useCallback(() => {
+    if (dropPinExpandTimerRef.current) {
+      window.clearTimeout(dropPinExpandTimerRef.current);
+    }
+    dropPinExpandTimerRef.current = window.setTimeout(() => {
+      dropPinExpandTimerRef.current = null;
+      setDropPinExpandSignal((value) => value + 1);
+    }, DROP_PIN_CARD_REVEAL_DELAY_MS);
+  }, []);
+
   const handleMapInteractionStart = useCallback((event = {}) => {
     if (event.type !== "dragstart") return;
+
+    if (dropPinExpandTimerRef.current) {
+      window.clearTimeout(dropPinExpandTimerRef.current);
+      dropPinExpandTimerRef.current = null;
+    }
 
     if (isBusinessLocationPicker && businessPickerMode === "dropPin") {
       setDropPinCollapseSignal((value) => value + 1);
@@ -1410,13 +1427,15 @@ export default function NearbyAreaScreen({
 
     if (isBusinessLocationPicker && businessPickerMode === "dropPin") {
       resolveDroppedPinPreview(nextPosition, "business");
+      scheduleDropPinCardReveal();
       return;
     }
 
     if (!isSpecialMode && adding && addLocationMode === "dropPin") {
       resolveDroppedPinPreview(nextPosition, "addLocation");
+      scheduleDropPinCardReveal();
     }
-  }, [addLocationMode, adding, businessPickerMode, isBusinessLocationPicker, isSpecialMode, resolveDroppedPinPreview, updateAreaCountryFromPoint]);
+  }, [addLocationMode, adding, businessPickerMode, isBusinessLocationPicker, isSpecialMode, resolveDroppedPinPreview, scheduleDropPinCardReveal, updateAreaCountryFromPoint]);
 
   useEffect(() => {
     const incomingRoutePlan = initialDestination?.routePlan;
@@ -2599,14 +2618,10 @@ function BusinessLocationPickerChrome({
   const displayAddress = currentLocation ? getDisplayAddress(currentLocation) : "";
   const { collapse, collapsed, expand, toggle } = useAutoCollapseCard({
     enabled: isDropPin,
-    resetKey: [
-      mode,
-      busy ? "busy" : "ready",
-      status,
-      currentLocation?.address,
-      currentLocation?.lat,
-      currentLocation?.lng,
-    ].join("|"),
+    // Geocoding updates busy/status/location immediately after the drag ends.
+    // Resetting on those values would reopen the card before the requested
+    // four-second reveal timer. Only an actual picker-mode change resets it.
+    resetKey: mode,
   });
   const cardMotion = useMapCardCollapseTransition(collapsed);
 

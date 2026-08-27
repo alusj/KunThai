@@ -381,6 +381,11 @@ export function notifyBusinessPlanUpdated(surface, entityId) {
   window.dispatchEvent(new CustomEvent(BUSINESS_PLAN_UPDATED_EVENT, {
     detail: { surface: String(surface || "").toLowerCase(), entityId },
   }));
+  // A plan purchase spends Visibility Credits and can create a durable
+  // subscription notification. Refresh both shared surfaces immediately so
+  // the owner never has to reload another dashboard to see either change.
+  window.dispatchEvent(new CustomEvent("kuntai-visibility-credits-updated"));
+  window.dispatchEvent(new CustomEvent("kuntai-unified-notifications-updated"));
 }
 
 export function formatBusinessPlanDate(value) {
@@ -389,4 +394,3 @@ export function formatBusinessPlanDate(value) {
   if (Number.isNaN(date.getTime())) return "";
   return new Intl.DateTimeFormat(undefined, { month: "short", day: "numeric", year: "numeric" }).format(date);
 }
-

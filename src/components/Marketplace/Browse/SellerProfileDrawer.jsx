@@ -1,6 +1,6 @@
 import { useEffect, useMemo, useRef, useState } from "react";
 
-import { appendVisibilityReferral } from "../../../Backend/services/visibilityCreditService";
+import { decorateShareUrl } from "../../../Backend/services/visibilityCreditService";
 import { createPortal } from "react-dom";
 import {
   BadgeCheck,
@@ -87,12 +87,12 @@ function StarRatingInput({ value, onChange }) {
 
 function productLink(product) {
   const base = `${window.location.origin}${window.location.pathname}`;
-  return appendVisibilityReferral(`${base}#marketplace-product-${encodeURIComponent(product?.id || "unknown")}`);
+  return `${base}#marketplace-product-${encodeURIComponent(product?.id || "unknown")}`;
 }
 
 function sellerLink(seller) {
   const base = `${window.location.origin}${window.location.pathname}`;
-  return appendVisibilityReferral(`${base}#marketplace-seller-${encodeURIComponent(seller?.id || "unknown")}`);
+  return `${base}#marketplace-seller-${encodeURIComponent(seller?.id || "unknown")}`;
 }
 
 function asObject(value) {
@@ -1256,7 +1256,7 @@ export default function SellerProfileDrawer({
   }
 
   async function copyProduct(product) {
-    const link = productLink(product);
+    const link = await decorateShareUrl(productLink(product));
     try {
       if (!navigator.clipboard) throw new Error("Clipboard unavailable");
       await navigator.clipboard.writeText(link);
@@ -1269,7 +1269,7 @@ export default function SellerProfileDrawer({
   }
 
   async function shareProduct(product) {
-    const link = productLink(product);
+    const link = await decorateShareUrl(productLink(product));
     const productName = product?.name || t("urmall.seller.thisProduct");
     const sharePayload = {
       title: productName,
@@ -1291,7 +1291,7 @@ export default function SellerProfileDrawer({
   }
 
   async function shareSeller() {
-    const link = sellerLink(safeSeller);
+    const link = await decorateShareUrl(sellerLink(safeSeller));
     const payload = {
       title: sellerName,
       text: t("urmall.seller.shareSellerText", { name: sellerName }),

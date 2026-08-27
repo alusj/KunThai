@@ -4,6 +4,7 @@ import { readStoredProfile, writeStoredProfile } from "./explore/profileStorage"
 import { normalizeSocialLinks } from "./explore/socialLinks";
 import { getActiveCountryProfile, storeCountryContext } from "../../data/globalCountryProfiles";
 import { consumeOAuthFlow } from "./sessionService";
+import { getStoredVisibilityInviteCode } from "./visibilityCreditService";
 import {
   checkKunThaiIdentityAvailability,
   normalizeEmailForIdentity,
@@ -73,18 +74,25 @@ export function buildProfileFromUser(user) {
 
 async function finalizeOAuthRegistration(user) {
   const flow = consumeOAuthFlow();
-  if (!flow || flow.intent !== "signup") return user;
+  if (!flow) return user;
 
   const provider = user?.app_metadata?.provider || "";
   const createdAt = Date.parse(user?.created_at || "");
-  const firstProviderRegistration = ["google", "apple"].includes(flow.provider)
+  const metadata = user.user_metadata || {};
+  const hasOnboardingMetadata = Object.prototype.hasOwnProperty.call(metadata, "onboarding_complete")
+    || Object.prototype.hasOwnProperty.call(metadata, "onboarding_step");
+  const firstProviderRegistration = ["google", "apple", "facebook"].includes(flow.provider)
     && provider === flow.provider
     && Number.isFinite(createdAt)
-    && Date.now() - createdAt < 10 * 60 * 1000;
+    && Date.now() - createdAt < 10 * 60 * 1000
+    && !hasOnboardingMetadata;
 
   if (!firstProviderRegistration) return user;
 
-  const metadata = user.user_metadata || {};
+  // OAuth providers can create an account from either the Sign up or Sign in
+  // button. Persist the referral in auth metadata so verification/onboarding
+  // can finish on another tab or device without losing the inviter.
+  const inviteCode = metadata.visibility_invite_code || getStoredVisibilityInviteCode();
   const { data, error } = await supabase.auth.updateUser({
     data: {
       account_type: metadata.account_type || "personal",
@@ -93,6 +101,7 @@ async function finalizeOAuthRegistration(user) {
       onboarding_step: 1,
       registration_method: flow.provider,
       email_verified_by_provider: Boolean(user.email_confirmed_at),
+      ...(inviteCode ? { visibility_invite_code: inviteCode } : {}),
     },
   });
 

@@ -55,6 +55,7 @@ function getCategory(type) {
 }
 
 function notificationEnabled(item) {
+  if (["visibility_credit_reward", "visibility_invite_success"].includes(item.type)) return true;
   const settings = readExploreSettings().notifications;
   if (item.type === "like" || item.type === "save" || item.type === "share" || item.type === "reaction" || item.type === "repost") return settings.reactions;
   if (item.type === "comment" || item.type === "reply" || item.type === "creator_reply" || item.type === "thread_reply") return settings.comments;
