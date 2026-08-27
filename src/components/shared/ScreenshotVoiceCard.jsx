@@ -30,14 +30,14 @@ function formatLabel(value) {
 // Floating Your Voice card: the complete Your Voice form (type, category,
 // title, message, screenshot, and voice note) on the screen the user is
 // already on — no navigation to the Explore menu.
-export default function ScreenshotVoiceCard({ category, currentScreen, onClose }) {
+export default function ScreenshotVoiceCard({ category, currentScreen, initialScreenshot = null, onClose }) {
   const [form, setForm] = useState(() => ({
     feedbackType: "bug",
     category: CATEGORIES.includes(category) ? category : "other",
     title: i18nText("ui.literals.k1013e848df99", { value0: currentScreen }),
     message: "",
   }));
-  const [screenshot, setScreenshot] = useState(null);
+  const [screenshot, setScreenshot] = useState(() => initialScreenshot);
   const [screenshotPreview, setScreenshotPreview] = useState("");
   const [voiceNote, setVoiceNote] = useState(null);
   const [recording, setRecording] = useState(false);
@@ -191,7 +191,7 @@ export default function ScreenshotVoiceCard({ category, currentScreen, onClose }
   }
 
   return createPortal(
-    <div className="fixed inset-0 z-[1360] flex items-end justify-center overflow-hidden overscroll-none [contain:strict] px-4 pb-[calc(env(safe-area-inset-bottom)+1rem)] sm:items-center sm:pb-0">
+    <div data-kuntai-screenshot-ignore="true" className="fixed inset-0 z-[1360] flex items-end justify-center overflow-hidden overscroll-none [contain:strict] px-4 pb-[calc(env(safe-area-inset-bottom)+1rem)] sm:items-center sm:pb-0">
       <button
         type="button"
         aria-label={i18nText("ui.literals.ka4fd93cee736")}

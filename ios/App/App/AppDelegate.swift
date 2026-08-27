@@ -26,9 +26,29 @@ class AppDelegate: UIResponder, UIApplicationDelegate {
 
     private func notifyWebAppOfScreenshot() {
         guard let bridgeViewController = window?.rootViewController as? CAPBridgeViewController else { return }
+        let dataUrl = captureScreenshotDataUrl()
+        let detail: [String: String] = dataUrl.map { ["dataUrl": $0] } ?? [:]
+        guard let jsonData = try? JSONSerialization.data(withJSONObject: detail),
+              let json = String(data: jsonData, encoding: .utf8) else { return }
         bridgeViewController.webView?.evaluateJavaScript(
-            "window.dispatchEvent(new CustomEvent('kuntai-native-screenshot'))"
+            "window.dispatchEvent(new CustomEvent('kuntai-native-screenshot',{detail:\(json)}))"
         )
+    }
+
+    private func captureScreenshotDataUrl() -> String? {
+        guard let window, !window.bounds.isEmpty else { return nil }
+        let screenScale = UIScreen.main.scale
+        let widthScale = 1080 / max(window.bounds.width, 1)
+        let heightScale = 1920 / max(window.bounds.height, 1)
+        let format = UIGraphicsImageRendererFormat.default()
+        format.scale = max(1, min(screenScale, widthScale, heightScale))
+        format.opaque = true
+        let renderer = UIGraphicsImageRenderer(bounds: window.bounds, format: format)
+        let image = renderer.image { _ in
+            window.drawHierarchy(in: window.bounds, afterScreenUpdates: false)
+        }
+        guard let data = image.jpegData(compressionQuality: 0.84) else { return nil }
+        return "data:image/jpeg;base64," + data.base64EncodedString()
     }
 
     func applicationWillResignActive(_ application: UIApplication) {

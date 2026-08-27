@@ -2,9 +2,20 @@ package app.kunthai.mobile;
 
 import android.annotation.TargetApi;
 import android.app.Activity;
+import android.graphics.Bitmap;
 import android.os.Build;
+import android.os.Handler;
+import android.os.Looper;
+import android.util.Base64;
+import android.view.PixelCopy;
+import android.view.View;
+import android.webkit.WebView;
 
 import com.getcapacitor.BridgeActivity;
+
+import org.json.JSONObject;
+
+import java.io.ByteArrayOutputStream;
 
 public class MainActivity extends BridgeActivity {
     private ScreenCaptureObserver screenCaptureObserver;
@@ -30,8 +41,55 @@ public class MainActivity extends BridgeActivity {
 
     private void notifyWebAppOfScreenshot() {
         if (getBridge() == null || getBridge().getWebView() == null) return;
-        getBridge().getWebView().evaluateJavascript(
-            "window.dispatchEvent(new CustomEvent('kuntai-native-screenshot'))",
+        View root = getWindow().getDecorView();
+        int width = root.getWidth();
+        int height = root.getHeight();
+        if (width <= 0 || height <= 0) {
+            dispatchScreenshotEvent(null);
+            return;
+        }
+
+        Bitmap bitmap = Bitmap.createBitmap(width, height, Bitmap.Config.ARGB_8888);
+        PixelCopy.request(getWindow(), bitmap, result -> {
+            if (result != PixelCopy.SUCCESS) {
+                bitmap.recycle();
+                dispatchScreenshotEvent(null);
+                return;
+            }
+
+            String dataUrl = encodeScreenshot(bitmap);
+            bitmap.recycle();
+            dispatchScreenshotEvent(dataUrl);
+        }, new Handler(Looper.getMainLooper()));
+    }
+
+    private String encodeScreenshot(Bitmap bitmap) {
+        int maxWidth = 1080;
+        int maxHeight = 1920;
+        float scale = Math.min(1f, Math.min((float) maxWidth / bitmap.getWidth(), (float) maxHeight / bitmap.getHeight()));
+        Bitmap output = bitmap;
+        if (scale < 1f) {
+            output = Bitmap.createScaledBitmap(
+                bitmap,
+                Math.max(1, Math.round(bitmap.getWidth() * scale)),
+                Math.max(1, Math.round(bitmap.getHeight() * scale)),
+                true
+            );
+        }
+
+        ByteArrayOutputStream bytes = new ByteArrayOutputStream();
+        output.compress(Bitmap.CompressFormat.JPEG, 84, bytes);
+        if (output != bitmap) output.recycle();
+        return "data:image/jpeg;base64," + Base64.encodeToString(bytes.toByteArray(), Base64.NO_WRAP);
+    }
+
+    private void dispatchScreenshotEvent(String dataUrl) {
+        if (getBridge() == null) return;
+        WebView webView = getBridge().getWebView();
+        if (webView == null) return;
+        String detail = dataUrl == null ? "{}" : "{dataUrl:" + JSONObject.quote(dataUrl) + "}";
+        webView.evaluateJavascript(
+            "window.dispatchEvent(new CustomEvent('kuntai-native-screenshot',{detail:" + detail + "}))",
             null
         );
     }

@@ -43,6 +43,11 @@ import {
   shouldShowReturningUserIntro,
 } from "./Backend/services/returningUserIntroService";
 import { isStartupDestinationReady } from "./Backend/services/startupRevealService";
+import {
+  captureVisibleScreen,
+  readClipboardScreenshot,
+  resolveScreenshotAttachment,
+} from "./Backend/services/screenshotCaptureService";
 import { readDefaultMainPage } from "./Backend/services/mainDashboardPreference";
 import { lazyWithRetry } from "./Backend/utils/lazyWithRetry";
 import LazyRouteBoundary from "./components/shared/LazyRouteBoundary";
@@ -1101,8 +1106,12 @@ export default function App() {
 function ScreenshotVoicePrompt({ page }) {
   const [prompt, setPrompt] = useState({ open: false, closing: false, capturedAt: 0 });
   const [voiceCardOpen, setVoiceCardOpen] = useState(false);
+  const [capturedScreenshot, setCapturedScreenshot] = useState(null);
+  const [attachingScreenshot, setAttachingScreenshot] = useState(false);
   const hideTimerRef = useRef(null);
   const closeTimerRef = useRef(null);
+  const capturePromiseRef = useRef(Promise.resolve(null));
+  const preferClipboardRef = useRef(false);
   const blurAtRef = useRef(0);
   const hiddenAtRef = useRef(0);
   const lastRevealAtRef = useRef(0);
@@ -1114,11 +1123,13 @@ function ScreenshotVoicePrompt({ page }) {
   }, []);
 
   useEffect(() => {
-    function revealPrompt() {
+    function revealPrompt({ dataUrl = "", preferClipboard = false } = {}) {
       const now = Date.now();
       if (now < suppressUntilRef.current) return;
       if (now - lastRevealAtRef.current < 1_200) return;
       lastRevealAtRef.current = now;
+      preferClipboardRef.current = preferClipboard;
+      capturePromiseRef.current = resolveScreenshotAttachment({ capturedAt: now, dataUrl });
       window.clearTimeout(hideTimerRef.current);
       window.clearTimeout(closeTimerRef.current);
       setPrompt({ open: true, closing: false, capturedAt: now });
@@ -1140,11 +1151,11 @@ function ScreenshotVoicePrompt({ page }) {
       const key = String(event.key || "").toLowerCase();
       const printScreen = key === "printscreen";
       const desktopScreenshotCombo = (event.metaKey || event.ctrlKey) && event.shiftKey && ["3", "4", "5", "s"].includes(key);
-      if (printScreen || desktopScreenshotCombo) revealPrompt();
+      if (printScreen || desktopScreenshotCombo) revealPrompt({ preferClipboard: true });
     }
 
     function handleKeyUp(event) {
-      if (String(event.key || "").toLowerCase() === "printscreen") revealPrompt();
+      if (String(event.key || "").toLowerCase() === "printscreen") revealPrompt({ preferClipboard: true });
     }
 
     function handleBlur() {
@@ -1171,8 +1182,8 @@ function ScreenshotVoicePrompt({ page }) {
       suppressUntilRef.current = Math.max(suppressUntilRef.current, Date.now() + duration);
     }
 
-    function handleNativeScreenshot() {
-      revealPrompt();
+    function handleNativeScreenshot(event) {
+      revealPrompt({ dataUrl: event.detail?.dataUrl || "" });
     }
 
     window.addEventListener("keydown", handleKeyDown);
@@ -1209,18 +1220,32 @@ function ScreenshotVoicePrompt({ page }) {
       <ScreenshotVoiceCard
         category={category}
         currentScreen={currentScreen}
-        onClose={() => setVoiceCardOpen(false)}
+        initialScreenshot={capturedScreenshot}
+        onClose={() => {
+          setVoiceCardOpen(false);
+          setCapturedScreenshot(null);
+        }}
       />
     );
   }
 
   if (!prompt.open) return null;
 
-  function addToYourVoice() {
+  async function addToYourVoice() {
+    if (attachingScreenshot) return;
+    setAttachingScreenshot(true);
     window.clearTimeout(hideTimerRef.current);
     window.clearTimeout(closeTimerRef.current);
+    let screenshot = null;
+    if (preferClipboardRef.current) {
+      screenshot = await readClipboardScreenshot(prompt.capturedAt);
+    }
+    screenshot = screenshot || await capturePromiseRef.current;
+    screenshot = screenshot || await captureVisibleScreen(prompt.capturedAt);
+    setCapturedScreenshot(screenshot);
     setPrompt({ open: false, closing: false, capturedAt: 0 });
     setVoiceCardOpen(true);
+    setAttachingScreenshot(false);
   }
 
   function dismiss() {
@@ -1232,12 +1257,14 @@ function ScreenshotVoicePrompt({ page }) {
   }
 
   return (
-    <div className="pointer-events-none fixed inset-x-0 bottom-[calc(env(safe-area-inset-bottom)+5.25rem)] z-[1350] flex justify-center px-4 sm:bottom-5">
+    <div data-kuntai-screenshot-ignore="true" className="pointer-events-none fixed inset-0 z-[1350] flex items-center justify-center px-4">
       <div className={`${motionClass} pointer-events-auto flex w-full max-w-sm items-center gap-2 rounded-[24px] border border-sky-100 bg-white/95 p-2 shadow-2xl shadow-slate-950/18 backdrop-blur-xl`}>
         <button
           type="button"
           onClick={addToYourVoice}
-          className="kt-pressable flex min-w-0 flex-1 items-center gap-3 rounded-[20px] bg-slate-950 px-3 py-3 text-left text-white"
+          disabled={attachingScreenshot}
+          aria-busy={attachingScreenshot}
+          className="kt-pressable flex min-w-0 flex-1 items-center gap-3 rounded-[20px] bg-slate-950 px-3 py-3 text-left text-white disabled:opacity-70"
         >
           <span className="grid h-10 w-10 flex-none place-items-center rounded-2xl bg-sky-400 text-slate-950">
             <HiOutlineCamera className="text-xl" />
