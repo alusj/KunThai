@@ -20,10 +20,10 @@ test("keeps Login hidden until session restoration has definitively completed", 
   assert.equal(isStartupDestinationReady({ authLoading: false, hasUser: false }), true);
 });
 
-test("keeps onboarding and dashboard skeletons hidden while account state resolves", () => {
+test("keeps unresolved account routing hidden but allows the dashboard skeleton", () => {
   assert.equal(isStartupDestinationReady({ ...returningAccount, onboardingChecked: false }), false);
   assert.equal(isStartupDestinationReady({ ...returningAccount, onboardingLoading: true }), false);
-  assert.equal(isStartupDestinationReady({ ...returningAccount, activePageReady: false }), false);
+  assert.equal(isStartupDestinationReady({ ...returningAccount, activePageReady: false }), true);
 });
 
 test("reveals only stable authenticated destinations", () => {
@@ -45,10 +45,10 @@ test("reveals only stable authenticated destinations", () => {
   );
 });
 
-test("waits for the active dashboard before revealing a guest visit", () => {
+test("reveals the matching dashboard skeleton immediately for a guest visit", () => {
   assert.equal(
     isStartupDestinationReady({ authLoading: false, hasUser: true, guestSession: true }),
-    false,
+    true,
   );
   assert.equal(
     isStartupDestinationReady({

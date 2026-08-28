@@ -1,12 +1,31 @@
 /*
- * KunThai service worker: push notifications only.
- * App code stays network-only so a stale cache can never break deployments.
+ * KunThai service worker: push notifications plus a tiny immutable startup
+ * cache. App code stays network-only so a stale cache can never break
+ * deployments; only the launch logo/manifest icons are cache-first.
  * Area View map tiles are the narrow exception: caching immutable tile images
  * makes recently travelled areas redraw immediately on weak connections.
  */
 
 const AREA_TILE_CACHE = "kunthai-area-tiles-v1";
 const AREA_TILE_CACHE_LIMIT = 280;
+const STARTUP_ASSET_CACHE = "kunthai-startup-assets-v1";
+const STARTUP_ASSETS = [
+  "/brand/kunthai-launch-logo.webp",
+  "/icons/kunthai-192.png",
+  "/icons/kunthai-512.png",
+  "/manifest.webmanifest",
+];
+const STARTUP_ASSET_PATHS = new Set(STARTUP_ASSETS);
+
+function isStartupAssetRequest(request) {
+  if (request.method !== "GET") return false;
+  try {
+    const url = new URL(request.url);
+    return url.origin === self.location.origin && STARTUP_ASSET_PATHS.has(url.pathname);
+  } catch {
+    return false;
+  }
+}
 
 function isAreaTileRequest(request) {
   if (request.method !== "GET") return false;
@@ -24,12 +43,24 @@ async function trimAreaTileCache(cache) {
   await Promise.all(keys.slice(0, keys.length - AREA_TILE_CACHE_LIMIT).map((key) => cache.delete(key)));
 }
 
-self.addEventListener("install", () => {
-  self.skipWaiting();
+self.addEventListener("install", (event) => {
+  event.waitUntil((async () => {
+    const cache = await caches.open(STARTUP_ASSET_CACHE);
+    await cache.addAll(STARTUP_ASSETS);
+    await self.skipWaiting();
+  })());
 });
 
 self.addEventListener("activate", (event) => {
-  event.waitUntil(self.clients.claim());
+  event.waitUntil((async () => {
+    const keys = await caches.keys();
+    await Promise.all(
+      keys
+        .filter((key) => key.startsWith("kunthai-startup-assets-") && key !== STARTUP_ASSET_CACHE)
+        .map((key) => caches.delete(key)),
+    );
+    await self.clients.claim();
+  })());
 });
 
 // Post outbox Background Sync (Phase 1). When the browser wakes us on reconnect,
@@ -51,6 +82,19 @@ self.addEventListener("sync", (event) => {
 });
 
 self.addEventListener("fetch", (event) => {
+  if (isStartupAssetRequest(event.request)) {
+    event.respondWith((async () => {
+      const cache = await caches.open(STARTUP_ASSET_CACHE);
+      const cached = await cache.match(event.request, { ignoreSearch: true });
+      if (cached) return cached;
+
+      const response = await fetch(event.request);
+      if (response?.ok) event.waitUntil(cache.put(event.request, response.clone()));
+      return response;
+    })());
+    return;
+  }
+
   if (!isAreaTileRequest(event.request)) return;
 
   event.respondWith((async () => {

@@ -51,6 +51,7 @@ import {
 import { readDefaultMainPage } from "./Backend/services/mainDashboardPreference";
 import { lazyWithRetry } from "./Backend/utils/lazyWithRetry";
 import LazyRouteBoundary from "./components/shared/LazyRouteBoundary";
+import AppStartupSkeleton from "./components/shared/AppStartupSkeleton";
 import supabase from "./Backend/lib/supabaseClient";
 import { t as i18nText } from "./i18n/index";
 
@@ -190,7 +191,7 @@ function readStoredMarketplaceNav() {
   return { root: "marketplace", sub: null };
 }
 
-function AppLoading({ page = "explore" }) {
+function AppLoading({ page = "explore", marketplaceSub = "" }) {
   const [showPatienceNotice, setShowPatienceNotice] = useState(false);
   const [offline, setOffline] = useState(() => typeof navigator !== "undefined" && navigator.onLine === false);
   // Distinguishes a genuine connectivity fault from a page that is merely slow
@@ -240,42 +241,29 @@ function AppLoading({ page = "explore" }) {
 
   const networkFault = offline || connectivityFault;
 
-  return (
-    <div className="kt-mobile-viewport bg-slate-100">
-      {/* A neutral header bar stands in for the real header. The old EXPLORE /
-          URMALL / URRIDE title pill was removed — it only labelled the wait
-          without representing any real UI. */}
-      <div className="sticky top-0 z-30 h-16 border-b border-slate-200 bg-white" aria-hidden="true" />
-
-      <div className="space-y-4 px-4 py-4">
-        {showPatienceNotice ? (
-          <div className="kt-route-transition rounded-2xl border border-sky-200 bg-sky-50 px-4 py-4 text-center shadow-sm">
-            <p className="text-sm font-black text-slate-950">
-              {offline ? i18nText("ui.literals.k78bc44dac752") : networkFault ? i18nText("ui.literals.k5668eeef0e08") : i18nText("ui.literals.k28f19756579e")}
-            </p>
-            <p className="mt-1 text-sm font-semibold leading-6 text-slate-600">
-              {networkFault
-                ? i18nText("ui.literals.k4955eabca5a9")
-                : i18nText("ui.literals.ke92c26e43495")}
-            </p>
-          </div>
-        ) : null}
-        {page === "explore" ? (
-          // Explore shows only the tab rail while loading: fake post cards and
-          // header icons made the skeleton feel heavier than the real screen.
-          <div className="grid grid-cols-3 gap-2">
-            {[1, 2, 3].map((item) => (
-              <div key={item} className="h-12 animate-pulse rounded-[20px] bg-white" />
-            ))}
-          </div>
-        ) : null}
-        {!navigator.onLine ? (
-          <div className="rounded-2xl border border-amber-200 bg-amber-50 px-4 py-3 text-sm font-bold text-amber-800">
-            {i18nText("ui.literals.kd1d9af29fa05")} {page} {i18nText("ui.literals.k0ba189b0877f")}
-          </div>
-        ) : null}
-      </div>
+  const notice = showPatienceNotice ? (
+    <div className="kt-route-transition rounded-2xl border border-sky-200 bg-sky-50 px-4 py-4 text-center shadow-sm">
+      <p className="text-sm font-black text-slate-950">
+        {offline ? i18nText("ui.literals.k78bc44dac752") : networkFault ? i18nText("ui.literals.k5668eeef0e08") : i18nText("ui.literals.k28f19756579e")}
+      </p>
+      <p className="mt-1 text-sm font-semibold leading-6 text-slate-600">
+        {networkFault
+          ? i18nText("ui.literals.k4955eabca5a9")
+          : i18nText("ui.literals.ke92c26e43495")}
+      </p>
     </div>
+  ) : offline ? (
+    <div className="rounded-2xl border border-amber-200 bg-amber-50 px-4 py-3 text-sm font-bold text-amber-800">
+      {i18nText("ui.literals.kd1d9af29fa05")} {page} {i18nText("ui.literals.k0ba189b0877f")}
+    </div>
+  ) : null;
+
+  return (
+    <AppStartupSkeleton
+      page={page}
+      marketplaceSub={marketplaceSub}
+      notice={notice}
+    />
   );
 }
 
@@ -336,7 +324,6 @@ export default function App() {
   // first-time / logged-out user heading to the signup screen starts with none.
   const [startupIntroOpen, setStartupIntroOpen] = useState(hasStoredAuthSession);
   const [returningIntroOpen, setReturningIntroOpen] = useState(false);
-  const [activePageReady, setActivePageReady] = useState(() => PRELOADED_MAIN_PAGES.has(page));
   const appGestureRef = useRef(null);
   const pagePanelRef = useRef(null);
   const userId = user?.id || "";
@@ -572,21 +559,11 @@ export default function App() {
   }, []);
 
   useEffect(() => {
-    let active = true;
-    if (!PRELOADED_MAIN_PAGES.has(page)) setActivePageReady(false);
-
     Promise.resolve(PAGE_LOADERS[page]?.())
       .then(() => PRELOADED_MAIN_PAGES.add(page))
       .catch(() => {
         // Suspense and the root error boundary own the visible retry path.
-      })
-      .finally(() => {
-        if (active) setActivePageReady(true);
       });
-
-    return () => {
-      active = false;
-    };
   }, [page]);
 
   useEffect(() => {
@@ -768,7 +745,6 @@ export default function App() {
   }, [page]);
 
   const startupDestinationReady = isStartupDestinationReady({
-    activePageReady,
     authLoading: loading,
     guestSession,
     hasUser: Boolean(user),
@@ -789,10 +765,11 @@ export default function App() {
             // A stable key per mode: including userId here used to remount the
             // splash the instant auth resolved, restarting its minimum-hold
             // timer (and reloading the logo) from that later point — which made
-            // it linger. Mounting once at boot lets the hold run from boot and
-            // only flips `ready` via props as the destination settles.
+            // it linger. Mounting once at boot lets its fixed launch window
+            // continue from the first HTML paint instead of restarting here.
             key={startupIntroOpen ? "startup" : "returning"}
             ready={startupIntroOpen ? startupDestinationReady : true}
+            continuousFromBoot={startupIntroOpen}
             onComplete={handleIntroComplete}
           />
         ) : null}
@@ -800,27 +777,22 @@ export default function App() {
     );
   }
 
-  // While auth is still resolving we do not yet know whether this leads to the
-  // login screen, onboarding, or the app - so show a plain backdrop rather than
-  // the app skeleton, which never matches the login or onboarding screens.
+  // A stored returning session gets its last dashboard shell immediately while
+  // local auth restores. Logged-out first visits keep a neutral backdrop until
+  // Login is known to be the real destination.
   if (loading) {
     return withStartupIntro(
-      <div className="kt-mobile-viewport bg-slate-100" aria-label={i18nText("ui.literals.k721d964bf95b")} />,
+      startupIntroOpen
+        ? <AppLoading page={page} marketplaceSub={marketplaceNav.sub || ""} />
+        : <div className="kt-mobile-viewport bg-slate-100" aria-label={i18nText("ui.literals.k721d964bf95b")} />,
     );
   }
 
   if (user && !guestSession && (!onboardingChecked || onboardingLoading) && !onboardingReveal) {
-    // Users heading into onboarding get the onboarding backdrop; only a
-    // returning, onboarded user waiting for their page keeps the app skeleton.
-    if (!user.user_metadata?.onboarding_complete) {
-      return withStartupIntro(
-        <div
-          className="kt-mobile-viewport bg-[linear-gradient(180deg,#f7fafc_0%,#eff6ff_28%,#f8fafc_100%)]"
-          aria-label={i18nText("ui.literals.k1467547ea632")}
-        />,
-      );
-    }
-    return withStartupIntro(<AppLoading page={page} />);
+    // Keep a useful shell visible even when the profile check is offline. If
+    // this is an incomplete account, OnboardingFlow replaces it once the local
+    // account route resolves.
+    return withStartupIntro(<AppLoading page={page} marketplaceSub={marketplaceNav.sub || ""} />);
   }
   if (!user) {
     return withStartupIntro(<Login />);
@@ -1039,10 +1011,10 @@ export default function App() {
     >
       <PageTransition active className="kt-mobile-viewport">
         <LazyRouteBoundary
-          fallback={<AppLoading page={page} />}
+          fallback={<AppLoading page={page} marketplaceSub={marketplaceNav.sub || ""} />}
           onRecover={() => setChunkReloadKey((key) => key + 1)}
         >
-        <Suspense fallback={<AppLoading page={page} />}>
+        <Suspense fallback={<AppLoading page={page} marketplaceSub={marketplaceNav.sub || ""} />}>
           {page === "explore" ? (
             <section className={pagePanelClass("explore")} aria-hidden={false}>
               <Explore

@@ -910,8 +910,31 @@
 }
 
 .kt-returning-intro--leaving .kt-returning-intro__panel {
-  animation: kt-returning-panel-drop 440ms cubic-bezier(0.55, 0.06, 0.82, 0.28) both;
+  animation: kt-returning-panel-drop 280ms cubic-bezier(0.4, 0, 1, 1) both;
   will-change: transform;
+}
+
+.kt-startup-shimmer {
+  position: relative;
+  overflow: hidden;
+  background: #e2e8f0;
+}
+
+.kt-startup-shimmer::after {
+  position: absolute;
+  inset: 0;
+  content: "";
+  background: linear-gradient(100deg, transparent 18%, rgb(255 255 255 / 0.72) 46%, transparent 74%);
+  transform: translate3d(-120%, 0, 0);
+  animation: kt-startup-shimmer 1.35s ease-in-out infinite;
+}
+
+.dark .kt-startup-shimmer {
+  background: #1e293b;
+}
+
+.dark .kt-startup-shimmer::after {
+  background: linear-gradient(100deg, transparent 18%, rgb(71 85 105 / 0.46) 46%, transparent 74%);
 }
 
 @keyframes kt-returning-logo-in {
@@ -920,9 +943,24 @@
 }
 
 @keyframes kt-returning-panel-drop {
-  0% { transform: translate3d(0, 0, 0); }
-  18% { transform: translate3d(0, -0.8%, 0); }
-  100% { transform: translate3d(0, 105%, 0); }
+  from { opacity: 1; transform: scale(1); }
+  to { opacity: 0; transform: scale(1.035); }
+}
+
+@keyframes kt-startup-shimmer {
+  to { transform: translate3d(120%, 0, 0); }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .kt-startup-shimmer::after,
+  .kt-returning-intro__logo,
+  .kt-returning-intro--leaving .kt-returning-intro__panel {
+    animation: none;
+  }
+
+  .kt-returning-intro--leaving .kt-returning-intro__panel {
+    opacity: 0;
+  }
 }
 
 @keyframes radarFloat {

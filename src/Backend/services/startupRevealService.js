@@ -1,10 +1,8 @@
 export function isStartupDestinationReady({
-  activePageReady = false,
   authLoading = true,
   guestSession = false,
   hasUser = false,
   onboardingChecked = false,
-  onboardingComplete = false,
   onboardingLoading = false,
   twoFactorChallengeRequired = null,
   twoFactorPassed = false,
@@ -15,9 +13,9 @@ export function isStartupDestinationReady({
   // destination. Before that point it must stay hidden behind the launch mark.
   if (!hasUser) return true;
 
-  // Guests have no onboarding or 2FA gate, but their dashboard chunk should be
-  // available before the launch layer leaves.
-  if (guestSession) return activePageReady;
+  // Guests have no onboarding or 2FA gate. The dashboard-shaped Suspense shell
+  // is a valid first frame while its chunk finishes locally.
+  if (guestSession) return true;
 
   if (!onboardingChecked || onboardingLoading) return false;
   if (twoFactorChallengeRequired === null) return false;
@@ -26,7 +24,8 @@ export function isStartupDestinationReady({
   if (twoFactorChallengeRequired) return true;
   if (!twoFactorPassed) return false;
 
-  // Onboarding is eagerly loaded. Completed accounts additionally wait for the
-  // chosen dashboard chunk so the intro never collapses onto a skeleton.
-  return onboardingComplete ? activePageReady : true;
+  // Onboarding is eagerly loaded. A completed account may reveal its matching
+  // dashboard skeleton immediately; cached content replaces it as soon as the
+  // chunk mounts, without holding the brand splash over the wait.
+  return true;
 }
