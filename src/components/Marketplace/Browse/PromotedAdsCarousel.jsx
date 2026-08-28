@@ -28,18 +28,11 @@ const SLIDE_TRANSITION = "transform 620ms cubic-bezier(0.22, 1, 0.36, 1)";
 // The card floats (sticky) so it stays visible while the header and the rest of
 // the catalog scroll behind it, and manual swipes are contained here so they
 // never bubble up to the app-level page swipe (Explore / UrRide).
-// Longest we will ever show the skeleton on our own before giving up, so a
-// hung promoted-products request can never freeze the sponsored card in the
-// loading state (the reported "stuck skeleton" bug). The dashboard's readiness
-// clears it sooner in the normal case.
-const MAX_SKELETON_MS = 8000;
-
-export default function PromotedAdsCarousel({ onProductSelect, dashboardLoading }) {
+export default function PromotedAdsCarousel({ onProductSelect }) {
   const { t } = useI18n();
   const [ads, setAds] = useState(() => (
     readCachedPromotedMarketplaceProducts(PROMOTED_CAROUSEL_FETCH_LIMIT).filter((product) => product.imageUrl)
   ));
-  const [loading, setLoading] = useState(() => ads.length === 0);
   const [activeIndex, setActiveIndex] = useState(0);
   const [dragPx, setDragPx] = useState(0);
   const [dragging, setDragging] = useState(false);
@@ -60,8 +53,6 @@ export default function PromotedAdsCarousel({ onProductSelect, dashboardLoading 
       setAds((current) => current.length
         ? current
         : readCachedPromotedMarketplaceProducts(PROMOTED_CAROUSEL_FETCH_LIMIT, { allowStale: true }).filter((product) => product.imageUrl));
-    } finally {
-      setLoading(false);
     }
   }, []);
 
@@ -71,13 +62,6 @@ export default function PromotedAdsCarousel({ onProductSelect, dashboardLoading 
     window.addEventListener("marketplace-products-updated", handleProductsUpdated);
     return () => window.removeEventListener("marketplace-products-updated", handleProductsUpdated);
   }, [loadAds]);
-
-  // Safety net: never let the skeleton outlive a hung request.
-  useEffect(() => {
-    if (!loading) return undefined;
-    const timer = window.setTimeout(() => setLoading(false), MAX_SKELETON_MS);
-    return () => window.clearTimeout(timer);
-  }, [loading]);
 
   useEffect(() => {
     // Warm the exact resized URLs rendered below, all at once. Preloading the
@@ -104,28 +88,7 @@ export default function PromotedAdsCarousel({ onProductSelect, dashboardLoading 
     return () => window.clearInterval(timer);
   }, [canSlide, maxIndex, paused]);
 
-  // The sponsored card follows the dashboard: it only shows a skeleton while the
-  // dashboard itself is still loading its content (falling back to the card's own
-  // fetch state when this carousel is used standalone). Once the dashboard has
-  // rendered, the card either shows its ad or quietly disappears — it never
-  // lingers on a skeleton after the rest of the page has loaded.
-  const stillLoading = Boolean(dashboardLoading || loading);
-
-  if (!ads.length && !stillLoading) return null;
-
-  if (!ads.length) {
-    return (
-      <section
-        aria-label={t("urmall.browse.promotedAria")}
-        aria-busy="true"
-        className="sticky top-[calc(var(--urmall-sticky-header-height,0px)+0.5rem)] z-20 overflow-hidden rounded-2xl border border-slate-200 bg-white p-3 shadow-sm"
-      >
-        <div className="relative aspect-[21/9] w-full animate-pulse overflow-hidden rounded-[18px] bg-slate-100 sm:aspect-[3/1]">
-          <span className="absolute left-3 top-3 h-5 w-20 rounded-full bg-slate-200" />
-        </div>
-      </section>
-    );
-  }
+  if (!ads.length) return null;
 
   function goTo(index) {
     setActiveIndex(Math.min(Math.max(index, 0), maxIndex));

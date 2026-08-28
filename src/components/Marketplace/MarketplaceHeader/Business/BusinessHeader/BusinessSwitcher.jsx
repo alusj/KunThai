@@ -68,7 +68,6 @@ export default function BusinessSwitcher({ activeBusinessId, businesses = [], on
   const [open, setOpen] = useState(false);
   const attention = useOtherBusinessAttention(businesses, activeBusinessId);
   useBodyScrollLock(open);
-  if (businesses.length < 2) return null;
 
   const attentionTotal = attention.total;
 

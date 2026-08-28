@@ -1,7 +1,10 @@
 import { useCallback, useEffect, useRef, useState } from "react";
 
 import { fetchSellerOverview } from "../services/marketplace/sellerOverviewService";
-import { MARKETPLACE_BUSINESS_CHANGED_EVENT } from "../services/marketplace/sellerRegistrationService";
+import {
+  MARKETPLACE_BUSINESS_CHANGED_EVENT,
+  readCachedActiveRegisteredBusinessId,
+} from "../services/marketplace/sellerRegistrationService";
 
 const DEFAULT_OVERVIEW = {
   business: null,
@@ -14,17 +17,35 @@ const DEFAULT_OVERVIEW = {
 const SELLER_OVERVIEW_MEMORY = {
   overview: null,
   savedAt: 0,
+  byBusiness: new Map(),
 };
 const OVERVIEW_STORAGE_KEY = "kunthai.sellerOverview";
+const MAX_CACHED_BUSINESSES = 8;
 
 // Rehydrate the last seller overview across reloads so the dashboard opens with
 // real numbers instead of a skeleton or zeroed stats; a silent refresh follows.
 if (typeof localStorage !== "undefined" && !SELLER_OVERVIEW_MEMORY.overview) {
   try {
     const stored = JSON.parse(localStorage.getItem(OVERVIEW_STORAGE_KEY) || "null");
-    if (stored?.overview?.business) {
-      SELLER_OVERVIEW_MEMORY.overview = stored.overview;
-      SELLER_OVERVIEW_MEMORY.savedAt = Number(stored.savedAt || 0);
+    const entries = Array.isArray(stored?.entries)
+      ? stored.entries
+      : stored?.overview?.business?.id
+        ? [{ businessId: stored.overview.business.id, overview: stored.overview, savedAt: stored.savedAt }]
+        : [];
+    entries.forEach((entry) => {
+      if (!entry?.businessId || !entry?.overview?.business) return;
+      SELLER_OVERVIEW_MEMORY.byBusiness.set(entry.businessId, {
+        overview: entry.overview,
+        savedAt: Number(entry.savedAt || 0),
+      });
+    });
+    const activeBusinessId = readCachedActiveRegisteredBusinessId();
+    const preferred = activeBusinessId
+      ? SELLER_OVERVIEW_MEMORY.byBusiness.get(activeBusinessId)
+      : [...SELLER_OVERVIEW_MEMORY.byBusiness.values()].sort((a, b) => b.savedAt - a.savedAt)[0];
+    if (preferred) {
+      SELLER_OVERVIEW_MEMORY.overview = preferred.overview;
+      SELLER_OVERVIEW_MEMORY.savedAt = preferred.savedAt;
     }
   } catch {
     // Stored overview is an optimization only.
@@ -33,23 +54,34 @@ if (typeof localStorage !== "undefined" && !SELLER_OVERVIEW_MEMORY.overview) {
 
 function persistOverviewCache() {
   try {
+    const entries = [...SELLER_OVERVIEW_MEMORY.byBusiness.entries()]
+      .map(([businessId, entry]) => ({ businessId, ...entry }))
+      .sort((first, second) => second.savedAt - first.savedAt)
+      .slice(0, MAX_CACHED_BUSINESSES);
     localStorage.setItem(
       OVERVIEW_STORAGE_KEY,
-      JSON.stringify({ overview: SELLER_OVERVIEW_MEMORY.overview, savedAt: SELLER_OVERVIEW_MEMORY.savedAt }),
+      JSON.stringify({ entries }),
     );
   } catch {
     // Storage may be unavailable; the in-memory cache still applies.
   }
 }
 
-function clearOverviewCache() {
-  SELLER_OVERVIEW_MEMORY.overview = null;
-  SELLER_OVERVIEW_MEMORY.savedAt = 0;
-  try {
-    localStorage.removeItem(OVERVIEW_STORAGE_KEY);
-  } catch {
-    // Storage cleanup is best-effort.
-  }
+function activateOverviewCache(businessId) {
+  const entry = businessId ? SELLER_OVERVIEW_MEMORY.byBusiness.get(businessId) : null;
+  SELLER_OVERVIEW_MEMORY.overview = entry?.overview || null;
+  SELLER_OVERVIEW_MEMORY.savedAt = Number(entry?.savedAt || 0);
+  return entry?.overview || null;
+}
+
+function rememberOverview(overview) {
+  const businessId = overview?.business?.id;
+  if (!businessId) return;
+  const savedAt = Date.now();
+  SELLER_OVERVIEW_MEMORY.overview = overview;
+  SELLER_OVERVIEW_MEMORY.savedAt = savedAt;
+  SELLER_OVERVIEW_MEMORY.byBusiness.set(businessId, { overview, savedAt });
+  persistOverviewCache();
 }
 
 function normalizeOverview(overview) {
@@ -79,8 +111,14 @@ export function useSellerOverview({ enabled = true } = {}) {
       return;
     }
 
-    const cachedOverview = SELLER_OVERVIEW_MEMORY.overview;
-    const hasCachedOverview = hasOverviewData(cachedOverview) || hasOverviewData(overviewRef.current);
+    const targetBusinessId = readCachedActiveRegisteredBusinessId();
+    const cachedOverview = targetBusinessId
+      ? SELLER_OVERVIEW_MEMORY.byBusiness.get(targetBusinessId)?.overview || null
+      : SELLER_OVERVIEW_MEMORY.overview;
+    const currentOverview = overviewRef.current?.business?.id === targetBusinessId
+      ? overviewRef.current
+      : null;
+    const hasCachedOverview = hasOverviewData(cachedOverview) || hasOverviewData(currentOverview);
 
     if (cachedOverview && isActive()) {
       setOverview(cachedOverview);
@@ -96,10 +134,9 @@ export function useSellerOverview({ enabled = true } = {}) {
 
     try {
       const nextOverview = normalizeOverview(await fetchSellerOverview());
-      SELLER_OVERVIEW_MEMORY.overview = nextOverview;
-      SELLER_OVERVIEW_MEMORY.savedAt = Date.now();
-      persistOverviewCache();
-      if (isActive()) {
+      rememberOverview(nextOverview);
+      const latestTargetId = readCachedActiveRegisteredBusinessId();
+      if (isActive() && (!latestTargetId || nextOverview.business?.id === latestTargetId)) {
         setOverview(nextOverview);
       }
     } catch {
@@ -142,9 +179,13 @@ export function useSellerOverview({ enabled = true } = {}) {
       loadOverview(() => true);
     }
 
-    function handleBusinessChanged() {
-      clearOverviewCache();
-      setOverview(DEFAULT_OVERVIEW);
+    function handleBusinessChanged(event) {
+      const businessId = event.detail?.businessId || readCachedActiveRegisteredBusinessId();
+      const cachedOverview = activateOverviewCache(businessId);
+      overviewRef.current = cachedOverview || DEFAULT_OVERVIEW;
+      setOverview(cachedOverview || DEFAULT_OVERVIEW);
+      setLoading(!hasOverviewData(cachedOverview));
+      setRefreshing(Boolean(cachedOverview));
       loadOverview(() => true);
     }
 

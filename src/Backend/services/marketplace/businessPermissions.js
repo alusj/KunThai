@@ -6,9 +6,11 @@
 //   - addProducts     → create/edit listings and browse the store catalog
 //   - messageReplies  → open and reply to buyer messages
 //   - dashboardAccess → see orders, sales, activity, and the Seller Board
+//   - editBusiness    → edit the public profile, locations, categories, and hours
 //
-// Store-level management (settings, payouts, admins, deletion, adding another
-// business) stays owner-only. Owners may explicitly delegate plans/capacity.
+// Sensitive store management (payouts, admins, deletion) stays owner-only.
+// Every account may create its own business, and owners may explicitly delegate
+// profile editing or plans/capacity.
 
 export function getBusinessPermissions(business) {
   const role = business?.role || "owner";
@@ -18,6 +20,7 @@ export function getBusinessPermissions(business) {
   const canAddProducts = !isAdmin || Boolean(responsibilities.addProducts);
   const canReplyMessages = !isAdmin || Boolean(responsibilities.messageReplies);
   const canAccessDashboard = !isAdmin || Boolean(responsibilities.dashboardAccess);
+  const canEditBusiness = !isAdmin || Boolean(responsibilities.editBusiness);
   const canManagePlans = !isAdmin || Boolean(responsibilities.manageBilling);
 
   return {
@@ -27,11 +30,12 @@ export function getBusinessPermissions(business) {
     canAddProducts,
     canReplyMessages,
     canAccessDashboard,
+    canEditBusiness,
     // Owner-only store administration.
     canManageBusiness: !isAdmin,
     canManagePlans,
     // Whether this admin has at least one responsibility to act on.
-    hasAnyAccess: !isAdmin || canAddProducts || canReplyMessages || canAccessDashboard || canManagePlans,
+    hasAnyAccess: !isAdmin || canAddProducts || canReplyMessages || canAccessDashboard || canEditBusiness || canManagePlans,
   };
 }
 

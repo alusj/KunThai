@@ -102,7 +102,11 @@ export default function ToastProvider({ children }) {
   return (
     <>
       {children}
-      <div className="pointer-events-none fixed inset-x-0 top-[calc(env(safe-area-inset-top)+0.75rem)] z-[1200] flex flex-col items-center gap-2 px-3 sm:top-5">
+      {/* Full-screen product and map surfaces reach z-1600. Keep contextual
+          feedback above those surfaces so an Area View action is visibly
+          acknowledged on the map that produced it, not on the dashboard
+          underneath. Critical image/system overlays still sit above this. */}
+      <div className="pointer-events-none fixed inset-x-0 top-[calc(env(safe-area-inset-top)+0.75rem)] z-[1700] flex flex-col items-center gap-2 px-3 sm:top-5">
         {items.map((item, index) => {
           const tone = tones[item.tone] || tones.info;
           const Icon = tone.icon;

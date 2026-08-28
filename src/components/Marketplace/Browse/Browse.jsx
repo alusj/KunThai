@@ -556,7 +556,7 @@ export default function Browse({ activeTab = "new", onProductModeChange, onClose
       <PullToRefresh className="space-y-4" onRefresh={() => loadProductsRef.current?.()} disabled={detailOpen || sellerOpen}>
       {/* The advert slider stays in the flow; the search/filter card now drops
           from the header search icon as an attached popover (below). */}
-      <PromotedAdsCarousel onProductSelect={openPromotedAd} dashboardLoading={loading} />
+      <PromotedAdsCarousel onProductSelect={openPromotedAd} />
 
       {priorityCategory ? (
         <div className="flex items-center justify-between gap-3 rounded-lg border border-emerald-200 bg-emerald-50 px-4 py-3">

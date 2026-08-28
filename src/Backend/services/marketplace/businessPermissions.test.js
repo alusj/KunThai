@@ -7,6 +7,7 @@ test("UrMall owners always manage plans and business settings", () => {
   const permissions = getBusinessPermissions({ role: "owner" });
   assert.equal(permissions.canManagePlans, true);
   assert.equal(permissions.canManageBusiness, true);
+  assert.equal(permissions.canEditBusiness, true);
 });
 
 test("UrMall admins only manage plans when billing responsibility is delegated", () => {
@@ -25,3 +26,18 @@ test("UrMall admins only manage plans when billing responsibility is delegated",
   assert.equal(billingAdmin.hasAnyAccess, true);
 });
 
+test("UrMall admins edit public business information only when delegated", () => {
+  const readOnlyAdmin = getBusinessPermissions({
+    role: "admin",
+    adminResponsibilities: { dashboardAccess: true, editBusiness: false },
+  });
+  const editor = getBusinessPermissions({
+    role: "admin",
+    adminResponsibilities: { dashboardAccess: false, editBusiness: true },
+  });
+
+  assert.equal(readOnlyAdmin.canEditBusiness, false);
+  assert.equal(editor.canEditBusiness, true);
+  assert.equal(editor.canManageBusiness, false);
+  assert.equal(editor.hasAnyAccess, true);
+});

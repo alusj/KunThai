@@ -61,6 +61,7 @@ export const URMALL_BUSINESS_KIND_LABELS = {
 };
 
 const ACTIVE_BUSINESS_PREFIX = "kunthai.marketplace.active-business.v1";
+const ACTIVE_BUSINESS_HINT_KEY = "kunthai.marketplace.active-business-hint.v1";
 export const MARKETPLACE_BUSINESS_CHANGED_EVENT = "kunthai-marketplace-business-changed";
 
 export const INITIAL_REGISTRATION = {
@@ -311,7 +312,25 @@ function activeBusinessStorageKey(userId) {
   return `${ACTIVE_BUSINESS_PREFIX}.${userId}`;
 }
 
+export function readCachedActiveRegisteredBusinessId() {
+  try {
+    return String(localStorage.getItem(ACTIVE_BUSINESS_HINT_KEY) || "").trim();
+  } catch {
+    return "";
+  }
+}
+
+function cacheActiveRegisteredBusinessId(businessId) {
+  try {
+    if (businessId) localStorage.setItem(ACTIVE_BUSINESS_HINT_KEY, businessId);
+    else localStorage.removeItem(ACTIVE_BUSINESS_HINT_KEY);
+  } catch {
+    // The user-scoped key below remains authoritative when storage is limited.
+  }
+}
+
 export async function setActiveRegisteredBusiness(businessId) {
+  cacheActiveRegisteredBusinessId(businessId);
   const userId = await getCurrentUserId();
   if (businessId) localStorage.setItem(activeBusinessStorageKey(userId), businessId);
   else localStorage.removeItem(activeBusinessStorageKey(userId));
@@ -381,6 +400,7 @@ export async function readRegisteredBusinesses() {
           addProducts: Boolean(responsibilities?.addProducts),
           messageReplies: Boolean(responsibilities?.messageReplies),
           dashboardAccess: responsibilities?.dashboardAccess !== false,
+          editBusiness: Boolean(responsibilities?.editBusiness),
           manageBilling: Boolean(responsibilities?.manageBilling),
         }
       : null;
@@ -417,16 +437,23 @@ export async function deleteRegisteredBusiness(businessId) {
   if (localStorage.getItem(activeKey) === businessId) {
     localStorage.removeItem(activeKey);
   }
+  if (readCachedActiveRegisteredBusinessId() === businessId) {
+    cacheActiveRegisteredBusinessId("");
+  }
   window.dispatchEvent(new CustomEvent(MARKETPLACE_BUSINESS_CHANGED_EVENT, { detail: { businessId: null } }));
 }
 
 export async function readRegisteredBusiness() {
   const userId = await getCurrentUserId();
   const businesses = await readRegisteredBusinesses();
-  if (!businesses.length) return null;
+  if (!businesses.length) {
+    cacheActiveRegisteredBusinessId("");
+    return null;
+  }
   const activeId = localStorage.getItem(activeBusinessStorageKey(userId));
   const business = businesses.find((item) => item.id === activeId) || businesses[0];
   if (business.id !== activeId) localStorage.setItem(activeBusinessStorageKey(userId), business.id);
+  cacheActiveRegisteredBusinessId(business.id);
   storeCountryContext(business.location.country);
   return business;
 }
@@ -566,6 +593,10 @@ export async function updateRegisteredBusinessProfile(updates) {
   if (!currentBusiness?.id) {
     throw new Error("No registered business profile was found.");
   }
+  const delegatedAdmin = currentBusiness.role === "admin";
+  if (delegatedAdmin && !currentBusiness.adminResponsibilities?.editBusiness) {
+    throw new Error("The business owner has not assigned you responsibility for editing business information.");
+  }
 
   const userId = await getCurrentUserId();
   const registration = {
@@ -669,6 +700,10 @@ export async function updateRegisteredBusinessProfile(updates) {
   }
 
   await saveBusinessLocations(currentBusiness.id, registration);
+
+  // Delegated editors may change public business information, but financial
+  // payout details and verification documents always remain owner-only.
+  if (delegatedAdmin) return readRegisteredBusiness();
 
   const payoutPayload = registration.trustPayout.skipped
     ? {

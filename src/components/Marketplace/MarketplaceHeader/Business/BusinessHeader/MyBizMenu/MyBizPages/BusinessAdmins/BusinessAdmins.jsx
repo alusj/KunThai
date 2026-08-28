@@ -4,6 +4,7 @@ import { Check, Crown, LoaderCircle, MoreVertical, ShieldCheck, Trash2, UserPlus
 import {
   ADMIN_RESPONSIBILITIES,
   fetchBusinessAdmins,
+  getAdminCapacityFailureMessage,
   inviteBusinessAdmin,
   removeBusinessAdmin,
   updateAdminResponsibilities,
@@ -122,6 +123,16 @@ export default function BusinessAdmins({ onBack, onOpenPlans }) {
   async function sendInvite(event) {
     event.preventDefault();
     if (!inviteCode.trim() || inviting) return;
+
+    const adminName = lookup.name || t("urmall.biz.admins.memberFallback");
+    if (planState?.available) {
+      const capacity = getCapacityStatus(planState, "admins", 1);
+      if (!capacity.allowed) {
+        showToast(getAdminCapacityFailureMessage(adminName, planState), "warning");
+        return;
+      }
+    }
+
     setInviting(true);
     try {
       await inviteBusinessAdmin(
@@ -135,7 +146,10 @@ export default function BusinessAdmins({ onBack, onOpenPlans }) {
       showToast(t("urmall.biz.admins.inviteSent"), "success");
       await reloadAdmins();
     } catch (error) {
-      showToast(error.message || t("urmall.biz.admins.inviteFailed"), "danger");
+      const message = error?.code === "KUNTHAI_PLAN_LIMIT"
+        ? getAdminCapacityFailureMessage(adminName, error.state || planState)
+        : error.message || t("urmall.biz.admins.inviteFailed");
+      showToast(message, "danger");
     } finally {
       setInviting(false);
     }
@@ -316,36 +330,42 @@ export default function BusinessAdmins({ onBack, onOpenPlans }) {
       ) : null}
 
       {responsibilityAdmin ? (
-        <div className="fixed inset-0 z-[1400]" role="presentation">
+        <div className="fixed inset-0 z-[1400] flex items-center justify-center px-4 py-[max(1rem,var(--kt-safe-area-top))]" role="presentation">
           <button type="button" aria-label={t("urmall.biz.admins.closeResp")} onClick={() => setResponsibilityAdmin(null)} className="absolute inset-0 bg-slate-950/40" />
-          <section role="dialog" aria-modal="true" aria-label={t("urmall.biz.admins.respFor", { name: responsibilityAdmin.adminName })} className="kt-toast-expand-in absolute inset-x-4 top-1/2 mx-auto max-w-md -translate-y-1/2 rounded-[26px] bg-white p-5 shadow-2xl">
-            <h2 className="text-lg font-black text-gray-950">{t("urmall.biz.admins.respTitle")}</h2>
-            <p className="mt-1 text-sm font-semibold text-gray-500">{t("urmall.biz.admins.respHint", { name: responsibilityAdmin.adminName })}</p>
-            <div className="mt-4 grid gap-2">
+          <section role="dialog" aria-modal="true" aria-label={t("urmall.biz.admins.respFor", { name: responsibilityAdmin.adminName })} className="kt-toast-expand-in relative flex max-h-[min(78dvh,680px)] w-full max-w-md flex-col overflow-hidden rounded-[26px] bg-white shadow-2xl">
+            <div className="shrink-0 border-b border-gray-100 px-5 pb-4 pt-5">
+              <h2 className="text-lg font-black text-gray-950">{t("urmall.biz.admins.respTitle")}</h2>
+              <p className="mt-1 text-sm font-semibold text-gray-500">{t("urmall.biz.admins.respHint", { name: responsibilityAdmin.adminName })}</p>
+            </div>
+            <div className="min-h-0 flex-1 overflow-y-auto px-5 py-4">
+              <div className="grid gap-2">
               {ADMIN_RESPONSIBILITIES.map((item) => {
                 const active = Boolean(responsibilityDraft[item.key]);
                 return (
                   <button
                     key={item.key}
                     type="button"
+                    aria-pressed={active}
+                    disabled={savingResponsibilities}
                     onClick={() => setResponsibilityDraft((current) => ({ ...current, [item.key]: !current[item.key] }))}
-                    className={`flex items-start gap-3 rounded-2xl border p-3 text-left transition ${active ? "border-emerald-300 bg-emerald-50" : "border-gray-200 bg-white"}`}
+                    className={`flex items-start gap-3 rounded-2xl border p-3 text-left transition disabled:cursor-wait disabled:opacity-70 ${active ? "border-emerald-300 bg-emerald-50" : "border-gray-200 bg-white"}`}
                   >
                     <span className={`mt-0.5 grid h-6 w-6 shrink-0 place-items-center rounded-lg ${active ? "bg-emerald-600 text-white" : "bg-gray-100 text-transparent"}`}>
                       <Check size={14} />
                     </span>
                     <span>
-                      <span className="block text-sm font-black text-gray-950">{item.key === "manageBilling" ? item.label : t(`urmall.biz.admins.resp.${item.key}Label`)}</span>
-                      <span className="mt-0.5 block text-xs font-semibold leading-5 text-gray-500">{item.key === "manageBilling" ? item.description : t(`urmall.biz.admins.resp.${item.key}Desc`)}</span>
+                      <span className="block text-sm font-black text-gray-950">{["manageBilling", "editBusiness"].includes(item.key) ? item.label : t(`urmall.biz.admins.resp.${item.key}Label`)}</span>
+                      <span className="mt-0.5 block text-xs font-semibold leading-5 text-gray-500">{["manageBilling", "editBusiness"].includes(item.key) ? item.description : t(`urmall.biz.admins.resp.${item.key}Desc`)}</span>
                     </span>
                   </button>
                 );
               })}
+              </div>
             </div>
-            <div className="mt-5 grid grid-cols-2 gap-2">
+            <div className="grid shrink-0 grid-cols-2 gap-2 border-t border-gray-100 bg-white px-5 py-4">
               <button type="button" onClick={() => setResponsibilityAdmin(null)} className="h-12 rounded-2xl bg-gray-100 text-sm font-black text-gray-700">{t("urmall.biz.admins.cancel")}</button>
               <button type="button" disabled={savingResponsibilities} onClick={saveResponsibilities} className="h-12 rounded-2xl bg-emerald-600 text-sm font-black text-white disabled:opacity-60">
-                {savingResponsibilities ? t("urmall.biz.saving") : t("urmall.biz.admins.save")}
+                {savingResponsibilities ? t("urmall.biz.saving") : "OK"}
               </button>
             </div>
           </section>

@@ -6,14 +6,35 @@
 import supabase from "../../lib/supabaseClient";
 import { createExploreNotification } from "../exploreService";
 import { resolvePublicCode } from "../publicCodeService";
-import { assertBusinessCapacity } from "../businessSubscriptionService";
+import { assertBusinessCapacity, getCapacityUpgradePlan } from "../businessSubscriptionService";
 
 export const ADMIN_RESPONSIBILITIES = [
   { key: "addProducts", label: "Add & manage products", description: "Create and edit product listings for this business." },
   { key: "messageReplies", label: "Reply to messages", description: "Answer buyer messages on behalf of the store." },
   { key: "dashboardAccess", label: "Dashboard information", description: "See orders, activity, and seller board information." },
+  { key: "editBusiness", label: "Edit business information", description: "Update the store profile, contact details, location, categories, and opening hours." },
   { key: "manageBilling", label: "Plans & billing", description: "View plans, renewals, capacity, and change the store subscription." },
 ];
+
+export function normalizeAdminResponsibilities(responsibilities = {}) {
+  return {
+    addProducts: Boolean(responsibilities.addProducts),
+    messageReplies: Boolean(responsibilities.messageReplies),
+    dashboardAccess: responsibilities.dashboardAccess !== false,
+    editBusiness: Boolean(responsibilities.editBusiness),
+    manageBilling: Boolean(responsibilities.manageBilling),
+  };
+}
+
+export function getAdminCapacityFailureMessage(adminName, planState) {
+  const name = String(adminName || "this person").trim() || "this person";
+  const requiredPlan = getCapacityUpgradePlan(planState, "admins", 1);
+  if (requiredPlan) {
+    return `Sorry, we can’t add ${name} because you have not upgraded to ${requiredPlan.displayName || requiredPlan.planCode}.`;
+  }
+  const planName = planState?.entitlement?.planName || "current";
+  return `Sorry, we can’t add ${name} because your ${planName} plan has reached its administrator limit.`;
+}
 
 function mapAdminRow(row = {}) {
   return {
@@ -22,12 +43,7 @@ function mapAdminRow(row = {}) {
     userId: row.user_id,
     invitedBy: row.invited_by,
     status: row.status || "pending",
-    responsibilities: {
-      addProducts: Boolean(row.responsibilities?.addProducts),
-      messageReplies: Boolean(row.responsibilities?.messageReplies),
-      dashboardAccess: row.responsibilities?.dashboardAccess !== false,
-      manageBilling: Boolean(row.responsibilities?.manageBilling),
-    },
+    responsibilities: normalizeAdminResponsibilities(row.responsibilities),
     adminName: row.admin_name || "KunThai member",
     adminCode: row.admin_code || "",
     businessName: row.business_name || "UrMall business",
@@ -128,12 +144,7 @@ export async function updateAdminResponsibilities(adminRow, responsibilities) {
   const { data, error } = await supabase
     .from("marketplace_business_admins")
     .update({
-      responsibilities: {
-        addProducts: Boolean(responsibilities.addProducts),
-        messageReplies: Boolean(responsibilities.messageReplies),
-        dashboardAccess: Boolean(responsibilities.dashboardAccess),
-        manageBilling: Boolean(responsibilities.manageBilling),
-      },
+      responsibilities: normalizeAdminResponsibilities(responsibilities),
       updated_at: new Date().toISOString(),
     })
     .eq("id", adminRow.id)

@@ -44,6 +44,7 @@ import useBodyScrollLock from "../../../shared/useBodyScrollLock";
 import VerticalSellerDashboard from "./VerticalSellerDashboard";
 import {
   MARKETPLACE_BUSINESS_CHANGED_EVENT,
+  readCachedActiveRegisteredBusinessId,
   readRegisteredBusinesses,
   setActiveRegisteredBusiness,
 } from "../../../../Backend/services/marketplace/sellerRegistrationService";
@@ -115,6 +116,7 @@ export default function Business({ onBack }) {
   const [screenPanelOpen, setScreenPanelOpen] = useState(false);
   const [dashboardReveal, setDashboardReveal] = useState(null);
   const [businesses, setBusinesses] = useState([]);
+  const [selectedBusinessId, setSelectedBusinessId] = useState(() => readCachedActiveRegisteredBusinessId());
   const [sellerPlan, setSellerPlan] = useState({ planCode: "free", planName: "Free", available: false });
   const [switchingBusiness, setSwitchingBusiness] = useState(false);
   const switchTargetRef = useRef(null);
@@ -206,14 +208,23 @@ export default function Business({ onBack }) {
   useEffect(() => {
     if (!hasBusiness) return undefined;
     let active = true;
-    const loadBusinesses = () => readRegisteredBusinesses().then((items) => { if (active) setBusinesses(items); }).catch(() => {});
+    const loadBusinesses = () => readRegisteredBusinesses().then((items) => {
+      if (!active) return;
+      setBusinesses(items);
+      const cachedActiveId = readCachedActiveRegisteredBusinessId();
+      const nextActiveId = items.find((item) => item.id === cachedActiveId)?.id
+        || items.find((item) => item.id === sellerOverview.business?.id)?.id
+        || items[0]?.id
+        || "";
+      if (nextActiveId) setSelectedBusinessId(nextActiveId);
+    }).catch(() => {});
     loadBusinesses();
     window.addEventListener(MARKETPLACE_BUSINESS_CHANGED_EVENT, loadBusinesses);
     return () => {
       active = false;
       window.removeEventListener(MARKETPLACE_BUSINESS_CHANGED_EVENT, loadBusinesses);
     };
-  }, [hasBusiness]);
+  }, [hasBusiness, sellerOverview.business?.id]);
 
   useEffect(() => {
     if (sellerScreenTimerRef.current) {
@@ -259,6 +270,12 @@ export default function Business({ onBack }) {
   function openProfileEditor() {
     setMenuOpen(false);
     openSellerScreen("editBusiness");
+  }
+
+  function openDelegatedProfileEditor() {
+    setMenuInitialScreen("profile");
+    setProfileInitialView("menu");
+    setMenuOpen(true);
   }
 
   function openSellerMenu() {
@@ -628,7 +645,7 @@ export default function Business({ onBack }) {
       }
     : undefined;
 
-  const activeBusinessId = sellerOverview.business?.id || businesses[0]?.id || "";
+  const activeBusinessId = selectedBusinessId || sellerOverview.business?.id || businesses[0]?.id || "";
   const activeRegisteredBusiness = businesses.find((business) => business.id === activeBusinessId) || businesses[0];
   const businessKind = sellerOverview.business?.kind || activeRegisteredBusiness?.businessKind || "retail";
   // Invited admins are limited to the responsibilities the owner turned on.
@@ -703,13 +720,22 @@ export default function Business({ onBack }) {
           }}
           onMenu={openSellerMenu}
           onSwitchBusiness={async (businessId) => {
+            const previousBusinessId = activeBusinessId;
             if (businessId && businessId !== activeBusinessId) {
               switchTargetRef.current = businessId;
               pendingSwitchToastRef.current = true;
+              setSelectedBusinessId(businessId);
               setSwitchingBusiness(true);
             }
-            await setActiveRegisteredBusiness(businessId);
-            setActiveTab("store");
+            try {
+              await setActiveRegisteredBusiness(businessId);
+              setActiveTab("store");
+            } catch (error) {
+              setSelectedBusinessId(previousBusinessId);
+              setSwitchingBusiness(false);
+              pendingSwitchToastRef.current = false;
+              showToast(error.message || "Unable to switch businesses right now.", "danger");
+            }
             // The "switched" toast is announced once the switch overlay closes
             // (see the switchingBusiness effect), so it never sits behind the
             // animation.
@@ -755,7 +781,14 @@ export default function Business({ onBack }) {
           <main className="space-y-6">
             {permissions.canAccessDashboard ? (
               <MyBizDashboardHeader
-                onEditProfile={openProfileEditor}
+                onEditProfile={() => {
+                  if (!permissions.canEditBusiness) {
+                    showToast("The business owner has not assigned you responsibility for editing business information.", "info");
+                    return;
+                  }
+                  if (permissions.isAdmin) openDelegatedProfileEditor();
+                  else openProfileEditor();
+                }}
                 onOpenSection={openSellerScreen}
                 onOpenPlans={permissions.canManagePlans ? () => openSellerScreen("plans") : undefined}
                 overview={sellerOverview}
@@ -773,6 +806,8 @@ export default function Business({ onBack }) {
               <AdminLimitedCard
                 permissions={permissions}
                 onOpenMessages={() => openSellerScreen("messages")}
+                onEditBusiness={openDelegatedProfileEditor}
+                onOpenPlans={() => openSellerScreen("plans")}
               />
             ) : businessKind === "retail" ? (
               <>
@@ -942,6 +977,7 @@ function AdminRoleBanner({ permissions }) {
     permissions.canAddProducts ? t("urmall.biz.dash.abAddEdit") : null,
     permissions.canReplyMessages ? t("urmall.biz.dash.abReply") : null,
     permissions.canAccessDashboard ? t("urmall.biz.dash.abView") : null,
+    permissions.canEditBusiness ? "edit business information" : null,
   ].filter(Boolean);
 
   return (
@@ -961,7 +997,7 @@ function AdminRoleBanner({ permissions }) {
 
 // Landing card for admins whose only responsibility is replying to messages
 // (or who have nothing assigned yet) — the dashboard/catalog stay hidden.
-function AdminLimitedCard({ permissions, onOpenMessages }) {
+function AdminLimitedCard({ permissions, onOpenMessages, onEditBusiness, onOpenPlans }) {
   return (
     <div className="rounded-[24px] border border-dashed border-gray-300 bg-white p-8 text-center">
       <span className="mx-auto grid h-12 w-12 place-items-center rounded-2xl bg-gray-100 text-gray-500">
@@ -979,6 +1015,34 @@ function AdminLimitedCard({ permissions, onOpenMessages }) {
             className="mt-4 inline-flex h-11 items-center gap-2 rounded-2xl bg-emerald-600 px-5 text-sm font-black text-white"
           >
             <MessageSquare size={16} /> {t("urmall.biz.dash.openMessages")}
+          </button>
+        </>
+      ) : permissions.canEditBusiness ? (
+        <>
+          <p className="mt-3 text-base font-black text-gray-950">Business information access</p>
+          <p className="mt-1 text-sm font-semibold leading-6 text-gray-500">
+            You can update the store profile, contact details, location, categories, and opening hours.
+          </p>
+          <button
+            type="button"
+            onClick={onEditBusiness}
+            className="mt-4 inline-flex h-11 items-center gap-2 rounded-2xl bg-emerald-600 px-5 text-sm font-black text-white"
+          >
+            <Store size={16} /> Edit business information
+          </button>
+        </>
+      ) : permissions.canManagePlans ? (
+        <>
+          <p className="mt-3 text-base font-black text-gray-950">Plans & capacity access</p>
+          <p className="mt-1 text-sm font-semibold leading-6 text-gray-500">
+            You can manage this store’s subscription and capacity.
+          </p>
+          <button
+            type="button"
+            onClick={onOpenPlans}
+            className="mt-4 inline-flex h-11 items-center gap-2 rounded-2xl bg-emerald-600 px-5 text-sm font-black text-white"
+          >
+            Open plans
           </button>
         </>
       ) : (

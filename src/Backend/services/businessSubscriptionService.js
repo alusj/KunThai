@@ -321,6 +321,27 @@ export function getCapacityStatus(state, resource, additional = 0) {
   };
 }
 
+// Returns the first higher plan that can hold the requested resource count.
+// This keeps capacity error messages truthful: Free points to Pro for the first
+// admin, while a full Pro workspace points to Premium instead of always saying
+// "upgrade" without naming the package that actually solves the limit.
+export function getCapacityUpgradePlan(state, resource, additional = 1) {
+  const config = RESOURCE_CONFIG[resource];
+  if (!config) throw new Error(`Unknown business capacity resource: ${resource}`);
+
+  const currentPlanCode = String(state?.entitlement?.planCode || state?.subscription?.planCode || "free").toLowerCase();
+  const currentRank = PLAN_TIER_RANK[currentPlanCode] || 1;
+  const requiredCount = Number(state?.usage?.[resource] || 0) + Math.max(0, Number(additional || 0));
+
+  return (state?.plans || [])
+    .filter((plan) => (PLAN_TIER_RANK[String(plan.planCode || "free").toLowerCase()] || 1) > currentRank)
+    .sort((first, second) => Number(first.sortOrder || 0) - Number(second.sortOrder || 0))
+    .find((plan) => {
+      const limit = numberOrNull(plan[config.limitKey]);
+      return limit === null || limit >= requiredCount;
+    }) || null;
+}
+
 export class BusinessPlanLimitError extends Error {
   constructor({ surface, resource, current, limit, planCode, state } = {}) {
     const label = RESOURCE_CONFIG[resource]?.label || resource || "items";

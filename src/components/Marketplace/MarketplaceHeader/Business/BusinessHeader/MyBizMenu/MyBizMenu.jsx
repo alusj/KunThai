@@ -79,6 +79,7 @@ export default function MyBizMenu({
   useI18n();
   const canManageBusiness = permissions ? permissions.canManageBusiness : true;
   const canAccessDashboard = permissions ? permissions.canAccessDashboard : true;
+  const canEditBusiness = permissions ? permissions.canEditBusiness : true;
   const canManagePlans = permissions ? permissions.canManagePlans : true;
   const [activeScreenKey, setActiveScreenKey] = useState(initialScreenKey);
   const [visibleScreenKey, setVisibleScreenKey] = useState(initialScreenKey);
@@ -249,23 +250,23 @@ export default function MyBizMenu({
           className="kt-safe-scroll-bottom min-h-0 flex-1 overflow-y-auto"
         >
               <SellerDrawerProfile
-                onOpenProfile={() => openActiveScreen("profile")}
+                onOpenProfile={() => {
+                  if (canEditBusiness) openActiveScreen("profile");
+                  else showToast("The business owner has not assigned you responsibility for editing business information.", "info");
+                }}
               />
 
               <div className="space-y-5 px-4 pt-5">
-                {canManageBusiness || canAccessDashboard || canManagePlans ? (
-                  <SellerDrawerSection title={t("urmall.biz.menu.sectionManageStore")}>
-                    {canManageBusiness ? (
-                      <SellerDrawerNavItem
-                        icon={Plus}
-                        title={t("urmall.biz.menu.addBusinessTitle")}
-                        description={t("urmall.biz.menu.addBusinessDesc")}
-                        onClick={() => {
-                          closeDrawer();
-                          onAddBusiness?.();
-                        }}
-                      />
-                    ) : null}
+                <SellerDrawerSection title={t("urmall.biz.menu.sectionManageStore")}>
+                    <SellerDrawerNavItem
+                      icon={Plus}
+                      title={t("urmall.biz.menu.addBusinessTitle")}
+                      description={t("urmall.biz.menu.addBusinessDesc")}
+                      onClick={() => {
+                        closeDrawer();
+                        onAddBusiness?.();
+                      }}
+                    />
                     {canAccessDashboard ? (
                       <SellerDrawerNavItem
                         icon={LayoutDashboard}
@@ -282,7 +283,7 @@ export default function MyBizMenu({
                         onClick={() => openActiveScreen("plans")}
                       />
                     ) : null}
-                    {canManageBusiness ? (
+                    {canEditBusiness ? (
                       <>
                         <SellerDrawerNavItem
                           icon={UserRound}
@@ -296,6 +297,10 @@ export default function MyBizMenu({
                           description={t("urmall.biz.menu.storeSettingsDesc")}
                           onClick={() => openActiveScreen("business")}
                         />
+                      </>
+                    ) : null}
+                    {canManageBusiness ? (
+                      <>
                         <SellerDrawerNavItem
                           icon={ShieldCheck}
                           title={t("urmall.biz.menu.adminsTitle")}
@@ -305,7 +310,6 @@ export default function MyBizMenu({
                       </>
                     ) : null}
                   </SellerDrawerSection>
-                ) : null}
 
                 {canManageBusiness ? (
                   <SellerDrawerSection title={t("urmall.biz.menu.sectionMoney")}>
