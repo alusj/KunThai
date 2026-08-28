@@ -2,6 +2,7 @@ import test from "node:test";
 import assert from "node:assert/strict";
 
 import {
+  rankMarketplacePromotionsForBuyer,
   rankMarketplaceProductsNearby,
   rankSimilarMarketplaceProducts,
   rankSimilarVerticalListings,
@@ -44,6 +45,29 @@ test("nearby discovery falls back to same city when coordinates are unavailable"
 
   const ranked = rankMarketplaceProductsNearby([sameCountry, sameCity], { city: "Freetown", countryCode: "SL" });
   assert.deepEqual(ranked.map((item) => item.id), ["city", "country"]);
+});
+
+test("promotion audiences affect delivery order without dropping active campaigns", () => {
+  const countrywide = product("countrywide", { promotionAudience: "countrywide", promotionCredits: 5 });
+  const farNearby = product("far-nearby", {
+    promotionAudience: "nearby",
+    promotionCredits: 20,
+    seller: { id: "far-nearby", latitude: 9.5, longitude: -12, countryCode: "SL" },
+  });
+  const localNearby = product("local-nearby", {
+    promotionAudience: "nearby",
+    promotionCredits: 5,
+    seller: { id: "local-nearby", latitude: 8.48, longitude: -13.23, countryCode: "SL" },
+  });
+  const recommended = product("recommended", { promotionAudience: "recommended", views: 50 });
+
+  const ranked = rankMarketplacePromotionsForBuyer(
+    [countrywide, farNearby, recommended, localNearby],
+    { latitude: 8.484, longitude: -13.234, countryCode: "SL" },
+  );
+
+  assert.deepEqual(ranked.map((item) => item.id), ["local-nearby", "recommended", "countrywide", "far-nearby"]);
+  assert.equal(ranked.length, 4);
 });
 
 test("similar recommendations favor category, brand and price while excluding the open product", () => {

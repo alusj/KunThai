@@ -270,6 +270,8 @@ export default function Messages({ onBack, onProductOpen }) {
 
             {error && <p className="rounded-lg bg-red-50 p-3 text-sm font-bold text-red-700">{error}</p>}
 
+            {loading ? <MarketplaceMessagesSkeleton /> : null}
+
             {!loading && !error && !messages.length ? (
               <div className="mt-8 rounded-lg border border-gray-200 bg-white p-8 text-center shadow-sm">
                 <MessageCircle className="mx-auto text-gray-400" size={36} />
@@ -427,5 +429,22 @@ export default function Messages({ onBack, onProductOpen }) {
       {renderListScreen()}
       {renderConversationScreen(visibleMessage)}
     </main>
+  );
+}
+
+function MarketplaceMessagesSkeleton() {
+  return (
+    <div className="space-y-2" aria-label="Loading UrMall conversations" aria-busy="true">
+      {[0, 1, 2, 3].map((item) => (
+        <div key={item} className="rounded-2xl border border-gray-200 bg-white p-4 shadow-sm">
+          <div className="flex items-center justify-between gap-3">
+            <div className="kt-startup-shimmer h-4 w-36 rounded-full" />
+            <div className="kt-startup-shimmer h-3 w-12 rounded-full" />
+          </div>
+          <div className="kt-startup-shimmer mt-3 h-3 w-2/5 rounded-full" />
+          <div className="kt-startup-shimmer mt-2 h-3 w-4/5 rounded-full" />
+        </div>
+      ))}
+    </div>
   );
 }

@@ -427,6 +427,19 @@ function fetchLocalConversations(currentUserId) {
     }));
 }
 
+// Synchronous stale-first reads keep the message list and an opened thread on
+// screen while Supabase refreshes them. These use the same per-user cache that
+// the service already writes after every successful fetch.
+export function readCachedExploreConversations(currentUserId) {
+  if (!currentUserId) return [];
+  return fetchLocalConversations(currentUserId);
+}
+
+export function readCachedExploreMessages(conversationId, currentUserId = "") {
+  if (!conversationId || !currentUserId) return [];
+  return readArray(MESSAGES_KEY, currentUserId).filter((message) => message.conversationId === conversationId);
+}
+
 export async function fetchExploreConversations(currentUserId) {
   if (!currentUserId) return [];
 

@@ -60,7 +60,7 @@ import { getCountryCurrencyCode } from "../../../../../../data/globalCountryProf
 import { getUnavailableFeatureMessage, isFeatureAvailable } from "../../../../../../data/globalFeatureAvailability";
 import { findExploreTopic } from "../../../../../../data/exploreTopics";
 import {
-  MINIMUM_EXPLORE_AD_VISIBILITY_CREDITS,
+  getMinimumExploreAdvertCredits,
   MINIMUM_EXPLORE_DUAL_MEDIA_VISIBILITY_CREDITS,
   normalizeVisibilityCreditSpend,
 } from "../../../../../../Backend/services/visibilityCreditService";
@@ -92,9 +92,9 @@ const DEFAULT_ADVERT = {
   customStart: "",
   customEnd: "",
   budgetType: "total",
-  budgetAmount: "10",
+  budgetAmount: "5",
   creditPackage: "small",
-  creditSpend: "10",
+  creditSpend: "5",
   currency: getCountryCurrencyCode(),
   type: "offer",
   title: "",
@@ -219,7 +219,7 @@ function cleanAdvertForSubmit(advert = {}) {
   const hasCoordinates = hasAdvertCoordinates(normalized);
   const creditSpend = normalizeVisibilityCreditSpend(
     normalized.creditSpend || normalized.budgetAmount,
-    MINIMUM_EXPLORE_AD_VISIBILITY_CREDITS,
+    getMinimumExploreAdvertCredits(normalized.placement),
   );
   return {
     // Placement remains with the creative as a routing hint for offline and
@@ -249,7 +249,7 @@ function cleanAdvertCampaignForSubmit(advert = {}) {
   const normalized = normalizeAdvertDraft(advert);
   const creditBudget = normalizeVisibilityCreditSpend(
     normalized.creditSpend || normalized.budgetAmount,
-    MINIMUM_EXPLORE_AD_VISIBILITY_CREDITS,
+    getMinimumExploreAdvertCredits(normalized.placement),
   );
   return {
     placement: ["urfeed", "swip", "both"].includes(normalized.placement) ? normalized.placement : DEFAULT_ADVERT.placement,
@@ -501,10 +501,11 @@ export default function FeedComposer({ profile, creating, onSubmit }) {
   const hasVideoAttachment = Boolean(videoPreview || pendingVideoFile || pendingVideoUrl);
   const advertCreditSpend = normalizeVisibilityCreditSpend(
     advertForm.creditSpend || advertForm.budgetAmount,
-    MINIMUM_EXPLORE_AD_VISIBILITY_CREDITS,
+    getMinimumExploreAdvertCredits(advertForm.placement),
   );
+  const advertMinimumCredits = getMinimumExploreAdvertCredits(advertForm.placement);
   const advertHasDualMedia = hasVideoAttachment && Boolean(imagePreview);
-  const advertMediaBudgetReady = advertCreditSpend >= MINIMUM_EXPLORE_AD_VISIBILITY_CREDITS
+  const advertMediaBudgetReady = advertCreditSpend >= advertMinimumCredits
     && (advertCreditSpend >= MINIMUM_EXPLORE_DUAL_MEDIA_VISIBILITY_CREDITS
       || (advertForm.placement !== "both" && !advertHasDualMedia));
   const advertPlacementReady = advertForm.placement === "swip"
@@ -1394,12 +1395,13 @@ export default function FeedComposer({ profile, creating, onSubmit }) {
         const next = { ...current, [field]: value };
         const currentCredits = normalizeVisibilityCreditSpend(
           current.creditSpend || current.budgetAmount,
-          MINIMUM_EXPLORE_AD_VISIBILITY_CREDITS,
+          getMinimumExploreAdvertCredits(current.placement),
         );
-        if (field === "placement" && value === "both" && currentCredits < MINIMUM_EXPLORE_DUAL_MEDIA_VISIBILITY_CREDITS) {
-          next.creditPackage = "medium";
-          next.creditSpend = String(MINIMUM_EXPLORE_DUAL_MEDIA_VISIBILITY_CREDITS);
-          next.budgetAmount = String(MINIMUM_EXPLORE_DUAL_MEDIA_VISIBILITY_CREDITS);
+        const nextMinimum = field === "placement" ? getMinimumExploreAdvertCredits(value) : 0;
+        if (field === "placement" && currentCredits < nextMinimum) {
+          next.creditPackage = value === "both" ? "strong" : "medium";
+          next.creditSpend = String(nextMinimum);
+          next.budgetAmount = String(nextMinimum);
         }
         return next;
       }

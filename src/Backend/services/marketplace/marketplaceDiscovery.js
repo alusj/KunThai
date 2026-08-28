@@ -95,6 +95,57 @@ export function rankMarketplaceProductsNearby(products = [], buyerContext = {}) 
     .map((entry) => entry.product);
 }
 
+// Apply the audience promise attached to each paid promotion while preserving
+// every active campaign. Nearby campaigns lead for shoppers within 50 km (or
+// the same city), Recommended campaigns use the existing location + quality +
+// marketplace-activity ranking, and Countrywide campaigns remain eligible for
+// everyone in the country-scoped result.
+export function rankMarketplacePromotionsForBuyer(products = [], buyerContext = {}) {
+  if (!Array.isArray(products) || products.length < 2) return Array.isArray(products) ? products : [];
+
+  const proximityRanked = rankMarketplaceProductsNearby(products, buyerContext);
+  const proximity = new Map(proximityRanked.map((product, index) => [product.id, { index, product }]));
+  const buyerCity = normalizeText(buyerContext.city);
+  const buyerHasLocation = Boolean(
+    buyerCity
+      || (Number.isFinite(Number(buyerContext.latitude)) && Number.isFinite(Number(buyerContext.longitude))),
+  );
+  const total = Math.max(1, products.length - 1);
+
+  return products
+    .map((product, originalIndex) => {
+      const ranked = proximity.get(product.id) || { index: originalIndex, product };
+      const hydrated = ranked.product;
+      const audienceType = String(product.promotionAudience || product.audienceType || "countrywide").toLowerCase();
+      const sellerCity = productCity(hydrated);
+      const sameCity = Boolean(
+        buyerCity && sellerCity && (sellerCity === buyerCity || sellerCity.includes(buyerCity) || buyerCity.includes(sellerCity)),
+      );
+      const distance = hydrated.distanceKm === null || hydrated.distanceKm === undefined
+        ? Number.NaN
+        : Number(hydrated.distanceKm);
+      const nearbyMatch = (Number.isFinite(distance) && distance <= 50) || sameCity;
+      const audienceRank = audienceType === "nearby"
+        ? nearbyMatch
+          ? 0
+          : buyerHasLocation
+            ? 3
+            : 2.5
+        : audienceType === "recommended"
+          ? 1 + (ranked.index / total) * 0.8
+          : 2;
+      const budget = Math.max(0, Number(product.promotionCredits || 0));
+
+      return { product: hydrated, originalIndex, audienceRank, budget };
+    })
+    .sort((first, second) => (
+      first.audienceRank - second.audienceRank
+      || second.budget - first.budget
+      || first.originalIndex - second.originalIndex
+    ))
+    .map((entry) => entry.product);
+}
+
 function searchableTokens(product = {}) {
   const details = product.details && typeof product.details === "object"
     ? Object.values(product.details).join(" ")

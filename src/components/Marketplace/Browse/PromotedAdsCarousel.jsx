@@ -80,16 +80,17 @@ export default function PromotedAdsCarousel({ onProductSelect, dashboardLoading 
   }, [loading]);
 
   useEffect(() => {
-    // Decode the first cards before the carousel advances to them. This warms
-    // the browser/native HTTP cache as soon as cached promotion metadata exists.
-    ads.slice(0, 6).forEach((product, index) => {
+    // Warm the exact resized URLs rendered below, all at once. Preloading the
+    // originals did not help the transformed image requests and lazy-loading
+    // later slides made valid sponsored products appear several seconds late.
+    ads.forEach((product, index) => {
       const image = new Image();
       image.decoding = "async";
-      if (index < 2) image.fetchPriority = "high";
-      image.src = product.imageUrl;
+      if (index < perSlide) image.fetchPriority = "high";
+      image.src = resizedImageUrl(product.imageUrl, { width: perSlide === 1 ? 960 : 560, quality: 72 });
       image.decode?.().catch(() => {});
     });
-  }, [ads]);
+  }, [ads, perSlide]);
 
   useEffect(() => {
     setActiveIndex((current) => Math.min(current, maxIndex));
@@ -108,7 +109,7 @@ export default function PromotedAdsCarousel({ onProductSelect, dashboardLoading 
   // fetch state when this carousel is used standalone). Once the dashboard has
   // rendered, the card either shows its ad or quietly disappears — it never
   // lingers on a skeleton after the rest of the page has loaded.
-  const stillLoading = dashboardLoading ?? loading;
+  const stillLoading = Boolean(dashboardLoading || loading);
 
   if (!ads.length && !stillLoading) return null;
 
@@ -190,8 +191,7 @@ export default function PromotedAdsCarousel({ onProductSelect, dashboardLoading 
         >
           {slides.map((slide, slideIndex) => (
             <div key={slide.map((product) => product.id).join(":")} className="grid h-full w-full shrink-0 gap-1 px-0.5" style={{ gridTemplateColumns: `repeat(${perSlide}, minmax(0, 1fr))` }}>
-              {slide.map((product, productIndex) => {
-                const absoluteIndex = slideIndex * perSlide + productIndex;
+              {slide.map((product) => {
                 return (
                   <button
                     key={product.id}
@@ -203,8 +203,8 @@ export default function PromotedAdsCarousel({ onProductSelect, dashboardLoading 
                     <img
                       src={resizedImageUrl(product.imageUrl, { width: perSlide === 1 ? 960 : 560, quality: 72 })}
                       alt=""
-                      loading={absoluteIndex < Math.max(3, perSlide + 1) ? "eager" : "lazy"}
-                      fetchPriority={absoluteIndex < perSlide ? "high" : "auto"}
+                      loading="eager"
+                      fetchPriority={slideIndex === 0 ? "high" : "auto"}
                       decoding="async"
                       draggable={false}
                       className="h-full w-full select-none object-cover"

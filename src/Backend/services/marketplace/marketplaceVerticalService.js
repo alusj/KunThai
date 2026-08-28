@@ -665,7 +665,7 @@ export async function fetchMarketplaceVerticalDiscovery({ limit = 30 } = {}) {
   };
 }
 
-function promotedVerticalAd(listingType, row) {
+function promotedVerticalAd(listingType, row, promotion = {}) {
   const imageUrl = listingType === "meal"
     ? row.image_url
     : (Array.isArray(row.image_urls) ? row.image_urls[0] : "");
@@ -674,9 +674,20 @@ function promotedVerticalAd(listingType, row) {
     listingType,
     imageUrl: imageUrl || "",
     name: row.name || row.title || "",
-    seller: { name: row.businessName || "UrMall business" },
+    seller: {
+      name: row.businessName || "UrMall business",
+      city: row.city || "",
+      country: row.country || "",
+      countryCode: row.countryIso || "",
+      latitude: row.latitude ?? null,
+      longitude: row.longitude ?? null,
+    },
     location: row.city || row.address || "",
     country: row.country || "",
+    countryCode: row.countryIso || "",
+    promotionAudience: promotion.metadata?.audienceType || "countrywide",
+    promotionCredits: Number(promotion.credit_budget || 0),
+    promotedAt: promotion.created_at || "",
     // The raw (business-normalized) row, so tapping the Sponsored card can open
     // the vertical detail via the "marketplace-open-vertical" event.
     item: row,
@@ -690,7 +701,7 @@ export async function fetchPromotedVerticalListings(limit = 12) {
   const nowIso = new Date().toISOString();
   const { data: promos, error } = await supabase
     .from("marketplace_promotions")
-    .select("meal_id,property_id,listing_type,created_at,ends_at,status")
+    .select("meal_id,property_id,listing_type,created_at,ends_at,status,credit_budget,metadata")
     .eq("status", "active")
     .in("listing_type", ["meal", "property"])
     .gt("ends_at", nowIso)
@@ -704,10 +715,10 @@ export async function fetchPromotedVerticalListings(limit = 12) {
   const propertyIds = [];
   for (const promo of promos) {
     if (promo.listing_type === "meal" && promo.meal_id) {
-      order.push({ type: "meal", id: promo.meal_id });
+      order.push({ type: "meal", id: promo.meal_id, promotion: promo });
       mealIds.push(promo.meal_id);
     } else if (promo.listing_type === "property" && promo.property_id) {
-      order.push({ type: "property", id: promo.property_id });
+      order.push({ type: "property", id: promo.property_id, promotion: promo });
       propertyIds.push(promo.property_id);
     }
   }
@@ -733,7 +744,7 @@ export async function fetchPromotedVerticalListings(limit = 12) {
     if (seen.has(key)) continue;
     seen.add(key);
     const row = ref.type === "meal" ? mealById.get(ref.id) : propertyById.get(ref.id);
-    if (row) ads.push(promotedVerticalAd(ref.type, row));
+    if (row) ads.push(promotedVerticalAd(ref.type, row, ref.promotion));
     if (ads.length >= limit) break;
   }
   return ads;

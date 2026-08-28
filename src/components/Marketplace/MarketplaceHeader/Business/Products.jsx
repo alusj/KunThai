@@ -16,10 +16,23 @@ export default function Products() {
 
   if (loading) {
     return (
-      <div className="grid grid-cols-2 gap-4 sm:grid-cols-3">
-        {[0, 1, 2].map((item) => (
-          <div key={item} className="h-48 animate-pulse rounded-lg bg-slate-100" />
-        ))}
+      <div className="space-y-4" aria-label="Loading seller products" aria-busy="true">
+        <div className="kt-startup-shimmer h-5 w-36 rounded-full" />
+        <div className="grid grid-cols-2 gap-3 sm:grid-cols-3">
+          {[0, 1, 2, 3, 4, 5].map((item) => (
+            <div key={item} className="overflow-hidden rounded-[20px] border border-slate-200 bg-white">
+              <div className="kt-startup-shimmer aspect-[4/3] w-full" />
+              <div className="space-y-2 p-3">
+                <div className="kt-startup-shimmer h-4 w-4/5 rounded-full" />
+                <div className="kt-startup-shimmer h-3 w-3/5 rounded-full" />
+                <div className="flex items-center justify-between gap-2 pt-1">
+                  <div className="kt-startup-shimmer h-5 w-1/2 rounded-full" />
+                  <div className="kt-startup-shimmer h-8 w-8 rounded-xl" />
+                </div>
+              </div>
+            </div>
+          ))}
+        </div>
       </div>
     );
   }

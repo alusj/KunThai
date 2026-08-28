@@ -218,7 +218,7 @@ export async function verifyAndGrantMonimeCredits({ adminClient, purchase, sessi
   return { purchase, session, wallet: normalizedWallet };
 }
 
-// ---- Payment Code flow (direct in-app Orange Money USSD prompt) -------------
+// ---- Payment Code flow (direct in-app Orange Money USSD payment) ------------
 
 // Monime financial-account codes for the Sierra Leone wallets. Probing the API
 // shows these two are the only codes it accepts today — every other code is
@@ -253,8 +253,9 @@ export function normalizeSierraLeonePhone(raw) {
   return `+232${digits}`;
 }
 
-// Create a one-time payment code locked to the customer's Orange Money number.
-// Monime prompts that phone to approve; the returned ussdCode is the fallback.
+// Create a one-time payment code, optionally locked to the customer's mobile
+// money number. authorizedPhoneNumber is a redemption restriction, not proof
+// that a push prompt was sent; the returned ussdCode starts the payment.
 export async function createMonimePaymentCode({ credits, priceMinor, purchaseId, phoneNumber, customerName, wallet }, config) {
   const body = {
     name: "KunThai Visibility Credits",

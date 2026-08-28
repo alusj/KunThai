@@ -1,6 +1,12 @@
 import supabase from "../lib/supabaseClient";
 import { friendlyErrorMessage } from "./friendlyErrorService";
 
+export {
+  getMarketplacePromotionDurationDays,
+  getMinimumExploreAdvertCredits,
+  getMonimePaymentInstructions,
+} from "./visibilityCreditRules";
+
 const INVITE_STORAGE_KEY = "kunthai.visibilityInviteCode";
 const INVITE_RESOLVED_KEY_PREFIX = "kunthai.visibilityInviteResolved:";
 const MY_INVITE_CODE_KEY = "kunthai.myVisibilityInviteCode";
@@ -13,7 +19,11 @@ let cachedInviteCode = "";
 
 export const VERIFIED_INVITE_CREDIT_REWARD = 5;
 export const MINIMUM_VISIBILITY_CREDITS = 5;
-export const MINIMUM_EXPLORE_AD_VISIBILITY_CREDITS = 10;
+export const MINIMUM_URFEED_AD_VISIBILITY_CREDITS = 5;
+export const MINIMUM_SWIP_AD_VISIBILITY_CREDITS = 10;
+// Kept as the platform-wide floor for older callers. Placement-aware code
+// should use getMinimumExploreAdvertCredits instead.
+export const MINIMUM_EXPLORE_AD_VISIBILITY_CREDITS = MINIMUM_URFEED_AD_VISIBILITY_CREDITS;
 export const MINIMUM_EXPLORE_DUAL_MEDIA_VISIBILITY_CREDITS = 15;
 export const MINIMUM_CREDIT_TRANSFER_BALANCE = 10;
 
@@ -49,27 +59,27 @@ export const VISIBILITY_BOOST_PACKAGES = [
 export const EXPLORE_AD_VISIBILITY_BOOST_PACKAGES = [
   {
     id: "small",
-    label: "Starter Advert",
-    credits: 10,
-    helper: "Promote one image or one video.",
+    label: "UrFeed Starter",
+    credits: 5,
+    helper: "Promote one image in UrFeed.",
   },
   {
     id: "medium",
+    label: "Single Media Advert",
+    credits: 10,
+    helper: "Promote one UrFeed image or one Swip video.",
+  },
+  {
+    id: "strong",
     label: "Dual Media Advert",
     credits: 15,
     helper: "Use both an UrFeed image and a Swip video.",
   },
   {
-    id: "strong",
-    label: "Strong Advert",
-    credits: 20,
-    helper: "Stronger delivery with image and video support.",
-  },
-  {
     id: "custom",
     label: "Custom",
-    credits: 10,
-    helper: "Choose 10 or more credits for this advert.",
+    credits: 5,
+    helper: "Choose a valid budget for the selected placement.",
   },
 ];
 
@@ -128,12 +138,6 @@ function normalizeInviteCode(code = "") {
 export function normalizeVisibilityCreditSpend(value, fallback = MINIMUM_VISIBILITY_CREDITS) {
   const amount = Math.floor(Number(value || fallback));
   return Number.isFinite(amount) ? Math.max(0, amount) : fallback;
-}
-
-export function getMarketplacePromotionDurationDays(credits) {
-  const amount = normalizeVisibilityCreditSpend(credits, MINIMUM_VISIBILITY_CREDITS);
-  if (amount === MINIMUM_VISIBILITY_CREDITS) return 1;
-  return Math.max(1, Math.min(30, Math.ceil(amount / MINIMUM_VISIBILITY_CREDITS) * 3));
 }
 
 export function getVisibilityPackageByCredits(credits) {
@@ -403,9 +407,10 @@ export function monimeWalletName(walletId) {
 }
 
 // Start a direct mobile-money collection (Orange Money or Afrimoney) for a
-// package (packageId) or a custom credit amount ({ credits }), locked to the
-// customer's phoneNumber. Monime prompts that number to approve; the credits
-// arrive once approved, confirmed via pollMonimePaymentStatus.
+// package (packageId) or a custom credit amount ({ credits }). A supplied phone
+// number restricts who can redeem the Payment Code; Monime's Payment Code API
+// does not promise an unsolicited handset push. The customer starts payment by
+// dialing the returned USSD code, and credits arrive after server confirmation.
 export async function startMonimeMobileMoneyPurchase({ packageId, credits, phoneNumber, wallet } = {}) {
   const body = {
     ...(packageId ? { packageId } : { credits: Math.round(Number(credits) || 0) }),
@@ -419,8 +424,8 @@ export async function startMonimeMobileMoneyPurchase({ packageId, credits, phone
   );
 }
 
-// Poll the purchase status while the customer approves the prompt on their
-// phone. Returns { status: "paid" | "pending" | "failed", wallet? }.
+// Poll the purchase status while the customer completes the USSD payment.
+// Returns { status: "paid" | "pending" | "failed", wallet? }.
 export async function pollMonimePaymentStatus(purchaseId) {
   return authenticatedPaymentRequest(
     "/api/monime-verify-payment",
@@ -429,7 +434,7 @@ export async function pollMonimePaymentStatus(purchaseId) {
   );
 }
 
-// Settle any mobile-money purchase that was paid while the approval screen was
+// Settle any mobile-money purchase that was paid while the payment screen was
 // not watching (paying means leaving the browser for the dialler, which
 // suspends the poll). Safe to call often — granting is idempotent — and it
 // resolves rather than throws so a background check never surfaces an error.

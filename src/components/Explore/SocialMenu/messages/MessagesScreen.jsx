@@ -128,6 +128,7 @@ export default function MessagesScreen({ currentProfile, hideHeader = false, ini
             key={visibleConversation.id}
             conversation={visibleConversation}
             currentUserId={currentUserId}
+            loading={messages.conversationLoading}
             messages={conversationMessages}
             onBack={messages.closeConversation}
             onAction={messages.handleConversationAction}

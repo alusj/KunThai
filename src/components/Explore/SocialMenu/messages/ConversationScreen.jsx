@@ -87,7 +87,7 @@ function usePeerPresence(conversationId, peerUserId, onActivity) {
   return presenceLabel;
 }
 
-export default function ConversationScreen({ conversation, currentUserId, messages, onAction, onActivity, onBack, onSend, onViewProfile }) {
+export default function ConversationScreen({ conversation, currentUserId, loading = false, messages, onAction, onActivity, onBack, onSend, onViewProfile }) {
   const { t } = useI18n();
   const user = getOtherParticipant(conversation, currentUserId);
   const messagesRef = useRef(null);
@@ -153,7 +153,8 @@ export default function ConversationScreen({ conversation, currentUserId, messag
       <MessagePrivacyNotice compact variant="explore" />
 
       <div ref={messagesRef} className="kt-message-thread space-y-3 bg-slate-50 px-4 py-4 kuntai-scrollbar-none">
-        {!messages.length ? (
+        {loading && !messages.length ? <ConversationMessagesSkeleton /> : null}
+        {!loading && !messages.length ? (
           <div className="rounded-[24px] border border-dashed border-slate-300 bg-white p-6 text-center">
             <p className="text-sm font-black text-slate-950">{t("messages.startConversation")}</p>
             <p className="mt-1 text-sm text-slate-500">{t("messages.startConversationMsg")}</p>
@@ -184,5 +185,19 @@ export default function ConversationScreen({ conversation, currentUserId, messag
         onSend={onSend}
       />
     </section>
+  );
+}
+
+function ConversationMessagesSkeleton() {
+  return (
+    <div className="space-y-3" aria-label="Loading conversation" aria-busy="true">
+      {["w-3/4", "ml-auto w-2/3", "w-4/5", "ml-auto w-1/2"].map((width, index) => (
+        <div key={`${width}-${index}`} className={`${width} rounded-[20px] border border-slate-200 bg-white p-3`}>
+          <div className="kt-startup-shimmer h-3 w-4/5 rounded-full" />
+          <div className="kt-startup-shimmer mt-2 h-3 w-3/5 rounded-full" />
+          <div className="kt-startup-shimmer mt-3 h-2 w-16 rounded-full" />
+        </div>
+      ))}
+    </div>
   );
 }

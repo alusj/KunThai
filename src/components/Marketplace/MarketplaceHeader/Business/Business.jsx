@@ -840,33 +840,62 @@ export default function Business({ onBack }) {
   );
 }
 
-// Single first-load skeleton for the seller dashboard: a header row that mirrors
-// the real one — including a placeholder where the business switcher renders —
-// over the dashboard's stat/summary cards. Replaces the old "Opening dashboard"
-// text so only one skeleton represents the screen while it loads.
+// First-load seller shell using the same shimmer and content geometry as the
+// upgraded app skeleton. Keeping dashboard and catalog shapes visible makes the
+// transition feel immediate even on a slow first business query.
 function SellerDashboardSkeleton() {
   return (
     <>
       <header className="sticky top-0 z-30 border-b border-gray-200 bg-white">
         <div className="flex h-16 w-full items-center justify-between gap-3 px-4 sm:px-6 lg:px-8">
           <div className="flex min-w-0 items-center gap-3">
-            <div className="h-10 w-10 animate-pulse rounded-lg bg-gray-200" />
-            {/* Where the business switcher renders. */}
-            <div className="h-10 w-16 animate-pulse rounded-xl bg-gray-200" />
+            <div className="kt-startup-shimmer h-10 w-10 rounded-xl" />
+            <div className="space-y-2">
+              <div className="kt-startup-shimmer h-2.5 w-16 rounded-full" />
+              <div className="kt-startup-shimmer h-4 w-28 rounded-full" />
+            </div>
           </div>
           <div className="flex items-center gap-2">
-            <div className="h-10 w-10 animate-pulse rounded-lg bg-gray-200" />
-            <div className="h-10 w-10 animate-pulse rounded-lg bg-gray-200" />
-            <div className="h-10 w-10 animate-pulse rounded-lg bg-gray-200" />
+            <div className="kt-startup-shimmer h-10 w-10 rounded-xl" />
+            <div className="kt-startup-shimmer h-10 w-10 rounded-xl" />
+            <div className="kt-startup-shimmer h-10 w-10 rounded-xl" />
           </div>
         </div>
       </header>
       <div className="w-full space-y-4 px-4 py-5 sm:px-6 lg:px-8">
-        <div className="grid gap-4 lg:grid-cols-[minmax(0,1fr)_320px]">
-          <div className="h-36 animate-pulse rounded-xl border border-gray-200 bg-white" />
-          <div className="h-36 animate-pulse rounded-xl border border-gray-200 bg-white" />
+        <section className="rounded-[24px] border border-gray-200 bg-white p-4">
+          <div className="flex items-center gap-3">
+            <div className="kt-startup-shimmer h-14 w-14 shrink-0 rounded-2xl" />
+            <div className="min-w-0 flex-1 space-y-2">
+              <div className="kt-startup-shimmer h-4 w-40 max-w-full rounded-full" />
+              <div className="kt-startup-shimmer h-3 w-24 rounded-full" />
+            </div>
+            <div className="kt-startup-shimmer h-10 w-24 rounded-xl" />
+          </div>
+          <div className="mt-4 grid grid-cols-2 gap-3 sm:grid-cols-4">
+            {[0, 1, 2, 3].map((item) => (
+              <div key={item} className="rounded-2xl border border-gray-100 p-3">
+                <div className="kt-startup-shimmer h-3 w-16 rounded-full" />
+                <div className="kt-startup-shimmer mt-3 h-7 w-20 rounded-lg" />
+              </div>
+            ))}
+          </div>
+        </section>
+        <div className="grid grid-cols-3 gap-2 rounded-2xl border border-gray-200 bg-white p-2">
+          {[0, 1, 2].map((item) => <div key={item} className="kt-startup-shimmer h-10 rounded-xl" />)}
         </div>
-        <div className="h-28 animate-pulse rounded-xl border border-gray-200 bg-white" />
+        <div className="grid grid-cols-2 gap-3 sm:grid-cols-3">
+          {[0, 1, 2, 3, 4, 5].map((item) => (
+            <div key={item} className="overflow-hidden rounded-[20px] border border-gray-200 bg-white">
+              <div className="kt-startup-shimmer aspect-[4/3] w-full" />
+              <div className="space-y-2 p-3">
+                <div className="kt-startup-shimmer h-4 w-4/5 rounded-full" />
+                <div className="kt-startup-shimmer h-3 w-1/2 rounded-full" />
+                <div className="kt-startup-shimmer h-5 w-2/5 rounded-full" />
+              </div>
+            </div>
+          ))}
+        </div>
       </div>
     </>
   );

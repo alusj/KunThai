@@ -22,10 +22,10 @@ function clean(value, maxLength = 120) {
     .slice(0, maxLength);
 }
 
-// Starts a direct Orange Money collection: creates a Monime payment code locked
-// to the customer's phone, which prompts them to approve in their mobile-money
-// app / USSD. Credits are granted only after the payment is confirmed (webhook
-// or the client's status poll), never here.
+// Starts a direct Orange Money collection: creates a Monime Payment Code,
+// optionally locked to the customer's phone. The customer initiates payment by
+// dialing the returned USSD code. Credits are granted only after confirmation
+// (webhook or the client's status poll), never here.
 export default async function handler(req, res) {
   if (req.method !== "POST") {
     res.setHeader("Allow", "POST");
@@ -77,10 +77,9 @@ export default async function handler(req, res) {
       currency = custom.currency;
     }
 
-    // The number is optional. Supplied, the code is locked to it and Monime
-    // pushes an approval prompt there; left blank, the code is locked to the
-    // chosen wallet instead and the customer pays by dialling the USSD code —
-    // Monime forbids sending both, so it is one or the other.
+    // The number is optional. Supplied, the code is locked to it; left blank,
+    // the code is locked to the chosen wallet. Monime forbids sending both a
+    // provider and a phone restriction, and Payment Codes are redeemed by USSD.
     const rawPhone = String(req.body?.phoneNumber || req.body?.phone || "").trim();
     const phoneNumber = rawPhone ? normalizeSierraLeonePhone(rawPhone) : "";
     if (rawPhone && !phoneNumber) {
@@ -180,6 +179,8 @@ export default async function handler(req, res) {
       // once Monime expires it.
       expireTime: String(paymentCode?.expireTime || ""),
       phoneNumber,
+      approvalMode: "ussd",
+      phoneRestricted: Boolean(phoneNumber),
       // Test tokens run on simulated rails, so the USSD code will not resolve on
       // a real handset. Saying so on the approval screen stops that being
       // mistaken for a broken integration.

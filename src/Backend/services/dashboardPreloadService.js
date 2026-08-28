@@ -44,11 +44,14 @@ async function preloadExploreDashboard() {
 }
 
 async function preloadMarketplaceDashboard() {
-  const [{ fetchBuyerMarketplaceProducts }, { writeBrowseCatalogSnapshot }] = await Promise.all([
+  const [{ fetchBuyerMarketplaceProducts, fetchPromotedMarketplaceProducts }, { writeBrowseCatalogSnapshot }] = await Promise.all([
     import("./marketplace/buyerMarketplaceService"),
     import("./marketplace/browseCatalogCache"),
   ]);
-  const catalog = await fetchBuyerMarketplaceProducts(MARKETPLACE_DEFAULT_FILTERS);
+  const [catalog] = await Promise.all([
+    fetchBuyerMarketplaceProducts(MARKETPLACE_DEFAULT_FILTERS),
+    fetchPromotedMarketplaceProducts(60),
+  ]);
   writeBrowseCatalogSnapshot(marketplaceCatalogKey(MARKETPLACE_DEFAULT_FILTERS), catalog);
 }
 

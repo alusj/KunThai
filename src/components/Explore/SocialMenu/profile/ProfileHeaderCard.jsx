@@ -33,6 +33,7 @@ import {
   fetchVisibilityCreditPackages,
   startFlutterwaveCardPurchase,
   startMonimeMobileMoneyPurchase,
+  getMonimePaymentInstructions,
   monimeWalletName,
   pollMonimePaymentStatus,
   MONIME_MIN_CREDITS,
@@ -324,8 +325,8 @@ export default function ProfileHeaderCard({
     pollMomoStatus(purchaseId, 0);
   };
 
-  // Poll the purchase status while the customer approves the mobile money
-  // prompt on their phone. Stops on success, terminal failure, or timeout.
+  // Poll while the customer completes the USSD payment. Stops on success,
+  // terminal failure, or timeout.
   function pollMomoStatus(purchaseId, attempt = 0) {
     const MAX_ATTEMPTS = 40; // ~2 minutes at the cadence below
     pollMonimePaymentStatus(purchaseId)
@@ -356,8 +357,8 @@ export default function ProfileHeaderCard({
 
   async function startMonimeCheckout({ packageId, credits } = {}) {
     if (momoBusy) return;
-    // The number is optional: with one, Monime pushes an approval prompt to it;
-    // without one, the customer dials the USSD code shown on the next screen.
+    // The number is optional. When supplied it secures the Payment Code to that
+    // account; payment still begins from the returned USSD dial action.
     const phoneNumber = momoPhone.replace(/[^\d]/g, "");
     if (phoneNumber && phoneNumber.replace(/^(232|0)/, "").length !== 8) {
       setMomoError("Enter a valid Sierra Leone number, or leave it blank to pay by code.");
@@ -898,24 +899,28 @@ export default function ProfileHeaderCard({
                 <span className="h-9 w-9 animate-spin rounded-full border-[3px] border-orange-200 border-t-orange-600" aria-hidden="true" />
               </span>
               <h2 className="mt-4 text-xl font-black text-slate-950">
-                {momoPending?.phoneNumber ? "Approve on your phone" : `Pay with ${momoWalletName}`}
+                {getMonimePaymentInstructions({
+                  credits: momoPending?.credits,
+                  phoneNumber: momoPending?.phoneNumber,
+                  walletName: momoWalletName,
+                }).title}
               </h2>
               <p className="mt-2 text-sm font-semibold leading-6 text-slate-500">
-                {momoPending?.phoneNumber
-                  ? <>We sent a {momoWalletName} prompt to <span className="font-black text-slate-800">{momoPending.phoneNumber}</span>. Enter your PIN there to confirm{momoPending?.credits ? ` ${momoPending.credits} Visibility Credits` : ""}.</>
-                  : <>Tap the code below to dial it, then enter your PIN to confirm{momoPending?.credits ? ` ${momoPending.credits} Visibility Credits` : ""}.</>}
+                {getMonimePaymentInstructions({
+                  credits: momoPending?.credits,
+                  phoneNumber: momoPending?.phoneNumber,
+                  walletName: momoWalletName,
+                }).message}
               </p>
 
               {momoPending?.ussdCode ? (
                 <div className="mt-4 rounded-2xl border border-slate-200 bg-slate-50 p-4">
-                  {momoPending?.phoneNumber ? (
-                    <p className="text-xs font-black uppercase tracking-[0.14em] text-slate-400">Didn’t get the prompt?</p>
-                  ) : null}
+                  <p className="text-xs font-black uppercase tracking-[0.14em] text-slate-400">Continue securely by USSD</p>
                   <a
                     href={ussdDialHref(momoPending.ussdCode)}
-                    className={`flex h-12 w-full items-center justify-center gap-2 rounded-2xl bg-slate-900 px-4 text-base font-black tracking-wide text-white transition hover:bg-slate-800 ${
-                      momoPending?.phoneNumber ? "mt-2" : ""
-                    } ${momoSecondsLeft === 0 ? "pointer-events-none opacity-50" : ""}`}
+                    className={`mt-2 flex h-12 w-full items-center justify-center gap-2 rounded-2xl bg-slate-900 px-4 text-base font-black tracking-wide text-white transition hover:bg-slate-800 ${
+                      momoSecondsLeft === 0 ? "pointer-events-none opacity-50" : ""
+                    }`}
                   >
                     <HiOutlineDevicePhoneMobile className="text-lg" aria-hidden="true" />
                     Dial {momoPending.ussdCode}
@@ -1030,6 +1035,9 @@ export default function ProfileHeaderCard({
                   placeholder="076 123 456"
                   className="mt-2 h-12 w-full rounded-2xl border border-slate-300 px-4 text-sm font-black text-slate-950 focus:border-orange-400 focus:outline-none"
                 />
+                <p className="mt-2 text-xs font-semibold leading-5 text-slate-500">
+                  Adding a number secures the code to that account. Payment still starts from the Dial button; no push is sent.
+                </p>
               </div>
 
               <div className="mt-5">

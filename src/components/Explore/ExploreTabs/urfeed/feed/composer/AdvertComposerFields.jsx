@@ -24,7 +24,7 @@ import {
 import { useVisibilityCredits } from "../../../../../../Backend/hooks/useVisibilityCredits";
 import {
   EXPLORE_AD_VISIBILITY_BOOST_PACKAGES,
-  MINIMUM_EXPLORE_AD_VISIBILITY_CREDITS,
+  getMinimumExploreAdvertCredits,
   MINIMUM_EXPLORE_DUAL_MEDIA_VISIBILITY_CREDITS,
   normalizeVisibilityCreditSpend,
 } from "../../../../../../Backend/services/visibilityCreditService";
@@ -119,8 +119,9 @@ export default function AdvertComposerFields({
   const [creditFeedback, setCreditFeedback] = useState("");
   const selectedCredits = normalizeVisibilityCreditSpend(
     advert.creditSpend || advert.budgetAmount,
-    MINIMUM_EXPLORE_AD_VISIBILITY_CREDITS,
+    getMinimumExploreAdvertCredits(advert.placement),
   );
+  const minimumCredits = getMinimumExploreAdvertCredits(advert.placement);
   const availableCredits = Number(credits.balance || 0);
   const hasEnoughCredits = availableCredits >= selectedCredits;
   const balanceAfterSpend = Math.max(0, availableCredits - selectedCredits);
@@ -161,7 +162,7 @@ export default function AdvertComposerFields({
       : step === 4
       ? customDatesValid
       : step === 5
-        ? selectedCredits >= MINIMUM_EXPLORE_AD_VISIBILITY_CREDITS
+        ? selectedCredits >= minimumCredits
           && (advert.placement !== "both" || selectedCredits >= MINIMUM_EXPLORE_DUAL_MEDIA_VISIBILITY_CREDITS)
           && hasEnoughCredits
           && !credits.loading
@@ -396,7 +397,7 @@ function CreativeFields({
         </div>
         <div className="flex flex-col items-end gap-2">
           <span className="rounded-full bg-white px-3 py-1.5 text-xs font-black text-emerald-700 ring-1 ring-emerald-100">
-            {normalizeVisibilityCreditSpend(advert.creditSpend || advert.budgetAmount, MINIMUM_EXPLORE_AD_VISIBILITY_CREDITS)} {i18nText("ui.literals.k66c22fad3a99")}
+            {normalizeVisibilityCreditSpend(advert.creditSpend || advert.budgetAmount, getMinimumExploreAdvertCredits(advert.placement))} {i18nText("ui.literals.k66c22fad3a99")}
           </span>
           <button type="button" onClick={onEditCampaign} className="rounded-full bg-white px-3 py-2 text-xs font-black text-sky-700 ring-1 ring-sky-100">{i18nText("ui.literals.k72d2c5fecf4c")}</button>
         </div>
@@ -531,14 +532,16 @@ function VisibilityCreditSelector({
   selectedCredits,
   durationDays,
 }) {
+  const minimumCredits = getMinimumExploreAdvertCredits(advert.placement);
   const selectedPackage = advert.creditPackage || (
     EXPLORE_AD_VISIBILITY_BOOST_PACKAGES.find((item) => item.id !== "custom" && item.credits === selectedCredits)?.id || "custom"
   );
-  const canUseAll = availableCredits >= MINIMUM_EXPLORE_AD_VISIBILITY_CREDITS;
+  const canUseAll = availableCredits >= minimumCredits;
   const dualMediaNeedsMoreCredits = advert.placement === "both" && selectedCredits < MINIMUM_EXPLORE_DUAL_MEDIA_VISIBILITY_CREDITS;
+  const placementNeedsMoreCredits = selectedCredits < minimumCredits;
 
   function setCreditSpend(value) {
-    const normalized = normalizeVisibilityCreditSpend(value, MINIMUM_EXPLORE_AD_VISIBILITY_CREDITS);
+    const normalized = normalizeVisibilityCreditSpend(value, minimumCredits);
     onChange("creditSpend", String(normalized));
     onChange("budgetType", "total");
     onChange("budgetAmount", String(normalized));
@@ -574,14 +577,16 @@ function VisibilityCreditSelector({
       <div className="grid grid-cols-1 gap-2 sm:grid-cols-2">
         {EXPLORE_AD_VISIBILITY_BOOST_PACKAGES.map((item) => {
           const active = selectedPackage === item.id;
+          const unavailable = item.id !== "custom" && item.credits < minimumCredits;
           return (
             <button
               key={item.id}
               type="button"
               onClick={() => selectPackage(item)}
+              disabled={unavailable}
               className={`rounded-[22px] border p-3 text-left transition ${
                 active ? "border-sky-500 bg-sky-50 ring-2 ring-sky-100" : "border-slate-200 bg-white hover:border-slate-300"
-              }`}
+              } disabled:cursor-not-allowed disabled:opacity-45`}
             >
               <span className="flex items-center justify-between gap-2">
                 <span className="text-sm font-black text-slate-950">{uiText(item.label)}</span>
@@ -599,7 +604,7 @@ function VisibilityCreditSelector({
         <div className="grid gap-3 sm:grid-cols-[1fr_auto]">
           <NumberField
             label={i18nText("ui.literals.k02813b2ded6e")}
-            min={MINIMUM_EXPLORE_AD_VISIBILITY_CREDITS}
+            min={minimumCredits}
             step="1"
             value={String(selectedCredits)}
             onChange={(value) => {
@@ -622,7 +627,10 @@ function VisibilityCreditSelector({
       ) : null}
 
       {dualMediaNeedsMoreCredits ? (
-        <RequirementNote text={`UrFeed & Swip together requires at least ${MINIMUM_EXPLORE_DUAL_MEDIA_VISIBILITY_CREDITS} Visibility Credits. With 10–14 credits, choose one image or one video.`} />
+        <RequirementNote text={`UrFeed & Swip together requires at least ${MINIMUM_EXPLORE_DUAL_MEDIA_VISIBILITY_CREDITS} Visibility Credits. Choose one placement for a smaller campaign.`} />
+      ) : null}
+      {placementNeedsMoreCredits && !dualMediaNeedsMoreCredits ? (
+        <RequirementNote text={`${formatPlacement(advert.placement)} requires at least ${minimumCredits} Visibility Credits.`} />
       ) : null}
 
       <div className={`rounded-[22px] border p-3 ${hasEnoughCredits ? "border-emerald-100 bg-emerald-50/70" : "border-amber-200 bg-amber-50"}`}>

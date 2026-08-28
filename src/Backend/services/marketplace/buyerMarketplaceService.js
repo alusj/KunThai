@@ -16,7 +16,7 @@ import {
   rankSearchResults,
 } from "./productSearch";
 import { fetchPromotedVerticalListings } from "./marketplaceVerticalService";
-import { rankMarketplaceProductsNearby } from "./marketplaceDiscovery";
+import { rankMarketplaceProductsNearby, rankMarketplacePromotionsForBuyer } from "./marketplaceDiscovery";
 
 function toOptionalNumber(value) {
   if (value === null || value === undefined || value === "") return null;
@@ -737,16 +737,14 @@ async function loadAllPromotedListings(limit = 12) {
     loadPromotedVerticalAds(limit).catch(() => []),
   ]);
 
-  if (!verticals.length) return products.slice(0, limit);
-  if (!products.length) return verticals.slice(0, limit);
-
   const merged = [];
   const max = Math.max(products.length, verticals.length);
   for (let index = 0; index < max; index += 1) {
     if (products[index]) merged.push(products[index]);
     if (verticals[index]) merged.push(verticals[index]);
   }
-  return merged.slice(0, limit);
+  const buyerContext = await getBuyerDiscoveryContext();
+  return rankMarketplacePromotionsForBuyer(merged, buyerContext).slice(0, limit);
 }
 
 async function loadPromotedVerticalAds(limit = 12) {
@@ -760,7 +758,7 @@ async function loadPromotedMarketplaceProducts(limit = 12) {
   const nowIso = new Date().toISOString();
   const { data: promotionRows, error: promotionError } = await supabase
     .from("marketplace_promotions")
-    .select("product_id,created_at,ends_at,status")
+    .select("product_id,created_at,ends_at,status,credit_budget,metadata")
     .eq("status", "active")
     .not("product_id", "is", null)
     .gt("ends_at", nowIso)
@@ -770,6 +768,11 @@ async function loadPromotedMarketplaceProducts(limit = 12) {
   if (!promotionError) {
     const productIds = Array.from(new Set((promotionRows || []).map((row) => row.product_id).filter(Boolean))).slice(0, limit);
     if (!productIds.length) return [];
+    const promotionByProductId = new Map();
+    (promotionRows || []).forEach((promotion) => {
+      if (!promotion.product_id || promotionByProductId.has(promotion.product_id)) return;
+      promotionByProductId.set(promotion.product_id, promotion);
+    });
 
     for (const selectClause of PRODUCT_LIST_SELECTS) {
       const { data, error } = await supabase
@@ -783,7 +786,16 @@ async function loadPromotedMarketplaceProducts(limit = 12) {
         const productsById = new Map((data || []).map((product) => [product.id, product]));
         const orderedProducts = productIds.map((id) => productsById.get(id)).filter(Boolean);
         const scoped = filterCountryScopedItems(
-          orderedProducts.map(mapBuyerProduct),
+          orderedProducts.map((row) => {
+            const product = mapBuyerProduct(row);
+            const promotion = promotionByProductId.get(row.id) || {};
+            return {
+              ...product,
+              promotionAudience: promotion.metadata?.audienceType || "countrywide",
+              promotionCredits: Number(promotion.credit_budget || 0),
+              promotedAt: promotion.created_at || "",
+            };
+          }),
           (product) => [product.seller?.country, product.location],
         );
         return scoped.items;
