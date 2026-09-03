@@ -15,7 +15,7 @@ test("every Area View entrance mounts at the document overlay root", () => {
 test("Nearby Area guidance and emergency help float over the map without adding layout height", () => {
   assert.match(nearbyAreaSource, /presentation="map"/);
   assert.match(nearbyAreaSource, /pointer-events-none absolute inset-0 z-\[80\]/);
-  assert.match(nearbyAreaSource, /max-h-\[min\(52dvh,34rem\)\]/);
+  assert.match(nearbyAreaSource, /h-\[75dvh\] max-h-\[75dvh\]/);
   assert.match(emergencySource, /pointer-events-none absolute inset-0 z-\[90\]/);
-  assert.match(emergencySource, /max-h-\[min\(50dvh,32rem\)\]/);
+  assert.match(emergencySource, /h-\[75dvh\] max-h-\[75dvh\]/);
 });

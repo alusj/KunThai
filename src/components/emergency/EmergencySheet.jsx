@@ -139,7 +139,7 @@ export default function EmergencySheet({
       data-presentation={presentation}
       className={
         floatsOverMap
-          ? "pointer-events-none absolute inset-0 z-[90]"
+          ? "pointer-events-none absolute inset-0 z-[90] bg-slate-950/35 backdrop-blur-[2px]"
           : "fixed inset-0 z-[9999] flex items-end bg-slate-950/60 px-0 backdrop-blur-sm sm:items-center sm:justify-center sm:p-4"
       }
     >
@@ -158,12 +158,12 @@ export default function EmergencySheet({
         aria-labelledby="kuntai-sos-title"
         className={
           floatsOverMap
-            ? "pointer-events-auto absolute left-3 right-3 top-3 flex max-h-[min(50dvh,32rem)] flex-col overflow-hidden rounded-[30px] border border-white/70 bg-slate-50 text-slate-950 shadow-2xl sm:left-1/2 sm:right-auto sm:top-5 sm:w-[min(34rem,calc(100vw-2.5rem))] sm:-translate-x-1/2"
+            ? "pointer-events-auto absolute bottom-0 left-0 right-0 flex h-[75dvh] max-h-[75dvh] flex-col overflow-hidden rounded-t-[30px] border border-white/70 bg-slate-50 text-slate-950 shadow-2xl sm:bottom-5 sm:left-1/2 sm:right-auto sm:w-[min(36rem,calc(100vw-2.5rem))] sm:-translate-x-1/2 sm:rounded-[30px]"
             : "relative flex max-h-[92dvh] w-full flex-col overflow-hidden rounded-t-[30px] bg-slate-50 text-slate-950 shadow-2xl sm:max-w-lg sm:rounded-[30px]"
         }
       >
         <div className="min-h-0 flex-1 overflow-y-auto px-4 pb-[max(1.25rem,env(safe-area-inset-bottom))] pt-3 sm:px-5 sm:pb-5">
-          {!floatsOverMap ? <div className="mx-auto mb-3 h-1.5 w-16 rounded-full bg-slate-300 sm:hidden" /> : null}
+          <div className="mx-auto mb-3 h-1.5 w-16 rounded-full bg-slate-300 sm:hidden" />
 
           <div className="rounded-[26px] border border-red-200/60 bg-gradient-to-r from-red-700 via-red-600 to-rose-500 p-4 text-white shadow-sm shadow-red-950/20">
             <div className="flex items-start justify-between gap-4">

@@ -2564,12 +2564,15 @@ export default function NearbyAreaScreen({
 
 function AreaViewFirstUseGuide({ dontShowAgain, onDontShowAgainChange, onConfirm }) {
   return (
-    <div className="pointer-events-none absolute inset-0 z-[80]">
+    <div className="pointer-events-none absolute inset-0 z-[80] bg-slate-950/35 backdrop-blur-[2px]">
       <section
         role="dialog"
         aria-labelledby="area-view-first-use-title"
-        className="pointer-events-auto absolute left-3 right-3 top-3 flex max-h-[min(52dvh,34rem)] flex-col overflow-hidden rounded-[2rem] border border-amber-200 bg-white text-slate-950 shadow-2xl sm:left-1/2 sm:right-auto sm:top-5 sm:w-[min(36rem,calc(100vw-2.5rem))] sm:-translate-x-1/2"
+        className="pointer-events-auto absolute bottom-0 left-0 right-0 flex h-[75dvh] max-h-[75dvh] flex-col overflow-hidden rounded-t-[2rem] border border-amber-200 bg-white text-slate-950 shadow-2xl sm:bottom-5 sm:left-1/2 sm:right-auto sm:w-[min(38rem,calc(100vw-2.5rem))] sm:-translate-x-1/2 sm:rounded-[2rem]"
       >
+        <div className="shrink-0 pt-3 sm:hidden">
+          <div className="mx-auto h-1.5 w-16 rounded-full bg-slate-300" />
+        </div>
         <div className="shrink-0 border-b border-amber-100 bg-gradient-to-br from-amber-50 via-white to-emerald-50 px-5 py-4 sm:px-6 sm:py-5">
           <div className="flex items-start gap-3">
             <span className="grid h-12 w-12 shrink-0 place-items-center rounded-2xl bg-amber-100 text-amber-700">
