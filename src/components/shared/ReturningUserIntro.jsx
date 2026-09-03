@@ -1,9 +1,12 @@
 import { useCallback, useEffect, useRef, useState } from "react";
 import { createPortal } from "react-dom";
 
-const HOLD_DURATION_MS = 560;
-const HARD_RELEASE_MS = 980;
-const EXIT_DURATION_MS = 300;
+const HOLD_DURATION_MS = 3200;
+const HARD_RELEASE_MS = 4500;
+const EXIT_DURATION_MS = 280;
+const REDUCED_MOTION_HOLD_MS = 3000;
+const REDUCED_MOTION_RELEASE_MS = 4200;
+const REDUCED_MOTION_EXIT_MS = 80;
 
 function prefersReducedMotion() {
   return typeof window !== "undefined" && window.matchMedia?.("(prefers-reduced-motion: reduce)").matches;
@@ -24,8 +27,8 @@ export default function ReturningUserIntro({ onComplete }) {
 
   useEffect(() => {
     const reducedMotion = prefersReducedMotion();
-    const holdAt = reducedMotion ? 220 : HOLD_DURATION_MS;
-    const releaseAt = reducedMotion ? 360 : HARD_RELEASE_MS;
+    const holdAt = reducedMotion ? REDUCED_MOTION_HOLD_MS : HOLD_DURATION_MS;
+    const releaseAt = reducedMotion ? REDUCED_MOTION_RELEASE_MS : HARD_RELEASE_MS;
     const holdTimer = window.setTimeout(() => setMinimumHoldElapsed(true), holdAt);
     const releaseTimer = window.setTimeout(() => setHardReleaseElapsed(true), releaseAt);
     return () => {
@@ -42,7 +45,7 @@ export default function ReturningUserIntro({ onComplete }) {
     if (!leaving) return undefined;
     const removalTimer = window.setTimeout(
       finish,
-      prefersReducedMotion() ? 80 : EXIT_DURATION_MS,
+      prefersReducedMotion() ? REDUCED_MOTION_EXIT_MS : EXIT_DURATION_MS,
     );
     return () => window.clearTimeout(removalTimer);
   }, [finish, leaving]);

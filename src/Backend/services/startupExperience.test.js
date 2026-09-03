@@ -33,6 +33,13 @@ test("the KunThai intro can only open after a long inactive visibility return", 
   assert.doesNotMatch(introSource, /continuousFromBoot|__KUNTHAI_BOOT_STARTED_AT__/);
 });
 
+test("the inactive-user intro stays visible for 3–5 seconds and always has a hard release", () => {
+  assert.match(introSource, /HOLD_DURATION_MS = 3200/);
+  assert.match(introSource, /HARD_RELEASE_MS = 4500/);
+  assert.match(introSource, /minimumHoldElapsed && \(logoReady \|\| hardReleaseElapsed\)/);
+  assert.match(introSource, /setHardReleaseElapsed\(true\)/);
+});
+
 test("Explore and UrMall receive layout-matched startup skeletons", () => {
   assert.match(skeletonSource, /function ExploreSkeleton/);
   assert.match(skeletonSource, /function MarketplaceBuyerSkeleton/);

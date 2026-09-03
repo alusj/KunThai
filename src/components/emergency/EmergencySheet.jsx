@@ -108,6 +108,7 @@ export default function EmergencySheet({
   alternativeCountryCode = "",
   onConfirmCountry,
   onNavigateNearby,
+  presentation = "sheet",
 }) {
   if (!open) return null;
 
@@ -131,24 +132,38 @@ export default function EmergencySheet({
     : "";
   const showBorderConfirm =
     requiresConfirmation && typeof onConfirmCountry === "function" && !detectingCountry;
+  const floatsOverMap = presentation === "map";
 
   return (
-    <div className="fixed inset-0 z-[9999] flex items-end bg-slate-950/60 px-0 backdrop-blur-sm sm:items-center sm:justify-center sm:p-4">
-      <button
-        type="button"
-        className="absolute inset-0 cursor-default"
-        aria-label={i18nText("ui.literals.kd55e3e3df664")}
-        onClick={onClose}
-      />
+    <div
+      data-presentation={presentation}
+      className={
+        floatsOverMap
+          ? "pointer-events-none absolute inset-0 z-[90]"
+          : "fixed inset-0 z-[9999] flex items-end bg-slate-950/60 px-0 backdrop-blur-sm sm:items-center sm:justify-center sm:p-4"
+      }
+    >
+      {!floatsOverMap ? (
+        <button
+          type="button"
+          className="absolute inset-0 cursor-default"
+          aria-label={i18nText("ui.literals.kd55e3e3df664")}
+          onClick={onClose}
+        />
+      ) : null}
 
       <section
         role="dialog"
-        aria-modal="true"
+        aria-modal={floatsOverMap ? undefined : "true"}
         aria-labelledby="kuntai-sos-title"
-        className="relative flex max-h-[92dvh] w-full flex-col overflow-hidden rounded-t-[30px] bg-slate-50 text-slate-950 shadow-2xl sm:max-w-lg sm:rounded-[30px]"
+        className={
+          floatsOverMap
+            ? "pointer-events-auto absolute left-3 right-3 top-3 flex max-h-[min(50dvh,32rem)] flex-col overflow-hidden rounded-[30px] border border-white/70 bg-slate-50 text-slate-950 shadow-2xl sm:left-1/2 sm:right-auto sm:top-5 sm:w-[min(34rem,calc(100vw-2.5rem))] sm:-translate-x-1/2"
+            : "relative flex max-h-[92dvh] w-full flex-col overflow-hidden rounded-t-[30px] bg-slate-50 text-slate-950 shadow-2xl sm:max-w-lg sm:rounded-[30px]"
+        }
       >
         <div className="min-h-0 flex-1 overflow-y-auto px-4 pb-[max(1.25rem,env(safe-area-inset-bottom))] pt-3 sm:px-5 sm:pb-5">
-          <div className="mx-auto mb-3 h-1.5 w-16 rounded-full bg-slate-300 sm:hidden" />
+          {!floatsOverMap ? <div className="mx-auto mb-3 h-1.5 w-16 rounded-full bg-slate-300 sm:hidden" /> : null}
 
           <div className="rounded-[26px] border border-red-200/60 bg-gradient-to-r from-red-700 via-red-600 to-rose-500 p-4 text-white shadow-sm shadow-red-950/20">
             <div className="flex items-start justify-between gap-4">

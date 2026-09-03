@@ -2555,6 +2555,7 @@ export default function NearbyAreaScreen({
           countryCode={detectedCountryCode}
           detectingCountry={detectingSosCountry}
           onNavigateNearby={handleEmergencyNearbySearch}
+          presentation="map"
         />
       </section>
     </div>
@@ -2563,14 +2564,13 @@ export default function NearbyAreaScreen({
 
 function AreaViewFirstUseGuide({ dontShowAgain, onDontShowAgainChange, onConfirm }) {
   return (
-    <div className="absolute inset-0 z-[80] flex items-end justify-center bg-slate-950/55 p-3 pb-[calc(env(safe-area-inset-bottom)+0.75rem)] backdrop-blur-[2px] sm:items-center sm:p-5">
+    <div className="pointer-events-none absolute inset-0 z-[80]">
       <section
         role="dialog"
-        aria-modal="true"
         aria-labelledby="area-view-first-use-title"
-        className="w-full max-w-xl overflow-hidden rounded-[2rem] border border-amber-200 bg-white text-slate-950 shadow-2xl"
+        className="pointer-events-auto absolute left-3 right-3 top-3 flex max-h-[min(52dvh,34rem)] flex-col overflow-hidden rounded-[2rem] border border-amber-200 bg-white text-slate-950 shadow-2xl sm:left-1/2 sm:right-auto sm:top-5 sm:w-[min(36rem,calc(100vw-2.5rem))] sm:-translate-x-1/2"
       >
-        <div className="border-b border-amber-100 bg-gradient-to-br from-amber-50 via-white to-emerald-50 px-5 py-4 sm:px-6 sm:py-5">
+        <div className="shrink-0 border-b border-amber-100 bg-gradient-to-br from-amber-50 via-white to-emerald-50 px-5 py-4 sm:px-6 sm:py-5">
           <div className="flex items-start gap-3">
             <span className="grid h-12 w-12 shrink-0 place-items-center rounded-2xl bg-amber-100 text-amber-700">
               <FiAlertTriangle size={24} />
@@ -2589,7 +2589,7 @@ function AreaViewFirstUseGuide({ dontShowAgain, onDontShowAgainChange, onConfirm
           </div>
         </div>
 
-        <div className="max-h-[min(55vh,30rem)] overflow-y-auto px-4 py-4 sm:px-6">
+        <div className="min-h-0 flex-1 overflow-y-auto px-4 py-4 sm:px-6">
           <div className="grid gap-3 sm:grid-cols-2">
             {AREA_VIEW_GUIDE_ITEMS.map(({ bodyKey, icon: Icon, titleKey }) => (
               <article key={titleKey} className="rounded-2xl border border-slate-200 bg-slate-50/80 p-4">
@@ -2608,7 +2608,7 @@ function AreaViewFirstUseGuide({ dontShowAgain, onDontShowAgainChange, onConfirm
           </div>
         </div>
 
-        <div className="border-t border-slate-100 bg-white px-4 py-4 sm:px-6">
+        <div className="shrink-0 border-t border-slate-100 bg-white px-4 py-4 sm:px-6">
           <label className="flex cursor-pointer items-start gap-3 rounded-2xl border border-slate-200 bg-slate-50 p-3.5">
             <input
               type="checkbox"

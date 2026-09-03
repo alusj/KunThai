@@ -1,4 +1,5 @@
 import { useCallback, useEffect, useRef, useState } from "react";
+import { createPortal } from "react-dom";
 import { FiBriefcase, FiCheckCircle, FiFileText, FiShield, FiX } from "react-icons/fi";
 
 import Body from "./Body/Body";
@@ -823,6 +824,20 @@ export default function Transport({
   }, [areaViewRequest, onAreaViewRequestHandled]);
 
   useEffect(() => {
+    if (!nearbyAreaOpen || typeof document === "undefined") return undefined;
+
+    const previousOverflow = document.body.style.overflow;
+    const previousOverscrollBehavior = document.body.style.overscrollBehavior;
+    document.body.style.overflow = "hidden";
+    document.body.style.overscrollBehavior = "none";
+
+    return () => {
+      document.body.style.overflow = previousOverflow;
+      document.body.style.overscrollBehavior = previousOverscrollBehavior;
+    };
+  }, [nearbyAreaOpen]);
+
+  useEffect(() => {
     const target = String(navigationRequest?.target || "");
     if (!target) return;
 
@@ -935,10 +950,8 @@ export default function Transport({
   }
 
   function renderWithAreaView(content) {
-    return (
-      <>
-        {content}
-        {nearbyAreaMounted ? (
+    const areaViewLayer = nearbyAreaMounted && typeof document !== "undefined"
+      ? createPortal(
           <div
             key="persistent-area-view"
             aria-hidden={!nearbyAreaOpen}
@@ -957,8 +970,15 @@ export default function Transport({
               onLocationPicked={acceptNearbyAreaLocation}
               backLabel={getNearbyAreaBackLabel()}
             />
-          </div>
-        ) : null}
+          </div>,
+          document.body,
+        )
+      : null;
+
+    return (
+      <>
+        {content}
+        {areaViewLayer}
       </>
     );
   }
