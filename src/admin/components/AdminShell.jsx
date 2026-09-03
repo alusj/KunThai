@@ -30,6 +30,7 @@ import {
   ShieldCheck,
   Store,
   UserCog,
+  UserRoundPlus,
   Users,
   X,
 } from "lucide-react";
@@ -61,6 +62,7 @@ const ICONS = {
   ShieldAlert,
   Store,
   UserCog,
+  UserRoundPlus,
   Users,
 };
 

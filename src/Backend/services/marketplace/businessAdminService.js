@@ -4,7 +4,6 @@
 // and can leave the business themselves.
 
 import supabase from "../../lib/supabaseClient";
-import { createExploreNotification } from "../exploreService";
 import { resolvePublicCode } from "../publicCodeService";
 import { assertBusinessCapacity, getCapacityUpgradePlan } from "../businessSubscriptionService";
 
@@ -104,15 +103,6 @@ export async function inviteBusinessAdmin(business, kunthaiId) {
     throw new Error(error.message || "Unable to send this admin invitation.");
   }
 
-  // The notification insert also produces the in-app banner and push through
-  // the existing notification pipeline.
-  createExploreNotification({
-    user_id: resolved.userId,
-    type: "system",
-    actor_name: businessName,
-    message: `${businessName} invited you to become a store admin on UrMall. Open UrMall menu > Admin roles to respond.`,
-  }).catch(() => null);
-
   return mapAdminRow(data);
 }
 
@@ -152,13 +142,6 @@ export async function updateAdminResponsibilities(adminRow, responsibilities) {
     .maybeSingle();
   if (error) throw new Error(error.message || "Unable to update responsibilities.");
 
-  createExploreNotification({
-    user_id: adminRow.userId,
-    type: "system",
-    actor_name: adminRow.businessName,
-    message: `${adminRow.businessName} updated your admin responsibilities on UrMall.`,
-  }).catch(() => null);
-
   return mapAdminRow(data);
 }
 
@@ -169,12 +152,6 @@ export async function removeBusinessAdmin(adminRow) {
     .eq("id", adminRow.id);
   if (error) throw new Error(error.message || "Unable to remove this admin.");
 
-  createExploreNotification({
-    user_id: adminRow.userId,
-    type: "system",
-    actor_name: adminRow.businessName,
-    message: `You were removed as an admin of ${adminRow.businessName} on UrMall.`,
-  }).catch(() => null);
   return true;
 }
 
@@ -187,13 +164,5 @@ export async function leaveBusinessAdmin(adminRow) {
     .eq("user_id", userId);
   if (error) throw new Error(error.message || "Unable to leave this business.");
 
-  if (adminRow.invitedBy) {
-    createExploreNotification({
-      user_id: adminRow.invitedBy,
-      type: "system",
-      actor_name: adminRow.adminName,
-      message: `${adminRow.adminName} left the admin role at ${adminRow.businessName}.`,
-    }).catch(() => null);
-  }
   return true;
 }

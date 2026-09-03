@@ -1,7 +1,7 @@
 /* =========================
    MyBiz Header
 ========================= */
-import { MessageSquare, ShieldCheck, Store } from "lucide-react";
+import { ArrowLeft, Bell, Menu, MessageSquare, PackageCheck, Plus, ShieldCheck, Store } from "lucide-react";
 
 import MyBizHeader from "./BusinessHeader/MyBizHeader";
 import MyBizMenu from "./BusinessHeader/MyBizMenu/MyBizMenu";
@@ -99,7 +99,7 @@ function SellerFullScreen({ animation = "stack", children, hideHeader = false, e
   );
 }
 
-export default function Business({ onBack }) {
+export default function Business({ initialScreen = "", onBack, onInitialScreenHandled }) {
   useI18n();
   const { loading, hasBusiness, setHasBusiness } = useSellerBusinessStatus();
   const sellerOverview = useSellerOverview({ enabled: hasBusiness });
@@ -204,6 +204,14 @@ export default function Business({ onBack }) {
     if (!consumeSellerOrdersAreaViewReturn()) return;
     pushSellerScreen({ screen: "orders", state: { restoredFromAreaView: true } });
   }, [pushSellerScreen]);
+
+  useEffect(() => {
+    if (!hasBusiness || !initialScreen) return;
+    if (activeScreen !== initialScreen) {
+      pushSellerScreen({ screen: initialScreen, state: { openedFromNotification: true } });
+    }
+    onInitialScreenHandled?.();
+  }, [activeScreen, hasBusiness, initialScreen, onInitialScreenHandled, pushSellerScreen]);
 
   useEffect(() => {
     if (!hasBusiness) return undefined;
@@ -661,7 +669,7 @@ export default function Business({ onBack }) {
     // "Opening dashboard" line.
     return (
       <div className={`${dashboardRevealClass} kt-mobile-viewport kt-safe-screen bg-gray-50`} style={dashboardRevealStyle} aria-busy="true">
-        <SellerDashboardSkeleton />
+        <SellerDashboardSkeleton onBack={onBack} />
       </div>
     );
   }
@@ -875,51 +883,56 @@ export default function Business({ onBack }) {
   );
 }
 
-// First-load seller shell using the same shimmer and content geometry as the
-// upgraded app skeleton. Keeping dashboard and catalog shapes visible makes the
-// transition feel immediate even on a slow first business query.
-function SellerDashboardSkeleton() {
+// The seller shell itself is stable UI, so only the business switcher and the
+// server-backed listing cards shimmer. Header actions, workspace tabs, and the
+// dashboard information cards must not masquerade as loading data.
+function SellerDashboardSkeleton({ onBack }) {
   return (
     <>
-      <header className="sticky top-0 z-30 border-b border-gray-200 bg-white">
+      <header className="sticky top-0 z-30 border-b border-gray-200 bg-white" data-static-shell="seller-header">
         <div className="flex h-16 w-full items-center justify-between gap-3 px-4 sm:px-6 lg:px-8">
           <div className="flex min-w-0 items-center gap-3">
-            <div className="kt-startup-shimmer h-10 w-10 rounded-xl" />
-            <div className="space-y-2">
-              <div className="kt-startup-shimmer h-2.5 w-16 rounded-full" />
-              <div className="kt-startup-shimmer h-4 w-28 rounded-full" />
-            </div>
+            <button
+              type="button"
+              onClick={onBack}
+              className="grid h-10 w-10 shrink-0 place-items-center rounded-full border border-gray-200 bg-white text-gray-700"
+              aria-label={t("common.back")}
+            >
+              <ArrowLeft size={19} />
+            </button>
+            <span className="hidden truncate text-sm font-semibold text-gray-900 sm:block">
+              {t("urmall.biz.header.sellerDashboard")}
+            </span>
           </div>
-          <div className="flex items-center gap-2">
-            <div className="kt-startup-shimmer h-10 w-10 rounded-xl" />
-            <div className="kt-startup-shimmer h-10 w-10 rounded-xl" />
-            <div className="kt-startup-shimmer h-10 w-10 rounded-xl" />
+
+          <div
+            className="kt-startup-shimmer h-10 w-16 shrink-0 rounded-xl border border-emerald-200"
+            data-loading-region="business-switcher"
+            aria-hidden="true"
+          />
+
+          <div className="flex items-center gap-2 text-gray-700" aria-hidden="true">
+            <span className="grid h-10 w-10 place-items-center rounded-lg bg-gray-950 text-white"><Plus size={18} /></span>
+            <span className="hidden h-10 w-10 place-items-center rounded-lg border border-gray-200 bg-white min-[390px]:grid"><PackageCheck size={18} /></span>
+            <span className="hidden h-10 w-10 place-items-center rounded-lg border border-gray-200 bg-white min-[440px]:grid"><MessageSquare size={18} /></span>
+            <span className="grid h-10 w-10 place-items-center rounded-lg border border-gray-200 bg-white"><Bell size={18} /></span>
+            <span className="grid h-10 w-10 place-items-center rounded-lg border border-gray-200 bg-white"><Menu size={19} /></span>
           </div>
         </div>
       </header>
       <div className="w-full space-y-4 px-4 py-5 sm:px-6 lg:px-8">
-        <section className="rounded-[24px] border border-gray-200 bg-white p-4">
-          <div className="flex items-center gap-3">
-            <div className="kt-startup-shimmer h-14 w-14 shrink-0 rounded-2xl" />
-            <div className="min-w-0 flex-1 space-y-2">
-              <div className="kt-startup-shimmer h-4 w-40 max-w-full rounded-full" />
-              <div className="kt-startup-shimmer h-3 w-24 rounded-full" />
-            </div>
-            <div className="kt-startup-shimmer h-10 w-24 rounded-xl" />
-          </div>
-          <div className="mt-4 grid grid-cols-2 gap-3 sm:grid-cols-4">
-            {[0, 1, 2, 3].map((item) => (
-              <div key={item} className="rounded-2xl border border-gray-100 p-3">
-                <div className="kt-startup-shimmer h-3 w-16 rounded-full" />
-                <div className="kt-startup-shimmer mt-3 h-7 w-20 rounded-lg" />
-              </div>
-            ))}
-          </div>
-        </section>
-        <div className="grid grid-cols-3 gap-2 rounded-2xl border border-gray-200 bg-white p-2">
-          {[0, 1, 2].map((item) => <div key={item} className="kt-startup-shimmer h-10 rounded-xl" />)}
-        </div>
-        <div className="grid grid-cols-2 gap-3 sm:grid-cols-3">
+        <nav className="grid grid-cols-3 gap-1.5 rounded-2xl border border-gray-200 bg-white p-1.5 shadow-sm" data-static-shell="seller-tabs">
+          {[
+            t("urmall.biz.cat.titleStore"),
+            t("urmall.biz.cat.titleCatalog"),
+            t("urmall.biz.cat.titleDraft"),
+          ].map((label, index) => (
+            <span key={label} className={`grid min-h-10 place-items-center rounded-xl px-2 text-xs font-black ${index === 0 ? "bg-slate-950 text-white" : "text-gray-500"}`}>
+              {label}
+            </span>
+          ))}
+        </nav>
+        <div className="grid grid-cols-2 gap-3 sm:grid-cols-3" data-loading-region="seller-items">
           {[0, 1, 2, 3, 4, 5].map((item) => (
             <div key={item} className="overflow-hidden rounded-[20px] border border-gray-200 bg-white">
               <div className="kt-startup-shimmer aspect-[4/3] w-full" />

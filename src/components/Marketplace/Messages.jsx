@@ -24,7 +24,7 @@ function readFileAsDataUrl(file) {
   });
 }
 
-export default function Messages({ onBack, onProductOpen }) {
+export default function Messages({ initialConversationId = "", onBack, onInitialConversationHandled, onProductOpen }) {
   useI18n();
   const [messages, setMessages] = useState([]);
   const [activeId, setActiveId] = useState("");
@@ -113,6 +113,23 @@ export default function Messages({ onBack, onProductOpen }) {
       }
     };
   }, []);
+
+  useEffect(() => {
+    if (!initialConversationId || loading) return;
+    const conversation = messages.find((message) => message.id === initialConversationId);
+    if (conversation) {
+      clearTransitionTimer();
+      setClosingMessage(null);
+      setSendError("");
+      setScreenAction("push");
+      setActiveId(initialConversationId);
+      if (conversation.unread) {
+        setMessages((current) => current.map((message) => message.id === initialConversationId ? { ...message, unread: false } : message));
+        markBuyerMarketplaceConversationRead(conversation).catch(() => loadMessages({ silent: true }));
+      }
+    }
+    onInitialConversationHandled?.();
+  }, [initialConversationId, loading, messages, onInitialConversationHandled]);
 
   function clearTransitionTimer() {
     if (transitionTimerRef.current) {

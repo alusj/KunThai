@@ -16,6 +16,7 @@ export const previewAccess = {
     "visibility_credits.manage",
     "notifications.view", "notifications.manage", "notifications.approve", "analytics.view",
     "team.view", "team.manage", "audit.view", "settings.view", "settings.manage",
+    "join.view", "join.manage", "join.decide",
   ],
   roles: [{
     assignmentId: "preview-assignment",

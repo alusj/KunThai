@@ -79,6 +79,10 @@ export const MENU_SCREENS = {
     title: "Your Voice",
     subtitle: "Share private ideas, problems, screenshots, and voice notes with KunThai.",
   },
+  JoinKunThai: {
+    title: "Join KunThai",
+    subtitle: "Invest, build, or volunteer with KunThai.",
+  },
   ReportProblem: {
     title: "Report a Problem",
     subtitle: "Send a support request with the details KunThai needs to investigate.",

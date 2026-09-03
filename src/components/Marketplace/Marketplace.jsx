@@ -71,25 +71,37 @@ export default function Marketplace({ nav, setNav, onActivityChange, onNotificat
   const [verticalDetailOpen, setVerticalDetailOpen] = useState(false);
   const [tabSlideDirection, setTabSlideDirection] = useState("forward");
   const [activeUtility, setActiveUtility] = useState(null);
+  const [messageConversationId, setMessageConversationId] = useState("");
+  const [requestedMenuScreen, setRequestedMenuScreen] = useState("");
+  const [businessInitialScreen, setBusinessInitialScreen] = useState("");
 
   // Cross-service deep-links switch to UrMall and open the requested buyer or
   // seller workspace. Consume pending requests on mount and also honor them
   // while Marketplace is already mounted.
   useEffect(() => {
-    function openRequestedScreen(screen) {
+    function openRequestedScreen(request) {
+      const detail = typeof request === "string" ? { screen: request } : request || {};
+      const screen = detail.screen || "";
       if (screen === "messages" || screen === "orders") {
+        setMessageConversationId(screen === "messages" ? String(detail.conversationId || "") : "");
         setActiveUtility(screen);
+        return;
+      }
+      if (screen === "admin-roles") {
+        setActiveUtility(null);
+        setRequestedMenuScreen("adminRoles");
         return;
       }
       if (screen === "business" || screen === "business-messages") {
         setActiveUtility(null);
+        setBusinessInitialScreen(screen === "business-messages" ? "messages" : "");
         setNav({ root: "marketplace", sub: "business" });
       }
     }
 
     openRequestedScreen(consumePendingMarketplaceScreen());
     function handleOpenMarketplaceScreen(event) {
-      openRequestedScreen(event.detail?.screen);
+      openRequestedScreen(consumePendingMarketplaceScreen() || event.detail);
     }
     window.addEventListener(OPEN_MARKETPLACE_SCREEN_EVENT, handleOpenMarketplaceScreen);
     return () => window.removeEventListener(OPEN_MARKETPLACE_SCREEN_EVENT, handleOpenMarketplaceScreen);
@@ -297,6 +309,8 @@ export default function Marketplace({ nav, setNav, onActivityChange, onNotificat
     return (
       <div className={`${businessClosing ? "kt-explore-stack-leave-right" : "kt-explore-stack-enter"} kt-mobile-viewport`}>
         <Business
+          initialScreen={businessInitialScreen}
+          onInitialScreenHandled={() => setBusinessInitialScreen("")}
           onBack={closeMyBiz}
         />
       </div>
@@ -325,6 +339,8 @@ export default function Marketplace({ nav, setNav, onActivityChange, onNotificat
             onMyBizClick={openMyBiz}
             onNotificationStateChange={setBuyerNotificationState}
             sellerNotificationCount={sellerNotificationCount}
+            requestedMenuScreen={requestedMenuScreen}
+            onRequestedMenuScreenHandled={() => setRequestedMenuScreen("")}
           />
           {parentNavVisible ? (
             <MarketplaceParentNav
@@ -389,7 +405,12 @@ export default function Marketplace({ nav, setNav, onActivityChange, onNotificat
         onClose={() => setActiveUtility(null)}
         hideHeader
       >
-        <Messages onBack={() => setActiveUtility(null)} onProductOpen={openProductFromUtility} />
+        <Messages
+          initialConversationId={messageConversationId}
+          onInitialConversationHandled={() => setMessageConversationId("")}
+          onBack={() => setActiveUtility(null)}
+          onProductOpen={openProductFromUtility}
+        />
       </UtilityScreen>
 
       <UtilityScreen

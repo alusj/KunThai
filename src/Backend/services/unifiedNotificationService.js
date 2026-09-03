@@ -1,5 +1,5 @@
 import supabase from "../lib/supabaseClient";
-import { requestExploreScreen, requestMarketplaceScreen } from "./notificationBannerService";
+import { requestExploreScreen, requestMarketplaceScreen, runNotificationAction } from "./notificationBannerService";
 
 export const UNIFIED_NOTIFICATIONS_UPDATED_EVENT = "kuntai-unified-notifications-updated";
 
@@ -74,7 +74,7 @@ function mapExploreNotification(item) {
     return {
       id: namespace("platform", item.id),
       rawId: item.id,
-      source: item.sector === "platform" ? "system" : item.sector || "system",
+      source: item.sector === "platform" || item.sector === "all" ? "system" : item.sector || "system",
       sourceTable: "platform_notifications",
       category: item.category || (item.notification_type?.includes("payment") ? "payment" : "system"),
       type: item.notification_type || "admin_message",
@@ -357,16 +357,20 @@ export function notificationAllowedByPreferences(item, preferences = DEFAULT_PRE
 }
 
 export function openUnifiedNotification(item) {
-  const target = String(item?.actionTarget || "");
-  if (target.startsWith("urmall:messages")) requestMarketplaceScreen("messages");
-  else if (target.startsWith("urmall:orders")) requestMarketplaceScreen("orders");
-  else if (target.startsWith("urmall:business-messages")) requestMarketplaceScreen("business-messages");
-  else if (target.startsWith("urmall:business")) requestMarketplaceScreen("business");
-  else if (target.startsWith("urmall") || item?.source === "marketplace") requestMarketplaceScreen("");
-  else if (target.startsWith("urride") || item?.source === "transport") {
-    window.dispatchEvent(new CustomEvent("kuntai-return-main-page", { detail: { page: "transport", target } }));
-  } else if (target.startsWith("messages")) requestExploreScreen("Messages");
-  else requestExploreScreen("Notifications");
+  return runNotificationAction(() => {
+    const target = String(item?.actionTarget || "");
+    if (target.startsWith("urmall:messages")) {
+      requestMarketplaceScreen("messages", { conversationId: item?.conversationId || item?.actionData?.conversationId || item?.rawId || "" });
+    } else if (target.startsWith("urmall:orders")) requestMarketplaceScreen("orders", { orderId: item?.orderId || item?.rawId || "" });
+    else if (target.startsWith("urmall:admin-roles")) requestMarketplaceScreen("admin-roles");
+    else if (target.startsWith("urmall:business-messages")) requestMarketplaceScreen("business-messages");
+    else if (target.startsWith("urmall:business")) requestMarketplaceScreen("business");
+    else if (target.startsWith("urmall") || item?.source === "marketplace") requestMarketplaceScreen("");
+    else if (target.startsWith("urride") || item?.source === "transport") {
+      window.dispatchEvent(new CustomEvent("kuntai-return-main-page", { detail: { page: "transport", target } }));
+    } else if (target.startsWith("messages")) requestExploreScreen("Messages");
+    else requestExploreScreen("Notifications");
+  });
 }
 
 export function notificationSourceLabel(source) {

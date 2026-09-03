@@ -10,6 +10,7 @@ import {
 } from "../../Backend/services/notificationSeenStore";
 import { showKunThaiSystemNotification } from "../../Backend/services/pushService";
 import { t as i18nText } from "../../i18n/index";
+import { fetchSurfacePlatformNotifications } from "../../Backend/services/surfaceNotificationService";
 
 const ACTIVITY_REFRESH_MS = 20_000;
 const EMPTY_ACTIVITY = {
@@ -17,6 +18,7 @@ const EMPTY_ACTIVITY = {
   orderItems: [],
   messageItems: [],
   notificationItems: [],
+  platformItems: [],
   bookingItems: [],
 };
 
@@ -75,12 +77,15 @@ function announceActivity({ body, item, page, source, title }) {
   // service home, so tapping it takes the user straight toward the message
   // (works cross-service, e.g. tapped from UrRide). Buyer message items carry a
   // "buyer-message:" id; other activity keeps the plain service switch.
-  const opensBuyerMessages = page === "marketplace"
-    && source === "messages"
-    && String(item.id || "").startsWith("buyer-message:");
+  const marketplaceMessage = page === "marketplace" && source === "messages";
+  const opensBuyerMessages = marketplaceMessage && String(item.id || "").startsWith("buyer-message:");
   const onOpen = opensBuyerMessages
-    ? () => requestMarketplaceScreen("messages")
-    : () => openService(page);
+    ? () => requestMarketplaceScreen("messages", { conversationId: item.conversationId || "" })
+    : marketplaceMessage
+      ? () => requestMarketplaceScreen("business-messages")
+      : page === "marketplace" && source === "orders"
+        ? () => requestMarketplaceScreen("orders")
+        : () => openService(page);
 
   haptics.light(page);
   sounds.notification(page);
@@ -136,6 +141,7 @@ function mapBuyerOrder(order) {
 function mapBuyerMessage(message) {
   return {
     ...message,
+    conversationId: message.id,
     id: `buyer-message:${message.id}:${message.createdAt || ""}`,
     createdAt: message.createdAt || "",
     unread: true,
@@ -183,10 +189,11 @@ export default function CrossServiceActivityHost({
 
       try {
         const modules = await loadActivityModules();
-        const [sellerState, buyerOrders, buyerMessages] = await Promise.all([
+        const [sellerState, buyerOrders, buyerMessages, platformItems] = await Promise.all([
           modules.sellerHeader.fetchSellerHeaderState().catch(() => null),
           modules.buyerMarketplace.fetchBuyerOrders().catch(() => []),
           modules.buyerMarketplace.fetchBuyerMessages().catch(() => []),
+          fetchSurfacePlatformNotifications("marketplace", { userId }).catch(() => []),
         ]);
         if (!active) return;
 
@@ -203,12 +210,16 @@ export default function CrossServiceActivityHost({
           sellerOrderItems,
           messageItems: [...sellerMessageItems, ...buyerMessageItems],
           notificationItems: sellerNotificationItems,
+          platformItems,
           bookingItems: [],
         };
         const previous = marketplaceRef.current;
         marketplaceRef.current = nextState;
         onMarketplaceCountChange?.(
-          nextState.orderItems.length + nextState.messageItems.length + nextState.notificationItems.length,
+          nextState.orderItems.length
+            + nextState.messageItems.length
+            + nextState.notificationItems.length
+            + unseenItems("urmall:buyer:notifications", nextState.platformItems).length,
         );
 
         if (previous.initialized) {
@@ -257,7 +268,7 @@ export default function CrossServiceActivityHost({
           modules.operatorAccounts.getOperatorAccount().catch(() => null),
           modules.companyAccounts.getTransportCompanyAccount().catch(() => null),
         ]);
-        const [operationState, passengerItems] = await Promise.all([
+        const [operationState, passengerItems, platformItems] = await Promise.all([
           modules.transportHeader.fetchTransportOperationBadgeState(operatorAccount, companyAccount).catch(() => ({
             bookingCount: 0,
             notificationCount: 0,
@@ -269,6 +280,7 @@ export default function CrossServiceActivityHost({
             includeOperator: false,
             includePassenger: true,
           }).catch(() => []),
+          fetchSurfacePlatformNotifications("transport", { userId }).catch(() => []),
         ]);
         if (!active) return;
 
@@ -280,10 +292,15 @@ export default function CrossServiceActivityHost({
           messageItems: [],
           bookingItems: operationState.bookingItems || [],
           notificationItems: [...operationNotificationItems, ...passengerNotificationItems],
+          platformItems,
         };
         const previous = transportRef.current;
         transportRef.current = nextState;
-        onTransportCountChange?.(nextState.bookingItems.length + nextState.notificationItems.length);
+        onTransportCountChange?.(
+          nextState.bookingItems.length
+            + nextState.notificationItems.length
+            + unseenItems("transport:passenger", nextState.platformItems).length,
+        );
 
         if (previous.initialized) {
           announceActivity({
@@ -344,6 +361,15 @@ export default function CrossServiceActivityHost({
         .channel(`cross-service-activity-${userId}-${Date.now()}`)
         .on("postgres_changes", { event: "*", schema: "public", table: "marketplace_orders" }, refreshMarketplace)
         .on("postgres_changes", { event: "*", schema: "public", table: "transport_operator_alerts" }, refreshTransport)
+        .on(
+          "postgres_changes",
+          { event: "*", schema: "public", table: "platform_notifications", filter: `user_id=eq.${userId}` },
+          (payload) => {
+            const sector = String(payload.new?.sector || payload.old?.sector || "");
+            if (sector === "marketplace") refreshMarketplace();
+            if (sector === "transport") refreshTransport();
+          },
+        )
         .on(
           "postgres_changes",
           { event: "INSERT", schema: "public", table: "explore_notifications", filter: `user_id=eq.${userId}` },

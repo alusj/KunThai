@@ -58,6 +58,7 @@ const MENU_GROUPS = [
     items: [
       ["help-center", "helpCenter", HiOutlineQuestionMarkCircle],
       ["your-voice", "yourVoice", HiOutlineLightBulb],
+      ["join-kunthai", "joinKunThai", HiOutlineRocketLaunch],
       ["report-problem", "reportProblem", HiOutlineExclamationTriangle],
       ["safety-center", "safetyCenter", HiOutlineShieldCheck],
       ["terms-policies", "policyCenter", HiOutlineScale],
@@ -85,6 +86,7 @@ export function SocialMenuContent({ compact = false, currentProfile = null, onCl
       "data-mobile-use": "DataMobileUse",
       "help-center": "HelpCenter",
       "your-voice": "YourVoice",
+      "join-kunthai": "JoinKunThai",
       "report-problem": "ReportProblem",
       "safety-center": "SafetyCenter",
       "terms-policies": "TermsPolicies",

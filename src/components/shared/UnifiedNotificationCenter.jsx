@@ -201,11 +201,11 @@ export default function UnifiedNotificationCenter({ onCountChange, onOpenChange,
     await updateUnifiedNotificationReceipt(userId, item, "read").catch(() => refresh({ quiet: true }));
   }
 
-  async function openItem(item) {
+  function openItem(item) {
+    if (!openUnifiedNotification(item)) return;
     setItems((current) => current.map((row) => row.id === item.id ? { ...row, read: true, seen: true, actionedAt: new Date().toISOString() } : row));
-    await updateUnifiedNotificationReceipt(userId, item, "actioned").catch(() => {});
     onOpenChange?.(false);
-    openUnifiedNotification(item);
+    updateUnifiedNotificationReceipt(userId, item, "actioned").catch(() => {});
   }
 
   async function dismissItem(item) {

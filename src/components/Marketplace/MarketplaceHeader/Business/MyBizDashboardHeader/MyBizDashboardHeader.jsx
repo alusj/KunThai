@@ -14,14 +14,10 @@ export default function MyBizDashboardHeader({
   const fallbackOverview = useSellerOverview({ enabled: !overview });
   const { business, storeStatus, health, today, loading } = overview || fallbackOverview;
 
-  if (loading || !business || !storeStatus || !health || !today) {
-    return (
-      <div className="space-y-4" aria-busy="true">
-        <div className="h-36 animate-pulse rounded-2xl border border-gray-200 bg-white" />
-        <div className="h-56 animate-pulse rounded-2xl border border-gray-200 bg-white" />
-      </div>
-    );
-  }
+  // These are informational cards, not a loading surface. Keep them out of the
+  // layout until their real values exist; listing sections below own the only
+  // seller-dashboard skeletons.
+  if (loading || !business || !storeStatus || !health || !today) return null;
 
   return (
     <div className="space-y-4">

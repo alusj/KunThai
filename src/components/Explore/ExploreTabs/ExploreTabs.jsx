@@ -26,11 +26,11 @@ export default function ExploreTabs({ activeTab, setActiveTab, slideDirection = 
     <div className="kt-safe-inline border-y border-white/70 bg-white/[0.52] py-2 shadow-sm backdrop-blur-2xl supports-[backdrop-filter]:bg-white/40 dark:border-slate-800/80 dark:bg-slate-950/70 dark:supports-[backdrop-filter]:bg-slate-950/60">
       <div
         className={`relative grid w-full grid-cols-3 gap-1 rounded-[24px] border border-white/80 bg-white/55 p-1 ring-1 ring-slate-950/5 dark:border-slate-700/60 dark:bg-slate-900/70 dark:ring-white/10 ${
-          slideDirection === "backward" ? "kt-parent-tab-slide-backward" : "kt-parent-tab-slide-forward"
+          slideDirection === "none" ? "" : slideDirection === "backward" ? "kt-parent-tab-slide-backward" : "kt-parent-tab-slide-forward"
         }`}
       >
       <span
-        className="pointer-events-none absolute bottom-1 top-1 rounded-[20px] bg-slate-950/90 shadow-md shadow-slate-950/15 transition-[left] duration-300 ease-out dark:bg-white dark:shadow-black/40"
+        className="pointer-events-none absolute bottom-1 top-1 rounded-[20px] bg-slate-950/90 shadow-md shadow-slate-950/15 transition-[left] duration-200 ease-out dark:bg-white dark:shadow-black/40"
         style={{
           left: `calc(0.25rem + ${activeIndex} * ((100% - 1rem) / 3 + 0.25rem))`,
           width: "calc((100% - 1rem) / 3)",

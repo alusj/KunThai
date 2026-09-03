@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useMemo, useState } from "react";
-import { Bell, PackageCheck } from "lucide-react";
+import { Bell, BellRing, PackageCheck } from "lucide-react";
 
 import { fetchBuyerOrders } from "../../../Backend/services/marketplace/buyerMarketplaceService";
 import { buildBuyerOrderNotifications } from "../../../Backend/services/marketplace/marketplaceNotificationModels";
@@ -13,6 +13,13 @@ import AppBackTab from "../../shared/AppBackTab";
 import AppPortal from "../../shared/AppPortal";
 import { PremiumHeaderButton } from "../../shared/PremiumHeader";
 import useBodyScrollLock from "../../shared/useBodyScrollLock";
+import {
+  fetchSurfacePlatformNotifications,
+  markSurfacePlatformNotificationRead,
+  subscribeToSurfacePlatformNotifications,
+} from "../../../Backend/services/surfaceNotificationService";
+import { openUnifiedNotification } from "../../../Backend/services/unifiedNotificationService";
+import { runNotificationAction } from "../../../Backend/services/notificationBannerService";
 
 const BUYER_NOTIFICATION_SCOPE = "urmall:buyer:notifications";
 const BUYER_NOTIFICATION_READ_SCOPE = `${BUYER_NOTIFICATION_SCOPE}:read`;
@@ -44,8 +51,12 @@ export default function BuyerNotifications({ onOpenChange, onUnreadCountChange, 
     setError("");
 
     try {
-      const orders = await fetchBuyerOrders();
-      const items = buildBuyerOrderNotifications(orders);
+      const [orders, platformItems] = await Promise.all([
+        fetchBuyerOrders().catch(() => []),
+        fetchSurfacePlatformNotifications("marketplace").catch(() => []),
+      ]);
+      const items = [...buildBuyerOrderNotifications(orders), ...platformItems]
+        .sort((first, second) => new Date(second.createdAt || 0) - new Date(first.createdAt || 0));
       const badgeItems = applySeenNotificationState(BUYER_NOTIFICATION_SCOPE, items);
       const readItems = applySeenNotificationState(BUYER_NOTIFICATION_READ_SCOPE, items);
       setNotifications(badgeItems.map((item, index) => ({
@@ -72,6 +83,21 @@ export default function BuyerNotifications({ onOpenChange, onUnreadCountChange, 
       window.clearInterval(intervalId);
       window.removeEventListener("marketplace-orders-updated", refresh);
       unsubscribeSeen?.();
+    };
+  }, [refreshNotifications]);
+
+  useEffect(() => {
+    let cleanup = () => {};
+    let active = true;
+    subscribeToSurfacePlatformNotifications("marketplace", () => refreshNotifications({ quiet: true }).catch(() => {}))
+      .then((unsubscribe) => {
+        if (active) cleanup = unsubscribe;
+        else unsubscribe?.();
+      })
+      .catch(() => {});
+    return () => {
+      active = false;
+      cleanup();
     };
   }, [refreshNotifications]);
 
@@ -109,12 +135,24 @@ export default function BuyerNotifications({ onOpenChange, onUnreadCountChange, 
     setNotifications((current) => current.map((item) => (
       item.id === notification.id ? { ...item, read: true } : item
     )));
+    if (notification.sourceTable === "platform_notifications") {
+      markSurfacePlatformNotificationRead(notification).catch(() => {});
+    }
   }
 
   function viewOrder(notification) {
+    runNotificationAction(() => {
+      markRead(notification);
+      setOpen(false);
+      onViewOrders?.(notification.orderId);
+    });
+  }
+
+  function openNotification(notification) {
+    if (!openUnifiedNotification(notification)) return;
     markRead(notification);
     setOpen(false);
-    onViewOrders?.(notification.orderId);
+    markSurfacePlatformNotificationRead(notification, { actioned: true }).catch(() => {});
   }
 
   useBodyScrollLock(open);
@@ -175,12 +213,12 @@ export default function BuyerNotifications({ onOpenChange, onUnreadCountChange, 
                   {notifications.map((notification) => (
                     <article
                       key={notification.id}
-                      onClick={() => markRead(notification)}
+                      onClick={() => notification.sourceTable === "platform_notifications" ? openNotification(notification) : markRead(notification)}
                       className={`rounded-2xl border p-3 ${!notification.read ? "border-emerald-100 bg-emerald-50" : "border-slate-100 bg-white"}`}
                     >
                       <div className="flex items-start gap-3">
                         <span className="flex h-10 w-10 shrink-0 items-center justify-center rounded-2xl bg-white text-emerald-700 shadow-sm">
-                          <PackageCheck size={18} />
+                          {notification.sourceTable === "platform_notifications" ? <BellRing size={18} /> : <PackageCheck size={18} />}
                         </span>
                         <div className="min-w-0 flex-1">
                           <h3 className="text-sm font-black text-slate-950">{notification.title}</h3>
@@ -192,11 +230,12 @@ export default function BuyerNotifications({ onOpenChange, onUnreadCountChange, 
                             type="button"
                             onClick={(event) => {
                               event.stopPropagation();
-                              viewOrder(notification);
+                              if (notification.sourceTable === "platform_notifications") openNotification(notification);
+                              else viewOrder(notification);
                             }}
                             className="kt-touchable mt-3 text-sm font-black text-emerald-700 hover:text-emerald-800"
                           >
-                            {notification.actionLabel}
+                            {notification.actionLabel || "Open"}
                           </button>
                         </div>
                       </div>

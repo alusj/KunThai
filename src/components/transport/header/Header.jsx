@@ -20,6 +20,7 @@ export default function Header({
   companyLoading = false,
   operatorAccount,
   operatorLoading = false,
+  notificationOpenRequest = 0,
   onActivityChange,
   onNotificationCountChange,
   onRegisterFleet,
@@ -150,6 +151,7 @@ export default function Header({
               onUnreadCountChange={handleNotificationCountChange}
               onViewFleet={onViewFleet}
               onViewTrip={onViewTrip}
+              openRequest={notificationOpenRequest}
             />
             <MenuButton onClick={() => setMenuOpen(true)} />
           </>

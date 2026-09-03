@@ -52,6 +52,10 @@ import { showToast } from "../../Backend/services/toastService";
 import { getNetworkStatus, subscribeToNetworkStatus, suppressGlobalNetworkToasts } from "../../Backend/services/networkService";
 import { cacheAreaViewData, readAreaViewCache } from "../../Backend/services/areaViewCacheService";
 import {
+  dismissAreaViewGuide,
+  shouldShowAreaViewGuide,
+} from "../../Backend/services/areaViewGuideService";
+import {
   locationCategories,
   locationStatusStyles,
   nearbyLocations,
@@ -61,6 +65,13 @@ import { useI18n, t } from "../../i18n";
 import { t as i18nText } from "../../i18n/index";
 
 const DROP_PIN_CARD_REVEAL_DELAY_MS = 4_000;
+
+const AREA_VIEW_GUIDE_ITEMS = [
+  { icon: FiSearch, titleKey: "urride.areaView.guideAddressTitle", bodyKey: "urride.areaView.guideAddressBody" },
+  { icon: FiAlertTriangle, titleKey: "urride.areaView.guideNetworkTitle", bodyKey: "urride.areaView.guideNetworkBody" },
+  { icon: FiNavigation, titleKey: "urride.areaView.guideSmartTitle", bodyKey: "urride.areaView.guideSmartBody" },
+  { icon: FiCrosshair, titleKey: "urride.areaView.guideSaveMeTitle", bodyKey: "urride.areaView.guideSaveMeBody" },
+];
 
 const CATEGORY_LABEL_KEYS = {
   All: "urride.areaView.catAll",
@@ -936,6 +947,8 @@ export default function NearbyAreaScreen({
   const [dropPinExpandSignal, setDropPinExpandSignal] = useState(0);
   const [oneKmMeasurementPreview, setOneKmMeasurementPreview] = useState(null);
   const [oneKmPreviewState, setOneKmPreviewState] = useState("idle");
+  const [areaViewGuideOpen, setAreaViewGuideOpen] = useState(shouldShowAreaViewGuide);
+  const [dontShowAreaViewGuide, setDontShowAreaViewGuide] = useState(false);
   const mapCenterRef = useRef(null);
   const userLocationRef = useRef(null);
   const lastPublishedCenterRef = useRef(null);
@@ -2239,6 +2252,11 @@ export default function NearbyAreaScreen({
     ? buildExactMapPointPreview(addLocationDraft, areaAddLocationPickerLabels.droppedName)
     : null;
 
+  function acceptAreaViewGuide() {
+    if (dontShowAreaViewGuide) dismissAreaViewGuide();
+    setAreaViewGuideOpen(false);
+  }
+
   return (
     <div className="kt-mobile-screen kt-safe-screen overflow-hidden bg-slate-950 text-white" data-back-swipe-scope>
       <section className="relative h-full overflow-hidden">
@@ -2523,6 +2541,14 @@ export default function NearbyAreaScreen({
           />
         ) : null}
 
+        {!isSpecialMode && areaViewGuideOpen ? (
+          <AreaViewFirstUseGuide
+            dontShowAgain={dontShowAreaViewGuide}
+            onDontShowAgainChange={setDontShowAreaViewGuide}
+            onConfirm={acceptAreaViewGuide}
+          />
+        ) : null}
+
         <EmergencySheet
           open={sosOpen}
           onClose={handleEmergencySheetClose}
@@ -2530,6 +2556,80 @@ export default function NearbyAreaScreen({
           detectingCountry={detectingSosCountry}
           onNavigateNearby={handleEmergencyNearbySearch}
         />
+      </section>
+    </div>
+  );
+}
+
+function AreaViewFirstUseGuide({ dontShowAgain, onDontShowAgainChange, onConfirm }) {
+  return (
+    <div className="absolute inset-0 z-[80] flex items-end justify-center bg-slate-950/55 p-3 pb-[calc(env(safe-area-inset-bottom)+0.75rem)] backdrop-blur-[2px] sm:items-center sm:p-5">
+      <section
+        role="dialog"
+        aria-modal="true"
+        aria-labelledby="area-view-first-use-title"
+        className="w-full max-w-xl overflow-hidden rounded-[2rem] border border-amber-200 bg-white text-slate-950 shadow-2xl"
+      >
+        <div className="border-b border-amber-100 bg-gradient-to-br from-amber-50 via-white to-emerald-50 px-5 py-4 sm:px-6 sm:py-5">
+          <div className="flex items-start gap-3">
+            <span className="grid h-12 w-12 shrink-0 place-items-center rounded-2xl bg-amber-100 text-amber-700">
+              <FiAlertTriangle size={24} />
+            </span>
+            <div>
+              <p className="text-xs font-black uppercase tracking-[0.14em] text-amber-700">
+                {t("urride.areaView.guideEyebrow")}
+              </p>
+              <h2 id="area-view-first-use-title" className="mt-1 text-xl font-black leading-tight sm:text-2xl">
+                {t("urride.areaView.guideTitle")}
+              </h2>
+              <p className="mt-2 text-sm font-semibold leading-6 text-slate-600">
+                {t("urride.areaView.guideIntro")}
+              </p>
+            </div>
+          </div>
+        </div>
+
+        <div className="max-h-[min(55vh,30rem)] overflow-y-auto px-4 py-4 sm:px-6">
+          <div className="grid gap-3 sm:grid-cols-2">
+            {AREA_VIEW_GUIDE_ITEMS.map(({ bodyKey, icon: Icon, titleKey }) => (
+              <article key={titleKey} className="rounded-2xl border border-slate-200 bg-slate-50/80 p-4">
+                <span className="grid h-10 w-10 place-items-center rounded-xl bg-emerald-100 text-emerald-700">
+                  <Icon size={19} />
+                </span>
+                <h3 className="mt-3 text-sm font-black text-slate-950">{t(titleKey)}</h3>
+                <p className="mt-1.5 text-xs font-semibold leading-5 text-slate-600">{t(bodyKey)}</p>
+              </article>
+            ))}
+          </div>
+
+          <div className="mt-3 flex items-start gap-3 rounded-2xl border border-amber-200 bg-amber-50 p-3 text-amber-950">
+            <FiAlertTriangle className="mt-0.5 shrink-0 text-amber-700" size={18} />
+            <p className="text-xs font-bold leading-5">{t("urride.areaView.guideSafetyNote")}</p>
+          </div>
+        </div>
+
+        <div className="border-t border-slate-100 bg-white px-4 py-4 sm:px-6">
+          <label className="flex cursor-pointer items-start gap-3 rounded-2xl border border-slate-200 bg-slate-50 p-3.5">
+            <input
+              type="checkbox"
+              checked={dontShowAgain}
+              onChange={(event) => onDontShowAgainChange(event.target.checked)}
+              className="mt-0.5 h-5 w-5 shrink-0 accent-emerald-600"
+            />
+            <span className="text-sm font-bold leading-5 text-slate-700">
+              {t("urride.areaView.guideDontShowAgain")}
+            </span>
+          </label>
+
+          <button
+            type="button"
+            onClick={onConfirm}
+            className="kt-pressable mt-3 flex h-12 w-full items-center justify-center gap-2 rounded-2xl bg-emerald-600 px-5 text-sm font-black text-white shadow-lg shadow-emerald-600/20 transition hover:bg-emerald-700"
+          >
+            <FiCheckCircle size={19} />
+            {t("urride.areaView.guideConfirm")}
+          </button>
+        </div>
       </section>
     </div>
   );

@@ -59,6 +59,7 @@ import SocialScreenHeader from "./SocialMenu/shared/SocialScreenHeader";
 import TermsPoliciesScreen from "./SocialMenu/terms/TermsPoliciesScreen";
 import SwitchAccountScreen from "./SocialMenu/account/SwitchAccountScreen";
 import YourVoiceScreen from "./SocialMenu/userCare/YourVoiceScreen";
+import JoinKunThaiScreen from "./SocialMenu/join/JoinKunThaiScreen";
 import { MENU_SCREENS } from "./config/menuScreens";
 import useBodyScrollLock from "../shared/useBodyScrollLock";
 
@@ -514,7 +515,7 @@ export default function Explore({ active = true, onNavigateMain, onScreenModeCha
   useEffect(() => {
     function handleOpenScreenRequest(event) {
       const detail = event?.detail || {};
-      const screen = detail.screen || consumePendingExploreScreen();
+      const screen = consumePendingExploreScreen() || detail.screen;
       if (screen) openMenuScreenRef.current?.(screen, detail.options || {});
     }
 
@@ -1164,14 +1165,20 @@ export default function Explore({ active = true, onNavigateMain, onScreenModeCha
 
     if (gesture.mode === "exit") {
       const activeNode = tabPanelRefs.current[activeTab];
+      const commit = rawDeltaX < -68 || velocity < -TAB_DRAG_COMMIT_VELOCITY;
+      if (commit) {
+        // Continue straight into UrMall. A snap-back animation here used to
+        // compete with the main-page entry transition and caused the small
+        // pause users could feel at the service boundary.
+        clearTabDragStyles();
+        onNavigateMain?.("marketplace");
+        return;
+      }
       if (activeNode) {
         activeNode.style.transition = `transform ${TAB_DRAG_SETTLE_MS}ms ease-out`;
         activeNode.style.transform = "translate3d(0, 0, 0)";
         window.clearTimeout(dragSettleTimerRef.current);
         dragSettleTimerRef.current = window.setTimeout(() => clearTabDragStyles(), TAB_DRAG_SETTLE_MS + 30);
-      }
-      if (rawDeltaX < -68 || velocity < -TAB_DRAG_COMMIT_VELOCITY) {
-        onNavigateMain?.("marketplace");
       }
       return;
     }
@@ -1376,6 +1383,10 @@ export default function Explore({ active = true, onNavigateMain, onScreenModeCha
 
     if (screenKey === "YourVoice") {
       return <YourVoiceScreen hideHeader initialDraft={yourVoiceDraft} />;
+    }
+
+    if (screenKey === "JoinKunThai") {
+      return <JoinKunThaiScreen hideHeader />;
     }
 
     if (screenKey === "SafetyCenter") {

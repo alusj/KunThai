@@ -303,7 +303,7 @@ function SavedAddressMenuAction({ danger = false, icon: Icon, label, onClick }) 
   );
 }
 
-export default function MenuDrawer({ open, onClose }) {
+export default function MenuDrawer({ open, onClose, onRequestedScreenHandled, requestedScreen = "" }) {
   const { locale } = useI18n();
   const [active, setActive] = useState(null);
   const { visibleKey: visibleActive, action: activeAction } = useSlidePanel(active);
@@ -385,6 +385,15 @@ export default function MenuDrawer({ open, onClose }) {
   useEffect(() => {
     if (!open) setAreaPicker(null);
   }, [open]);
+
+  useEffect(() => {
+    if (!open || !requestedScreen) return;
+    if (menuItems.some((item) => item.id === requestedScreen)) {
+      setMessage("");
+      setActive(requestedScreen);
+    }
+    onRequestedScreenHandled?.();
+  }, [onRequestedScreenHandled, open, requestedScreen]);
 
   useBodyScrollLock(open);
 

@@ -42,7 +42,6 @@ import {
   readReturningUserActivity,
   shouldShowReturningUserIntro,
 } from "./Backend/services/returningUserIntroService";
-import { isStartupDestinationReady } from "./Backend/services/startupRevealService";
 import {
   captureVisibleScreen,
   readClipboardScreenshot,
@@ -158,25 +157,6 @@ function readPreferredMainPage(fallback = "", userId = "") {
 function clearBrowserHash() {
   if (!window.location.hash) return;
   window.history.replaceState(window.history.state, "", window.location.pathname + window.location.search);
-}
-
-// The welcome-back logo splash is only for returning users who already created
-// an account and stayed logged in. A persisted Supabase session in localStorage
-// (`sb-<ref>-auth-token`) is exactly that signal, and reading it synchronously
-// lets us decide before first paint — so first-time users on the signup screen
-// never see the splash even for a frame.
-function hasStoredAuthSession() {
-  try {
-    for (let i = 0; i < localStorage.length; i += 1) {
-      const key = localStorage.key(i);
-      if (key && key.startsWith("sb-") && key.includes("-auth-token") && localStorage.getItem(key)) {
-        return true;
-      }
-    }
-  } catch {
-    // Storage unavailable (private mode): safest to skip the splash.
-  }
-  return false;
 }
 
 function readStoredMarketplaceNav() {
@@ -310,6 +290,7 @@ export default function App() {
   const [marketplaceActivityOpen, setMarketplaceActivityOpen] = useState(false);
   const [transportActivityOpen, setTransportActivityOpen] = useState(false);
   const [transportAreaRequest, setTransportAreaRequest] = useState(null);
+  const [transportNavigationRequest, setTransportNavigationRequest] = useState(null);
   const [mainPageBadges, setMainPageBadges] = useState({ marketplace: 0, transport: 0 });
   const [onboardingReveal, setOnboardingReveal] = useState(null);
   // The landing surface the user picked on the last onboarding step. Held in a
@@ -319,44 +300,20 @@ export default function App() {
   const paymentReturnHandledRef = useRef(false);
   const [accountControl, setAccountControl] = useState(null);
   const [twoFactorPending, setTwoFactorPending] = useState(null);
-  const [twoFactorChallengeRequired, setTwoFactorChallengeRequired] = useState(null);
-  // Only a returning user with a persisted session gets the boot splash; a
-  // first-time / logged-out user heading to the signup screen starts with none.
-  const [startupIntroOpen, setStartupIntroOpen] = useState(hasStoredAuthSession);
   const [returningIntroOpen, setReturningIntroOpen] = useState(false);
   const appGestureRef = useRef(null);
   const pagePanelRef = useRef(null);
   const userId = user?.id || "";
   const guestSession = Boolean(user?.is_anonymous);
-  const introUserIdRef = useRef(userId);
-  const bootAuthSettledRef = useRef(false);
   setNotificationSeenUser(userId);
 
   const handleIntroComplete = useCallback(() => {
-    setStartupIntroOpen(false);
     setReturningIntroOpen(false);
-  }, []);
-
-  const handleTwoFactorResolved = useCallback((required) => {
-    setTwoFactorChallengeRequired(Boolean(required));
   }, []);
 
   useEffect(() => {
     if (page === "transport") setTransportMounted(true);
   }, [page]);
-
-  useLayoutEffect(() => {
-    const previousUserId = introUserIdRef.current;
-    introUserIdRef.current = userId;
-
-    // The splash may only be opened by the very first auth resolution at boot
-    // (a restored session). Once that has settled, a userId change comes from an
-    // interactive signup or login in this session — first-time users included —
-    // which must never trigger the welcome-back splash.
-    if (bootAuthSettledRef.current || loading) return;
-    bootAuthSettledRef.current = true;
-    if (userId && userId !== previousUserId) setStartupIntroOpen(true);
-  }, [loading, userId]);
 
   useLayoutEffect(() => {
     if (!userId || guestSession || !onboardingComplete || twoFactorPending !== false) {
@@ -507,7 +464,6 @@ export default function App() {
   // Each new sign-in re-checks whether the account needs its authenticator code.
   useEffect(() => {
     setTwoFactorPending(null);
-    setTwoFactorChallengeRequired(null);
   }, [userId]);
 
   // The inviter's credit is only granted once the invited account is fully
@@ -734,6 +690,15 @@ export default function App() {
     function handleReturnMainPage(event) {
       const nextPage = normalizeMainPage(event.detail?.page);
       if (!nextPage) return;
+      if (nextPage === "transport" && event.detail?.target) {
+        setTransportNavigationRequest({
+          key: `${Date.now()}-${Math.random().toString(16).slice(2)}`,
+          target: String(event.detail.target),
+        });
+      }
+      const currentIndex = PAGE_ORDER.indexOf(page);
+      const nextIndex = PAGE_ORDER.indexOf(nextPage);
+      setMainPageDirection(nextIndex >= currentIndex ? "forward" : "backward");
       setPage(nextPage);
     }
 
@@ -744,48 +709,19 @@ export default function App() {
     };
   }, [page]);
 
-  const startupDestinationReady = isStartupDestinationReady({
-    authLoading: loading,
-    guestSession,
-    hasUser: Boolean(user),
-    onboardingChecked,
-    onboardingComplete,
-    onboardingLoading,
-    twoFactorChallengeRequired,
-    twoFactorPassed: twoFactorPending === false,
-  });
-  const introOpen = startupIntroOpen || returningIntroOpen;
-
   function withStartupIntro(content) {
     return (
       <>
         {content}
-        {introOpen ? (
-          <ReturningUserIntro
-            // A stable key per mode: including userId here used to remount the
-            // splash the instant auth resolved, restarting its minimum-hold
-            // timer (and reloading the logo) from that later point — which made
-            // it linger. Mounting once at boot lets its fixed launch window
-            // continue from the first HTML paint instead of restarting here.
-            key={startupIntroOpen ? "startup" : "returning"}
-            ready={startupIntroOpen ? startupDestinationReady : true}
-            continuousFromBoot={startupIntroOpen}
-            onComplete={handleIntroComplete}
-          />
-        ) : null}
+        {returningIntroOpen ? <ReturningUserIntro onComplete={handleIntroComplete} /> : null}
       </>
     );
   }
 
-  // A stored returning session gets its last dashboard shell immediately while
-  // local auth restores. Logged-out first visits keep a neutral backdrop until
-  // Login is known to be the real destination.
+  // React owns the only startup loader. This appears immediately while auth is
+  // restored, without a temporary HTML skeleton or a boot/login logo first.
   if (loading) {
-    return withStartupIntro(
-      startupIntroOpen
-        ? <AppLoading page={page} marketplaceSub={marketplaceNav.sub || ""} />
-        : <div className="kt-mobile-viewport bg-slate-100" aria-label={i18nText("ui.literals.k721d964bf95b")} />,
-    );
+    return withStartupIntro(<AppLoading page={page} marketplaceSub={marketplaceNav.sub || ""} />);
   }
 
   if (user && !guestSession && (!onboardingChecked || onboardingLoading) && !onboardingReveal) {
@@ -800,7 +736,7 @@ export default function App() {
 
   if (!guestSession && twoFactorPending !== false) {
     return withStartupIntro(
-      <TwoFactorGate key={userId} user={user} onResolved={handleTwoFactorResolved}>
+      <TwoFactorGate key={userId} user={user}>
         <TwoFactorPassed onPassed={() => setTwoFactorPending(false)} />
       </TwoFactorGate>,
     );
@@ -961,29 +897,31 @@ export default function App() {
       return;
     }
 
-    const node = pagePanelRef.current;
-    if (node && gesture.axis === "x") {
-      node.style.transition = "transform 190ms ease-out";
-      node.style.transform = "translate3d(0, 0, 0)";
-      window.setTimeout(() => {
-        node.style.transition = "";
-        node.style.transform = "";
-      }, 220);
-    }
-
     const deltaX = gesture.lastX - gesture.startX;
     const deltaY = gesture.lastY - gesture.startY;
     const horizontal = Math.abs(deltaX);
     const vertical = Math.abs(deltaY);
 
     if (gesture.axis !== "x" || horizontal < 72 || horizontal < vertical * 1.25) {
+      resetAppSwipePreview();
       return;
     }
 
     const targetPage = getSwipeTargetPage(deltaX);
     if (targetPage) {
+      // A committed swipe continues directly into the destination animation.
+      // Resetting the panel with another 190ms transition first made the UI
+      // visibly hesitate between the finger release and the page change.
+      const node = pagePanelRef.current;
+      if (node) {
+        node.style.transition = "";
+        node.style.transform = "";
+      }
       changePage(targetPage);
+      return;
     }
+
+    resetAppSwipePreview();
   }
 
   function pagePanelClass(targetPage) {
@@ -1048,6 +986,8 @@ export default function App() {
                 onActivityChange={setTransportActivityOpen}
                 areaViewRequest={transportAreaRequest}
                 onAreaViewRequestHandled={setTransportAreaRequest}
+                navigationRequest={transportNavigationRequest}
+                onNavigationRequestHandled={setTransportNavigationRequest}
                 userId={userId}
                 active={page === "transport"}
               />

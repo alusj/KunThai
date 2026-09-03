@@ -49,7 +49,16 @@ const TRANSPORT_ACCOUNT_MEMORY = {
   companyAccounts: [],
 };
 
-export default function Transport({ active = false, onActivityChange, onNotificationCountChange, areaViewRequest = null, onAreaViewRequestHandled, userId = "" }) {
+export default function Transport({
+  active = false,
+  areaViewRequest = null,
+  navigationRequest = null,
+  onActivityChange,
+  onAreaViewRequestHandled,
+  onNavigationRequestHandled,
+  onNotificationCountChange,
+  userId = "",
+}) {
   useI18n();
   const [registrationOpen, setRegistrationOpen] = useState(false);
   const [registrationType, setRegistrationType] = useState(null);
@@ -77,6 +86,7 @@ export default function Transport({ active = false, onActivityChange, onNotifica
   const [activeFleetId, setActiveFleetId] = useState(null);
   const [activeTripsOpen, setActiveTripsOpen] = useState(false);
   const [activeTripsActionRequest, setActiveTripsActionRequest] = useState(null);
+  const [notificationOpenRequest, setNotificationOpenRequest] = useState(0);
   const [nearbyAreaOpen, setNearbyAreaOpen] = useState(false);
   const [nearbyAreaMounted, setNearbyAreaMounted] = useState(false);
   const [nearbyAreaRequest, setNearbyAreaRequest] = useState(null);
@@ -813,6 +823,28 @@ export default function Transport({ active = false, onActivityChange, onNotifica
   }, [areaViewRequest, onAreaViewRequestHandled]);
 
   useEffect(() => {
+    const target = String(navigationRequest?.target || "");
+    if (!target) return;
+
+    const parts = target.split(":");
+    const destination = parts[1] || "notifications";
+    const targetId = parts.slice(2).join(":");
+    setRouteDirection("forward");
+    if (destination === "trip" && targetId) {
+      setActiveTripsActionRequest({ tripId: targetId, type: "hub" });
+      setActiveTripsOpen(true);
+    } else if (destination === "fleet" && targetId) {
+      setActiveFleetId(targetId);
+    } else if (destination === "bookings" || destination === "trips") {
+      setActiveTripsActionRequest(null);
+      setActiveTripsOpen(true);
+    } else {
+      setNotificationOpenRequest((value) => value + 1);
+    }
+    onNavigationRequestHandled?.(null);
+  }, [navigationRequest, onNavigationRequestHandled]);
+
+  useEffect(() => {
     onActivityChange?.(
       registrationOpen ||
         companyWorkspaceOpen ||
@@ -1291,11 +1323,12 @@ export default function Transport({ active = false, onActivityChange, onNotifica
         operatorAccount={operatorAccount}
         operatorLoading={operatorLoading}
         onNotificationCountChange={onNotificationCountChange}
+        notificationOpenRequest={notificationOpenRequest}
         onActivityChange={setHeaderActivityOpen}
         onViewFleet={setActiveFleetId}
-        onViewTrip={() => {
+        onViewTrip={(tripId) => {
           setRouteDirection("forward");
-          setActiveTripsActionRequest(null);
+          setActiveTripsActionRequest(tripId ? { tripId, type: "hub" } : null);
           setActiveTripsOpen(true);
         }}
         onOpenEmergencyArea={(searchType = "") => {

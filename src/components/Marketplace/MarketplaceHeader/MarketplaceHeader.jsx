@@ -37,6 +37,8 @@ export default function MarketplaceHeader({
   onActivityChange,
   onNotificationCountChange,
   onNotificationStateChange,
+  onRequestedMenuScreenHandled,
+  requestedMenuScreen = "",
   sellerNotificationCount = 0,
 }) {
   const { t } = useI18n();
@@ -153,17 +155,25 @@ export default function MarketplaceHeader({
       title="UrMall"
       className="z-20"
       left={(
-        <PremiumHeaderButton
-          active={!loading && !hasBusiness}
-          accent="emerald"
-          badge={sellerNotificationCount}
-          icon={loading || hasBusiness ? Store : Plus}
-          label={businessLabel}
-          onClick={() => {
-            if (guardGuestAction("open", "seller workspace")) return;
-            onMyBizClick?.();
-          }}
-        />
+        loading ? (
+          <div
+            className="kt-premium-icon-button kt-premium-icon-button-square kt-startup-shimmer rounded-2xl border-slate-200 bg-slate-200/70"
+            data-loading-region="seller-entry"
+            aria-hidden="true"
+          />
+        ) : (
+          <PremiumHeaderButton
+            active={!hasBusiness}
+            accent="emerald"
+            badge={sellerNotificationCount}
+            icon={hasBusiness ? Store : Plus}
+            label={businessLabel}
+            onClick={() => {
+              if (guardGuestAction("open", "seller workspace")) return;
+              onMyBizClick?.();
+            }}
+          />
+        )
       )}
       right={(
         <>
@@ -194,7 +204,12 @@ export default function MarketplaceHeader({
             onViewOrders={onOrdersClick}
           />
           <Cart onOpenChange={setCartOpen} />
-          <Menu badge={orderCount} onOpenChange={setMenuOpen} />
+          <Menu
+            badge={orderCount}
+            onOpenChange={setMenuOpen}
+            requestedScreen={requestedMenuScreen}
+            onRequestedScreenHandled={onRequestedMenuScreenHandled}
+          />
         </>
       )}
     />

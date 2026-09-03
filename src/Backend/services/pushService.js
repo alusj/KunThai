@@ -7,7 +7,7 @@
 // reports "unsupported" where the APIs are missing.
 
 import supabase from "../lib/supabaseClient";
-import { requestExploreScreen } from "./notificationBannerService";
+import { requestExploreScreen, requestMarketplaceScreen, runNotificationAction } from "./notificationBannerService";
 import { requestConversationOpen } from "./explore/messageService";
 
 const VAPID_PUBLIC_KEY = import.meta.env.VITE_VAPID_PUBLIC_KEY || "";
@@ -28,35 +28,40 @@ function isPushSupported() {
 }
 
 function handleNotificationTarget(target = "", url = "") {
-  const [kind, id] = String(target || "").split(":");
-  if (kind === "conversation" && id) {
-    requestConversationOpen(id);
-    requestExploreScreen("Messages");
-    return;
-  }
-  if (kind === "messages") {
-    requestExploreScreen("Messages");
-    return;
-  }
-  if (kind === "notifications") {
-    requestExploreScreen("Notifications");
-    return;
-  }
-  if (kind === "urmall") {
-    window.dispatchEvent(new CustomEvent("kuntai-return-main-page", { detail: { page: "marketplace", source: id || "" } }));
-    return;
-  }
-  if (kind === "urride") {
-    window.dispatchEvent(new CustomEvent("kuntai-return-main-page", { detail: { page: "transport", source: id || "" } }));
-    return;
-  }
-  if (kind === "orders") {
-    window.dispatchEvent(new CustomEvent("kuntai-return-main-page", { detail: { page: "marketplace" } }));
-    return;
-  }
-  if (url && url !== "/" && url !== window.location.href) {
-    window.location.assign(url);
-  }
+  runNotificationAction(() => {
+    const [kind, id] = String(target || "").split(":");
+    if (kind === "conversation" && id) {
+      requestConversationOpen(id);
+      requestExploreScreen("Messages");
+      return;
+    }
+    if (kind === "messages") {
+      requestExploreScreen("Messages");
+      return;
+    }
+    if (kind === "notifications") {
+      requestExploreScreen("Notifications");
+      return;
+    }
+    if (kind === "urmall") {
+      const screen = id === "messages" || id === "orders" || id === "business-messages" || id === "business"
+        ? id
+        : id === "admin-roles" ? "admin-roles" : "";
+      requestMarketplaceScreen(screen);
+      return;
+    }
+    if (kind === "urride") {
+      window.dispatchEvent(new CustomEvent("kuntai-return-main-page", { detail: { page: "transport", target } }));
+      return;
+    }
+    if (kind === "orders") {
+      requestMarketplaceScreen("orders");
+      return;
+    }
+    if (url && url !== "/" && url !== window.location.href) {
+      window.location.assign(url);
+    }
+  });
 }
 
 export function registerKunThaiServiceWorker() {

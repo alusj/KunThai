@@ -5,7 +5,7 @@ import {
   BANNER_EVENT,
   isBannerContextActive,
   requestExploreScreen,
-  requestMarketplaceScreen,
+  runNotificationAction,
   showNotificationBanner,
 } from "../../Backend/services/notificationBannerService";
 import {
@@ -20,6 +20,11 @@ import { readExploreSettings } from "../../Backend/services/explore/preferencesS
 import { haptics, sounds } from "../../Backend/services/feedbackService";
 import supabase from "../../Backend/lib/supabaseClient";
 import { t as i18nText } from "../../i18n/index";
+import {
+  isLegacyMisroutedExploreNotification,
+  mapSurfacePlatformNotification,
+} from "../../Backend/services/surfaceNotificationModels";
+import { openUnifiedNotification } from "../../Backend/services/unifiedNotificationService";
 
 const BANNER_EXIT_MS = 280;
 const BANNER_DURATION_MS = 6000;
@@ -164,6 +169,7 @@ export default function NotificationBannerHost({ userId = "" }) {
     function handleExploreNotification(payload) {
       const row = payload?.new;
       if (!row?.id || row.user_id !== userId || row.actor_user_id === userId) return;
+      if (isLegacyMisroutedExploreNotification(row)) return;
 
       const type = String(row.type || "");
       const settings = readExploreSettings().notifications;
@@ -203,8 +209,8 @@ export default function NotificationBannerHost({ userId = "" }) {
       if (!referralNotification && !["floating", "urgent"].includes(row.presentation) && !["urgent", "critical"].includes(row.priority)) return;
       if (underCooldown(`platform:${row.notification_type}:${row.id}`)) return;
 
-      haptics.light("explore");
-      sounds.notification("explore");
+      haptics.light(row.sector || "explore");
+      sounds.notification(row.sector || "explore");
       const shown = showNotificationBanner({
         title: row.title || "KunThai update",
         body: row.body || "Your KunThai account has a new update.",
@@ -212,11 +218,9 @@ export default function NotificationBannerHost({ userId = "" }) {
         contextKey: `platform-notification:${row.id}`,
         openLabel: "View",
         onOpen: () => {
-          const target = String(row.action_target || "");
-          if (row.sector === "marketplace" || target.startsWith("urmall")) requestMarketplaceScreen(target.includes("messages") ? "messages" : "");
-          else if (row.sector === "transport" || target.startsWith("urride")) window.dispatchEvent(new CustomEvent("kuntai-return-main-page", { detail: { page: "transport", target } }));
-          else requestExploreScreen("Notifications");
+          if (!openUnifiedNotification(mapSurfacePlatformNotification(row))) return false;
           supabase.from("platform_notifications").update({ actioned_at: new Date().toISOString(), status: "read", read_at: new Date().toISOString() }).eq("id", row.id).then(() => {});
+          return true;
         },
       });
       if (shown) {
@@ -262,8 +266,7 @@ export default function NotificationBannerHost({ userId = "" }) {
             <button
               type="button"
               onClick={() => {
-                item.onOpen?.();
-                dismissBanner(item.id);
+                if (runNotificationAction(() => item.onOpen?.())) dismissBanner(item.id);
               }}
               className="flex min-w-0 flex-1 items-start gap-3 px-3 py-3 text-left"
             >

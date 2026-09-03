@@ -9,13 +9,7 @@ function prefersReducedMotion() {
   return typeof window !== "undefined" && window.matchMedia?.("(prefers-reduced-motion: reduce)").matches;
 }
 
-function bootElapsed(continuousFromBoot) {
-  if (!continuousFromBoot || typeof performance === "undefined") return 0;
-  const startedAt = Number(window.__KUNTHAI_BOOT_STARTED_AT__ || 0);
-  return startedAt > 0 ? Math.max(0, performance.now() - startedAt) : 0;
-}
-
-export default function ReturningUserIntro({ onComplete, ready = true, continuousFromBoot = false }) {
+export default function ReturningUserIntro({ onComplete }) {
   const [minimumHoldElapsed, setMinimumHoldElapsed] = useState(false);
   const [logoReady, setLogoReady] = useState(false);
   const [hardReleaseElapsed, setHardReleaseElapsed] = useState(false);
@@ -30,20 +24,19 @@ export default function ReturningUserIntro({ onComplete, ready = true, continuou
 
   useEffect(() => {
     const reducedMotion = prefersReducedMotion();
-    const elapsed = bootElapsed(continuousFromBoot);
     const holdAt = reducedMotion ? 220 : HOLD_DURATION_MS;
     const releaseAt = reducedMotion ? 360 : HARD_RELEASE_MS;
-    const holdTimer = window.setTimeout(() => setMinimumHoldElapsed(true), Math.max(0, holdAt - elapsed));
-    const releaseTimer = window.setTimeout(() => setHardReleaseElapsed(true), Math.max(0, releaseAt - elapsed));
+    const holdTimer = window.setTimeout(() => setMinimumHoldElapsed(true), holdAt);
+    const releaseTimer = window.setTimeout(() => setHardReleaseElapsed(true), releaseAt);
     return () => {
       window.clearTimeout(holdTimer);
       window.clearTimeout(releaseTimer);
     };
-  }, [continuousFromBoot]);
+  }, []);
 
   useEffect(() => {
-    if (minimumHoldElapsed && ((ready && logoReady) || hardReleaseElapsed)) setLeaving(true);
-  }, [hardReleaseElapsed, logoReady, minimumHoldElapsed, ready]);
+    if (minimumHoldElapsed && (logoReady || hardReleaseElapsed)) setLeaving(true);
+  }, [hardReleaseElapsed, logoReady, minimumHoldElapsed]);
 
   useEffect(() => {
     if (!leaving) return undefined;

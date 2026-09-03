@@ -5,7 +5,7 @@ import { useEffect, useState } from "react";
 import MenuButton from "./MenuButton";
 import MenuDrawer from "./MenuDrawer";
 
-export default function Menu({ badge = 0, onOpenChange }) {
+export default function Menu({ badge = 0, onOpenChange, onRequestedScreenHandled, requestedScreen = "" }) {
   // =========================
   // Menu open/close state
   // =========================
@@ -16,6 +16,10 @@ export default function Menu({ badge = 0, onOpenChange }) {
     return () => onOpenChange?.(false);
   }, [onOpenChange, open]);
 
+  useEffect(() => {
+    if (requestedScreen) setOpen(true);
+  }, [requestedScreen]);
+
   return (
     <>
       {/* Menu icon */}
@@ -25,6 +29,8 @@ export default function Menu({ badge = 0, onOpenChange }) {
       <MenuDrawer
         open={open}
         onClose={() => setOpen(false)}
+        requestedScreen={requestedScreen}
+        onRequestedScreenHandled={onRequestedScreenHandled}
       />
     </>
   );

@@ -42,3 +42,14 @@ test("delegated responsibilities are enforced by database policies", () => {
   }
   assert.match(migration, /payouts, verification documents/);
 });
+
+test("UrMall admin lifecycle notifications stay in UrMall and deep-link to Admin roles", () => {
+  const service = readSource("businessAdminService.js");
+  const migration = readSource("../../../../supabase/migrations/20260903120000_service_notification_routing.sql");
+
+  assert.doesNotMatch(service, /createExploreNotification/);
+  assert.match(migration, /'marketplace', notice_type/);
+  assert.match(migration, /'urmall:admin-roles'/);
+  assert.match(migration, /notify_urmall_business_admin_change/);
+  assert.match(migration, /legacy-explore-urmall/);
+});

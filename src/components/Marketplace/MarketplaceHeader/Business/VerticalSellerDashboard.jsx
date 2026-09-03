@@ -239,7 +239,7 @@ function RestaurantDashboard({ business, canManage = true, initialWorkspace = nu
       <VerticalActivityStrip activity={activity} commerceLabel={t("urmall.biz.vert.orders")} commerceValue={activity.orders} />
       <section className="rounded-[26px] border border-gray-200 bg-white p-5 shadow-sm">
         <SectionHeading eyebrow={t("urmall.biz.vert.dayMenu", { day: dayLong(day) })} title={t("urmall.biz.vert.mealsTitle")}>{canManage ? <PrimaryButton onClick={openNewMeal} label={t("urmall.biz.vert.addMeal")} className="bg-orange-600" /> : null}</SectionHeading>
-        <div className="mt-5 grid gap-3 md:grid-cols-2">{loading ? <p className="text-sm font-bold text-gray-500">{t("urmall.biz.vert.loadingMenu")}</p> : items.map((item) => <MealCard key={item.id} item={item} business={business} canManage={canManage} onEdit={() => editMeal(item)} onInsights={() => setInsightsItem(item)} onPromote={() => setPromoteItem(item)} onDelete={async () => { await deleteRestaurantMenuItem(item); await load(); notifyVerticalListingUpdated(business.id); showToast(t("urmall.biz.vert.mealDeleted"), "success"); }} onToggle={async () => { await toggleRestaurantMenuItem(item, !item.available); await load(); notifyVerticalListingUpdated(business.id); }} />)}</div>
+        <div className="mt-5 grid gap-3 md:grid-cols-2" aria-busy={loading || undefined}>{loading ? <VerticalListingsSkeleton variant="meal" /> : items.map((item) => <MealCard key={item.id} item={item} business={business} canManage={canManage} onEdit={() => editMeal(item)} onInsights={() => setInsightsItem(item)} onPromote={() => setPromoteItem(item)} onDelete={async () => { await deleteRestaurantMenuItem(item); await load(); notifyVerticalListingUpdated(business.id); showToast(t("urmall.biz.vert.mealDeleted"), "success"); }} onToggle={async () => { await toggleRestaurantMenuItem(item, !item.available); await load(); notifyVerticalListingUpdated(business.id); }} />)}</div>
         {!loading && !items.length ? <EmptyState text={t("urmall.biz.vert.noMeals", { day: dayLong(day) })} /> : null}
       </section>
       <VerticalEditorSheet open={formOpen} onClose={() => setFormOpen(false)} title={editingMeal ? t("urmall.biz.vert.editMeal") : t("urmall.biz.vert.addMeal")} subtitle={t("urmall.biz.vert.dayMenu", { day: dayLong(day) })} formId="restaurant-meal-form" actionLabel={editingMeal ? t("urmall.biz.vert.saveChanges") : form.promote ? t("urmall.biz.pform.pubPromote") : t("urmall.biz.vert.addMeal")} processingLabel={editingMeal ? t("urmall.biz.vert.saving") : t("urmall.biz.vert.adding")} processing={submitting} accentClass="bg-orange-600" uploadStage={uploadStage} uploadTitle={t("urmall.biz.vert.addingMeal")}>
@@ -422,8 +422,10 @@ function PropertyDashboard({ business, canManage = true, initialWorkspace = null
   const overviewListings = initialWorkspace?.businessId === business.id && initialWorkspace.kind === "property_agent"
     ? { hasValue: true, value: initialWorkspace.data || [] }
     : null;
+  const initialListings = overviewListings || readSellerVerticalCache(propertyCacheKey, []);
   const overviewListingsRef = useRef(overviewListings);
-  const [listings, setListings] = useState(() => (overviewListings || readSellerVerticalCache(propertyCacheKey, [])).value);
+  const [listings, setListings] = useState(() => initialListings.value);
+  const [loading, setLoading] = useState(() => !initialListings.hasValue);
   const [formOpen, setFormOpen] = useState(false);
   const [submitting, setSubmitting] = useState(false);
   const [uploadStage, setUploadStage] = useState("");
@@ -437,9 +439,14 @@ function PropertyDashboard({ business, canManage = true, initialWorkspace = null
     const cached = overviewListingsRef.current || readSellerVerticalCache(propertyCacheKey, []);
     overviewListingsRef.current = null;
     setListings(cached.value);
-    const nextListings = await fetchPropertyListings(business.id);
-    setListings(rememberSellerVerticalData(propertyCacheKey, nextListings));
-    return nextListings;
+    setLoading(!cached.hasValue);
+    try {
+      const nextListings = await fetchPropertyListings(business.id);
+      setListings(rememberSellerVerticalData(propertyCacheKey, nextListings));
+      return nextListings;
+    } finally {
+      setLoading(false);
+    }
   }, [business.id, propertyCacheKey]);
   useEffect(() => { load().catch((error) => showToast(error.message, "danger")); }, [load]);
   const openNewProperty = useCallback(() => {
@@ -498,8 +505,8 @@ function PropertyDashboard({ business, canManage = true, initialWorkspace = null
       <VerticalActivityStrip activity={activity} commerceLabel={t("urmall.biz.vert.bookings")} commerceValue={activity.bookings} />
       <section className="rounded-[26px] border border-gray-200 bg-white p-5 shadow-sm">
         <SectionHeading eyebrow={t("urmall.biz.vert.propertyDesk")} title={t("urmall.biz.vert.propertiesEnquiries")}>{canManage ? <PrimaryButton onClick={openNewProperty} label={t("urmall.biz.vert.addProperty")} className="bg-violet-700" /> : null}</SectionHeading>
-        <div className="mt-5 grid gap-4 md:grid-cols-2">{listings.map((item) => <PropertyListingCard key={item.id} item={item} business={business} canManage={canManage} onEdit={() => editProperty(item)} onInsights={() => setInsightsItem(item)} onPromote={() => setPromoteItem(item)} onDelete={async () => { await deletePropertyListing(item); await load(); notifyVerticalListingUpdated(business.id); showToast(t("urmall.biz.vert.propertyDeleted"), "success"); }} />)}</div>
-        {!listings.length ? <EmptyState text={t("urmall.biz.vert.propertyEmpty")} /> : null}
+        <div className="mt-5 grid gap-4 md:grid-cols-2" aria-busy={loading || undefined}>{loading ? <VerticalListingsSkeleton variant="property" /> : listings.map((item) => <PropertyListingCard key={item.id} item={item} business={business} canManage={canManage} onEdit={() => editProperty(item)} onInsights={() => setInsightsItem(item)} onPromote={() => setPromoteItem(item)} onDelete={async () => { await deletePropertyListing(item); await load(); notifyVerticalListingUpdated(business.id); showToast(t("urmall.biz.vert.propertyDeleted"), "success"); }} />)}</div>
+        {!loading && !listings.length ? <EmptyState text={t("urmall.biz.vert.propertyEmpty")} /> : null}
       </section>
       <BookingRequests bookings={activity.recentBookings} />
       <VerticalEditorSheet open={formOpen} onClose={() => setFormOpen(false)} title={editingProperty ? t("urmall.biz.vert.editProperty") : t("urmall.biz.vert.addProperty")} subtitle={t("urmall.biz.vert.propertyListing")} formId="property-listing-form" actionLabel={editingProperty ? t("urmall.biz.vert.saveChanges") : form.promote ? t("urmall.biz.pform.pubPromote") : t("urmall.biz.vert.addProperty")} processingLabel={editingProperty ? t("urmall.biz.vert.saving") : t("urmall.biz.vert.adding")} processing={submitting} accentClass="bg-violet-700" uploadStage={uploadStage} uploadTitle={t("urmall.biz.vert.addingProperty")}>
@@ -666,6 +673,21 @@ function useOpenVerticalEditor(open, enabled = true) {
 function DaySelector({ day, setDay }) { return <div className="flex gap-2 overflow-x-auto pb-1 [scrollbar-width:none] [&::-webkit-scrollbar]:hidden">{DAYS.map((label, index) => <button key={label} type="button" onClick={() => setDay(index)} className={`min-w-[92px] rounded-2xl border px-3 py-3 text-sm font-black ${day === index ? "border-orange-600 bg-orange-600 text-white" : "border-gray-200 bg-white text-gray-600"}`}>{dayShort(index)}</button>)}</div>; }
 function SectionHeading({ children, eyebrow, title }) { return <div className="flex items-center justify-between gap-3"><div><p className="text-xs font-black uppercase tracking-wide text-emerald-700">{eyebrow}</p><h2 className="mt-1 text-xl font-black text-gray-950">{title}</h2></div>{children}</div>; }
 function PrimaryButton({ className, label, onClick }) { return <button type="button" onClick={onClick} className={`flex h-11 shrink-0 items-center gap-2 rounded-2xl px-4 text-sm font-black text-white ${className}`}><Plus size={18} /> {label}</button>; }
+function VerticalListingsSkeleton({ variant = "property" }) {
+  return [0, 1].map((item) => (
+    <article key={item} className="overflow-hidden rounded-2xl border border-gray-200 bg-white" data-loading-region={`${variant}-listing`}>
+      {variant === "property" ? <div className="kt-startup-shimmer h-44 w-full" /> : null}
+      <div className={`flex gap-3 p-3 ${variant === "meal" ? "pr-14" : "p-4"}`}>
+        {variant === "meal" ? <div className="kt-startup-shimmer h-20 w-20 shrink-0 rounded-xl" /> : null}
+        <div className="min-w-0 flex-1 space-y-2.5 py-1">
+          <div className="kt-startup-shimmer h-4 w-4/5 rounded-full" />
+          <div className="kt-startup-shimmer h-3 w-3/5 rounded-full" />
+          <div className="kt-startup-shimmer h-3 w-2/5 rounded-full" />
+        </div>
+      </div>
+    </article>
+  ));
+}
 function MealCard({ business, item, canManage = true, onDelete, onEdit, onInsights, onPromote, onToggle }) {
   const gallery = item.image_urls || [];
   return <article className="relative rounded-2xl border border-gray-200 p-3 pr-14"><div className="absolute right-3 top-3 z-10 flex flex-col items-center gap-2"><SellerItemActions label={item.name} canManage={canManage} shareUrl={buildShareUrl("meal", item.id)} onDelete={onDelete} onEdit={onEdit} onInsights={onInsights} onPromote={onPromote} />{canManage ? <button type="button" onClick={onToggle} className={item.available ? "text-emerald-600" : "text-gray-400"} aria-label={item.available ? t("urmall.biz.vert.hideItem", { name: item.name }) : t("urmall.biz.vert.showItem", { name: item.name })}>{item.available ? <ToggleRight /> : <ToggleLeft />}</button> : null}</div><div className="flex gap-3"><MediaImage src={item.image_url} alt={item.name} className="h-20 w-20 shrink-0 rounded-xl object-cover" icon={UtensilsCrossed} /><div className="min-w-0 flex-1"><h3 className="truncate font-black text-gray-950">{item.name}</h3><p className="mt-1 text-sm font-black text-gray-800">{business.currency} {Number(item.price).toLocaleString()}</p><p className="mt-2 flex items-center gap-1 text-xs font-bold text-gray-500"><Clock3 size={14} /> {t("urmall.biz.vert.minutes", { n: item.preparation_minutes })}</p><p className="mt-1 flex flex-wrap items-center gap-1 text-[11px] font-black text-orange-600"><CalendarDays size={13} /> {item.available_everyday !== false ? t("urmall.biz.vert.everydayBadge") : (Array.isArray(item.available_days) && item.available_days.length ? item.available_days.map(Number).sort((a, b) => a - b).map((d) => dayShort(d)).join(", ") : dayShort(item.day_of_week))}</p></div></div>{gallery.length || item.video_url ? <div className="mt-3 flex gap-2 overflow-x-auto border-t border-gray-100 pt-3">{gallery.slice(0, 5).map((image, index) => <MediaImage key={`${image}-${index}`} src={image} alt={`${item.name} ${index + 2}`} className="h-12 w-12 shrink-0 rounded-lg object-cover" icon={UtensilsCrossed} />)}{item.video_url ? <div className="flex h-12 min-w-24 shrink-0 items-center justify-center gap-1 rounded-lg bg-slate-950 px-2 text-xs font-black text-white"><Film size={15} /> {t("urmall.biz.vert.video")}</div> : null}</div> : null}</article>;

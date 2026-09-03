@@ -2,7 +2,7 @@
 // Displays operator or passenger transport notifications.
 
 import { useCallback, useEffect, useMemo, useState } from "react";
-import { Bell, Truck } from "lucide-react";
+import { Bell, BellRing, Truck } from "lucide-react";
 
 import AppBackTab from "../../shared/AppBackTab.jsx";
 import AppPortal from "../../shared/AppPortal";
@@ -19,8 +19,15 @@ import {
 } from "../../services/transportHeaderService";
 import { subscribePassengerTrips } from "../../services/passengerTransportService";
 import { useI18n, t } from "../../../i18n";
+import {
+  fetchSurfacePlatformNotifications,
+  markSurfacePlatformNotificationRead,
+  subscribeToSurfacePlatformNotifications,
+} from "../../../Backend/services/surfaceNotificationService";
+import { openUnifiedNotification } from "../../../Backend/services/unifiedNotificationService";
+import { runNotificationAction } from "../../../Backend/services/notificationBannerService";
 
-export default function NotificationButton({ companyAccount, operatorAccount, onOpenChange, onUnreadCountChange, onViewFleet, onViewTrip }) {
+export default function NotificationButton({ companyAccount, openRequest = 0, operatorAccount, onOpenChange, onUnreadCountChange, onViewFleet, onViewTrip }) {
   useI18n();
   const [open, setOpen] = useState(false);
   const [notifications, setNotifications] = useState([]);
@@ -39,13 +46,18 @@ export default function NotificationButton({ companyAccount, operatorAccount, on
     if (open && !quiet) setLoading(true);
     setError("");
 
-    fetchTransportNotifications(operatorAccount, companyAccount, {
-      includeCompany: false,
-      includeOperator: false,
-      includePassenger: true,
-    })
-      .then((items) => {
+    Promise.all([
+      fetchTransportNotifications(operatorAccount, companyAccount, {
+        includeCompany: false,
+        includeOperator: false,
+        includePassenger: true,
+      }).catch(() => []),
+      fetchSurfacePlatformNotifications("transport").catch(() => []),
+    ])
+      .then(([transportItems, platformItems]) => {
         if (!alive) return;
+        const items = [...transportItems, ...platformItems]
+          .sort((first, second) => new Date(second.createdAt || 0) - new Date(first.createdAt || 0));
         const badgeItems = open
           ? applySeenNotificationState(seenScope, items.map((item) => ({ ...item, unread: false })))
           : applySeenNotificationState(seenScope, items);
@@ -85,7 +97,17 @@ export default function NotificationButton({ companyAccount, operatorAccount, on
     if (notification.notificationId) {
       markTransportPassengerNotificationRead(notification.notificationId).catch(() => {});
     }
+    if (notification.sourceTable === "platform_notifications") {
+      markSurfacePlatformNotificationRead(notification).catch(() => {});
+    }
     setNotifications((current) => current.map((item) => item.id === notification.id ? { ...item, read: true } : item));
+  }
+
+  function openPlatformNotification(notification) {
+    if (!openUnifiedNotification(notification)) return;
+    markNotificationRead(notification);
+    setOpen(false);
+    markSurfacePlatformNotificationRead(notification, { actioned: true }).catch(() => {});
   }
 
   useEffect(() => {
@@ -106,9 +128,28 @@ export default function NotificationButton({ companyAccount, operatorAccount, on
   }, [refreshNotifications]);
 
   useEffect(() => {
+    let cleanup = () => {};
+    let active = true;
+    subscribeToSurfacePlatformNotifications("transport", () => refreshNotifications({ quiet: true }))
+      .then((unsubscribe) => {
+        if (active) cleanup = unsubscribe;
+        else unsubscribe?.();
+      })
+      .catch(() => {});
+    return () => {
+      active = false;
+      cleanup();
+    };
+  }, [refreshNotifications]);
+
+  useEffect(() => {
     onOpenChange?.(open);
     return () => onOpenChange?.(false);
   }, [onOpenChange, open]);
+
+  useEffect(() => {
+    if (openRequest) setOpen(true);
+  }, [openRequest]);
 
   useEffect(() => {
     if (!open) return;
@@ -215,7 +256,7 @@ export default function NotificationButton({ companyAccount, operatorAccount, on
                   {notifications.map((notification) => (
                     <article
                       key={notification.id}
-                      onClick={() => markNotificationRead(notification)}
+                      onClick={() => notification.sourceTable === "platform_notifications" ? openPlatformNotification(notification) : markNotificationRead(notification)}
                       className={`rounded-2xl border p-3 ${
                         !notification.read
                           ? "border-green-100 bg-green-50"
@@ -224,7 +265,7 @@ export default function NotificationButton({ companyAccount, operatorAccount, on
                     >
                       <div className="flex items-start gap-3">
                         <span className="flex h-10 w-10 shrink-0 items-center justify-center rounded-2xl bg-white text-green-700 shadow-sm">
-                          <Truck size={18} />
+                          {notification.sourceTable === "platform_notifications" ? <BellRing size={18} /> : <Truck size={18} />}
                         </span>
                         <div className="min-w-0 flex-1">
                           <div className="flex items-start justify-between gap-3">
@@ -235,14 +276,27 @@ export default function NotificationButton({ companyAccount, operatorAccount, on
                             <p className="mt-1 text-xs font-bold text-slate-400">{notification.meta}</p>
                           ) : null}
 
-                          {notification.tripId ? (
+                          {notification.sourceTable === "platform_notifications" ? (
                             <button
                               type="button"
                               onClick={(event) => {
                                 event.stopPropagation();
-                                markNotificationRead(notification);
-                                setOpen(false);
-                                onViewTrip?.(notification.tripId);
+                                openPlatformNotification(notification);
+                              }}
+                              className="kt-touchable mt-3 text-sm font-black text-green-700 hover:text-green-800"
+                            >
+                              {notification.actionLabel || "Open"}
+                            </button>
+                          ) : notification.tripId ? (
+                            <button
+                              type="button"
+                              onClick={(event) => {
+                                event.stopPropagation();
+                                runNotificationAction(() => {
+                                  markNotificationRead(notification);
+                                  setOpen(false);
+                                  onViewTrip?.(notification.tripId);
+                                });
                               }}
                               className="kt-touchable mt-3 text-sm font-black text-green-700 hover:text-green-800"
                             >
@@ -253,9 +307,11 @@ export default function NotificationButton({ companyAccount, operatorAccount, on
                               type="button"
                               onClick={(event) => {
                                 event.stopPropagation();
-                                markNotificationRead(notification);
-                                setOpen(false);
-                                onViewFleet?.(notification.fleetId);
+                                runNotificationAction(() => {
+                                  markNotificationRead(notification);
+                                  setOpen(false);
+                                  onViewFleet?.(notification.fleetId);
+                                });
                               }}
                               className="kt-touchable mt-3 text-sm font-black text-green-700 hover:text-green-800"
                             >

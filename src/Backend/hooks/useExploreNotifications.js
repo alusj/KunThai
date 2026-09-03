@@ -14,6 +14,10 @@ import {
 } from "../services/exploreService";
 import { EXPLORE_SETTINGS_EVENT, readExploreSettings } from "../services/explore/preferencesService";
 import { EXPLORE_NOTIFICATION_SEEN_SCOPE, markNotificationsSeen } from "../services/notificationSeenStore";
+import {
+  isLegacyMisroutedExploreNotification,
+  notificationBelongsToSurface,
+} from "../services/surfaceNotificationModels";
 
 const NOTIFICATIONS_MEMORY = {
   items: [],
@@ -95,7 +99,10 @@ function storeNotificationMemory(items, userId = NOTIFICATIONS_MEMORY.userId) {
 }
 
 function visibleNotifications(items = NOTIFICATIONS_MEMORY.items) {
-  return items.filter(notificationEnabled);
+  return items
+    .filter((item) => !isLegacyMisroutedExploreNotification(item))
+    .filter((item) => item._notification_source !== "platform" || notificationBelongsToSurface(item, "explore"))
+    .filter(notificationEnabled);
 }
 
 function readInitialNotifications(userId) {
@@ -229,6 +236,7 @@ export function useExploreNotifications(requestedUserId = "") {
           },
           (payload) => {
             if (!active || !payload.new) return;
+            if (!notificationBelongsToSurface(payload.new, "explore")) return;
             const nextItem = normalizeNotification({ ...payload.new, _notification_source: "platform" });
             const storedItems = storeNotificationMemory([nextItem, ...NOTIFICATIONS_MEMORY.items], currentUserId);
             setNotifications(visibleNotifications(storedItems));
@@ -244,6 +252,7 @@ export function useExploreNotifications(requestedUserId = "") {
           },
           (payload) => {
             if (!active || !payload.new) return;
+            if (!notificationBelongsToSurface(payload.new, "explore")) return;
             const nextItem = normalizeNotification({ ...payload.new, _notification_source: "platform" });
             const storedItems = storeNotificationMemory(
               NOTIFICATIONS_MEMORY.items.map((item) => (item.id === nextItem.id ? { ...item, ...nextItem } : item)),

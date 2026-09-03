@@ -9,6 +9,10 @@ import { fetchExploreSpacesForDiscovery } from "./explore/spaceService";
 import { PROFILE_IDENTITY_TYPE, SPACE_IDENTITY_TYPE, getIdentityKey } from "./explore/identityService";
 import { mergeExploreDiscoveryItems } from "./explore/connectionDirectoryModels";
 import { isGuestMode } from "./guestModeService";
+import {
+  isLegacyMisroutedExploreNotification,
+  notificationBelongsToSurface,
+} from "./surfaceNotificationModels";
 export {
   createExplorePost,
   deleteExplorePost,
@@ -571,7 +575,13 @@ export async function markAllExploreNotificationsRead() {
 
   const [exploreResult, platformResult] = await Promise.all([
     supabase.from("explore_notifications").update({ read: true }).eq("user_id", currentUserId).eq("read", false).select(),
-    supabase.from("platform_notifications").update({ status: "read", read_at: new Date().toISOString() }).eq("user_id", currentUserId).eq("status", "unread").select(),
+    supabase
+      .from("platform_notifications")
+      .update({ status: "read", read_at: new Date().toISOString() })
+      .eq("user_id", currentUserId)
+      .eq("status", "unread")
+      .in("sector", ["explore", "platform", "all"])
+      .select(),
   ]);
 
   const { data, error } = exploreResult;
@@ -628,7 +638,9 @@ export async function fetchExploreNotifications(options = {}) {
   const retentionCutoff = new Date(Date.now() - NOTIFICATION_CACHE_RETENTION_MS).toISOString();
   const storedNotifications = readStoredNotifications()
     .map(normalizeNotification)
-    .filter((item) => (!currentUserId || item.user_id === currentUserId) && String(item.created_at || "") >= retentionCutoff);
+    .filter((item) => (!currentUserId || item.user_id === currentUserId) && String(item.created_at || "") >= retentionCutoff)
+    .filter((item) => !isLegacyMisroutedExploreNotification(item))
+    .filter((item) => item._notification_source !== "platform" || notificationBelongsToSurface(item, "explore"));
 
   if (!currentUserId) {
     return storedNotifications;
@@ -648,7 +660,14 @@ export async function fetchExploreNotifications(options = {}) {
 
   const [exploreResult, platformResult] = await Promise.all([
     query,
-    supabase.from("platform_notifications").select("*").eq("user_id", currentUserId).gte("created_at", retentionCutoff).order("created_at", { ascending: false }).limit(limit),
+    supabase
+      .from("platform_notifications")
+      .select("*")
+      .eq("user_id", currentUserId)
+      .in("sector", ["explore", "platform", "all"])
+      .gte("created_at", retentionCutoff)
+      .order("created_at", { ascending: false })
+      .limit(limit),
   ]);
   const { data, error } = exploreResult;
 

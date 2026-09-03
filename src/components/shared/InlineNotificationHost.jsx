@@ -11,7 +11,7 @@ function mapRow(row) {
   return {
     ...row,
     rawId: row.id,
-    source: row.sector === "platform" ? "system" : row.sector || "system",
+    source: row.sector === "platform" || row.sector === "all" ? "system" : row.sector || "system",
     actionTarget: row.action_target || "",
   };
 }
@@ -82,16 +82,18 @@ export default function InlineNotificationHost({ bottomTabsHidden = false, userI
       .eq("id", current.id);
   }
 
-  async function open() {
+  function open() {
     const current = item;
-    setItem(null);
     if (!current?.id) return;
+    if (!openUnifiedNotification(current)) return;
+
+    setItem(null);
     const at = new Date().toISOString();
-    await supabase
+    supabase
       .from("platform_notifications")
       .update({ status: "read", read_at: at, seen_at: at, actioned_at: at })
-      .eq("id", current.id);
-    openUnifiedNotification(current);
+      .eq("id", current.id)
+      .then(() => {});
   }
 
   if (!item) return null;
