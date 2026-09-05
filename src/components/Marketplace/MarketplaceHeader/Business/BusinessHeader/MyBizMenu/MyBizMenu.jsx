@@ -73,6 +73,7 @@ export default function MyBizMenu({
   profileInitialView = "menu",
   onAddBusiness,
   permissions = null,
+  plansEnabled = true,
 }) {
   // Owners have full menu access. Invited admins only see the sections their
   // responsibilities cover; store administration stays owner-only.
@@ -80,7 +81,7 @@ export default function MyBizMenu({
   const canManageBusiness = permissions ? permissions.canManageBusiness : true;
   const canAccessDashboard = permissions ? permissions.canAccessDashboard : true;
   const canEditBusiness = permissions ? permissions.canEditBusiness : true;
-  const canManagePlans = permissions ? permissions.canManagePlans : true;
+  const canManagePlans = plansEnabled && (permissions ? permissions.canManagePlans : true);
   const [activeScreenKey, setActiveScreenKey] = useState(initialScreenKey);
   const [visibleScreenKey, setVisibleScreenKey] = useState(initialScreenKey);
   const [screenAction, setScreenAction] = useState("idle");
@@ -189,7 +190,7 @@ export default function MyBizMenu({
     ? getDrawerScreen(visibleScreenKey, {
         profileInitialView,
         onBack: goBackActiveScreen,
-        onOpenPlans: () => openActiveScreen("plans"),
+        onOpenPlans: canManagePlans ? () => openActiveScreen("plans") : undefined,
       })
     : null;
 

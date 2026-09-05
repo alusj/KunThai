@@ -1,7 +1,8 @@
 import { useEffect, useMemo, useRef, useState } from "react";
-import { CheckCircle2, LocateFixed, Loader2, MapPin, ShieldCheck, X, XCircle } from "lucide-react";
+import { CheckCircle2, ChevronDown, ChevronUp, LocateFixed, Loader2, MapPin, ShieldCheck, XCircle } from "lucide-react";
 import { searchLocations } from "../../Backend/services/locationSearchService";
 import { t as i18nText } from "../../i18n/index";
+import { shouldOpenAddressAccuracyCaution } from "./addressAccuracyCautionState";
 
 function coordinateValue(point, keys) {
   for (const key of keys) {
@@ -187,38 +188,55 @@ export function useAddressAreaValidation(address, options = {}) {
   return state;
 }
 
-// Drives the "your location is findable, but for accuracy use Locate me or Drop
-// a pin" caution. It arms whenever a typed address resolves in Area View and
-// fires once the field loses focus (the user clicks outside), unless the same
-// address was already dismissed. Editing the address re-arms it.
-export function useAddressAccuracyCaution(status, address) {
+// Opens on the first real edit rather than waiting for address search to finish.
+// "Continue writing" and either precise-location action suppress it for the
+// current entry session; clearing the field starts a fresh session.
+export function useAddressAccuracyCaution(address) {
   const [open, setOpen] = useState(false);
-  const dismissedRef = useRef("");
+  const dismissedRef = useRef(false);
+  const editedRef = useRef(false);
   const value = String(address || "").trim();
+  const previousValueRef = useRef(value);
 
   useEffect(() => {
-    // Editing the address hides any open caution and re-arms it for the new value.
-    setOpen(false);
-    if (dismissedRef.current && dismissedRef.current !== value) {
-      dismissedRef.current = "";
+    const previousValue = previousValueRef.current;
+    previousValueRef.current = value;
+
+    if (!value) {
+      dismissedRef.current = false;
+      editedRef.current = false;
+      setOpen(false);
+      return;
+    }
+
+    if (value !== previousValue) {
+      editedRef.current = true;
+    }
+
+    if (shouldOpenAddressAccuracyCaution({
+      address: value,
+      previousAddress: previousValue,
+      dismissed: dismissedRef.current,
+    })) {
+      setOpen(true);
     }
   }, [value]);
 
   function handleAddressBlur() {
-    if (status === "found" && value && dismissedRef.current !== value) {
+    if (editedRef.current && value && !dismissedRef.current) {
       setOpen(true);
     }
   }
 
   function dismiss() {
-    dismissedRef.current = value;
+    dismissedRef.current = true;
     setOpen(false);
   }
 
   // Run a precise-location action (Locate me / Drop a pin) and stop the caution
   // from re-appearing for this address.
   function act(action) {
-    dismissedRef.current = value;
+    dismissedRef.current = true;
     setOpen(false);
     action?.();
   }
@@ -230,33 +248,59 @@ export function AddressAccuracyCaution({
   open,
   onLocateMe,
   onDropPin,
-  onCancel,
-  title = "Your location is findable",
-  message = "For accuracy, we highly recommend using Locate me or Drop a pin so buyers reach the exact spot.",
+  onContinueWriting,
+  title = "Help customers find your exact location",
+  message = "For greater accuracy, KunThai strongly recommends using Locate me or Drop a pin so customers arrive at the correct entrance.",
+  details = "Some streets, businesses, communities, and landmarks share the same or similar names. Spelling differences, incomplete addresses, new roads, and limited map coverage may also place a written address at the wrong point. Confirm the map pin before continuing.",
   locateLabel = "Locate me",
   dropPinLabel = "Drop a pin",
-  cancelLabel = "Dismiss",
+  continueLabel = "Continue writing",
+  readMoreLabel = "Read more",
+  readLessLabel = "Show less",
 }) {
+  const [expanded, setExpanded] = useState(false);
+
+  useEffect(() => {
+    if (!open) setExpanded(false);
+  }, [open]);
+
   if (!open) return null;
 
   return (
     <div
-      className="fixed bottom-[max(1rem,env(safe-area-inset-bottom))] left-1/2 z-[1600] w-[calc(100%-2rem)] max-w-md -translate-x-1/2 rounded-2xl border border-amber-300 bg-amber-50 p-4 text-amber-950 shadow-2xl dark:border-amber-400/30 dark:bg-slate-900 dark:text-amber-50 dark:shadow-black/60"
+      className="kt-address-accuracy-caution fixed bottom-[max(1rem,env(safe-area-inset-bottom))] left-1/2 z-[1600] w-[calc(100%-2rem)] max-w-md -translate-x-1/2 rounded-[1.75rem] border border-amber-300 bg-white p-4 text-slate-950 shadow-2xl shadow-slate-950/25 dark:shadow-black/70"
       role="alertdialog"
       aria-label={title}
     >
       <div className="flex items-start gap-3">
-        <span className="grid h-10 w-10 shrink-0 place-items-center rounded-xl bg-amber-200 text-amber-800 dark:bg-amber-400/15 dark:text-amber-300">
+        <span className="grid h-11 w-11 shrink-0 place-items-center rounded-2xl bg-amber-100 text-amber-800">
           <ShieldCheck size={20} />
         </span>
         <div className="min-w-0 flex-1">
-          <p className="text-sm font-black">{title}</p>
-          <p className="mt-1 text-sm font-semibold leading-5 dark:text-amber-100/80">{message}</p>
+          <p className="text-base font-black leading-5">{title}</p>
+          <p className="kt-address-caution-copy mt-1.5 text-sm font-semibold leading-5 text-slate-700">{message}</p>
+
+          <button
+            type="button"
+            onClick={() => setExpanded((current) => !current)}
+            aria-expanded={expanded}
+            className="kt-touchable mt-2 inline-flex min-h-9 items-center gap-1.5 rounded-lg px-2 text-xs font-black text-amber-800 hover:bg-amber-50"
+          >
+            {expanded ? <ChevronUp size={15} /> : <ChevronDown size={15} />}
+            {expanded ? readLessLabel : readMoreLabel}
+          </button>
+
+          {expanded ? (
+            <p className="kt-address-caution-details mt-2 rounded-xl border border-amber-200 bg-amber-50 p-3 text-xs font-semibold leading-5 text-slate-700">
+              {details}
+            </p>
+          ) : null}
+
           <div className="mt-3 grid grid-cols-2 gap-2">
             <button
               type="button"
               onClick={onLocateMe}
-              className="kt-touchable inline-flex h-11 items-center justify-center gap-2 rounded-xl bg-slate-950 px-3 text-xs font-black text-white hover:bg-slate-800 dark:bg-amber-400 dark:text-slate-950 dark:hover:bg-amber-300"
+              className="kt-touchable inline-flex h-11 items-center justify-center gap-2 rounded-xl bg-slate-950 px-3 text-xs font-black text-white hover:bg-slate-800"
             >
               <LocateFixed size={15} />
               {locateLabel}
@@ -264,21 +308,21 @@ export function AddressAccuracyCaution({
             <button
               type="button"
               onClick={onDropPin}
-              className="kt-touchable inline-flex h-11 items-center justify-center gap-2 rounded-xl border border-amber-300 bg-white px-3 text-xs font-black text-amber-800 hover:bg-amber-100 dark:border-amber-400/30 dark:bg-transparent dark:text-amber-200 dark:hover:bg-amber-400/10"
+              className="kt-touchable inline-flex h-11 items-center justify-center gap-2 rounded-xl border border-amber-300 bg-amber-50 px-3 text-xs font-black text-amber-900 hover:bg-amber-100"
             >
               <MapPin size={15} />
               {dropPinLabel}
             </button>
           </div>
+
+          <button
+            type="button"
+            onClick={onContinueWriting}
+            className="kt-touchable mt-2 inline-flex h-11 w-full items-center justify-center rounded-xl border border-slate-300 bg-white px-3 text-xs font-black text-slate-700 hover:bg-slate-50"
+          >
+            {continueLabel}
+          </button>
         </div>
-        <button
-          type="button"
-          onClick={onCancel}
-          aria-label={cancelLabel}
-          className="kt-pressable grid h-9 w-9 shrink-0 place-items-center rounded-full border-2 border-amber-300 bg-white text-amber-700 hover:bg-amber-100 dark:border-amber-400/30 dark:bg-transparent dark:text-amber-300 dark:hover:bg-amber-400/10"
-        >
-          <X size={16} />
-        </button>
       </div>
     </div>
   );

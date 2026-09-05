@@ -28,6 +28,14 @@ function buildProductForm(product, options) {
         ...INITIAL_PRODUCT_FORM.basics,
         category: options.categories[0] || "",
       },
+      details: {
+        ...INITIAL_PRODUCT_FORM.details,
+        ...(options.vendorDefaults || {}),
+      },
+      pricing: {
+        ...INITIAL_PRODUCT_FORM.pricing,
+        allowNegotiation: Boolean(options.vendorQuotationEnabled),
+      },
       delivery: {
         ...INITIAL_PRODUCT_FORM.delivery,
         deliveryAvailable: options.deliveryAvailable,
@@ -50,6 +58,9 @@ function buildProductForm(product, options) {
       ...INITIAL_PRODUCT_FORM.details,
       ...(product.details || {}),
       tierPricing: product.tierPricing || product.details?.tierPricing || [],
+      sellingUnit: product.details?.sellingUnit || options.vendorDefaults?.sellingUnit || "",
+      minimumOrderQuantity: String(product.details?.minimumOrderQuantity || options.vendorDefaults?.minimumOrderQuantity || ""),
+      leadTimeDays: String(product.details?.leadTimeDays ?? options.vendorDefaults?.leadTimeDays ?? ""),
     },
     media: {
       coverImageFile: null,
@@ -85,7 +96,7 @@ function buildProductForm(product, options) {
 export function useSellerProductForm({ onComplete, mode = "create", product = null } = {}) {
   const [step, setStep] = useState(0);
   const [form, setForm] = useState(INITIAL_PRODUCT_FORM);
-  const [options, setOptions] = useState({ categories: [], defaultLocation: "" });
+  const [options, setOptions] = useState({ categories: [], defaultLocation: "", businessKind: "retail", vendorDefaults: null, vendorQuotationEnabled: false });
   const [errors, setErrors] = useState({});
   const [submitting, setSubmitting] = useState(false);
   const [saveStatus, setSaveStatus] = useState("");
@@ -176,6 +187,14 @@ export function useSellerProductForm({ onComplete, mode = "create", product = nu
       if (!form.basics.description.trim()) nextErrors.description = "Description is required.";
     }
 
+    if (nextStep === 1 && options.businessKind === "vendor") {
+      if (!String(form.details.sellingUnit || "").trim()) nextErrors.sellingUnit = "Choose how this product is sold.";
+      const minimumOrderQuantity = Number(form.details.minimumOrderQuantity);
+      const leadTimeDays = Number(form.details.leadTimeDays);
+      if (!Number.isFinite(minimumOrderQuantity) || minimumOrderQuantity < 1) nextErrors.minimumOrderQuantity = "Minimum order quantity must be at least 1.";
+      if (!Number.isFinite(leadTimeDays) || leadTimeDays < 0) nextErrors.leadTimeDays = "Lead time cannot be negative.";
+    }
+
     if (nextStep === 2 && !form.media.coverImageFile && !form.media.coverImageUrl) {
       nextErrors.coverImage = "Cover image is required.";
     }
@@ -186,6 +205,12 @@ export function useSellerProductForm({ onComplete, mode = "create", product = nu
         nextErrors.discountPrice = "Discount price must be lower than price.";
       }
       if (form.pricing.stock === "" || Number(form.pricing.stock) < 0) nextErrors.stock = "Enter stock quantity.";
+      if (
+        options.businessKind === "vendor"
+        && Number(form.pricing.stock) < Number(form.details.minimumOrderQuantity || 1)
+      ) {
+        nextErrors.stock = "Stock must cover at least one minimum vendor order.";
+      }
       if (form.pricing.publishStatus === "promoted") {
         const promotionCredits = normalizeVisibilityCreditSpend(form.pricing.promotionCredits, MINIMUM_VISIBILITY_CREDITS);
         if (promotionCredits < MINIMUM_VISIBILITY_CREDITS) {
@@ -211,7 +236,7 @@ export function useSellerProductForm({ onComplete, mode = "create", product = nu
   }
 
   async function submit() {
-    if (!validateStep(0) || !validateStep(2) || !validateStep(3) || !validateStep(4)) return;
+    if (!validateStep(0) || !validateStep(1) || !validateStep(2) || !validateStep(3) || !validateStep(4)) return;
     setErrors((current) => ({ ...current, submit: "" }));
     setWarnings({});
     setSaveStatus("prepare");

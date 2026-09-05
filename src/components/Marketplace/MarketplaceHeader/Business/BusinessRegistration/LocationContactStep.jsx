@@ -1,4 +1,4 @@
-import { useEffect } from "react";
+import { useEffect, useRef } from "react";
 import { FiChevronDown, FiChevronUp, FiPlus, FiTrash2 } from "react-icons/fi";
 
 import CenteredModal from "../../../../shared/CenteredModal";
@@ -69,7 +69,8 @@ export default function LocationContactStep({ registration }) {
     : null;
   const addressValidation = useAddressAreaValidation(form.location.address, { selectedPoint: locationPoint });
   const addressValidationResult = addressValidation.result;
-  const accuracyCaution = useAddressAccuracyCaution(addressValidation.status, form.location.address);
+  const accuracyCaution = useAddressAccuracyCaution(form.location.address);
+  const addressInputRef = useRef(null);
   const locationPromptCollapse = useAutoCollapseCard({
     enabled: locationPromptOpen && !locating,
     resetKey: [locationPromptOpen ? "open" : "closed", locationStatus, locating ? "locating" : "ready"].join("|"),
@@ -102,7 +103,7 @@ export default function LocationContactStep({ registration }) {
             value={form.location.country}
             onChange={(event) => updateSection("location", { country: event.target.value })}
             autoComplete="country-name"
-            className="h-12 w-full rounded-xl border border-gray-200 bg-white px-3 text-sm font-bold text-gray-900 outline-none transition focus:border-blue-500 focus:ring-4 focus:ring-blue-100"
+            className="kt-registration-input h-12 w-full rounded-xl border border-gray-200 bg-white px-3 text-sm font-bold text-gray-900 outline-none transition focus:border-blue-500 focus:ring-4 focus:ring-blue-100"
           >
             {GLOBAL_COUNTRY_PROFILES.map((country) => (
               <option key={country.iso2} value={country.name}>{country.name}</option>
@@ -119,7 +120,7 @@ export default function LocationContactStep({ registration }) {
         </RegistrationField>
       </div>
 
-      <div className="space-y-4 rounded-xl border border-blue-100 bg-blue-50/40 p-4">
+      <div className="kt-address-entry-card space-y-4 rounded-xl border border-blue-100 bg-blue-50/40 p-4">
         <p className="text-xs font-black uppercase tracking-wide text-blue-700">{t("urmall.biz.reg.addressNofM", { n: 1, max: maxBusinessLocations })}</p>
 
         <RegistrationField label={t("urmall.biz.settings.storeName")}>
@@ -139,6 +140,7 @@ export default function LocationContactStep({ registration }) {
           )}
         >
           <RegistrationInput
+            ref={addressInputRef}
             value={form.location.address}
             onChange={(event) => updateSection("location", { address: event.target.value })}
             onBlur={accuracyCaution.handleAddressBlur}
@@ -149,8 +151,8 @@ export default function LocationContactStep({ registration }) {
 
         <AddressAreaResolutionCard
           validation={addressValidation}
-          onLocateMe={() => locateBusiness("main")}
-          onDropPin={() => openDropPinPicker("main")}
+          onLocateMe={() => accuracyCaution.act(() => locateBusiness("main"))}
+          onDropPin={() => accuracyCaution.act(() => openDropPinPicker("main"))}
           tone="blue"
         />
 
@@ -158,18 +160,24 @@ export default function LocationContactStep({ registration }) {
           open={accuracyCaution.open}
           onLocateMe={() => accuracyCaution.act(() => locateBusiness("main"))}
           onDropPin={() => accuracyCaution.act(() => openDropPinPicker("main"))}
-          onCancel={accuracyCaution.dismiss}
+          onContinueWriting={() => {
+            accuracyCaution.dismiss();
+            window.requestAnimationFrame(() => addressInputRef.current?.focus());
+          }}
           title={t("urmall.biz.reg.accuracyTitle")}
           message={t("urmall.biz.reg.accuracyMessage")}
+          details={t("urmall.biz.reg.accuracyDetails")}
           locateLabel={t("urmall.biz.reg.locateMe")}
           dropPinLabel={t("urmall.biz.reg.dropPin")}
-          cancelLabel={t("urmall.biz.reg.accuracyDismiss")}
+          continueLabel={t("urmall.biz.reg.accuracyContinueWriting")}
+          readMoreLabel={t("urmall.biz.reg.accuracyReadMore")}
+          readLessLabel={t("urmall.biz.reg.accuracyReadLess")}
         />
 
         <div className="grid gap-2 sm:grid-cols-[minmax(0,1fr)_auto_minmax(0,1fr)] sm:items-center">
           <button
             type="button"
-            onClick={() => locateBusiness("main")}
+            onClick={() => accuracyCaution.act(() => locateBusiness("main"))}
             className="rounded-lg bg-gray-900 px-4 py-3 text-sm font-black text-white transition hover:bg-gray-800"
           >
             {t("urmall.biz.reg.locateMe")}
@@ -179,7 +187,7 @@ export default function LocationContactStep({ registration }) {
           </span>
           <button
             type="button"
-            onClick={() => openDropPinPicker("main")}
+            onClick={() => accuracyCaution.act(() => openDropPinPicker("main"))}
             className="rounded-lg border border-gray-200 bg-white px-4 py-3 text-sm font-black text-gray-700 transition hover:bg-gray-50"
           >
             {t("urmall.biz.reg.dropPin")}
@@ -359,7 +367,8 @@ function BranchAddressCard({ branch, index, maxBusinessLocations, updateBranch, 
     : null;
   const validation = useAddressAreaValidation(branch.address, { selectedPoint: branchPoint });
   const result = validation.result;
-  const accuracyCaution = useAddressAccuracyCaution(validation.status, branch.address);
+  const accuracyCaution = useAddressAccuracyCaution(branch.address);
+  const addressInputRef = useRef(null);
 
   useEffect(() => {
     if (validation.status !== "found" || !String(branch.address || "").trim()) return;
@@ -372,7 +381,7 @@ function BranchAddressCard({ branch, index, maxBusinessLocations, updateBranch, 
   }, [validation.status, result, branch.address, branch.coordinates, index, updateBranch]);
 
   return (
-    <div className="space-y-4 rounded-xl border border-gray-200 bg-white p-4">
+    <div className="kt-address-entry-card space-y-4 rounded-xl border border-gray-200 bg-white p-4">
       <div className="flex items-center justify-between gap-3">
         <p className="text-xs font-black uppercase tracking-wide text-gray-500">{t("urmall.biz.reg.addressNofM", { n: index + 2, max: maxBusinessLocations })}</p>
         <button
@@ -403,6 +412,7 @@ function BranchAddressCard({ branch, index, maxBusinessLocations, updateBranch, 
         )}
       >
         <RegistrationInput
+          ref={addressInputRef}
           value={branch.address}
           onChange={(event) => updateBranch(index, { address: event.target.value })}
           onBlur={accuracyCaution.handleAddressBlur}
@@ -413,8 +423,8 @@ function BranchAddressCard({ branch, index, maxBusinessLocations, updateBranch, 
 
       <AddressAreaResolutionCard
         validation={validation}
-        onLocateMe={() => locateBusiness(index)}
-        onDropPin={() => openDropPinPicker(index)}
+        onLocateMe={() => accuracyCaution.act(() => locateBusiness(index))}
+        onDropPin={() => accuracyCaution.act(() => openDropPinPicker(index))}
         tone="blue"
       />
 
@@ -422,18 +432,24 @@ function BranchAddressCard({ branch, index, maxBusinessLocations, updateBranch, 
         open={accuracyCaution.open}
         onLocateMe={() => accuracyCaution.act(() => locateBusiness(index))}
         onDropPin={() => accuracyCaution.act(() => openDropPinPicker(index))}
-        onCancel={accuracyCaution.dismiss}
+        onContinueWriting={() => {
+          accuracyCaution.dismiss();
+          window.requestAnimationFrame(() => addressInputRef.current?.focus());
+        }}
         title={t("urmall.biz.reg.accuracyTitle")}
         message={t("urmall.biz.reg.accuracyMessage")}
+        details={t("urmall.biz.reg.accuracyDetails")}
         locateLabel={t("urmall.biz.reg.locateMe")}
         dropPinLabel={t("urmall.biz.reg.dropPin")}
-        cancelLabel={t("urmall.biz.reg.accuracyDismiss")}
+        continueLabel={t("urmall.biz.reg.accuracyContinueWriting")}
+        readMoreLabel={t("urmall.biz.reg.accuracyReadMore")}
+        readLessLabel={t("urmall.biz.reg.accuracyReadLess")}
       />
 
       <div className="grid gap-2 sm:grid-cols-[minmax(0,1fr)_auto_minmax(0,1fr)] sm:items-center">
         <button
           type="button"
-          onClick={() => locateBusiness(index)}
+          onClick={() => accuracyCaution.act(() => locateBusiness(index))}
           className="rounded-lg bg-gray-900 px-4 py-3 text-sm font-black text-white transition hover:bg-gray-800"
         >
           {t("urmall.biz.reg.locateMe")}
@@ -443,7 +459,7 @@ function BranchAddressCard({ branch, index, maxBusinessLocations, updateBranch, 
         </span>
         <button
           type="button"
-          onClick={() => openDropPinPicker(index)}
+          onClick={() => accuracyCaution.act(() => openDropPinPicker(index))}
           className="rounded-lg border border-gray-200 bg-white px-4 py-3 text-sm font-black text-gray-700 transition hover:bg-gray-50"
         >
           {t("urmall.biz.reg.dropPin")}

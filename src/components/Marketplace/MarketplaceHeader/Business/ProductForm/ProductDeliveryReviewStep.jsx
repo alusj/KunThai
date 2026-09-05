@@ -68,6 +68,9 @@ export default function ProductDeliveryReviewStep({ productForm }) {
               {t("urmall.biz.pform.rowDetails", { value: [form.details.size, form.details.color, form.details.variants].filter(Boolean).join(" - ") })}
             </p>
           ) : null}
+          {form.details.sellingUnit ? (
+            <p>Supply terms: minimum {form.details.minimumOrderQuantity || 1} {form.details.sellingUnit}(s){form.details.packSize ? ` · ${form.details.packSize}` : ""}{form.details.leadTimeDays !== "" ? ` · ${form.details.leadTimeDays} day lead time` : ""}</p>
+          ) : null}
           {tierPricing.length ? (
             <p>
               {t("urmall.biz.pform.rowBulk", { value: tierPricing

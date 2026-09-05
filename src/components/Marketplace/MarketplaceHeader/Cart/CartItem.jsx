@@ -7,6 +7,7 @@ import { formatCurrency } from "../../../../Backend/utils/formatCurrency";
 import { decorateShareUrl } from "../../../../Backend/services/visibilityCreditService";
 import { resizedImageUrl } from "../../../../Backend/lib/imageProxy";
 import { showToast } from "../../../../Backend/services/toastService";
+import { getProductMinimumOrderQuantity } from "../../../../Backend/services/marketplace/vendorOrderRules";
 import { useI18n, t } from "../../../../i18n";
 
 function productLink(item) {
@@ -20,6 +21,7 @@ export default function CartItem({ item, onUpdateQty, onRemoveItem, onViewProduc
   const [menuOpen, setMenuOpen] = useState(false);
   const [copied, setCopied] = useState(false);
   const stock = Number(item.product?.stock || 0);
+  const minimumQuantity = getProductMinimumOrderQuantity(item.product);
   const moneyScope = item.product?.currency || item.product?.countryCode || item.product?.country;
 
   async function copyProduct() {
@@ -88,6 +90,7 @@ export default function CartItem({ item, onUpdateQty, onRemoveItem, onViewProduc
         <p className="mt-1 text-xs font-bold text-gray-500">{formatCurrency(item.price, moneyScope)}</p>
         <p className="truncate text-xs font-semibold text-gray-400">{item.location}</p>
         {stock ? <p className="mt-0.5 text-[11px] font-bold text-gray-400">{t("urmall.detail.inStock", { count: stock })}</p> : null}
+        {minimumQuantity > 1 ? <p className="mt-0.5 text-[11px] font-black text-emerald-700">Minimum order: {minimumQuantity}</p> : null}
       </div>
 
       <div className="flex flex-col items-end justify-between">
@@ -145,9 +148,11 @@ export default function CartItem({ item, onUpdateQty, onRemoveItem, onViewProduc
             type="button"
             onClick={(event) => {
               event.stopPropagation();
+              if (item.qty <= minimumQuantity) return;
               onUpdateQty?.(item, item.qty - 1);
             }}
-            className="inline-flex h-8 w-8 items-center justify-center text-gray-700 hover:bg-gray-100"
+            disabled={item.qty <= minimumQuantity}
+            className="inline-flex h-8 w-8 items-center justify-center text-gray-700 hover:bg-gray-100 disabled:cursor-not-allowed disabled:opacity-40"
             aria-label={t("urmall.cart.decreaseQty", { name: item.name })}
           >
             <Minus size={14} />

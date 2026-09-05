@@ -36,6 +36,7 @@ import { useBrowserBack } from "../../../Backend/hooks/useBrowserBack";
 import { formatCurrency } from "../../../Backend/utils/formatCurrency";
 import { cleanAddressString } from "../../../Backend/utils/geoAddress";
 import { getProductTierPricing, getTierUnitPrice } from "../../../Backend/services/marketplace/tierPricingUtils";
+import { getProductMinimumOrderQuantity } from "../../../Backend/services/marketplace/vendorOrderRules";
 import { haptics, sounds } from "../../../Backend/services/feedbackService";
 import { getOnboardingProfile } from "../../../Backend/services/onboardingService";
 import {
@@ -93,6 +94,13 @@ function getProductSpecs(product = {}) {
     [t("urmall.detail.specDimensions"), details.dimensions],
     [t("urmall.detail.specWarranty"), details.warranty],
     [t("urmall.detail.specVariants"), details.variants],
+    ...(product.seller?.businessKind === "vendor" || details.sellingUnit ? [
+      ["Selling unit", details.sellingUnit],
+      ["Pack size", details.packSize],
+      ["Minimum order", details.minimumOrderQuantity ? `${details.minimumOrderQuantity} ${details.sellingUnit || "unit"}(s)` : ""],
+      ["Lead time", details.leadTimeDays !== undefined && details.leadTimeDays !== "" ? `${details.leadTimeDays} day(s)` : ""],
+      ["Barcode / manufacturer code", details.barcode],
+    ] : []),
     [t("urmall.detail.specSpecifications"), details.specifications],
   ].filter(([, value]) => String(value || "").trim());
 }
@@ -767,7 +775,8 @@ export default function ProductDetailDrawer({
   const productMoneyScope = product.currency || product.countryCode || product.country || product.seller?.currency || product.seller?.countryCode || product.seller?.country;
   const images = product.imageUrls?.length ? product.imageUrls : [product.imageUrl].filter(Boolean);
   const tierPricing = getProductTierPricing(product);
-  const orderQuantity = Math.max(1, Number(orderForm.quantity || 1));
+  const minimumOrderQuantity = getProductMinimumOrderQuantity(product);
+  const orderQuantity = Math.max(minimumOrderQuantity, Number(orderForm.quantity || minimumOrderQuantity));
   const orderUnitPrice = getTierUnitPrice(tierPricing, orderQuantity, displayPrice);
   const tierPriceApplied = tierPricing.length > 0 && orderUnitPrice !== displayPrice;
   const orderTotal = orderUnitPrice * orderQuantity;
@@ -806,7 +815,7 @@ export default function ProductDetailDrawer({
     setSavedAddresses(localAddresses);
     setOrderForm({
       ...readDefaultAddress(),
-      quantity: 1,
+      quantity: minimumOrderQuantity,
       fulfillment: product.deliveryAvailable ? "delivery" : "pickup",
       startDate: "",
       endDate: "",
@@ -880,6 +889,10 @@ export default function ProductDetailDrawer({
   async function handleOrderSubmit(event) {
     event.preventDefault();
     const quantity = Math.max(1, Number(orderForm.quantity || 1));
+    if (!isBooking && quantity < minimumOrderQuantity) {
+      onNotice?.(`This supplier requires a minimum order of ${minimumOrderQuantity}.`, "danger");
+      return;
+    }
     if (!String(orderForm.buyerName || "").trim()) {
       onNotice?.(t(isBooking ? "urmall.detail.addNameBooking" : "urmall.detail.addNameOrder"), "danger");
       return;
@@ -1360,7 +1373,7 @@ export default function ProductDetailDrawer({
                   <span className="text-xs font-black uppercase text-gray-500">{t("urmall.detail.qty")}</span>
                   <input
                     type="number"
-                    min="1"
+                    min={minimumOrderQuantity}
                     max={Math.max(1, product.stock || 1)}
                     value={orderForm.quantity}
                     onChange={(event) => updateOrderForm({ quantity: event.target.value })}

@@ -10,6 +10,7 @@ import { readRegisteredBusiness } from "./sellerRegistrationService";
 import { assertBusinessCapacity } from "../businessSubscriptionService";
 import { normalizeTierPricing } from "./tierPricingUtils";
 import { optimizeImageFile } from "./imageOptimization";
+import { hasBusinessPlans } from "./marketplaceBusinessKinds";
 
 function withTimeout(promise, message, timeoutMs = 60000) {
   return Promise.race([
@@ -44,6 +45,11 @@ export const INITIAL_PRODUCT_FORM = {
     variants: "",
     specifications: "",
     tierPricing: [],
+    sellingUnit: "",
+    packSize: "",
+    minimumOrderQuantity: "",
+    leadTimeDays: "",
+    barcode: "",
   },
   media: {
     coverImageFile: null,
@@ -233,6 +239,8 @@ async function uploadProductFile(userId, file, folder) {
 }
 
 function normalizeProductAttributes(details = {}) {
+  const minimumOrderQuantity = Number(details.minimumOrderQuantity);
+  const leadTimeDays = Number(details.leadTimeDays);
   return {
     size: String(details.size || "").trim(),
     color: String(details.color || "").trim(),
@@ -243,6 +251,15 @@ function normalizeProductAttributes(details = {}) {
     variants: String(details.variants || "").trim(),
     specifications: String(details.specifications || "").trim(),
     tierPricing: normalizeTierPricing(details.tierPricing),
+    sellingUnit: String(details.sellingUnit || "").trim(),
+    packSize: String(details.packSize || "").trim(),
+    minimumOrderQuantity: details.minimumOrderQuantity === "" || details.minimumOrderQuantity == null
+      ? ""
+      : Number.isFinite(minimumOrderQuantity) ? Math.max(1, Math.floor(minimumOrderQuantity)) : "",
+    leadTimeDays: details.leadTimeDays === "" || details.leadTimeDays == null
+      ? ""
+      : Number.isFinite(leadTimeDays) ? Math.max(0, Math.floor(leadTimeDays)) : "",
+    barcode: String(details.barcode || "").trim(),
   };
 }
 
@@ -340,6 +357,9 @@ export async function fetchProductFormOptions() {
       defaultLocation: "",
       deliveryAvailable: true,
       pickupAvailable: true,
+      businessKind: "retail",
+      vendorDefaults: null,
+      vendorQuotationEnabled: false,
     };
   }
 
@@ -348,6 +368,15 @@ export async function fetchProductFormOptions() {
     defaultLocation: [business.location.city || countryProfile.cityPlaceholder, business.location.country || countryProfile.name].filter(Boolean).join(", "),
     deliveryAvailable: business.operations.deliveryEnabled,
     pickupAvailable: business.operations.pickupEnabled,
+    businessKind: business.businessKind || "retail",
+    vendorDefaults: business.businessKind === "vendor"
+      ? {
+          sellingUnit: business.operations.defaultSellingUnit || "item",
+          minimumOrderQuantity: String(business.operations.defaultMinOrderQuantity || "1"),
+          leadTimeDays: String(business.operations.leadTimeDays ?? "1"),
+        }
+      : null,
+    vendorQuotationEnabled: business.businessKind === "vendor" && business.operations.quotationEnabled !== false,
   };
 }
 
@@ -362,7 +391,7 @@ export async function submitSellerProduct(form, onProgress) {
     MINIMUM_VISIBILITY_CREDITS,
   );
 
-  if (willBeActive) {
+  if (willBeActive && hasBusinessPlans(business.businessKind)) {
     await assertBusinessCapacity("urmall", business.id, "products", 1);
   }
 
@@ -500,7 +529,7 @@ export async function updateSellerProductListing(product, form, onProgress) {
     MINIMUM_VISIBILITY_CREDITS,
   );
 
-  if (willBeActive && product.status !== "active") {
+  if (willBeActive && product.status !== "active" && hasBusinessPlans(business.businessKind)) {
     await assertBusinessCapacity("urmall", business.id, "products", 1);
   }
 
@@ -621,7 +650,7 @@ export async function updateSellerProduct(productId, patch) {
   const business = await readRegisteredBusiness();
   if (!business) throw new Error("Register a business before managing products.");
 
-  if (patch.status === "active") {
+  if (patch.status === "active" && hasBusinessPlans(business.businessKind)) {
     const { data: currentProduct } = await supabase
       .from("marketplace_products")
       .select("status")

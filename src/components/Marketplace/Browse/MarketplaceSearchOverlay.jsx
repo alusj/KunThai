@@ -170,12 +170,17 @@ export default function MarketplaceSearchOverlay({
   // never lists an empty category.
   const filterOptions = useMemo(() => {
     const options = [{ id: "all", label: t("urmall.search.filterAll") }];
-    if (allProducts.length) options.push({ id: "retail", label: t("urmall.search.filterRetail") });
+    if (allProducts.some((product) => (product.seller?.businessKind || "retail") === "retail")) {
+      options.push({ id: "retail", label: t("urmall.search.filterRetail") });
+    }
+    if (allProducts.some((product) => product.seller?.businessKind === "vendor")) {
+      options.push({ id: "vendor", label: t("urmall.search.filterVendor") });
+    }
     if ((vertical.restaurants || []).length) options.push({ id: "restaurant", label: t("urmall.search.filterRestaurant") });
     if ((vertical.properties || []).length) options.push({ id: "property", label: t("urmall.search.filterProperty") });
     if ((vertical.hotels || []).length) options.push({ id: "hotel", label: t("urmall.search.filterHotel") });
     return options;
-  }, [allProducts.length, vertical, t]);
+  }, [allProducts, vertical, t]);
   const activeFilterLabel = filterOptions.find((option) => option.id === activeCategory)?.label || t("urmall.search.filterAll");
 
   const showCode = Boolean(detectPublicCodeKind(trimmed)) && codeLookup.kind;

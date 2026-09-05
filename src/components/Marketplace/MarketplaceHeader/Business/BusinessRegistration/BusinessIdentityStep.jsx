@@ -3,6 +3,10 @@ import RegistrationField from "./RegistrationField";
 import RegistrationInput from "./RegistrationInput";
 import { Building2 } from "lucide-react";
 import { useI18n, t } from "../../../../../i18n";
+import {
+  supportsMarketplaceFulfillment,
+  usesMarketplaceCategories,
+} from "../../../../../Backend/services/marketplace/marketplaceBusinessKinds";
 
 export default function BusinessIdentityStep({ registration }) {
   useI18n();
@@ -28,11 +32,16 @@ export default function BusinessIdentityStep({ registration }) {
               const businessKind = event.target.value;
               updateSection("identity", {
                 businessKind,
-                categories: businessKind === "retail" ? form.identity.categories : [],
+                categories: usesMarketplaceCategories(businessKind) ? form.identity.categories : [],
                 otherCategory: "",
               });
-              if (!["retail", "restaurant"].includes(businessKind)) {
+              if (!supportsMarketplaceFulfillment(businessKind)) {
                 updateSection("operations", { deliveryEnabled: false, pickupEnabled: false });
+              }
+              if (businessKind === "vendor" && form.location.mainLabel === "Main store") {
+                updateSection("location", { mainLabel: "Main warehouse" });
+              } else if (businessKind !== "vendor" && form.location.mainLabel === "Main warehouse") {
+                updateSection("location", { mainLabel: "Main store" });
               }
             }}
             className="h-14 w-full appearance-none rounded-2xl border border-gray-300 bg-white pl-12 pr-4 text-sm font-black text-gray-900 outline-none transition focus:border-blue-500 focus:ring-4 focus:ring-blue-500/10"
@@ -54,7 +63,7 @@ export default function BusinessIdentityStep({ registration }) {
         />
       </RegistrationField>
 
-      {form.identity.businessKind === "retail" ? (
+      {usesMarketplaceCategories(form.identity.businessKind) ? (
         <CategorySelector
           categories={categories}
           selected={form.identity.categories}

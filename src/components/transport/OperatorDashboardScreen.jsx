@@ -70,6 +70,11 @@ import { useI18n, t } from "../../i18n";
 import { useNavigationStack } from "../../Backend/hooks/useNavigationStack";
 import { useBrowserBack } from "../../Backend/hooks/useBrowserBack";
 import { t as i18nText } from "../../i18n/index";
+import {
+  AVAILABILITY_REFRESH_GRACE_MS,
+  resolveFleetAvailability,
+  shouldPreserveAvailabilityOverride,
+} from "./operatorAvailabilityState";
 
 function formatOperatorMoney(value, account = null) {
   return formatCountryMoney(value, account?.form?.currency || account?.form?.countryCode || account?.form?.country || getCountryCurrencyCode());
@@ -143,8 +148,11 @@ export default function OperatorDashboardScreen({
   const [dashboardError, setDashboardError] = useState("");
   const [dashboardLoading, setDashboardLoading] = useState(false);
   const [controlsSaving, setControlsSaving] = useState(false);
+  const [availabilitySaving, setAvailabilitySaving] = useState(false);
   const [, setSeenVersion] = useState(0);
   const initialViewAppliedRef = useRef(false);
+  const availabilityInFlightRef = useRef(false);
+  const availabilityOverrideRef = useRef(null);
   const popDashboardView = operatorNavigation.pop;
   const pushDashboardView = operatorNavigation.push;
   const navigateBackDashboardView = useBrowserBack(
@@ -384,7 +392,14 @@ export default function OperatorDashboardScreen({
       setDashboard(nextDashboard);
       OPERATOR_DASHBOARD_MEMORY.set(cacheKey, nextDashboard);
       if (nextDashboard?.fleet?.active_status) {
-        setIsActive(nextDashboard.fleet.active_status === "active");
+        const reportedActive = resolveFleetAvailability(nextDashboard.fleet);
+        const availabilityOverride = availabilityOverrideRef.current;
+        if (shouldPreserveAvailabilityOverride(availabilityOverride, reportedActive)) {
+          setIsActive(availabilityOverride.active);
+        } else {
+          setIsActive(reportedActive);
+          if (availabilityOverride?.active === reportedActive) availabilityOverrideRef.current = null;
+        }
       }
     } catch (error) {
       setDashboardError(error.message || t("urride.opDash.loadError"));
@@ -409,8 +424,16 @@ export default function OperatorDashboardScreen({
       setDashboardError(dashboardReadOnlyReason);
       return;
     }
+    if (availabilityInFlightRef.current) return;
 
+    const previousActive = isActive;
     const nextActive = !isActive;
+    availabilityInFlightRef.current = true;
+    availabilityOverrideRef.current = {
+      active: nextActive,
+      expiresAt: Date.now() + AVAILABILITY_REFRESH_GRACE_MS,
+    };
+    setAvailabilitySaving(true);
     setIsActive(nextActive);
     try {
       const updatedFleet = account?.fleetId
@@ -418,7 +441,11 @@ export default function OperatorDashboardScreen({
         : account?.companyFleetId
           ? await updateTransportCompanyOperatorAvailability({ companyFleetId: account.companyFleetId }, nextActive)
           : await updateOperatorAvailability(account?.fleetId, nextActive);
-      const updatedActive = updatedFleet?.active_status === "active";
+      const updatedActive = resolveFleetAvailability(updatedFleet, nextActive);
+      availabilityOverrideRef.current = {
+        active: updatedActive,
+        expiresAt: Date.now() + AVAILABILITY_REFRESH_GRACE_MS,
+      };
       setIsActive(updatedActive);
       showToast(updatedActive ? t("urride.opDash.fleetLive") : t("urride.opDash.fleetOffline"), "success");
       onAccountUpdate?.((current) => {
@@ -441,11 +468,15 @@ export default function OperatorDashboardScreen({
             : current.dashboard,
         };
       });
-      await refreshDashboard();
+      refreshDashboard();
     } catch (error) {
-      setIsActive(!nextActive);
+      availabilityOverrideRef.current = null;
+      setIsActive(previousActive);
       setDashboardError(error.message || t("urride.opDash.availabilityError"));
       showToast(error.message || t("urride.opDash.availabilityError"), "danger");
+    } finally {
+      availabilityInFlightRef.current = false;
+      setAvailabilitySaving(false);
     }
   }
 
@@ -534,11 +565,13 @@ export default function OperatorDashboardScreen({
             <button
               type="button"
               onClick={handleAvailabilityToggle}
+              disabled={availabilitySaving}
+              aria-busy={availabilitySaving || undefined}
               className={`hidden h-10 items-center gap-2 rounded-full border px-3 text-sm font-black transition sm:flex ${
                 isActive
                   ? "border-green-200 bg-green-100 text-green-700"
                   : "border-gray-200 bg-gray-100 text-gray-600"
-              }`}
+              } disabled:cursor-wait disabled:opacity-75`}
             >
               <span className={`h-2.5 w-2.5 rounded-full ${isActive ? "bg-green-600" : "bg-gray-400"}`} />
               {isActive ? t("urride.opDash.active") : t("urride.opDash.offline")}
@@ -639,11 +672,13 @@ export default function OperatorDashboardScreen({
             <button
               type="button"
               onClick={handleAvailabilityToggle}
-              className={`h-11 w-full rounded-2xl border text-sm font-black ${
+              disabled={availabilitySaving}
+              aria-busy={availabilitySaving || undefined}
+              className={`kt-touchable h-11 w-full touch-manipulation rounded-2xl border text-sm font-black transition ${
                 isActive
                   ? "border-green-200 bg-green-100 text-green-700"
                   : "border-gray-200 bg-white text-gray-600"
-              }`}
+              } disabled:cursor-wait disabled:opacity-75`}
             >
               {availabilityText}
             </button>
@@ -739,6 +774,7 @@ export default function OperatorDashboardScreen({
             waitingCount={waitingPassengers.length}
             verification={verification}
             readOnly={dashboardReadOnly}
+            saving={availabilitySaving}
             onToggle={handleAvailabilityToggle}
             onShowVerification={() => setVerificationOpen(true)}
           />
@@ -817,6 +853,7 @@ export default function OperatorDashboardScreen({
         companyOperationBadgeCount={companyBadgeCount}
         companyLoading={companyLoading}
         readOnly={dashboardReadOnly}
+        availabilitySaving={availabilitySaving}
         onClose={() => setOperatorMenuOpen(false)}
         onToggleAvailability={handleAvailabilityToggle}
         onOpenDashboard={() => {
@@ -1336,6 +1373,7 @@ function OperationsContainer({
   waitingCount,
   verification,
   readOnly = false,
+  saving = false,
   onToggle,
   onShowVerification,
 }) {
@@ -1343,7 +1381,7 @@ function OperationsContainer({
     <DashboardContainer title={t("urride.opDash.operations")} subtitle={availabilityText} icon={FiTruck}>
       <div className="flex items-center justify-between rounded-2xl border border-gray-100 px-3 py-3">
         <span className="text-sm font-semibold text-gray-500">{t("urride.opDash.availabilityLabel")}</span>
-        <ToggleSwitch checked={isActive} onChange={onToggle} disabled={readOnly} />
+        <ToggleSwitch checked={isActive} onChange={onToggle} disabled={readOnly || saving} />
       </div>
       <div className="mt-3 grid gap-3">
         <MiniRow label={t("urride.opDash.statusRow")} value={isActive ? t("urride.opDash.online") : t("urride.opDash.offline")} />
@@ -2032,6 +2070,7 @@ function OperatorMenuDrawer({
   fleetType,
   documents,
   readOnly = false,
+  availabilitySaving = false,
   onClose,
   onToggleAvailability,
   onOpenDashboard,
@@ -2201,7 +2240,7 @@ function OperatorMenuDrawer({
                 <p className="mt-1 truncate text-xs font-semibold text-green-800">{operatingArea}</p>
                 <p className="mt-2 text-xs font-black text-green-700">{readOnly ? t("urride.opDash.readOnlyCompanyView") : availabilityText}</p>
               </div>
-              <ToggleSwitch checked={isActive} disabled={readOnly} onChange={onToggleAvailability} />
+              <ToggleSwitch checked={isActive} disabled={readOnly || availabilitySaving} onChange={onToggleAvailability} />
             </div>
           </section>
 

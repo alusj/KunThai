@@ -121,23 +121,13 @@ export default function Header({
         title="UrRide"
         left={(
           <>
-            {accountLoading ? (
-              // Show a skeleton shaped exactly like the operator button (a
-              // pulsing rounded-square) instead of a blank gap, so the header
-              // reads as loading the same way the dashboard does rather than
-              // popping the icon in once the account resolves.
-              <div
-                className="kt-premium-icon-button kt-premium-icon-button-square animate-pulse border-slate-200 bg-slate-200/70"
-                aria-hidden="true"
-              />
-            ) : (
-              <OperatorButton
-                badge={operatorBadgeCount}
-                hasCompanyAccount={hasCompanyAccount}
-                hasOperatorAccount={hasOperatorAccount}
-                onClick={handleOperatorOpen}
-              />
-            )}
+            <OperatorButton
+              badge={operatorBadgeCount}
+              disabled={accountLoading}
+              hasCompanyAccount={hasCompanyAccount}
+              hasOperatorAccount={hasOperatorAccount}
+              onClick={handleOperatorOpen}
+            />
             <Radar onOpenChange={setRadarOpen} onViewFleet={onViewFleet} />
           </>
         )}

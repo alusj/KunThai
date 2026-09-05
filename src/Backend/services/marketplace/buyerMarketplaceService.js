@@ -8,6 +8,10 @@ import {
   normalizeCountryIso,
 } from "../../../data/globalCountryProfiles";
 import { getTierUnitPrice, normalizeTierPricing } from "./tierPricingUtils";
+import {
+  getProductMinimumOrderQuantity,
+  normalizeProductOrderQuantity,
+} from "./vendorOrderRules";
 import { uploadMediaDataUrl } from "../explore/mediaService";
 import { haversineKm } from "../../utils/distance";
 import {
@@ -949,6 +953,7 @@ export async function fetchBuyerCart() {
 export async function addBuyerCartItem(product, quantity = 1) {
   const buyerId = await getCurrentUserId("Sign in to add products to your cart.");
   if (!product?.id || !product?.businessId) throw new Error("Choose a valid product.");
+  const minimumQuantity = getProductMinimumOrderQuantity(product);
 
   const { data: existing, error: existingError } = await supabase
     .from("marketplace_cart_items")
@@ -960,11 +965,20 @@ export async function addBuyerCartItem(product, quantity = 1) {
   if (existingError) throw new Error(existingError.message);
 
   if (existing) {
+    const currentQuantity = Number(existing.quantity || 1);
+    if (currentQuantity < minimumQuantity) {
+      const { error: quantityError } = await supabase
+        .from("marketplace_cart_items")
+        .update({ quantity: minimumQuantity, updated_at: new Date().toISOString() })
+        .eq("id", existing.id)
+        .eq("buyer_id", buyerId);
+      if (quantityError) throw new Error(quantityError.message);
+    }
     window.dispatchEvent(new CustomEvent("marketplace-cart-updated"));
-    return { status: "alreadyInCart", quantity: Number(existing.quantity || 1) };
+    return { status: "alreadyInCart", quantity: Math.max(currentQuantity, minimumQuantity) };
   }
 
-  const nextQty = Math.max(1, Number(quantity || 1));
+  const nextQty = normalizeProductOrderQuantity(product, quantity);
   const payload = {
     buyer_id: buyerId,
     product_id: product.id,
@@ -982,11 +996,21 @@ export async function addBuyerCartItem(product, quantity = 1) {
   return { status: "added", quantity: nextQty };
 }
 
-export async function updateBuyerCartItem(itemId, quantity) {
+export async function updateBuyerCartItem(itemId, quantity, minimumQuantity = 1) {
   const buyerId = await getCurrentUserId("Sign in to update your cart.");
-  const qty = Number(quantity || 1);
+  const parsedQuantity = Number(quantity);
+  if (!Number.isFinite(parsedQuantity)) throw new Error("Enter a valid order quantity.");
+  const qty = Math.floor(parsedQuantity);
 
   if (qty <= 0) return removeBuyerCartItem(itemId);
+
+  const parsedMinimumQuantity = Number(minimumQuantity);
+  const safeQuantity = Number.isFinite(parsedMinimumQuantity)
+    ? Math.max(1, Math.floor(parsedMinimumQuantity))
+    : 1;
+  if (qty < safeQuantity) {
+    throw new Error(`This supplier requires a minimum order of ${safeQuantity}.`);
+  }
 
   const { error } = await supabase
     .from("marketplace_cart_items")
@@ -1095,6 +1119,15 @@ export async function checkoutBuyerCart(deliveryLocation = "", options = {}) {
   const items = await fetchBuyerCart();
   if (!items.length) throw new Error("Your cart is empty.");
 
+  const belowMinimum = items.find((item) => {
+    const minimumQuantity = getProductMinimumOrderQuantity(item.product);
+    return item.qty < minimumQuantity;
+  });
+  if (belowMinimum) {
+    const minimumQuantity = getProductMinimumOrderQuantity(belowMinimum.product);
+    throw new Error(`${belowMinimum.name} requires a minimum order of ${minimumQuantity}.`);
+  }
+
   const checkoutCoordinates = options.coordinates || null;
   const deliveryLatitude = toOptionalNumber(checkoutCoordinates?.latitude ?? checkoutCoordinates?.lat);
   const deliveryLongitude = toOptionalNumber(checkoutCoordinates?.longitude ?? checkoutCoordinates?.lng);
@@ -1138,7 +1171,13 @@ export async function createBuyerProductOrder(product, orderInput = {}) {
   const buyer = await getCurrentBuyer("Sign in to order this product.");
   if (!product?.id || !product?.businessId) throw new Error("Choose a valid product.");
 
-  const quantity = Math.max(1, Number(orderInput.quantity || 1));
+  const requestedQuantity = Number(orderInput.quantity || 1);
+  if (!Number.isFinite(requestedQuantity)) throw new Error("Enter a valid order quantity.");
+  const quantity = Math.max(1, Math.floor(requestedQuantity));
+  const minimumQuantity = getProductMinimumOrderQuantity(product);
+  if (quantity < minimumQuantity) {
+    throw new Error(`This supplier requires a minimum order of ${minimumQuantity}.`);
+  }
   const basePrice = product.discountPrice && product.discountPrice < product.price ? product.discountPrice : product.price;
   const unitPrice = getTierUnitPrice(product.tierPricing, quantity, basePrice);
   const total = Number(unitPrice || 0) * quantity;

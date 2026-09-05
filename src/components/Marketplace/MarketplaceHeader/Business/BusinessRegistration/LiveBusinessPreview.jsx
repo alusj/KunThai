@@ -27,12 +27,24 @@ export default function LiveBusinessPreview({ form, readinessScore }) {
             </div>
           </div>
           <div className="mt-4 flex flex-wrap gap-2">
+            {form.identity.businessKind === "vendor" ? (
+              <span className="rounded-full bg-emerald-600 px-3 py-1 text-xs font-black text-white">
+                Vendor / Supplier
+              </span>
+            ) : null}
             {categories.slice(0, 3).map((category) => (
               <span key={category} className="rounded-full bg-white px-3 py-1 text-xs font-black text-gray-700">
                 {category}
               </span>
             ))}
           </div>
+          {form.identity.businessKind === "vendor" ? (
+            <div className="mt-4 grid grid-cols-2 gap-2 rounded-xl border border-emerald-100 bg-emerald-50 p-3 text-xs font-bold text-emerald-900">
+              <span>MOQ {form.operations.defaultMinOrderQuantity || 1} {form.operations.defaultSellingUnit || "item"}(s)</span>
+              <span>{form.operations.leadTimeDays || 0} day lead time</span>
+              <span className="col-span-2 capitalize">{String(form.operations.vendorType || "wholesaler").replaceAll("_", " ")} · {String(form.operations.salesModel || "wholesale").replaceAll("_", " ")}</span>
+            </div>
+          ) : null}
           {(form.location.email || website) ? (
             <div className="mt-4 flex flex-wrap gap-2 text-xs font-black">
               {form.location.email ? (

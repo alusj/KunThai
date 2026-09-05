@@ -18,6 +18,7 @@ import AppBackTab from "../../../../../../../shared/AppBackTab";
 import KunThaiIdHelpButton from "../../../../../../../shared/KunThaiIdHelpButton";
 import { t as i18nText } from "../../../../../../../../i18n/index";
 import { fetchBusinessSubscription, getCapacityStatus } from "../../../../../../../../Backend/services/businessSubscriptionService";
+import { hasBusinessPlans } from "../../../../../../../../Backend/services/marketplace/marketplaceBusinessKinds";
 
 const STATUS_STYLES = {
   pending: "bg-amber-50 text-amber-700 border-amber-100",
@@ -51,7 +52,9 @@ export default function BusinessAdmins({ onBack, onOpenPlans }) {
         if (activeBusiness?.id) {
           const [rows, subscription] = await Promise.all([
             fetchBusinessAdmins(activeBusiness.id),
-            fetchBusinessSubscription("urmall", activeBusiness.id).catch(() => null),
+            hasBusinessPlans(activeBusiness.businessKind)
+              ? fetchBusinessSubscription("urmall", activeBusiness.id).catch(() => null)
+              : Promise.resolve(null),
           ]);
           if (alive) {
             setAdmins(rows);
@@ -111,10 +114,12 @@ export default function BusinessAdmins({ onBack, onOpenPlans }) {
     try {
       const [rows, subscription] = await Promise.all([
         fetchBusinessAdmins(business.id),
-        fetchBusinessSubscription("urmall", business.id).catch(() => null),
+        hasBusinessPlans(business.businessKind)
+          ? fetchBusinessSubscription("urmall", business.id).catch(() => null)
+          : Promise.resolve(null),
       ]);
       setAdmins(rows);
-      if (subscription) setPlanState(subscription);
+      setPlanState(subscription);
     } catch {
       // The list keeps its last known state.
     }
@@ -125,7 +130,7 @@ export default function BusinessAdmins({ onBack, onOpenPlans }) {
     if (!inviteCode.trim() || inviting) return;
 
     const adminName = lookup.name || t("urmall.biz.admins.memberFallback");
-    if (planState?.available) {
+    if (hasBusinessPlans(business?.businessKind) && planState?.available) {
       const capacity = getCapacityStatus(planState, "admins", 1);
       if (!capacity.allowed) {
         showToast(getAdminCapacityFailureMessage(adminName, planState), "warning");
@@ -136,7 +141,7 @@ export default function BusinessAdmins({ onBack, onOpenPlans }) {
     setInviting(true);
     try {
       await inviteBusinessAdmin(
-        { id: business?.id, name: business?.identity?.businessName },
+        { id: business?.id, name: business?.identity?.businessName, businessKind: business?.businessKind },
         inviteCode,
       );
       setInviteCode("");
@@ -187,6 +192,10 @@ export default function BusinessAdmins({ onBack, onOpenPlans }) {
       showToast(error.message || t("urmall.biz.admins.removeFailed"), "danger");
     }
   }
+
+  const availableResponsibilities = hasBusinessPlans(business?.businessKind)
+    ? ADMIN_RESPONSIBILITIES
+    : ADMIN_RESPONSIBILITIES.filter((item) => item.key !== "manageBilling");
 
   return (
     <div className="min-h-full bg-gray-50">
@@ -292,12 +301,12 @@ export default function BusinessAdmins({ onBack, onOpenPlans }) {
                   </div>
                   {admin.status === "accepted" ? (
                     <div className="mt-3 flex flex-wrap gap-1.5 border-t border-gray-100 pt-3">
-                      {ADMIN_RESPONSIBILITIES.filter((item) => admin.responsibilities[item.key]).map((item) => (
+                      {availableResponsibilities.filter((item) => admin.responsibilities[item.key]).map((item) => (
                         <span key={item.key} className="rounded-full bg-emerald-50 px-2.5 py-1 text-[10px] font-black uppercase tracking-wide text-emerald-700">
                           {item.label}
                         </span>
                       ))}
-                      {!ADMIN_RESPONSIBILITIES.some((item) => admin.responsibilities[item.key]) ? (
+                      {!availableResponsibilities.some((item) => admin.responsibilities[item.key]) ? (
                         <span className="text-xs font-bold text-gray-400">{t("urmall.biz.admins.noResp")}</span>
                       ) : null}
                     </div>
@@ -339,7 +348,7 @@ export default function BusinessAdmins({ onBack, onOpenPlans }) {
             </div>
             <div className="min-h-0 flex-1 overflow-y-auto px-5 py-4">
               <div className="grid gap-2">
-              {ADMIN_RESPONSIBILITIES.map((item) => {
+              {availableResponsibilities.map((item) => {
                 const active = Boolean(responsibilityDraft[item.key]);
                 return (
                   <button

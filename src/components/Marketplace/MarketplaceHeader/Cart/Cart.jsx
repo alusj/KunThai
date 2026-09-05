@@ -11,6 +11,7 @@ import {
 import { showToast } from "../../../../Backend/services/toastService";
 import { urMallShareToastOptions } from "../../../../Backend/services/shareCtaService";
 import { haptics, sounds } from "../../../../Backend/services/feedbackService";
+import { getProductMinimumOrderQuantity } from "../../../../Backend/services/marketplace/vendorOrderRules";
 import { useI18n, t } from "../../../../i18n";
 import CartButton from "./CartButton";
 import CartDrawer from "./CartDrawer";
@@ -53,7 +54,8 @@ export default function Cart({ onOpenChange }) {
 
   async function updateQty(item, quantity) {
     try {
-      await updateBuyerCartItem(item.id, quantity);
+      const minimumQuantity = getProductMinimumOrderQuantity(item.product);
+      await updateBuyerCartItem(item.id, quantity, minimumQuantity);
       await loadCart();
       showToast(quantity <= 0 ? t("urmall.cart.removedFromCart") : t("urmall.cart.cartUpdated"), "success");
     } catch (err) {

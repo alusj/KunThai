@@ -8,6 +8,15 @@ import {
   getUrMallDocumentRequirements,
 } from "../../../data/globalDocumentRequirements";
 import { isMissingColumn } from "../explore/errors";
+import {
+  supportsMarketplaceFulfillment,
+  usesMarketplaceCategories,
+} from "./marketplaceBusinessKinds";
+
+function normalizeWholeNumber(value, fallback, minimum = 0) {
+  const parsed = Number(value);
+  return Number.isFinite(parsed) ? Math.max(minimum, Math.floor(parsed)) : fallback;
+}
 
 export const BUSINESS_CATEGORIES = [
   "Electronics",
@@ -40,13 +49,14 @@ export const BUSINESS_CATEGORIES = [
   "Other",
 ];
 
-// Three primary business types. Hotels are no longer a standalone type — they
+// Primary UrMall business types. Hotels are no longer a standalone type — they
 // live under Real Estate, where "hotel" is one of the property types a real
 // estate account can add. The legacy "hotel" kind is intentionally kept out of
 // this list so it can't be picked for new businesses, while existing hotel
 // businesses still resolve their label through URMALL_BUSINESS_KIND_LABELS.
 export const URMALL_BUSINESS_KINDS = [
   { id: "retail", label: "Retail Store", description: "Products, stock, discounts, delivery, and pickup." },
+  { id: "vendor", label: "Vendor / Supplier", description: "Wholesale supply, bulk pricing, minimum orders, stock, delivery, and pickup." },
   { id: "restaurant", label: "Restaurant", description: "Daily menus, meal availability, food orders, and preparation times." },
   { id: "property_agent", label: "Real Estate Agent", description: "Homes, apartments, land, hotels, and commercial property for rent or sale." },
 ];
@@ -55,6 +65,7 @@ export const URMALL_BUSINESS_KINDS = [
 // registered before hotels moved under Real Estate.
 export const URMALL_BUSINESS_KIND_LABELS = {
   retail: "Retail Store",
+  vendor: "Vendor / Supplier",
   restaurant: "Restaurant",
   hotel: "Hotel",
   property_agent: "Real Estate Agent",
@@ -97,6 +108,13 @@ export const INITIAL_REGISTRATION = {
     operatingDays: ["Mon", "Tue", "Wed", "Thu", "Fri"],
     openTime: "09:00",
     closeTime: "18:00",
+    vendorType: "wholesaler",
+    salesModel: "wholesale",
+    defaultSellingUnit: "item",
+    defaultMinOrderQuantity: "1",
+    leadTimeDays: "1",
+    serviceAreas: "",
+    quotationEnabled: true,
   },
   trustPayout: {
     idDocumentFile: null,
@@ -251,6 +269,10 @@ function normalizeBusiness(row, categories = [], payoutMethod = null, documents 
   const primaryLocation = locations.find((item) => item.is_primary) || null;
   const branchRows = locations.filter((item) => !item.is_primary);
 
+  const vendorProfile = row.vendor_profile && typeof row.vendor_profile === "object"
+    ? row.vendor_profile
+    : {};
+
   return {
     id: row.id,
     userId: row.user_id,
@@ -293,6 +315,13 @@ function normalizeBusiness(row, categories = [], payoutMethod = null, documents 
       operatingDays: Array.isArray(row.operating_days) ? row.operating_days : ["Mon", "Tue", "Wed", "Thu", "Fri"],
       openTime: row.open_time || "",
       closeTime: row.close_time || "",
+      vendorType: vendorProfile.vendorType || vendorProfile.vendor_type || "wholesaler",
+      salesModel: vendorProfile.salesModel || vendorProfile.sales_model || "wholesale",
+      defaultSellingUnit: vendorProfile.defaultSellingUnit || vendorProfile.default_selling_unit || "item",
+      defaultMinOrderQuantity: String(vendorProfile.defaultMinOrderQuantity || vendorProfile.default_min_order_quantity || "1"),
+      leadTimeDays: String(vendorProfile.leadTimeDays ?? vendorProfile.lead_time_days ?? "1"),
+      serviceAreas: vendorProfile.serviceAreas || vendorProfile.service_areas || "",
+      quotationEnabled: vendorProfile.quotationEnabled ?? vendorProfile.quotation_enabled ?? true,
     },
     trustPayout: {
       idDocumentName: documents.find((item) => item.document_type === "id")?.file_name || "",
@@ -498,11 +527,22 @@ export async function submitSellerRegistration(registration) {
     latitude: registration.location.coordinates?.latitude ?? null,
     longitude: registration.location.coordinates?.longitude ?? null,
     business_type: registration.operations.businessType,
-    delivery_enabled: ["retail", "restaurant"].includes(registration.identity.businessKind) && registration.operations.deliveryEnabled,
-    pickup_enabled: ["retail", "restaurant"].includes(registration.identity.businessKind) && registration.operations.pickupEnabled,
+    delivery_enabled: supportsMarketplaceFulfillment(registration.identity.businessKind) && registration.operations.deliveryEnabled,
+    pickup_enabled: supportsMarketplaceFulfillment(registration.identity.businessKind) && registration.operations.pickupEnabled,
     operating_days: registration.operations.operatingDays || [],
     open_time: registration.operations.openTime || null,
     close_time: registration.operations.closeTime || null,
+    vendor_profile: registration.identity.businessKind === "vendor"
+      ? {
+          vendorType: registration.operations.vendorType || "wholesaler",
+          salesModel: registration.operations.salesModel || "wholesale",
+          defaultSellingUnit: registration.operations.defaultSellingUnit || "item",
+          defaultMinOrderQuantity: normalizeWholeNumber(registration.operations.defaultMinOrderQuantity, 1, 1),
+          leadTimeDays: normalizeWholeNumber(registration.operations.leadTimeDays, 0),
+          serviceAreas: String(registration.operations.serviceAreas || "").trim(),
+          quotationEnabled: registration.operations.quotationEnabled !== false,
+        }
+      : {},
     logo_url: logoUrl || null,
     banner_url: bannerUrl || null,
     verification_status: submittedDocuments ? "submitted" : "not_verified",
@@ -512,18 +552,21 @@ export async function submitSellerRegistration(registration) {
 
   let { data: business, error } = await supabase.from("marketplace_businesses").insert(businessPayload).select().maybeSingle();
 
-  if (
-    error &&
-    ["website_url", "operating_days", "country_iso", "currency", "business_kind"].some((column) => isMissingColumn(error, column))
-  ) {
-    const {
-      website_url: _websiteUrl,
-      operating_days: _operatingDays,
-      country_iso: _countryIso,
-      currency: _currency,
-      business_kind: _businessKind,
-      ...fallbackPayload
-    } = businessPayload;
+  const optionalBusinessColumns = ["website_url", "operating_days", "country_iso", "currency", "business_kind", "vendor_profile"];
+  const missingBusinessColumns = error
+    ? optionalBusinessColumns.filter((column) => isMissingColumn(error, column))
+    : [];
+
+  if (error && missingBusinessColumns.length) {
+    if (
+      registration.identity.businessKind === "vendor"
+      && missingBusinessColumns.some((column) => ["business_kind", "vendor_profile"].includes(column))
+    ) {
+      throw new Error("Vendor registration requires the latest UrMall database migration.");
+    }
+
+    const fallbackPayload = { ...businessPayload };
+    missingBusinessColumns.forEach((column) => delete fallbackPayload[column]);
     const fallback = await supabase.from("marketplace_businesses").insert(fallbackPayload).select().maybeSingle();
     business = fallback.data;
     error = fallback.error;
@@ -651,11 +694,22 @@ export async function updateRegisteredBusinessProfile(updates) {
     latitude: registration.location.coordinates?.latitude ?? null,
     longitude: registration.location.coordinates?.longitude ?? null,
     business_type: registration.operations.businessType || "both",
-    delivery_enabled: ["retail", "restaurant"].includes(registration.identity.businessKind) && Boolean(registration.operations.deliveryEnabled),
-    pickup_enabled: ["retail", "restaurant"].includes(registration.identity.businessKind) && Boolean(registration.operations.pickupEnabled),
+    delivery_enabled: supportsMarketplaceFulfillment(registration.identity.businessKind) && Boolean(registration.operations.deliveryEnabled),
+    pickup_enabled: supportsMarketplaceFulfillment(registration.identity.businessKind) && Boolean(registration.operations.pickupEnabled),
     operating_days: registration.operations.operatingDays || [],
     open_time: registration.operations.openTime || null,
     close_time: registration.operations.closeTime || null,
+    vendor_profile: registration.identity.businessKind === "vendor"
+      ? {
+          vendorType: registration.operations.vendorType || "wholesaler",
+          salesModel: registration.operations.salesModel || "wholesale",
+          defaultSellingUnit: registration.operations.defaultSellingUnit || "item",
+          defaultMinOrderQuantity: normalizeWholeNumber(registration.operations.defaultMinOrderQuantity, 1, 1),
+          leadTimeDays: normalizeWholeNumber(registration.operations.leadTimeDays, 0),
+          serviceAreas: String(registration.operations.serviceAreas || "").trim(),
+          quotationEnabled: registration.operations.quotationEnabled !== false,
+        }
+      : {},
     logo_url: logoUrl || currentBusiness.identity.logoUrl || null,
     banner_url: bannerUrl || currentBusiness.identity.bannerUrl || null,
     readiness_score: calculateReadinessScore(registration),
@@ -667,18 +721,21 @@ export async function updateRegisteredBusinessProfile(updates) {
     .update(businessPayload)
     .eq("id", currentBusiness.id);
 
-  if (
-    error &&
-    ["website_url", "operating_days", "country_iso", "currency", "business_kind"].some((column) => isMissingColumn(error, column))
-  ) {
-    const {
-      website_url: _websiteUrl,
-      operating_days: _operatingDays,
-      country_iso: _countryIso,
-      currency: _currency,
-      business_kind: _businessKind,
-      ...fallbackPayload
-    } = businessPayload;
+  const optionalBusinessColumns = ["website_url", "operating_days", "country_iso", "currency", "business_kind", "vendor_profile"];
+  const missingBusinessColumns = error
+    ? optionalBusinessColumns.filter((column) => isMissingColumn(error, column))
+    : [];
+
+  if (error && missingBusinessColumns.length) {
+    if (
+      registration.identity.businessKind === "vendor"
+      && missingBusinessColumns.some((column) => ["business_kind", "vendor_profile"].includes(column))
+    ) {
+      throw new Error("Vendor profiles require the latest UrMall database migration.");
+    }
+
+    const fallbackPayload = { ...businessPayload };
+    missingBusinessColumns.forEach((column) => delete fallbackPayload[column]);
     const fallback = await supabase
       .from("marketplace_businesses")
       .update(fallbackPayload)
@@ -752,8 +809,9 @@ export function getReadinessChecklist(registration = INITIAL_REGISTRATION) {
   const operations = registration.operations || INITIAL_REGISTRATION.operations;
   const trustPayout = registration.trustPayout || INITIAL_REGISTRATION.trustPayout;
   const categories = Array.isArray(identity.categories) ? identity.categories : [];
-  const usesCategories = identity.businessKind === "retail";
-  const usesFulfillment = ["retail", "restaurant"].includes(identity.businessKind);
+  const usesCategories = usesMarketplaceCategories(identity.businessKind);
+  const usesFulfillment = supportsMarketplaceFulfillment(identity.businessKind);
+  const vendorOperations = identity.businessKind === "vendor";
   const documentChecks = getUrMallDocumentRequirements({
     country: location.country,
     countryCode: location.countryIso,
@@ -765,7 +823,7 @@ export function getReadinessChecklist(registration = INITIAL_REGISTRATION) {
 
   return [
     readinessItem("business-name", "Business name", identity.businessName),
-    readinessItem("categories", "Retail categories", !usesCategories || categories.length > 0),
+    readinessItem("categories", vendorOperations ? "Supply categories" : "Retail categories", !usesCategories || categories.length > 0),
     readinessItem("description", "Business description", identity.description),
     readinessItem("logo", "Business logo", identity.logoFile || identity.logoUrl || identity.logoName),
     readinessItem("country", "Country", location.country),
@@ -776,6 +834,10 @@ export function getReadinessChecklist(registration = INITIAL_REGISTRATION) {
     readinessItem("website", "Website or public page", location.website),
     readinessItem("coordinates", "Map location pin", location.coordinates),
     readinessItem("business-type", "Business type", operations.businessType),
+    readinessItem("vendor-type", "Vendor type", !vendorOperations || operations.vendorType),
+    readinessItem("selling-unit", "Default selling unit", !vendorOperations || operations.defaultSellingUnit),
+    readinessItem("minimum-order", "Minimum order quantity", !vendorOperations || Number(operations.defaultMinOrderQuantity) >= 1),
+    readinessItem("lead-time", "Supply lead time", !vendorOperations || Number(operations.leadTimeDays) >= 0),
     readinessItem(
       "fulfillment",
       "Delivery or pickup option",

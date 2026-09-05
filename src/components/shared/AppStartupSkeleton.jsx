@@ -1,17 +1,14 @@
 import {
   ArrowLeft,
   Bell,
-  CarFront,
   Compass,
   Image,
-  MapPin,
   Menu,
   Megaphone,
   MessageCircle,
   Mic,
   PackageCheck,
   Plus,
-  Radar,
   Search,
   Send,
   ShoppingBag,
@@ -97,31 +94,6 @@ function MarketplaceHeaderShell() {
   );
 }
 
-function TransportHeaderShell() {
-  return (
-    <div data-static-shell="transport-header">
-      <PremiumHeader
-        accent="emerald"
-        centerIcon={Truck}
-        title="UrRide"
-        left={(
-          <>
-            <AccountIconSkeleton />
-            <StaticHeaderButton icon={Radar} />
-          </>
-        )}
-        right={(
-          <>
-            <StaticHeaderButton icon={Search} />
-            <StaticHeaderButton icon={Bell} />
-            <StaticHeaderButton icon={Menu} />
-          </>
-        )}
-      />
-    </div>
-  );
-}
-
 function SellerHeaderShell() {
   return (
     <header className="sticky top-0 z-30 border-b border-gray-200 bg-white" data-static-shell="seller-header">
@@ -133,7 +105,9 @@ function SellerHeaderShell() {
           <span className="hidden truncate text-sm font-semibold text-gray-900 sm:block">{t("urmall.biz.header.sellerDashboard")}</span>
         </div>
 
-        <SkeletonBlock className="h-10 w-16 shrink-0 rounded-xl border border-emerald-200" />
+        <span className="grid h-10 w-16 shrink-0 place-items-center rounded-xl border border-emerald-200 bg-emerald-50 text-emerald-700" data-static-shell="seller-business-switcher" aria-hidden="true">
+          <Store size={18} />
+        </span>
 
         <div className="flex items-center gap-2 text-gray-700" aria-hidden="true">
           <span className="grid h-10 w-10 place-items-center rounded-lg bg-gray-950 text-white"><Plus size={18} /></span>
@@ -301,35 +275,6 @@ function MarketplaceSellerSkeleton() {
   );
 }
 
-function TransportSkeleton() {
-  const actions = [
-    { icon: MapPin, label: "Nearby" },
-    { icon: CarFront, label: "Find a ride" },
-    { icon: Store, label: "Operators" },
-    { icon: PackageCheck, label: "Trips" },
-  ];
-  return (
-    <>
-      <TransportHeaderShell />
-      <main className="space-y-4 px-4 pb-28 pt-4">
-        <section className="rounded-[28px] border border-slate-200 bg-white p-5 shadow-sm dark:border-slate-800 dark:bg-slate-900" data-static-shell="transport-actions">
-          <p className="text-xs font-black uppercase tracking-wide text-emerald-700">UrRide</p>
-          <h2 className="mt-1 text-xl font-black text-slate-950 dark:text-white">Where are you going?</h2>
-          <div className="mt-4 grid grid-cols-2 gap-3">
-            {actions.map(({ icon: Icon, label }) => (
-              <span key={label} className="flex items-center gap-3 rounded-2xl border border-slate-100 bg-slate-50 p-3 text-sm font-black text-slate-700 dark:border-slate-800 dark:bg-slate-950 dark:text-slate-200">
-                <span className="grid h-10 w-10 place-items-center rounded-xl bg-white text-emerald-700 dark:bg-slate-900"><Icon size={19} /></span>
-                {label}
-              </span>
-            ))}
-          </div>
-        </section>
-        <div data-loading-region="transport-results"><FeedCardSkeleton mediaHeight="h-24" /></div>
-      </main>
-    </>
-  );
-}
-
 function BottomShell({ activePage }) {
   const tabs = [
     { id: "explore", label: "Explore", icon: Compass },
@@ -352,6 +297,11 @@ function BottomShell({ activePage }) {
 }
 
 export default function AppStartupSkeleton({ page = "explore", marketplaceSub = "", notice = null }) {
+  // UrRide intentionally has no startup representation. Showing even a static
+  // imitation of its actions created a visible pre-screen before the real
+  // dashboard mounted, so transport now waits silently for the actual screen.
+  if (page === "transport") return null;
+
   return (
     <div
       className="kt-mobile-viewport relative overflow-x-hidden bg-slate-100 text-slate-950 dark:bg-slate-950 dark:text-white"
@@ -364,9 +314,7 @@ export default function AppStartupSkeleton({ page = "explore", marketplaceSub = 
         ? marketplaceSub === "business"
           ? <MarketplaceSellerSkeleton />
           : <MarketplaceBuyerSkeleton />
-        : page === "transport"
-          ? <TransportSkeleton />
-          : <ExploreSkeleton />}
+        : <ExploreSkeleton />}
       <BottomShell activePage={page} />
     </div>
   );

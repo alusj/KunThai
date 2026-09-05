@@ -5,6 +5,7 @@ import {
   FiCheckCircle,
   FiChevronDown,
   FiChevronUp,
+  FiClock,
   FiCrosshair,
   FiEye,
   FiEyeOff,
@@ -61,6 +62,7 @@ import {
   nearbyLocations,
 } from "../services/nearbyAreaService";
 import EmergencySheet from "../emergency/EmergencySheet";
+import { isLateRouteHour } from "./areaViewSafety";
 import { useI18n, t } from "../../i18n";
 import { t as i18nText } from "../../i18n/index";
 
@@ -71,6 +73,7 @@ const AREA_VIEW_GUIDE_ITEMS = [
   { icon: FiAlertTriangle, titleKey: "urride.areaView.guideNetworkTitle", bodyKey: "urride.areaView.guideNetworkBody" },
   { icon: FiNavigation, titleKey: "urride.areaView.guideSmartTitle", bodyKey: "urride.areaView.guideSmartBody" },
   { icon: FiCrosshair, titleKey: "urride.areaView.guideSaveMeTitle", bodyKey: "urride.areaView.guideSaveMeBody" },
+  { icon: FiClock, titleKey: "urride.areaView.guideLateTitle", bodyKey: "urride.areaView.guideLateBody" },
 ];
 
 const CATEGORY_LABEL_KEYS = {
@@ -2545,6 +2548,7 @@ export default function NearbyAreaScreen({
           <AreaViewFirstUseGuide
             dontShowAgain={dontShowAreaViewGuide}
             onDontShowAgainChange={setDontShowAreaViewGuide}
+            onEmergencySupport={openEmergencyMode}
             onConfirm={acceptAreaViewGuide}
           />
         ) : null}
@@ -2562,24 +2566,26 @@ export default function NearbyAreaScreen({
   );
 }
 
-function AreaViewFirstUseGuide({ dontShowAgain, onDontShowAgainChange, onConfirm }) {
+function AreaViewFirstUseGuide({ dontShowAgain, onDontShowAgainChange, onEmergencySupport, onConfirm }) {
+  const lateRouteWarningActive = isLateRouteHour();
+
   return (
     <div className="pointer-events-none absolute inset-0 z-[80] bg-slate-950/35 backdrop-blur-[2px]">
       <section
         role="dialog"
         aria-labelledby="area-view-first-use-title"
-        className="pointer-events-auto absolute bottom-0 left-0 right-0 flex h-[75dvh] max-h-[75dvh] flex-col overflow-hidden rounded-t-[2rem] border border-amber-200 bg-white text-slate-950 shadow-2xl sm:bottom-5 sm:left-1/2 sm:right-auto sm:w-[min(38rem,calc(100vw-2.5rem))] sm:-translate-x-1/2 sm:rounded-[2rem]"
+        className="pointer-events-auto absolute bottom-0 left-0 right-0 flex h-[75dvh] max-h-[75dvh] flex-col overflow-hidden rounded-t-[2rem] border border-emerald-200 bg-gradient-to-br from-emerald-50 via-white to-white text-slate-950 shadow-2xl sm:bottom-5 sm:left-1/2 sm:right-auto sm:w-[min(38rem,calc(100vw-2.5rem))] sm:-translate-x-1/2 sm:rounded-[2rem]"
       >
         <div className="shrink-0 pt-3 sm:hidden">
           <div className="mx-auto h-1.5 w-16 rounded-full bg-slate-300" />
         </div>
-        <div className="shrink-0 border-b border-amber-100 bg-gradient-to-br from-amber-50 via-white to-emerald-50 px-5 py-4 sm:px-6 sm:py-5">
+        <div className="shrink-0 border-b border-emerald-100 px-5 py-4 sm:px-6 sm:py-5">
           <div className="flex items-start gap-3">
-            <span className="grid h-12 w-12 shrink-0 place-items-center rounded-2xl bg-amber-100 text-amber-700">
-              <FiAlertTriangle size={24} />
+            <span className="grid h-12 w-12 shrink-0 place-items-center rounded-2xl bg-emerald-100 text-emerald-700">
+              <FiShield size={24} />
             </span>
             <div>
-              <p className="text-xs font-black uppercase tracking-[0.14em] text-amber-700">
+              <p className="text-xs font-black uppercase tracking-[0.14em] text-emerald-700">
                 {t("urride.areaView.guideEyebrow")}
               </p>
               <h2 id="area-view-first-use-title" className="mt-1 text-xl font-black leading-tight sm:text-2xl">
@@ -2593,10 +2599,24 @@ function AreaViewFirstUseGuide({ dontShowAgain, onDontShowAgainChange, onConfirm
         </div>
 
         <div className="min-h-0 flex-1 overflow-y-auto px-4 py-4 sm:px-6">
+          {lateRouteWarningActive ? (
+            <div role="alert" className="mb-3 flex items-start gap-3 rounded-2xl border border-red-200 bg-red-50 p-4 text-red-950 shadow-sm">
+              <span className="grid h-10 w-10 shrink-0 place-items-center rounded-xl bg-red-100 text-red-700">
+                <FiClock size={19} />
+              </span>
+              <div>
+                <h3 className="text-sm font-black">{t("urride.areaView.guideLateActiveTitle")}</h3>
+                <p className="mt-1.5 text-xs font-bold leading-5 text-red-900">
+                  {t("urride.areaView.guideLateActiveBody")}
+                </p>
+              </div>
+            </div>
+          ) : null}
+
           <div className="grid gap-3 sm:grid-cols-2">
             {AREA_VIEW_GUIDE_ITEMS.map(({ bodyKey, icon: Icon, titleKey }) => (
-              <article key={titleKey} className="rounded-2xl border border-slate-200 bg-slate-50/80 p-4">
-                <span className="grid h-10 w-10 place-items-center rounded-xl bg-emerald-100 text-emerald-700">
+              <article key={titleKey} className="rounded-2xl border border-emerald-100 bg-white p-4 shadow-sm">
+                <span className="grid h-10 w-10 place-items-center rounded-xl bg-emerald-50 text-emerald-700">
                   <Icon size={19} />
                 </span>
                 <h3 className="mt-3 text-sm font-black text-slate-950">{t(titleKey)}</h3>
@@ -2608,6 +2628,29 @@ function AreaViewFirstUseGuide({ dontShowAgain, onDontShowAgainChange, onConfirm
           <div className="mt-3 flex items-start gap-3 rounded-2xl border border-amber-200 bg-amber-50 p-3 text-amber-950">
             <FiAlertTriangle className="mt-0.5 shrink-0 text-amber-700" size={18} />
             <p className="text-xs font-bold leading-5">{t("urride.areaView.guideSafetyNote")}</p>
+          </div>
+
+          <div className="mt-3 rounded-2xl border border-red-200 bg-red-50 p-4 text-red-950 shadow-sm">
+            <div className="flex items-start gap-3">
+              <span className="grid h-10 w-10 shrink-0 place-items-center rounded-xl bg-red-100 text-red-700">
+                <FiPhone size={19} />
+              </span>
+              <div>
+                <h3 className="text-sm font-black">{t("urride.areaView.guideEmergencyHelpTitle")}</h3>
+                <p className="mt-1.5 text-xs font-bold leading-5 text-red-900">
+                  {t("urride.areaView.guideEmergencyHelpBody")}
+                </p>
+              </div>
+            </div>
+
+            <button
+              type="button"
+              onClick={onEmergencySupport}
+              className="kt-pressable mt-3 flex min-h-12 w-full items-center justify-center gap-2 rounded-2xl bg-red-600 px-5 py-3 text-sm font-black text-white shadow-lg shadow-red-600/20 transition hover:bg-red-700"
+            >
+              <FiPhone size={19} />
+              {t("urride.areaView.guideEmergencySupport")}
+            </button>
           </div>
         </div>
 

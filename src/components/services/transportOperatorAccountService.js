@@ -999,7 +999,7 @@ export async function updateOperatorAvailability(fleetId, active, pauseReason = 
     .from("transport_fleets")
     .update({
       active_status: active ? "active" : "offline",
-      is_visible_to_passengers: true,
+      is_visible_to_passengers: Boolean(active),
       pause_reason: active ? "" : pauseReason,
       last_active_at: now,
       updated_at: now,
@@ -1013,7 +1013,7 @@ export async function updateOperatorAvailability(fleetId, active, pauseReason = 
   const activeStatus = data?.active_status || (active ? "active" : "offline");
   patchStoredOperatorAccount({
     activeStatus,
-    isVisibleToPassengers: Boolean(data?.is_visible_to_passengers ?? true),
+    isVisibleToPassengers: Boolean(data?.is_visible_to_passengers ?? active),
     savedAt: data?.updated_at || now,
     dashboard: data ? { fleet: data } : undefined,
   });
@@ -1021,7 +1021,7 @@ export async function updateOperatorAvailability(fleetId, active, pauseReason = 
   return data || {
     id: fleetId,
     active_status: activeStatus,
-    is_visible_to_passengers: true,
+    is_visible_to_passengers: Boolean(active),
     updated_at: now,
   };
 }

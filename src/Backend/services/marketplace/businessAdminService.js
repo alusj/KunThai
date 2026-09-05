@@ -6,6 +6,7 @@
 import supabase from "../../lib/supabaseClient";
 import { resolvePublicCode } from "../publicCodeService";
 import { assertBusinessCapacity, getCapacityUpgradePlan } from "../businessSubscriptionService";
+import { hasBusinessPlans } from "./marketplaceBusinessKinds";
 
 export const ADMIN_RESPONSIBILITIES = [
   { key: "addProducts", label: "Add & manage products", description: "Create and edit product listings for this business." },
@@ -71,7 +72,9 @@ export async function fetchBusinessAdmins(businessId) {
 export async function inviteBusinessAdmin(business, kunthaiId) {
   const ownerId = await getCurrentUserId("Sign in before inviting an admin.");
   if (!business?.id) throw new Error("Open a business workspace before inviting an admin.");
-  await assertBusinessCapacity("urmall", business.id, "admins", 1);
+  if (hasBusinessPlans(business.businessKind)) {
+    await assertBusinessCapacity("urmall", business.id, "admins", 1);
+  }
 
   const resolved = await resolvePublicCode(kunthaiId);
   if (!resolved || resolved.kind !== "kunthai" || !resolved.userId) {

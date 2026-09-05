@@ -2,9 +2,9 @@ import { useEffect, useState } from "react";
 import { resizedImageUrl } from "../../../../../Backend/lib/imageProxy";
 
 export default function BusinessLogo({ initials, logoUrl }) {
-  // While the logo image is loading (e.g. right after switching business) show a
-  // skeleton in the icon slot instead of an empty box, and fall back to the
-  // initials tile if it fails to load.
+  // Keep the real initials tile visible while the optional logo decodes. The
+  // business identity is stable chrome and should never look like inventory
+  // that is still loading.
   const [loaded, setLoaded] = useState(false);
   const [failed, setFailed] = useState(false);
 
@@ -15,14 +15,14 @@ export default function BusinessLogo({ initials, logoUrl }) {
 
   if (logoUrl && !failed) {
     return (
-      <div className="relative h-16 w-16 shrink-0 overflow-hidden rounded-xl">
-        {!loaded ? <div className="absolute inset-0 animate-pulse rounded-xl bg-gray-200" /> : null}
+      <div className="relative flex h-16 w-16 shrink-0 items-center justify-center overflow-hidden rounded-xl bg-gray-900 text-base font-bold text-white">
+        <span aria-hidden="true">{initials}</span>
         <img
           src={resizedImageUrl(logoUrl, { width: 128, quality: 70 })}
           alt=""
           onLoad={() => setLoaded(true)}
           onError={() => setFailed(true)}
-          className={`h-16 w-16 rounded-xl object-cover transition-opacity duration-200 ${loaded ? "opacity-100" : "opacity-0"}`}
+          className={`absolute inset-0 h-16 w-16 rounded-xl object-cover transition-opacity duration-200 ${loaded ? "opacity-100" : "opacity-0"}`}
         />
       </div>
     );

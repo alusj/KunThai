@@ -47,6 +47,15 @@ export default function ReviewSubmitStep({ registration }) {
 
       <SummaryCard title={t("urmall.biz.reg.sumOperations")} onEdit={() => goToStep(2)}>
         <p>{t("urmall.biz.reg.reviewType", { value: form.operations.businessType })}</p>
+        {form.identity.businessKind === "vendor" ? (
+          <>
+            <p className="font-black capitalize">{String(form.operations.vendorType || "vendor").replaceAll("_", " ")} · {String(form.operations.salesModel || "wholesale").replaceAll("_", " ")}</p>
+            <p>Minimum order: {form.operations.defaultMinOrderQuantity || 1} {form.operations.defaultSellingUnit || "item"}(s)</p>
+            <p>Typical lead time: {form.operations.leadTimeDays || 0} day(s)</p>
+            {form.operations.serviceAreas ? <p>Supply areas: {form.operations.serviceAreas}</p> : null}
+            <p>Quotation requests: {form.operations.quotationEnabled ? "Accepted" : "Not accepted"}</p>
+          </>
+        ) : null}
         <p>{t("urmall.biz.reg.reviewFulfil", { delivery: form.operations.deliveryEnabled ? t("urmall.biz.reg.yes") : t("urmall.biz.reg.no"), pickup: form.operations.pickupEnabled ? t("urmall.biz.reg.yes") : t("urmall.biz.reg.no") })}</p>
         <p>{form.operations.openTime} - {form.operations.closeTime}</p>
       </SummaryCard>

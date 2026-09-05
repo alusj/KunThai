@@ -19,3 +19,11 @@ test("Nearby Area guidance and emergency help float over the map without adding 
   assert.match(emergencySource, /pointer-events-none absolute inset-0 z-\[90\]/);
   assert.match(emergencySource, /h-\[75dvh\] max-h-\[75dvh\]/);
 });
+
+test("Nearby Area caution guide includes late-route advice and direct emergency support", () => {
+  assert.match(nearbyAreaSource, /isLateRouteHour\(\)/);
+  assert.match(nearbyAreaSource, /guideLateActiveTitle/);
+  assert.match(nearbyAreaSource, /guideEmergencyHelpBody/);
+  assert.match(nearbyAreaSource, /guideEmergencySupport/);
+  assert.match(nearbyAreaSource, /onEmergencySupport=\{openEmergencyMode\}/);
+});

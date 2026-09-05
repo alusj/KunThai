@@ -42,6 +42,7 @@ import AppBackTab from "../../../shared/AppBackTab";
 import AppPortal from "../../../shared/AppPortal";
 import useBodyScrollLock from "../../../shared/useBodyScrollLock";
 import VerticalSellerDashboard from "./VerticalSellerDashboard";
+import VendorOperationsCard from "./VendorOperationsCard";
 import {
   MARKETPLACE_BUSINESS_CHANGED_EVENT,
   readCachedActiveRegisteredBusinessId,
@@ -53,6 +54,7 @@ import { getBusinessPermissions, getAllowedWorkspaceTabs } from "../../../../Bac
 import { requestOpenVerticalEditor } from "../../../../Backend/services/marketplace/verticalEditorBus";
 import { showToast } from "../../../../Backend/services/toastService";
 import { useI18n, t } from "../../../../i18n";
+import { hasBusinessPlans, isProductBusinessKind } from "../../../../Backend/services/marketplace/marketplaceBusinessKinds";
 
 const SELLER_SCREEN_ANIMATION_MS = 360;
 
@@ -141,8 +143,18 @@ export default function Business({ initialScreen = "", onBack, onInitialScreenHa
   // the Pro/Premium feature locks. Fetched once here so the header and the
   // catalog share a single lookup, and refreshed when a plan change fires.
   const planEntityId = sellerOverview.business?.id || "";
+  const planBusinessKind = sellerOverview.business?.kind
+    || businesses.find((business) => business.id === (selectedBusinessId || planEntityId))?.businessKind
+    || businesses[0]?.businessKind
+    || "retail";
+  const activeBusinessPlansEnabled = hasBusinessPlans(
+    planBusinessKind,
+  );
   useEffect(() => {
-    if (!planEntityId) return undefined;
+    if (!planEntityId || !activeBusinessPlansEnabled) {
+      setSellerPlan({ planCode: "free", planName: "", available: false });
+      return undefined;
+    }
     let alive = true;
     function loadPlan() {
       fetchBusinessSubscription("urmall", planEntityId)
@@ -167,9 +179,9 @@ export default function Business({ initialScreen = "", onBack, onInitialScreenHa
       alive = false;
       window.removeEventListener(BUSINESS_PLAN_UPDATED_EVENT, handlePlanUpdate);
     };
-  }, [planEntityId]);
+  }, [activeBusinessPlansEnabled, planEntityId]);
 
-  const productInsightsLocked = sellerPlan.available && !planTierMeets(sellerPlan.planCode, "pro");
+  const productInsightsLocked = activeBusinessPlansEnabled && sellerPlan.available && !planTierMeets(sellerPlan.planCode, "pro");
 
   useEffect(() => {
     if (!switchingBusiness) return undefined;
@@ -434,7 +446,7 @@ export default function Business({ initialScreen = "", onBack, onInitialScreenHa
       );
     }
 
-    if (visibleScreen === "plans") {
+    if (visibleScreen === "plans" && activeBusinessPlansEnabled) {
       return (
         <SellerFullScreen key="plans" hideHeader open={screenPanelOpen} onBack={goBackSellerScreen}>
           <SubscriptionPlans onBack={goBackSellerScreen} />
@@ -468,16 +480,18 @@ export default function Business({ initialScreen = "", onBack, onInitialScreenHa
           open={screenPanelOpen}
         >
           <div className="kt-seller-screen-content mx-auto w-full max-w-5xl">
-            <PlanFeatureGate
-              surface="urmall"
-              entityId={sellerOverview.business?.id}
-              requiredTier="pro"
-              featureName={t("urmall.biz.intel.insightsTab")}
-              description="Advanced product insights are part of the Pro plan. Upgrade to see per-product performance."
-              onOpenPlans={() => openSellerScreen("plans")}
-            >
-              <ProductInsightsScreen product={selectedProduct} />
-            </PlanFeatureGate>
+            {activeBusinessPlansEnabled ? (
+              <PlanFeatureGate
+                surface="urmall"
+                entityId={sellerOverview.business?.id}
+                requiredTier="pro"
+                featureName={t("urmall.biz.intel.insightsTab")}
+                description="Advanced product insights are part of the Pro plan. Upgrade to see per-product performance."
+                onOpenPlans={() => openSellerScreen("plans")}
+              >
+                <ProductInsightsScreen product={selectedProduct} />
+              </PlanFeatureGate>
+            ) : <ProductInsightsScreen product={selectedProduct} />}
           </div>
         </SellerFullScreen>
       );
@@ -535,16 +549,18 @@ export default function Business({ initialScreen = "", onBack, onInitialScreenHa
           open={screenPanelOpen}
         >
           <div className="kt-seller-screen-content mx-auto w-full max-w-5xl">
-            <PlanFeatureGate
-              surface="urmall"
-              entityId={sellerOverview.business?.id}
-              requiredTier="premium"
-              featureName={t("urmall.biz.intel.title")}
-              description="Full business insights are part of the Premium plan. Upgrade to unlock Seller Intelligence."
-              onOpenPlans={() => openSellerScreen("plans")}
-            >
-              <SellerIntelligence />
-            </PlanFeatureGate>
+            {activeBusinessPlansEnabled ? (
+              <PlanFeatureGate
+                surface="urmall"
+                entityId={sellerOverview.business?.id}
+                requiredTier="premium"
+                featureName={t("urmall.biz.intel.title")}
+                description="Full business insights are part of the Premium plan. Upgrade to unlock Seller Intelligence."
+                onOpenPlans={() => openSellerScreen("plans")}
+              >
+                <SellerIntelligence />
+              </PlanFeatureGate>
+            ) : <SellerIntelligence />}
           </div>
         </SellerFullScreen>
       );
@@ -662,11 +678,9 @@ export default function Business({ initialScreen = "", onBack, onInitialScreenHa
   const effectiveTab = allowedTabs.includes(activeTab) ? activeTab : (allowedTabs[0] || "");
 
   if (loading || sellerDashboardInitialLoading) {
-    // The overview cache keeps stats persistent across visits, so this quiet
-    // state only appears on the very first dashboard open of a session. A single
-    // skeleton — header (with a placeholder where the business switcher sits)
-    // plus the dashboard cards — stands in for the real layout instead of a
-    // "Opening dashboard" line.
+    // The overview cache keeps stats persistent across visits. On the first
+    // dashboard open, keep all controls static and reserve shimmer exclusively
+    // for the changing inventory/media cards.
     return (
       <div className={`${dashboardRevealClass} kt-mobile-viewport kt-safe-screen bg-gray-50`} style={dashboardRevealStyle} aria-busy="true">
         <SellerDashboardSkeleton onBack={onBack} />
@@ -681,7 +695,7 @@ export default function Business({ initialScreen = "", onBack, onInitialScreenHa
     countryIso: sellerOverview.business?.countryIso || activeRegisteredBusiness?.location?.countryIso || "",
     location: sellerOverview.business?.location || activeRegisteredBusiness?.location?.city || "",
   };
-  const primaryActionLabel = businessKind === "restaurant" ? t("urmall.biz.dash.addMeal") : businessKind === "hotel" ? t("urmall.biz.dash.addHotel") : businessKind === "property_agent" ? t("urmall.biz.dash.addProperty") : t("urmall.biz.header.addProduct");
+  const primaryActionLabel = businessKind === "restaurant" ? t("urmall.biz.dash.addMeal") : businessKind === "hotel" ? t("urmall.biz.dash.addHotel") : businessKind === "property_agent" ? t("urmall.biz.dash.addProperty") : businessKind === "vendor" ? "Add supply item" : t("urmall.biz.header.addProduct");
 
   return (
     <div className={`${dashboardRevealClass} kt-mobile-viewport kt-safe-screen bg-gray-50`} style={dashboardRevealStyle}>
@@ -701,7 +715,7 @@ export default function Business({ initialScreen = "", onBack, onInitialScreenHa
               showToast(t("urmall.biz.dash.noAddPerm"), "info");
               return;
             }
-            if (businessKind !== "retail") {
+            if (!isProductBusinessKind(businessKind)) {
               requestOpenVerticalEditor();
               return;
             }
@@ -751,7 +765,7 @@ export default function Business({ initialScreen = "", onBack, onInitialScreenHa
           primaryActionLabel={primaryActionLabel}
           showAddProduct={permissions.canAddProducts}
           showMessages={permissions.canReplyMessages}
-          showOrders={permissions.canAccessDashboard && ["retail", "restaurant"].includes(businessKind)}
+          showOrders={permissions.canAccessDashboard && ["retail", "restaurant", "vendor"].includes(businessKind)}
         />
       ) : null}
 
@@ -767,6 +781,7 @@ export default function Business({ initialScreen = "", onBack, onInitialScreenHa
           profileInitialView={profileInitialView}
           onAddBusiness={() => openSellerScreen("addBusiness")}
           permissions={permissions}
+          plansEnabled={hasBusinessPlans(businessKind)}
         />
       ) : null}
 
@@ -798,7 +813,7 @@ export default function Business({ initialScreen = "", onBack, onInitialScreenHa
                   else openProfileEditor();
                 }}
                 onOpenSection={openSellerScreen}
-                onOpenPlans={permissions.canManagePlans ? () => openSellerScreen("plans") : undefined}
+                onOpenPlans={permissions.canManagePlans && hasBusinessPlans(businessKind) ? () => openSellerScreen("plans") : undefined}
                 overview={sellerOverview}
                 planName={sellerPlan.planName}
                 planCode={sellerPlan.planCode}
@@ -810,6 +825,10 @@ export default function Business({ initialScreen = "", onBack, onInitialScreenHa
               <AdminRoleBanner permissions={permissions} />
             ) : null}
 
+            {businessKind === "vendor" && permissions.canAccessDashboard ? (
+              <VendorOperationsCard business={activeRegisteredBusiness} />
+            ) : null}
+
             {!(permissions.canAccessDashboard || permissions.canAddProducts) ? (
               <AdminLimitedCard
                 permissions={permissions}
@@ -817,7 +836,7 @@ export default function Business({ initialScreen = "", onBack, onInitialScreenHa
                 onEditBusiness={openDelegatedProfileEditor}
                 onOpenPlans={() => openSellerScreen("plans")}
               />
-            ) : businessKind === "retail" ? (
+            ) : isProductBusinessKind(businessKind) ? (
               <>
                 {allowedTabs.length ? (
                   <SellerWorkspaceTabs activeTab={effectiveTab} onTabChange={setActiveTab} allowedTabs={allowedTabs} />
@@ -883,8 +902,8 @@ export default function Business({ initialScreen = "", onBack, onInitialScreenHa
   );
 }
 
-// The seller shell itself is stable UI, so only the business switcher and the
-// server-backed listing cards shimmer. Header actions, workspace tabs, and the
+// The seller shell itself is stable UI, so only server-backed inventory/media
+// cards shimmer. Header actions, the business icon, workspace tabs, and the
 // dashboard information cards must not masquerade as loading data.
 function SellerDashboardSkeleton({ onBack }) {
   return (
@@ -906,10 +925,12 @@ function SellerDashboardSkeleton({ onBack }) {
           </div>
 
           <div
-            className="kt-startup-shimmer h-10 w-16 shrink-0 rounded-xl border border-emerald-200"
-            data-loading-region="business-switcher"
+            className="grid h-10 w-16 shrink-0 place-items-center rounded-xl border border-emerald-200 bg-emerald-50 text-emerald-700"
+            data-static-shell="seller-business-switcher"
             aria-hidden="true"
-          />
+          >
+            <Store size={18} />
+          </div>
 
           <div className="flex items-center gap-2 text-gray-700" aria-hidden="true">
             <span className="grid h-10 w-10 place-items-center rounded-lg bg-gray-950 text-white"><Plus size={18} /></span>

@@ -993,11 +993,11 @@ export default function App() {
               />
             </section>
           ) : null}
+          {!bottomTabsHidden ? <BottomTabs badges={mainPageBadges} page={page} setPage={changePage} /> : null}
         </Suspense>
         </LazyRouteBoundary>
       </PageTransition>
 
-      {!bottomTabsHidden ? <BottomTabs badges={mainPageBadges} page={page} setPage={changePage} /> : null}
       <ScreenshotVoicePrompt page={page} />
       {guestSession ? <GuestGateCard /> : null}
       {!guestSession ? (

@@ -24,6 +24,7 @@ const VERTICAL_CATEGORIES = [
   { value: "vertical:restaurant", labelKey: "urmall.browse.filterRestaurant" },
   { value: "vertical:property_agent", labelKey: "urmall.browse.filterRealEstate" },
   { value: "vertical:retail", labelKey: "urmall.browse.filterRetail" },
+  { value: "vertical:vendor", labelKey: "urmall.browse.filterVendor" },
   { value: "vertical:hotel", labelKey: "urmall.browse.filterHotel" },
 ];
 

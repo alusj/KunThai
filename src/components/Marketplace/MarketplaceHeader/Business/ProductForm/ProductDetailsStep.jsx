@@ -5,9 +5,12 @@ import ProductFormField from "./ProductFormField";
 import ProductFormInput from "./ProductFormInput";
 import { useI18n, t } from "../../../../../i18n";
 
+const VENDOR_SELLING_UNITS = ["item", "pack", "carton", "bag", "kilogram", "tonne", "litre", "pallet", "roll", "box"];
+
 export default function ProductDetailsStep({ productForm }) {
   useI18n();
-  const { form, updateSection } = productForm;
+  const { form, options, errors, updateSection } = productForm;
+  const isVendor = options.businessKind === "vendor";
   const currencySymbol = getActiveCountryProfile().currency?.symbol || "Le";
   const tierPricing = Array.isArray(form.details.tierPricing) ? form.details.tierPricing : [];
 
@@ -43,6 +46,63 @@ export default function ProductDetailsStep({ productForm }) {
           {t("urmall.biz.pform.detailsOptHint")}
         </p>
       </div>
+
+      {isVendor ? (
+        <section className="space-y-4 rounded-xl border border-emerald-100 bg-emerald-50/60 p-4">
+          <div>
+            <p className="text-sm font-black text-emerald-950">Wholesale terms</p>
+            <p className="mt-1 text-xs font-bold leading-5 text-emerald-800">
+              Tell buyers exactly how this product is packed, ordered, and prepared.
+            </p>
+          </div>
+          <div className="grid gap-4 sm:grid-cols-2">
+            <ProductFormField label="Selling unit" error={errors.sellingUnit}>
+              <select
+                value={form.details.sellingUnit}
+                onChange={(event) => updateDetails({ sellingUnit: event.target.value })}
+                className="h-11 w-full rounded-lg border border-gray-300 bg-white px-3 text-sm font-bold capitalize outline-none focus:border-emerald-500"
+              >
+                <option value="">Choose a unit</option>
+                {VENDOR_SELLING_UNITS.map((unit) => <option key={unit} value={unit}>{unit}</option>)}
+              </select>
+            </ProductFormField>
+            <ProductFormField label="Pack size">
+              <ProductFormInput
+                value={form.details.packSize}
+                onChange={(event) => updateDetails({ packSize: event.target.value })}
+                placeholder="For example: 24 bottles"
+              />
+            </ProductFormField>
+            <ProductFormField label="Minimum order quantity" error={errors.minimumOrderQuantity}>
+              <ProductFormInput
+                type="number"
+                min="1"
+                step="1"
+                inputMode="numeric"
+                value={form.details.minimumOrderQuantity}
+                onChange={(event) => updateDetails({ minimumOrderQuantity: event.target.value })}
+              />
+            </ProductFormField>
+            <ProductFormField label="Lead time (days)" error={errors.leadTimeDays}>
+              <ProductFormInput
+                type="number"
+                min="0"
+                step="1"
+                inputMode="numeric"
+                value={form.details.leadTimeDays}
+                onChange={(event) => updateDetails({ leadTimeDays: event.target.value })}
+              />
+            </ProductFormField>
+            <ProductFormField label="Barcode or manufacturer code">
+              <ProductFormInput
+                value={form.details.barcode}
+                onChange={(event) => updateDetails({ barcode: event.target.value })}
+                placeholder="Optional"
+              />
+            </ProductFormField>
+          </div>
+        </section>
+      ) : null}
 
       <div className="grid gap-4 sm:grid-cols-2">
         <ProductFormField label={t("urmall.biz.pform.sizeOpt")}>

@@ -618,3 +618,37 @@ html.dark .kt-promotion-panel button:focus-visible,
 html.dark .kt-promotion-panel input:focus-visible {
   outline-color: rgb(52 211 153 / 0.72);
 }
+
+/* Address entry needs stronger separation than the generic palette mapping:
+ * the registration card, fields, and accuracy caution sit on several nested
+ * surfaces and otherwise blend together in dark mode. */
+html.dark .kt-address-entry-card {
+  background: #0f172a !important;
+  border-color: #334155 !important;
+  box-shadow: inset 0 0 0 1px rgb(148 163 184 / 0.05);
+}
+
+html.dark .kt-registration-input,
+html.dark .kt-address-entry-input {
+  background: #020617 !important;
+  border-color: #475569 !important;
+  color: #f8fafc !important;
+  -webkit-text-fill-color: #f8fafc !important;
+}
+
+html.dark .kt-registration-input:focus,
+html.dark .kt-address-entry-input:focus {
+  border-color: #60a5fa !important;
+  box-shadow: 0 0 0 4px rgb(96 165 250 / 0.18) !important;
+}
+
+html.dark .kt-address-accuracy-caution {
+  background: linear-gradient(145deg, #172033, #0f172a) !important;
+  border-color: #fbbf24 !important;
+  color: #f8fafc !important;
+}
+
+html.dark .kt-address-accuracy-caution .kt-address-caution-copy,
+html.dark .kt-address-accuracy-caution .kt-address-caution-details {
+  color: #e2e8f0 !important;
+}

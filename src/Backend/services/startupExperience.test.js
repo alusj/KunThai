@@ -9,7 +9,9 @@ const introSource = readFileSync(new URL("../../components/shared/ReturningUserI
 const skeletonSource = readFileSync(new URL("../../components/shared/AppStartupSkeleton.jsx", import.meta.url), "utf8");
 const sellerDashboardSource = readFileSync(new URL("../../components/Marketplace/MarketplaceHeader/Business/Business.jsx", import.meta.url), "utf8");
 const sellerInfoSource = readFileSync(new URL("../../components/Marketplace/MarketplaceHeader/Business/MyBizDashboardHeader/MyBizDashboardHeader.jsx", import.meta.url), "utf8");
+const sellerLogoSource = readFileSync(new URL("../../components/Marketplace/MarketplaceHeader/Business/MyBizDashboardHeader/BusinessLogo.jsx", import.meta.url), "utf8");
 const verticalSellerSource = readFileSync(new URL("../../components/Marketplace/MarketplaceHeader/Business/VerticalSellerDashboard.jsx", import.meta.url), "utf8");
+const transportHeaderSource = readFileSync(new URL("../../components/transport/header/Header.jsx", import.meta.url), "utf8");
 
 test("the inactivity logo is a small local asset with an offline cache path", () => {
   assert.match(introSource, /\/brand\/kunthai-launch-logo\.webp/);
@@ -56,11 +58,20 @@ test("startup loading keeps stable chrome and actions out of the shimmer", () =>
   assert.doesNotMatch(skeletonSource, /function BottomShellSkeleton/);
 });
 
-test("seller loading is limited to the switcher and inventory for every business type", () => {
-  assert.match(sellerDashboardSource, /data-loading-region="business-switcher"/);
+test("seller loading is limited to changing inventory for every business type", () => {
+  assert.match(sellerDashboardSource, /data-static-shell="seller-business-switcher"/);
+  assert.doesNotMatch(sellerDashboardSource, /data-loading-region="business-switcher"/);
   assert.match(sellerDashboardSource, /data-static-shell="seller-tabs"/);
   assert.match(sellerDashboardSource, /data-loading-region="seller-items"/);
   assert.match(sellerInfoSource, /return null/);
+  assert.doesNotMatch(sellerLogoSource, /animate-pulse|kt-startup-shimmer/);
   assert.match(verticalSellerSource, /VerticalListingsSkeleton variant="meal"/);
   assert.match(verticalSellerSource, /VerticalListingsSkeleton variant="property"/);
+});
+
+test("UrRide has no startup pre-screen or header placeholders", () => {
+  assert.match(skeletonSource, /if \(page === "transport"\) return null/);
+  assert.doesNotMatch(skeletonSource, /function TransportShell|function TransportHeaderShell|transport-actions/);
+  assert.doesNotMatch(transportHeaderSource, /animate-pulse|kt-startup-shimmer/);
+  assert.match(appSource, /<Suspense[\s\S]*<BottomTabs[\s\S]*<\/Suspense>/);
 });

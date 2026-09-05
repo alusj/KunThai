@@ -57,6 +57,7 @@ export function BuyerProductCard({ product, onProductSelect, onAddToCart, onTogg
   const verifiedSeller = ["verified", "approved", "recommended", "verified_recommended"].includes(
     String(product.seller?.verificationStatus || "").toLowerCase(),
   );
+  const vendorProduct = product.seller?.businessKind === "vendor";
 
   function openProduct() {
     onProductSelect?.(product);
@@ -86,7 +87,7 @@ export function BuyerProductCard({ product, onProductSelect, onAddToCart, onTogg
                 : product.verticalType === "property"
                   ? "bg-violet-700"
                   : "bg-slate-950/95"
-          }`}>{isVertical ? verticalLabel : t("urmall.browse.retail")}</span>
+          }`}>{isVertical ? verticalLabel : vendorProduct ? "Vendor supply" : t("urmall.browse.retail")}</span>
           {hasDiscount ? <span className="rounded-md bg-red-600 px-2 py-1 text-[11px] font-black uppercase text-white">-{discountPercent}%</span> : null}
         </div>
         {verifiedSeller ? (
@@ -157,6 +158,11 @@ export function BuyerProductCard({ product, onProductSelect, onAddToCart, onTogg
               {product.reviewCount ? i18nText("ui.literals.kc189e8bc98e6", { value0: product.rating.toFixed(1), value1: product.reviewCount }) : product.sales > 0 ? t("urmall.browse.soldN", { count: product.sales }) : t("urmall.browse.ratingNew")}
             </span>
             {!isVertical ? <p className="truncate text-[10px] font-bold text-gray-400">{t("urmall.browse.inStock", { count: product.stock })}</p> : null}
+            {vendorProduct && product.details?.minimumOrderQuantity ? (
+              <p className="truncate text-[10px] font-black text-emerald-700">
+                Min. {product.details.minimumOrderQuantity} {product.details.sellingUnit || "unit"}(s)
+              </p>
+            ) : null}
           </div>
           <button
             type="button"
@@ -213,14 +219,20 @@ export default function BuyerProductGrid({
   useEffect(() => {
     ensureBuyerLocation();
   }, []);
+  const prioritizedProducts = ["retail", "vendor"].includes(priorityCategory)
+    ? [
+        ...products.filter((product) => (product.seller?.businessKind || "retail") === priorityCategory),
+        ...products.filter((product) => (product.seller?.businessKind || "retail") !== priorityCategory),
+      ]
+    : products;
   // Where the vertical (meals/hotels/property) block sits in the grid. When a
   // vertical category leads, it goes first (before retail); when Retail leads it
   // goes last; otherwise it keeps its default spot after the third product.
   const supplementalIndex = ["restaurant", "hotel", "property"].includes(priorityCategory)
     ? 0
-    : priorityCategory === "retail"
-      ? products.length
-      : Math.min(3, products.length);
+    : ["retail", "vendor"].includes(priorityCategory)
+      ? prioritizedProducts.length
+      : Math.min(3, prioritizedProducts.length);
   if (loading && !products.length) {
     return (
       <div className="grid grid-cols-2 gap-3 sm:grid-cols-3 lg:grid-cols-4 xl:grid-cols-5">
@@ -262,13 +274,13 @@ export default function BuyerProductGrid({
     <div className="space-y-3">
       <div className="grid grid-cols-2 gap-3 sm:grid-cols-3 lg:grid-cols-4 xl:grid-cols-5">
         {supplementalIndex <= 0 ? supplementalContent : null}
-        {products.map((product, index) => (
+        {prioritizedProducts.map((product, index) => (
           <Fragment key={product.id}>
-            {supplementalIndex > 0 && supplementalIndex < products.length && index === supplementalIndex ? supplementalContent : null}
+            {supplementalIndex > 0 && supplementalIndex < prioritizedProducts.length && index === supplementalIndex ? supplementalContent : null}
             <BuyerProductCard product={product} onProductSelect={onProductSelect} onAddToCart={onAddToCart} onToggleSaved={onToggleSaved} saved={savedIds.has(product.id)} buyerLocation={buyerLocation} />
           </Fragment>
         ))}
-        {supplementalIndex > 0 && supplementalIndex >= products.length ? supplementalContent : null}
+        {supplementalIndex > 0 && supplementalIndex >= prioritizedProducts.length ? supplementalContent : null}
       </div>
     </div>
   );

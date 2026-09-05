@@ -20,6 +20,10 @@ import {
 } from "../../data/globalCountryProfiles";
 import { scrollToFirstBlockingFieldSoon } from "../../components/shared/formValidationNavigation";
 import { normalizeGeocodeAddress } from "../utils/geoAddress";
+import {
+  supportsMarketplaceFulfillment,
+  usesMarketplaceCategories,
+} from "../services/marketplace/marketplaceBusinessKinds";
 
 const DRAFT_KEY = "marketplace-seller-registration-draft";
 
@@ -407,7 +411,7 @@ export function useSellerRegistration({ mode = "create", onComplete } = {}) {
     if (nextStep === 0) {
       if (!form.identity.businessKind) nextErrors.businessKind = "Choose the primary business type.";
       if (!form.identity.businessName.trim()) nextErrors.businessName = "Business name is required.";
-      if (form.identity.businessKind === "retail" && form.identity.categories.length === 0) nextErrors.categories = "Choose at least one category.";
+      if (usesMarketplaceCategories(form.identity.businessKind) && form.identity.categories.length === 0) nextErrors.categories = "Choose at least one category.";
       if (!form.identity.description.trim()) nextErrors.description = "Short description is required.";
     }
 
@@ -419,8 +423,19 @@ export function useSellerRegistration({ mode = "create", onComplete } = {}) {
       if (!form.location.email.trim()) nextErrors.email = "Email is required.";
     }
 
-    if (nextStep === 2 && ["retail", "restaurant"].includes(form.identity.businessKind) && !form.operations.deliveryEnabled && !form.operations.pickupEnabled) {
-      nextErrors.fulfillment = "Enable delivery, pickup, or both.";
+    if (nextStep === 2) {
+      if (supportsMarketplaceFulfillment(form.identity.businessKind) && !form.operations.deliveryEnabled && !form.operations.pickupEnabled) {
+        nextErrors.fulfillment = "Enable delivery, pickup, or both.";
+      }
+      if (form.identity.businessKind === "vendor") {
+        const minimumOrderQuantity = Number(form.operations.defaultMinOrderQuantity);
+        const leadTimeDays = Number(form.operations.leadTimeDays);
+        if (!form.operations.vendorType) nextErrors.vendorType = "Choose the vendor type.";
+        if (!form.operations.salesModel) nextErrors.salesModel = "Choose how this vendor sells.";
+        if (!String(form.operations.defaultSellingUnit || "").trim()) nextErrors.defaultSellingUnit = "Enter the default selling unit.";
+        if (!Number.isFinite(minimumOrderQuantity) || minimumOrderQuantity < 1) nextErrors.defaultMinOrderQuantity = "Minimum order quantity must be at least 1.";
+        if (!Number.isFinite(leadTimeDays) || leadTimeDays < 0) nextErrors.leadTimeDays = "Lead time cannot be negative.";
+      }
     }
 
     setErrors(nextErrors);

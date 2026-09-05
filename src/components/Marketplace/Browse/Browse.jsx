@@ -516,6 +516,7 @@ export default function Browse({ activeTab = "new", onProductModeChange, onClose
   };
   const PRIORITY_LABEL_KEYS = {
     retail: "urmall.search.filterRetail",
+    vendor: "urmall.search.filterVendor",
     restaurant: "urmall.search.filterRestaurant",
     property: "urmall.search.filterProperty",
     hotel: "urmall.search.filterHotel",
