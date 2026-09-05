@@ -88,45 +88,47 @@ export default function AddressLocationField({ onChange, value }) {
 
   return (
     <div className="space-y-3 sm:col-span-2">
-      <label className="block">
-        <span className="inline-flex items-center gap-2 text-xs font-black text-gray-600">
-          {t("urmall.biz.reg.address")}
-          <AddressAreaStatusIcon status={validation.status} />
-        </span>
-        <input
-          ref={addressInputRef}
-          required
-          value={value.address}
-          onChange={(event) => onChange({ address: event.target.value })}
-          onBlur={caution.handleAddressBlur}
-          placeholder={t("urmall.biz.reg.bizAddressPlaceholder")}
-          autoComplete="street-address"
-          className="kt-address-entry-input mt-1 h-11 w-full rounded-xl border border-gray-200 bg-white px-3 text-sm font-bold text-gray-900 outline-none focus:border-emerald-400 focus:ring-4 focus:ring-emerald-500/10"
+      <div className="relative">
+        <label className="block">
+          <span className="inline-flex items-center gap-2 text-xs font-black text-gray-600">
+            {t("urmall.biz.reg.address")}
+            <AddressAreaStatusIcon status={validation.status} />
+          </span>
+          <input
+            ref={addressInputRef}
+            required
+            value={value.address}
+            onChange={(event) => onChange({ address: event.target.value })}
+            onBlur={caution.handleAddressBlur}
+            placeholder={t("urmall.biz.reg.bizAddressPlaceholder")}
+            autoComplete="street-address"
+            className="kt-address-entry-input mt-1 h-11 w-full rounded-xl border border-gray-200 bg-white px-3 text-sm font-bold text-gray-900 outline-none focus:border-emerald-400 focus:ring-4 focus:ring-emerald-500/10"
+          />
+        </label>
+
+        <AddressAccuracyCaution
+          open={caution.open}
+          onLocateMe={() => caution.act(locateMe)}
+          onDropPin={() => caution.act(() => setPicking("dropPin"))}
+          onContinueWriting={() => {
+            caution.dismiss();
+            window.requestAnimationFrame(() => addressInputRef.current?.focus());
+          }}
+          title={t("urmall.biz.reg.accuracyTitle")}
+          message={t("urmall.biz.reg.accuracyMessage")}
+          details={t("urmall.biz.reg.accuracyDetails")}
+          locateLabel={t("urmall.biz.reg.locateMe")}
+          dropPinLabel={t("urmall.biz.reg.dropPin")}
+          continueLabel={t("urmall.biz.reg.accuracyContinueWriting")}
+          readMoreLabel={t("urmall.biz.reg.accuracyReadMore")}
+          readLessLabel={t("urmall.biz.reg.accuracyReadLess")}
         />
-      </label>
+      </div>
 
       <AddressAreaResolutionCard
         validation={validation}
         onLocateMe={() => caution.act(locateMe)}
         onDropPin={() => caution.act(() => setPicking("dropPin"))}
-      />
-
-      <AddressAccuracyCaution
-        open={caution.open}
-        onLocateMe={() => caution.act(locateMe)}
-        onDropPin={() => caution.act(() => setPicking("dropPin"))}
-        onContinueWriting={() => {
-          caution.dismiss();
-          window.requestAnimationFrame(() => addressInputRef.current?.focus());
-        }}
-        title={t("urmall.biz.reg.accuracyTitle")}
-        message={t("urmall.biz.reg.accuracyMessage")}
-        details={t("urmall.biz.reg.accuracyDetails")}
-        locateLabel={t("urmall.biz.reg.locateMe")}
-        dropPinLabel={t("urmall.biz.reg.dropPin")}
-        continueLabel={t("urmall.biz.reg.accuracyContinueWriting")}
-        readMoreLabel={t("urmall.biz.reg.accuracyReadMore")}
-        readLessLabel={t("urmall.biz.reg.accuracyReadLess")}
       />
 
       <div className="grid gap-2 sm:grid-cols-[minmax(0,1fr)_auto_minmax(0,1fr)] sm:items-center">

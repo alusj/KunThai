@@ -36,6 +36,12 @@ test("the floating caution exposes all three address choices and expandable guid
   assert.match(locationStepSource, /addressInputRef\.current\?\.focus\(\)/);
 });
 
+test("the caution is anchored immediately above its address field instead of the viewport bottom", () => {
+  assert.match(cautionSource, /absolute bottom-\[calc\(100%\+0\.75rem\)\]/);
+  assert.doesNotMatch(cautionSource, /fixed bottom-\[max\(1rem,env\(safe-area-inset-bottom\)\)\]/);
+  assert.match(locationStepSource, /<div className="relative">\s*<RegistrationField[\s\S]*?<AddressAccuracyCaution/);
+});
+
 test("address cards, inputs, and the floating caution have explicit dark-mode contrast", () => {
   assert.match(locationStepSource, /kt-address-entry-card/);
   assert.match(appearanceSource, /html\.dark \.kt-address-entry-card/);

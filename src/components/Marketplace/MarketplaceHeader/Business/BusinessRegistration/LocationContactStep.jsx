@@ -131,47 +131,49 @@ export default function LocationContactStep({ registration }) {
           />
         </RegistrationField>
 
-        <RegistrationField
-          label={(
-            <span className="inline-flex items-center gap-2">
-              {t("urmall.biz.reg.address")}
-              <AddressAreaStatusIcon status={addressValidation.status} />
-            </span>
-          )}
-        >
-          <RegistrationInput
-            ref={addressInputRef}
-            value={form.location.address}
-            onChange={(event) => updateSection("location", { address: event.target.value })}
-            onBlur={accuracyCaution.handleAddressBlur}
-            placeholder={t("urmall.biz.reg.bizAddressPlaceholder")}
-            autoComplete="street-address"
+        <div className="relative">
+          <RegistrationField
+            label={(
+              <span className="inline-flex items-center gap-2">
+                {t("urmall.biz.reg.address")}
+                <AddressAreaStatusIcon status={addressValidation.status} />
+              </span>
+            )}
+          >
+            <RegistrationInput
+              ref={addressInputRef}
+              value={form.location.address}
+              onChange={(event) => updateSection("location", { address: event.target.value })}
+              onBlur={accuracyCaution.handleAddressBlur}
+              placeholder={t("urmall.biz.reg.bizAddressPlaceholder")}
+              autoComplete="street-address"
+            />
+          </RegistrationField>
+
+          <AddressAccuracyCaution
+            open={accuracyCaution.open}
+            onLocateMe={() => accuracyCaution.act(() => locateBusiness("main"))}
+            onDropPin={() => accuracyCaution.act(() => openDropPinPicker("main"))}
+            onContinueWriting={() => {
+              accuracyCaution.dismiss();
+              window.requestAnimationFrame(() => addressInputRef.current?.focus());
+            }}
+            title={t("urmall.biz.reg.accuracyTitle")}
+            message={t("urmall.biz.reg.accuracyMessage")}
+            details={t("urmall.biz.reg.accuracyDetails")}
+            locateLabel={t("urmall.biz.reg.locateMe")}
+            dropPinLabel={t("urmall.biz.reg.dropPin")}
+            continueLabel={t("urmall.biz.reg.accuracyContinueWriting")}
+            readMoreLabel={t("urmall.biz.reg.accuracyReadMore")}
+            readLessLabel={t("urmall.biz.reg.accuracyReadLess")}
           />
-        </RegistrationField>
+        </div>
 
         <AddressAreaResolutionCard
           validation={addressValidation}
           onLocateMe={() => accuracyCaution.act(() => locateBusiness("main"))}
           onDropPin={() => accuracyCaution.act(() => openDropPinPicker("main"))}
           tone="blue"
-        />
-
-        <AddressAccuracyCaution
-          open={accuracyCaution.open}
-          onLocateMe={() => accuracyCaution.act(() => locateBusiness("main"))}
-          onDropPin={() => accuracyCaution.act(() => openDropPinPicker("main"))}
-          onContinueWriting={() => {
-            accuracyCaution.dismiss();
-            window.requestAnimationFrame(() => addressInputRef.current?.focus());
-          }}
-          title={t("urmall.biz.reg.accuracyTitle")}
-          message={t("urmall.biz.reg.accuracyMessage")}
-          details={t("urmall.biz.reg.accuracyDetails")}
-          locateLabel={t("urmall.biz.reg.locateMe")}
-          dropPinLabel={t("urmall.biz.reg.dropPin")}
-          continueLabel={t("urmall.biz.reg.accuracyContinueWriting")}
-          readMoreLabel={t("urmall.biz.reg.accuracyReadMore")}
-          readLessLabel={t("urmall.biz.reg.accuracyReadLess")}
         />
 
         <div className="grid gap-2 sm:grid-cols-[minmax(0,1fr)_auto_minmax(0,1fr)] sm:items-center">
@@ -403,47 +405,49 @@ function BranchAddressCard({ branch, index, maxBusinessLocations, updateBranch, 
         />
       </RegistrationField>
 
-      <RegistrationField
-        label={(
-          <span className="inline-flex items-center gap-2">
-            {t("urmall.biz.reg.address")}
-            <AddressAreaStatusIcon status={validation.status} />
-          </span>
-        )}
-      >
-        <RegistrationInput
-          ref={addressInputRef}
-          value={branch.address}
-          onChange={(event) => updateBranch(index, { address: event.target.value })}
-          onBlur={accuracyCaution.handleAddressBlur}
-          placeholder={t("urmall.biz.reg.branchAddressPlaceholder")}
-          autoComplete="street-address"
+      <div className="relative">
+        <RegistrationField
+          label={(
+            <span className="inline-flex items-center gap-2">
+              {t("urmall.biz.reg.address")}
+              <AddressAreaStatusIcon status={validation.status} />
+            </span>
+          )}
+        >
+          <RegistrationInput
+            ref={addressInputRef}
+            value={branch.address}
+            onChange={(event) => updateBranch(index, { address: event.target.value })}
+            onBlur={accuracyCaution.handleAddressBlur}
+            placeholder={t("urmall.biz.reg.branchAddressPlaceholder")}
+            autoComplete="street-address"
+          />
+        </RegistrationField>
+
+        <AddressAccuracyCaution
+          open={accuracyCaution.open}
+          onLocateMe={() => accuracyCaution.act(() => locateBusiness(index))}
+          onDropPin={() => accuracyCaution.act(() => openDropPinPicker(index))}
+          onContinueWriting={() => {
+            accuracyCaution.dismiss();
+            window.requestAnimationFrame(() => addressInputRef.current?.focus());
+          }}
+          title={t("urmall.biz.reg.accuracyTitle")}
+          message={t("urmall.biz.reg.accuracyMessage")}
+          details={t("urmall.biz.reg.accuracyDetails")}
+          locateLabel={t("urmall.biz.reg.locateMe")}
+          dropPinLabel={t("urmall.biz.reg.dropPin")}
+          continueLabel={t("urmall.biz.reg.accuracyContinueWriting")}
+          readMoreLabel={t("urmall.biz.reg.accuracyReadMore")}
+          readLessLabel={t("urmall.biz.reg.accuracyReadLess")}
         />
-      </RegistrationField>
+      </div>
 
       <AddressAreaResolutionCard
         validation={validation}
         onLocateMe={() => accuracyCaution.act(() => locateBusiness(index))}
         onDropPin={() => accuracyCaution.act(() => openDropPinPicker(index))}
         tone="blue"
-      />
-
-      <AddressAccuracyCaution
-        open={accuracyCaution.open}
-        onLocateMe={() => accuracyCaution.act(() => locateBusiness(index))}
-        onDropPin={() => accuracyCaution.act(() => openDropPinPicker(index))}
-        onContinueWriting={() => {
-          accuracyCaution.dismiss();
-          window.requestAnimationFrame(() => addressInputRef.current?.focus());
-        }}
-        title={t("urmall.biz.reg.accuracyTitle")}
-        message={t("urmall.biz.reg.accuracyMessage")}
-        details={t("urmall.biz.reg.accuracyDetails")}
-        locateLabel={t("urmall.biz.reg.locateMe")}
-        dropPinLabel={t("urmall.biz.reg.dropPin")}
-        continueLabel={t("urmall.biz.reg.accuracyContinueWriting")}
-        readMoreLabel={t("urmall.biz.reg.accuracyReadMore")}
-        readLessLabel={t("urmall.biz.reg.accuracyReadLess")}
       />
 
       <div className="grid gap-2 sm:grid-cols-[minmax(0,1fr)_auto_minmax(0,1fr)] sm:items-center">

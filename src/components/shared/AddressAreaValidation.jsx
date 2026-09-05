@@ -259,16 +259,28 @@ export function AddressAccuracyCaution({
   readLessLabel = "Show less",
 }) {
   const [expanded, setExpanded] = useState(false);
+  const cardRef = useRef(null);
 
   useEffect(() => {
     if (!open) setExpanded(false);
+  }, [open]);
+
+  useEffect(() => {
+    if (!open) return undefined;
+
+    const frame = window.requestAnimationFrame(() => {
+      cardRef.current?.scrollIntoView({ behavior: "smooth", block: "nearest", inline: "nearest" });
+    });
+
+    return () => window.cancelAnimationFrame(frame);
   }, [open]);
 
   if (!open) return null;
 
   return (
     <div
-      className="kt-address-accuracy-caution fixed bottom-[max(1rem,env(safe-area-inset-bottom))] left-1/2 z-[1600] w-[calc(100%-2rem)] max-w-md -translate-x-1/2 rounded-[1.75rem] border border-amber-300 bg-white p-4 text-slate-950 shadow-2xl shadow-slate-950/25 dark:shadow-black/70"
+      ref={cardRef}
+      className="kt-address-accuracy-caution absolute bottom-[calc(100%+0.75rem)] left-1/2 z-[1600] max-h-[min(70dvh,34rem)] w-[calc(100vw-2rem)] max-w-md -translate-x-1/2 overflow-y-auto overscroll-contain rounded-[1.75rem] border border-amber-300 bg-white p-4 text-slate-950 shadow-2xl shadow-slate-950/25 dark:shadow-black/70"
       role="alertdialog"
       aria-label={title}
     >
