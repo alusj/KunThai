@@ -51,6 +51,7 @@ export default function NearbyOperators({
 }) {
   useI18n();
   const [activeOperator, setActiveOperator] = useState(null);
+  const [category, setCategory] = useState("operators");
   const cacheUserId = cacheScope.userId || "";
   const cacheCountryIso = cacheScope.countryIso || "";
   const scopedCache = { userId: cacheUserId, countryIso: cacheCountryIso };
@@ -141,12 +142,17 @@ export default function NearbyOperators({
             {pickup ? t("urride.operators.pickup", { pickup }) : t("urride.operators.subtitle")}
           </p>
         </div>
-        <button type="button" onClick={onViewAll} className="text-sm font-semibold text-sky-700">
+        {category === "operators" ? <button type="button" onClick={onViewAll} className="text-sm font-semibold text-sky-700">
           {t("urride.operators.viewAll")}
-        </button>
+        </button> : null}
       </div>
 
-      {error ? (
+      <div className="mb-4 flex w-full flex-nowrap gap-2 overflow-x-auto rounded-2xl bg-slate-100 p-1.5 [scrollbar-width:none] [&::-webkit-scrollbar]:hidden" role="tablist" aria-label="Nearby transport category">
+        <button type="button" role="tab" aria-selected={category === "operators"} onClick={() => setCategory("operators")} className={`min-w-[9rem] flex-1 whitespace-nowrap rounded-xl px-4 py-2.5 text-sm font-black transition ${category === "operators" ? "bg-emerald-700 text-white shadow-sm" : "bg-white text-slate-700"}`}>Live operators</button>
+        <button type="button" role="tab" aria-selected={category === "rentals"} onClick={() => setCategory("rentals")} className={`min-w-[9rem] flex-1 whitespace-nowrap rounded-xl px-4 py-2.5 text-sm font-black transition ${category === "rentals" ? "bg-amber-600 text-white shadow-sm" : "bg-white text-slate-700"}`}>Rentals</button>
+      </div>
+
+      {category === "rentals" ? <RentalCatalogue /> : error ? (
         <EmptyState title={t("urride.operators.loadErrorTitle")} body={error} />
       ) : loading && !operators.length ? (
         <EmptyState title={t("urride.operators.loadingTitle")} body={t("urride.operators.loadingBody")} />
@@ -248,7 +254,6 @@ export default function NearbyOperators({
       </>
       )}
 
-      <RentalCatalogue />
       <VerificationDetailsModal
         status={activeOperator?.verificationStatus}
         operatorName={activeOperator?.fleetName}

@@ -124,7 +124,7 @@ function roleDesc(roleId) {
     : COMPANY_OPERATOR_ROLES[roleId]?.description || "";
 }
 
-export default function CompanyWorkspaceScreen({ company, onBack, onCompanyLeft, onCompanyUpdate, onEditCompany, onLocateArea, onOpenOperatorDashboard, onOpenPersonalDashboard, onRegisterCompany, statusMessage = "" }) {
+export default function CompanyWorkspaceScreen({ company, initialTab = "Overview", onAddRentalFleet, onBack, onCompanyLeft, onCompanyUpdate, onEditCompany, onLocateArea, onOpenOperatorDashboard, onOpenPersonalDashboard, onRegisterCompany, statusMessage = "" }) {
   useI18n();
   const basicOperator = Boolean(company?.access?.role === "operator" && !company?.access?.isOwner);
   const companyOperatorAssignment = useMemo(
@@ -132,8 +132,9 @@ export default function CompanyWorkspaceScreen({ company, onBack, onCompanyLeft,
     [basicOperator, company],
   );
   const availableTabs = useMemo(() => (basicOperator ? ["My Dashboard"] : tabs.filter((tab) => tab !== "Rentals" || company?.access?.isOwner || company?.access?.role === "admin")), [basicOperator, company?.access?.isOwner, company?.access?.role]);
-  const [activeTab, setActiveTab] = useState(() => (basicOperator ? "My Dashboard" : "Overview"));
-  const [companyTabOpen, setCompanyTabOpen] = useState(false);
+  const firstTab = basicOperator ? "My Dashboard" : availableTabs.includes(initialTab) ? initialTab : "Overview";
+  const [activeTab, setActiveTab] = useState(() => firstTab);
+  const [companyTabOpen, setCompanyTabOpen] = useState(() => !basicOperator && firstTab !== "Overview");
   const [companyTabDirection, setCompanyTabDirection] = useState("forward");
   const [menuOpen, setMenuOpen] = useState(false);
   const companyNavigation = useNavigationStack("dashboard");
@@ -203,6 +204,7 @@ export default function CompanyWorkspaceScreen({ company, onBack, onCompanyLeft,
   const canManageOperators = Boolean(access.canManageOperators);
   const canManageFleets = Boolean(access.canManageFleets);
   const canAddOperators = Boolean(access.isOwner);
+  const canAddRentalFleets = Boolean(access.isOwner || access.role === "admin");
   const canManagePlans = Boolean(access.canManagePlans || access.isOwner);
   const canViewOperatorDashboard = Boolean(access.isOwner || access.canManageOperators);
   const canViewAllBookings = Boolean(access.canViewAllBookings);
@@ -718,7 +720,7 @@ export default function CompanyWorkspaceScreen({ company, onBack, onCompanyLeft,
 }
 
   function renderDashboardTab(tab = activeTab) {
-    if (tab === "Rentals") return <CompanyRentals company={company} onAddFleet={access.isOwner ? (onEditCompany || onRegisterCompany) : undefined} />;
+    if (tab === "Rentals") return <CompanyRentals company={company} onAddFleet={canAddRentalFleets ? onAddRentalFleet : undefined} />;
     if (tab === "Overview") return <Overview company={company} fleets={fleets} pendingRequests={pendingRequests} />;
     if (tab === "Fleets") {
       return (
@@ -2056,7 +2058,8 @@ function CompanyDashboardTabDrawer({
   tabs = [],
 }) {
   const { rendered, panelOpen } = useDrawerTransition(expanded, DRAWER_TRANSITION_MS);
-  const activeIndex = Math.max(0, tabs.indexOf(activeTab));
+  const uniqueTabs = [...new Set(tabs)];
+  const activeIndex = Math.max(0, uniqueTabs.indexOf(activeTab));
 
   function handleTabClick(tab) {
     onTabChange(tab);
@@ -2076,13 +2079,13 @@ function CompanyDashboardTabDrawer({
             {company?.companyName || t("urride.companyWs.transportCompany")}
           </p>
         </div>
-        <div className="mt-5 grid w-full grid-cols-5 gap-1 rounded-2xl bg-slate-50 p-1.5 sm:gap-2">
-          {tabs.map((tab) => (
+        <div className="mt-5 flex w-full flex-nowrap gap-2 overflow-x-auto rounded-2xl bg-slate-50 p-1.5 [scrollbar-width:none] [&::-webkit-scrollbar]:hidden">
+          {uniqueTabs.map((tab) => (
             <button
               key={tab}
               type="button"
               onClick={() => handleTabClick(tab)}
-              className={`min-w-0 rounded-xl px-0.5 py-2 text-[clamp(0.625rem,2.5vw,0.875rem)] font-black leading-tight transition sm:px-2 ${
+              className={`min-w-max flex-none whitespace-nowrap rounded-xl px-4 py-2 text-sm font-black leading-tight transition ${
                 activeTab === tab
                   ? "bg-slate-950 text-white shadow-lg shadow-slate-950/10"
                   : "text-slate-500 hover:bg-white hover:text-slate-900"
@@ -2150,13 +2153,13 @@ function CompanyDashboardTabDrawer({
               </button>
             </div>
 
-            <div className="mt-4 grid w-full grid-cols-5 gap-1 rounded-2xl bg-slate-50 p-1.5 sm:gap-2">
-              {tabs.map((tab, index) => (
+            <div className="mt-4 flex w-full flex-nowrap gap-2 overflow-x-auto rounded-2xl bg-slate-50 p-1.5 [scrollbar-width:none] [&::-webkit-scrollbar]:hidden">
+              {uniqueTabs.map((tab, index) => (
                 <button
                   key={tab}
                   type="button"
                   onClick={() => handleTabClick(tab)}
-                  className={`min-w-0 rounded-xl px-0.5 py-2 text-[clamp(0.625rem,2.5vw,0.875rem)] font-black leading-tight transition sm:px-2 ${
+                  className={`min-w-max flex-none whitespace-nowrap rounded-xl px-4 py-2 text-sm font-black leading-tight transition ${
                     activeTab === tab
                       ? "bg-slate-950 text-white shadow-lg shadow-slate-950/10"
                       : "text-slate-500 hover:bg-white hover:text-slate-900"

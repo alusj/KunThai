@@ -80,6 +80,7 @@ export default function Transport({
   const [companyOperationBadgeCount, setCompanyOperationBadgeCount] = useState(0);
   const [companyLoading, setCompanyLoading] = useState(() => !TRANSPORT_ACCOUNT_MEMORY.companyLoaded);
   const [companyWorkspaceOpen, setCompanyWorkspaceOpen] = useState(false);
+  const [companyWorkspaceInitialTab, setCompanyWorkspaceInitialTab] = useState("Overview");
   const [companyWorkspaceStatus, setCompanyWorkspaceStatus] = useState("");
   const [rentalTarget, setRentalTarget] = useState("");
   const [rentalReturnCompanyId, setRentalReturnCompanyId] = useState("");
@@ -1124,7 +1125,8 @@ export default function Transport({
             onSaved={setCompanyAccount}
             onSaveExit={exitRegistrationFlow}
             onViewOneKmPreview={openRegistrationOneKmPreview}
-            onComplete={(account, origin) => {
+            onComplete={(account, origin, result) => {
+              const completedMode = companyRegistrationMode;
               setCompanyAccount(account);
               setRegistrationOpen(false);
               setRegistrationType(null);
@@ -1132,6 +1134,7 @@ export default function Transport({
               setRegistrationSource(null);
               setRouteDirection("forward");
               setRegistrationReveal({ target: "company", origin: origin || { x: "50%", y: "70%" } });
+              setCompanyWorkspaceInitialTab(completedMode === "addRental" || result?.actionMode === "add_rental" ? "Rentals" : "Overview");
               setCompanyWorkspaceOpen(true);
             }}
           />
@@ -1193,6 +1196,7 @@ export default function Transport({
       >
         <CompanyWorkspaceScreen
           company={companyAccount}
+          initialTab={companyWorkspaceInitialTab}
           operatorAccount={operatorAccount}
           statusMessage={companyWorkspaceStatus}
           onCompanyUpdate={setCompanyAccount}
@@ -1221,6 +1225,7 @@ export default function Transport({
             setOperatorDashboardOpen(true);
           }}
           onOpenOperatorDashboard={openCompanyOperatorDashboard}
+          onAddRentalFleet={() => openCompanyRegistration("company-workspace", "addRental")}
           onEditCompany={() => openCompanyRegistration("company-workspace", "full")}
           onRegisterCompany={() => openCompanyRegistration("company-workspace", "addOperator")}
         />
@@ -1262,6 +1267,7 @@ export default function Transport({
           onLocateArea={openNearbyAreaRoute}
           onOpenCompany={companyAccount?.access?.canViewCompanyHq ? () => {
             setRouteDirection("forward");
+            setCompanyWorkspaceInitialTab("Overview");
             setCompanyWorkspaceOpen(true);
           } : undefined}
           onSwitchCompany={async (company) => {
@@ -1496,6 +1502,7 @@ export default function Transport({
 
           if (companyAccount) {
             setRouteDirection("forward");
+            setCompanyWorkspaceInitialTab("Overview");
             setCompanyWorkspaceOpen(true);
             return;
           }

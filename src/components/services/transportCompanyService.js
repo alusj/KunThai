@@ -1373,13 +1373,15 @@ export async function submitOperatorCompanyInviteDocuments(invite, documents = {
 export async function saveTransportCompanyAccount(account) {
   const user = await getCurrentUser("Sign in before submitting your company registration.");
   const addOperatorMode = account?.actionMode === "add_operator";
+  const addRentalMode = account?.actionMode === "add_rental";
+  const incrementalFleetMode = addOperatorMode || addRentalMode;
   const profile = await getOnboardingProfile(user).catch(() => null);
   let normalized = normalizeCompanyAccount({
     ...account,
     userId: user.id,
     ownerPublicId: account.ownerPublicId || getKunThaiPublicUserId({ ...profile, userId: user.id }),
-    accountStatus: "submitted",
-    verificationStatus: "pending",
+    accountStatus: incrementalFleetMode ? account.accountStatus || "submitted" : "submitted",
+    verificationStatus: incrementalFleetMode ? account.verificationStatus || "pending" : "pending",
     savedAt: new Date().toISOString(),
   }, user.id);
 
@@ -1448,15 +1450,15 @@ export async function saveTransportCompanyAccount(account) {
       operating_areas: normalized.operatingAreas,
       support_policy: normalized.supportPolicy,
       documents: normalized.documents,
-      verification_status: "pending",
-      account_status: "submitted",
+      verification_status: normalized.verificationStatus || "pending",
+      account_status: normalized.accountStatus || "submitted",
       updated_at: new Date().toISOString(),
     };
 
     const company = await saveSelectSingleByMatch(
       "transport_companies",
       companyPayload,
-      { owner_user_id: user.id },
+      normalized.id ? { id: normalized.id } : { owner_user_id: user.id },
       [
         "owner_public_id",
         "company_type",
@@ -1509,11 +1511,13 @@ export async function saveTransportCompanyAccount(account) {
       {
         company_id: companyId,
         actor_user_id: user.id,
-        activity_type: addOperatorMode ? "operator_invite_created" : "registration",
-        title: addOperatorMode ? "Operator invitation created" : "Company registration submitted",
-        body: addOperatorMode
-          ? `${normalized.companyName || "Company"} added a new fleet operator request.`
-          : `${normalized.companyName || "Company"} submitted Fleet HQ registration.`,
+        activity_type: addRentalMode ? "rental_fleet_added" : addOperatorMode ? "operator_invite_created" : "registration",
+        title: addRentalMode ? "Rental fleet added" : addOperatorMode ? "Operator invitation created" : "Company registration submitted",
+        body: addRentalMode
+          ? `${normalized.companyName || "Company"} added a self-drive rental vehicle without an operator assignment.`
+          : addOperatorMode
+            ? `${normalized.companyName || "Company"} added a new fleet operator request.`
+            : `${normalized.companyName || "Company"} submitted Fleet HQ registration.`,
         metadata: {
           companyCode: normalized.companyCode,
           fleetCount: normalized.fleets.length,

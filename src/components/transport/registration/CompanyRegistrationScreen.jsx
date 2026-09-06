@@ -110,10 +110,28 @@ const fleetSafetyQuestions = {
   ],
 };
 
-function createSafetyAnswers(fleetType) {
-  return (fleetSafetyQuestions[fleetType] || []).reduce((answers, question) => ({
+const rentalReadinessQuestions = [
+  { key: "selfDriveAuthorised", label: "Is this vehicle authorised for self-drive rental?", type: "select", requireChoice: true },
+  { key: "rentalInsurance", label: "Is the insurance valid for rental use?", type: "select", requireChoice: true },
+  { key: "roadworthyServiced", label: "Is the vehicle currently roadworthy and serviced?", type: "select", requireChoice: true },
+  { key: "licenceCheck", label: "Will the renter's driving licence be checked at pickup?", type: "select", requireChoice: true },
+  { key: "handoverInspection", label: "Will pickup and return condition checks be recorded?", type: "select", requireChoice: true },
+  { key: "renterSupport", label: "Will the renter receive a company emergency contact?", type: "select", requireChoice: true },
+];
+
+function getFleetQuestions(fleet = {}) {
+  return fleet.serviceCategory === "Rental" ? rentalReadinessQuestions : fleetSafetyQuestions[fleet.fleetType] || [];
+}
+
+function questionLabel(question) {
+  return question.label || t(question.labelKey);
+}
+
+function createSafetyAnswers(fleetType, serviceCategory = "") {
+  const questions = serviceCategory === "Rental" ? rentalReadinessQuestions : fleetSafetyQuestions[fleetType] || [];
+  return questions.reduce((answers, question) => ({
     ...answers,
-    [question.key]: question.type === "select" ? "Yes" : "",
+    [question.key]: question.type === "select" && !question.requireChoice ? "Yes" : "",
   }), {});
 }
 
@@ -186,8 +204,11 @@ function preferredCompanyServiceCategory(context = {}, fleetType = "") {
   return options.includes("Ride and delivery") ? "Ride and delivery" : options[0] || "Ride only";
 }
 
-function createFleetDraft(index = 0, context = {}) {
-  const serviceCategory = preferredCompanyServiceCategory(context);
+function createFleetDraft(index = 0, context = {}, requestedServiceCategory = "") {
+  const availableServices = getCompanyServiceCategoryOptions(context);
+  const serviceCategory = availableServices.includes(requestedServiceCategory)
+    ? requestedServiceCategory
+    : preferredCompanyServiceCategory(context);
   const fleetTypes = getCompanyFleetTypeOptions(context, serviceCategory);
   const fleetType = fleetTypes[index % Math.max(1, fleetTypes.length)] || fleetTypes[0] || "Taxi";
 
@@ -209,7 +230,7 @@ function createFleetDraft(index = 0, context = {}) {
     pricePerHour: "",
     priceHint: "",
     documents: {},
-    safetyAnswers: createSafetyAnswers(fleetType),
+    safetyAnswers: createSafetyAnswers(fleetType, serviceCategory),
     operators: [],
     status: i18nText("ui.literals.kc183a023083e"),
   };
@@ -229,7 +250,7 @@ function sanitizeCompanyFleetForCountry(fleet = {}, context = {}, index = 0) {
     ...fleet,
     serviceCategory,
     fleetType,
-    safetyAnswers: fleetType === fleet.fleetType ? fleet.safetyAnswers : createSafetyAnswers(fleetType),
+    safetyAnswers: fleetType === fleet.fleetType ? fleet.safetyAnswers : createSafetyAnswers(fleetType, serviceCategory),
   };
 }
 
@@ -252,9 +273,11 @@ function compactPublicId(value = "") {
 export default function CompanyRegistrationScreen({ existingCompany = null, mode = "full", onBack, onComplete, onSaved, onSaveExit, onViewOneKmPreview }) {
   useI18n();
   const addOperatorMode = mode === "addOperator";
+  const addRentalMode = mode === "addRental";
+  const incrementalFleetMode = addOperatorMode || addRentalMode;
   const openingSource = existingCompany || null;
   const openingCompany = openingSource?.company || openingSource;
-  const openingAddOperatorForm = addOperatorMode && openingCompany
+  const openingFleetForm = incrementalFleetMode && openingCompany
     ? {
         ...createCompanyForm(),
         ...openingCompany,
@@ -264,20 +287,20 @@ export default function CompanyRegistrationScreen({ existingCompany = null, mode
   // Editing an existing company shows a single-screen accordion of the
   // registration steps (each with the current details + Edit) instead of
   // walking the wizard from the top.
-  const editing = Boolean(existingCompany) && !addOperatorMode;
+  const editing = Boolean(existingCompany) && !incrementalFleetMode;
   const [openSection, setOpenSection] = useState(-1);
-  const [step, setStep] = useState(() => (addOperatorMode ? 2 : 0));
-  const [maxStepReached, setMaxStepReached] = useState(() => (addOperatorMode ? 2 : 0));
-  const [form, setForm] = useState(() => openingAddOperatorForm || createCompanyForm());
-  const [fleets, setFleets] = useState(() => [createFleetDraft(0, openingAddOperatorForm || {})]);
-  const [areaText, setAreaText] = useState(() => (openingAddOperatorForm?.operatingAreas || []).join(", "));
+  const [step, setStep] = useState(() => (incrementalFleetMode ? 2 : 0));
+  const [maxStepReached, setMaxStepReached] = useState(() => (incrementalFleetMode ? 2 : 0));
+  const [form, setForm] = useState(() => openingFleetForm || createCompanyForm());
+  const [fleets, setFleets] = useState(() => [createFleetDraft(0, openingFleetForm || {}, addRentalMode ? "Rental" : "")]);
+  const [areaText, setAreaText] = useState(() => (openingFleetForm?.operatingAreas || []).join(", "));
   const [status, setStatus] = useState("");
   const [statusTone, setStatusTone] = useState("info");
   const [fieldErrors, setFieldErrors] = useState({});
   const [saving, setSaving] = useState(false);
   const [submitting, setSubmitting] = useState(false);
   const [finishing, setFinishing] = useState(false);
-  const [initializing, setInitializing] = useState(() => !addOperatorMode);
+  const [initializing, setInitializing] = useState(() => !incrementalFleetMode);
   const [transitionOrigin, setTransitionOrigin] = useState({ x: "50%", y: "70%" });
   const [locationPickerMode, setLocationPickerMode] = useState(null);
   const [locationCautionOpen, setLocationCautionOpen] = useState(false);
@@ -286,6 +309,7 @@ export default function CompanyRegistrationScreen({ existingCompany = null, mode
   const latitude = form.coordinates?.latitude ?? form.coordinates?.lat;
   const longitude = form.coordinates?.longitude ?? form.coordinates?.lng;
   const hasLocation = latitude != null && longitude != null;
+  const rentalSubmission = incrementalFleetMode && fleets.length > 0 && fleets.every((fleet) => fleet.serviceCategory === "Rental");
   const formTopRef = useRef(null);
   const statusClassName = statusTone === "error"
     ? "border-rose-200 bg-rose-50 text-rose-800"
@@ -328,9 +352,9 @@ export default function CompanyRegistrationScreen({ existingCompany = null, mode
     let alive = true;
 
     // The company workspace already supplies everything needed to add an
-    // operator. Paint that screen immediately instead of showing a loader for
-    // a profile/draft fetch that this mode does not use.
-    if (addOperatorMode) {
+    // operator or rental. Paint that screen immediately instead of showing a
+    // loader for a profile/draft fetch that this mode does not use.
+    if (incrementalFleetMode) {
       setInitializing(false);
       return () => {
         alive = false;
@@ -567,12 +591,12 @@ export default function CompanyRegistrationScreen({ existingCompany = null, mode
             nextErrors[`${fleet.localId}-${field}`] = `${labelPrefix}${t(messageKey)}`;
           }
         });
-        (fleetSafetyQuestions[fleet.fleetType] || []).forEach((question) => {
+        getFleetQuestions(fleet).forEach((question) => {
           if (!String(fleet.safetyAnswers?.[question.key] || "").trim()) {
-            nextErrors[`${fleet.localId}-safety-${question.key}`] = `${labelPrefix}${t("urride.companyReg.reqSuffix", { label: t(question.labelKey) })}`;
+            nextErrors[`${fleet.localId}-safety-${question.key}`] = `${labelPrefix}${t("urride.companyReg.reqSuffix", { label: questionLabel(question) })}`;
           }
         });
-        if (addOperatorMode && fleet.serviceCategory !== "Rental" && !(fleet.operators || []).length) {
+        if (incrementalFleetMode && fleet.serviceCategory !== "Rental" && !(fleet.operators || []).length) {
           nextErrors[`${fleet.localId}-operators`] = t("urride.companyReg.reqOperatorId");
         }
       });
@@ -625,27 +649,30 @@ export default function CompanyRegistrationScreen({ existingCompany = null, mode
     const normalizedNewFleets = fleets.map((fleet) => ({
       ...fleet,
       safetyAnswers: {
-        ...createSafetyAnswers(fleet.fleetType),
+        ...createSafetyAnswers(fleet.fleetType, fleet.serviceCategory),
         ...(fleet.safetyAnswers || {}),
       },
     }));
-    const payloadFleets = addOperatorMode
+    const payloadFleets = incrementalFleetMode
       ? [...(existingCompany?.fleets || []), ...normalizedNewFleets]
       : normalizedNewFleets;
+    const addingRentalFleet = incrementalFleetMode && normalizedNewFleets.every((fleet) => fleet.serviceCategory === "Rental");
     return {
       ...form,
-      actionMode: addOperatorMode ? "add_operator" : "registration",
+      actionMode: addingRentalFleet ? "add_rental" : addOperatorMode ? "add_operator" : "registration",
       operatingAreas: splitAreas(areaText),
       fleets: payloadFleets,
       step,
       maxStepReached,
-      accountStatus,
+      accountStatus: incrementalFleetMode ? form.accountStatus || accountStatus : accountStatus,
       activities: [
         {
           id: `activity-${Date.now()}`,
           title: accountStatus === "submitted" ? t("urride.companyReg.actSubmitted") : t("urride.companyReg.actDraft"),
-          body: addOperatorMode
-            ? t("urride.companyReg.actOperatorBody", { company: form.companyName || t("urride.companyReg.companyFallbackLower") })
+          body: addingRentalFleet
+            ? `${form.companyName || "Company"} added a self-drive rental vehicle.`
+            : addOperatorMode
+              ? t("urride.companyReg.actOperatorBody", { company: form.companyName || t("urride.companyReg.companyFallbackLower") })
             : (payloadFleets.length === 1
                 ? t("urride.companyReg.actFleetsBodyOne", { company: form.companyName || t("urride.companyReg.companyFallback"), count: payloadFleets.length })
                 : t("urride.companyReg.actFleetsBodyMany", { company: form.companyName || t("urride.companyReg.companyFallback"), count: payloadFleets.length })),
@@ -735,11 +762,11 @@ export default function CompanyRegistrationScreen({ existingCompany = null, mode
     const origin = buttonRect
       ? { x: `${buttonRect.left + buttonRect.width / 2}px`, y: `${buttonRect.top + buttonRect.height / 2}px` }
       : { x: "50%", y: "70%" };
-    for (const stepIndex of addOperatorMode ? [2] : [0, 1, 2]) {
+    for (const stepIndex of incrementalFleetMode ? [2] : [0, 1, 2]) {
       const nextErrors = getStepErrors(stepIndex);
       if (Object.keys(nextErrors).length) {
         setFieldErrors(nextErrors);
-        if (!addOperatorMode) setStep(stepIndex);
+        if (!incrementalFleetMode) setStep(stepIndex);
         if (editing) setOpenSection(stepIndex);
         showStatus(summarizeErrors(nextErrors), "error");
         scrollToFirstBlockingFieldSoon();
@@ -750,11 +777,12 @@ export default function CompanyRegistrationScreen({ existingCompany = null, mode
     try {
       setFieldErrors({});
       setSubmitting(true);
-      const account = await saveTransportCompanyAccount(buildPayload("submitted"));
+      const payload = buildPayload("submitted");
+      const account = await saveTransportCompanyAccount(payload);
       setTransitionOrigin(origin);
       setFinishing(true);
       await new Promise((resolve) => window.setTimeout(resolve, 480));
-      onComplete?.(account, origin);
+      onComplete?.(account, origin, { actionMode: payload.actionMode });
     } catch (error) {
       showStatus(error.message || t("urride.companyReg.submitError"), "error");
     } finally {
@@ -788,7 +816,7 @@ export default function CompanyRegistrationScreen({ existingCompany = null, mode
   function handleRegistrationBack() {
     // The edit accordion is a single screen, so Back leaves to the workspace
     // rather than stepping through wizard stages.
-    if (!addOperatorMode && !editing && step > 0) {
+    if (!incrementalFleetMode && !editing && step > 0) {
       prevStep();
       return;
     }
@@ -836,22 +864,22 @@ export default function CompanyRegistrationScreen({ existingCompany = null, mode
         <div className="flex w-full items-center gap-3">
           <AppBackTab
             onBack={handleRegistrationBack}
-            label={!addOperatorMode && !editing && step > 0 ? t("urride.companyReg.back") : t("urride.companyReg.backScreen")}
+            label={!incrementalFleetMode && !editing && step > 0 ? t("urride.companyReg.back") : t("urride.companyReg.backScreen")}
             historyKey="transport-company-registration"
             className="rounded-full border border-slate-200 bg-white hover:bg-slate-50"
           />
           <div className="min-w-0 flex-1">
             <p className="text-xs font-black uppercase tracking-wide text-blue-700">Fleet HQ</p>
-            <h1 className="truncate text-lg font-black text-slate-950">{addOperatorMode ? t("urride.companyReg.addOperatorTitle") : editing ? t("urride.companyReg.editTitle") : t("urride.companyReg.regTitle")}</h1>
+            <h1 className="truncate text-lg font-black text-slate-950">{rentalSubmission ? "Add rental vehicle" : addOperatorMode ? t("urride.companyReg.addOperatorTitle") : editing ? t("urride.companyReg.editTitle") : t("urride.companyReg.regTitle")}</h1>
           </div>
           <span className="rounded-full border border-blue-100 bg-blue-50 px-3 py-1 text-xs font-black text-blue-700">
-            {addOperatorMode ? t("urride.companyReg.fleetStage") : t("urride.companyReg.readyCount", { count: completion })}
+            {rentalSubmission ? "Rental fleet" : addOperatorMode ? t("urride.companyReg.fleetStage") : t("urride.companyReg.readyCount", { count: completion })}
           </span>
         </div>
       </header>
 
-      <main ref={formTopRef} className={`grid w-full gap-5 px-3 py-4 sm:px-5 lg:px-8 ${addOperatorMode || editing ? "mx-auto max-w-4xl" : "lg:grid-cols-[280px_minmax(0,1fr)]"}`}>
-        {!addOperatorMode && !editing ? <aside className="lg:sticky lg:top-20 lg:h-fit">
+      <main ref={formTopRef} className={`grid w-full gap-5 px-3 py-4 sm:px-5 lg:px-8 ${incrementalFleetMode || editing ? "mx-auto max-w-4xl" : "lg:grid-cols-[280px_minmax(0,1fr)]"}`}>
+        {!incrementalFleetMode && !editing ? <aside className="lg:sticky lg:top-20 lg:h-fit">
           <div className="grid grid-cols-2 gap-2 rounded-3xl border border-slate-100 bg-white p-2 shadow-sm sm:grid-cols-4 lg:grid-cols-1">
             {steps.map((item, index) => {
               const Icon = item.icon;
@@ -978,10 +1006,10 @@ export default function CompanyRegistrationScreen({ existingCompany = null, mode
                 onLocateMe={() => setLocationCautionOpen(true)}
               />
             ) : null}
-            {step === 2 || addOperatorMode ? (
+            {step === 2 || incrementalFleetMode ? (
               <FleetBuilderStep
                 acceptedOperators={(existingCompany?.fleets || []).flatMap((fleet) => fleet.operators || []).filter((operator) => operator.status === "accepted")}
-                allowMultiple={!addOperatorMode}
+                allowMultiple={!incrementalFleetMode}
                 fleets={fleets}
                 form={form}
                 errors={fieldErrors}
@@ -991,6 +1019,7 @@ export default function CompanyRegistrationScreen({ existingCompany = null, mode
                 onUpdateFleet={updateFleet}
                 onUploadFleetDocument={markFleetDocument}
                 onViewOneKmPreview={handleViewOneKmPreview}
+                lockRentalCategory={addRentalMode}
               />
             ) : null}
             {step === 3 ? (
@@ -1009,14 +1038,14 @@ export default function CompanyRegistrationScreen({ existingCompany = null, mode
             <div className="flex flex-col-reverse gap-3 sm:flex-row sm:items-center sm:justify-between">
               <button
                 type="button"
-                onClick={addOperatorMode ? onBack : prevStep}
-                disabled={!addOperatorMode && step === 0}
+                onClick={incrementalFleetMode ? onBack : prevStep}
+                disabled={!incrementalFleetMode && step === 0}
                 className="h-11 rounded-2xl border border-slate-200 px-4 text-sm font-black text-slate-700 disabled:opacity-40"
               >
                 <span className="flex items-center justify-center gap-2"><FiChevronLeft /> {t("urride.companyReg.backBtn")}</span>
               </button>
               <div className="grid gap-2 sm:flex sm:justify-end">
-                {!addOperatorMode ? <button
+                {!incrementalFleetMode ? <button
                   type="button"
                   onClick={handleSaveDraft}
                   disabled={saving}
@@ -1024,14 +1053,14 @@ export default function CompanyRegistrationScreen({ existingCompany = null, mode
                 >
                   {saving ? t("urride.companyReg.saving") : t("urride.companyReg.save")}
                 </button> : null}
-                {addOperatorMode ? (
+                {incrementalFleetMode ? (
                   <button
                     type="button"
                     onClick={submitCompany}
                     disabled={submitting}
-                    className="h-11 rounded-2xl bg-blue-600 px-5 text-sm font-black text-white hover:bg-blue-700 disabled:opacity-60"
+                    className={`h-11 rounded-2xl px-5 text-sm font-black text-white disabled:opacity-60 ${rentalSubmission ? "bg-emerald-700 hover:bg-emerald-800" : "bg-blue-600 hover:bg-blue-700"}`}
                   >
-                    {submitting ? t("urride.companyReg.sendingRequest") : t("urride.companyReg.sendOperatorRequest")}
+                    {submitting ? (rentalSubmission ? "Adding rental fleet…" : t("urride.companyReg.sendingRequest")) : rentalSubmission ? "Add rental fleet" : t("urride.companyReg.sendOperatorRequest")}
                   </button>
                 ) : step < steps.length - 1 ? (
                   <button
@@ -1347,7 +1376,7 @@ function CompanyAreaViewStatus({ validation }) {
   );
 }
 
-function FleetBuilderStep({ acceptedOperators = [], allowMultiple = true, errors = {}, fleets, form, onAddFleet, onInvite, onRemoveFleet, onUpdateFleet, onUploadFleetDocument, onViewOneKmPreview }) {
+function FleetBuilderStep({ acceptedOperators = [], allowMultiple = true, errors = {}, fleets, form, lockRentalCategory = false, onAddFleet, onInvite, onRemoveFleet, onUpdateFleet, onUploadFleetDocument, onViewOneKmPreview }) {
   const acceptedPublicIds = acceptedOperators.map((operator) => compactPublicId(operator.publicId)).filter(Boolean);
   return (
     <div className="space-y-5">
@@ -1369,6 +1398,7 @@ function FleetBuilderStep({ acceptedOperators = [], allowMultiple = true, errors
             acceptedPublicIds={acceptedPublicIds}
             form={form}
             index={index}
+            lockRentalCategory={lockRentalCategory}
             onInvite={onInvite}
             onRemove={onRemoveFleet}
             onUpdate={onUpdateFleet}
@@ -1382,7 +1412,7 @@ function FleetBuilderStep({ acceptedOperators = [], allowMultiple = true, errors
   );
 }
 
-function FleetCard({ acceptedPublicIds = [], errors = {}, fleet, form, index, onInvite, onRemove, onUpdate, onUploadDocument, onViewOneKmPreview, removable }) {
+function FleetCard({ acceptedPublicIds = [], errors = {}, fleet, form, index, lockRentalCategory = false, onInvite, onRemove, onUpdate, onUploadDocument, onViewOneKmPreview, removable }) {
   const [operatorId, setOperatorId] = useState("");
   const [lookupStatus, setLookupStatus] = useState("");
   const [operatorMatch, setOperatorMatch] = useState(null);
@@ -1462,7 +1492,7 @@ function FleetCard({ acceptedPublicIds = [], errors = {}, fleet, form, index, on
       serviceCategory: value,
       ...(value === "Rental" ? { operators: [] } : {}),
       fleetType,
-      safetyAnswers: fleetType === fleet.fleetType ? fleet.safetyAnswers : createSafetyAnswers(fleetType),
+      safetyAnswers: createSafetyAnswers(fleetType, value),
     });
   }
 
@@ -1484,18 +1514,18 @@ function FleetCard({ acceptedPublicIds = [], errors = {}, fleet, form, index, on
           <p className="text-xs font-black uppercase tracking-wide text-blue-600">{t("urride.companyReg.uniqueCode")}</p>
           <p className="mt-1 font-black text-slate-950">{fleet.fleetCode}</p>
         </div>
-        <SelectField label={t("urride.companyReg.fleetTypeLabel")} value={fleet.fleetType} options={fleetTypeOptions} onChange={(value) => onUpdate(fleet.localId, { fleetType: value, safetyAnswers: createSafetyAnswers(value) })} />
-        <SelectField label={t("urride.companyReg.serviceCategoryLabel")} value={fleet.serviceCategory} options={serviceCategoryOptions} onChange={updateServiceCategory} />
-        <FormInput label={t("urride.companyReg.fleetNameLabel")} value={fleet.fleetName} onChange={(value) => onUpdate(fleet.localId, { fleetName: value })} placeholder={t("urride.companyReg.fleetNameLabel")} error={errors[`${fleet.localId}-fleetName`]} />
+        <SelectField label={t("urride.companyReg.fleetTypeLabel")} value={fleet.fleetType} options={fleetTypeOptions} onChange={(value) => onUpdate(fleet.localId, { fleetType: value, safetyAnswers: createSafetyAnswers(value, fleet.serviceCategory) })} />
+        {lockRentalCategory ? <div className="rounded-2xl border border-emerald-200 bg-emerald-50 px-4 py-3"><p className="text-xs font-black uppercase tracking-wide text-emerald-700">Service category</p><p className="mt-1 font-black text-slate-950">Rental · self-drive</p></div> : <SelectField label={t("urride.companyReg.serviceCategoryLabel")} value={fleet.serviceCategory} options={serviceCategoryOptions} onChange={updateServiceCategory} />}
+        <FormInput label={fleet.serviceCategory === "Rental" ? "Rental vehicle name" : t("urride.companyReg.fleetNameLabel")} value={fleet.fleetName} onChange={(value) => onUpdate(fleet.localId, { fleetName: value })} placeholder={fleet.serviceCategory === "Rental" ? "Example: Family SUV" : t("urride.companyReg.fleetNameLabel")} error={errors[`${fleet.localId}-fleetName`]} />
         <FormInput label={t("urride.companyReg.plateLabel")} value={fleet.plateNumber} onChange={(value) => onUpdate(fleet.localId, { plateNumber: value.toUpperCase() })} placeholder={t("urride.companyReg.plateLabel")} error={errors[`${fleet.localId}-plateNumber`]} />
         <FormInput label={t("urride.companyReg.makeLabel")} value={fleet.make} onChange={(value) => onUpdate(fleet.localId, { make: value })} placeholder={t("urride.companyReg.makePlaceholder")} error={errors[`${fleet.localId}-make`]} />
         <FormInput label={t("urride.companyReg.modelLabel")} value={fleet.model} onChange={(value) => onUpdate(fleet.localId, { model: value })} placeholder={t("urride.companyReg.modelLabel")} error={errors[`${fleet.localId}-model`]} />
         <FormInput label={t("urride.companyReg.yearLabel")} type="number" value={fleet.year} onChange={(value) => onUpdate(fleet.localId, { year: value })} placeholder={t("urride.companyReg.yearLabel")} error={errors[`${fleet.localId}-year`]} />
         <FormInput label={t("urride.companyReg.colorLabel")} value={fleet.color} onChange={(value) => onUpdate(fleet.localId, { color: value })} placeholder={t("urride.companyReg.colorLabel")} error={errors[`${fleet.localId}-color`]} />
-        <FormInput label={t("urride.companyReg.opAreaLabel")} value={fleet.operatingArea} onChange={(value) => onUpdate(fleet.localId, { operatingArea: value })} placeholder={t("urride.companyReg.opAreaPlaceholder")} error={errors[`${fleet.localId}-operatingArea`]} />
-        <FormInput label={t("urride.companyReg.homeBaseLabel")} value={fleet.homeBase} onChange={(value) => onUpdate(fleet.localId, { homeBase: value })} placeholder={t("urride.companyReg.homeBasePlaceholder")} error={errors[`${fleet.localId}-homeBase`]} />
+        <FormInput label={fleet.serviceCategory === "Rental" ? "Rental service area" : t("urride.companyReg.opAreaLabel")} value={fleet.operatingArea} onChange={(value) => onUpdate(fleet.localId, { operatingArea: value })} placeholder={fleet.serviceCategory === "Rental" ? "Where renters can collect this vehicle" : t("urride.companyReg.opAreaPlaceholder")} error={errors[`${fleet.localId}-operatingArea`]} />
+        <FormInput label={fleet.serviceCategory === "Rental" ? "Primary pickup base" : t("urride.companyReg.homeBaseLabel")} value={fleet.homeBase} onChange={(value) => onUpdate(fleet.localId, { homeBase: value })} placeholder={fleet.serviceCategory === "Rental" ? "Pickup office or vehicle base" : t("urride.companyReg.homeBasePlaceholder")} error={errors[`${fleet.localId}-homeBase`]} />
       </div>
-      {fleet.serviceCategory === "Rental" ? <div className="mt-5 rounded-2xl border border-emerald-200 bg-emerald-50 p-4 text-sm font-semibold leading-6 text-emerald-900">Self-drive rental — managed only by the company owner or an active admin. No operator is assigned. After saving this fleet, open Fleet HQ → Rentals to set hourly/daily/weekly rates, deposit, rental conditions, pickup pin, availability, and customer reservations.</div> : <section className="mt-5 rounded-3xl border border-blue-100 bg-white p-4">
+      {fleet.serviceCategory === "Rental" ? <div className="mt-5 rounded-2xl border border-emerald-200 bg-emerald-50 p-4 text-sm font-semibold leading-6 text-emerald-900">This is a company-managed self-drive vehicle. No operator request will be created. After adding it, you will continue in Rentals to set rates, deposit, rental conditions, photos, the exact pickup pin, availability, and reservations.</div> : <section className="mt-5 rounded-3xl border border-blue-100 bg-white p-4">
         <p className="text-xs font-black uppercase tracking-[0.18em] text-blue-700">{t("urride.companyReg.pricingEyebrow")}</p>
         <h4 className="mt-1 text-lg font-black text-slate-950">{t("urride.companyReg.pricingHeading")}</h4>
         <p className="mt-1 text-sm font-semibold leading-6 text-slate-500">{t("urride.companyReg.pricingBody")}</p>
@@ -1608,7 +1638,8 @@ function FleetImagesSection({ fleet, form, onUploadDocument }) {
 }
 
 function FleetSafetySection({ errors = {}, fleet, onUpdate }) {
-  const questions = fleetSafetyQuestions[fleet.fleetType] || [];
+  const rental = fleet.serviceCategory === "Rental";
+  const questions = getFleetQuestions(fleet);
   const answers = fleet.safetyAnswers || {};
   function updateAnswer(key, value) {
     onUpdate(fleet.localId, { safetyAnswers: { ...answers, [key]: value } });
@@ -1618,8 +1649,8 @@ function FleetSafetySection({ errors = {}, fleet, onUpdate }) {
       <div className="flex items-start gap-3">
         <FiShield className="mt-1 shrink-0 text-amber-700" />
         <div>
-          <h4 className="font-black text-slate-950">{t("urride.companyReg.safetyTitle")}</h4>
-          <p className="mt-1 text-xs font-semibold leading-5 text-slate-600">{t("urride.companyReg.safetyNote")}</p>
+          <h4 className="font-black text-slate-950">{rental ? "Rental readiness and handover" : t("urride.companyReg.safetyTitle")}</h4>
+          <p className="mt-1 text-xs font-semibold leading-5 text-slate-600">{rental ? "Confirm the vehicle can be rented safely and that the company will verify the renter and document the handover." : t("urride.companyReg.safetyNote")}</p>
         </div>
       </div>
       <div className="mt-4 grid gap-3 md:grid-cols-2 xl:grid-cols-3">
@@ -1627,11 +1658,12 @@ function FleetSafetySection({ errors = {}, fleet, onUpdate }) {
           const error = errors[i18nText("ui.literals.k708f2ea56851", { value0: fleet.localId, value1: question.key })];
           return (
           <label key={question.key} data-field-error={error ? "true" : undefined} className={`rounded-2xl border bg-white p-3 ${error ? "border-rose-200" : "border-amber-100"}`}>
-            <span className="text-sm font-bold text-slate-800">{t(question.labelKey)}</span>
+            <span className="text-sm font-bold text-slate-800">{questionLabel(question)}</span>
             {question.type === "number" ? (
               <input type="number" min="0" value={answers[question.key] || ""} onChange={(event) => updateAnswer(question.key, event.target.value)} placeholder="0" aria-invalid={error ? "true" : undefined} className={`mt-3 h-11 w-full rounded-xl border px-3 text-sm outline-none focus:border-blue-500 ${error ? "border-rose-300" : "border-slate-200"}`} />
             ) : (
-              <select value={answers[question.key] || "Yes"} onChange={(event) => updateAnswer(question.key, event.target.value)} className="mt-3 h-11 w-full rounded-xl border border-slate-200 px-3 text-sm outline-none focus:border-blue-500">
+              <select value={answers[question.key] || (question.requireChoice ? "" : "Yes")} onChange={(event) => updateAnswer(question.key, event.target.value)} className="mt-3 h-11 w-full rounded-xl border border-slate-200 px-3 text-sm outline-none focus:border-blue-500">
+                {question.requireChoice ? <option value="" disabled>Select an answer</option> : null}
                 <option value="Yes">{t("urride.fleetEdit.answerYes")}</option><option value="No">{t("urride.fleetEdit.answerNo")}</option><option value="Needs admin check">{t("urride.fleetEdit.answerAdmin")}</option>
               </select>
             )}
