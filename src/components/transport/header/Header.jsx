@@ -24,6 +24,7 @@ export default function Header({
   onActivityChange,
   onNotificationCountChange,
   onRegisterFleet,
+  onViewCompany,
   onViewFleet,
   onViewTrip,
   onOpenEmergencyArea,
@@ -133,7 +134,7 @@ export default function Header({
         )}
         right={(
           <>
-            <SearchButton onOpenChange={setSearchOpen} onViewFleet={onViewFleet} />
+            <SearchButton onOpenChange={setSearchOpen} onViewCompany={onViewCompany} onViewFleet={onViewFleet} />
             <NotificationButton
               companyAccount={companyAccount}
               operatorAccount={operatorAccount}

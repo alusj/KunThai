@@ -11,6 +11,10 @@ import OperatorDashboardScreen from "./OperatorDashboardScreen";
 import SavedOperatorsScreen from "./SavedOperatorsScreen";
 import TransportBookingDrawer from "./booking/TransportBookingDrawer";
 import CompanyWorkspaceScreen from "./CompanyWorkspaceScreen";
+import PublicCompanyProfileScreen from "./PublicCompanyProfileScreen";
+import RentalDetailsScreen from "./rentals/RentalDetailsScreen";
+import CompanyOperatorAccessModal from "./CompanyOperatorAccessModal";
+import { getOperatorCompanyAccessQuote } from "../services/operatorCompanyAccessService";
 import Header from "./header/Header";
 import CompanyRegistrationScreen from "./registration/CompanyRegistrationScreen";
 import FleetRegistrationDrawer from "./registration/FleetRegistrationDrawer";
@@ -77,6 +81,9 @@ export default function Transport({
   const [companyLoading, setCompanyLoading] = useState(() => !TRANSPORT_ACCOUNT_MEMORY.companyLoaded);
   const [companyWorkspaceOpen, setCompanyWorkspaceOpen] = useState(false);
   const [companyWorkspaceStatus, setCompanyWorkspaceStatus] = useState("");
+  const [rentalTarget, setRentalTarget] = useState("");
+  const [rentalReturnCompanyId, setRentalReturnCompanyId] = useState("");
+  const [companyReturnRentalId, setCompanyReturnRentalId] = useState("");
   const [companyOperatorDashboardOpen, setCompanyOperatorDashboardOpen] = useState(false);
   const [companyOperatorAccount, setCompanyOperatorAccount] = useState(null);
   const [operatorDashboardOpen, setOperatorDashboardOpen] = useState(false);
@@ -85,6 +92,8 @@ export default function Transport({
   const [fleetEditOpen, setFleetEditOpen] = useState(false);
   const [fleetSelection, setFleetSelection] = useState(null);
   const [activeFleetId, setActiveFleetId] = useState(null);
+  const [activeCompanyId, setActiveCompanyId] = useState("");
+  const [fleetReturnCompanyId, setFleetReturnCompanyId] = useState("");
   const [activeTripsOpen, setActiveTripsOpen] = useState(false);
   const [activeTripsActionRequest, setActiveTripsActionRequest] = useState(null);
   const [notificationOpenRequest, setNotificationOpenRequest] = useState(0);
@@ -99,6 +108,7 @@ export default function Transport({
   const [operatorInviteLoading, setOperatorInviteLoading] = useState(false);
   const [operatorInviteStatus, setOperatorInviteStatus] = useState("");
   const [documentReuseInvite, setDocumentReuseInvite] = useState(null);
+  const [companyAccessDecision, setCompanyAccessDecision] = useState(null);
   const [operatorInviteDocumentsInvite, setOperatorInviteDocumentsInvite] = useState(null);
   const [registrationInvite, setRegistrationInvite] = useState(null);
   const [routeDirection, setRouteDirection] = useState("forward");
@@ -140,6 +150,10 @@ export default function Transport({
     setBookingTarget(null);
     setFleetSelection(null);
     setActiveFleetId(null);
+    setActiveCompanyId("");
+    setFleetReturnCompanyId("");
+    setRentalReturnCompanyId("");
+    setCompanyReturnRentalId("");
     setActiveTripsActionRequest(null);
     setNearbyAreaOpen(false);
     setSavedOperatorsOpen(false);
@@ -440,8 +454,30 @@ export default function Transport({
     });
   }
 
-  async function acceptOperatorCompanyInvite(invite) {
+  async function recoverCompanyAccessPrompt(invite, error) {
+    if (!/Visibility Credits|company access fee/i.test(error?.message || "")) return;
+    const quote = await getOperatorCompanyAccessQuote().catch(() => null);
+    if (!quote?.feeRequired) return;
+    setDocumentReuseInvite(null);
+    setCompanyAccessDecision({ invite, quote });
+  }
+
+  async function acceptOperatorCompanyInvite(invite, feeConfirmed = false) {
     setOperatorInviteStatus("");
+    if (!feeConfirmed && invite.status !== "accepted") {
+      try {
+        const quote = await getOperatorCompanyAccessQuote();
+        if (quote.feeRequired) {
+          setCompanyAccessDecision({ invite, quote });
+          return;
+        }
+      } catch (error) {
+        setOperatorInviteStatus(error.message || "Unable to check company access. Please try again.");
+        return;
+      }
+    }
+    invite = { ...invite, companyAccessFeeConfirmed: feeConfirmed };
+    setCompanyAccessDecision(null);
     if (hasSubmittedOperatorDocuments(operatorAccount)) {
       setDocumentReuseInvite(invite);
       return;
@@ -452,7 +488,7 @@ export default function Transport({
       // company fleet right away; identity documents remain an optional later step.
       const operatorRecord = await ensureInvitedOperatorProfile(invite).catch(() => null);
       const updatedInvite = await respondToOperatorInvite(invite, {
-        status: i18nText("ui.literals.k51c817ab85e3"),
+        status: "accepted",
         operatorId: operatorRecord?.id || operatorAccount?.id || invite.operatorId,
         userId: operatorRecord?.user_id || operatorAccount?.userId || invite.userId,
         documents: {
@@ -467,6 +503,7 @@ export default function Transport({
       setOperatorInviteDocumentsInvite(updatedInvite);
     } catch (error) {
       setOperatorInviteStatus(error.message || t("urride.transport.status.acceptError"));
+      await recoverCompanyAccessPrompt(invite, error);
     }
   }
 
@@ -486,7 +523,7 @@ export default function Transport({
     try {
       const reuseNotice = t("urride.transport.status.reuseNotice");
       await respondToOperatorInvite(documentReuseInvite, {
-        status: i18nText("ui.literals.k51c817ab85e3"),
+        status: "accepted",
         documents: {
           reuseNotice,
           reusedExistingDocuments: true,
@@ -498,6 +535,7 @@ export default function Transport({
       setOperatorInviteStatus(t("urride.transport.status.reuseAccepted"));
     } catch (error) {
       setOperatorInviteStatus(error.message || t("urride.transport.status.continueDocsError"));
+      await recoverCompanyAccessPrompt(documentReuseInvite, error);
     }
   }
 
@@ -845,7 +883,9 @@ export default function Transport({
     const destination = parts[1] || "notifications";
     const targetId = parts.slice(2).join(":");
     setRouteDirection("forward");
-    if (destination === "trip" && targetId) {
+    if (destination === "rental" && targetId) {
+      setRentalTarget(targetId);
+    } else if (destination === "trip" && targetId) {
       setActiveTripsActionRequest({ tripId: targetId, type: "hub" });
       setActiveTripsOpen(true);
     } else if (destination === "fleet" && targetId) {
@@ -860,8 +900,21 @@ export default function Transport({
   }, [navigationRequest, onNavigationRequestHandled]);
 
   useEffect(() => {
+    const openRental = (event) => {
+      if (event.detail?.rentalId) {
+        setRentalReturnCompanyId("");
+        setRentalTarget(event.detail.rentalId);
+      }
+    };
+    window.addEventListener("kunthai-open-rental", openRental);
+    return () => window.removeEventListener("kunthai-open-rental", openRental);
+  }, []);
+
+  useEffect(() => {
     onActivityChange?.(
       registrationOpen ||
+        Boolean(rentalTarget) ||
+        Boolean(activeCompanyId) ||
         companyWorkspaceOpen ||
         companyOperatorDashboardOpen ||
         operatorDashboardOpen ||
@@ -881,6 +934,8 @@ export default function Transport({
 
     return () => onActivityChange?.(false);
   }, [
+    rentalTarget,
+    activeCompanyId,
     activeFleetId,
     activeTripsOpen,
     bookingTarget,
@@ -980,6 +1035,29 @@ export default function Transport({
         {content}
         {areaViewLayer}
       </>
+    );
+  }
+
+  if (rentalTarget) {
+    return (
+      <RentalDetailsScreen
+        key={rentalTarget}
+        rentalId={rentalTarget}
+        onBack={() => {
+          setRouteDirection("backward");
+          setRentalTarget("");
+          if (rentalReturnCompanyId) {
+            setActiveCompanyId(rentalReturnCompanyId);
+            setRentalReturnCompanyId("");
+          }
+        }}
+        onOpenCompany={(companyId) => {
+          setRouteDirection("forward");
+          setCompanyReturnRentalId(rentalTarget);
+          setRentalTarget("");
+          setActiveCompanyId(companyId);
+        }}
+      />
     );
   }
 
@@ -1203,6 +1281,37 @@ export default function Transport({
     );
   }
 
+  if (activeCompanyId) {
+    return renderWithAreaView(
+      <div className={`${routePanelClass} kt-mobile-viewport`}>
+        <PublicCompanyProfileScreen
+          companyId={activeCompanyId}
+          onBack={() => {
+            setRouteDirection("backward");
+            setActiveCompanyId("");
+            if (companyReturnRentalId) {
+              setRentalTarget(companyReturnRentalId);
+              setCompanyReturnRentalId("");
+            }
+          }}
+          onViewFleet={(fleetId, companyId) => {
+            if (!fleetId) return;
+            setRouteDirection("forward");
+            setFleetReturnCompanyId(companyId || activeCompanyId);
+            setActiveCompanyId("");
+            setActiveFleetId(fleetId);
+          }}
+          onViewRental={(rentalId, companyId) => {
+            setRouteDirection("forward");
+            setRentalReturnCompanyId(companyId || activeCompanyId);
+            setActiveCompanyId("");
+            setRentalTarget(rentalId);
+          }}
+        />
+      </div>
+    );
+  }
+
   if (activeFleetId) {
     return renderWithAreaView(
       <div className={`${routePanelClass} kt-mobile-viewport`}>
@@ -1211,6 +1320,15 @@ export default function Transport({
           onBack={() => {
             setRouteDirection("backward");
             setActiveFleetId(null);
+            if (fleetReturnCompanyId) {
+              setActiveCompanyId(fleetReturnCompanyId);
+              setFleetReturnCompanyId("");
+            }
+          }}
+          onOpenCompany={(companyId) => {
+            setRouteDirection("forward");
+            setCompanyReturnRentalId("");
+            setActiveCompanyId(companyId);
           }}
           onShowVerification={setVerificationFleet}
           onOpenBooking={openBookingTarget}
@@ -1316,6 +1434,10 @@ export default function Transport({
             setRouteDirection("forward");
             setActiveFleetId(fleetId);
           }}
+          onViewCompany={(companyId) => {
+            setRouteDirection("forward");
+            setActiveCompanyId(companyId);
+          }}
           onShowVerification={setVerificationFleet}
           onOpenBooking={openBookingTarget}
         />
@@ -1345,6 +1467,11 @@ export default function Transport({
         onNotificationCountChange={onNotificationCountChange}
         notificationOpenRequest={notificationOpenRequest}
         onActivityChange={setHeaderActivityOpen}
+        onViewCompany={(companyId) => {
+          setRouteDirection("forward");
+          setCompanyReturnRentalId("");
+          setActiveCompanyId(companyId);
+        }}
         onViewFleet={setActiveFleetId}
         onViewTrip={(tripId) => {
           setRouteDirection("forward");
@@ -1423,6 +1550,11 @@ export default function Transport({
           setRouteDirection("forward");
           setActiveFleetId(fleetId);
         }}
+        onViewCompany={(companyId) => {
+          setRouteDirection("forward");
+          setCompanyReturnRentalId("");
+          setActiveCompanyId(companyId);
+        }}
         onOpenBooking={openBookingTarget}
         onLocateArea={openNearbyAreaRoute}
         onReportConcern={handleReportVerificationConcern}
@@ -1433,6 +1565,15 @@ export default function Transport({
         onContinue={continueWithExistingOperatorDocuments}
         onDeny={() => rejectOperatorCompanyInvite(documentReuseInvite)}
       />
+      {companyAccessDecision ? (
+        <CompanyOperatorAccessModal
+          key={companyAccessDecision.invite.id || companyAccessDecision.invite.requestId}
+          invite={companyAccessDecision.invite}
+          quote={companyAccessDecision.quote}
+          onClose={() => setCompanyAccessDecision(null)}
+          onConfirm={(invite) => acceptOperatorCompanyInvite(invite, true)}
+        />
+      ) : null}
       {renderBookingDrawer()}
     </div>
   );

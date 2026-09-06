@@ -5,7 +5,7 @@ import SellerHeaderTitle from "./SellerHeaderTitle";
 import SellerSearch from "./SellerSearch";
 import BusinessSwitcher from "./BusinessSwitcher";
 
-export default function MyBizHeader({ activeBusinessId, businesses, onAddBusiness, onBack, onAddProduct, onOrders, onMessages, onAlerts, onMenu, onSwitchBusiness, primaryActionLabel = t("urmall.biz.header.addProduct"), showOrders = true, showAddProduct = true, showMessages = true }) {
+export default function MyBizHeader({ activeBusinessId, businesses, addBusinessPlanLabel = "", onAddBusiness, onBack, onAddProduct, onOrders, onMessages, onAlerts, onMenu, onSwitchBusiness, primaryActionLabel = t("urmall.biz.header.addProduct"), showOrders = true, showAddProduct = true, showMessages = true }) {
   useI18n();
   const sellerHeader = useSellerHeader();
 
@@ -21,7 +21,7 @@ export default function MyBizHeader({ activeBusinessId, businesses, onAddBusines
             results={sellerHeader.searchResults}
           />
 
-          <BusinessSwitcher activeBusinessId={activeBusinessId} businesses={businesses} onAddBusiness={onAddBusiness} onSwitch={onSwitchBusiness} />
+          <BusinessSwitcher activeBusinessId={activeBusinessId} businesses={businesses} addBusinessPlanLabel={addBusinessPlanLabel} onAddBusiness={onAddBusiness} onSwitch={onSwitchBusiness} />
 
           <SellerHeaderActions
             orderCount={sellerHeader.orderCount}

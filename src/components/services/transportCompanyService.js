@@ -1,4 +1,5 @@
 import supabase from "../../Backend/lib/supabaseClient";
+import { acceptCompanyInviteWithAccess } from "./operatorCompanyAccessService";
 import { friendlyErrorMessage } from "../../Backend/services/friendlyErrorService";
 import { getKunThaiPublicUserId, normalizeKunThaiPublicId } from "../../Backend/services/identityCodeService";
 import { getOnboardingProfile } from "../../Backend/services/onboardingService";
@@ -799,7 +800,7 @@ function patchLocalOperatorInvite(invite, patch = {}) {
         const sameInvite =
           (invite.id && current.id === invite.id) ||
           (invite.companyId && current.companyId === invite.companyId && current.requestId === invite.requestId) ||
-          current.requestId === invite.requestId;
+          (!invite.companyId && current.requestId === invite.requestId);
 
         if (!sameInvite) return operator;
 
@@ -1028,7 +1029,9 @@ export async function updateOperatorCompanyInvite(invite, patch = {}) {
     documents,
     updatedAt: new Date().toISOString(),
   };
-  const localInvite = patchLocalOperatorInvite(invite, nextPatch);
+  // Acceptance and its one-time access fee are committed together on the
+  // server before any local success state is written.
+  const localInvite = normalizeInvite({ ...invite, ...nextPatch });
 
   try {
     const payload = {
@@ -1072,11 +1075,14 @@ export async function updateOperatorCompanyInvite(invite, patch = {}) {
       }
     }
 
-    if (!hasInviteSelector) return localInvite;
+    if (!hasInviteSelector) throw new Error("Refresh this invitation before responding.");
 
-    const { data, error } = await query.select().maybeSingle();
+    const accepting = payload.status === "accepted";
+    const { data, error } = accepting
+      ? { data: await acceptCompanyInviteWithAccess(invite, documents, patch.companyAccessFeeConfirmed || invite.companyAccessFeeConfirmed), error: null }
+      : await query.select().maybeSingle();
     if (error) throw error;
-    if (!data) return localInvite;
+    if (!data) throw new Error("This invitation could not be updated. Refresh and try again.");
 
     const normalizedInvite = normalizeInvite({
       ...localInvite,
@@ -1123,9 +1129,9 @@ export async function updateOperatorCompanyInvite(invite, patch = {}) {
       }).catch(() => null);
     }
 
-    return upsertLocalInviteStore(normalizedInvite);
+    return patchLocalOperatorInvite(invite, normalizedInvite);
   } catch (error) {
-    if (isMissingTable(error)) return localInvite;
+    // Never turn a failed server acceptance/payment into a local acceptance.
     throw new Error(friendlyErrorMessage(error, "Unable to update this company request."));
   }
 }
@@ -1932,7 +1938,8 @@ export async function manageTransportCompanyOperator(companyAccount, operator, a
     const { error: fleetError } = await supabase
       .from("transport_fleets")
       .update({ active_status: "offline", is_visible_to_passengers: false, updated_at: now })
-      .eq("operator_id", operator.operatorId || member.operatorId);
+      .eq("operator_id", operator.operatorId || member.operatorId)
+      .eq("company_id", company.id);
     if (fleetError) throw fleetError;
   }
 
@@ -2078,11 +2085,16 @@ export async function leaveTransportCompany(companyAccount = null) {
       .from("transport_fleets")
       .update({ active_status: "offline", is_visible_to_passengers: false, updated_at: now })
       .eq("operator_id", access.operatorId)
-      .eq("user_id", user.id)
+      .eq("company_id", company.id)
       .then(({ error }) => {
         if (error && !isMissingTable(error)) throw error;
       });
   }
+
+  const { error: revokeError } = await supabase.from("transport_company_operator_invites")
+    .update({ status: "revoked", updated_at: now })
+    .eq("company_id", company.id).eq("operator_user_id", user.id).eq("status", "accepted");
+  if (revokeError) throw revokeError;
 
   await recordCompanyManagementActivity(
     company.id,

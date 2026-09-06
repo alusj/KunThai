@@ -294,7 +294,13 @@ export default function Browse({ activeTab = "new", onProductModeChange, onClose
       refreshTimer = window.setTimeout(loadProducts, 120);
     };
     const unsubscribe = subscribeBuyerMarketplaceProducts(refreshSilently);
+    const refreshRetention = () => {
+      BROWSE_CATALOG_MEMORY.clear();
+      BROWSE_MEMORY.catalog = DEFAULT_CATALOG;
+      refreshSilently();
+    };
     window.addEventListener("marketplace-products-updated", refreshSilently);
+    window.addEventListener("kunthai-urmall-retention-updated", refreshRetention);
     window.addEventListener(BUYER_ADDRESS_SELECTED_EVENT, refreshSilently);
     window.addEventListener("focus", refreshSilently);
 
@@ -303,6 +309,7 @@ export default function Browse({ activeTab = "new", onProductModeChange, onClose
       window.clearTimeout(refreshTimer);
       unsubscribe?.();
       window.removeEventListener("marketplace-products-updated", refreshSilently);
+      window.removeEventListener("kunthai-urmall-retention-updated", refreshRetention);
       window.removeEventListener(BUYER_ADDRESS_SELECTED_EVENT, refreshSilently);
       window.removeEventListener("focus", refreshSilently);
     };

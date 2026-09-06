@@ -72,6 +72,7 @@ export default function MyBizMenu({
   initialScreenKey = null,
   profileInitialView = "menu",
   onAddBusiness,
+  addBusinessPlanLabel = "",
   permissions = null,
   plansEnabled = true,
 }) {
@@ -262,6 +263,7 @@ export default function MyBizMenu({
                     <SellerDrawerNavItem
                       icon={Plus}
                       title={t("urmall.biz.menu.addBusinessTitle")}
+                      badge={addBusinessPlanLabel}
                       description={t("urmall.biz.menu.addBusinessDesc")}
                       onClick={() => {
                         closeDrawer();

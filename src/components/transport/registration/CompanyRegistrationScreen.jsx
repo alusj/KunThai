@@ -562,6 +562,7 @@ export default function CompanyRegistrationScreen({ existingCompany = null, mode
           ["pricePerKm", "urride.companyReg.reqPerKm"],
           ["pricePerHour", "urride.companyReg.reqPerHour"],
         ].forEach(([field, messageKey]) => {
+          if (fleet.serviceCategory === "Rental" && ["baseFare", "pricePerKm", "pricePerHour"].includes(field)) return;
           if (!String(fleet[field] || "").trim()) {
             nextErrors[`${fleet.localId}-${field}`] = `${labelPrefix}${t(messageKey)}`;
           }
@@ -571,7 +572,7 @@ export default function CompanyRegistrationScreen({ existingCompany = null, mode
             nextErrors[`${fleet.localId}-safety-${question.key}`] = `${labelPrefix}${t("urride.companyReg.reqSuffix", { label: t(question.labelKey) })}`;
           }
         });
-        if (addOperatorMode && !(fleet.operators || []).length) {
+        if (addOperatorMode && fleet.serviceCategory !== "Rental" && !(fleet.operators || []).length) {
           nextErrors[`${fleet.localId}-operators`] = t("urride.companyReg.reqOperatorId");
         }
       });
@@ -1459,6 +1460,7 @@ function FleetCard({ acceptedPublicIds = [], errors = {}, fleet, form, index, on
     const fleetType = nextFleetTypes.includes(fleet.fleetType) ? fleet.fleetType : nextFleetTypes[0] || "Taxi";
     onUpdate(fleet.localId, {
       serviceCategory: value,
+      ...(value === "Rental" ? { operators: [] } : {}),
       fleetType,
       safetyAnswers: fleetType === fleet.fleetType ? fleet.safetyAnswers : createSafetyAnswers(fleetType),
     });
@@ -1493,7 +1495,7 @@ function FleetCard({ acceptedPublicIds = [], errors = {}, fleet, form, index, on
         <FormInput label={t("urride.companyReg.opAreaLabel")} value={fleet.operatingArea} onChange={(value) => onUpdate(fleet.localId, { operatingArea: value })} placeholder={t("urride.companyReg.opAreaPlaceholder")} error={errors[`${fleet.localId}-operatingArea`]} />
         <FormInput label={t("urride.companyReg.homeBaseLabel")} value={fleet.homeBase} onChange={(value) => onUpdate(fleet.localId, { homeBase: value })} placeholder={t("urride.companyReg.homeBasePlaceholder")} error={errors[`${fleet.localId}-homeBase`]} />
       </div>
-      <section className="mt-5 rounded-3xl border border-blue-100 bg-white p-4">
+      {fleet.serviceCategory === "Rental" ? <div className="mt-5 rounded-2xl border border-emerald-200 bg-emerald-50 p-4 text-sm font-semibold leading-6 text-emerald-900">Self-drive rental — managed only by the company owner or an active admin. No operator is assigned. After saving this fleet, open Fleet HQ → Rentals to set hourly/daily/weekly rates, deposit, rental conditions, pickup pin, availability, and customer reservations.</div> : <section className="mt-5 rounded-3xl border border-blue-100 bg-white p-4">
         <p className="text-xs font-black uppercase tracking-[0.18em] text-blue-700">{t("urride.companyReg.pricingEyebrow")}</p>
         <h4 className="mt-1 text-lg font-black text-slate-950">{t("urride.companyReg.pricingHeading")}</h4>
         <p className="mt-1 text-sm font-semibold leading-6 text-slate-500">{t("urride.companyReg.pricingBody")}</p>
@@ -1518,7 +1520,7 @@ function FleetCard({ acceptedPublicIds = [], errors = {}, fleet, form, index, on
           </div>
           <FormInput label={t("urride.companyReg.priceNoteLabel")} value={fleet.priceHint} onChange={(value) => onUpdate(fleet.localId, { priceHint: value })} placeholder={t("urride.companyReg.priceNotePlaceholder")} helper={t("urride.companyReg.priceNoteHelper")} />
         </div>
-      </section>
+      </section>}
       <FleetImagesSection fleet={fleet} form={form} onUploadDocument={onUploadDocument} />
       <section className="mt-5">
         <h4 className="font-black text-slate-950">{t("urride.companyReg.vehicleDocsTitle")}</h4>
@@ -1531,7 +1533,7 @@ function FleetCard({ acceptedPublicIds = [], errors = {}, fleet, form, index, on
       </section>
       <FleetSafetySection errors={errors} fleet={fleet} onUpdate={onUpdate} />
 
-      <div data-field-error={errors[`${fleet.localId}-operators`] ? "true" : undefined} className={`mt-5 rounded-3xl border bg-white p-4 ${errors[`${fleet.localId}-operators`] ? "border-rose-200" : "border-blue-100"}`}>
+      {fleet.serviceCategory !== "Rental" && <div data-field-error={errors[`${fleet.localId}-operators`] ? "true" : undefined} className={`mt-5 rounded-3xl border bg-white p-4 ${errors[`${fleet.localId}-operators`] ? "border-rose-200" : "border-blue-100"}`}>
         <div className="flex items-start gap-3">
           <FiUserPlus className="mt-1 text-blue-700" />
           <div className="min-w-0 flex-1">
@@ -1579,7 +1581,7 @@ function FleetCard({ acceptedPublicIds = [], errors = {}, fleet, form, index, on
             />
           ))}
         </div>
-      </div>
+      </div>}
     </section>
   );
 }

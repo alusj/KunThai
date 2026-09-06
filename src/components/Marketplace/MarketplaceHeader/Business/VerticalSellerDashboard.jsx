@@ -82,6 +82,23 @@ function notifyVerticalListingUpdated(businessId) {
   window.dispatchEvent(new CustomEvent("marketplace-vertical-listing-updated", { detail: { businessId } }));
 }
 
+function useRetentionInventoryRefresh(businessId, load) {
+  useEffect(() => {
+    const refresh = (event) => {
+      if (event.detail?.businessId && event.detail.businessId !== businessId) return;
+      for (const key of SELLER_VERTICAL_MEMORY.keys()) {
+        if (key.includes(`:${businessId}`)) SELLER_VERTICAL_MEMORY.delete(key);
+      }
+      try {
+        localStorage.setItem(SELLER_VERTICAL_STORAGE_KEY, JSON.stringify({ entries: Object.fromEntries(SELLER_VERTICAL_MEMORY) }));
+      } catch { /* Optional cache. */ }
+      load().catch(() => {});
+    };
+    window.addEventListener("kunthai-urmall-retention-updated", refresh);
+    return () => window.removeEventListener("kunthai-urmall-retention-updated", refresh);
+  }, [businessId, load]);
+}
+
 function useVerticalActivity(businessId) {
   const emptyActivity = useMemo(() => ({ reviews: 0, messages: 0, orders: 0, bookings: 0, recentBookings: [] }), []);
   const cacheKey = `activity:${businessId}`;
@@ -175,6 +192,7 @@ function RestaurantDashboard({ business, canManage = true, initialWorkspace = nu
     setFormOpen(true);
   }, []);
   useOpenVerticalEditor(openNewMeal, canManage);
+  useRetentionInventoryRefresh(business.id, load);
 
   function editMeal(item) {
     setDay(Number(item.day_of_week));
@@ -454,6 +472,7 @@ function PropertyDashboard({ business, canManage = true, initialWorkspace = null
     setFormOpen(true);
   }, [business.location]);
   useOpenVerticalEditor(openNewProperty, canManage);
+  useRetentionInventoryRefresh(business.id, load);
 
   function editProperty(item) {
     setForm({

@@ -1,4 +1,5 @@
 import supabase from "../lib/supabaseClient";
+import { BUSINESS_TYPE_LIMITS } from "./marketplace/businessTypePolicy";
 
 export const BUSINESS_PLAN_SURFACES = Object.freeze({
   URMALL: "urmall",
@@ -131,9 +132,13 @@ function numberOrNull(value) {
 }
 
 function normalizePlan(plan = {}, fallbackSurface = "urmall") {
+  const surface = String(plan.surface || fallbackSurface).toLowerCase();
+  const planCode = String(plan.plan_code || plan.planCode || "free").toLowerCase();
+  const features = Array.isArray(plan.features) ? plan.features.filter(Boolean) : [];
+  const businessTypeLimit = surface === "urmall" ? BUSINESS_TYPE_LIMITS[planCode] || 1 : null;
   return {
-    surface: String(plan.surface || fallbackSurface).toLowerCase(),
-    planCode: String(plan.plan_code || plan.planCode || "free").toLowerCase(),
+    surface,
+    planCode,
     displayName: plan.display_name || plan.displayName || "Free",
     creditCost: Number(plan.credit_cost ?? plan.creditCost ?? 0),
     yearlyCreditCost: numberOrNull(plan.yearly_credit_cost ?? plan.yearlyCreditCost),
@@ -144,7 +149,10 @@ function normalizePlan(plan = {}, fallbackSurface = "urmall") {
     operatorLimit: numberOrNull(plan.operator_limit ?? plan.operatorLimit),
     vehicleLimit: numberOrNull(plan.vehicle_limit ?? plan.vehicleLimit),
     adminLimit: numberOrNull(plan.admin_limit ?? plan.adminLimit),
-    features: Array.isArray(plan.features) ? plan.features.filter(Boolean) : [],
+    businessTypeLimit,
+    features: surface === "urmall"
+      ? [`${businessTypeLimit === 4 ? "All 4" : businessTypeLimit} business type${businessTypeLimit === 1 ? "" : "s"}`, ...features.filter((feature) => !/business types?/i.test(feature))]
+      : features,
     sortOrder: Number(plan.sort_order ?? plan.sortOrder ?? 0),
   };
 }

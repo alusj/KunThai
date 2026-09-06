@@ -1,5 +1,5 @@
 import { useEffect, useRef, useState } from "react";
-import { FiMapPin, FiStar } from "react-icons/fi";
+import { FiBriefcase, FiMapPin, FiStar } from "react-icons/fi";
 import { formatCountryMoney } from "../../../data/globalCountryProfiles";
 import { fetchTransportFleets, getTransportFleets } from "../../services/transportFleetService";
 import {
@@ -10,6 +10,7 @@ import VerificationBadge from "../verification/VerificationBadge";
 import VerificationDetailsModal from "../verification/VerificationDetailsModal";
 import { verificationStatuses } from "../verification/verificationStatus";
 import { useI18n, t } from "../../../i18n";
+import RentalCatalogue from "../rentals/RentalCatalogue";
 
 function matchesQuery(operator, query) {
   const term = String(query || "").trim().toLowerCase();
@@ -43,6 +44,7 @@ export default function NearbyOperators({
   onChooseVerified,
   onViewAll,
   onViewFleet,
+  onViewCompany,
   onOpenBooking,
   onReportConcern,
   cacheScope = {},
@@ -177,6 +179,7 @@ export default function NearbyOperators({
                   <p className="mt-1 text-xs text-gray-500">
                     {operator.operatorId} - {operator.displayType} - {operator.plateNumber}
                   </p>
+                  {operator.isCompanyFleet ? <button type="button" onClick={() => onViewCompany?.(operator.companyId)} className="mt-2 inline-flex max-w-full items-center gap-1.5 rounded-full bg-blue-50 px-2.5 py-1 text-[10px] font-black uppercase text-blue-700 hover:bg-blue-100"><FiBriefcase /><span className="truncate">{operator.companyName}</span></button> : null}
                 </div>
                 <div className="grid justify-items-end gap-1">
                   <span className={`rounded-full border px-2.5 py-1 text-[11px] font-black uppercase tracking-wide ${statusTone}`}>
@@ -245,6 +248,7 @@ export default function NearbyOperators({
       </>
       )}
 
+      <RentalCatalogue />
       <VerificationDetailsModal
         status={activeOperator?.verificationStatus}
         operatorName={activeOperator?.fleetName}

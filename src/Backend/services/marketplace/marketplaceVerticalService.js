@@ -2,6 +2,7 @@ import supabase from "../../lib/supabaseClient";
 import { isMissingTable } from "../explore/errors";
 import { optimizeImageFile } from "./imageOptimization";
 import { validateVerticalMediaPackage } from "./verticalMediaValidation";
+import { assertBusinessCapacity, parseBusinessPlanError } from "../businessSubscriptionService";
 import {
   assertVisibilityCreditsAvailable,
   MINIMUM_VISIBILITY_CREDITS,
@@ -140,6 +141,7 @@ function normalizeMenuAvailability(input = {}) {
 
 export async function saveRestaurantMenuItem(businessId, input = {}, onProgress) {
   onProgress?.("prepare");
+  if (!input.id) await assertBusinessCapacity("urmall", businessId, "products", 1);
   const hasNewMedia = Boolean(input.coverImageFile || input.videoFile || Array.from(input.extraImageFiles || []).length);
   if (!input.id || hasNewMedia) await validateVerticalMediaPackage(input);
   const [imageUrl, imageUrls, videoUrl] = hasNewMedia || !input.id
@@ -166,7 +168,7 @@ export async function saveRestaurantMenuItem(businessId, input = {}, onProgress)
     ? supabase.from("marketplace_restaurant_menu_items").update(payload).eq("id", input.id).eq("business_id", businessId)
     : supabase.from("marketplace_restaurant_menu_items").insert(payload);
   const { data, error } = await query.select().single();
-  if (error) throw new Error(error.message || "Unable to save this menu item.");
+  if (error) throw parseBusinessPlanError(error);
   return data;
 }
 
@@ -281,6 +283,7 @@ export async function fetchPropertyListings(businessId) {
 
 export async function savePropertyListing(businessId, input = {}, onProgress) {
   onProgress?.("prepare");
+  if (!input.id && input.published) await assertBusinessCapacity("urmall", businessId, "products", 1);
   const hasNewMedia = Boolean(input.coverImageFile || input.videoFile || Array.from(input.extraImageFiles || []).length);
   if (!input.id || hasNewMedia) await validateVerticalMediaPackage(input);
   const [coverUrl, extraUrls, videoUrl] = hasNewMedia || !input.id
@@ -362,9 +365,9 @@ async function writePropertyListing(businessId, id, payload) {
     TYPED_PROPERTY_COLUMNS.forEach((column) => delete fallback[column]);
     const retry = await run(fallback);
     if (!retry.error) return retry.data;
-    throw new Error(retry.error.message || "Unable to save this property.");
+    throw parseBusinessPlanError(retry.error);
   }
-  throw new Error(error.message || "Unable to save this property.");
+  throw parseBusinessPlanError(error);
 }
 
 export async function deletePropertyListing(item) {

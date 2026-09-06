@@ -630,6 +630,11 @@ export default function OperatorDashboardScreen({
       </header>
 
       <main className="min-h-0 w-full flex-1 touch-pan-y overflow-y-auto overscroll-contain px-3 py-4 pb-[calc(var(--kt-safe-area-bottom)+1rem)] sm:px-5 xl:px-8 [-webkit-overflow-scrolling:touch]">
+        {!dashboardReadOnly ? (
+          <p className="mb-3 text-xs font-semibold leading-5 text-slate-600">
+            Making this fleet active switches your availability here and takes your other company or solo fleets offline. Complete any ongoing trip before switching.
+          </p>
+        ) : null}
         {dashboardError && (
           <div className="mb-4 rounded-2xl border border-amber-200 bg-amber-50 px-4 py-3 text-sm font-bold text-amber-800">
             {dashboardError}

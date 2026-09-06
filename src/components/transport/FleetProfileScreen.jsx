@@ -100,7 +100,7 @@ function getReviewAverage(reviews, fallbackRating) {
   return reviews.reduce((sum, review) => sum + Number(review.rating || 0), 0) / reviews.length;
 }
 
-export default function FleetProfileScreen({ fleetId, onBack, onShowVerification, onOpenBooking, onLocateArea }) {
+export default function FleetProfileScreen({ fleetId, onBack, onOpenCompany, onShowVerification, onOpenBooking, onLocateArea }) {
   useI18n();
   const [fleet, setFleet] = useState(null);
   const [loading, setLoading] = useState(true);
@@ -283,6 +283,14 @@ export default function FleetProfileScreen({ fleetId, onBack, onShowVerification
                     {fleet.companyType ? <span className="rounded-full bg-white px-3 py-1.5">{fleet.companyType}</span> : null}
                     {fleet.companyCity ? <span className="rounded-full bg-white px-3 py-1.5">{fleet.companyCity}</span> : null}
                   </div>
+                  <button
+                    type="button"
+                    onClick={() => onOpenCompany?.(fleet.companyId)}
+                    className="mt-3 inline-flex items-center gap-2 rounded-2xl bg-blue-700 px-4 py-2.5 text-sm font-black text-white transition hover:bg-blue-800"
+                  >
+                    View company profile
+                    <FiChevronRight size={16} />
+                  </button>
                 </div>
               </div>
             </section>

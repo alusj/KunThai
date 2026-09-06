@@ -21,8 +21,10 @@ test("existing business-kind behavior remains unchanged", () => {
   assert.equal(usesMarketplaceCategories("property_agent"), false);
 });
 
-test("plans remain available to existing businesses but are deferred for vendors", () => {
+test("plans cover all four business types and legacy hotel workspaces", () => {
   assert.equal(hasBusinessPlans("retail"), true);
   assert.equal(hasBusinessPlans("restaurant"), true);
-  assert.equal(hasBusinessPlans("vendor"), false);
+  assert.equal(hasBusinessPlans("vendor"), true);
+  assert.equal(hasBusinessPlans("property_agent"), true);
+  assert.equal(hasBusinessPlans("hotel"), true);
 });

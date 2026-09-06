@@ -34,6 +34,7 @@ export default function Body({
   onOpenActiveTrips,
   onOpenSavedOperators,
   onViewFleet,
+  onViewCompany,
   onOpenBooking,
   onReportConcern,
   userId = "",
@@ -191,6 +192,7 @@ export default function Body({
           onSelectFleetType(selection.mode, selection.fleetType, selection.label);
         }}
         onViewFleet={onViewFleet}
+        onViewCompany={onViewCompany}
         onOpenBooking={onOpenBooking}
         onReportConcern={onReportConcern}
       />

@@ -13,8 +13,6 @@ export function supportsMarketplaceFulfillment(kind) {
   return FULFILLMENT_BUSINESS_KINDS.includes(String(kind || "retail").toLowerCase());
 }
 
-// Vendor subscriptions are intentionally postponed. Vendor workspaces keep
-// their professional tools available without plan gates until pricing launches.
 export function hasBusinessPlans(kind) {
-  return String(kind || "retail").toLowerCase() !== "vendor";
+  return ["retail", "vendor", "restaurant", "property_agent", "hotel"].includes(String(kind || "retail").toLowerCase());
 }

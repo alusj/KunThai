@@ -995,20 +995,14 @@ export async function saveOperatorAccount(account) {
 export async function updateOperatorAvailability(fleetId, active, pauseReason = "") {
   if (!fleetId) throw new Error("Fleet profile is missing.");
   const now = new Date().toISOString();
-  const { data, error } = await supabase
-    .from("transport_fleets")
-    .update({
-      active_status: active ? "active" : "offline",
-      is_visible_to_passengers: Boolean(active),
-      pause_reason: active ? "" : pauseReason,
-      last_active_at: now,
-      updated_at: now,
-    })
-    .eq("id", fleetId)
-    .select("*")
-    .maybeSingle();
+  const { data: rows, error } = await supabase.rpc("set_transport_operator_availability", {
+    p_fleet_id: fleetId,
+    p_active: Boolean(active),
+    p_pause_reason: pauseReason,
+  });
 
   if (error) throw new Error(error.message);
+  const data = Array.isArray(rows) ? rows[0] : rows;
 
   const activeStatus = data?.active_status || (active ? "active" : "offline");
   patchStoredOperatorAccount({

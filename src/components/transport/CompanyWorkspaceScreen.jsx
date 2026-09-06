@@ -75,13 +75,14 @@ import {
 } from "../services/operatorLiveLocationService";
 import { t as i18nText } from "../../i18n/index";
 import BusinessPlanScreen from "../shared/BusinessPlanScreen";
+import CompanyRentals from "./rentals/CompanyRentals";
 import {
   BUSINESS_PLAN_UPDATED_EVENT,
   fetchBusinessSubscription,
   getCapacityStatus,
 } from "../../Backend/services/businessSubscriptionService";
 
-const tabs = ["Overview", "Fleets", "Operators", "Requests", "Activity"];
+const tabs = ["Overview", "Fleets", "Rentals", "Operators", "Requests", "Activity"];
 const DRAWER_TRANSITION_MS = 300;
 
 const TAB_LABEL_KEYS = {
@@ -130,7 +131,7 @@ export default function CompanyWorkspaceScreen({ company, onBack, onCompanyLeft,
     () => basicOperator ? resolveTransportCompanyOperatorAssignment(company) : null,
     [basicOperator, company],
   );
-  const availableTabs = useMemo(() => (basicOperator ? ["My Dashboard"] : tabs), [basicOperator]);
+  const availableTabs = useMemo(() => (basicOperator ? ["My Dashboard"] : tabs.filter((tab) => tab !== "Rentals" || company?.access?.isOwner || company?.access?.role === "admin")), [basicOperator, company?.access?.isOwner, company?.access?.role]);
   const [activeTab, setActiveTab] = useState(() => (basicOperator ? "My Dashboard" : "Overview"));
   const [companyTabOpen, setCompanyTabOpen] = useState(false);
   const [companyTabDirection, setCompanyTabDirection] = useState("forward");
@@ -501,9 +502,7 @@ export default function CompanyWorkspaceScreen({ company, onBack, onCompanyLeft,
       cancelled = true;
       stop?.();
     };
-    // Assignment identity fields are stable; availability is the trigger.
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [basicOperator, operatorAvailable]);
+  }, [basicOperator, operatorAvailable, companyOperatorAssignment?.companyFleetId, companyOperatorAssignment?.operatorName, companyOperatorAssignment?.fleetType]);
 
   useEffect(() => {
     if (basicOperator) syncOperatorLiveBookedState();
@@ -719,6 +718,7 @@ export default function CompanyWorkspaceScreen({ company, onBack, onCompanyLeft,
 }
 
   function renderDashboardTab(tab = activeTab) {
+    if (tab === "Rentals") return <CompanyRentals company={company} onAddFleet={access.isOwner ? (onEditCompany || onRegisterCompany) : undefined} />;
     if (tab === "Overview") return <Overview company={company} fleets={fleets} pendingRequests={pendingRequests} />;
     if (tab === "Fleets") {
       return (
@@ -1069,7 +1069,7 @@ export default function CompanyWorkspaceScreen({ company, onBack, onCompanyLeft,
             canManage={canManageFleets || access.isOwner}
             company={company}
             fleet={fleetAction}
-            onAssignOperator={canAddOperators ? () => {
+            onAssignOperator={canAddOperators && fleetAction?.serviceCategory !== "Rental" ? () => {
               setFleetAction(null);
               onRegisterCompany?.();
             } : undefined}
@@ -1082,10 +1082,10 @@ export default function CompanyWorkspaceScreen({ company, onBack, onCompanyLeft,
               setFleetAction(null);
               (onEditCompany || onRegisterCompany)?.();
             } : undefined}
-            onRemoveOperator={(fleet) => {
+            onRemoveOperator={fleetAction?.serviceCategory !== "Rental" ? (fleet) => {
               setFleetAction(null);
               setFleetConfirm({ fleet, action: "removeOperator" });
-            }}
+            } : undefined}
             open={Boolean(fleetAction)}
           />
           <FleetConfirmDrawer
@@ -1848,7 +1848,7 @@ function FleetList({ canManage = false, fleets, onManageFleet }) {
               <p className="min-w-0 truncate text-xs font-black uppercase tracking-wide text-blue-700">{fleet.fleetCode || t("urride.companyWs.fleetCodePending")}</p>
               <div className="flex shrink-0 items-center gap-2">
                 <span className={`rounded-full px-2.5 py-1 text-[10px] font-black uppercase ${fleet.activeStatus === "active" ? "bg-emerald-50 text-emerald-700" : "bg-slate-100 text-slate-500"}`}>
-                  {fleet.activeStatus || t("urride.companyWs.offlineStatus")}
+                  {fleet.serviceCategory === "Rental" ? "Rental" : fleet.activeStatus || t("urride.companyWs.offlineStatus")}
                 </span>
                 {canManage && onManageFleet ? (
                   <button
@@ -1869,7 +1869,7 @@ function FleetList({ canManage = false, fleets, onManageFleet }) {
               <span className="min-w-0 truncate">{fleet.homeBase || fleet.operatingArea || t("urride.companyWs.homeBaseNotAdded")}</span>
             </div>
             <p className={`mt-3 rounded-2xl px-3 py-2 text-xs font-black ${assignedOperator ? "bg-emerald-50 text-emerald-700" : "bg-slate-50 text-slate-500"}`}>
-              {assignedOperator ? t("urride.companyWs.operatorPrefix", { name: assignedOperator.name || assignedOperator.publicId || t("urride.companyWs.operatorAssigned") }) : t("urride.companyWs.noOperatorAssigned")}
+              {fleet.serviceCategory === "Rental" ? "Managed by company owner / admin · Self-drive" : assignedOperator ? t("urride.companyWs.operatorPrefix", { name: assignedOperator.name || assignedOperator.publicId || t("urride.companyWs.operatorAssigned") }) : t("urride.companyWs.noOperatorAssigned")}
             </p>
           </section>
         );

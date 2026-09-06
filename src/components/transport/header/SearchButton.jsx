@@ -1,11 +1,13 @@
 // Opens transport identity search for operators, codes, plates, and fleet types.
 
 import { useEffect, useMemo, useState } from "react";
-import { MapPin, Search, X } from "lucide-react";
+import { Building2, MapPin, Search, Star, X } from "lucide-react";
 
 import AppPortal from "../../shared/AppPortal";
 import { PremiumHeaderButton } from "../../shared/PremiumHeader";
 import { fetchTransportFleets } from "../../services/transportFleetService";
+import { searchPublicTransportCompanies } from "../../services/publicTransportCompanyService";
+import { getActiveCountryProfile } from "../../../data/globalCountryProfiles";
 import { openPublicCodeResult } from "../../../Backend/services/publicCodeService";
 import PublicCodeResultCard from "../../shared/PublicCodeResultCard";
 import { usePublicCodeLookup } from "../../../Backend/hooks/usePublicCodeLookup";
@@ -17,6 +19,7 @@ import { useI18n, t } from "../../../i18n";
 // only a broad free-text match.
 const SEARCH_SCOPES = [
   { id: "all", labelKey: "urride.search.scopeAll" },
+  { id: "company", label: "Companies" },
   { id: "car", labelKey: "urride.search.scopeCar" },
   { id: "plate", labelKey: "urride.search.scopePlate" },
   { id: "category", labelKey: "urride.search.scopeCategory" },
@@ -25,11 +28,12 @@ const SEARCH_SCOPES = [
 ];
 
 const SCOPE_FIELDS = {
-  all: ["fleetName", "operatorName", "operatorId", "plateNumber", "displayType", "fleetType", "serviceCategory", "currentLocation", "lastKnownLocation", "operatingArea"],
+  all: ["fleetName", "operatorName", "operatorId", "plateNumber", "displayType", "fleetType", "serviceCategory", "currentLocation", "lastKnownLocation", "operatingArea", "companyName", "companyCode"],
+  company: ["companyName", "companyCode"],
   car: ["fleetName", "operatorName"],
   plate: ["plateNumber"],
   category: ["serviceCategory", "fleetType", "displayType"],
-  code: ["operatorId"],
+  code: ["operatorId", "companyCode"],
   location: ["currentLocation", "lastKnownLocation", "operatingArea"],
 };
 
@@ -44,7 +48,7 @@ function matchesSearch(fleet, query, scope = "all") {
     .some((item) => String(item).toLowerCase().includes(value));
 }
 
-export default function SearchButton({ onOpenChange, onViewFleet }) {
+export default function SearchButton({ onOpenChange, onViewCompany, onViewFleet }) {
   useI18n();
   const [open, setOpen] = useState(false);
   const [query, setQuery] = useState("");
@@ -52,6 +56,9 @@ export default function SearchButton({ onOpenChange, onViewFleet }) {
   const [fleets, setFleets] = useState([]);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState("");
+  const [companies, setCompanies] = useState([]);
+  const [companyLoading, setCompanyLoading] = useState(false);
+  const [companyError, setCompanyError] = useState("");
 
   useEffect(() => {
     if (!open) return undefined;
@@ -80,12 +87,46 @@ export default function SearchButton({ onOpenChange, onViewFleet }) {
   }, [open]);
 
   useEffect(() => {
+    const value = query.trim();
+    if (!open || value.length < 2 || !["all", "company", "code"].includes(scope)) {
+      setCompanies([]);
+      setCompanyLoading(false);
+      setCompanyError("");
+      return undefined;
+    }
+
+    let alive = true;
+    const timer = window.setTimeout(() => {
+      setCompanyLoading(true);
+      setCompanyError("");
+      searchPublicTransportCompanies(value, { country: getActiveCountryProfile().name || "" })
+        .then((items) => {
+          if (alive) setCompanies(items);
+        })
+        .catch((searchError) => {
+          if (alive) {
+            setCompanies([]);
+            setCompanyError(searchError.message || "Company search is temporarily unavailable.");
+          }
+        })
+        .finally(() => {
+          if (alive) setCompanyLoading(false);
+        });
+    }, 220);
+
+    return () => {
+      alive = false;
+      window.clearTimeout(timer);
+    };
+  }, [open, query, scope]);
+
+  useEffect(() => {
     onOpenChange?.(open);
     return () => onOpenChange?.(false);
   }, [onOpenChange, open]);
 
   const results = useMemo(
-    () => fleets.filter((fleet) => matchesSearch(fleet, query, scope)).slice(0, 20),
+    () => (scope === "company" ? [] : fleets.filter((fleet) => matchesSearch(fleet, query, scope)).slice(0, 20)),
     [fleets, query, scope],
   );
   const codeLookup = usePublicCodeLookup(query);
@@ -154,7 +195,7 @@ export default function SearchButton({ onOpenChange, onViewFleet }) {
                         scope === item.id ? "bg-slate-950 text-white" : "bg-slate-100 text-slate-600 hover:bg-slate-200"
                       }`}
                     >
-                      {t(item.labelKey)}
+                      {item.label || t(item.labelKey)}
                     </button>
                   ))}
                 </div>
@@ -163,13 +204,33 @@ export default function SearchButton({ onOpenChange, onViewFleet }) {
                   {codeLookup.kind && codeLookup.kind !== "urride" ? (
                     <PublicCodeResultCard lookup={codeLookup} surface="urride" onOpen={openCodeResult} />
                   ) : null}
+                  {companyLoading ? <p className="rounded-2xl bg-emerald-50 px-4 py-3 text-sm font-bold text-emerald-800">Searching company profiles…</p> : null}
+                  {companyError ? <p className="rounded-2xl border border-amber-200 bg-amber-50 px-4 py-3 text-sm font-bold text-amber-800">{companyError}</p> : null}
+                  {companies.map((company) => (
+                    <article key={`company-${company.id}`} className="rounded-2xl border border-emerald-200 bg-emerald-50/50 p-3 shadow-sm">
+                      <div className="flex items-start gap-3">
+                        <span className="grid h-11 w-11 shrink-0 place-items-center rounded-2xl bg-emerald-700 text-white"><Building2 size={20} /></span>
+                        <div className="min-w-0 flex-1">
+                          <p className="text-[10px] font-black uppercase tracking-[0.16em] text-emerald-700">Transport company</p>
+                          <h3 className="mt-0.5 truncate text-base font-black text-slate-950">{company.companyName}</h3>
+                          <p className="mt-1 text-xs font-bold text-slate-500">{[company.companyCode, company.city].filter(Boolean).join(" · ")}</p>
+                        </div>
+                      </div>
+                      <div className="mt-3 flex flex-wrap gap-2 text-[11px] font-black text-slate-700">
+                        {company.fleetTypes.map((type) => <span key={type} className="rounded-full bg-white px-2.5 py-1">{type}</span>)}
+                        {company.rentalCount ? <span className="rounded-full bg-white px-2.5 py-1">Rentals</span> : null}
+                        <span className="inline-flex items-center gap-1 rounded-full bg-white px-2.5 py-1"><Star size={12} fill="currentColor" className="text-amber-500" />{company.reviewCount ? company.rating.toFixed(1) : "New"}</span>
+                      </div>
+                      <button type="button" onClick={() => { setOpen(false); onViewCompany?.(company.id); }} className="kt-touchable mt-3 h-10 w-full rounded-2xl bg-emerald-700 text-sm font-black text-white hover:bg-emerald-800">View company profile</button>
+                    </article>
+                  ))}
                   {error ? (
                     <SearchState title={t("urride.search.errorTitle")} body={error} />
-                  ) : loading ? (
+                  ) : loading && companies.length === 0 ? (
                     <SearchState title={t("urride.search.loadingTitle")} body={t("urride.search.loadingBody")} />
-                  ) : results.length === 0 ? (
+                  ) : results.length === 0 && companies.length === 0 && !companyLoading && !companyError ? (
                     <SearchState title={t("urride.search.emptyTitle")} body={t("urride.search.emptyBody")} />
-                  ) : (
+                  ) : results.length ? (
                     results.map((fleet) => (
                       <article key={fleet.id} className="rounded-2xl border border-slate-100 p-3 shadow-sm">
                         <div className="flex items-start justify-between gap-3">
@@ -199,7 +260,7 @@ export default function SearchButton({ onOpenChange, onViewFleet }) {
                         </button>
                       </article>
                     ))
-                  )}
+                  ) : null}
                 </div>
               </div>
             </section>

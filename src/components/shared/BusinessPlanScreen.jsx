@@ -347,7 +347,7 @@ export default function BusinessPlanScreen({ surface, entityId, entityName = "Yo
             <p className="text-xs font-black uppercase tracking-[0.18em] text-emerald-300">Plans & capacity</p>
             <h2 className="mt-2 truncate text-2xl font-black">{entityName}</h2>
             <p className="mt-1 text-sm font-semibold text-slate-300">
-              {entitlement.planName} plan{subscription.planCode !== "free" ? ` · ${subscription.billingInterval === "yearly" ? "Yearly" : "Monthly"}` : ""} · {entitlement.status === "grace" ? `Grace until ${graceDate}` : renewalDate ? `Renews ${renewalDate}` : "No renewal required"}
+              {entitlement.planName} plan{subscription.planCode !== "free" ? ` · ${subscription.billingInterval === "yearly" ? "Yearly" : "Monthly"}` : ""} · {entitlement.status === "expired" ? "Paid plan expired" : entitlement.status === "grace" ? `Grace until ${graceDate}` : renewalDate ? `${subscription.autoRenew ? "Renews" : "Ends"} ${renewalDate}` : "No renewal required"}
             </p>
           </div>
           <span className="grid h-12 w-12 shrink-0 place-items-center rounded-2xl bg-white/10 text-emerald-300">
@@ -369,7 +369,7 @@ export default function BusinessPlanScreen({ surface, entityId, entityName = "Yo
         </div>
       </section>
 
-      {entitlement.status === "grace" ? (
+      {surface !== "urmall" && entitlement.status === "grace" ? (
         <div className="flex items-start gap-3 rounded-2xl border border-amber-200 bg-amber-50 p-4 text-amber-950">
           <AlertTriangle size={19} className="mt-0.5 shrink-0 text-amber-600" />
           <div>
@@ -377,6 +377,14 @@ export default function BusinessPlanScreen({ surface, entityId, entityName = "Yo
             <p className="mt-1 text-sm font-semibold leading-5 text-amber-800">Existing resources are preserved. Add credits or select a plan before {graceDate || "the grace period ends"} to keep adding at this capacity.</p>
           </div>
         </div>
+      ) : null}
+
+      {surface === "urmall" ? (
+        <section className="rounded-2xl border border-amber-200 bg-amber-50 p-4 text-amber-950">
+          <p className="text-sm font-black">Business types and expiry</p>
+          <p className="mt-1 text-sm font-semibold leading-6">Your highest active UrMall plan unlocks 1 business type on Free, 2 on Pro, or all 4 on Premium. Each business has its own inventory capacity and billing.</p>
+          <p className="mt-2 text-sm font-semibold leading-6">We remind you 7, 3, and 1 day before expiry. If a paid plan expires without renewal, only 10 published items stay visible. Choose which 10 to keep in your dashboard; the newest are selected by default. Renew or upgrade within 15 days to prevent permanent deletion of excess items and drafts.</p>
+        </section>
       ) : null}
 
       <section>
@@ -423,7 +431,7 @@ export default function BusinessPlanScreen({ surface, entityId, entityName = "Yo
       <section>
         <p className="text-xs font-black uppercase tracking-wider text-slate-400">Plan options</p>
         <h2 className="mt-1 text-xl font-black text-slate-950">Choose room to grow</h2>
-        <p className="mt-1 text-sm font-semibold leading-6 text-slate-500">Upgrades start immediately. Downgrades are scheduled for the next renewal, and no existing resources are deleted.</p>
+        <p className="mt-1 text-sm font-semibold leading-6 text-slate-500">{surface === "urmall" ? "Upgrades start immediately. Downgrades start at the next renewal. Moving to Free limits visibility to 10 published items and starts the 15-day retention window explained above." : "Upgrades start immediately. Downgrades are scheduled for the next renewal, and no existing resources are deleted."}</p>
 
         <div className="relative mt-4 grid w-full max-w-sm grid-cols-2 gap-1 rounded-full border border-slate-200 bg-slate-100 p-1">
           <span
@@ -508,7 +516,9 @@ export default function BusinessPlanScreen({ surface, entityId, entityName = "Yo
             <h2 className="mt-4 text-xl font-black text-slate-950">{selectedIsDeferred ? `Schedule ${selectedPlan.displayName}?` : `Activate ${selectedPlan.displayName}?`}</h2>
             <p className="mt-2 text-sm font-semibold leading-6 text-slate-600">
               {selectedIsDeferred
-                ? "The change starts at your next renewal. Current capacity remains available until then, and nothing is deleted."
+                ? surface === "urmall" && selectedPlan.planCode === "free"
+                  ? "The change starts at your next renewal. On Free, only your selected 10 published items remain visible. Excess items and drafts will be permanently deleted 15 days later unless you renew or upgrade."
+                  : "The change starts at your next renewal. Current capacity remains available until then."
                 : selectedPricing.cost > 0
                   ? selectedInterval === "yearly"
                     ? `This starts a 12-month term and uses up to ${selectedPricing.cost} Visibility Credits.`

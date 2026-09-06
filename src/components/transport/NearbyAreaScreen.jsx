@@ -2574,33 +2574,33 @@ function AreaViewFirstUseGuide({ dontShowAgain, onDontShowAgainChange, onEmergen
       <section
         role="dialog"
         aria-labelledby="area-view-first-use-title"
-        className="pointer-events-auto absolute bottom-0 left-0 right-0 flex h-[75dvh] max-h-[75dvh] flex-col overflow-hidden rounded-t-[2rem] border border-emerald-200 bg-gradient-to-br from-emerald-50 via-white to-white text-slate-950 shadow-2xl sm:bottom-5 sm:left-1/2 sm:right-auto sm:w-[min(38rem,calc(100vw-2.5rem))] sm:-translate-x-1/2 sm:rounded-[2rem]"
+        className="pointer-events-auto absolute bottom-0 left-0 right-0 flex h-[82dvh] max-h-[82dvh] flex-col overflow-hidden rounded-t-[2rem] border border-emerald-200 bg-gradient-to-br from-emerald-50 via-white to-white text-slate-950 shadow-2xl sm:bottom-5 sm:left-1/2 sm:right-auto sm:w-[min(38rem,calc(100vw-2.5rem))] sm:-translate-x-1/2 sm:rounded-[2rem]"
       >
         <div className="shrink-0 pt-3 sm:hidden">
           <div className="mx-auto h-1.5 w-16 rounded-full bg-slate-300" />
         </div>
         <div className="shrink-0 border-b border-emerald-100 px-5 py-4 sm:px-6 sm:py-5">
+          <h2 id="area-view-first-use-title" className="text-base font-black leading-tight sm:text-lg">
+            {t("urride.areaView.guideEyebrow")}
+          </h2>
+        </div>
+
+        <div className="min-h-0 flex-1 overflow-y-auto overscroll-contain px-4 py-4 sm:px-6">
           <div className="flex items-start gap-3">
             <span className="grid h-12 w-12 shrink-0 place-items-center rounded-2xl bg-emerald-100 text-emerald-700">
               <FiShield size={24} />
             </span>
             <div>
-              <p className="text-xs font-black uppercase tracking-[0.14em] text-emerald-700">
-                {t("urride.areaView.guideEyebrow")}
-              </p>
-              <h2 id="area-view-first-use-title" className="mt-1 text-xl font-black leading-tight sm:text-2xl">
+              <h3 className="text-xl font-black leading-tight sm:text-2xl">
                 {t("urride.areaView.guideTitle")}
-              </h2>
+              </h3>
               <p className="mt-2 text-sm font-semibold leading-6 text-slate-600">
                 {t("urride.areaView.guideIntro")}
               </p>
             </div>
           </div>
-        </div>
-
-        <div className="min-h-0 flex-1 overflow-y-auto px-4 py-4 sm:px-6">
           {lateRouteWarningActive ? (
-            <div role="alert" className="mb-3 flex items-start gap-3 rounded-2xl border border-red-200 bg-red-50 p-4 text-red-950 shadow-sm">
+            <div role="alert" className="my-3 flex items-start gap-3 rounded-2xl border border-red-200 bg-red-50 p-4 text-red-950 shadow-sm">
               <span className="grid h-10 w-10 shrink-0 place-items-center rounded-xl bg-red-100 text-red-700">
                 <FiClock size={19} />
               </span>
@@ -2613,7 +2613,7 @@ function AreaViewFirstUseGuide({ dontShowAgain, onDontShowAgainChange, onEmergen
             </div>
           ) : null}
 
-          <div className="grid gap-3 sm:grid-cols-2">
+          <div className="mt-4 grid gap-3 sm:grid-cols-2">
             {AREA_VIEW_GUIDE_ITEMS.map(({ bodyKey, icon: Icon, titleKey }) => (
               <article key={titleKey} className="rounded-2xl border border-emerald-100 bg-white p-4 shadow-sm">
                 <span className="grid h-10 w-10 place-items-center rounded-xl bg-emerald-50 text-emerald-700">
@@ -2652,9 +2652,7 @@ function AreaViewFirstUseGuide({ dontShowAgain, onDontShowAgainChange, onEmergen
               {t("urride.areaView.guideEmergencySupport")}
             </button>
           </div>
-        </div>
-
-        <div className="shrink-0 border-t border-slate-100 bg-white px-4 py-4 sm:px-6">
+        <div className="mt-4 border-t border-slate-100 pb-[max(0.5rem,env(safe-area-inset-bottom))] pt-4">
           <label className="flex cursor-pointer items-start gap-3 rounded-2xl border border-slate-200 bg-slate-50 p-3.5">
             <input
               type="checkbox"
@@ -2675,6 +2673,7 @@ function AreaViewFirstUseGuide({ dontShowAgain, onDontShowAgainChange, onEmergen
             <FiCheckCircle size={19} />
             {t("urride.areaView.guideConfirm")}
           </button>
+        </div>
         </div>
       </section>
     </div>

@@ -71,10 +71,13 @@ export function useSellerProducts() {
   useEffect(() => {
     let active = true;
 
-    loadProducts(() => active).catch(() => {});
+    const refresh = () => loadProducts(() => active).catch(() => {});
+    refresh();
+    window.addEventListener("marketplace-products-updated", refresh);
 
     return () => {
       active = false;
+      window.removeEventListener("marketplace-products-updated", refresh);
     };
   }, []);
 

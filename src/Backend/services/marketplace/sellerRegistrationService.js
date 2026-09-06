@@ -1,4 +1,6 @@
 import supabase from "../../lib/supabaseClient";
+import { assertCanCreateBusinessType } from "./businessTypeCapacityService";
+import { canonicalBusinessType } from "./businessTypePolicy";
 import {
   getActiveCountryProfile,
   storeCountryContext,
@@ -447,7 +449,7 @@ export async function readUsedBusinessKinds() {
     .eq("user_id", userId);
 
   if (error) return [];
-  return (data || []).map((row) => ({ id: row.id, kind: row.business_kind || "retail" }));
+  return (data || []).map((row) => ({ id: row.id, kind: canonicalBusinessType(row.business_kind) }));
 }
 
 export async function deleteRegisteredBusiness(businessId) {
@@ -494,6 +496,7 @@ export async function hasRegisteredBusiness() {
 
 export async function submitSellerRegistration(registration) {
   const userId = await getCurrentUserId();
+  await assertCanCreateBusinessType(registration.identity.businessKind || "retail");
   storeCountryContext(registration.location.country);
   const countryProfile = getActiveCountryProfile(registration.location.country);
   const documentRequirements = getUrMallDocumentRequirements({

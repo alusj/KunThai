@@ -173,8 +173,8 @@ export function getPersonalFleetTypeOptions(context = {}, category = "Transport"
 
 export function getCompanyServiceCategoryOptions(context = {}) {
   return getTransportCapabilities(context).taxiOnlyRide
-    ? [...TAXI_ONLY_COMPANY_SERVICE_CATEGORIES]
-    : [...FULL_COMPANY_SERVICE_CATEGORIES];
+    ? [...TAXI_ONLY_COMPANY_SERVICE_CATEGORIES, "Rental"]
+    : [...FULL_COMPANY_SERVICE_CATEGORIES, "Rental"];
 }
 
 const COMPANY_FLEET_ORDER = ["Motorbike", "Tricycle", "Taxi", "Van"];
@@ -215,6 +215,7 @@ export function isFleetTypeAvailableForService(fleetType, mode = "topRated", con
 }
 
 export function isFleetAllowedForTransportMode(fleet = {}, mode = "topRated", context = {}) {
+  if ((fleet.serviceCategory || fleet.service_category) === "Rental") return false;
   const key = serviceKey(mode);
   const service = serviceKey(fleet.serviceCategory || fleet.service_category);
 

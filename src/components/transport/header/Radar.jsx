@@ -10,6 +10,7 @@ import useBodyScrollLock from "../../shared/useBodyScrollLock";
 import { fetchTransportFleets } from "../../services/transportFleetService";
 import VerificationBadge from "../verification/VerificationBadge";
 import { useI18n, t } from "../../../i18n";
+import RentalCatalogue from "../rentals/RentalCatalogue";
 
 function formatDistance(fleet) {
   const distance = Number(fleet.distanceKm || 0);
@@ -39,6 +40,7 @@ export default function Radar({ onOpenChange, onViewFleet }) {
   const [scanning, setScanning] = useState(false);
   const [operators, setOperators] = useState([]);
   const [error, setError] = useState("");
+  const [category, setCategory] = useState("operators");
 
   const nearbyOperators = useMemo(
     () => sortNearby(operators.filter((fleet) => fleet.activeStatus === "active")),
@@ -120,6 +122,11 @@ export default function Radar({ onOpenChange, onViewFleet }) {
               </header>
 
               <div className="px-4 py-5">
+                <div className="mb-4 flex gap-2" role="group" aria-label="Radar category">
+                  <button type="button" onClick={() => setCategory("operators")} className={`flex-1 rounded-xl px-3 py-2 text-sm font-bold ${category === "operators" ? "bg-emerald-700 text-white" : "bg-slate-100 text-slate-700"}`}>Live operators</button>
+                  <button type="button" onClick={() => setCategory("rentals")} className={`flex-1 rounded-xl px-3 py-2 text-sm font-bold ${category === "rentals" ? "bg-amber-600 text-white" : "bg-slate-100 text-slate-700"}`}>Rentals</button>
+                </div>
+                {category === "rentals" ? <RentalCatalogue radar onOpenRental={(rentalId) => { setOpen(false); window.dispatchEvent(new CustomEvent("kunthai-open-rental", { detail: { rentalId } })); }} /> : <>
                 <div className="relative mx-auto flex h-52 w-52 items-center justify-center rounded-full bg-green-50">
                   <span className="absolute h-full w-full rounded-full border border-green-200" />
                   <span className="absolute h-36 w-36 rounded-full border border-green-300" />
@@ -195,6 +202,7 @@ export default function Radar({ onOpenChange, onViewFleet }) {
                     </div>
                   )}
                 </div>
+                </>}
               </div>
             </section>
           </div>

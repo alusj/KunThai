@@ -31,6 +31,8 @@ import ProductSuccessToast from "./ProductSuccessToast";
 import BusinessRegistration from "./BusinessRegistration/BusinessRegistration";
 import SubscriptionPlans from "./BusinessHeader/MyBizMenu/MyBizPages/SubscriptionPlans/SubscriptionPlans";
 import PlanFeatureGate from "../../../shared/PlanFeatureGate";
+import BusinessPlanScreen from "../../../shared/BusinessPlanScreen";
+import useBusinessTypeCapacity from "../../../../Backend/hooks/useBusinessTypeCapacity";
 import { resolveSellerActivityProduct } from "../../../../Backend/services/marketplace/sellerProductService";
 import { BUSINESS_PLAN_UPDATED_EVENT, fetchBusinessSubscription, planTierMeets } from "../../../../Backend/services/businessSubscriptionService";
 import { useSellerBusinessStatus } from "../../../../Backend/hooks/useSellerBusinessStatus";
@@ -42,6 +44,7 @@ import AppBackTab from "../../../shared/AppBackTab";
 import AppPortal from "../../../shared/AppPortal";
 import useBodyScrollLock from "../../../shared/useBodyScrollLock";
 import VerticalSellerDashboard from "./VerticalSellerDashboard";
+import UrMallExpiryNotice from "./UrMallExpiryNotice";
 import VendorOperationsCard from "./VendorOperationsCard";
 import {
   MARKETPLACE_BUSINESS_CHANGED_EVENT,
@@ -104,6 +107,8 @@ function SellerFullScreen({ animation = "stack", children, hideHeader = false, e
 export default function Business({ initialScreen = "", onBack, onInitialScreenHandled }) {
   useI18n();
   const { loading, hasBusiness, setHasBusiness } = useSellerBusinessStatus();
+  const { capacity: typeCapacity, refresh: refreshTypeCapacity } = useBusinessTypeCapacity(hasBusiness);
+  const addBusinessPlanLabel = typeCapacity?.requiredPlan === "premium" ? "Premium" : typeCapacity?.requiredPlan === "pro" ? "Pro" : "";
   const sellerOverview = useSellerOverview({ enabled: hasBusiness });
   const sellerNavigation = useNavigationStack("dashboard");
   const activeScreen = sellerNavigation.current.screen;
@@ -304,6 +309,21 @@ export default function Business({ initialScreen = "", onBack, onInitialScreenHa
     setMenuOpen(true);
   }
 
+  async function addAnotherBusiness() {
+    try {
+      const capacity = await refreshTypeCapacity();
+      if (capacity.allowed) {
+        openSellerScreen("addBusiness");
+      } else if (capacity.requiredPlan && capacity.upgradeBusinessId) {
+        openSellerScreen("businessTypePlans");
+      } else {
+        showToast("You already have all four business types. Choose a workspace to add locations or inventory.", "info");
+      }
+    } catch (error) {
+      showToast(error.message || "Unable to check your business plan. Please try again.", "danger");
+    }
+  }
+
   function openSellerScreen(screen, options = {}) {
     if (activeScreen === screen) return;
     sellerNavigation.push({
@@ -354,6 +374,17 @@ export default function Business({ initialScreen = "", onBack, onInitialScreenHa
   }
 
   function renderSellerScreen() {
+    if (visibleScreen === "businessTypePlans") {
+      return (
+        <SellerFullScreen key="businessTypePlans" title="Add another business type" eyebrow="UrMall" onBack={goBackSellerScreen} open={screenPanelOpen}>
+          <p className="mx-auto max-w-3xl rounded-2xl border border-emerald-200 bg-emerald-50 p-4 text-sm font-semibold text-emerald-950">
+            Your account uses {typeCapacity?.current || 0} of {typeCapacity?.limit || 1} business types. Free supports 1, Pro supports 2, and Premium supports all 4. Your highest active plan unlocks these types; inventory capacity and billing stay with each business.
+          </p>
+          {typeCapacity?.upgradeBusinessId ? <BusinessPlanScreen surface="urmall" entityId={typeCapacity.upgradeBusinessId} entityName={businesses.find((business) => business.id === typeCapacity.upgradeBusinessId)?.identity?.businessName || "Your business"} /> : null}
+          {typeCapacity?.allowed ? <button type="button" onClick={() => openSellerScreen("addBusiness")} className="mx-auto flex min-h-12 items-center gap-2 rounded-2xl bg-emerald-600 px-5 font-black text-white"><Plus size={18} /> Continue to new business</button> : null}
+        </SellerFullScreen>
+      );
+    }
     if (visibleScreen === "addBusiness") {
       return (
         <SellerFullScreen key="addBusiness" hideHeader open={screenPanelOpen} onBack={goBackSellerScreen}>
@@ -708,7 +739,8 @@ export default function Business({ initialScreen = "", onBack, onInitialScreenHa
         <MyBizHeader
           activeBusinessId={activeBusinessId}
           businesses={businesses}
-          onAddBusiness={() => openSellerScreen("addBusiness")}
+          onAddBusiness={addAnotherBusiness}
+          addBusinessPlanLabel={addBusinessPlanLabel}
           onBack={onBack}
           onAddProduct={() => {
             if (!permissions.canAddProducts) {
@@ -779,7 +811,8 @@ export default function Business({ initialScreen = "", onBack, onInitialScreenHa
           onClose={() => setMenuOpen(false)}
           initialScreenKey={menuInitialScreen}
           profileInitialView={profileInitialView}
-          onAddBusiness={() => openSellerScreen("addBusiness")}
+          onAddBusiness={addAnotherBusiness}
+          addBusinessPlanLabel={addBusinessPlanLabel}
           permissions={permissions}
           plansEnabled={hasBusinessPlans(businessKind)}
         />
@@ -802,6 +835,13 @@ export default function Business({ initialScreen = "", onBack, onInitialScreenHa
       <div className="w-full px-4 py-5 sm:px-6 lg:px-8">
         <div>
           <main className="space-y-6">
+            {permissions.canAccessDashboard || permissions.canAddProducts ? (
+              <UrMallExpiryNotice
+                businessId={activeBusinessId}
+                businessKind={businessKind}
+                onOpenPlans={permissions.canManagePlans ? () => openSellerScreen("plans") : undefined}
+              />
+            ) : null}
             {permissions.canAccessDashboard ? (
               <MyBizDashboardHeader
                 onEditProfile={() => {

@@ -17,7 +17,7 @@ function filterFleetsForSelection(items, selection) {
     : items;
 }
 
-export default function FleetListScreen({ selection, onBack, onViewFleet, onShowVerification, onOpenBooking }) {
+export default function FleetListScreen({ selection, onBack, onViewCompany, onViewFleet, onShowVerification, onOpenBooking }) {
   useI18n();
   const initialFleets = filterFleetsForSelection(getTransportFleets(selection), selection);
   const [fleets, setFleets] = useState(() => initialFleets);
@@ -147,6 +147,7 @@ export default function FleetListScreen({ selection, onBack, onViewFleet, onShow
               <FleetListCard
                 key={fleet.id}
                 fleet={fleet}
+                onViewCompany={() => onViewCompany?.(fleet.companyId)}
                 onViewFleet={() => onViewFleet(fleet.id)}
                 onShowVerification={() => onShowVerification(fleet)}
                 onOpenBooking={() => onOpenBooking?.({ fleet, selection })}
@@ -159,7 +160,7 @@ export default function FleetListScreen({ selection, onBack, onViewFleet, onShow
   );
 }
 
-function FleetListCard({ fleet, onViewFleet, onShowVerification, onOpenBooking }) {
+function FleetListCard({ fleet, onViewCompany, onViewFleet, onShowVerification, onOpenBooking }) {
   useI18n();
   const status = verificationStatuses[fleet.verificationStatus] || verificationStatuses.pending;
   const isActive = fleet.activeStatus === "active";
@@ -175,10 +176,10 @@ function FleetListCard({ fleet, onViewFleet, onShowVerification, onOpenBooking }
           <div className="min-w-0">
             <h2 className="truncate text-base font-bold text-gray-950">{fleet.fleetName}</h2>
             {fleet.isCompanyFleet ? (
-              <span className="mt-2 inline-flex max-w-full items-center gap-1.5 rounded-full bg-blue-50 px-2.5 py-1 text-[10px] font-black uppercase tracking-wide text-blue-700">
+              <button type="button" onClick={onViewCompany} className="mt-2 inline-flex max-w-full items-center gap-1.5 rounded-full bg-blue-50 px-2.5 py-1 text-[10px] font-black uppercase tracking-wide text-blue-700 hover:bg-blue-100">
                 <FiBriefcase className="shrink-0" />
                 <span className="truncate">{t("urride.fleetList.companyFleet", { company: fleet.companyName })}</span>
-              </span>
+              </button>
             ) : null}
             <p className="mt-1 text-xs text-gray-500">
               {fleet.operatorId} - {fleet.displayType} - {fleet.plateNumber}
