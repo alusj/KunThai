@@ -32,13 +32,27 @@ function RentalEditor({ company, fleet, existing, onSaved }) {
     title: fleet.fleetName || "", specifications: [fleet.make, fleet.model, fleet.year, fleet.color].filter(Boolean).join(" · "),
     photos: (fleet.publicFleetPhotos || []).map((photo) => typeof photo === "string" ? photo : photo.publicUrl || photo.fileUrl || photo.url).filter(Boolean),
     currency: company.currency || getActiveCountryProfile(company.country).currency.code,
-    hourly_rate: "", daily_rate: "", weekly_rate: "", deposit: "0", terms: "", ...initialRentalPickup(company, fleet), status: "hidden",
+    hourly_rate: fleet.pricePerHour || "", daily_rate: "", weekly_rate: "",
+    distance_rate: fleet.pricePerKm || "",
+    time_negotiable: Boolean(fleet.safetyAnswers?.rentalTimeNegotiable),
+    distance_negotiable: Boolean(fleet.safetyAnswers?.rentalDistanceNegotiable),
+    deposit: "0", terms: "", ...initialRentalPickup(company, fleet), status: "hidden",
   });
   const [rentalId, setRentalId] = useState(existing?.id || "");
   const [busy, setBusy] = useState(false);
   const [message, setMessage] = useState("");
   const [error, setError] = useState("");
+  const timeNegotiable = Boolean(form.time_negotiable);
+  const distanceNegotiable = Boolean(form.distance_negotiable);
   function change(key, value) { setForm((current) => ({ ...current, [key]: value })); setMessage(""); }
+  function changeNegotiation(key, checked, clearedFields) {
+    setForm((current) => ({
+      ...current,
+      [key]: checked,
+      ...(checked ? Object.fromEntries(clearedFields.map((field) => [field, ""])) : {}),
+    }));
+    setMessage("");
+  }
   async function upload(files) {
     setBusy(true); setError("");
     try {
@@ -65,11 +79,24 @@ function RentalEditor({ company, fleet, existing, onSaved }) {
       <div className="grid gap-3 sm:grid-cols-2">
         <Input label="Rental title" value={form.title} onChange={(value) => change("title", value)} />
         <Input label="Currency" value={form.currency} onChange={(value) => change("currency", value.toUpperCase())} />
-        <Input label="Hourly rate (optional)" type="number" value={form.hourly_rate ?? ""} onChange={(value) => change("hourly_rate", value)} />
-        <Input label="Daily rate (optional)" type="number" value={form.daily_rate ?? ""} onChange={(value) => change("daily_rate", value)} />
-        <Input label="Weekly rate (optional)" type="number" value={form.weekly_rate ?? ""} onChange={(value) => change("weekly_rate", value)} />
         <Input label="Deposit" type="number" value={form.deposit} onChange={(value) => change("deposit", value)} />
       </div>
+      <section className="rounded-2xl border border-emerald-200 bg-emerald-50/60 p-4">
+        <h4 className="font-black text-slate-950">Time pricing</h4>
+        <p className="mt-1 text-xs font-semibold leading-5 text-slate-600">Set any hourly, daily, or weekly rates you support, or arrange the time price directly with the renter.</p>
+        <ToggleRow checked={timeNegotiable} label="Time price is negotiable" onChange={(checked) => changeNegotiation("time_negotiable", checked, ["hourly_rate", "daily_rate", "weekly_rate"])} />
+        <div className="mt-3 grid gap-3 sm:grid-cols-3">
+          <Input disabled={timeNegotiable} label="Hourly rate" type="number" value={form.hourly_rate ?? ""} onChange={(value) => change("hourly_rate", value)} />
+          <Input disabled={timeNegotiable} label="Daily rate" type="number" value={form.daily_rate ?? ""} onChange={(value) => change("daily_rate", value)} />
+          <Input disabled={timeNegotiable} label="Weekly rate" type="number" value={form.weekly_rate ?? ""} onChange={(value) => change("weekly_rate", value)} />
+        </div>
+      </section>
+      <section className="rounded-2xl border border-amber-200 bg-amber-50/60 p-4">
+        <h4 className="font-black text-slate-950">Distance pricing</h4>
+        <p className="mt-1 text-xs font-semibold leading-5 text-slate-600">Use this when kilometres driven affect the final rental charge. The company confirms the final distance charge with the renter.</p>
+        <ToggleRow checked={distanceNegotiable} label="Distance price is negotiable" onChange={(checked) => changeNegotiation("distance_negotiable", checked, ["distance_rate"])} />
+        <div className="mt-3 max-w-sm"><Input disabled={distanceNegotiable} label="Price per kilometre" type="number" value={form.distance_rate ?? ""} onChange={(value) => change("distance_rate", value)} /></div>
+      </section>
       <label className="block text-sm font-bold text-slate-800">Vehicle specifications<textarea rows={3} value={form.specifications} onChange={(event) => change("specifications", event.target.value)} className="kt-registration-input mt-2 w-full rounded-xl border border-slate-300 bg-white p-3" placeholder="Seats, transmission, fuel type, luggage capacity, and other useful details" /></label>
       <label className="block text-sm font-bold text-slate-800">Rental conditions<textarea rows={4} value={form.terms} onChange={(event) => change("terms", event.target.value)} className="kt-registration-input mt-2 w-full rounded-xl border border-slate-300 bg-white p-3" placeholder="Licence requirements, age requirements, mileage/fuel rules, deposit and refund terms, collection and return instructions" /></label>
       <div><p className="mb-2 text-sm font-bold text-slate-800">Pickup address and exact pin</p><AddressLocationField value={{ address: form.pickup_address, latitude: form.latitude, longitude: form.longitude, city: company.city || "" }} onChange={(patch) => setForm((current) => ({ ...current, ...(Object.hasOwn(patch, "address") ? { pickup_address: patch.address } : {}), ...(Object.hasOwn(patch, "latitude") ? { latitude: patch.latitude } : {}), ...(Object.hasOwn(patch, "longitude") ? { longitude: patch.longitude } : {}) }))} /></div>
@@ -84,6 +111,10 @@ function RentalEditor({ company, fleet, existing, onSaved }) {
   </div>;
 }
 
-function Input({ label, value, onChange, type = "text" }) {
-  return <label className="block text-sm font-bold text-slate-800">{label}<input type={type} min={type === "number" ? "0" : undefined} step={type === "number" ? "0.01" : undefined} value={value} onChange={(event) => onChange(event.target.value)} className="kt-registration-input mt-2 w-full rounded-xl border border-slate-300 bg-white p-3 text-slate-950" /></label>;
+function ToggleRow({ checked, label, onChange }) {
+  return <label className="mt-3 flex items-center justify-between gap-4 rounded-xl border border-white/80 bg-white p-3 text-sm font-bold text-slate-800"><span>{label}</span><input type="checkbox" role="switch" checked={checked} onChange={(event) => onChange(event.target.checked)} className="h-5 w-5 shrink-0 accent-emerald-700" /></label>;
+}
+
+function Input({ disabled = false, label, value, onChange, type = "text" }) {
+  return <label className="block text-sm font-bold text-slate-800">{label}<input disabled={disabled} type={type} min={type === "number" ? "0" : undefined} step={type === "number" ? "0.01" : undefined} value={value} onChange={(event) => onChange(event.target.value)} className="kt-registration-input mt-2 w-full rounded-xl border border-slate-300 bg-white p-3 text-slate-950 disabled:cursor-not-allowed disabled:bg-slate-200 disabled:text-slate-500" /></label>;
 }

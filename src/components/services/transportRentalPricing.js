@@ -1,5 +1,12 @@
 export const RENTAL_STATUSES = ["available", "reserved", "rented_out", "maintenance", "hidden"];
 export const RENTAL_RATE_UNITS = { hour: { seconds: 3600, key: "hourly_rate" }, day: { seconds: 86400, key: "daily_rate" }, week: { seconds: 604800, key: "weekly_rate" } };
+export function fixedRentalTimeRates(rental = {}) {
+  if (rental.time_negotiable) return [];
+  return Object.entries(RENTAL_RATE_UNITS).filter(([, definition]) => Number(rental[definition.key]) > 0);
+}
+export function hasBookableRentalTimeRate(rental = {}) {
+  return fixedRentalTimeRates(rental).length > 0;
+}
 export function initialRentalPickup(company, fleet) {
   const address = String(fleet.homeBase || company.address || "").trim();
   const normalize = (value) => String(value || "").trim().replace(/\s+/g, " ").toLowerCase();
@@ -14,7 +21,7 @@ export function rentalQuote(rental, startsAt, endsAt, unit) {
   const definition = RENTAL_RATE_UNITS[unit];
   const duration = (new Date(endsAt).getTime() - new Date(startsAt).getTime()) / 1000;
   const rate = Number(rental?.[definition?.key]);
-  if (!definition || !Number.isFinite(duration) || duration <= 0 || !Number.isFinite(rate) || rate <= 0) return null;
+  if (rental?.time_negotiable || !definition || !Number.isFinite(duration) || duration <= 0 || !Number.isFinite(rate) || rate <= 0) return null;
   const units = Math.ceil(duration / definition.seconds);
   return { units, total: Math.round(units * rate * 100) / 100, deposit: Number(rental.deposit || 0) };
 }

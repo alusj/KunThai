@@ -1,6 +1,6 @@
 import test from "node:test";
 import assert from "node:assert/strict";
-import { initialRentalPickup, rentalDistanceKm, rentalQuote } from "../../components/services/transportRentalPricing.js";
+import { fixedRentalTimeRates, hasBookableRentalTimeRate, initialRentalPickup, rentalDistanceKm, rentalQuote } from "../../components/services/transportRentalPricing.js";
 
 test("rental price charges whole selected units and preserves separate deposit", () => {
   assert.deepEqual(rentalQuote({ daily_rate: 100, deposit: 50 }, "2026-09-10T10:00:00Z", "2026-09-11T10:01:00Z", "day"), { units: 2, total: 200, deposit: 50 });
@@ -10,6 +10,13 @@ test("invalid dates and unavailable rates cannot produce a booking quote", () =>
   assert.equal(rentalQuote({ daily_rate: 100 }, "", "", "day"), null);
   assert.equal(rentalQuote({ daily_rate: 100 }, "2026-09-10", "2026-09-09", "day"), null);
   assert.equal(rentalQuote({ daily_rate: 100 }, "2026-09-10", "2026-09-11", "hour"), null);
+  assert.equal(rentalQuote({ daily_rate: 100, time_negotiable: true }, "2026-09-10", "2026-09-11", "day"), null);
+});
+test("negotiated time pricing cannot be mistaken for an automatic booking rate", () => {
+  assert.deepEqual(fixedRentalTimeRates({ hourly_rate: 20, daily_rate: 100 }), [["hour", { seconds: 3600, key: "hourly_rate" }], ["day", { seconds: 86400, key: "daily_rate" }]]);
+  assert.deepEqual(fixedRentalTimeRates({ hourly_rate: 20, time_negotiable: true }), []);
+  assert.equal(hasBookableRentalTimeRate({ weekly_rate: 500 }), true);
+  assert.equal(hasBookableRentalTimeRate({ distance_rate: 5, distance_negotiable: false }), false);
 });
 test("rental proximity measures fixed pickup pin without requiring an operator", () => {
   assert.equal(rentalDistanceKm({ latitude: 0, longitude: 0 }, { latitude: 0, longitude: 0 }), 0);

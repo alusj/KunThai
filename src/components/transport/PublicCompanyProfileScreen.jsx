@@ -27,12 +27,15 @@ function formatDate(value) {
 }
 
 function rateLabel(rental) {
+  if (rental.timeNegotiable) return "Time price negotiable";
   const options = [
     [rental.ratePerHour, "hour"],
     [rental.ratePerDay, "day"],
     [rental.ratePerWeek, "week"],
   ];
   const match = options.find(([amount]) => Number(amount) > 0);
+  if (!match && rental.distanceRate > 0 && !rental.distanceNegotiable) return `${rental.currency || ""} ${Number(rental.distanceRate).toLocaleString()} / km`.trim();
+  if (!match && rental.distanceNegotiable) return "Distance price negotiable";
   if (!match) return "Contact company for rate";
   return `${rental.currency || ""} ${Number(match[0]).toLocaleString()} / ${match[1]}`.trim();
 }

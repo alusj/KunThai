@@ -1591,6 +1591,13 @@ export async function saveTransportCompanyAccount(account) {
         if (error) throw error;
         if (data?.fleet_code) fleetIdByCode.set(data.fleet_code, data.id);
       });
+      normalized = {
+        ...normalized,
+        fleets: normalized.fleets.map((fleet) => {
+          const savedId = fleetIdByCode.get(fleet.fleetCode);
+          return savedId ? { ...fleet, id: savedId, localId: savedId } : fleet;
+        }),
+      };
 
       const inviteRows = normalized.fleets.flatMap((fleet) =>
         (fleet.operators || []).map((operator) => {

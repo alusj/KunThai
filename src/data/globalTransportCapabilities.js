@@ -177,7 +177,7 @@ export function getCompanyServiceCategoryOptions(context = {}) {
     : [...FULL_COMPANY_SERVICE_CATEGORIES, "Rental"];
 }
 
-const COMPANY_FLEET_ORDER = ["Motorbike", "Tricycle", "Taxi", "Van"];
+const COMPANY_FLEET_ORDER = ["Motorbike", "Tricycle", "Taxi", "Van", "Vehicle / Car"];
 
 export function getCompanyFleetTypeOptions(context = {}, serviceCategory = "Ride only") {
   const capabilities = getTransportCapabilities(context);
@@ -191,6 +191,7 @@ export function getCompanyFleetTypeOptions(context = {}, serviceCategory = "Ride
       : [...capabilities.rideOptions, ...capabilities.deliveryOptions];
 
   const values = Array.from(new Set(source.map((option) => option.companyValue)));
+  if (source.some((option) => option.value === "Car")) values.push("Vehicle / Car");
   return COMPANY_FLEET_ORDER.filter((value) => values.includes(value));
 }
 
@@ -198,7 +199,7 @@ export function normalizeTransportFleetType(value = "") {
   const normalized = String(value || "").trim().toLowerCase();
   if (["bike", "motorbike", "motorcycle", "okada"].includes(normalized)) return "Motorcycle";
   if (["keke", "tricycle", "auto", "autorickshaw"].includes(normalized)) return "Tricycle";
-  if (["taxi", "car", "van", "bus", "minibus"].includes(normalized)) return "Car";
+  if (["taxi", "car", "vehicle", "vehicles", "vehicle / car", "vehicle/car", "van", "bus", "minibus"].includes(normalized)) return "Car";
   return normalized ? value : "";
 }
 

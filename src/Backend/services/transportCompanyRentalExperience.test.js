@@ -22,6 +22,30 @@ const companyServiceSource = readFileSync(
   new URL("../../components/services/transportCompanyService.js", import.meta.url),
   "utf8",
 );
+const companyRentalsSource = readFileSync(
+  new URL("../../components/transport/rentals/CompanyRentals.jsx", import.meta.url),
+  "utf8",
+);
+const rentalDetailsSource = readFileSync(
+  new URL("../../components/transport/rentals/RentalDetailsScreen.jsx", import.meta.url),
+  "utf8",
+);
+const urRideTranslationsSource = readFileSync(
+  new URL("../../i18n/urride.js", import.meta.url),
+  "utf8",
+);
+const pricingMigrationSource = readFileSync(
+  new URL("../../../supabase/migrations/20260906123000_urride_rental_pricing_and_document_copy.sql", import.meta.url),
+  "utf8",
+);
+const documentRequirementsSource = readFileSync(
+  new URL("../../data/globalDocumentRequirements.js", import.meta.url),
+  "utf8",
+);
+const transportCapabilitiesSource = readFileSync(
+  new URL("../../data/globalTransportCapabilities.js", import.meta.url),
+  "utf8",
+);
 
 test("company dashboard tabs stay in one de-duplicated horizontal rail", () => {
   assert.match(companyWorkspaceSource, /const uniqueTabs = \[\.\.\.new Set\(tabs\)\]/);
@@ -60,4 +84,32 @@ test("rental saves update the selected company without resetting verification", 
   assert.match(companyServiceSource, /normalized\.id \? \{ id: normalized\.id \} : \{ owner_user_id: user\.id \}/);
   assert.match(companyServiceSource, /verification_status: normalized\.verificationStatus \|\| "pending"/);
   assert.match(companyServiceSource, /activity_type: addRentalMode \? "rental_fleet_added"/);
+  assert.match(companyServiceSource, /savedId \? \{ \.\.\.fleet, id: savedId, localId: savedId \} : fleet/);
+});
+
+test("rental and operator fleet forms include the general Vehicle / Car type", () => {
+  assert.match(transportCapabilitiesSource, /COMPANY_FLEET_ORDER = \[[^\]]*"Vehicle \/ Car"/);
+  assert.match(transportCapabilitiesSource, /source\.some\(\(option\) => option\.value === "Car"\)[^\n]*values\.push\("Vehicle \/ Car"\)/);
+  assert.match(transportCapabilitiesSource, /"vehicle \/ car", "vehicle\/car"/);
+  assert.match(companyRegistrationSource, /serviceCategory === "Rental" && fleetTypes\.includes\("Vehicle \/ Car"\)/);
+});
+
+test("rental pricing supports fixed or negotiable time and distance choices", () => {
+  assert.match(companyRegistrationSource, /rentalDistanceNegotiable/);
+  assert.match(companyRegistrationSource, /rentalTimeNegotiable/);
+  assert.match(companyRentalsSource, /Time price is negotiable/);
+  assert.match(companyRentalsSource, /Distance price is negotiable/);
+  assert.match(rentalDetailsSource, /Pricing is arranged with the company/);
+  assert.match(pricingMigrationSource, /add column if not exists distance_rate numeric\(14,2\)/i);
+  assert.match(pricingMigrationSource, /add column if not exists time_negotiable boolean/i);
+  assert.match(pricingMigrationSource, /add column if not exists distance_negotiable boolean/i);
+  assert.match(pricingMigrationSource, /fixed or negotiable rental price/i);
+});
+
+test("UrMall and UrRide document prompts say if available", () => {
+  assert.match(documentRequirementsSource, /IF_APPLICABLE_NOTE = "if available"/);
+  assert.match(documentRequirementsSource, /URRIDE_COMPANY_DOCUMENT_REQUIREMENTS/);
+  assert.match(documentRequirementsSource, /URMALL_DOCUMENT_REQUIREMENTS/);
+  assert.doesNotMatch(urRideTranslationsSource, /if applicable/i);
+  assert.match(pricingMigrationSource, /inline_note = 'if available'/i);
 });

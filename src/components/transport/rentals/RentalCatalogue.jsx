@@ -33,13 +33,13 @@ export default function RentalCatalogue({ radar = false, onOpenRental }) {
     {error && <p role="alert" className="rounded-xl bg-amber-50 p-3 text-sm font-semibold text-amber-900">{error}</p>}
     {!items.length && !error && <p className="rounded-2xl border border-slate-200 bg-white p-4 text-sm text-slate-600">No published rentals in your country yet. Company owners and admins can add them from Fleet HQ.</p>}
     <div className={`grid gap-3 ${radar ? "max-h-72 overflow-y-auto overscroll-contain touch-pan-y" : "sm:grid-cols-2"}`}>{items.slice(0, expanded ? 200 : 4).map((rental) => {
-      const rate = rental.daily_rate || rental.hourly_rate || rental.weekly_rate;
-      const unit = rental.daily_rate ? "day" : rental.hourly_rate ? "hour" : "week";
+      const rate = !rental.time_negotiable && (rental.daily_rate || rental.hourly_rate || rental.weekly_rate);
+      const unit = rental.daily_rate ? "day" : rental.hourly_rate ? "hour" : rental.weekly_rate ? "week" : "";
       return <button type="button" key={rental.id} onClick={() => open(rental.id)} className="overflow-hidden rounded-2xl border border-slate-200 bg-white text-left">
         {!radar && rental.photos[0] && <img src={rental.photos[0]} alt={rental.title} loading="lazy" className="h-40 w-full object-cover" />}
         <div className="space-y-2 p-4"><strong className="block text-slate-950">{rental.title}</strong><p className="text-xs font-semibold text-slate-600">Managed by {rental.company_name}</p>
           <p className="flex items-center gap-1 text-sm text-slate-600"><MapPin size={16} className="shrink-0 text-amber-600" />{rental.distance != null ? `${rental.distance.toFixed(1)} km to pickup · ` : ""}{rental.pickup_address}</p>
-          <p className="font-black text-emerald-800">{rental.currency} {Number(rate).toLocaleString()} / {unit}</p><p className="text-xs font-semibold capitalize text-slate-600">{rental.status.replaceAll("_", " ")} · Check your dates</p>
+          <div className="flex flex-wrap gap-1.5 text-xs font-black"><span className="rounded-lg bg-emerald-50 px-2 py-1 text-emerald-800">{rate ? `${rental.currency} ${Number(rate).toLocaleString()} / ${unit}` : rental.time_negotiable ? "Time negotiable" : "No fixed time rate"}</span>{Number(rental.distance_rate) > 0 && !rental.distance_negotiable ? <span className="rounded-lg bg-blue-50 px-2 py-1 text-blue-800">{rental.currency} {Number(rental.distance_rate).toLocaleString()} / km</span> : rental.distance_negotiable ? <span className="rounded-lg bg-amber-50 px-2 py-1 text-amber-900">Distance negotiable</span> : null}</div><p className="text-xs font-semibold capitalize text-slate-600">{rental.status.replaceAll("_", " ")} · Check details</p>
         </div>
       </button>;
     })}</div>

@@ -1,6 +1,6 @@
 import { normalizeCountryIso } from "./globalCountryProfiles";
 
-export const IF_APPLICABLE_NOTE = "if applicable";
+export const IF_APPLICABLE_NOTE = "if available";
 
 const GLOBAL_COUNTRY_SCOPE = "*";
 

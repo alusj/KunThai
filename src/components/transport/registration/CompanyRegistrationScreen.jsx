@@ -85,6 +85,15 @@ const fleetSafetyQuestions = {
     { key: "spareTire", labelKey: "urride.fleetEdit.q.spareTire", type: "select" },
     { key: "interiorClean", labelKey: "urride.fleetEdit.q.interiorClean", type: "select" },
   ],
+  "Vehicle / Car": [
+    { key: "seatCount", labelKey: "urride.fleetEdit.q.seatCount", type: "number" },
+    { key: "doorsWorking", labelKey: "urride.fleetEdit.q.doorsWorking", type: "select" },
+    { key: "seatbelts", labelKey: "urride.fleetEdit.q.seatbelts", type: "select" },
+    { key: "acOrVentilation", labelKey: "urride.fleetEdit.q.acOrVentilation", type: "select" },
+    { key: "lightsMirrors", labelKey: "urride.fleetEdit.q.lightsMirrors", type: "select" },
+    { key: "spareTire", labelKey: "urride.fleetEdit.q.spareTire", type: "select" },
+    { key: "interiorClean", labelKey: "urride.fleetEdit.q.interiorClean", type: "select" },
+  ],
   Van: [
     { key: "seatCount", labelKey: "urride.fleetEdit.q.seatCount", type: "number" },
     { key: "doorsWorking", labelKey: "urride.companyReg.q.vanDoors", type: "select" },
@@ -210,7 +219,9 @@ function createFleetDraft(index = 0, context = {}, requestedServiceCategory = ""
     ? requestedServiceCategory
     : preferredCompanyServiceCategory(context);
   const fleetTypes = getCompanyFleetTypeOptions(context, serviceCategory);
-  const fleetType = fleetTypes[index % Math.max(1, fleetTypes.length)] || fleetTypes[0] || "Taxi";
+  const fleetType = serviceCategory === "Rental" && fleetTypes.includes("Vehicle / Car")
+    ? "Vehicle / Car"
+    : fleetTypes[index % Math.max(1, fleetTypes.length)] || fleetTypes[0] || "Taxi";
 
   return {
     localId: `fleet-${Date.now()}-${index}`,
@@ -591,6 +602,16 @@ export default function CompanyRegistrationScreen({ existingCompany = null, mode
             nextErrors[`${fleet.localId}-${field}`] = `${labelPrefix}${t(messageKey)}`;
           }
         });
+        if (fleet.serviceCategory === "Rental") {
+          const distanceNegotiable = Boolean(fleet.safetyAnswers?.rentalDistanceNegotiable);
+          const timeNegotiable = Boolean(fleet.safetyAnswers?.rentalTimeNegotiable);
+          if (!distanceNegotiable && !(Number(fleet.pricePerKm) > 0)) {
+            nextErrors[`${fleet.localId}-pricePerKm`] = `${labelPrefix}Enter a positive price per kilometre or choose Negotiable.`;
+          }
+          if (!timeNegotiable && !(Number(fleet.pricePerHour) > 0)) {
+            nextErrors[`${fleet.localId}-pricePerHour`] = `${labelPrefix}Enter a positive hourly price or choose Negotiable.`;
+          }
+        }
         getFleetQuestions(fleet).forEach((question) => {
           if (!String(fleet.safetyAnswers?.[question.key] || "").trim()) {
             nextErrors[`${fleet.localId}-safety-${question.key}`] = `${labelPrefix}${t("urride.companyReg.reqSuffix", { label: questionLabel(question) })}`;
@@ -1425,6 +1446,8 @@ function FleetCard({ acceptedPublicIds = [], errors = {}, fleet, form, index, lo
   );
   const serviceCategoryOptions = getCompanyServiceCategoryOptions(form);
   const fleetTypeOptions = getCompanyFleetTypeOptions(form, fleet.serviceCategory);
+  const rentalDistanceNegotiable = Boolean(fleet.safetyAnswers?.rentalDistanceNegotiable);
+  const rentalTimeNegotiable = Boolean(fleet.safetyAnswers?.rentalTimeNegotiable);
 
   const applyLookupResult = useCallback((match) => {
     if (match && acceptedPublicIdSet.has(compactPublicId(match.publicId))) {
@@ -1487,12 +1510,24 @@ function FleetCard({ acceptedPublicIds = [], errors = {}, fleet, form, index, lo
 
   function updateServiceCategory(value) {
     const nextFleetTypes = getCompanyFleetTypeOptions(form, value);
-    const fleetType = nextFleetTypes.includes(fleet.fleetType) ? fleet.fleetType : nextFleetTypes[0] || "Taxi";
+    const fleetType = value === "Rental" && nextFleetTypes.includes("Vehicle / Car")
+      ? "Vehicle / Car"
+      : nextFleetTypes.includes(fleet.fleetType) ? fleet.fleetType : nextFleetTypes[0] || "Taxi";
     onUpdate(fleet.localId, {
       serviceCategory: value,
       ...(value === "Rental" ? { operators: [] } : {}),
       fleetType,
       safetyAnswers: createSafetyAnswers(fleetType, value),
+    });
+  }
+
+  function updateRentalNegotiation(key, priceField, checked) {
+    onUpdate(fleet.localId, {
+      ...(checked ? { [priceField]: "" } : {}),
+      safetyAnswers: {
+        ...(fleet.safetyAnswers || {}),
+        [key]: checked,
+      },
     });
   }
 
@@ -1514,7 +1549,7 @@ function FleetCard({ acceptedPublicIds = [], errors = {}, fleet, form, index, lo
           <p className="text-xs font-black uppercase tracking-wide text-blue-600">{t("urride.companyReg.uniqueCode")}</p>
           <p className="mt-1 font-black text-slate-950">{fleet.fleetCode}</p>
         </div>
-        <SelectField label={t("urride.companyReg.fleetTypeLabel")} value={fleet.fleetType} options={fleetTypeOptions} onChange={(value) => onUpdate(fleet.localId, { fleetType: value, safetyAnswers: createSafetyAnswers(value, fleet.serviceCategory) })} />
+        <SelectField label={t("urride.companyReg.fleetTypeLabel")} value={fleet.fleetType} options={fleetTypeOptions} onChange={(value) => onUpdate(fleet.localId, { fleetType: value, safetyAnswers: { ...createSafetyAnswers(value, fleet.serviceCategory), ...(fleet.serviceCategory === "Rental" ? { rentalDistanceNegotiable, rentalTimeNegotiable } : {}) } })} />
         {lockRentalCategory ? <div className="rounded-2xl border border-emerald-200 bg-emerald-50 px-4 py-3"><p className="text-xs font-black uppercase tracking-wide text-emerald-700">Service category</p><p className="mt-1 font-black text-slate-950">Rental · self-drive</p></div> : <SelectField label={t("urride.companyReg.serviceCategoryLabel")} value={fleet.serviceCategory} options={serviceCategoryOptions} onChange={updateServiceCategory} />}
         <FormInput label={fleet.serviceCategory === "Rental" ? "Rental vehicle name" : t("urride.companyReg.fleetNameLabel")} value={fleet.fleetName} onChange={(value) => onUpdate(fleet.localId, { fleetName: value })} placeholder={fleet.serviceCategory === "Rental" ? "Example: Family SUV" : t("urride.companyReg.fleetNameLabel")} error={errors[`${fleet.localId}-fleetName`]} />
         <FormInput label={t("urride.companyReg.plateLabel")} value={fleet.plateNumber} onChange={(value) => onUpdate(fleet.localId, { plateNumber: value.toUpperCase() })} placeholder={t("urride.companyReg.plateLabel")} error={errors[`${fleet.localId}-plateNumber`]} />
@@ -1525,7 +1560,24 @@ function FleetCard({ acceptedPublicIds = [], errors = {}, fleet, form, index, lo
         <FormInput label={fleet.serviceCategory === "Rental" ? "Rental service area" : t("urride.companyReg.opAreaLabel")} value={fleet.operatingArea} onChange={(value) => onUpdate(fleet.localId, { operatingArea: value })} placeholder={fleet.serviceCategory === "Rental" ? "Where renters can collect this vehicle" : t("urride.companyReg.opAreaPlaceholder")} error={errors[`${fleet.localId}-operatingArea`]} />
         <FormInput label={fleet.serviceCategory === "Rental" ? "Primary pickup base" : t("urride.companyReg.homeBaseLabel")} value={fleet.homeBase} onChange={(value) => onUpdate(fleet.localId, { homeBase: value })} placeholder={fleet.serviceCategory === "Rental" ? "Pickup office or vehicle base" : t("urride.companyReg.homeBasePlaceholder")} error={errors[`${fleet.localId}-homeBase`]} />
       </div>
-      {fleet.serviceCategory === "Rental" ? <div className="mt-5 rounded-2xl border border-emerald-200 bg-emerald-50 p-4 text-sm font-semibold leading-6 text-emerald-900">This is a company-managed self-drive vehicle. No operator request will be created. After adding it, you will continue in Rentals to set rates, deposit, rental conditions, photos, the exact pickup pin, availability, and reservations.</div> : <section className="mt-5 rounded-3xl border border-blue-100 bg-white p-4">
+      {fleet.serviceCategory === "Rental" ? <>
+        <section className="mt-5 rounded-3xl border border-emerald-200 bg-white p-4">
+          <p className="text-xs font-black uppercase tracking-[0.18em] text-emerald-700">Rental pricing</p>
+          <h4 className="mt-1 text-lg font-black text-slate-950">Set distance and time pricing</h4>
+          <p className="mt-1 text-sm font-semibold leading-6 text-slate-600">Enter a clear price or mark that pricing method as negotiable. These choices will be carried into the rental listing.</p>
+          <div className="mt-4 grid gap-4 md:grid-cols-2">
+            <div className="rounded-2xl border border-slate-200 bg-slate-50 p-4">
+              <FormInput disabled={rentalDistanceNegotiable} label={`Price per kilometre (${form.currency || "SLE"})`} type="number" value={fleet.pricePerKm} onChange={(value) => onUpdate(fleet.localId, { pricePerKm: value })} placeholder="0" helper="The distance charge that may be added based on kilometres used." error={errors[`${fleet.localId}-pricePerKm`]} />
+              <label className="mt-3 flex items-start gap-3 text-sm font-bold text-slate-700"><input type="checkbox" checked={rentalDistanceNegotiable} onChange={(event) => updateRentalNegotiation("rentalDistanceNegotiable", "pricePerKm", event.target.checked)} className="mt-0.5 h-5 w-5 accent-emerald-700" /><span>Distance price is negotiable</span></label>
+            </div>
+            <div className="rounded-2xl border border-slate-200 bg-slate-50 p-4">
+              <FormInput disabled={rentalTimeNegotiable} label={`Price per hour (${form.currency || "SLE"})`} type="number" value={fleet.pricePerHour} onChange={(value) => onUpdate(fleet.localId, { pricePerHour: value })} placeholder="0" helper="You can add daily and weekly prices from the Rentals dashboard." error={errors[`${fleet.localId}-pricePerHour`]} />
+              <label className="mt-3 flex items-start gap-3 text-sm font-bold text-slate-700"><input type="checkbox" checked={rentalTimeNegotiable} onChange={(event) => updateRentalNegotiation("rentalTimeNegotiable", "pricePerHour", event.target.checked)} className="mt-0.5 h-5 w-5 accent-emerald-700" /><span>Time price is negotiable</span></label>
+            </div>
+          </div>
+        </section>
+        <div className="mt-5 rounded-2xl border border-emerald-200 bg-emerald-50 p-4 text-sm font-semibold leading-6 text-emerald-900">This is a company-managed self-drive vehicle. No operator request will be created. After adding it, you will continue in Rentals to confirm rates, deposit, rental conditions, photos, the exact pickup pin, availability, and reservations.</div>
+      </> : <section className="mt-5 rounded-3xl border border-blue-100 bg-white p-4">
         <p className="text-xs font-black uppercase tracking-[0.18em] text-blue-700">{t("urride.companyReg.pricingEyebrow")}</p>
         <h4 className="mt-1 text-lg font-black text-slate-950">{t("urride.companyReg.pricingHeading")}</h4>
         <p className="mt-1 text-sm font-semibold leading-6 text-slate-500">{t("urride.companyReg.pricingBody")}</p>
@@ -1847,17 +1899,19 @@ function PricingGuide({ type, open, onToggle, onViewOneKm }) {
   );
 }
 
-function FormInput({ error = "", helper = "", label, onChange, placeholder = "", type = "text", value }) {
+function FormInput({ disabled = false, error = "", helper = "", label, onChange, placeholder = "", type = "text", value }) {
   return (
     <label className="block" data-field-error={error ? "true" : undefined}>
       <span className="mb-2 block text-sm font-bold text-slate-700">{label}</span>
       <input
         type={type}
+        min={type === "number" ? "0" : undefined}
+        disabled={disabled}
         value={value || ""}
         onChange={(event) => onChange(event.target.value)}
         placeholder={placeholder}
         aria-invalid={error ? "true" : undefined}
-        className={`h-12 w-full rounded-2xl border bg-slate-50 px-4 text-sm font-semibold outline-none placeholder:text-slate-400 focus:border-blue-500 focus:bg-white focus:ring-4 focus:ring-blue-100 ${error ? "border-rose-300" : "border-slate-200"}`}
+        className={`h-12 w-full rounded-2xl border bg-slate-50 px-4 text-sm font-semibold outline-none placeholder:text-slate-400 focus:border-blue-500 focus:bg-white focus:ring-4 focus:ring-blue-100 disabled:cursor-not-allowed disabled:bg-slate-200 disabled:text-slate-500 ${error ? "border-rose-300" : "border-slate-200"}`}
       />
       {error ? <span className="mt-2 block text-xs font-bold leading-5 text-rose-700" role="alert">{error}</span> : null}
       {helper ? <span className="mt-2 block text-xs font-semibold leading-5 text-slate-500">{helper}</span> : null}

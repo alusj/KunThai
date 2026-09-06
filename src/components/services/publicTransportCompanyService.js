@@ -56,6 +56,9 @@ function normalizeRental(row = {}) {
     ratePerHour: toNumber(row.rate_per_hour),
     ratePerDay: toNumber(row.rate_per_day),
     ratePerWeek: toNumber(row.rate_per_week),
+    distanceRate: toNumber(row.distance_rate),
+    timeNegotiable: Boolean(row.time_negotiable),
+    distanceNegotiable: Boolean(row.distance_negotiable),
     pickupAddress: text(row.pickup_address),
     photos: Array.isArray(row.photos) ? row.photos.filter(Boolean) : [],
   };
