@@ -37,6 +37,7 @@ import { useBrowserBack } from "../../Backend/hooks/useBrowserBack";
 import { resizedImageUrl } from "../../Backend/lib/imageProxy";
 import { useI18n, t } from "../../i18n";
 import { t as i18nText } from "../../i18n/index";
+import SaveOperatorButton from "./SaveOperatorButton";
 
 function cleanAreaText(value) {
   const text = String(value || "").trim();
@@ -366,6 +367,10 @@ export default function FleetProfileScreen({ fleetId, onBack, onOpenCompany, onS
               >
                 {t("urride.fleetProfile.viewWriteReviews")}
               </button>
+              <SaveOperatorButton
+                fleet={fleet}
+                className="kt-touchable flex h-12 items-center justify-center gap-2 rounded-2xl border border-rose-200 bg-rose-50 text-sm font-black text-rose-700 transition hover:bg-rose-100 disabled:border-emerald-200 disabled:bg-emerald-50 disabled:text-emerald-700"
+              />
             </div>
           </section>
         </aside>

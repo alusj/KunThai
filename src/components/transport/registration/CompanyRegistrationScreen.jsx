@@ -191,7 +191,7 @@ function createCompanyForm(profile = {}) {
     taxId: "",
     ownerName: name,
     ownerPublicId: getKunThaiPublicUserId(profile),
-    phone: profile.phone || "",
+    phone: profile.phone || profile.phoneNumber || profile.phone_number || "",
     email: profile.email || "",
     country: profile.country || countryProfile.name,
     countryCode: countryProfile.iso2,
@@ -367,6 +367,15 @@ export default function CompanyRegistrationScreen({ existingCompany = null, mode
     // loader for a profile/draft fetch that this mode does not use.
     if (incrementalFleetMode) {
       setInitializing(false);
+      getOnboardingProfile()
+        .then((profile) => {
+          if (!alive) return;
+          const accountPhone = String(profile?.phone || profile?.phoneNumber || profile?.phone_number || "").trim();
+          if (accountPhone) {
+            setForm((current) => ({ ...current, phone: current.phone || accountPhone }));
+          }
+        })
+        .catch(() => {});
       return () => {
         alive = false;
       };
@@ -386,6 +395,7 @@ export default function CompanyRegistrationScreen({ existingCompany = null, mode
           const nextForm = {
             ...createCompanyForm(profile || {}),
             ...company,
+            phone: company.phone || createCompanyForm(profile || {}).phone,
             ownerPublicId: company.ownerPublicId || getKunThaiPublicUserId({ ...(profile || {}), userId: source.userId }),
             documents: company.documents || {},
           };
@@ -435,7 +445,9 @@ export default function CompanyRegistrationScreen({ existingCompany = null, mode
     const fleetReady = fleets.some((fleet) =>
       fleet.fleetType &&
       fleet.plateNumber &&
-      getFleetDocumentRequirements(form, fleet).some((requirement) => fleet.documents?.[documentStorageKey(requirement)])
+      getFleetImageRequirements(form).every((requirement) =>
+        fleet.documents?.[fleetImageDocumentKey(documentStorageKey(requirement))]
+      )
     );
     const documentReady = companyDocumentRequirements.some((requirement) => form.documents?.[documentStorageKey(requirement)]);
     return [
@@ -517,6 +529,7 @@ export default function CompanyRegistrationScreen({ existingCompany = null, mode
           : fleet,
       ),
     );
+    clearFieldError(`${fleetId}-${document}`);
     clearStatus();
   }
 
@@ -545,6 +558,7 @@ export default function CompanyRegistrationScreen({ existingCompany = null, mode
       publicIdAliases: operator.publicIdAliases || [],
       name: operator.name,
       city: operator.city,
+      phone: operator.phone || "",
       verificationStatus: operator.verificationStatus,
       status: i18nText("ui.literals.ke22586930a5b"),
       documents: {},
@@ -620,10 +634,15 @@ export default function CompanyRegistrationScreen({ existingCompany = null, mode
         if (incrementalFleetMode && fleet.serviceCategory !== "Rental" && !(fleet.operators || []).length) {
           nextErrors[`${fleet.localId}-operators`] = t("urride.companyReg.reqOperatorId");
         }
+        getFleetImageRequirements(form).forEach((requirement) => {
+          const imageKey = fleetImageDocumentKey(documentStorageKey(requirement));
+          if (!fleet.documents?.[imageKey]) {
+            nextErrors[`${fleet.localId}-${imageKey}`] = `${labelPrefix}${t("urride.companyReg.reqSuffix", { label: requirement.label })}`;
+          }
+        });
       });
-      // Fleet photos and vehicle documents are intentionally NOT required to
-      // submit: Fleet HQ follows "register first, upload later". The company
-      // stays unverified until KunThai reviews the documents.
+      // Public fleet photos are required so passengers can identify the actual
+      // vehicle. Verification documents remain optional at registration time.
     }
 
     return nextErrors;
@@ -1603,7 +1622,7 @@ function FleetCard({ acceptedPublicIds = [], errors = {}, fleet, form, index, lo
           <FormInput label={t("urride.companyReg.priceNoteLabel")} value={fleet.priceHint} onChange={(value) => onUpdate(fleet.localId, { priceHint: value })} placeholder={t("urride.companyReg.priceNotePlaceholder")} helper={t("urride.companyReg.priceNoteHelper")} />
         </div>
       </section>}
-      <FleetImagesSection fleet={fleet} form={form} onUploadDocument={onUploadDocument} />
+      <FleetImagesSection errors={errors} fleet={fleet} form={form} onUploadDocument={onUploadDocument} />
       <section className="mt-5">
         <h4 className="font-black text-slate-950">{t("urride.companyReg.vehicleDocsTitle")}</h4>
         <p className="mt-1 text-xs font-semibold text-slate-500">{t("urride.companyReg.vehicleDocsNote")}</p>
@@ -1668,7 +1687,7 @@ function FleetCard({ acceptedPublicIds = [], errors = {}, fleet, form, index, lo
   );
 }
 
-function FleetImagesSection({ fleet, form, onUploadDocument }) {
+function FleetImagesSection({ errors = {}, fleet, form, onUploadDocument }) {
   const imageRequirements = getFleetImageRequirements(form);
   const imageCount = imageRequirements.filter((requirement) => fleet.documents?.[fleetImageDocumentKey(documentStorageKey(requirement))]).length;
   return (
@@ -1682,6 +1701,10 @@ function FleetImagesSection({ fleet, form, onUploadDocument }) {
       </div>
       <DocumentGrid
         documents={imageRequirements.map((requirement) => documentGridItem(requirement, "Fleet image - "))}
+        errors={Object.fromEntries(imageRequirements.map((requirement) => {
+          const key = fleetImageDocumentKey(documentStorageKey(requirement));
+          return [key, errors[`${fleet.localId}-${key}`] || ""];
+        }))}
         uploads={fleet.documents}
         onUpload={(document, file) => onUploadDocument(fleet.localId, document, file)}
       />
@@ -1831,7 +1854,7 @@ function CompanyReviewStep({ fleets, form }) {
   );
 }
 
-function DocumentGrid({ compact = false, documents, onUpload, uploads = {} }) {
+function DocumentGrid({ compact = false, documents, errors = {}, onUpload, uploads = {} }) {
   return (
     <div className={`mt-4 grid gap-3 ${compact ? "sm:grid-cols-3" : "md:grid-cols-2 xl:grid-cols-4"}`}>
       {documents.map((document) => {
@@ -1842,6 +1865,7 @@ function DocumentGrid({ compact = false, documents, onUpload, uploads = {} }) {
             key={key}
             label={label}
             value={uploads?.[key]}
+            error={errors[key]}
             onChange={(file) => onUpload(key, file)}
           />
         );
@@ -1850,14 +1874,15 @@ function DocumentGrid({ compact = false, documents, onUpload, uploads = {} }) {
   );
 }
 
-function UploadField({ label, onChange, value }) {
+function UploadField({ error = "", label, onChange, value }) {
   const displayLabel = String(label || "").replace(/^Fleet image - /, "");
   const selectedName = typeof value === "string" ? value : value?.fileName || value?.name || "";
   return (
-    <label className="block rounded-2xl border border-dashed border-slate-200 bg-white p-3">
+    <label data-field-error={error ? "true" : undefined} className={`block rounded-2xl border border-dashed bg-white p-3 ${error ? "border-rose-300" : "border-slate-200"}`}>
       <span className="flex items-center gap-2 text-sm font-black text-slate-800"><FiFileText /> {displayLabel}</span>
       <input type="file" className="mt-3 block w-full text-xs font-semibold text-slate-500 file:mr-3 file:rounded-full file:border-0 file:bg-slate-950 file:px-3 file:py-2 file:text-xs file:font-black file:text-white" onChange={(event) => onChange(event.target.files?.[0])} />
       {selectedName ? <span className="mt-2 block truncate text-xs font-black text-emerald-700">{selectedName}</span> : null}
+      {error ? <span className="mt-2 block text-xs font-bold text-rose-700" role="alert">{error}</span> : null}
     </label>
   );
 }

@@ -1,6 +1,7 @@
 import { createElement, useEffect, useRef, useState } from "react";
 import { FiClock, FiMapPin, FiStar, FiTrash2 } from "react-icons/fi";
-import { fetchSavedOperators, getSavedOperators } from "../services/passengerTransportService";
+import { fetchSavedOperators, getSavedOperators, removeSavedTransportOperator } from "../services/passengerTransportService";
+import { showToast } from "../../Backend/services/toastService";
 import AppBackTab from "../shared/AppBackTab";
 import VerificationBadge from "./verification/VerificationBadge";
 import { useI18n, t } from "../../i18n";
@@ -58,6 +59,16 @@ export default function SavedOperatorsScreen({ onBack, onViewFleet, onShowVerifi
       alive = false;
     };
   }, []);
+
+  async function removeSavedOperator(saved) {
+    try {
+      const next = await removeSavedTransportOperator(saved.id);
+      setSavedOperators(next);
+      showToast(t("urride.saved.operatorRemoved"), "success");
+    } catch (removeError) {
+      showToast(removeError.message || t("urride.saved.removeError"), "danger");
+    }
+  }
 
   return (
     <div className="kt-mobile-viewport kt-safe-screen bg-gray-50" data-back-swipe-scope>
@@ -132,7 +143,7 @@ export default function SavedOperatorsScreen({ onBack, onViewFleet, onShowVerifi
                   disabled={saved.fleet?.activeStatus !== "active"}
                   className="h-10 rounded-2xl bg-green-600 px-4 text-sm font-bold text-white hover:bg-green-700 disabled:bg-gray-200 disabled:text-gray-500"
                 >
-                  {saved.fleet?.activeStatus === "active" ? t("urride.saved.bookAgain") : t("urride.saved.offline")}
+                  {saved.fleet?.activeStatus === "active" ? t("urride.saved.openBooking") : t("urride.saved.offline")}
                 </button>
                 <button
                   type="button"
@@ -141,7 +152,7 @@ export default function SavedOperatorsScreen({ onBack, onViewFleet, onShowVerifi
                 >
                   {t("urride.saved.viewProfile")}
                 </button>
-                <button type="button" className="flex items-center justify-center gap-2 text-sm font-bold text-red-600">
+                <button type="button" onClick={() => removeSavedOperator(saved)} className="flex items-center justify-center gap-2 text-sm font-bold text-red-600">
                   <FiTrash2 size={15} />
                   {t("urride.saved.remove")}
                 </button>

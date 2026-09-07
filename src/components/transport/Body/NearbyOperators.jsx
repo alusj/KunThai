@@ -11,6 +11,7 @@ import VerificationDetailsModal from "../verification/VerificationDetailsModal";
 import { verificationStatuses } from "../verification/verificationStatus";
 import { useI18n, t } from "../../../i18n";
 import RentalCatalogue from "../rentals/RentalCatalogue";
+import SaveOperatorButton from "../SaveOperatorButton";
 
 function matchesQuery(operator, query) {
   const term = String(query || "").trim().toLowerCase();
@@ -246,6 +247,10 @@ export default function NearbyOperators({
                 >
                   {t("urride.operators.profile")}
                 </button>
+                <SaveOperatorButton
+                  fleet={operator}
+                  className="flex h-10 items-center justify-center gap-2 rounded-xl border border-rose-200 bg-rose-50 px-3 text-xs font-black text-rose-700 transition hover:bg-rose-100 disabled:border-emerald-200 disabled:bg-emerald-50 disabled:text-emerald-700 sm:col-span-2 lg:col-span-1"
+                />
               </div>
             </article>
           );

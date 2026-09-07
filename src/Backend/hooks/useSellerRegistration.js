@@ -291,10 +291,21 @@ export function useSellerRegistration({ mode = "create", onComplete } = {}) {
     let alive = true;
     setLoadingExisting(true);
 
-    readRegisteredBusiness()
-      .then((business) => {
+    Promise.all([
+      readRegisteredBusiness(),
+      getOnboardingProfile().catch(() => null),
+    ])
+      .then(([business, profile]) => {
         if (!alive) return;
-        setForm(formFromRegisteredBusiness(business));
+        const nextForm = formFromRegisteredBusiness(business);
+        const accountPhone = getAccountPhone(profile);
+        setForm({
+          ...nextForm,
+          location: {
+            ...nextForm.location,
+            phone: nextForm.location.phone || accountPhone,
+          },
+        });
         setStep(0);
         setDraftStatus("");
       })

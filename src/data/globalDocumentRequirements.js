@@ -28,17 +28,17 @@ export function formatDocumentRequirementLabel(requirement) {
 }
 
 export const URRIDE_FLEET_IMAGE_REQUIREMENTS = Object.freeze([
-  { key: "front_view", label: "Front view", legacyLabel: "Front view", inlineNote: IF_APPLICABLE_NOTE, required: true },
-  { key: "back_view", label: "Back view", legacyLabel: "Back view", inlineNote: IF_APPLICABLE_NOTE, required: true },
-  { key: "left_side", label: "Left side", legacyLabel: "Left side", inlineNote: IF_APPLICABLE_NOTE, required: true },
-  { key: "right_side", label: "Right side", legacyLabel: "Right side", inlineNote: IF_APPLICABLE_NOTE, required: true },
+  { key: "front_view", label: "Front view", legacyLabel: "Front view", inlineNote: "", required: true },
+  { key: "back_view", label: "Back view", legacyLabel: "Back view", inlineNote: "", required: true },
+  { key: "left_side", label: "Left side", legacyLabel: "Left side", inlineNote: "", required: true },
+  { key: "right_side", label: "Right side", legacyLabel: "Right side", inlineNote: "", required: true },
 ]);
 
 export const URRIDE_COMPANY_DOCUMENT_REQUIREMENTS = Object.freeze([
-  { key: "business_registration", label: "Business registration", legacyLabel: "Business registration", inlineNote: IF_APPLICABLE_NOTE, required: true },
-  { key: "transport_permit", label: "Transport permit", legacyLabel: "Transport permit", inlineNote: IF_APPLICABLE_NOTE, required: true },
-  { key: "tax_or_business_id", label: "Tax or business ID", legacyLabel: "Tax or business ID", inlineNote: IF_APPLICABLE_NOTE, required: true },
-  { key: "owner_national_id", label: "Owner national ID", legacyLabel: "Owner national ID", inlineNote: IF_APPLICABLE_NOTE, required: true },
+  { key: "business_registration", label: "Business registration", legacyLabel: "Business registration", inlineNote: IF_APPLICABLE_NOTE, required: false },
+  { key: "transport_permit", label: "Transport permit", legacyLabel: "Transport permit", inlineNote: IF_APPLICABLE_NOTE, required: false },
+  { key: "tax_or_business_id", label: "Tax or business ID", legacyLabel: "Tax or business ID", inlineNote: IF_APPLICABLE_NOTE, required: false },
+  { key: "owner_national_id", label: "Owner national ID", legacyLabel: "Owner national ID", inlineNote: IF_APPLICABLE_NOTE, required: false },
 ]);
 
 export const URRIDE_DOCUMENT_REQUIREMENTS = Object.freeze([
@@ -47,14 +47,14 @@ export const URRIDE_DOCUMENT_REQUIREMENTS = Object.freeze([
     label: "National ID",
     legacyLabel: "National ID",
     inlineNote: IF_APPLICABLE_NOTE,
-    required: true,
+    required: false,
   },
   {
     key: "operator_photo",
     label: "Operator selfie/photo",
     legacyLabel: "Operator selfie/photo",
     inlineNote: IF_APPLICABLE_NOTE,
-    required: true,
+    required: false,
     publicMediaRole: "operator_photo",
   },
   {
@@ -62,28 +62,28 @@ export const URRIDE_DOCUMENT_REQUIREMENTS = Object.freeze([
     label: "Driver or rider license",
     legacyLabel: "Driver or rider license",
     inlineNote: IF_APPLICABLE_NOTE,
-    required: true,
+    required: false,
   },
   {
     key: "vehicle_registration",
     label: "Vehicle registration",
     legacyLabel: "Vehicle registration",
     inlineNote: IF_APPLICABLE_NOTE,
-    required: true,
+    required: false,
   },
   {
     key: "insurance_document",
     label: "Insurance document",
     legacyLabel: "Insurance document",
     inlineNote: IF_APPLICABLE_NOTE,
-    required: true,
+    required: false,
   },
   {
     key: "roadworthiness_certificate",
     label: "Road worthiness or inspection certificate",
     legacyLabel: "Road worthiness or inspection certificate",
     inlineNote: IF_APPLICABLE_NOTE,
-    required: true,
+    required: false,
     appliesToCategories: ["Transport", "Both"],
   },
   {
@@ -91,7 +91,7 @@ export const URRIDE_DOCUMENT_REQUIREMENTS = Object.freeze([
     label: "Passenger interior or seating photo",
     legacyLabel: "Passenger interior or seating photo",
     inlineNote: IF_APPLICABLE_NOTE,
-    required: true,
+    required: false,
     appliesToCategories: ["Transport", "Both"],
   },
   {
@@ -99,7 +99,7 @@ export const URRIDE_DOCUMENT_REQUIREMENTS = Object.freeze([
     label: "Delivery box, bag, or storage photo",
     legacyLabel: "Delivery box, bag, or storage photo",
     inlineNote: IF_APPLICABLE_NOTE,
-    required: true,
+    required: false,
     appliesToCategories: ["Delivery", "Both"],
   },
   {
@@ -107,7 +107,7 @@ export const URRIDE_DOCUMENT_REQUIREMENTS = Object.freeze([
     label: "Item handling agreement",
     legacyLabel: "Item handling agreement",
     inlineNote: IF_APPLICABLE_NOTE,
-    required: true,
+    required: false,
     appliesToCategories: ["Delivery", "Both"],
   },
 ]);
@@ -121,7 +121,7 @@ export const URMALL_DOCUMENT_REQUIREMENTS = Object.freeze([
     nameField: "idDocumentName",
     errorKey: "idDocument",
     inlineNote: IF_APPLICABLE_NOTE,
-    required: true,
+    required: false,
   },
   {
     key: "business_registration",
@@ -131,7 +131,7 @@ export const URMALL_DOCUMENT_REQUIREMENTS = Object.freeze([
     nameField: "businessDocumentName",
     errorKey: "businessDocument",
     inlineNote: IF_APPLICABLE_NOTE,
-    required: true,
+    required: false,
   },
 ]);
 

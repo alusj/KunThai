@@ -56,7 +56,9 @@ export function buildProfileFromUser(user) {
     currency: metadata.currency || countryProfile.currency.code,
     address: metadata.address ?? "",
     email: metadata.contact_email ?? user?.email ?? "",
-    phone: metadata.phone_number ?? user?.phone ?? "",
+    // Older phone-auth accounts can have an empty metadata phone even though
+    // Supabase Auth still has the original verified number on user.phone.
+    phone: metadata.phone_number || user?.phone || "",
     avatarUrl: metadata.avatar_url ?? metadata.picture ?? "",
     bio: metadata.bio ?? "",
     socialLinks: normalizeSocialLinks(metadata.social_links),

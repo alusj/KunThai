@@ -309,6 +309,7 @@ function normalizeInvite(invite = {}) {
     publicIdAliases: Array.isArray(invite.publicIdAliases || invite.public_id_aliases) ? (invite.publicIdAliases || invite.public_id_aliases) : [],
     name: invite.name || invite.operator_name || "Registered operator",
     city: invite.city || invite.operator_city || "",
+    phone: invite.phone || invite.operator_phone || "",
     verificationStatus: invite.verificationStatus || invite.verification_status || "pending",
     status: invite.status || "pending",
     documents: safeParse(invite.documents) || invite.documents || {},
@@ -1429,6 +1430,14 @@ export async function saveTransportCompanyAccount(account) {
     documents: await prepareCompanyDocuments(normalized.documents, user.id),
     fleets: await prepareCompanyFleetPublicMedia(normalized.fleets, user.id),
   };
+  const persistedIdPattern = /^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i;
+  const fleetWithoutRequiredImages = normalized.fleets.find((fleet) => {
+    const isExistingIncrementalFleet = incrementalFleetMode && persistedIdPattern.test(String(fleet.id || ""));
+    return !isExistingIncrementalFleet && (fleet.publicFleetPhotos || []).length < 4;
+  });
+  if (fleetWithoutRequiredImages) {
+    throw new Error(`Upload the required front, back, left-side, and right-side images for ${fleetWithoutRequiredImages.fleetName || "every fleet"} before saving.`);
+  }
 
   try {
     const companyPayload = {

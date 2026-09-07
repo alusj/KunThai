@@ -30,7 +30,9 @@ import {
 } from "../services/bookingService";
 import {
   fetchActiveTrips,
+  fetchPassengerTrips,
   getActiveTrips,
+  getPassengerTrips,
   subscribePassengerTrips,
 } from "../services/passengerTransportService";
 import { showToast } from "../../Backend/services/toastService";
@@ -38,6 +40,7 @@ import AppBackTab from "../shared/AppBackTab";
 import LiveTripMetric from "./live/LiveTripMetric";
 import VerificationBadge from "./verification/VerificationBadge";
 import { useI18n, t } from "../../i18n";
+import SaveOperatorButton from "./SaveOperatorButton";
 
 const tripSteps = [
   { key: "requested", labelKey: "urride.activeTrips.stepRequested" },
@@ -57,6 +60,7 @@ export default function ActiveTripsScreen({ onBack, onViewFleet, onShowVerificat
   const [actionMessage, setActionMessage] = useState("");
   const [actionScreen, setActionScreen] = useState(null);
   const [completedTrip, setCompletedTrip] = useState(null);
+  const [activeTab, setActiveTab] = useState("active");
   const handledInitialActionRef = useRef("");
   const tripsRef = useRef(trips);
 
@@ -65,7 +69,10 @@ export default function ActiveTripsScreen({ onBack, onViewFleet, onShowVerificat
   }, [trips]);
 
   const loadTrips = useCallback(async ({ quiet = false } = {}) => {
-    const localTrips = getActiveTrips();
+    const historyMode = activeTab === "history";
+    const localTrips = historyMode
+      ? getPassengerTrips().filter((trip) => trip.group === "previous")
+      : getActiveTrips();
     const hasExistingTrips = tripsRef.current.length > 0 || localTrips.length > 0;
 
     try {
@@ -81,7 +88,10 @@ export default function ActiveTripsScreen({ onBack, onViewFleet, onShowVerificat
         setRefreshing(false);
       }
       setError("");
-      setTrips(await fetchActiveTrips());
+      const remoteTrips = historyMode
+        ? (await fetchPassengerTrips()).filter((trip) => trip.group === "previous")
+        : await fetchActiveTrips();
+      setTrips(remoteTrips);
     } catch (err) {
       setError(hasExistingTrips ? "" : err.message || t("urride.activeTrips.loadError"));
       if (!hasExistingTrips) {
@@ -91,7 +101,7 @@ export default function ActiveTripsScreen({ onBack, onViewFleet, onShowVerificat
       setLoading(false);
       setRefreshing(false);
     }
-  }, []);
+  }, [activeTab]);
 
   useEffect(() => {
     loadTrips();
@@ -101,6 +111,8 @@ export default function ActiveTripsScreen({ onBack, onViewFleet, onShowVerificat
   useEffect(() => {
     const requestedTripId = initialActionRequest?.tripId;
     if (!requestedTripId || !trips.length) return;
+
+    setActiveTab("active");
 
     const key = `${requestedTripId}:${initialActionRequest.type || "hub"}`;
     if (handledInitialActionRef.current === key) return;
@@ -174,6 +186,8 @@ export default function ActiveTripsScreen({ onBack, onViewFleet, onShowVerificat
       />
 
       <main className="w-full px-3 py-4 sm:px-5 xl:px-8">
+        <TripTabs activeTab={activeTab} onChange={setActiveTab} />
+
         {actionMessage ? (
           <p className="mb-4 rounded-2xl border border-emerald-100 bg-emerald-50 px-4 py-3 text-sm font-bold text-emerald-700">
             {actionMessage}
@@ -191,9 +205,9 @@ export default function ActiveTripsScreen({ onBack, onViewFleet, onShowVerificat
         {error ? (
           <EmptyState title={t("urride.activeTrips.errorTitle")} body={error} />
         ) : loading && !trips.length ? (
-          <EmptyState title={t("urride.activeTrips.loadingTitle")} body={t("urride.activeTrips.loadingBody")} />
+          <EmptyState title={activeTab === "history" ? t("urride.activeTrips.loadingHistoryTitle") : t("urride.activeTrips.loadingTitle")} body={activeTab === "history" ? t("urride.activeTrips.loadingHistoryBody") : t("urride.activeTrips.loadingBody")} />
         ) : trips.length === 0 ? (
-          <EmptyState title={t("urride.activeTrips.emptyTitle")} body={t("urride.activeTrips.emptyBody")} />
+          <EmptyState title={activeTab === "history" ? t("urride.activeTrips.emptyHistoryTitle") : t("urride.activeTrips.emptyTitle")} body={activeTab === "history" ? t("urride.activeTrips.emptyHistoryBody") : t("urride.activeTrips.emptyBody")} />
         ) : (
           <div className="grid gap-3 xl:grid-cols-2">
             {trips.map((trip) => (
@@ -212,6 +226,8 @@ export default function ActiveTripsScreen({ onBack, onViewFleet, onShowVerificat
                 )}
                 onViewFleet={() => trip.fleetId && onViewFleet(trip.fleetId)}
                 onShowVerification={() => trip.fleet && onShowVerification(trip.fleet)}
+                onReport={() => setActionScreen({ type: "report", trip })}
+                onReview={() => setActionScreen({ type: "review", trip })}
               />
             ))}
           </div>
@@ -233,8 +249,8 @@ function ScreenHeader({ refreshing, onRefresh, onBack }) {
           className="rounded-full border border-gray-200 bg-white hover:bg-gray-50"
         />
         <div className="min-w-0 flex-1">
-          <h1 className="truncate text-lg font-black text-gray-950">{t("urride.activeTrips.title")}</h1>
-          <p className="truncate text-xs text-gray-500">{t("urride.activeTrips.subtitle")}</p>
+          <h1 className="truncate text-lg font-black text-gray-950">{t("urride.activeTrips.tripsTitle")}</h1>
+          <p className="truncate text-xs text-gray-500">{t("urride.activeTrips.tripsSubtitle")}</p>
         </div>
         <button type="button" onClick={onRefresh} className="flex h-10 w-10 items-center justify-center rounded-full border border-gray-200 bg-white text-gray-700" aria-label={t("urride.activeTrips.refresh")}>
           <FiRefreshCw size={17} className={refreshing ? "animate-spin" : ""} />
@@ -244,7 +260,29 @@ function ScreenHeader({ refreshing, onRefresh, onBack }) {
   );
 }
 
-function TripCard({ trip, onOpenActions, onCancel, onConfirmStart, onDeclineStart, onViewFleet, onShowVerification }) {
+function TripTabs({ activeTab, onChange }) {
+  return (
+    <div className="mb-4 flex w-full gap-2 overflow-x-auto rounded-2xl border border-slate-200 bg-white p-1.5 shadow-sm" role="tablist" aria-label={t("urride.activeTrips.tripsTitle")}>
+      {[
+        ["active", t("urride.activeTrips.activeTab")],
+        ["history", t("urride.activeTrips.historyTab")],
+      ].map(([key, label]) => (
+        <button
+          key={key}
+          type="button"
+          role="tab"
+          aria-selected={activeTab === key}
+          onClick={() => onChange(key)}
+          className={`h-11 min-w-[148px] flex-1 whitespace-nowrap rounded-xl px-4 text-sm font-black transition ${activeTab === key ? "bg-slate-950 text-white shadow-sm" : "text-slate-600 hover:bg-slate-50"}`}
+        >
+          {label}
+        </button>
+      ))}
+    </div>
+  );
+}
+
+function TripCard({ trip, onOpenActions, onCancel, onConfirmStart, onDeclineStart, onViewFleet, onShowVerification, onReport, onReview }) {
   useI18n();
   const isLive = ["in_progress", "paused"].includes(trip.rawStatus);
   const canCancel = ["requested", "waiting_operator", "pending_confirmation", "accepted", "arrived"].includes(trip.rawStatus);
@@ -320,6 +358,13 @@ function TripCard({ trip, onOpenActions, onCancel, onConfirmStart, onDeclineStar
       {canCancel ? (
         <div className="mt-3">
           <ActionButton label={t("urride.activeTrips.cancelBooking")} icon={FiXCircle} danger onClick={onCancel} />
+        </div>
+      ) : null}
+      {trip.rawStatus === "completed" ? (
+        <div className="mt-4 grid gap-2 sm:grid-cols-3">
+          <button type="button" onClick={onReport} className="h-10 rounded-xl border border-red-100 bg-red-50 text-xs font-black text-red-700">{t("urride.activeTrips.reportOperator")}</button>
+          <button type="button" onClick={onReview} className="h-10 rounded-xl bg-emerald-600 text-xs font-black text-white">{t("urride.activeTrips.ratePerformance")}</button>
+          <SaveOperatorButton fleet={trip.fleet} />
         </div>
       ) : null}
     </article>
@@ -572,9 +617,10 @@ function CompletionNotice({ trip, onReport, onReview }) {
     <section className="mb-4 rounded-2xl border border-emerald-100 bg-emerald-50 p-4 shadow-sm">
       <p className="text-xs font-black uppercase tracking-[0.16em] text-emerald-700">{t("urride.activeTrips.tripEndedNotice")}</p>
       <h2 className="mt-1 text-base font-black text-slate-950">{trip.title}</h2>
-      <div className="mt-3 grid gap-2 sm:grid-cols-2">
+      <div className="mt-3 grid gap-2 sm:grid-cols-3">
         <button type="button" onClick={onReport} className="h-11 rounded-xl border border-red-100 bg-white text-sm font-black text-red-700">{t("urride.activeTrips.reportOperator")}</button>
         <button type="button" onClick={onReview} className="h-11 rounded-xl bg-emerald-600 text-sm font-black text-white">{t("urride.activeTrips.ratePerformance")}</button>
+        <SaveOperatorButton fleet={trip.fleet} className="flex h-11 items-center justify-center gap-2 rounded-xl border border-rose-200 bg-white px-3 text-sm font-black text-rose-700 disabled:border-emerald-200 disabled:bg-emerald-50 disabled:text-emerald-700" />
       </div>
     </section>
   );

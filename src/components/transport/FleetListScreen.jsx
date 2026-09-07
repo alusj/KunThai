@@ -10,6 +10,7 @@ import AppBackTab from "../shared/AppBackTab";
 import VerificationBadge from "./verification/VerificationBadge";
 import { verificationStatuses } from "./verification/verificationStatus";
 import { useI18n, t } from "../../i18n";
+import SaveOperatorButton from "./SaveOperatorButton";
 
 function filterFleetsForSelection(items, selection) {
   return selection.verifiedOnly
@@ -245,6 +246,7 @@ function FleetListCard({ fleet, onViewCompany, onViewFleet, onShowVerification, 
         >
           {t("urride.fleetList.viewFleetProfile")}
         </button>
+        <SaveOperatorButton fleet={fleet} />
       </div>
     </article>
   );

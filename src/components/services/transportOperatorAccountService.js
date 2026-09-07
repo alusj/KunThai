@@ -109,6 +109,35 @@ function getDraftKey(userId) {
   return `${DRAFT_KEY_PREFIX}${userId}`;
 }
 
+function getFleetImageUpload(uploads = {}, requirement = {}) {
+  return uploads[`fleet-${requirement.key}`] || uploads[`fleet-${requirement.legacyLabel || requirement.label}`];
+}
+
+function mapExistingFleetPhotoUploads(fleet = {}) {
+  let photos = fleet.public_fleet_photos || [];
+  if (typeof photos === "string") photos = safeParse(photos) || [];
+  if (!Array.isArray(photos)) return {};
+
+  const byLabel = new Map(photos.map((photo) => [
+    String(photo?.label || "").trim().toLowerCase(),
+    photo,
+  ]));
+
+  return URRIDE_FLEET_IMAGE_REQUIREMENTS.reduce((uploads, requirement, index) => {
+    const label = requirement.legacyLabel || requirement.label;
+    const photo = byLabel.get(String(label).toLowerCase()) || photos[index];
+    const url = typeof photo === "string" ? photo : photo?.url || photo?.fileUrl || photo?.publicUrl || "";
+    if (url) {
+      uploads[`fleet-${requirement.key}`] = {
+        fileName: label,
+        fileUrl: url,
+        visibility: "passenger",
+      };
+    }
+    return uploads;
+  }, {});
+}
+
 async function getCurrentUserId(message = "Sign in to manage your fleet.") {
   const { data, error } = await supabase.auth.getUser();
   if (error || !data?.user?.id) throw new Error(message);
@@ -156,7 +185,7 @@ function mapOperatorAccount(row, fleet, extras = {}) {
     displayCode: row.display_code || `KT-${row.operator_code}`,
     form,
     answers: fleet?.safety_answers || {},
-    uploads: extras.uploads || {},
+    uploads: extras.uploads || mapExistingFleetPhotoUploads(fleet),
     documentsSkipped: Boolean(row.documents_skipped),
     verificationStatus: normalizeVerification(fleet?.verification_status || row.verification_status),
     activeStatus: fleet?.active_status || "offline",
@@ -791,6 +820,12 @@ export async function saveOperatorAccount(account) {
 
   if (!plateNumber) {
     throw new Error("Plate number is required so this fleet cannot be confused with another operator.");
+  }
+  const missingFleetImages = URRIDE_FLEET_IMAGE_REQUIREMENTS.filter(
+    (requirement) => !getFleetImageUpload(account.uploads || {}, requirement),
+  );
+  if (missingFleetImages.length) {
+    throw new Error("Upload the required front, back, left-side, and right-side fleet images before saving.");
   }
   const publicMedia = await prepareOperatorPublicMedia(userId, account.uploads || {});
 

@@ -19,6 +19,7 @@ import {
   constrainCountryPhoneInput,
   formatCountryMoney,
   getCountryPhoneHint,
+  validateCountryPhone,
 } from "../../../data/globalCountryProfiles";
 import {
   formatDocumentRequirementLabel,
@@ -138,8 +139,20 @@ export default function FleetEditDrawer({ account, onBack, onSaved }) {
   }
 
   async function handleSave(index) {
-    setSavingIndex(index);
     setError("");
+    const phoneValidation = validateCountryPhone(form.phone, form.countryCode || form.country);
+    if (!String(form.phone || "").trim() || !phoneValidation.valid) {
+      setError(phoneValidation.message || t("urride.fleetReg.req.phone"));
+      setOpenIndex(0);
+      return;
+    }
+    if (fleetImageCount < fleetImageRequirements.length) {
+      setError("Upload the required front, back, left-side, and right-side fleet images before saving.");
+      const mediaIndex = sections.findIndex((section) => section.key === "documents");
+      if (mediaIndex >= 0) setOpenIndex(mediaIndex);
+      return;
+    }
+    setSavingIndex(index);
     try {
       const updated = await saveOperatorAccount({
         operatorId: account.operatorId,

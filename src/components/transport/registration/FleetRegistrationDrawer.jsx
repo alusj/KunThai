@@ -325,7 +325,7 @@ export default function FleetRegistrationDrawer({ onClose, onComplete, onSaveExi
       [field]: file ? { file, fileName: file.name } : "",
     }));
     setFieldErrors((current) => clearFieldError(current, field));
-    setDocumentsSkipped(false);
+    if (field.startsWith("doc-")) setDocumentsSkipped(false);
     setStepError("");
   };
 
@@ -375,15 +375,9 @@ export default function FleetRegistrationDrawer({ onClose, onComplete, onSaveExi
     }
 
     if (targetStep === 4) {
-      if (documentsSkipped) return nextErrors;
       fleetImageRequirements.forEach((requirement) => {
         if (!getRequirementUpload(uploads, "fleet", requirement)) {
           nextErrors[requirementUploadKey("fleet", requirement)] = t("urride.fleetReg.req.suffix", { label: formatDocumentRequirementLabel(requirement) });
-        }
-      });
-      documents.forEach((requirement) => {
-        if (!getRequirementUpload(uploads, "doc", requirement)) {
-          nextErrors[requirementUploadKey("doc", requirement)] = t("urride.fleetReg.req.suffix", { label: formatDocumentRequirementLabel(requirement) });
         }
       });
       return nextErrors;
@@ -418,19 +412,25 @@ export default function FleetRegistrationDrawer({ onClose, onComplete, onSaveExi
       answers,
     );
 
-  const buildPayload = (status = "draft") => ({
-    operatorId,
-    displayCode: `KT-${operatorId}`,
-    step,
-    maxStepReached,
-    form,
-    answers: normalizedAnswers(),
-    uploads,
-    documentsSkipped,
-    verificationStatus: documentsSkipped ? "notVerified" : "pending",
-    status,
-    savedAt: new Date().toISOString(),
-  });
+  const buildPayload = (status = "draft") => {
+    const verificationDocumentsComplete = documents.every((requirement) =>
+      getRequirementUpload(uploads, "doc", requirement)
+    );
+    const verificationDeferred = documentsSkipped || !verificationDocumentsComplete;
+    return {
+      operatorId,
+      displayCode: `KT-${operatorId}`,
+      step,
+      maxStepReached,
+      form,
+      answers: normalizedAnswers(),
+      uploads,
+      documentsSkipped: verificationDeferred,
+      verificationStatus: verificationDeferred ? "notVerified" : "pending",
+      status,
+      savedAt: new Date().toISOString(),
+    };
+  };
 
   const saveDraftCheckpoint = async () => {
     setSavingDraft(true);
@@ -492,6 +492,17 @@ export default function FleetRegistrationDrawer({ onClose, onComplete, onSaveExi
   };
 
   const handleSkipDocuments = () => {
+    const imageErrors = getStepErrors(4);
+    if (Object.keys(imageErrors).length) {
+      setFieldErrors(imageErrors);
+      setStepError(t("urride.fleetReg.stepError", {
+        preview: Object.values(imageErrors).slice(0, 4).join(", "),
+        extra: "",
+      }));
+      setShowSkipWarning(false);
+      scrollToFirstBlockingFieldSoon();
+      return;
+    }
     setDocumentsSkipped(true);
     setFieldErrors({});
     setStepError("");

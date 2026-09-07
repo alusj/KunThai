@@ -8,6 +8,7 @@ const TRANSPORT_ACTIVE_PLACE_KEY = "kuntai.transport.activePlace";
 const TRANSPORT_NEXT_PICKUP_KEY = "kuntai.transport.nextPickup";
 const TRANSPORT_NEXT_DROPOFF_KEY = "kuntai.transport.nextDropoff";
 const TRANSPORT_SETTINGS_KEY = "kuntai.transport.passengerSettings";
+let transportSavedOperatorsMemory = [];
 
 const pendingTripStatuses = ["pending_confirmation", "waiting_operator", "requested", "accepted", "arrived", "start_requested", "in_progress", "paused"];
 const previousTripStatuses = ["completed", "cancelled"];
@@ -37,7 +38,7 @@ export function getPassengerTrips() {
 }
 
 export function getSavedOperators() {
-  return [];
+  return transportSavedOperatorsMemory;
 }
 
 export function getTransportSavedPlaces() {
@@ -295,7 +296,10 @@ export function subscribePassengerTrips(onChange) {
 
 export async function fetchSavedOperators() {
   const passengerId = await getCurrentPassengerId();
-  if (!passengerId) return [];
+  if (!passengerId) {
+    transportSavedOperatorsMemory = [];
+    return [];
+  }
 
   const { data, error } = await supabase
     .from("transport_saved_operators")
@@ -310,7 +314,7 @@ export async function fetchSavedOperators() {
   const savedRows = data || [];
   const fleets = await Promise.all(savedRows.map((row) => fetchTransportFleetById(row.fleet_id)));
 
-  return savedRows.map((row, index) => {
+  const savedOperators = savedRows.map((row, index) => {
     const fleet = fleets[index];
 
     return {
@@ -321,6 +325,55 @@ export async function fetchSavedOperators() {
       fleet,
     };
   }).filter((saved) => saved.fleet);
+  transportSavedOperatorsMemory = savedOperators;
+  return savedOperators;
+}
+
+function notifySavedOperatorChange(detail = {}) {
+  if (typeof window === "undefined") return;
+  window.dispatchEvent(new CustomEvent("transport-saved-operator-updated", { detail }));
+}
+
+export async function saveTransportOperator(fleet, savedAs = "Saved operator") {
+  const passengerId = await getCurrentPassengerId();
+  if (!passengerId) throw new Error("Sign in before saving an operator.");
+  if (!fleet?.id) throw new Error("This operator profile is unavailable.");
+
+  const { data, error } = await supabase
+    .from("transport_saved_operators")
+    .upsert({
+      passenger_id: passengerId,
+      fleet_id: fleet.id,
+      saved_as: savedAs,
+      updated_at: new Date().toISOString(),
+    }, { onConflict: "passenger_id,fleet_id" })
+    .select()
+    .single();
+
+  if (error) throw error;
+  invalidateTransportPassengerDashboardCache();
+  const items = await fetchSavedOperators();
+  notifySavedOperatorChange({ action: "saved", fleetId: fleet.id });
+  return items.find((item) => item.id === data?.id || item.fleetId === fleet.id) || data;
+}
+
+export async function removeSavedTransportOperator(savedId) {
+  const passengerId = await getCurrentPassengerId();
+  if (!passengerId) throw new Error("Sign in before changing saved operators.");
+  if (!savedId) throw new Error("Saved operator record is unavailable.");
+
+  const { error } = await supabase
+    .from("transport_saved_operators")
+    .delete()
+    .eq("id", savedId)
+    .eq("passenger_id", passengerId);
+  if (error) throw error;
+
+  const next = getSavedOperators().filter((item) => item.id !== savedId);
+  transportSavedOperatorsMemory = next;
+  invalidateTransportPassengerDashboardCache();
+  notifySavedOperatorChange({ action: "removed", savedId });
+  return next;
 }
 
 export async function fetchSavedOperatorCount({ force = false } = {}) {

@@ -141,6 +141,17 @@ async function fetchPublicFleetStats(fleetIds = []) {
   return new Map((data || []).map((row) => [row.fleet_id, row]));
 }
 
+async function fetchPublicFleetContacts(fleetIds = []) {
+  const ids = Array.from(new Set(fleetIds.filter(Boolean)));
+  if (!ids.length) return new Map();
+
+  const { data, error } = await supabase.rpc("get_public_transport_fleet_contacts", {
+    fleet_ids: ids,
+  });
+  if (error) return new Map();
+  return new Map((data || []).map((row) => [row.fleet_id, row]));
+}
+
 function formatLastActive(value) {
   if (!value) return "Last active time unavailable";
 
@@ -207,7 +218,7 @@ function mapOperatorReview(row) {
   };
 }
 
-function mapLiveFleet(row, companyAffiliation = null, publicStats = null) {
+function mapLiveFleet(row, companyAffiliation = null, publicStats = null, publicContact = null) {
   const operator = row.transport_operators || {};
   const serviceCategory = displayCategory(row.service_category);
   const fleetType = displayFleetType(row.fleet_type);
@@ -222,9 +233,9 @@ function mapLiveFleet(row, companyAffiliation = null, publicStats = null) {
   return {
     id: row.id,
     fleetName: row.fleet_name || `${operator.full_name || "KunThai"} ${fleetType}`,
-    operatorRecordId: operator.id || row.operator_id || "",
-    operatorName: operator.full_name || "Transport operator",
-    operatorPhone: operator.phone || "",
+    operatorRecordId: publicContact?.operator_id || operator.id || row.operator_id || "",
+    operatorName: publicContact?.operator_name || operator.full_name || "Transport operator",
+    operatorPhone: publicContact?.operator_phone || operator.phone || "",
     operatorCity: operator.city || "",
     country,
     countryCode,
@@ -378,11 +389,12 @@ async function runFleetListQuery(countryIsos = null) {
 
 async function hydrateLiveFleets(rows) {
   const data = rows || [];
-  const [affiliations, stats] = await Promise.all([
+  const [affiliations, stats, contacts] = await Promise.all([
     fetchPublicCompanyAffiliations(data.map((row) => row.operator_id)),
     fetchPublicFleetStats(data.map((row) => row.id)),
+    fetchPublicFleetContacts(data.map((row) => row.id)),
   ]);
-  return dedupeLiveFleets(data.map((row) => mapLiveFleet(row, affiliations.get(row.id), stats.get(row.id))));
+  return dedupeLiveFleets(data.map((row) => mapLiveFleet(row, affiliations.get(row.id), stats.get(row.id), contacts.get(row.id))));
 }
 
 function passengerVisibilityFilters(fleet, selection, includeOffline) {
@@ -490,11 +502,12 @@ export async function fetchTransportFleetById(id) {
   }
 
   if (!data) return null;
-  const [affiliations, stats] = await Promise.all([
+  const [affiliations, stats, contacts] = await Promise.all([
     fetchPublicCompanyAffiliations([data.operator_id]),
     fetchPublicFleetStats([data.id]),
+    fetchPublicFleetContacts([data.id]),
   ]);
-  return mapLiveFleet(data, affiliations.get(data.id), stats.get(data.id));
+  return mapLiveFleet(data, affiliations.get(data.id), stats.get(data.id), contacts.get(data.id));
 }
 
 export async function fetchTransportFleetReviews(fleet) {
