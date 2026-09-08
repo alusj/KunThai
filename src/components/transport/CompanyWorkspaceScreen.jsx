@@ -61,6 +61,7 @@ import { OperatorLiveTripHeaderCard, OperatorTripRequestCard } from "./OperatorD
 import {
   COMPANY_OPERATOR_ROLES,
   getTransportCompanyBookingQueue,
+  inviteOperatorToCompanyFleet,
   leaveTransportCompany,
   manageTransportCompanyFleet,
   manageTransportCompanyOperator,
@@ -143,6 +144,7 @@ export default function CompanyWorkspaceScreen({ company, initialTab = "Overview
   const [responsibilityOperator, setResponsibilityOperator] = useState(null);
   const [removeOperator, setRemoveOperator] = useState(null);
   const [fleetAction, setFleetAction] = useState(null);
+  const [invitationFleet, setInvitationFleet] = useState(null);
   const [fleetConfirm, setFleetConfirm] = useState(null);
   const [companyNotificationsOpen, setCompanyNotificationsOpen] = useState(false);
   const [companyNotificationSettingsOpen, setCompanyNotificationSettingsOpen] = useState(false);
@@ -203,7 +205,7 @@ export default function CompanyWorkspaceScreen({ company, initialTab = "Overview
   );
   const canManageOperators = Boolean(access.canManageOperators);
   const canManageFleets = Boolean(access.canManageFleets);
-  const canAddOperators = Boolean(access.isOwner);
+  const canAddOperators = Boolean(access.canManageOperators);
   const canAddRentalFleets = Boolean(access.isOwner || access.role === "admin");
   const canManagePlans = Boolean(access.canManagePlans || access.isOwner);
   const canViewOperatorDashboard = Boolean(access.isOwner || access.canManageOperators);
@@ -248,22 +250,11 @@ export default function CompanyWorkspaceScreen({ company, initialTab = "Overview
   // A booking is operational work, not a read receipt. Keep its badge until
   // the booking leaves the actionable queue through a status action.
   const bookingNotificationCount = bookingNotificationItems.length;
-  const metrics = useMemo(
-    () => [
-      { label: t("urride.companyWs.metricFleets"), value: fleets.length, icon: Truck, tone: "emerald" },
-      { label: t("urride.companyWs.metricOperators"), value: acceptedOperators.length, icon: UsersRound, tone: "blue" },
-      { label: t("urride.companyWs.metricRequests"), value: pendingRequests.length, icon: ClipboardList, tone: "amber" },
-      ...(canManagePlans ? [{
-        label: "Plan",
-        value: planState?.entitlement?.planName || "Free",
-        icon: Crown,
-        tone: "blue",
-        onClick: () => openMenuScreen("plans"),
-      }] : []),
-      { label: t("urride.companyWs.metricStatus"), value: company?.verificationStatus || t("urride.companyWs.statusNotStarted"), icon: ShieldCheck, tone: "slate" },
-    ],
-    [acceptedOperators.length, canManagePlans, company?.verificationStatus, fleets.length, pendingRequests.length, planState?.entitlement?.planName],
-  );
+  const metrics = [
+      { label: t("urride.companyWs.metricFleets"), value: fleets.length, icon: Truck, onClick: () => switchCompanyTab("Fleets") },
+      { label: t("urride.companyWs.metricOperators"), value: acceptedOperators.length, icon: UsersRound, onClick: () => switchCompanyTab("Operators") },
+      { label: t("urride.companyWs.metricRequests"), value: pendingRequests.length, icon: ClipboardList, onClick: () => switchCompanyTab("Requests") },
+    ];
 
   // Company setup completion, mirroring UrMall's store-setup widget and the solo
   // operator's fleet-setup card, so a company sees and finishes the details that
@@ -871,20 +862,18 @@ export default function CompanyWorkspaceScreen({ company, initialTab = "Overview
             </div>
           ) : null}
           <section className="rounded-3xl border border-blue-100 bg-white p-5 shadow-sm">
-            <div className="flex flex-col gap-4 lg:flex-row lg:items-end lg:justify-between">
-              <div className="min-w-0">
-                <p className="text-xs font-black uppercase tracking-wide text-blue-700">{company.companyCode}</p>
-                <h2 className="mt-1 text-3xl font-black leading-tight text-slate-950">{company.companyName}</h2>
-                <p className="mt-2 text-sm font-semibold leading-6 text-slate-600">
-                  {company.companyType} - {company.city || t("urride.companyWs.cityNotAdded")} {company.address ? i18nText("ui.literals.k36fd66a72e47", { value0: company.address }) : ""}
-                </p>
-              </div>
-              <div className="rounded-2xl border border-slate-100 bg-slate-50 px-4 py-3">
-                <p className="text-xs font-black uppercase text-slate-400">{t("urride.companyWs.ownerId")}</p>
-                <p className="mt-1 font-black text-slate-950">{company.ownerPublicId}</p>
-              </div>
+            <div className="flex flex-col items-center gap-2 text-center">
+              <span className="flex h-14 w-14 items-center justify-center rounded-2xl bg-blue-50 text-blue-700"><Building2 size={28} /></span>
+              <h2 className="max-w-full break-words text-2xl font-black leading-tight text-slate-950">{company.companyName}</h2>
+              <button type="button" disabled={!canManagePlans} onClick={() => openMenuScreen("plans")} className="inline-flex items-center gap-2 rounded-full bg-blue-50 px-3 py-1 text-xs font-bold text-blue-700">
+                <Crown size={14} />{planState?.entitlement?.planName || "Free"}
+              </button>
+              <p className="max-w-lg text-sm font-semibold leading-5 text-slate-600">{company.address || company.city || t("urride.companyWs.cityNotAdded")}</p>
+              {company.phone ? <a href={`tel:${company.phone}`} className="text-sm font-bold text-blue-700">{company.phone}</a> : null}
+              <p className="text-xs font-semibold text-slate-500">{company.companyCode} · {company.verificationStatus || t("urride.companyWs.statusNotStarted")}</p>
+              <p className="text-xs text-slate-500">{t("urride.companyWs.ownerId")}: {company.ownerPublicId}</p>
             </div>
-            <div className="mt-5 grid gap-3 sm:grid-cols-2 xl:grid-cols-4">
+            <div className="mt-4 grid grid-cols-3 gap-2">
               {metrics.map((metric) => (
                 <MetricCard key={metric.label} metric={metric} />
               ))}
@@ -1072,8 +1061,8 @@ export default function CompanyWorkspaceScreen({ company, initialTab = "Overview
             company={company}
             fleet={fleetAction}
             onAssignOperator={canAddOperators && fleetAction?.serviceCategory !== "Rental" ? () => {
+              setInvitationFleet(fleetAction);
               setFleetAction(null);
-              onRegisterCompany?.();
             } : undefined}
             onClose={() => setFleetAction(null)}
             onDelete={(fleet) => {
@@ -1090,6 +1079,22 @@ export default function CompanyWorkspaceScreen({ company, initialTab = "Overview
             } : undefined}
             open={Boolean(fleetAction)}
           />
+          {invitationFleet ? <FleetOperatorInvitationDrawer
+            fleet={invitationFleet}
+            onClose={() => setInvitationFleet(null)}
+            onSend={async (publicId) => {
+              const invite = await inviteOperatorToCompanyFleet(company, invitationFleet, publicId);
+              onCompanyUpdate?.({
+                ...company,
+                fleets: fleets.map((fleet) => fleet.id === invitationFleet.id ? {
+                  ...fleet,
+                  operators: [...(fleet.operators || []).filter((item) => item.requestId !== invite.requestId), invite],
+                } : fleet),
+              });
+              setInvitationFleet(null);
+              showToast(invite.status === "accepted" ? "This operator is already assigned to this fleet." : "Invitation sent. Waiting for the operator to accept.", "success");
+            }}
+          /> : null}
           <FleetConfirmDrawer
             busy={managementBusy}
             confirm={fleetConfirm}
@@ -1499,15 +1504,14 @@ function formatDocumentValue(value) {
 function MetricCard({ metric }) {
   const Icon = metric.icon;
   const body = (
-    <div className="flex items-center gap-3">
+    <div className="flex min-w-0 flex-col items-center gap-1 text-center">
       <span className="flex h-10 w-10 items-center justify-center rounded-2xl bg-white text-blue-700 shadow-sm">
         <Icon size={20} />
       </span>
       <div className="min-w-0 flex-1">
-        <p className="text-xs font-black uppercase tracking-wide text-slate-400">{metric.label}</p>
+        <p className="break-words text-[10px] font-black uppercase text-slate-400 sm:text-xs">{metric.label}</p>
         <p className="mt-1 truncate text-xl font-black text-slate-950">{metric.value}</p>
       </div>
-      {metric.onClick ? <ChevronRight size={18} className="shrink-0 text-blue-400" /> : null}
     </div>
   );
 
@@ -1516,7 +1520,7 @@ function MetricCard({ metric }) {
       <button
         type="button"
         onClick={metric.onClick}
-        className="rounded-2xl border border-blue-100 bg-blue-50 p-4 text-left transition-all duration-300 hover:-translate-y-0.5 hover:border-blue-200 hover:shadow-sm"
+        className="min-w-0 rounded-2xl border border-blue-100 bg-blue-50 px-1 py-3 transition-all duration-300 hover:-translate-y-0.5 hover:border-blue-200 hover:shadow-sm"
       >
         {body}
       </button>
@@ -2516,6 +2520,31 @@ function OperatorActionDrawer({ busy, canManage, company, onAddOperator, onClose
   );
 }
 
+function FleetOperatorInvitationDrawer({ fleet, onClose, onSend }) {
+  const [publicId, setPublicId] = useState("");
+  const [busy, setBusy] = useState(false);
+  const [error, setError] = useState("");
+  const close = () => { if (!busy) onClose(); };
+  return <FleetHqActionSheet label="Invite operator" open onClose={close}>
+    <ActionSheetHeader eyebrow={fleet.fleetName || fleet.fleetCode} icon={UserRoundPlus} title="Invite operator" onClose={close} />
+    <form className="space-y-4 bg-slate-50 p-4" onSubmit={async (event) => {
+      event.preventDefault();
+      if (busy || !publicId.trim()) return;
+      setBusy(true);
+      setError("");
+      try { await onSend(publicId.trim()); }
+      catch (failure) { setError(failure.message || "Unable to send invitation. Try again."); setBusy(false); }
+    }}>
+      <label className="block text-sm font-bold text-slate-700">KunThai ID
+        <input autoFocus required disabled={busy} value={publicId} onChange={(event) => setPublicId(event.target.value)} placeholder="KTU-XXXX-XXXX" autoCapitalize="characters" autoComplete="off" className="mt-2 w-full rounded-2xl border border-slate-200 bg-white px-4 py-3 text-slate-950" />
+      </label>
+      <p className="text-sm text-slate-500">The operator will receive an invitation to accept or reject for this fleet.</p>
+      {error ? <p role="alert" className="text-sm font-bold text-rose-600">{error}</p> : null}
+      <button type="submit" disabled={busy || !publicId.trim()} className="w-full rounded-2xl bg-blue-600 px-4 py-3 font-bold text-white disabled:opacity-50">{busy ? "Sending…" : "Send invitation"}</button>
+    </form>
+  </FleetHqActionSheet>;
+}
+
 function FleetActionDrawer({ busy, canManage, company, fleet, onAssignOperator, onClose, onDelete, onEditFleet, onRemoveOperator, open }) {
   if (!fleet && !open) return null;
   const assignedOperator = getFleetAssignedOperator(fleet || {});
@@ -2540,12 +2569,10 @@ function FleetActionDrawer({ busy, canManage, company, fleet, onAssignOperator, 
           ) : null}
           {onAssignOperator ? (
             <OperatorActionButton
-              detail={assignedOperator
-                ? t("urride.companyWs.addAnotherFleetDetail")
-                : t("urride.companyWs.assignOperatorDetail")}
+              detail="Send an invitation using the operator's KunThai ID."
               disabled={busy}
               icon={UserRoundPlus}
-              label={assignedOperator ? t("urride.companyWs.addAnother") : t("urride.companyWs.assignOperator")}
+              label="Invite operator"
               onClick={onAssignOperator}
             />
           ) : null}

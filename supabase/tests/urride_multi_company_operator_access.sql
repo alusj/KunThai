@@ -49,6 +49,7 @@ insert into transport_company_operator_invites(id,company_id,company_fleet_id,op
 insert into transport_company_members(company_id,user_id,operator_id) values ('20000000-0000-4000-8000-000000000001','00000000-0000-4000-8000-000000000004','10000000-0000-4000-8000-000000000004');
 
 \ir ../migrations/20260905140000_urride_multi_company_operator_access.sql
+\ir ../migrations/20260908120000_company_assignment_save_repair.sql
 create trigger transport_company_sync_operator_member_trigger after insert or update of status,operator_id,operator_user_id on public.transport_company_operator_invites for each row execute function public.transport_company_sync_operator_member();
 create trigger transport_company_sync_accepted_operator_fleet_trigger after insert or update of status,operator_id,company_fleet_id on public.transport_company_operator_invites for each row execute function public.transport_company_sync_accepted_operator_fleet();
 create function public.test_assert(ok boolean, message text) returns void language plpgsql as $$ begin if ok is not true then raise exception 'TEST FAILED: %',message; end if; end $$;
@@ -62,7 +63,14 @@ do $$ begin
   exception when others then if sqlerrm not like 'Confirm the one-time 150%' then raise; end if; end;
 end $$;
 select test_assert((select balance=300 from visibility_credit_wallets where user_id=auth.uid()),'no silent charge');
+-- Legacy fleet metadata must not put a newly assigned operator on duty before
+-- the membership trigger has run (accepted-fleet trigger sorts before member).
+update transport_company_fleets set active_status='active', is_visible_to_passengers=true
+where id='30000000-0000-4000-8000-000000000001';
+select transport_company_provision_runtime_fleet('30000000-0000-4000-8000-000000000001','10000000-0000-4000-8000-000000000001');
+select test_assert((select active_status='offline' and not is_visible_to_passengers from transport_fleets where company_fleet_id='30000000-0000-4000-8000-000000000001'),'stale company availability does not activate an assignment');
 select accept_transport_company_operator_invite('50000000-0000-4000-8000-000000000001','{}',true);
+select test_assert((select active_status='offline' and not is_visible_to_passengers from transport_fleets where company_fleet_id='30000000-0000-4000-8000-000000000001'),'new assignment remains offline');
 select accept_transport_company_operator_invite('50000000-0000-4000-8000-000000000001','{}',true);
 select accept_transport_company_operator_invite('50000000-0000-4000-8000-000000000002','{}',false);
 select test_assert((select balance=150 from visibility_credit_wallets where user_id=auth.uid()),'first, retry and second company total only 150');
@@ -159,3 +167,29 @@ select test_assert(exists(select 1 from transport_fleets where company_id='20000
 select test_assert(not has_table_privilege('authenticated','transport_operator_company_access','UPDATE'),'access unlock is not client writable');
 reset role;
 select 'PASS: company fleet visibility RLS and access table write protection' as result;
+
+-- Authorized admins can add a rental and send a pending fleet invitation.
+insert into transport_company_members(company_id,user_id,role,status,service_status)
+values ('20000000-0000-4000-8000-000000000001','00000000-0000-4000-8000-000000000002','admin','active','active')
+on conflict(company_id,user_id) do update set role='admin',status='active',service_status='active';
+grant select,insert,update on transport_company_fleets,transport_company_operator_invites to authenticated;
+alter table transport_company_fleets enable row level security;
+alter table transport_company_operator_invites enable row level security;
+create policy fixture_staff_read_fleets on transport_company_fleets for select to authenticated
+using (transport_company_user_has_permission(company_id,'manage_fleets',auth.uid()));
+select set_config('request.jwt.claim.sub','00000000-0000-4000-8000-000000000002',false);
+set role authenticated;
+insert into transport_company_fleets(id,company_id,service_category)
+values ('30000000-0000-4000-8000-000000000005','20000000-0000-4000-8000-000000000001','Rental');
+insert into transport_company_operator_invites(id,company_id,company_fleet_id,operator_user_id,status)
+values ('50000000-0000-4000-8000-000000000005','20000000-0000-4000-8000-000000000001','30000000-0000-4000-8000-000000000001','00000000-0000-4000-8000-000000000003','pending');
+do $$ begin
+  begin
+    insert into transport_company_fleets(id,company_id)
+    values ('30000000-0000-4000-8000-000000000006','20000000-0000-4000-8000-000000000002');
+    raise exception 'TEST FAILED: staff created another company fleet';
+  exception when insufficient_privilege then null; end;
+end $$;
+reset role;
+select test_assert((select owner_user_id='00000000-0000-4000-8000-000000000005' from transport_companies where id='20000000-0000-4000-8000-000000000001'),'admin submission preserves company owner');
+select 'PASS: admin rental and pending invitation creation, cross-company isolation';

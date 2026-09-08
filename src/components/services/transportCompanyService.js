@@ -1376,10 +1376,12 @@ export async function saveTransportCompanyAccount(account) {
   const addOperatorMode = account?.actionMode === "add_operator";
   const addRentalMode = account?.actionMode === "add_rental";
   const incrementalFleetMode = addOperatorMode || addRentalMode;
+  const submittedFleetCodes = incrementalFleetMode && Array.isArray(account.submittedFleetCodes)
+    ? new Set(account.submittedFleetCodes) : null;
   const profile = await getOnboardingProfile(user).catch(() => null);
   let normalized = normalizeCompanyAccount({
     ...account,
-    userId: user.id,
+    userId: incrementalFleetMode ? account.userId || account.owner_user_id || user.id : user.id,
     ownerPublicId: account.ownerPublicId || getKunThaiPublicUserId({ ...profile, userId: user.id }),
     accountStatus: incrementalFleetMode ? account.accountStatus || "submitted" : "submitted",
     verificationStatus: incrementalFleetMode ? account.verificationStatus || "pending" : "pending",
@@ -1464,7 +1466,8 @@ export async function saveTransportCompanyAccount(account) {
       updated_at: new Date().toISOString(),
     };
 
-    const company = await saveSelectSingleByMatch(
+    // Adding a fleet must not rewrite company ownership or the acting admin's membership.
+    const company = incrementalFleetMode && normalized.id ? { id: normalized.id } : await saveSelectSingleByMatch(
       "transport_companies",
       companyPayload,
       normalized.id ? { id: normalized.id } : { owner_user_id: user.id },
@@ -1495,7 +1498,7 @@ export async function saveTransportCompanyAccount(account) {
       throw new Error("Company registration could not be saved to Supabase. Please try again.");
     }
 
-    await saveSelectSingleByMatch(
+    if (!incrementalFleetMode) await saveSelectSingleByMatch(
       "transport_company_members",
       {
         company_id: companyId,
@@ -1540,7 +1543,8 @@ export async function saveTransportCompanyAccount(account) {
     });
 
     if (companyId) {
-      const fleetResults = await Promise.all(normalized.fleets.map((fleet) =>
+      const submittedFleets = normalized.fleets.filter((fleet) => !submittedFleetCodes || submittedFleetCodes.has(fleet.fleetCode));
+      const fleetResults = await Promise.all(submittedFleets.map((fleet) =>
         saveSelectSingleByMatch(
           "transport_company_fleets",
           {
@@ -1608,7 +1612,7 @@ export async function saveTransportCompanyAccount(account) {
         }),
       };
 
-      const inviteRows = normalized.fleets.flatMap((fleet) =>
+      const inviteRows = submittedFleets.flatMap((fleet) =>
         (fleet.operators || []).map((operator) => {
           const invite = normalizeInvite(operator);
           const requestId = invite.requestId || `${fleet.fleetCode}-${compact(invite.publicId)}`;
@@ -1679,6 +1683,39 @@ export async function updateTransportCompanyOperatorAvailability(assignment, act
   if (error) throw new Error(friendlyErrorMessage(error, "Unable to update company fleet availability."));
 
   return Array.isArray(data) ? data[0] || null : data || null;
+}
+
+export async function inviteOperatorToCompanyFleet(company, fleet, publicId) {
+  await getCurrentUser("Sign in to invite an operator.");
+  if (!company?.id || !fleet?.id || !company.access?.canManageOperators) {
+    throw new Error("You do not have permission to invite operators to this fleet.");
+  }
+  if (fleet.serviceCategory === "Rental") throw new Error("Rental fleets do not use operator invitations.");
+  const operator = await lookupTransportOperatorByKunThaiId(publicId.trim());
+  if (!operator?.userId) throw new Error("No account found. Check the KunThai ID and try again.");
+  const { data: existing, error: lookupError } = await supabase.from("transport_company_operator_invites")
+    .select("*").eq("company_id", company.id)
+    .eq("operator_user_id", operator.userId).in("status", ["pending", "accepted"]);
+  if (lookupError) throw lookupError;
+  const fleetInvite = existing?.find((invite) => invite.company_fleet_id === fleet.id);
+  if (fleetInvite) return normalizeInvite(fleetInvite);
+  if (!existing?.length) await assertBusinessCapacity("urride", company.id, "operators", 1);
+  const { data, error } = await supabase.from("transport_company_operator_invites").insert({
+    company_id: company.id,
+    company_fleet_id: fleet.id,
+    fleet_code: fleet.fleetCode,
+    request_id: `${fleet.fleetCode}-${crypto.randomUUID()}`,
+    operator_id: operator.id || null,
+    operator_user_id: operator.userId,
+    operator_public_id: operator.publicId,
+    operator_name: operator.name,
+    operator_city: operator.city || "",
+    verification_status: operator.verificationStatus || "pending",
+    status: "pending",
+    documents: {},
+  }).select("*").single();
+  if (error) throw error;
+  return normalizeInvite(data);
 }
 
 export async function lookupTransportOperatorByKunThaiId(value) {

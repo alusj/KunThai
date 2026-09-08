@@ -702,6 +702,7 @@ export default function CompanyRegistrationScreen({ existingCompany = null, mode
       actionMode: addingRentalFleet ? "add_rental" : addOperatorMode ? "add_operator" : "registration",
       operatingAreas: splitAreas(areaText),
       fleets: payloadFleets,
+      submittedFleetCodes: incrementalFleetMode ? normalizedNewFleets.map((fleet) => fleet.fleetCode) : null,
       step,
       maxStepReached,
       accountStatus: incrementalFleetMode ? form.accountStatus || accountStatus : accountStatus,
