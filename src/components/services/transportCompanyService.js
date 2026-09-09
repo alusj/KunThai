@@ -1,4 +1,5 @@
 import supabase from "../../Backend/lib/supabaseClient";
+import { getActiveCountryProfile } from "../../data/globalCountryProfiles";
 import { acceptCompanyInviteWithAccess } from "./operatorCompanyAccessService";
 import { friendlyErrorMessage } from "../../Backend/services/friendlyErrorService";
 import { getKunThaiPublicUserId, normalizeKunThaiPublicId } from "../../Backend/services/identityCodeService";
@@ -492,7 +493,7 @@ async function prepareCompanyFleetPublicMedia(fleets = [], ownerUserId) {
     prepared.push({
       ...fleet,
       documents,
-      publicFleetPhotos: publicFleetPhotos.length ? publicFleetPhotos : fleet.publicFleetPhotos || [],
+      publicFleetPhotos: publicFleetPhotos.length ? publicFleetPhotos.sort((a, b) => Number(b.label === "Cover photo") - Number(a.label === "Cover photo")) : fleet.publicFleetPhotos || [],
     });
   }
 
@@ -1435,7 +1436,8 @@ export async function saveTransportCompanyAccount(account) {
   const persistedIdPattern = /^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i;
   const fleetWithoutRequiredImages = normalized.fleets.find((fleet) => {
     const isExistingIncrementalFleet = incrementalFleetMode && persistedIdPattern.test(String(fleet.id || ""));
-    return !isExistingIncrementalFleet && (fleet.publicFleetPhotos || []).length < 4;
+    const requiredCount = (["Vehicle / Car", "Taxi"].includes(fleet.fleetType) ? 6 : 4) + (fleet.serviceCategory === "Rental" ? 1 : 0);
+    return !isExistingIncrementalFleet && (fleet.publicFleetPhotos || []).length < requiredCount;
   });
   if (fleetWithoutRequiredImages) {
     throw new Error(`Upload the required front, back, left-side, and right-side images for ${fleetWithoutRequiredImages.fleetName || "every fleet"} before saving.`);
@@ -1566,7 +1568,7 @@ export async function saveTransportCompanyAccount(account) {
             price_hint: fleet.priceHint || "",
             public_fleet_photos: fleet.publicFleetPhotos || [],
             documents: fleet.documents,
-            safety_answers: fleet.safetyAnswers,
+            safety_answers: fleet.serviceCategory === "Rental" ? { ...fleet.safetyAnswers, rentalCurrency: getActiveCountryProfile(normalized.country).currency.code } : fleet.safetyAnswers,
             operators: fleet.operators || [],
             verification_status: fleet.status || "pending_review",
             is_visible_to_passengers: Boolean(fleet.isVisibleToPassengers),

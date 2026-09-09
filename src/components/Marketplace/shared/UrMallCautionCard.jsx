@@ -2,6 +2,7 @@ import { BadgeCheck, Clock, FileText, House, Landmark, ShieldAlert, ShoppingBag,
 
 import { useI18n, t } from "../../../i18n";
 import PlanStagesCard from "../../shared/PlanStagesCard";
+import CautionFeatureGuide from "../../shared/CautionFeatureGuide";
 
 // Three primary business types. Hotels now live inside Real Estate (a real
 // estate account adds a hotel as one of its property types), so there is no
@@ -40,6 +41,8 @@ export default function UrMallCautionCard({ showMenuNote = true }) {
           </p>
         </div>
       </div>
+
+      <CautionFeatureGuide surface="urmall" />
 
       <div className="mt-5 grid gap-3 lg:grid-cols-3">
         {VERIFICATION_GUIDES.map(({ bodyKey, icon: Icon, titleKey }) => (

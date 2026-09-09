@@ -22,7 +22,7 @@ test("fleet images are mandatory while verification documents remain optional", 
   assert.match(documentRequirements, /URMALL_DOCUMENT_REQUIREMENTS[\s\S]*required: false/);
   assert.match(operatorRegistration, /fleetImageRequirements\.forEach/);
   assert.doesNotMatch(operatorRegistration, /documents\.forEach\(\(requirement\) => \{\s*if \(!getRequirementUpload\(uploads, "doc"/);
-  assert.match(companyRegistration, /getFleetImageRequirements\(form\)\.forEach/);
+  assert.match(companyRegistration, /getFleetImageRequirements\(form, fleet\)\.forEach/);
   assert.match(migration, /jsonb_array_length[\s\S]*< 4/);
 });
 

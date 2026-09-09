@@ -717,7 +717,7 @@ export default function CompanyWorkspaceScreen({ company, initialTab = "Overview
       return (
         <FleetList
           canManage={canManageFleets || access.isOwner}
-          fleets={fleets}
+          fleets={fleets.filter((fleet) => fleet.serviceCategory !== "Rental")}
           onManageFleet={setFleetAction}
         />
       );

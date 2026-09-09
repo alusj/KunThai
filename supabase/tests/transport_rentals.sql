@@ -38,7 +38,8 @@ select set_config('request.jwt.claim.sub','00000000-0000-0000-0000-000000000001'
 select public.save_transport_rental('30000000-0000-0000-0000-000000000001','{"title":"Fixture car","currency":"SLE","daily_rate":100,"terms":"Conditions changed later.","status":"hidden"}');
 select set_config('request.jwt.claim.sub','00000000-0000-0000-0000-000000000002',false);
 do $$ begin
- if (select count(*) from list_transport_rentals()) <> 1 then raise exception 'Customer lost access to hidden reserved rental'; end if;
+ if (select count(*) from list_transport_rentals()) <> 0 then raise exception 'Hidden rental appeared in discovery'; end if;
+ if (select count(*) from list_transport_rentals((select rental_id from transport_rental_reservations where note='first'))) <> 1 then raise exception 'Customer lost access to hidden reserved rental'; end if;
  if (select terms_snapshot from transport_rental_reservations where note='first') <> 'Return with full tank.' then raise exception 'Agreed terms were changed'; end if;
 end $$;
 select set_config('request.jwt.claim.sub','00000000-0000-0000-0000-000000000006',false);

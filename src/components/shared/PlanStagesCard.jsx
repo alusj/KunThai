@@ -32,7 +32,7 @@ function priceLine(plan) {
 }
 
 // A registration-time explainer of the three account stages (Free → Pro →
-// Premium) for a surface. Reads the live plan catalog so limits and prices stay
+// Premium) for a surface. Reads the fallback plan catalog so limits and prices stay
 // in one place. `accent` themes it to the host caution card (emerald / blue).
 export default function PlanStagesCard({ surface = "urmall", accent = "emerald" }) {
   const theme = ACCENTS[accent] || ACCENTS.emerald;
@@ -50,7 +50,10 @@ export default function PlanStagesCard({ surface = "urmall", accent = "emerald" 
           <p className="mt-1 text-xs font-semibold leading-5 text-slate-600">
             Every {entity} starts on <strong>Free</strong> the moment it is registered. As you grow you can move up to
             {" "}<strong>Pro</strong> or <strong>Premium</strong> using Visibility Credits. Upgrades start immediately,
-            downgrades apply at your next renewal, and nothing you have already added is ever deleted.
+            downgrades apply at your next renewal.
+            {surface === "urmall"
+              ? " When a paid plan expires or you move to Free, only 10 published items remain visible. Renew or upgrade within 15 days to prevent permanent deletion of excess items and drafts."
+              : " Existing company resources are preserved; your plan limits what you can add."}
           </p>
         </div>
       </div>

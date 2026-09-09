@@ -28,6 +28,7 @@ import {
   saveTransportCompanyDraft,
 } from "../../services/transportCompanyService";
 import AppBackTab from "../../shared/AppBackTab";
+import AddressLocationField from "../../shared/AddressLocationField";
 import AccountSetupLoader from "../../shared/AccountSetupLoader";
 import CenteredModal from "../../shared/CenteredModal";
 import KunThaiIdHelpButton from "../../shared/KunThaiIdHelpButton";
@@ -166,11 +167,13 @@ function fleetRequirementCategory(serviceCategory = "") {
   return "Transport";
 }
 
-function getFleetImageRequirements(form) {
-  return getUrRideFleetImageRequirements({
+function getFleetImageRequirements(form, fleet = {}) {
+  const requirements = getUrRideFleetImageRequirements({
     country: form.country,
     countryCode: form.countryCode,
   });
+  const labels = [...(fleet.serviceCategory === "Rental" ? ["Cover photo"] : []), ...(["Vehicle / Car", "Taxi"].includes(fleet.fleetType) ? ["Front interior", "Back interior"] : [])];
+  return [...requirements, ...labels.map((label) => ({ key: label.toLowerCase().replaceAll(" ", "_"), label, legacyLabel: label, inlineNote: "", required: true }))];
 }
 
 function getFleetDocumentRequirements(form, fleet) {
@@ -445,7 +448,7 @@ export default function CompanyRegistrationScreen({ existingCompany = null, mode
     const fleetReady = fleets.some((fleet) =>
       fleet.fleetType &&
       fleet.plateNumber &&
-      getFleetImageRequirements(form).every((requirement) =>
+      getFleetImageRequirements(form, fleet).every((requirement) =>
         fleet.documents?.[fleetImageDocumentKey(documentStorageKey(requirement))]
       )
     );
@@ -625,6 +628,8 @@ export default function CompanyRegistrationScreen({ existingCompany = null, mode
           if (!timeNegotiable && !(Number(fleet.pricePerHour) > 0)) {
             nextErrors[`${fleet.localId}-pricePerHour`] = `${labelPrefix}Enter a positive hourly price or choose Negotiable.`;
           }
+          if (!fleet.safetyAnswers?.rentalTerms?.trim()) nextErrors[`${fleet.localId}-rentalTerms`] = "Enter rental conditions.";
+          if (!fleet.safetyAnswers?.rentalPickup?.address || fleet.safetyAnswers.rentalPickup.latitude == null || fleet.safetyAnswers.rentalPickup.longitude == null) nextErrors[`${fleet.localId}-rentalPickup`] = "Confirm the rental pickup address and map pin.";
         }
         getFleetQuestions(fleet).forEach((question) => {
           if (!String(fleet.safetyAnswers?.[question.key] || "").trim()) {
@@ -634,7 +639,7 @@ export default function CompanyRegistrationScreen({ existingCompany = null, mode
         if (incrementalFleetMode && fleet.serviceCategory !== "Rental" && !(fleet.operators || []).length) {
           nextErrors[`${fleet.localId}-operators`] = t("urride.companyReg.reqOperatorId");
         }
-        getFleetImageRequirements(form).forEach((requirement) => {
+        getFleetImageRequirements(form, fleet).forEach((requirement) => {
           const imageKey = fleetImageDocumentKey(documentStorageKey(requirement));
           if (!fleet.documents?.[imageKey]) {
             nextErrors[`${fleet.localId}-${imageKey}`] = `${labelPrefix}${t("urride.companyReg.reqSuffix", { label: requirement.label })}`;
@@ -1584,7 +1589,7 @@ function FleetCard({ acceptedPublicIds = [], errors = {}, fleet, form, index, lo
         <section className="mt-5 rounded-3xl border border-emerald-200 bg-white p-4">
           <p className="text-xs font-black uppercase tracking-[0.18em] text-emerald-700">Rental pricing</p>
           <h4 className="mt-1 text-lg font-black text-slate-950">Set distance and time pricing</h4>
-          <p className="mt-1 text-sm font-semibold leading-6 text-slate-600">Enter a clear price or mark that pricing method as negotiable. These choices will be carried into the rental listing.</p>
+          <p className="mt-1 text-sm font-semibold leading-6 text-slate-600">Enter a clear price or mark that pricing method as negotiable. Save this vehicle once, then control its availability from Rentals.</p>
           <div className="mt-4 grid gap-4 md:grid-cols-2">
             <div className="rounded-2xl border border-slate-200 bg-slate-50 p-4">
               <FormInput disabled={rentalDistanceNegotiable} label={`Price per kilometre (${form.currency || "SLE"})`} type="number" value={fleet.pricePerKm} onChange={(value) => onUpdate(fleet.localId, { pricePerKm: value })} placeholder="0" helper="The distance charge that may be added based on kilometres used." error={errors[`${fleet.localId}-pricePerKm`]} />
@@ -1596,7 +1601,15 @@ function FleetCard({ acceptedPublicIds = [], errors = {}, fleet, form, index, lo
             </div>
           </div>
         </section>
-        <div className="mt-5 rounded-2xl border border-emerald-200 bg-emerald-50 p-4 text-sm font-semibold leading-6 text-emerald-900">This is a company-managed self-drive vehicle. No operator request will be created. After adding it, you will continue in Rentals to confirm rates, deposit, rental conditions, photos, the exact pickup pin, availability, and reservations.</div>
+        <section className="mt-5 space-y-4 rounded-2xl border border-slate-200 bg-white p-4">
+          <h4 className="font-black text-slate-950">Rental conditions and pickup</h4>
+          <FormInput label="Deposit" type="number" value={fleet.safetyAnswers?.rentalDeposit || "0"} onChange={(value) => onUpdate(fleet.localId, { safetyAnswers: { ...fleet.safetyAnswers, rentalDeposit: value } })} />
+          <label className="block text-sm font-bold text-slate-800">Rental conditions<textarea className="kt-registration-input mt-2 w-full rounded-xl border p-3" rows={4} value={fleet.safetyAnswers?.rentalTerms || ""} onChange={(event) => onUpdate(fleet.localId, { safetyAnswers: { ...fleet.safetyAnswers, rentalTerms: event.target.value } })} placeholder="Licence, age, fuel, mileage, deposit, cancellation and return conditions" /></label>
+          {errors[`${fleet.localId}-rentalTerms`] && <p role="alert" className="text-sm text-rose-700">{errors[`${fleet.localId}-rentalTerms`]}</p>}
+          <AddressLocationField value={fleet.safetyAnswers?.rentalPickup || { address: "", latitude: null, longitude: null }} onChange={(patch) => onUpdate(fleet.localId, { safetyAnswers: { ...fleet.safetyAnswers, rentalPickup: { ...fleet.safetyAnswers?.rentalPickup, ...patch } } })} />
+          {errors[`${fleet.localId}-rentalPickup`] && <p role="alert" className="text-sm text-rose-700">{errors[`${fleet.localId}-rentalPickup`]}</p>}
+          <p className="text-sm text-slate-600">Your fleet is saved once with availability off. Turn on Available when you are ready to receive requests.</p>
+        </section>
       </> : <section className="mt-5 rounded-3xl border border-blue-100 bg-white p-4">
         <p className="text-xs font-black uppercase tracking-[0.18em] text-blue-700">{t("urride.companyReg.pricingEyebrow")}</p>
         <h4 className="mt-1 text-lg font-black text-slate-950">{t("urride.companyReg.pricingHeading")}</h4>
@@ -1689,7 +1702,7 @@ function FleetCard({ acceptedPublicIds = [], errors = {}, fleet, form, index, lo
 }
 
 function FleetImagesSection({ errors = {}, fleet, form, onUploadDocument }) {
-  const imageRequirements = getFleetImageRequirements(form);
+  const imageRequirements = getFleetImageRequirements(form, fleet);
   const imageCount = imageRequirements.filter((requirement) => fleet.documents?.[fleetImageDocumentKey(documentStorageKey(requirement))]).length;
   return (
     <section className="mt-5 rounded-3xl border border-slate-100 bg-white p-4">

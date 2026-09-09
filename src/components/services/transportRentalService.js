@@ -1,5 +1,24 @@
 import supabase from "../../Backend/lib/supabaseClient";
 
+import { createRentalCatalogueCache } from "./rentalCatalogueCache";
+const catalogueCache = createRentalCatalogueCache((country) => listTransportRentals({ country }));
+export const cachedRentalCatalogue = (country) => catalogueCache.read(country);
+export const loadRentalCatalogue = (country, force = false) => catalogueCache.load(country, force);
+
+async function rentalRpc(name, args) {
+  const { data, error } = await supabase.rpc(name, args);
+  if (error) throw new Error(error.message);
+  if (!name.startsWith("list_") && !name.startsWith("check_")) catalogueCache.clear();
+  return data;
+}
+export const setRentalAvailability = (id, available) => rentalRpc("set_transport_rental_availability", { p_rental_id: id, p_available: available });
+export const deleteRentalFleet = (id) => rentalRpc("delete_transport_rental_fleet", { p_rental_id: id });
+export const checkRentalAvailability = (id, startsAt, endsAt) => rentalRpc("check_transport_rental_availability", { p_rental_id: id, p_starts_at: new Date(startsAt).toISOString(), p_ends_at: new Date(endsAt).toISOString() });
+export const listRentalReviews = (id) => rentalRpc("list_transport_rental_reviews", { p_rental_id: id });
+export const saveRentalReview = (id, rating, body) => rentalRpc("save_transport_rental_review", { p_rental_id: id, p_rating: rating, p_body: body });
+export const proposeRentalPrice = (id, total) => rentalRpc("propose_transport_rental_price", { p_reservation_id: id, p_total: total });
+export const acceptRentalPrice = (id, total) => rentalRpc("accept_transport_rental_price", { p_reservation_id: id, p_total: total });
+
 export async function listTransportRentals({ rentalId = null, companyId = null, country = null } = {}) {
   const { data, error } = await supabase.rpc("list_transport_rentals", { p_rental_id: rentalId, p_company_id: companyId, p_country: country });
   if (error) throw new Error(["PGRST202", "42883"].includes(error.code)
@@ -11,6 +30,7 @@ export async function listTransportRentals({ rentalId = null, companyId = null, 
 export async function saveTransportRental(fleetId, details) {
   const { data, error } = await supabase.rpc("save_transport_rental", { p_fleet_id: fleetId, p_details: details });
   if (error) throw new Error(error.message);
+  catalogueCache.clear();
   return data;
 }
 
@@ -35,6 +55,22 @@ export async function requestTransportRental(rentalId, form) {
   });
   if (error) throw new Error(error.message);
   return data;
+}
+
+export async function listCompanyRentalActivity(rentalIds) {
+  if (!rentalIds.length) return [];
+  // RLS still restricts these records to the company owner and active admins.
+  const rows = [];
+  const pageSize = 500;
+  for (let start = 0; ; start += pageSize) {
+    const { data, error } = await supabase.from("transport_rental_reservations")
+      .select("id,rental_id,status,customer_name,starts_at,ends_at,created_at")
+      .in("rental_id", rentalIds).order("created_at", { ascending: false }).order("id")
+      .range(start, start + pageSize - 1);
+    if (error) throw new Error("Rental activity could not be loaded. Refresh to try again.");
+    rows.push(...(data || []));
+    if (!data || data.length < pageSize) return rows;
+  }
 }
 
 export async function updateRentalReservation(id, status) {

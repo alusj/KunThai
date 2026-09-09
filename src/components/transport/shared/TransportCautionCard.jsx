@@ -2,6 +2,7 @@ import { BadgeCheck, Building2, BusFront, Clock, FileText, ShieldAlert, Truck, U
 
 import { useI18n, t } from "../../../i18n";
 import PlanStagesCard from "../../shared/PlanStagesCard";
+import CautionFeatureGuide from "../../shared/CautionFeatureGuide";
 
 const VERIFICATION_GUIDES = [
   { icon: FileText, titleKey: "urride.caution.v1Title", bodyKey: "urride.caution.v1Body" },
@@ -37,6 +38,8 @@ export default function TransportCautionCard({ showMenuNote = true }) {
           </p>
         </div>
       </div>
+
+      <CautionFeatureGuide surface="urride" />
 
       <div className="mt-5 grid gap-3 lg:grid-cols-3">
         {VERIFICATION_GUIDES.map(({ bodyKey, icon: Icon, titleKey }) => (
