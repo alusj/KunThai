@@ -1,4 +1,5 @@
 import { createElement, useEffect, useMemo, useRef, useState } from "react";
+import useBodyScrollLock from "../shared/useBodyScrollLock";
 import {
   BadgeCheck,
   Bell,
@@ -2062,6 +2063,7 @@ function CompanyDashboardTabDrawer({
   tabs = [],
 }) {
   const { rendered, panelOpen } = useDrawerTransition(expanded, DRAWER_TRANSITION_MS);
+  useBodyScrollLock(rendered);
   const uniqueTabs = [...new Set(tabs)];
   const activeIndex = Math.max(0, uniqueTabs.indexOf(activeTab));
 
@@ -2083,13 +2085,13 @@ function CompanyDashboardTabDrawer({
             {company?.companyName || t("urride.companyWs.transportCompany")}
           </p>
         </div>
-        <div className="mt-5 flex w-full flex-nowrap gap-2 overflow-x-auto rounded-2xl bg-slate-50 p-1.5 [scrollbar-width:none] [&::-webkit-scrollbar]:hidden">
+        <div className="mt-5 flex w-full flex-nowrap gap-2 overflow-x-auto rounded-2xl bg-slate-50 p-1.5 [scrollbar-width:none] [&::-webkit-scrollbar]:hidden lg:justify-between lg:overflow-x-visible">
           {uniqueTabs.map((tab) => (
             <button
               key={tab}
               type="button"
               onClick={() => handleTabClick(tab)}
-              className={`min-w-max flex-none whitespace-nowrap rounded-xl px-4 py-2 text-sm font-black leading-tight transition ${
+              className={`min-w-max flex-none whitespace-nowrap rounded-xl px-4 py-2 text-sm font-black leading-tight transition lg:min-w-0 lg:flex-1 lg:text-center ${
                 activeTab === tab
                   ? "bg-slate-950 text-white shadow-lg shadow-slate-950/10"
                   : "text-slate-500 hover:bg-white hover:text-slate-900"
@@ -2110,31 +2112,13 @@ function CompanyDashboardTabDrawer({
         inert={panelOpen ? undefined : "true"}
         className="fixed inset-0 z-[1210] overflow-hidden"
       >
-        <button
-          type="button"
-          aria-label={t("urride.companyWs.collapseDrawerAria")}
-          onClick={onCollapse}
-          tabIndex={panelOpen ? 0 : -1}
-          className={`absolute inset-0 border-0 bg-slate-950/35 p-0 backdrop-blur-sm transition-opacity duration-300 ${
-            panelOpen ? "opacity-100" : "opacity-0"
-          }`}
-        />
-
         <section
           aria-label={t("urride.companyWs.tabScreenAria", { tab: tabLabel(activeTab) })}
-          className={`absolute bottom-0 left-0 right-0 mx-auto flex h-[86dvh] max-w-2xl transform flex-col overflow-hidden rounded-t-[2rem] bg-white shadow-2xl transition-transform duration-300 ${
+          className={`absolute inset-0 flex h-[100dvh] w-full transform flex-col overflow-hidden bg-white transition-transform duration-300 ${
             panelOpen ? "translate-y-0" : "translate-y-full"
           }`}
         >
-          <header className="shrink-0 border-b border-slate-100 px-5 py-4">
-            <button
-              type="button"
-              onClick={onCollapse}
-              aria-label={t("urride.companyWs.collapseDashAria")}
-              className="mb-3 flex w-full justify-center"
-            >
-              <span className="h-1.5 w-12 rounded-full bg-slate-300" />
-            </button>
+          <header className="shrink-0 border-b border-slate-100 px-4 pb-4 pt-[max(16px,env(safe-area-inset-top))] sm:px-6">
             <div className="flex items-start gap-3">
               <div className="min-w-0 flex-1">
                 <p className="text-xs font-black uppercase tracking-[0.2em] text-blue-700">
@@ -2157,13 +2141,13 @@ function CompanyDashboardTabDrawer({
               </button>
             </div>
 
-            <div className="mt-4 flex w-full flex-nowrap gap-2 overflow-x-auto rounded-2xl bg-slate-50 p-1.5 [scrollbar-width:none] [&::-webkit-scrollbar]:hidden">
+            <div className="mt-4 flex w-full flex-nowrap gap-2 overflow-x-auto rounded-2xl bg-slate-50 p-1.5 [scrollbar-width:none] [&::-webkit-scrollbar]:hidden lg:justify-between lg:overflow-x-visible">
               {uniqueTabs.map((tab, index) => (
                 <button
                   key={tab}
                   type="button"
                   onClick={() => handleTabClick(tab)}
-                  className={`min-w-max flex-none whitespace-nowrap rounded-xl px-4 py-2 text-sm font-black leading-tight transition ${
+                  className={`min-w-max flex-none whitespace-nowrap rounded-xl px-4 py-2 text-sm font-black leading-tight transition lg:min-w-0 lg:flex-1 lg:text-center ${
                     activeTab === tab
                       ? "bg-slate-950 text-white shadow-lg shadow-slate-950/10"
                       : "text-slate-500 hover:bg-white hover:text-slate-900"
@@ -2176,7 +2160,7 @@ function CompanyDashboardTabDrawer({
             </div>
           </header>
 
-          <div className="min-h-0 flex-1 overflow-y-auto bg-slate-50 px-5 py-4">
+          <div className="min-h-0 flex-1 overflow-y-auto overscroll-contain bg-slate-50 px-4 pt-4 pb-[max(16px,env(safe-area-inset-bottom))] sm:px-6 lg:px-8">
             <div
               key={activeTab}
               className={[

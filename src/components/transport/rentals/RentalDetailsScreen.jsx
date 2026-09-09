@@ -40,7 +40,7 @@ export default function RentalDetailsScreen({ rentalId, onBack, onOpenCompany })
   if (mapOpen && rental) return <NearbyAreaScreen onBack={() => setMapOpen(false)} initialDestination={{ id: rental.id, type: "rental", name: rental.title, address: rental.pickup_address, latitude: rental.latitude, longitude: rental.longitude, lat: rental.latitude, lng: rental.longitude, description: "Rental pickup location. This marker is a collection point, not a live driver." }} autoRoute />;
   return <div className="min-h-screen bg-slate-50 pb-20 text-slate-950">
     <AppBackTab label={screen === "about" ? "Back to UrRide" : "Back to fleet"} onBack={screen === "about" ? onBack : () => setScreen("about")} />
-    <main className="mx-auto max-w-3xl space-y-4 px-4 py-5">
+    <main className="w-full space-y-4 px-4 py-5 sm:px-6 lg:px-8">
       <h1 className="text-2xl font-black">{rental?.title || "Self-drive rental"}</h1>
       {error && <div role="alert" className="rounded-2xl bg-rose-50 p-4 font-semibold text-rose-800">{error}<button type="button" onClick={refresh} className="ml-3 underline">Try again</button></div>}
       {!rental && !error && <p className="text-slate-600">Opening rental details…</p>}
