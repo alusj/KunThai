@@ -147,6 +147,12 @@ export default function UnifiedNotificationCenter({ onCountChange, onOpenChange,
   }, [onOpenChange, open]);
 
   useEffect(() => {
+    const handleOpenRequest = () => onOpenChange?.(true);
+    window.addEventListener("kuntai-open-notification-center", handleOpenRequest);
+    return () => window.removeEventListener("kuntai-open-notification-center", handleOpenRequest);
+  }, [onOpenChange]);
+
+  useEffect(() => {
     if (!userId) return undefined;
     const refreshQuietly = () => refresh({ quiet: true });
     const events = [
@@ -333,11 +339,12 @@ export default function UnifiedNotificationCenter({ onCountChange, onOpenChange,
                           </span>
                           <div className="min-w-0 flex-1">
                             <div className="flex items-start gap-2"><h3 className="min-w-0 flex-1 text-sm font-black leading-5 text-slate-950">{item.title}</h3>{!item.read ? <span className="mt-1.5 h-2.5 w-2.5 shrink-0 rounded-full bg-rose-500" /> : null}</div>
+                            {item.media?.url ? <img src={item.media.url} alt="" className="mt-3 max-h-44 w-full rounded-2xl object-cover" /> : null}
                             <p className="mt-1 text-sm font-semibold leading-5 text-slate-600">{item.body}</p>
                             <div className="mt-2 flex flex-wrap items-center gap-2 text-[11px] font-black uppercase tracking-wide text-slate-400"><span>{notificationSourceLabel(item.source)}</span><span>•</span><span>{relativeTime(item.createdAt)}</span>{["urgent", "critical"].includes(item.priority) ? <span className="rounded-full bg-rose-100 px-2 py-0.5 text-rose-700">Urgent</span> : null}</div>
-                            <button type="button" onClick={(event) => { event.stopPropagation(); openItem(item); }} className="mt-3 inline-flex items-center gap-1 text-xs font-black text-sky-700">Open <ChevronRight size={15} /></button>
+                            <button type="button" onClick={(event) => { event.stopPropagation(); openItem(item); }} className="mt-3 inline-flex items-center gap-1 text-xs font-black text-sky-700">{item.actionLabel || "Open"} <ChevronRight size={15} /></button>
                           </div>
-                          <button type="button" onClick={(event) => { event.stopPropagation(); dismissItem(item); }} className="grid h-9 w-9 shrink-0 place-items-center rounded-xl text-slate-300 opacity-70 transition hover:bg-slate-100 hover:text-slate-600 group-hover:opacity-100" aria-label="Dismiss notification"><Trash2 size={16} /></button>
+                          {item.canDismiss !== false ? <button type="button" onClick={(event) => { event.stopPropagation(); dismissItem(item); }} className="grid h-9 w-9 shrink-0 place-items-center rounded-xl text-slate-300 opacity-70 transition hover:bg-slate-100 hover:text-slate-600 group-hover:opacity-100" aria-label="Dismiss notification"><Trash2 size={16} /></button> : null}
                         </div>
                       </article>
                     );

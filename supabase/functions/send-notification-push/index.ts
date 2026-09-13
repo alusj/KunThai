@@ -30,13 +30,16 @@ Deno.serve(async (request) => {
     return json({ error: "Push delivery is not configured" }, 503);
   }
 
+  const serviceRoleRequest = authorization === `Bearer ${serviceRoleKey}`;
   const authClient = createClient(supabaseUrl, anonKey, {
     global: { headers: { Authorization: authorization } },
     auth: { persistSession: false },
   });
-  const { data: access, error: accessError } = await authClient.rpc("get_my_admin_access");
-  if (accessError || !access?.isAdmin || !access.permissions?.includes("notifications.approve")) {
-    return json({ error: "Not authorized" }, 403);
+  if (!serviceRoleRequest) {
+    const { data: access, error: accessError } = await authClient.rpc("get_my_admin_access");
+    if (accessError || !access?.isAdmin || !access.permissions?.some((permission: string) => ["notifications.approve", "notifications.publish"].includes(permission))) {
+      return json({ error: "Not authorized" }, 403);
+    }
   }
 
   let campaignId = "";
@@ -57,11 +60,15 @@ Deno.serve(async (request) => {
     .eq("id", campaignId)
     .single();
   if (campaignError || !campaign) return json({ error: "Campaign not found" }, 404);
-  const { data: canApproveSector, error: permissionError } = await authClient.rpc("admin_has_permission", {
-    requested_permission: "notifications.approve",
-    requested_sector: campaign.sector,
-  });
-  if (permissionError || canApproveSector !== true) return json({ error: "Not authorized for this campaign sector" }, 403);
+  if (!serviceRoleRequest) {
+    const [approveCheck, publishCheck] = await Promise.all([
+      authClient.rpc("admin_has_permission", { requested_permission: "notifications.approve", requested_sector: campaign.sector }),
+      authClient.rpc("admin_has_permission", { requested_permission: "notifications.publish", requested_sector: campaign.sector }),
+    ]);
+    if ((approveCheck.error && publishCheck.error) || (approveCheck.data !== true && publishCheck.data !== true)) {
+      return json({ error: "Not authorized for this campaign sector" }, 403);
+    }
+  }
   if (campaign.status !== "completed" || !campaign.channels?.includes("push")) {
     return json({ error: "Campaign is not ready for push delivery" }, 409);
   }

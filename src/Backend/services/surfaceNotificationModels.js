@@ -41,10 +41,13 @@ export function mapSurfacePlatformNotification(row = {}) {
     body: row.body || "Open KunThai for the latest information.",
     actionTarget: row.action_target || "",
     actionData: row.action_data || {},
+    displayConfig: row.display_config || {},
+    media: row.display_config?.media || null,
     createdAt: row.created_at || "",
     created_at: row.created_at || "",
     read,
     unread: !read,
-    actionLabel: "Open",
+    actionLabel: row.action_data?.actionLabel || row.display_config?.action?.label || "Open",
+    canDismiss: row.display_config?.behaviour?.canDismiss !== false,
   };
 }

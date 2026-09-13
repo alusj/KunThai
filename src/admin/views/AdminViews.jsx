@@ -48,6 +48,7 @@ import {
 } from "../adminService";
 import CaseTable from "../components/CaseTable";
 import SuggestedTextSelect from "../components/SuggestedTextSelect";
+import NotificationCampaignCenter from "../notifications/NotificationCampaignCenter";
 
 export { default as UsersView } from "./UsersView";
 
@@ -221,6 +222,10 @@ export function SectorView({ sector, cases, onOpenCase }) {
 }
 
 export function NotificationsView({ access }) {
+  return <NotificationCampaignCenter access={access} />;
+}
+
+export function LegacyNotificationsView({ access }) {
   const [campaigns, setCampaigns] = useState([]);
   const [composerOpen, setComposerOpen] = useState(false);
   const [busy, setBusy] = useState(false);

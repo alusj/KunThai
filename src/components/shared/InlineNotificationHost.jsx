@@ -13,10 +13,20 @@ function mapRow(row) {
     rawId: row.id,
     source: row.sector === "platform" || row.sector === "all" ? "system" : row.sector || "system",
     actionTarget: row.action_target || "",
+    actionData: row.action_data || {},
+    displayConfig: row.display_config || {},
   };
 }
 
-export default function InlineNotificationHost({ bottomTabsHidden = false, userId = "" }) {
+function matchesPage(row, currentPage) {
+  const paths = row.display_config?.targetPaths || [];
+  if (!paths.length || paths.includes("all")) return true;
+  if (currentPage === "marketplace") return paths.some((path) => path.startsWith("urmall."));
+  if (currentPage === "transport") return paths.some((path) => path.startsWith("urride.") || path.startsWith("nearby_area."));
+  return paths.some((path) => path.startsWith("explore.") || path.startsWith("platform."));
+}
+
+export default function InlineNotificationHost({ bottomTabsHidden = false, currentPage = "explore", userId = "" }) {
   const [item, setItem] = useState(null);
 
   const load = useCallback(async () => {
@@ -31,7 +41,7 @@ export default function InlineNotificationHost({ bottomTabsHidden = false, userI
         .select("*")
         .eq("user_id", userId)
         .eq("status", "unread")
-        .eq("presentation", "inline")
+        .in("presentation", ["inline", "inline_inbox"])
         .order("created_at", { ascending: false })
         .limit(10),
       supabase
@@ -45,7 +55,8 @@ export default function InlineNotificationHost({ bottomTabsHidden = false, userI
     const next = (rows || []).find((row) => {
       const active = !row.expires_at || new Date(row.expires_at).getTime() > now;
       const allowed = preferences?.in_app_enabled !== false || ALWAYS_AVAILABLE_CATEGORIES.has(row.category);
-      return active && allowed;
+      const awake = !row.snoozed_until || new Date(row.snoozed_until).getTime() <= now;
+      return active && awake && allowed && matchesPage(row, currentPage);
     }) || null;
     setItem(next ? mapRow(next) : null);
 
@@ -56,7 +67,7 @@ export default function InlineNotificationHost({ bottomTabsHidden = false, userI
         .update({ displayed_at: at, seen_at: at })
         .eq("id", next.id);
     }
-  }, [userId]);
+  }, [currentPage, userId]);
 
   useEffect(() => {
     load().catch(() => setItem(null));
@@ -74,6 +85,7 @@ export default function InlineNotificationHost({ bottomTabsHidden = false, userI
 
   async function dismiss() {
     const current = item;
+    if (current?.displayConfig?.behaviour?.canDismiss === false) return;
     setItem(null);
     if (!current?.id) return;
     await supabase
@@ -110,9 +122,9 @@ export default function InlineNotificationHost({ bottomTabsHidden = false, userI
             <p className="text-[10px] font-black uppercase tracking-[0.16em] text-sky-700">{item.sector === "marketplace" ? "UrMall" : item.sector === "transport" ? "UrRide" : item.sector === "explore" ? "Explore" : "KunThai"} update</p>
             <h2 className="mt-0.5 text-sm font-black leading-5 text-slate-950">{item.title || "Important update"}</h2>
             <p className="mt-1 line-clamp-2 text-xs font-semibold leading-5 text-slate-600">{item.body}</p>
-            <button type="button" onClick={open} className="mt-2 inline-flex items-center gap-1 text-xs font-black text-sky-700">Open update <ChevronRight size={14} /></button>
+            <button type="button" onClick={open} className="mt-2 inline-flex items-center gap-1 text-xs font-black text-sky-700">{item.actionData?.actionLabel || item.displayConfig?.action?.label || "Open update"} <ChevronRight size={14} /></button>
           </div>
-          <button type="button" onClick={dismiss} aria-label="Dismiss notification" className="grid h-8 w-8 shrink-0 place-items-center rounded-xl text-slate-400 hover:bg-slate-100 hover:text-slate-700"><X size={16} /></button>
+          {item.displayConfig?.behaviour?.canDismiss !== false ? <button type="button" onClick={dismiss} aria-label="Dismiss notification" className="grid h-8 w-8 shrink-0 place-items-center rounded-xl text-slate-400 hover:bg-slate-100 hover:text-slate-700"><X size={16} /></button> : null}
         </div>
       </aside>
     </AppPortal>

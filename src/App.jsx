@@ -19,6 +19,7 @@ import TwoFactorGate from "./components/auth/TwoFactorGate";
 import GuestGateCard from "./components/shared/GuestGateCard";
 import InlineNotificationHost from "./components/shared/InlineNotificationHost";
 import NotificationBannerHost from "./components/shared/NotificationBannerHost";
+import CampaignPresentationHost from "./components/shared/CampaignPresentationHost";
 import CrossServiceActivityHost from "./components/shared/CrossServiceActivityHost";
 import ScreenshotVoiceCard from "./components/shared/ScreenshotVoiceCard";
 import { endGuestVisit, isGuestMode } from "./Backend/services/guestModeService";
@@ -1009,7 +1010,8 @@ export default function App() {
           />
         </>
       ) : null}
-      {!guestSession ? <InlineNotificationHost bottomTabsHidden={bottomTabsHidden} userId={userId} /> : null}
+      {!guestSession ? <InlineNotificationHost bottomTabsHidden={bottomTabsHidden} currentPage={page} userId={userId} /> : null}
+      {!guestSession ? <CampaignPresentationHost currentPage={page} userId={userId} /> : null}
       <NotificationBannerHost userId={userId} />
     </div>,
   );

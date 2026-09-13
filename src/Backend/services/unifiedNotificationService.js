@@ -84,6 +84,10 @@ function mapExploreNotification(item) {
       presentation: item.presentation || "inbox",
       actionTarget: item.action_target || "",
       actionData: item.action_data || {},
+      displayConfig: item.display_config || {},
+      media: item.display_config?.media || null,
+      actionLabel: item.action_data?.actionLabel || item.display_config?.action?.label || "Open",
+      canDismiss: item.display_config?.behaviour?.canDismiss !== false,
       createdAt: item.created_at,
       read: item.status === "read" || item.status === "archived",
       archived: item.status === "archived" || Boolean(item.dismissed_at),
@@ -254,7 +258,9 @@ export async function fetchUnifiedNotifications(userId) {
   const platformRows = platformResult.error
     ? exploreItems.filter((item) => item?._notification_source === "platform")
     : (platformResult.data || []);
-  const platformItems = platformRows.filter((item) => !item.expires_at || timestamp(item.expires_at) > now);
+  const platformItems = platformRows
+    .filter((item) => !item.expires_at || timestamp(item.expires_at) > now)
+    .filter((item) => item.display_config?.presentation?.includeInbox !== false);
   const items = [
     ...exploreItems.filter((item) => item?._notification_source !== "platform").map(mapExploreNotification),
     ...platformItems.map((item) => mapExploreNotification({ ...item, _notification_source: "platform" })),
@@ -359,12 +365,39 @@ export function notificationAllowedByPreferences(item, preferences = DEFAULT_PRE
 export function openUnifiedNotification(item) {
   return runNotificationAction(() => {
     const target = String(item?.actionTarget || "");
-    if (target.startsWith("urmall:messages")) {
+    if (target === "external") {
+      const url = String(item?.actionData?.url || "");
+      if (!/^https:\/\//i.test(url)) return false;
+      window.open(url, "_blank", "noopener,noreferrer");
+    } else if (target === "notifications" || target === "platform.notifications") {
+      window.dispatchEvent(new CustomEvent("kuntai-open-notification-center"));
+    } else if (target === "settings") {
+      requestExploreScreen("Settings");
+    } else if (target === "verification") {
+      requestExploreScreen("Profile");
+    } else if (target === "profile") {
+      const userId = item?.actionData?.userId;
+      if (!userId) return false;
+      requestExploreScreen("");
+      window.dispatchEvent(new CustomEvent("kuntai-open-profile", { detail: { userId } }));
+    } else if (target === "explore:post" || target === "explore:swip") {
+      const tab = target === "explore:swip" ? "Swip" : "UrFeed";
+      requestExploreScreen("");
+      window.dispatchEvent(new CustomEvent("explore-open-tab", { detail: { tab, postId: item?.actionData?.postId || "" } }));
+    } else if (target.startsWith("urmall:messages")) {
       requestMarketplaceScreen("messages", { conversationId: item?.conversationId || item?.actionData?.conversationId || item?.rawId || "" });
     } else if (target.startsWith("urmall:orders")) requestMarketplaceScreen("orders", { orderId: item?.orderId || item?.rawId || "" });
     else if (target.startsWith("urmall:admin-roles")) requestMarketplaceScreen("admin-roles");
     else if (target.startsWith("urmall:business-messages")) requestMarketplaceScreen("business-messages");
     else if (target.startsWith("urmall:business")) requestMarketplaceScreen("business");
+    else if (target.startsWith("urmall:product") && item?.actionData?.productId) {
+      requestMarketplaceScreen("");
+      window.setTimeout(() => window.dispatchEvent(new CustomEvent("marketplace-open-product", { detail: { product: { id: item.actionData.productId } } })), 80);
+    }
+    else if (target.startsWith("urmall:store") && item?.actionData?.businessId) {
+      requestMarketplaceScreen("");
+      window.setTimeout(() => window.dispatchEvent(new CustomEvent("marketplace-open-seller", { detail: { seller: { id: item.actionData.businessId } } })), 80);
+    }
     else if (target.startsWith("urmall") || item?.source === "marketplace") requestMarketplaceScreen("");
     else if (target.startsWith("urride") || item?.source === "transport") {
       window.dispatchEvent(new CustomEvent("kuntai-return-main-page", { detail: { page: "transport", target } }));

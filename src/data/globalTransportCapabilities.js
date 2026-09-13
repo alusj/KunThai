@@ -1,4 +1,4 @@
-import { getActiveCountryProfile, normalizeCountryIso } from "./globalCountryProfiles";
+import { getActiveCountryProfile, normalizeCountryIso } from "./globalCountryProfiles.js";
 
 const TAXI_ONLY_RIDE_COUNTRIES = new Set([
   "AD", "AE", "AT", "AU", "BE", "CA", "CH", "CY", "CZ", "DE", "DK", "EE",

@@ -837,7 +837,23 @@ export async function getNotificationCampaigns() {
 }
 
 export async function createNotificationCampaign(input) {
-  if (isAdminPreview()) return runAdminMutation(() => previewDelay({ id: crypto.randomUUID(), ...input, status: input.schedule ? "pending_approval" : "draft", created_at: new Date().toISOString(), delivery_count: 0, failure_count: 0 }), { action: "notification.campaign_created" });
+  if (isAdminPreview()) return runAdminMutation(() => previewDelay({
+    id: crypto.randomUUID(),
+    ...input,
+    campaign_name: input.campaignName || input.title,
+    audience_type: input.audience,
+    audience_filter: input.filter || {},
+    action_target: input.actionTarget || null,
+    action_data: input.actionData || {},
+    scheduled_at: input.schedule || null,
+    expires_at: input.expiresAt || null,
+    configuration: input.configuration || {},
+    estimated_audience: 3842,
+    status: input.schedule ? "pending_approval" : "draft",
+    created_at: new Date().toISOString(),
+    delivery_count: 0,
+    failure_count: 0,
+  }), { action: "notification.campaign_created" });
   return runAdminMutation(async () => unwrap(await supabase.rpc("admin_create_campaign", {
     campaign_title: input.title,
     campaign_body: input.body,
@@ -852,7 +868,45 @@ export async function createNotificationCampaign(input) {
     campaign_action_target: input.actionTarget || null,
     campaign_action_data: input.actionData || {},
     campaign_expires_at: input.expiresAt || null,
+    campaign_name: input.campaignName || input.title,
+    campaign_configuration: input.configuration || {},
   }), "Unable to create the campaign."), { action: "notification.campaign_created" });
+}
+
+export async function updateNotificationCampaign(campaignId, input) {
+  if (isAdminPreview()) return runAdminMutation(() => previewDelay({
+    id: campaignId,
+    ...input,
+    campaign_name: input.campaignName || input.title,
+    audience_type: input.audience,
+    audience_filter: input.filter || {},
+    action_target: input.actionTarget || null,
+    action_data: input.actionData || {},
+    scheduled_at: input.schedule || null,
+    expires_at: input.expiresAt || null,
+    configuration: input.configuration || {},
+    estimated_audience: 3842,
+    status: input.schedule ? "pending_approval" : "draft",
+    updated_at: new Date().toISOString(),
+  }), { action: "notification.campaign_updated", campaignId });
+  return runAdminMutation(async () => unwrap(await supabase.rpc("admin_update_campaign", {
+    campaign_uuid: campaignId,
+    campaign_title: input.title,
+    campaign_body: input.body,
+    campaign_sector: input.sector,
+    campaign_audience: input.audience,
+    campaign_priority: input.priority,
+    campaign_filter: input.filter || {},
+    campaign_schedule: input.schedule || null,
+    campaign_channels: input.channels || ["in_app"],
+    campaign_presentation: input.presentation || "inbox",
+    campaign_category: input.category || "announcement",
+    campaign_action_target: input.actionTarget || null,
+    campaign_action_data: input.actionData || {},
+    campaign_expires_at: input.expiresAt || null,
+    campaign_name: input.campaignName || input.title,
+    campaign_configuration: input.configuration || {},
+  }), "Unable to update the campaign."), { action: "notification.campaign_updated", campaignId });
 }
 
 export async function estimateNotificationCampaignAudience(input) {
@@ -869,10 +923,14 @@ export async function approveNotificationCampaign(campaignId) {
   return runAdminMutation(async () => unwrap(await supabase.rpc("admin_approve_campaign", { campaign_uuid: campaignId }), "Unable to approve the campaign."), { action: "notification.campaign_approved", campaignId });
 }
 
-export async function publishNotificationCampaign(campaignId) {
+export async function publishNotificationCampaign(campaignId, confirmation = {}) {
   if (isAdminPreview()) return runAdminMutation(() => previewDelay({ id: campaignId, status: "completed", sent_at: new Date().toISOString(), delivery_count: 3842, failure_count: 0 }), { action: "notification.campaign_published", campaignId });
   return runAdminMutation(async () => {
-    const campaign = unwrap(await supabase.rpc("admin_publish_campaign", { campaign_uuid: campaignId }), "Unable to publish the campaign.");
+    const campaign = unwrap(await supabase.rpc("admin_publish_campaign", {
+      campaign_uuid: campaignId,
+      confirmed_audience: Number.isFinite(Number(confirmation.expectedAudience)) ? Number(confirmation.expectedAudience) : null,
+      confirmed_worldwide: confirmation.confirmWorldwide === true,
+    }), "Unable to publish the campaign.");
     if (campaign?.channels?.includes("push")) {
       supabase.functions.invoke("send-notification-push", { body: { campaignId } }).catch(() => {});
     }
@@ -880,9 +938,25 @@ export async function publishNotificationCampaign(campaignId) {
   }, { action: "notification.campaign_published", campaignId });
 }
 
-export async function sendNotificationCampaignTest(campaignId) {
-  if (isAdminPreview()) return runAdminMutation(() => previewDelay({ id: crypto.randomUUID(), campaign_id: campaignId, status: "unread" }), { action: "notification.campaign_tested", campaignId });
-  return runAdminMutation(async () => unwrap(await supabase.rpc("admin_send_campaign_test", { campaign_uuid: campaignId }), "Unable to send the test notification."), { action: "notification.campaign_tested", campaignId });
+export async function sendNotificationCampaignTest(campaignId, targetUserId = null) {
+  if (isAdminPreview()) return runAdminMutation(() => previewDelay({ id: crypto.randomUUID(), campaign_id: campaignId, user_id: targetUserId || "preview-admin", status: "unread" }), { action: "notification.campaign_tested", campaignId, targetUserId });
+  return runAdminMutation(async () => unwrap(await supabase.rpc("admin_send_campaign_test", { campaign_uuid: campaignId, target_user_id: targetUserId }), "Unable to send the test notification."), { action: "notification.campaign_tested", campaignId, targetUserId });
+}
+
+export async function lookupNotificationCampaignUser(kunThaiId) {
+  if (isAdminPreview()) {
+    const user = previewUsers[0];
+    return previewDelay({
+      user_id: user.user_id,
+      public_id: String(kunThaiId || "KTU-PREV-IEW0-0001").toUpperCase(),
+      display_name: user.display_name,
+      avatar_url: user.avatar_url || "",
+      country: user.country || "Sierra Leone",
+      city: user.city || "Freetown",
+    });
+  }
+  const rows = unwrap(await supabase.rpc("admin_lookup_campaign_user", { public_kunthai_id: String(kunThaiId || "").trim() }), "Unable to find that KunThai ID.") || [];
+  return Array.isArray(rows) ? rows[0] || null : rows;
 }
 
 export async function cancelNotificationCampaign(campaignId, reason) {
