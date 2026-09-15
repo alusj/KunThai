@@ -718,7 +718,13 @@ export async function searchAdminUsers(input = "") {
   const wantsPage = typeof input === "object" && input !== null;
   if (isAdminPreview()) {
     const value = search.toLowerCase();
-    let rows = previewUsers.filter((item) => !value || `${item.display_name} ${item.email} ${item.phone} ${item.username}`.toLowerCase().includes(value));
+    const normalizedValue = search.replace(/[^A-Za-z0-9]/g, "").toLowerCase();
+    let rows = previewUsers.filter((item) => {
+      if (!value) return true;
+      const searchable = `${item.display_name} ${item.email} ${item.phone} ${item.username}`.toLowerCase();
+      const normalizedPublicId = String(item.public_id || "").replace(/[^A-Za-z0-9]/g, "").toLowerCase();
+      return searchable.includes(value) || (normalizedValue && normalizedPublicId.includes(normalizedValue));
+    });
     if (options.status && options.status !== "all") rows = rows.filter((item) => (item.account_status || "active") === options.status);
     if (options.accountType && options.accountType !== "all") rows = rows.filter((item) => (item.account_type || "personal") === options.accountType);
     if (options.sort === "oldest") rows.sort((a, b) => new Date(a.created_at) - new Date(b.created_at));
@@ -731,7 +737,7 @@ export async function searchAdminUsers(input = "") {
     rows = rows.slice(offset, offset + limit).map((item) => ({ ...item, total_count: total }));
     return previewDelay(wantsPage ? { rows, total } : rows);
   }
-  const result = await supabase.rpc("admin_search_users_v2", {
+  const result = await supabase.rpc("admin_search_users_v3", {
     search_text: search,
     account_status_filter: options.status && options.status !== "all" ? options.status : null,
     account_type_filter: options.accountType && options.accountType !== "all" ? options.accountType : null,
@@ -744,7 +750,15 @@ export async function searchAdminUsers(input = "") {
     const total = Number(rows[0]?.total_count || 0);
     return wantsPage ? { rows, total } : rows;
   }
-  const fallbackRows = unwrap(await supabase.rpc("admin_search_users", { search_text: search, result_limit: 100 }), "Unable to search users.") || [];
+  const legacyResult = await supabase.rpc("admin_search_users_v2", {
+    search_text: search,
+    account_status_filter: options.status && options.status !== "all" ? options.status : null,
+    account_type_filter: options.accountType && options.accountType !== "all" ? options.accountType : null,
+    sort_key: options.sort || "newest",
+    result_limit: Math.max(1, Math.min(Number(options.limit) || 50, 100)),
+    result_offset: Math.max(0, Number(options.offset) || 0),
+  });
+  const fallbackRows = legacyResult.error ? unwrap(await supabase.rpc("admin_search_users", { search_text: search, result_limit: 100 }), "Unable to search users.") || [] : legacyResult.data || [];
   return wantsPage ? { rows: fallbackRows, total: fallbackRows.length } : fallbackRows;
 }
 
@@ -762,16 +776,85 @@ export async function getAdminUserWorkspace(userId) {
       ...(user.account_type === "business" ? [{ id: `preview-product-${userId}`, surface: "marketplace", type: "product", title: "Featured marketplace product", summary: "An active UrMall product listing associated with this account.", status: "active", media_url: null, created_at: new Date(Date.now() - 36e5 * 22).toISOString() }] : []),
       ...(user.account_type === "operator" ? [{ id: `preview-operator-${userId}`, surface: "transport", type: "operator", title: user.display_name, summary: "Verified transport operator profile and fleet workspace.", status: "verified", media_url: null, created_at: user.created_at }] : []),
     ];
+    const businesses = user.account_type === "business" ? [{
+      id: `preview-business-${userId}`,
+      business_name: "Kallon Home Supplies",
+      business_kind: "retail",
+      role: "owner",
+      country: "Sierra Leone",
+      city: "Freetown",
+      verification_status: "verified",
+      plan_code: "pro",
+      plan_name: "Pro",
+      plan_status: "active",
+      product_count: 42,
+      published_product_count: 37,
+      order_count: 196,
+      content_count: 8,
+      admin_count: 1,
+      product_limit: 50,
+      admin_limit: 1,
+    }] : [];
+    const companies = user.account_type === "operator" ? [{
+      id: `preview-company-${userId}`,
+      company_name: "Freetown City Mobility",
+      company_code: "KTM-2048",
+      company_type: "Transport company",
+      role: "owner",
+      country: "Sierra Leone",
+      city: "Freetown",
+      account_status: "approved",
+      verification_status: "verified",
+      plan_code: "premium",
+      plan_name: "Premium",
+      plan_status: "active",
+      fleet_count: 18,
+      active_fleet_count: 14,
+      rental_fleet_count: 4,
+      operator_count: 12,
+      admin_count: 2,
+      reservation_count: 26,
+      vehicle_limit: 50,
+      operator_limit: 50,
+    }] : [];
+    const operators = user.account_type === "operator" ? [{
+      id: `preview-operator-${userId}`,
+      full_name: user.display_name,
+      display_code: "KT-76101",
+      public_id: "KT-76101",
+      operator_mode: "company-linked",
+      city: "Freetown",
+      account_status: "approved",
+      verification_status: "verified",
+      service_modes: ["transport", "delivery"],
+      fleet_count: 2,
+      company_count: 1,
+      completed_jobs: 842,
+    }] : [];
+    const adminRoles = user.user_id === "user-3" ? [{ id: "preview-role-support", role_key: "support_officer", name: "Support Officer", sector_scopes: ["support", "platform"], authority_level: 2, status: "active" }] : [];
+    const subscriptions = [
+      ...businesses.map((business) => ({ id: `preview-sub-${business.id}`, surface: "urmall", entity_name: business.business_name, plan_code: business.plan_code, plan_name: business.plan_name, status: business.plan_status, current_period_end: new Date(Date.now() + 24 * 19 * 60 * 60 * 1000).toISOString(), auto_renew: true, limits: { product_limit: business.product_limit, admin_limit: business.admin_limit }, usage: { product_count: business.product_count } })),
+      ...companies.map((company) => ({ id: `preview-sub-${company.id}`, surface: "urride", entity_name: company.company_name, plan_code: company.plan_code, plan_name: company.plan_name, status: company.plan_status, current_period_end: new Date(Date.now() + 24 * 26 * 60 * 60 * 1000).toISOString(), auto_renew: true, limits: { vehicle_limit: company.vehicle_limit, operator_limit: company.operator_limit }, usage: { fleet_count: company.fleet_count, operator_count: company.operator_count } })),
+    ];
+    const summary = { content_count: content.length, case_count: cases.length, open_case_count: cases.filter((item) => !["resolved", "closed"].includes(item.status)).length, account_count: 1 + businesses.length + companies.length + operators.length, business_count: businesses.length, company_count: companies.length, operator_count: operators.length, fleet_count: companies.reduce((total, company) => total + company.fleet_count, 0) + operators.reduce((total, operator) => total + operator.fleet_count, 0), rental_count: companies.reduce((total, company) => total + company.rental_fleet_count, 0), product_count: businesses.reduce((total, business) => total + business.product_count, 0), subscription_count: subscriptions.length, admin_role_count: adminRoles.length };
     return previewDelay({
-      user: { ...user, email_verified: true, phone_verified: Boolean(user.phone), profile_verified: user.account_type !== "personal", last_sign_in_at: new Date(Date.now() - 36e5 * 3).toISOString(), restricted_sectors: user.account_status === "warned" ? ["all"] : [] },
+      user: { ...user, email_verified: true, phone_verified: Boolean(user.phone), profile_verified: user.account_type !== "personal", last_sign_in_at: new Date(Date.now() - 36e5 * 3).toISOString(), restricted_sectors: user.account_status === "warned" ? ["all"] : [], public_id: user.public_id, is_admin: adminRoles.length > 0 },
       wallet,
       transactions,
       cases,
       content,
       audit: previewAudit.filter((item) => item.resource_id === userId || item.resource_type === "user"),
-      summary: { content_count: content.length, case_count: cases.length, open_case_count: cases.filter((item) => !["resolved", "closed"].includes(item.status)).length },
+      activity: previewAudit.filter((item) => item.resource_id === userId || item.resource_type === "user"),
+      businesses,
+      companies,
+      operators,
+      admin_roles: adminRoles,
+      subscriptions,
+      summary,
     });
   }
+  const enriched = await supabase.rpc("admin_get_user_workspace_v2", { target_user_id: userId });
+  if (!enriched.error) return enriched.data;
   return unwrap(await supabase.rpc("admin_get_user_workspace", { target_user_id: userId }), "Unable to load this user workspace.");
 }
 
@@ -945,10 +1028,12 @@ export async function sendNotificationCampaignTest(campaignId, targetUserId = nu
 
 export async function lookupNotificationCampaignUser(kunThaiId) {
   if (isAdminPreview()) {
-    const user = previewUsers[0];
+    const normalized = String(kunThaiId || "").replace(/[^A-Za-z0-9]/g, "").toUpperCase();
+    const user = previewUsers.find((item) => String(item.public_id || "").replace(/[^A-Za-z0-9]/g, "").toUpperCase() === normalized);
+    if (!user) return previewDelay(null);
     return previewDelay({
       user_id: user.user_id,
-      public_id: String(kunThaiId || "KTU-PREV-IEW0-0001").toUpperCase(),
+      public_id: user.public_id || String(kunThaiId || "KTU-PREV-IEW0-0001").toUpperCase(),
       display_name: user.display_name,
       avatar_url: user.avatar_url || "",
       country: user.country || "Sierra Leone",

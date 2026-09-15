@@ -9,12 +9,14 @@ import {
   Copy,
   FileText,
   History,
+  KeyRound,
   LoaderCircle,
   Mail,
   MoreHorizontal,
   Search,
   ShieldCheck,
   ShoppingBag,
+  Truck,
   UserRound,
   X,
 } from "lucide-react";
@@ -33,6 +35,14 @@ import {
   setAdminUserStatus,
 } from "../adminService";
 import SuggestedTextSelect from "../components/SuggestedTextSelect";
+import {
+  AccountsPanel as IdentityAccountsPanel,
+  ActivityPanel as IdentityActivityPanel,
+  IdentityOverviewPanel,
+  UrMallPanel as IdentityUrMallPanel,
+  UrRidePanel as IdentityUrRidePanel,
+  SubscriptionsPanel as IdentitySubscriptionsPanel,
+} from "../components/UserIdentityPanels";
 import { showToast } from "../../Backend/services/toastService";
 
 const PAGE_SIZE = 25;
@@ -44,7 +54,14 @@ const EMPTY_WORKSPACE = {
   cases: [],
   content: [],
   audit: [],
-  summary: { content_count: 0, case_count: 0, open_case_count: 0 },
+  activity: [],
+  accounts: [],
+  businesses: [],
+  companies: [],
+  operators: [],
+  subscriptions: [],
+  admin_roles: [],
+  summary: { content_count: 0, case_count: 0, open_case_count: 0, account_count: 1, business_count: 0, company_count: 0, operator_count: 0, fleet_count: 0, rental_count: 0, product_count: 0, subscription_count: 0, admin_role_count: 0 },
 };
 
 function statusTone(status) {
@@ -63,7 +80,7 @@ function UserActionsMenu({ user, access, onOpen, onNotify }) {
   const [open, setOpen] = useState(false);
   const rootRef = useRef(null);
   const canManage = access.permissions.includes("users.manage");
-  const canNotify = access.permissions.includes("notifications.manage") && Boolean(user.email);
+  const canNotify = access.permissions.includes("notifications.manage") && Boolean(user.user_id);
   const canAudit = access.permissions.includes("audit.view");
 
   useEffect(() => {
@@ -134,38 +151,7 @@ function EmptyPanel({ icon: Icon, title, body }) {
 }
 
 function OverviewPanel({ user, workspace }) {
-  const details = workspace.user || user;
-  const summary = workspace.summary || EMPTY_WORKSPACE.summary;
-  return (
-    <div className="space-y-5">
-      <section className="grid gap-3 sm:grid-cols-3">
-        <MetricCard label="Content" value={summary.content_count || workspace.content.length} detail="Across KunThai" icon={ShoppingBag} />
-        <MetricCard label="Cases" value={summary.case_count || workspace.cases.length} detail={`${summary.open_case_count || 0} currently open`} icon={FileText} />
-        <MetricCard label="Visibility Credits" value={workspace.wallet?.balance || 0} detail="Current wallet balance" icon={CircleDollarSign} />
-      </section>
-      <section className="rounded-lg border border-zinc-200 p-4">
-        <h3 className="text-sm font-black text-zinc-950">Identity and account</h3>
-        <dl className="mt-4 grid gap-x-6 gap-y-4 sm:grid-cols-2">
-          <Detail label="Display name" value={details.display_name || "Unnamed account"} />
-          <Detail label="Username" value={details.username ? `@${details.username}` : "Not set"} />
-          <Detail label="Email" value={details.email || "Not provided"} />
-          <Detail label="Phone" value={details.phone || "Not provided"} />
-          <Detail label="Account type" value={titleCase(details.account_type || "personal")} />
-          <Detail label="Joined" value={formatDateTime(details.created_at)} />
-          <Detail label="Last sign-in" value={details.last_sign_in_at ? formatDateTime(details.last_sign_in_at) : "No sign-in recorded"} />
-          <Detail label="User ID" value={details.user_id || user.user_id} mono />
-        </dl>
-      </section>
-      <section className="rounded-lg border border-zinc-200 p-4">
-        <h3 className="text-sm font-black text-zinc-950">Verification</h3>
-        <div className="mt-3 flex flex-wrap gap-2">
-          <VerificationBadge verified={details.email_verified}>Email {details.email_verified ? "verified" : "not verified"}</VerificationBadge>
-          <VerificationBadge verified={details.phone_verified}>Phone {details.phone_verified ? "verified" : "not verified"}</VerificationBadge>
-          <VerificationBadge verified={details.profile_verified}>Profile {details.profile_verified ? "verified" : "not verified"}</VerificationBadge>
-        </div>
-      </section>
-    </div>
-  );
+  return <IdentityOverviewPanel user={workspace.user || user} workspace={workspace} />;
 }
 
 function MetricCard({ label, value, detail, icon: Icon }) {
@@ -287,10 +273,15 @@ function UserWorkspaceDrawer({ user, initialTab, access, onClose, onUserUpdated 
   const canGrant = access.permissions.includes("visibility_credits.manage");
   const tabs = [
     { id: "overview", label: "Overview", icon: UserRound },
+    { id: "accounts", label: "Accounts & roles", icon: KeyRound },
+    { id: "urmall", label: "UrMall", icon: ShoppingBag },
+    { id: "urride", label: "UrRide", icon: Truck },
+    { id: "plans", label: "Subscriptions", icon: CircleDollarSign },
     { id: "content", label: "Content", icon: ShoppingBag },
     { id: "cases", label: "Cases", icon: FileText },
     { id: "credits", label: "Credits", icon: CircleDollarSign },
     { id: "security", label: "Account", icon: ShieldCheck },
+    { id: "activity", label: "Activity", icon: Activity },
     ...(access.permissions.includes("audit.view") ? [{ id: "history", label: "History", icon: History }] : []),
   ];
 
@@ -349,10 +340,15 @@ function UserWorkspaceDrawer({ user, initialTab, access, onClose, onUserUpdated 
         <div className="kuntai-scrollbar-none flex-1 overflow-y-auto p-4 sm:p-6">
           {loading ? <WorkspaceLoading /> : null}
           {!loading && tab === "overview" ? <OverviewPanel user={currentUser} workspace={workspace} /> : null}
+          {!loading && tab === "accounts" ? <IdentityAccountsPanel user={currentUser} workspace={workspace} /> : null}
+          {!loading && tab === "urmall" ? <IdentityUrMallPanel workspace={workspace} /> : null}
+          {!loading && tab === "urride" ? <IdentityUrRidePanel workspace={workspace} /> : null}
+          {!loading && tab === "plans" ? <IdentitySubscriptionsPanel workspace={workspace} /> : null}
           {!loading && tab === "content" ? <ContentPanel content={workspace.content || []} /> : null}
           {!loading && tab === "cases" ? <CasesPanel cases={workspace.cases || []} /> : null}
           {!loading && tab === "credits" ? <CreditsPanel user={currentUser} workspace={workspace} canGrant={canGrant} busy={busy} onGrant={grantCredits} /> : null}
           {!loading && tab === "security" ? <AccountSecurityPanel user={currentUser} access={access} busy={busy} onSaved={saveControl} /> : null}
+          {!loading && tab === "activity" ? <IdentityActivityPanel workspace={workspace} /> : null}
           {!loading && tab === "history" ? <HistoryPanel audit={workspace.audit || []} /> : null}
         </div>
         {error ? <div role="alert" className="border-t border-red-200 bg-red-50 px-4 py-3 text-sm font-semibold text-red-700 sm:px-6">{error}</div> : null}
@@ -369,7 +365,7 @@ function TargetedNotificationDialog({ user, onClose }) {
   async function submit(event) {
     event.preventDefault(); setBusy(true); setError("");
     try {
-      await createNotificationCampaign({ ...form, audience: "specific_users", filter: { emails: [user.email] }, schedule: "" });
+      await createNotificationCampaign({ ...form, audience: "specific_users", filter: { userIds: [user.user_id], kunthaiIds: [user.public_id].filter(Boolean) }, schedule: "" });
       showToast("Targeted notification campaign created.", "success", { title: user.display_name || user.email });
       onClose();
     } catch (nextError) { setError(nextError.message || "Unable to create this notification."); }
@@ -377,8 +373,8 @@ function TargetedNotificationDialog({ user, onClose }) {
   }
 
   return (
-    <div className="fixed inset-0 z-[85] flex items-center justify-center p-4"><button type="button" aria-label="Close notification composer" className="absolute inset-0 bg-zinc-950/55" onClick={onClose} /><form onSubmit={submit} className="relative max-h-[92vh] w-full max-w-xl overflow-y-auto rounded-lg bg-white p-5 shadow-2xl sm:p-6"><div className="flex items-start justify-between gap-3"><div><p className="text-xs font-black uppercase text-emerald-700">Targeted notification</p><h2 className="mt-1 text-xl font-black text-zinc-950">Notify {user.display_name || user.email}</h2><p className="mt-1 text-xs font-semibold text-zinc-500">Creates an auditable campaign for {user.email}.</p></div><button type="button" title="Close" onClick={onClose} className="grid h-9 w-9 place-items-center rounded-md text-zinc-500 hover:bg-zinc-100"><X size={19} /></button></div>
-      <div className="mt-5 space-y-4"><div className="space-y-3"><SuggestedTextSelect label="Suggested notification titles" suggestions={NOTIFICATION_TITLE_SUGGESTIONS} onSelect={(text) => setForm((current) => ({ ...current, title: text }))} /><label className="block"><span className="mb-1.5 block text-sm font-bold">Title</span><input required value={form.title} onChange={(event) => setForm((current) => ({ ...current, title: event.target.value }))} className="h-11 w-full rounded-lg border border-zinc-300 px-3 text-sm font-semibold outline-none focus:border-emerald-600" /></label></div><div className="space-y-3"><SuggestedTextSelect label="Suggested notification messages" suggestions={NOTIFICATION_MESSAGE_SUGGESTIONS} onSelect={(text) => setForm((current) => ({ ...current, body: text }))} /><label className="block"><span className="mb-1.5 block text-sm font-bold">Message</span><textarea required rows={5} value={form.body} onChange={(event) => setForm((current) => ({ ...current, body: event.target.value }))} className="w-full resize-none rounded-lg border border-zinc-300 p-3 text-sm font-medium outline-none focus:border-emerald-600" /></label></div><div className="grid gap-3 sm:grid-cols-2"><label><span className="mb-1.5 block text-xs font-black text-zinc-600">Sector</span><select value={form.sector} onChange={(event) => setForm((current) => ({ ...current, sector: event.target.value }))} className="h-11 w-full rounded-lg border border-zinc-300 px-3 text-sm font-bold"><option value="platform">Platform</option><option value="explore">Explore</option><option value="marketplace">UrMall</option><option value="transport">Transport</option></select></label><label><span className="mb-1.5 block text-xs font-black text-zinc-600">Priority</span><select value={form.priority} onChange={(event) => setForm((current) => ({ ...current, priority: event.target.value }))} className="h-11 w-full rounded-lg border border-zinc-300 px-3 text-sm font-bold"><option value="normal">Normal</option><option value="high">High</option><option value="urgent">Urgent</option></select></label></div></div>
+    <div className="fixed inset-0 z-[85] flex items-center justify-center p-4"><button type="button" aria-label="Close notification composer" className="absolute inset-0 bg-zinc-950/55" onClick={onClose} /><form onSubmit={submit} className="relative max-h-[92vh] w-full max-w-xl overflow-y-auto rounded-lg bg-white p-5 shadow-2xl sm:p-6"><div className="flex items-start justify-between gap-3"><div><p className="text-xs font-black uppercase text-emerald-700">Targeted notification</p><h2 className="mt-1 text-xl font-black text-zinc-950">Notify {user.display_name || user.email}</h2><p className="mt-1 text-xs font-semibold text-zinc-500">Creates an auditable campaign for the canonical KunThai account ID.</p></div><button type="button" title="Close" onClick={onClose} className="grid h-9 w-9 place-items-center rounded-md text-zinc-500 hover:bg-zinc-100"><X size={19} /></button></div>
+      <div className="mt-5 space-y-4"><div className="rounded-lg border border-emerald-200 bg-emerald-50/50 p-3"><p className="text-xs font-black uppercase tracking-wide text-emerald-800">Canonical recipient</p><p className="mt-1 font-mono text-sm font-black text-emerald-950">{user.public_id || "KunThai ID unavailable"}</p><p className="mt-1 text-xs font-semibold text-emerald-800">The campaign targets the KunThai ID and internal account UUID; email is not used for audience identity.</p></div><div className="space-y-3"><SuggestedTextSelect label="Suggested notification titles" suggestions={NOTIFICATION_TITLE_SUGGESTIONS} onSelect={(text) => setForm((current) => ({ ...current, title: text }))} /><label className="block"><span className="mb-1.5 block text-sm font-bold">Title</span><input required value={form.title} onChange={(event) => setForm((current) => ({ ...current, title: event.target.value }))} className="h-11 w-full rounded-lg border border-zinc-300 px-3 text-sm font-semibold outline-none focus:border-emerald-600" /></label></div><div className="space-y-3"><SuggestedTextSelect label="Suggested notification messages" suggestions={NOTIFICATION_MESSAGE_SUGGESTIONS} onSelect={(text) => setForm((current) => ({ ...current, body: text }))} /><label className="block"><span className="mb-1.5 block text-sm font-bold">Message</span><textarea required rows={5} value={form.body} onChange={(event) => setForm((current) => ({ ...current, body: event.target.value }))} className="w-full resize-none rounded-lg border border-zinc-300 p-3 text-sm font-medium outline-none focus:border-emerald-600" /></label></div><div className="grid gap-3 sm:grid-cols-2"><label><span className="mb-1.5 block text-xs font-black text-zinc-600">Sector</span><select value={form.sector} onChange={(event) => setForm((current) => ({ ...current, sector: event.target.value }))} className="h-11 w-full rounded-lg border border-zinc-300 px-3 text-sm font-bold"><option value="platform">Platform</option><option value="explore">Explore</option><option value="marketplace">UrMall</option><option value="transport">Transport</option></select></label><label><span className="mb-1.5 block text-xs font-black text-zinc-600">Priority</span><select value={form.priority} onChange={(event) => setForm((current) => ({ ...current, priority: event.target.value }))} className="h-11 w-full rounded-lg border border-zinc-300 px-3 text-sm font-bold"><option value="normal">Normal</option><option value="high">High</option><option value="urgent">Urgent</option></select></label></div></div>
       {error ? <p role="alert" className="mt-3 text-sm font-semibold text-red-700">{error}</p> : null}<div className="mt-6 flex justify-end gap-2"><button type="button" onClick={onClose} className="h-10 rounded-lg border border-zinc-300 px-4 text-sm font-black text-zinc-700">Cancel</button><button type="submit" disabled={busy || !form.title.trim() || !form.body.trim()} className="inline-flex h-10 items-center gap-2 rounded-lg bg-zinc-950 px-4 text-sm font-black text-white disabled:opacity-50">{busy ? <LoaderCircle className="animate-spin" size={16} /> : <Mail size={16} />} Create campaign</button></div></form></div>
   );
 }
@@ -419,9 +415,9 @@ export default function UsersView({ access }) {
 
   return (
     <>
-      <header className="mb-6"><p className="text-xs font-black uppercase text-emerald-700">Platform directory</p><h1 className="mt-1 text-2xl font-black text-zinc-950 sm:text-3xl">Users</h1><p className="mt-2 max-w-3xl text-sm font-medium leading-6 text-zinc-600">Inspect identities, content, cases, account access, and Visibility Credits from one permission-aware workspace.</p></header>
+      <header className="mb-6"><p className="text-xs font-black uppercase text-emerald-700">Platform directory</p><h1 className="mt-1 text-2xl font-black text-zinc-950 sm:text-3xl">Users</h1><p className="mt-2 max-w-3xl text-sm font-medium leading-6 text-zinc-600">Inspect one identity across personal, UrMall, UrRide, subscription, moderation, and administrator relationships from a single permission-aware workspace.</p></header>
       <section className="mb-4 grid gap-3 rounded-lg border border-zinc-200 bg-white p-3 lg:grid-cols-[minmax(18rem,1fr)_repeat(3,minmax(9rem,auto))]">
-        <label className="relative"><Search className="absolute left-3 top-1/2 -translate-y-1/2 text-zinc-400" size={18} /><input value={search} onChange={(event) => setSearch(event.target.value)} placeholder="Search name, username, email, or phone" className="h-11 w-full rounded-lg border border-zinc-200 bg-zinc-50 pl-10 pr-3 text-sm font-semibold outline-none focus:border-emerald-600 focus:bg-white focus:ring-2 focus:ring-emerald-100" /></label>
+        <label className="relative"><Search className="absolute left-3 top-1/2 -translate-y-1/2 text-zinc-400" size={18} /><input value={search} onChange={(event) => setSearch(event.target.value)} placeholder="Search KunThai ID, name, username, email, or phone" className="h-11 w-full rounded-lg border border-zinc-200 bg-zinc-50 pl-10 pr-3 text-sm font-semibold outline-none focus:border-emerald-600 focus:bg-white focus:ring-2 focus:ring-emerald-100" /></label>
         <select aria-label="Filter by status" value={status} onChange={(event) => setStatus(event.target.value)} className="h-11 rounded-lg border border-zinc-200 bg-white px-3 text-sm font-bold text-zinc-700"><option value="all">All statuses</option><option value="active">Active</option><option value="warned">Warned</option><option value="restricted">Restricted</option><option value="suspended">Suspended</option><option value="banned">Banned</option></select>
         <select aria-label="Filter by account type" value={accountType} onChange={(event) => setAccountType(event.target.value)} className="h-11 rounded-lg border border-zinc-200 bg-white px-3 text-sm font-bold text-zinc-700"><option value="all">All account types</option><option value="personal">Personal</option><option value="business">Business</option><option value="operator">Operator</option><option value="company">Company</option></select>
         <select aria-label="Sort users" value={sort} onChange={(event) => setSort(event.target.value)} className="h-11 rounded-lg border border-zinc-200 bg-white px-3 text-sm font-bold text-zinc-700"><option value="newest">Newest first</option><option value="oldest">Oldest first</option><option value="name">Name A–Z</option><option value="last_active">Recently active</option></select>
@@ -431,7 +427,7 @@ export default function UsersView({ access }) {
         {loading ? <div className="flex items-center gap-2 px-5 py-10 text-sm font-semibold text-zinc-500"><LoaderCircle className="animate-spin" size={18} /> Loading users…</div> : null}
         {!loading ? users.map((item) => (
           <article key={item.user_id} className="grid gap-3 border-b border-zinc-100 px-4 py-4 last:border-0 md:grid-cols-[minmax(0,1.4fr)_10rem_8rem_9rem_3rem] md:items-center">
-            <button type="button" onClick={() => openUser(item)} className="flex min-w-0 items-center gap-3 text-left"><UserAvatar user={item} /><span className="min-w-0"><span className="block truncate text-sm font-black text-zinc-950">{item.display_name || "Unnamed account"}</span><span className="mt-1 block truncate text-xs font-medium text-zinc-500">{item.email || item.phone || "No contact information"} {item.username ? `· @${item.username}` : ""}</span></span></button>
+            <button type="button" onClick={() => openUser(item)} className="flex min-w-0 items-center gap-3 text-left"><UserAvatar user={item} /><span className="min-w-0"><span className="block truncate text-sm font-black text-zinc-950">{item.display_name || "Unnamed account"}</span><span className="mt-1 block truncate text-xs font-medium text-zinc-500">{item.public_id || item.email || item.phone || "No contact information"} {item.username ? `· @${item.username}` : ""}</span></span></button>
             <span className="w-fit rounded-full bg-zinc-100 px-2 py-1 text-[11px] font-black text-zinc-700">{titleCase(item.account_type || "personal")}</span>
             <span className={`w-fit rounded-full px-2 py-1 text-[11px] font-black ${statusTone(item.account_status)}`}>{titleCase(item.account_status || "active")}</span>
             <span className="text-xs font-semibold text-zinc-400">{formatRelativeTime(item.created_at)}</span>

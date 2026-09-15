@@ -116,9 +116,9 @@ export let previewFlags = [
 ];
 
 export const previewUsers = [
-  { user_id: "user-1", email: "mohamed@example.com", phone: "+232 76 000 101", display_name: "Mohamed Kamara", username: "mohamedk", account_type: "operator", account_status: "active", created_at: hoursAgo(900) },
-  { user_id: "user-2", email: "kallon@example.com", phone: "+232 77 000 210", display_name: "Kallon Home Supplies", username: "kallonhome", account_type: "business", account_status: "warned", status_reason: "Repeated late dispatch", created_at: hoursAgo(650) },
-  { user_id: "user-3", email: "aminata@example.com", phone: "+232 31 000 411", display_name: "Aminata Jalloh", username: "aminataj", account_type: "personal", account_status: "active", created_at: hoursAgo(200) },
+  { user_id: "user-1", public_id: "KTU-7F31-90C2-AB10", email: "mohamed@example.com", phone: "+232 76 000 101", display_name: "Mohamed Kamara", username: "mohamedk", account_type: "operator", account_status: "active", created_at: hoursAgo(900) },
+  { user_id: "user-2", public_id: "KTU-4D20-88AE-19F1", email: "kallon@example.com", phone: "+232 77 000 210", display_name: "Kallon Home Supplies", username: "kallonhome", account_type: "business", account_status: "warned", status_reason: "Repeated late dispatch", created_at: hoursAgo(650) },
+  { user_id: "user-3", public_id: "KTU-9B11-02FE-7A41", email: "aminata@example.com", phone: "+232 31 000 411", display_name: "Aminata Jalloh", username: "aminataj", account_type: "personal", account_status: "active", created_at: hoursAgo(200) },
 ];
 
 export function updatePreviewCase(id, patch) {
