@@ -1,6 +1,6 @@
 import { useEffect, useMemo, useRef, useState } from "react";
 import { createPortal } from "react-dom";
-import { ChevronDown, Clock, Package, Search, Store, Tag, UtensilsCrossed, X } from "lucide-react";
+import { ChevronDown, Clock, Package, Search, Sparkles, Store, Tag, UtensilsCrossed, X } from "lucide-react";
 
 import {
   fetchBuyerDiscoveryOptions,
@@ -18,6 +18,9 @@ import { detectPublicCodeKind, openPublicCodeResult } from "../../../Backend/ser
 import { usePublicCodeLookup } from "../../../Backend/hooks/usePublicCodeLookup";
 import PublicCodeResultCard from "../../shared/PublicCodeResultCard";
 import { useI18n } from "../../../i18n";
+import { useAiAvailability } from "../../../Backend/hooks/useAiTask";
+import { openAiChat } from "../../../Backend/services/ai/aiSurfaceService";
+import { isNaturalLanguageQuery } from "../../../Backend/services/ai/exploreAiModels";
 
 const EMPTY_VERTICAL = { restaurants: [], hotels: [], properties: [] };
 
@@ -62,6 +65,7 @@ export default function MarketplaceSearchOverlay({
   const [retailCategories, setRetailCategories] = useState([]);
   const [recent, setRecent] = useState(() => getRecentMarketplaceSearches());
   const codeLookup = usePublicCodeLookup(open ? query : "");
+  const aiAvailability = useAiAvailability();
 
   const trimmed = query.trim();
   const hasQuery = trimmed.length >= MIN_QUERY_LENGTH;
@@ -218,6 +222,18 @@ export default function MarketplaceSearchOverlay({
     setFilterOpen(false);
     onBrowseCategory?.(categoryId);
   }
+  // A phrase like "affordable rice meals near me" goes to the KAI
+  // shopping assistant, which searches real listings and explains them.
+  // Nothing is sent to AI while typing — only when this row is pressed.
+  const offerAiSearch = aiAvailability.available && isNaturalLanguageQuery(trimmed);
+
+  function askShoppingAssistant() {
+    remember(trimmed);
+    const message = trimmed;
+    close();
+    openAiChat({ surface: "urmall", role: "buyer", screen: "urmall search", message, autoSend: true });
+  }
+
   function submitText(term = trimmed) {
     if (term.trim().length < MIN_QUERY_LENGTH) return;
     remember(term);
@@ -309,6 +325,22 @@ export default function MarketplaceSearchOverlay({
             />
           ) : (
             <div className="space-y-4">
+              {offerAiSearch ? (
+                <button
+                  type="button"
+                  onClick={askShoppingAssistant}
+                  className="flex w-full items-center gap-3 rounded-2xl border border-indigo-100 bg-indigo-50 px-3 py-2.5 text-left"
+                >
+                  <span className="grid h-9 w-9 flex-none place-items-center rounded-xl bg-white text-indigo-700 shadow-sm">
+                    <Sparkles size={17} />
+                  </span>
+                  <span className="min-w-0">
+                    <span className="block text-sm font-black text-indigo-800">{t("ai.urmall.askAssistant")}</span>
+                    <span className="block truncate text-xs font-semibold text-indigo-600/80">{t("ai.urmall.askAssistantHint")}</span>
+                  </span>
+                </button>
+              ) : null}
+
               {showCode ? (
                 <PublicCodeResultCard
                   lookup={codeLookup}

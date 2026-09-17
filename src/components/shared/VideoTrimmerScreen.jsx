@@ -1,40 +1,15 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { Pause, Play, Scissors, X } from "lucide-react";
 import { t as i18nText } from "../../i18n/index";
+import { canTrimVideos, formatVideoMb, trimVideoFile } from "../../Backend/services/media/videoTrimService";
 
 const MIN_CLIP_SECONDS = 1;
-// Recording bitrate is capped so a full clip stays below the upload limit
-// even before the post-trim size check runs.
-const MAX_RECORDING_BITS_PER_SECOND = 8_000_000;
-
-function formatVideoMb(bytes) {
-  const mb = bytes / (1024 * 1024);
-  return mb >= 10 ? String(Math.round(mb)) : mb.toFixed(1);
-}
 
 function formatClock(seconds) {
   const safe = Math.max(0, Number(seconds) || 0);
   const mins = Math.floor(safe / 60);
   const secs = safe - mins * 60;
   return `${mins}:${secs.toFixed(1).padStart(4, "0")}`;
-}
-
-function pickRecorderMimeType() {
-  if (typeof MediaRecorder === "undefined") return "";
-  const candidates = [
-    "video/mp4;codecs=avc1,mp4a.40.2",
-    "video/mp4",
-    "video/webm;codecs=vp9,opus",
-    "video/webm;codecs=vp8,opus",
-    "video/webm",
-  ];
-  return candidates.find((type) => MediaRecorder.isTypeSupported(type)) || "";
-}
-
-function trimmedFileName(originalName, mimeType) {
-  const base = String(originalName || "product-video").replace(/\.[^.]+$/, "");
-  const extension = mimeType.includes("mp4") ? "mp4" : "webm";
-  return `${base}-trimmed.${extension}`;
 }
 
 // Full-screen freehand trimmer: drag either handle independently to trim from
@@ -49,8 +24,9 @@ export default function VideoTrimmerScreen({
   maxMb = 50,
   eyebrow = "Trim video",
 }) {
-  // Aim the recording bitrate a little under the size limit.
-  const targetOutputMb = Math.max(1, maxMb - 5);
+  // Whether this engine can trim at all, checked once so the screen can say so
+  // up front instead of failing when the person presses Trim.
+  const trimmingAvailable = useMemo(() => canTrimVideos(), []);
   const videoRef = useRef(null);
   const railRef = useRef(null);
   const dragRef = useRef(null);
@@ -206,12 +182,8 @@ export default function VideoTrimmerScreen({
       return;
     }
 
-    if (typeof video.captureStream !== "function" || typeof MediaRecorder === "undefined") {
-      setError(i18nText("ui.literals.k2ce862fd1561"));
-      return;
-    }
-
-    const mimeType = pickRecorderMimeType();
+    const session = { cancelled: false };
+    trimSessionRef.current = session;
     setError("");
     setTrimming(true);
     setTrimProgress(0);
@@ -219,110 +191,23 @@ export default function VideoTrimmerScreen({
 
     try {
       const { start, end } = rangeRefValue();
-      const selectionSeconds = Math.max(end - start, MIN_CLIP_SECONDS);
-      video.muted = true;
-      video.currentTime = start;
-      await new Promise((resolve, reject) => {
-        const timer = window.setTimeout(() => reject(new Error("Video seek timed out.")), 8000);
-        video.onseeked = () => {
-          window.clearTimeout(timer);
-          video.onseeked = null;
-          resolve();
-        };
+      const result = await trimVideoFile(file, {
+        video,
+        startSeconds: start,
+        endSeconds: end,
+        maxSeconds,
+        maxBytes: maxMb * 1024 * 1024,
+        onProgress: setTrimProgress,
+        session,
       });
-
-      const stream = video.captureStream();
-      const recorder = new MediaRecorder(stream, {
-        ...(mimeType ? { mimeType } : {}),
-        videoBitsPerSecond: Math.min(
-          MAX_RECORDING_BITS_PER_SECOND,
-          Math.floor((targetOutputMb * 1024 * 1024 * 8) / selectionSeconds),
-        ),
-      });
-      const chunks = [];
-      const session = { recorder, cancelled: false };
-      trimSessionRef.current = session;
-
-      recorder.ondataavailable = (event) => {
-        if (event.data?.size) chunks.push(event.data);
-      };
-
-      const finished = new Promise((resolve, reject) => {
-        recorder.onstop = () => resolve();
-        recorder.onerror = () => reject(new Error("Trimming failed while recording the clip."));
-      });
-
-      recorder.start(250);
-      await video.play();
-
-      // Event listeners plus an interval keep the watcher running even when
-      // the tab is hidden (requestAnimationFrame freezes there and would let
-      // the recording run past the selection). A stall watchdog aborts if the
-      // browser refuses to advance playback, e.g. a backgrounded tab.
-      const stalled = await new Promise((resolve) => {
-        let intervalId = 0;
-        let lastTime = video.currentTime;
-        let stalledChecks = 0;
-
-        function finishWatch(didStall) {
-          window.clearInterval(intervalId);
-          video.removeEventListener("timeupdate", checkProgress);
-          video.removeEventListener("ended", checkProgress);
-          resolve(didStall);
-        }
-
-        function checkProgress() {
-          if (session.cancelled || recorder.state === "inactive") {
-            finishWatch(false);
-            return;
-          }
-          const played = Math.min(Math.max(video.currentTime - start, 0), selectionSeconds);
-          setTrimProgress(played / selectionSeconds);
-          if (video.currentTime >= end || video.ended) {
-            finishWatch(false);
-            return;
-          }
-          if (video.currentTime === lastTime) {
-            stalledChecks += 1;
-            // ~12 seconds without playback progress means recording cannot finish.
-            if (stalledChecks >= 40) finishWatch(true);
-          } else {
-            stalledChecks = 0;
-            lastTime = video.currentTime;
-          }
-        }
-
-        video.addEventListener("timeupdate", checkProgress);
-        video.addEventListener("ended", checkProgress);
-        intervalId = window.setInterval(checkProgress, 300);
-        checkProgress();
-      });
-
-      if (stalled) {
-        throw new Error("Trimming paused because the video could not play. Keep this screen visible and try again.");
-      }
-
-      video.pause();
-      if (recorder.state !== "inactive") recorder.stop();
-      await finished;
-      trimSessionRef.current = null;
-
       if (session.cancelled) return;
-
-      const outputType = mimeType || chunks[0]?.type || "video/webm";
-      const blob = new Blob(chunks, { type: outputType });
-      if (!blob.size) throw new Error("Trimming produced an empty clip. Please try again.");
-      if (blob.size > maxMb * 1024 * 1024) {
-        throw new Error(
-          `The trimmed clip is still ${formatVideoMb(blob.size)} MB. Trim a shorter part so it stays under ${maxMb} MB.`,
-        );
-      }
-
-      const trimmedFile = new File([blob], trimmedFileName(file.name, outputType), { type: outputType });
-      onComplete?.(trimmedFile, { durationSeconds: selectionSeconds });
+      onComplete?.(result.file, { durationSeconds: result.durationSeconds, strategy: result.strategy });
     } catch (trimError) {
-      setError(trimError.message || i18nText("ui.literals.k4588413b0525"));
+      if (trimError?.code !== "CANCELLED") {
+        setError(trimError.message || i18nText("ui.literals.k4588413b0525"));
+      }
     } finally {
+      trimSessionRef.current = null;
       videoRef.current?.pause();
       setTrimming(false);
       setTrimProgress(0);
@@ -338,7 +223,7 @@ export default function VideoTrimmerScreen({
       <header className="flex h-16 shrink-0 items-center justify-between gap-3 px-4">
         <div className="min-w-0">
           <p className="text-xs font-black uppercase tracking-wide text-emerald-400">{eyebrow}</p>
-          <p className="truncate text-sm font-black text-white">{file.name}</p>
+          <p className="truncate text-sm font-black text-white">{file.name}<span className="ml-2 font-bold text-white/50">{formatVideoMb(file.size)} MB</span></p>
         </div>
         <button
           type="button"
@@ -440,6 +325,12 @@ export default function VideoTrimmerScreen({
             </div>
           ) : null}
 
+          {!trimmingAvailable ? (
+            <p className="mb-2 rounded-lg border border-amber-400/40 bg-amber-400/10 px-3 py-2 text-xs font-black text-amber-200">
+              {i18nText("ui.literals.k2ce862fd1561")}
+            </p>
+          ) : null}
+
           <div className="grid gap-2 sm:grid-cols-2">
             <button
               type="button"
@@ -453,7 +344,7 @@ export default function VideoTrimmerScreen({
             <button
               type="button"
               onClick={trimVideo}
-              disabled={!ready || trimming || clipTooLong}
+              disabled={!ready || trimming || clipTooLong || !trimmingAvailable}
               className="inline-flex h-12 items-center justify-center gap-2 rounded-xl bg-emerald-500 px-4 text-sm font-black text-gray-950 transition hover:bg-emerald-400 disabled:opacity-40"
             >
               <Scissors size={17} />

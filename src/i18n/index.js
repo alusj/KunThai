@@ -4,7 +4,7 @@ import { LOCALE_OPTIONS, TRANSLATIONS } from "./translations";
 
 // KunThai i18n. The app follows the device language automatically; a user can
 // override it from Settings. Brand vocabulary (KunThai, Explore, UrFeed, Swip,
-// UrMall, UrRide, Spaces, KunThai ID, Visibility Credits) is never translated.
+// UrMall, UrRide, Spaces, KAI, KunThai ID, Visibility Credits) is never translated.
 //
 // Right-to-left note: Arabic strings are provided, but the layout still renders
 // left-to-right until the interface has been reviewed for RTL mirroring.

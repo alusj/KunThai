@@ -12,6 +12,7 @@ import {
 import { useSellerInsights } from "../../../../../Backend/hooks/useSellerInsights";
 import { useI18n, t } from "../../../../../i18n";
 import AnimatedMetricValue from "./AnimatedMetricValue";
+import AiAssistButton from "../../../../ai/AiAssistButton";
 
 const TONES = {
   sky: "bg-sky-500/15 text-sky-300 ring-sky-400/15",
@@ -148,6 +149,20 @@ export default function BusinessInsights() {
             <p className="text-[11px] font-black uppercase tracking-[0.24em] text-sky-300">{t("urmall.biz.ins.kicker")}</p>
             <h2 className="mt-1 text-xl font-black sm:text-2xl">{t("urmall.biz.ins.title")}</h2>
             <p className="mt-2 max-w-2xl text-sm font-semibold leading-6 text-slate-300">{t("urmall.biz.ins.subtitle")}</p>
+            <AiAssistButton
+              chat
+              variant="dark"
+              size="md"
+              className="mt-3"
+              label={t("ai.seller.askAboutBusiness")}
+              getRequest={() => ({
+                surface: "urmall",
+                role: "seller",
+                screen: "seller insights",
+                message: t("ai.seller.explainInsightsMessage"),
+                autoSend: true,
+              })}
+            />
           </div>
         </div>
       </header>

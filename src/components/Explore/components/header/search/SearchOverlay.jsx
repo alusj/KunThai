@@ -1,12 +1,15 @@
 import { useEffect, useRef } from "react";
 import { createPortal } from "react-dom";
-import { Search, X } from "lucide-react";
+import { RefreshCw, Search, Sparkles, X } from "lucide-react";
 
 import { useExploreSearch } from "../../../../../Backend/hooks/useExploreSearch";
 import { openPublicCodeResult } from "../../../../../Backend/services/publicCodeService";
 import PublicCodeResultCard from "../../../../shared/PublicCodeResultCard";
 import { usePublicCodeLookup } from "../../../../../Backend/hooks/usePublicCodeLookup";
 import { useI18n } from "../../../../../i18n";
+import { useAiAvailability } from "../../../../../Backend/hooks/useAiTask";
+import { useExploreAiSearch } from "../../../../../Backend/hooks/useExploreAiSearch";
+import { isNaturalLanguageQuery } from "../../../../../Backend/services/ai/exploreAiModels";
 import SearchFilters from "./SearchFilters";
 import SearchResultItem from "./SearchResultItem";
 
@@ -15,6 +18,12 @@ export default function SearchOverlay({ initialQuery = "", onClose, onOpenResult
   const inputRef = useRef(null);
   const search = useExploreSearch();
   const codeLookup = usePublicCodeLookup(open ? search.query : "");
+  const aiAvailability = useAiAvailability();
+  const aiSearch = useExploreAiSearch();
+  // AI results belong to the exact phrase they were run for; editing the
+  // query drops back to ordinary search until the person asks again.
+  const aiActive = aiSearch.status !== "idle" && aiSearch.query === search.query.trim();
+  const offerAiSearch = aiAvailability.available && !aiActive && isNaturalLanguageQuery(search.query);
 
   useEffect(() => {
     if (open) {
@@ -30,6 +39,7 @@ export default function SearchOverlay({ initialQuery = "", onClose, onOpenResult
   }
 
   function close() {
+    aiSearch.reset();
     search.reset();
     onClose?.();
   }
@@ -41,6 +51,10 @@ export default function SearchOverlay({ initialQuery = "", onClose, onOpenResult
   }
 
   function submitSearch() {
+    if (aiActive && aiSearch.results[0]) {
+      openResult(aiSearch.results[0]);
+      return;
+    }
     if (search.results[0]) {
       openResult(search.results[0]);
       return;
@@ -156,14 +170,89 @@ export default function SearchOverlay({ initialQuery = "", onClose, onOpenResult
                     }}
                   />
                 ) : null}
-                {search.loading ? <p className="rounded-2xl bg-slate-50 px-4 py-3 text-sm font-bold text-slate-500">{t("explore.searching")}</p> : null}
-                {search.error ? <p className="rounded-2xl bg-rose-50 px-4 py-3 text-sm font-bold text-rose-600">{search.error}</p> : null}
-                {!search.loading && !search.results.length ? (
+                {offerAiSearch ? (
+                  <button
+                    type="button"
+                    onClick={() => aiSearch.run(search.query)}
+                    className="kt-pressable flex w-full items-center gap-3 rounded-2xl border border-indigo-100 bg-indigo-50 px-4 py-3 text-left"
+                  >
+                    <span className="grid h-9 w-9 flex-none place-items-center rounded-xl bg-white text-indigo-700 shadow-sm">
+                      <Sparkles size={17} />
+                    </span>
+                    <span className="min-w-0">
+                      <span className="block text-sm font-black text-indigo-800">{t("ai.explore.searchWithAi")}</span>
+                      <span className="block truncate text-xs font-semibold text-indigo-600/80">{t("ai.explore.searchWithAiHint")}</span>
+                    </span>
+                  </button>
+                ) : null}
+
+                {aiActive ? (
+                  <section className="space-y-2 rounded-2xl border border-indigo-100 bg-indigo-50/60 p-3" aria-live="polite">
+                    <div className="flex items-center justify-between gap-2">
+                      <p className="flex items-center gap-1.5 text-xs font-black uppercase tracking-[0.14em] text-indigo-700">
+                        <Sparkles size={13} />
+                        {t("ai.explore.aiResults")}
+                      </p>
+                      <button type="button" onClick={aiSearch.reset} className="text-xs font-black text-slate-500">
+                        {aiSearch.status === "loading" ? t("ai.stop") : t("ai.explore.backToResults")}
+                      </button>
+                    </div>
+
+                    {aiSearch.status === "loading" ? (
+                      <p className="rounded-2xl bg-white px-4 py-3 text-sm font-bold text-slate-500">{t("ai.explore.aiSearching")}</p>
+                    ) : null}
+
+                    {aiSearch.status === "error" ? (
+                      <div className="flex items-center justify-between gap-2 rounded-2xl bg-rose-50 px-4 py-3 text-sm font-bold text-rose-700" role="alert">
+                        <span className="min-w-0">{aiSearch.error?.message}</span>
+                        {aiSearch.error?.retryable ? (
+                          <button type="button" onClick={() => aiSearch.run(search.query)} className="inline-flex flex-none items-center gap-1 text-xs font-black">
+                            <RefreshCw size={12} />
+                            {t("ai.retry")}
+                          </button>
+                        ) : null}
+                      </div>
+                    ) : null}
+
+                    {aiSearch.status === "done" ? (
+                      <>
+                        <div className="flex flex-wrap items-center gap-1.5">
+                          <span className="text-xs font-bold text-slate-500">{t("ai.explore.lookedFor")}</span>
+                          {[
+                            ...aiSearch.intent.keywords,
+                            ...aiSearch.intent.hashtags.map((tag) => `#${tag}`),
+                            ...aiSearch.topicNames,
+                          ].map((term) => (
+                            <span key={term} className="rounded-full bg-white px-2.5 py-1 text-xs font-black text-indigo-700 shadow-sm">
+                              {term}
+                            </span>
+                          ))}
+                        </div>
+                        {aiSearch.usedInterests ? (
+                          <p className="text-[11px] font-semibold text-slate-500">{t("ai.explore.usedInterests")}</p>
+                        ) : null}
+                        {aiSearch.results.length ? (
+                          aiSearch.results.map((item) => (
+                            <SearchResultItem key={`ai-${item.type}-${item.id}`} item={item} onOpen={openResult} />
+                          ))
+                        ) : (
+                          <p className="rounded-2xl bg-white px-4 py-3 text-sm font-bold text-slate-500">{t("ai.explore.noAiResults")}</p>
+                        )}
+                      </>
+                    ) : null}
+                  </section>
+                ) : null}
+
+                {aiActive ? null : search.loading ? <p className="rounded-2xl bg-slate-50 px-4 py-3 text-sm font-bold text-slate-500">{t("explore.searching")}</p> : null}
+                {!aiActive && search.error ? <p className="rounded-2xl bg-rose-50 px-4 py-3 text-sm font-bold text-rose-600">{search.error}</p> : null}
+                {!aiActive && !search.loading && !search.results.length ? (
                   <p className="rounded-2xl bg-slate-50 px-4 py-3 text-sm font-bold text-slate-500">{t("explore.noResultsYet")}</p>
                 ) : null}
-                {search.results.map((item) => (
-                  <SearchResultItem key={`${item.type}-${item.id}`} item={item} onOpen={openResult} />
-                ))}
+                {aiActive
+                  ? null
+                  : search.results.map((item) => (
+                      <SearchResultItem key={`${item.type}-${item.id}`} item={item} onOpen={openResult} />
+                    ))}
               </div>
             )}
           </div>

@@ -1,5 +1,8 @@
 import supabase from "../lib/supabaseClient";
 import { requestExploreScreen, requestMarketplaceScreen, runNotificationAction } from "./notificationBannerService";
+import { openExploreResult, openMarketplaceProduct, openMarketplaceSeller } from "./ai/aiEntityNavigation";
+import { platformRowBelongsInInbox } from "./campaigns/campaignDeliveryService";
+import { campaignRowInbox } from "./campaigns/campaignModel";
 
 export const UNIFIED_NOTIFICATIONS_UPDATED_EVENT = "kuntai-unified-notifications-updated";
 
@@ -90,7 +93,8 @@ function mapExploreNotification(item) {
       canDismiss: item.display_config?.behaviour?.canDismiss !== false,
       createdAt: item.created_at,
       read: item.status === "read" || item.status === "archived",
-      archived: item.status === "archived" || Boolean(item.dismissed_at),
+      // A dismissed on-screen card keeps its inbox copy; only archiving removes it.
+      archived: item.status === "archived",
       displayedAt: item.displayed_at || null,
       actionedAt: item.actioned_at || null,
       campaignId: item.campaign_id || null,
@@ -260,7 +264,8 @@ export async function fetchUnifiedNotifications(userId) {
     : (platformResult.data || []);
   const platformItems = platformRows
     .filter((item) => !item.expires_at || timestamp(item.expires_at) > now)
-    .filter((item) => item.display_config?.presentation?.includeInbox !== false);
+    // The unified centre lists every inbox, so each campaign row is checked against its own.
+    .filter((item) => platformRowBelongsInInbox(item, campaignRowInbox(item), now));
   const items = [
     ...exploreItems.filter((item) => item?._notification_source !== "platform").map(mapExploreNotification),
     ...platformItems.map((item) => mapExploreNotification({ ...item, _notification_source: "platform" })),
@@ -370,7 +375,7 @@ export function openUnifiedNotification(item) {
       if (!/^https:\/\//i.test(url)) return false;
       window.open(url, "_blank", "noopener,noreferrer");
     } else if (target === "notifications" || target === "platform.notifications") {
-      window.dispatchEvent(new CustomEvent("kuntai-open-notification-center"));
+      requestExploreScreen("Notifications");
     } else if (target === "settings") {
       requestExploreScreen("Settings");
     } else if (target === "verification") {
@@ -378,29 +383,34 @@ export function openUnifiedNotification(item) {
     } else if (target === "profile") {
       const userId = item?.actionData?.userId;
       if (!userId) return false;
-      requestExploreScreen("");
-      window.dispatchEvent(new CustomEvent("kuntai-open-profile", { detail: { userId } }));
+      openExploreResult({ type: "people", userId });
     } else if (target === "explore:post" || target === "explore:swip") {
-      const tab = target === "explore:swip" ? "Swip" : "UrFeed";
+      const postId = item?.actionData?.postId || "";
+      const type = target === "explore:swip" ? "swip" : "feed";
+      if (postId) openExploreResult({ type, postId });
+      else {
+        requestExploreScreen("");
+        window.dispatchEvent(new CustomEvent("explore-open-tab", { detail: { tab: type === "swip" ? "Swip" : "UrFeed" } }));
+      }
+    } else if (target === "explore:urfeed" || target === "explore:swip-tab") {
       requestExploreScreen("");
-      window.dispatchEvent(new CustomEvent("explore-open-tab", { detail: { tab, postId: item?.actionData?.postId || "" } }));
+      const tab = target === "explore:swip-tab" ? "Swip" : "UrFeed";
+      window.setTimeout(() => window.dispatchEvent(new CustomEvent("explore-open-tab", { detail: { tab } })), 60);
+    } else if (target.startsWith("urmall:product")) {
+      if (!item?.actionData?.productId) return false;
+      openMarketplaceProduct({ id: item.actionData.productId });
+    } else if (target.startsWith("urmall:store")) {
+      if (!item?.actionData?.businessId) return false;
+      openMarketplaceSeller({ id: item.actionData.businessId });
     } else if (target.startsWith("urmall:messages")) {
       requestMarketplaceScreen("messages", { conversationId: item?.conversationId || item?.actionData?.conversationId || item?.rawId || "" });
     } else if (target.startsWith("urmall:orders")) requestMarketplaceScreen("orders", { orderId: item?.orderId || item?.rawId || "" });
     else if (target.startsWith("urmall:admin-roles")) requestMarketplaceScreen("admin-roles");
     else if (target.startsWith("urmall:business-messages")) requestMarketplaceScreen("business-messages");
     else if (target.startsWith("urmall:business")) requestMarketplaceScreen("business");
-    else if (target.startsWith("urmall:product") && item?.actionData?.productId) {
-      requestMarketplaceScreen("");
-      window.setTimeout(() => window.dispatchEvent(new CustomEvent("marketplace-open-product", { detail: { product: { id: item.actionData.productId } } })), 80);
-    }
-    else if (target.startsWith("urmall:store") && item?.actionData?.businessId) {
-      requestMarketplaceScreen("");
-      window.setTimeout(() => window.dispatchEvent(new CustomEvent("marketplace-open-seller", { detail: { seller: { id: item.actionData.businessId } } })), 80);
-    }
     else if (target.startsWith("urmall") || item?.source === "marketplace") requestMarketplaceScreen("");
     else if (target.startsWith("urride") || item?.source === "transport") {
-      window.dispatchEvent(new CustomEvent("kuntai-return-main-page", { detail: { page: "transport", target } }));
+      window.dispatchEvent(new CustomEvent("kuntai-return-main-page", { detail: { page: "transport", target: target === "urride" ? "urride:home" : target } }));
     } else if (target.startsWith("messages")) requestExploreScreen("Messages");
     else requestExploreScreen("Notifications");
   });

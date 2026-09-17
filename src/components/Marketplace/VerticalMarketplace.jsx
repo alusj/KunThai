@@ -210,6 +210,7 @@ export default function VerticalMarketplace({ mode = "all", onDetailChange, prio
     function handleOpenVertical(event) {
       const { type, item } = event.detail || {};
       if (!type || !item) return;
+      if (event.detail) event.detail.handled = true;
       setSelected({ type, item });
     }
 

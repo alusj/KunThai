@@ -6,6 +6,9 @@ import { MentionHashtagSuggestions } from "../../../../shared/MentionHashtagAuto
 import { useMentionHashtagAutocomplete } from "../../../../../../Backend/hooks/useMentionHashtagAutocomplete";
 import { pauseOtherExploreMedia } from "../../../../shared/singleMediaPlayback";
 import { useI18n, t as translate } from "../../../../../../i18n";
+import ExploreAiButton from "../../../../shared/ExploreAiButton";
+import { getPostTitle } from "../../../../shared/advertUtils";
+import { EXPLORE_COMMENT_ACTIONS } from "../../../../../../Backend/services/ai/aiActionCatalog";
 
 function getReplyName(comment) {
   const authorName = String(comment?.author_name || comment?.authorProfile?.displayName || "").trim();
@@ -16,7 +19,7 @@ function getReplyName(comment) {
   return translate("post.thisComment");
 }
 
-export default function CommentDrawerComposer({ onSubmit, onSendPreview, replyingTo, onCancelReply }) {
+export default function CommentDrawerComposer({ currentUserId, onSubmit, onSendPreview, post, replyingTo, onCancelReply }) {
   const { t } = useI18n();
   const [value, setValue] = useState("");
   const [audioPreview, setAudioPreview] = useState("");
@@ -51,6 +54,35 @@ export default function CommentDrawerComposer({ onSubmit, onSendPreview, replyin
 
     recorder.start();
     setIsRecording(true);
+  }
+
+  // KAI only fills this input. Sending stays the person's own tap.
+  function buildAiRequest() {
+    const draft = value;
+    const replyTarget = replyingTo;
+    return {
+      screen: replyTarget ? "comment reply" : "post comments",
+      title: replyTarget ? t("ai.explore.replyTitle") : t("ai.explore.commentTitle"),
+      sourceLabel: t("ai.explore.yourDraft"),
+      text: draft,
+      actions: EXPLORE_COMMENT_ACTIONS,
+      // An empty box goes straight to suggestions; a draft waits for a choice.
+      task: draft.trim() ? "" : "explore.reply_suggest",
+      hidePrompts: true,
+      buildInput: (task) =>
+        task === "explore.reply_suggest"
+          ? {
+              post: { title: getPostTitle(post || {}), body: String(post?.body || "") },
+              comment: String(replyTarget?.body || ""),
+              draft,
+              role: currentUserId && post?.user_id === currentUserId ? "author" : "viewer",
+            }
+          : {},
+      onInsert: (text) => {
+        setValue(String(text || ""));
+        window.setTimeout(() => inputRef.current?.focus(), 0);
+      },
+    };
   }
 
   function handleSubmit(event) {
@@ -121,6 +153,7 @@ export default function CommentDrawerComposer({ onSubmit, onSendPreview, replyin
           placeholder={t("post.commentPlaceholder")}
           className="h-11 min-w-0 flex-1 rounded-2xl bg-slate-100 px-4 text-sm font-semibold text-slate-900 outline-none transition-colors duration-150 focus:bg-slate-50 focus:ring-2 focus:ring-sky-100"
         />
+        <ExploreAiButton variant="icon" getRequest={buildAiRequest} label={t("ai.explore.commentAiLabel")} />
         <button
           type="button"
           onClick={toggleRecording}

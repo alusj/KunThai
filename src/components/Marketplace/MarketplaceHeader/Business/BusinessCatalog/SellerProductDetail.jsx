@@ -17,6 +17,8 @@ import { formatCurrency } from "../../../../../Backend/utils/formatCurrency";
 import { resizedImageUrl } from "../../../../../Backend/lib/imageProxy";
 import { useI18n, t } from "../../../../../i18n";
 import AppBackTab from "../../../../shared/AppBackTab";
+import AiAssistButton from "../../../../ai/AiAssistButton";
+import { productFactsForAi } from "../../../../../Backend/services/ai/urmallAiModels";
 import ProductStatusBadge from "./ProductStatusBadge";
 
 function uniqueImages(product = {}) {
@@ -100,6 +102,21 @@ export default function SellerProductDetail({ product, onBack, onEdit }) {
             <h1 className="truncate text-lg font-black text-gray-950">{product.name}</h1>
             <p className="truncate text-xs font-semibold text-gray-500">{product.category || t("urmall.biz.cat.catalogItem")}</p>
           </div>
+          <AiAssistButton
+            size="md"
+            label={t("ai.seller.marketingCopy")}
+            getRequest={() => ({
+              surface: "urmall",
+              screen: "seller product detail",
+              title: t("ai.seller.promoteTitle"),
+              sourceLabel: t("urmall.biz.cat.productDetail"),
+              text: product.description || "",
+              hidePrompts: true,
+              task: "urmall.marketing_copy",
+              actions: ["urmall.marketing_copy", "urmall.listing_quality", "text.translate"],
+              buildInput: () => ({ listing: productFactsForAi(product, { detail: true }) }),
+            })}
+          />
           <button
             type="button"
             onClick={() => onEdit?.(product)}

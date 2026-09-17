@@ -36,6 +36,11 @@ import TransportGroupSwitcher from "./TransportGroupSwitcher";
 import HealthScoreCard from "../Marketplace/MarketplaceHeader/Business/MyBizDashboardHeader/HealthScoreCard";
 import RequestAccountDeletionPage from "./shared/RequestAccountDeletionPage";
 import AppBackTab from "../shared/AppBackTab";
+import AiAssistButton from "../ai/AiAssistButton";
+import { useAiRoleContext } from "../../Backend/services/ai/aiSurfaceService";
+import { useCampaignSurfaceRole } from "../../Backend/services/campaigns/campaignSurfaceStore";
+import CampaignInboxSection from "../shared/campaigns/CampaignInboxSection";
+import { useCampaignInbox } from "../../Backend/hooks/useCampaignInbox";
 import useBodyScrollLock from "../shared/useBodyScrollLock";
 import { requestTransportTripStart, updateTransportTripProgress, updateTransportTripStatus } from "../services/bookingService";
 import { showToast } from "../../Backend/services/toastService";
@@ -134,6 +139,8 @@ export default function OperatorDashboardScreen({
   readOnlyReason,
 }) {
   useI18n();
+  useAiRoleContext("urride", "operator", { screen: "operator dashboard" });
+  useCampaignSurfaceRole("transport", "operator");
   const [isActive, setIsActive] = useState(account?.activeStatus === "active");
   const operatorNavigation = useNavigationStack("dashboard");
   const activeView = operatorNavigation.current.screen;
@@ -284,7 +291,9 @@ export default function OperatorDashboardScreen({
     unread: alert.status !== "read",
   }));
   const alertRows = applySeenNotificationState(alertReadScope, alertNotificationItems).map((alert) => ({ ...alert, read: alert.unread === false }));
-  const unreadAlertCount = getUnseenNotificationCount(alertSeenScope, alertNotificationItems, { unreadOnly: true });
+  // Admin campaigns sent to operators are part of the same alert badge.
+  const operatorCampaigns = useCampaignInbox("urride.operator", { enabled: !dashboardReadOnly });
+  const unreadAlertCount = getUnseenNotificationCount(alertSeenScope, alertNotificationItems, { unreadOnly: true }) + operatorCampaigns.unreadCount;
   const tripHistory = dashboard?.tripHistory || [];
   const liveTrip = useMemo(
     () => waitingPassengers.find((passenger) => ["in_progress", "paused", "start_requested"].includes(passenger.status)) || null,
@@ -556,6 +565,12 @@ export default function OperatorDashboardScreen({
             </p>
           </div>
 
+          <AiAssistButton
+            chat
+            size="icon"
+            label={t("ai.urride.askAssistant")}
+            getRequest={() => ({ surface: "urride", role: "operator", screen: "operator dashboard" })}
+          />
           {dashboardReadOnly ? (
             <span className="hidden h-10 items-center gap-2 rounded-full border border-blue-100 bg-blue-50 px-3 text-sm font-black text-blue-700 sm:flex">
               <FiShield size={16} />
@@ -818,6 +833,7 @@ export default function OperatorDashboardScreen({
       <OperatorAlertsDrawer
         open={operatorAlertsOpen}
         alerts={alertRows}
+        showCampaigns={!dashboardReadOnly}
         fleetName={fleetName}
         operatorName={operatorName}
         onClose={() => setOperatorAlertsOpen(false)}
@@ -1586,6 +1602,7 @@ function OperatorAlertsDrawer({
   onRead,
   onOpenWaiting,
   onOpenHistory,
+  showCampaigns = false,
 }) {
   useI18n();
   const { rendered, panelOpen } = useDrawerTransition(open);
@@ -1648,6 +1665,7 @@ function OperatorAlertsDrawer({
         </header>
 
         <div className="min-h-0 flex-1 touch-pan-y overflow-y-auto overscroll-contain bg-gray-50 px-4 pb-[calc(var(--kt-safe-area-bottom)+1rem)] pt-4 [-webkit-overflow-scrolling:touch]">
+          {showCampaigns ? <CampaignInboxSection inbox="urride.operator" className="mb-4" onNavigate={onClose} /> : null}
           <div className="space-y-3">
             {alerts.length ? alerts.map((alert) => (
               <article

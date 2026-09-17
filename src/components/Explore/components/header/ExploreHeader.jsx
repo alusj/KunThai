@@ -56,6 +56,7 @@ export default function ExploreHeader({ currentProfile, onAlertsClick, onNavigat
     function handleSearchQuery(event) {
       const query = String(event.detail?.query || "").trim();
       if (!query) return;
+      if (event.detail) event.detail.handled = true;
       setCreateOpen(false);
       setSearchInitialQuery(query);
       setSearchOpen(true);

@@ -16,6 +16,7 @@ import {
   fetchSavedOperatorCount,
 } from "../../services/passengerTransportService";
 import { t } from "../../../i18n";
+import AiAssistButton from "../../ai/AiAssistButton";
 import { getActiveCountryProfile } from "../../../data/globalCountryProfiles";
 import {
   fetchTransportFleets,
@@ -175,6 +176,16 @@ export default function Body({
         <TourHistory onClick={onOpenActiveTrips} count={summary.activeTripsCount} loading={summary.loading} />
         <Favorite onClick={onOpenSavedOperators} count={summary.savedOperatorsCount} loading={summary.loading} />
 
+      </div>
+
+      <div className="mt-4 flex items-center justify-between gap-3 rounded-2xl border border-emerald-100 bg-emerald-50/70 px-4 py-3">
+        <p className="min-w-0 text-sm font-bold text-emerald-900">{t("ai.urride.homeHint")}</p>
+        <AiAssistButton
+          chat
+          size="md"
+          label={t("ai.urride.askAssistant")}
+          getRequest={() => ({ surface: "urride", role: "passenger", screen: "urride home" })}
+        />
       </div>
 
       <NearbyOperators

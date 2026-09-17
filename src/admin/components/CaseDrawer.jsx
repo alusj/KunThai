@@ -4,6 +4,8 @@ import { ADMIN_SECTORS, CASE_DECISIONS, CASE_STATUSES, formatCaseNumber, formatD
 import { ACCOUNT_CONTROL_REASON_SUGGESTIONS, INTERNAL_NOTE_SUGGESTIONS, applyCaseContext, getDecisionReasonSuggestions } from "../adminTextSuggestions";
 import { addCaseNote, applyCaseDecision, claimCase, getAdminAccountControl, getAdminCaseContent, getAdminCaseEvidence, getCaseActionHistory, getCaseActivity, getCaseCountryLabel, getCaseTypeLabel, reviewCaseApproval, setAdminUserStatus, transitionCase, undoCaseAction } from "../adminService";
 import SuggestedTextSelect from "./SuggestedTextSelect";
+import AiAssistButton from "../../components/ai/AiAssistButton";
+import { caseFactsForAi } from "../adminAiModels";
 import { showToast } from "../../Backend/services/toastService";
 
 export default function CaseDrawer({ item, access, onClose, onUpdated }) {
@@ -180,6 +182,22 @@ export default function CaseDrawer({ item, access, onClose, onUpdated }) {
             <p className="text-xs font-black text-emerald-700">{formatCaseNumber(item.case_number)}</p>
             <h2 className="mt-1 text-base font-black text-zinc-950">Case details</h2>
           </div>
+          <AiAssistButton
+            size="md"
+            variant="outline"
+            className="ml-auto rounded-lg"
+            label="Summarise with KAI"
+            getRequest={() => ({
+              surface: "admin",
+              screen: "admin case",
+              title: "KAI case assistant",
+              hidePrompts: true,
+              hideAsk: true,
+              task: "admin.case_summary",
+              actions: ["admin.case_summary", "admin.user_response_draft"],
+              buildInput: () => ({ case: caseFactsForAi(item, activity) }),
+            })}
+          />
           <button type="button" title="Close case" onClick={onClose} className="grid h-10 w-10 place-items-center rounded-md text-zinc-500 hover:bg-zinc-100 hover:text-zinc-950"><X size={20} /></button>
         </header>
 
@@ -388,6 +406,26 @@ export default function CaseDrawer({ item, access, onClose, onUpdated }) {
                 <div className="mt-3">
                   <SuggestedTextSelect label={`Suggested ${CASE_DECISIONS.find((entry) => entry.key === decision)?.label?.toLowerCase() || "decision"} reasons`} suggestions={getDecisionReasonSuggestions(decision)} onSelect={(text) => setReason(applyCaseContext(text, item))} />
                 </div>
+                <div className="mt-2 flex justify-end">
+                  <AiAssistButton
+                    variant="outline"
+                    className="rounded-lg"
+                    label="Draft reason with KAI"
+                    getRequest={() => ({
+                      surface: "admin",
+                      screen: "admin case decision",
+                      title: "KAI decision reason draft",
+                      sourceLabel: "Your reason",
+                      text: reason,
+                      hidePrompts: true,
+                      hideAsk: true,
+                      actions: ["admin.decision_reason_draft", "text.improve", "text.shorten"],
+                      buildInput: () => ({ case: caseFactsForAi(item, activity), decision, notes: reason }),
+                      onInsert: (text) => setReason(String(text || "")),
+                      insertLabel: "Use as reason",
+                    })}
+                  />
+                </div>
                 <textarea value={reason} onChange={(event) => setReason(event.target.value)} rows={3} placeholder="Required decision reason" className="mt-3 w-full resize-none rounded-lg border border-zinc-300 p-3 text-sm font-medium text-zinc-900 focus:border-emerald-600 focus:outline-none" />
               </div>
             </section>
@@ -398,6 +436,26 @@ export default function CaseDrawer({ item, access, onClose, onUpdated }) {
             {canManage ? (
               <div className="mt-4">
                 <SuggestedTextSelect label="Suggested internal notes" suggestions={INTERNAL_NOTE_SUGGESTIONS} onSelect={setNote} />
+                <div className="mt-2 flex justify-end">
+                  <AiAssistButton
+                    variant="outline"
+                    className="rounded-lg"
+                    label="Draft note with KAI"
+                    getRequest={() => ({
+                      surface: "admin",
+                      screen: "admin case note",
+                      title: "KAI internal note draft",
+                      sourceLabel: "Your note",
+                      text: note,
+                      hidePrompts: true,
+                      hideAsk: true,
+                      actions: ["admin.note_draft", "text.improve", "text.shorten"],
+                      buildInput: () => ({ case: caseFactsForAi(item, activity), notes: note }),
+                      onInsert: (text) => setNote(String(text || "")),
+                      insertLabel: "Use as note",
+                    })}
+                  />
+                </div>
                 <textarea value={note} onChange={(event) => setNote(event.target.value)} rows={3} placeholder="Add context for the next administrator" className="mt-3 w-full resize-none rounded-lg border border-zinc-300 p-3 text-sm font-medium text-zinc-900 focus:border-emerald-600 focus:outline-none" />
                 <button type="button" disabled={busy || !note.trim()} onClick={saveNote} className="mt-2 inline-flex h-10 items-center gap-2 rounded-lg border border-zinc-300 px-3 text-sm font-black text-zinc-800 hover:bg-zinc-50 disabled:opacity-50">
                   {busy === "note" ? <LoaderCircle className="animate-spin" size={16} /> : <MessageSquareText size={16} />} Add note

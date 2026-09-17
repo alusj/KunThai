@@ -38,6 +38,7 @@ import { fetchTransportOperationBadgeState } from "../services/transportHeaderSe
 import { submitTransportSupportTicket } from "../services/bookingService";
 import { guardGuestAction } from "../../Backend/services/guestModeService";
 import { subscribeNotificationSeen } from "../../Backend/services/notificationSeenStore";
+import { getNetworkStatus } from "../../Backend/services/networkService";
 import { showToast } from "../../Backend/services/toastService";
 import { useI18n, t } from "../../i18n";
 import { t as i18nText } from "../../i18n/index";
@@ -74,7 +75,6 @@ export default function Transport({
     () => (TRANSPORT_ACCOUNT_MEMORY.operatorLoaded ? TRANSPORT_ACCOUNT_MEMORY.operatorAccount : getLegacyOperatorAccount()),
   );
   const [operatorLoading, setOperatorLoading] = useState(() => !TRANSPORT_ACCOUNT_MEMORY.operatorLoaded);
-  const [operatorError, setOperatorError] = useState("");
   const [companyAccount, setCompanyAccount] = useState(() => TRANSPORT_ACCOUNT_MEMORY.companyAccount);
   const [companyAccounts, setCompanyAccounts] = useState(() => TRANSPORT_ACCOUNT_MEMORY.companyAccounts);
   const [companyOperationBadgeCount, setCompanyOperationBadgeCount] = useState(0);
@@ -668,16 +668,29 @@ export default function Transport({
     }
   }
 
+  // A failed account load is announced the same way as every other KunThai
+  // problem — one toast with a retry — rather than a card wedged into the
+  // dashboard. The global network toast already covers a missing connection.
+  const [operatorLoadKey, setOperatorLoadKey] = useState(0);
+
   useEffect(() => {
     let alive = true;
 
     async function loadOperatorAccount() {
       try {
-        setOperatorError("");
         const account = await getOperatorAccount();
         if (alive) setOperatorAccount(account);
       } catch (error) {
-        if (alive) setOperatorError(error.message || t("urride.transport.operatorError"));
+        if (!alive) return;
+        if (getNetworkStatus().online) {
+          showToast(error.message || t("urride.transport.operatorError"), "warning", {
+            title: t("urride.transport.title"),
+            duration: 5000,
+            origin: false,
+            actionLabel: t("urride.transport.retry"),
+            onAction: () => setOperatorLoadKey((value) => value + 1),
+          });
+        }
       } finally {
         if (alive) setOperatorLoading(false);
       }
@@ -688,7 +701,7 @@ export default function Transport({
     return () => {
       alive = false;
     };
-  }, []);
+  }, [operatorLoadKey]);
 
   // Mirror account state into the session cache so the next entry into UrRide
   // paints the header immediately instead of showing a loading placeholder.
@@ -894,10 +907,22 @@ export default function Transport({
     } else if (destination === "bookings" || destination === "trips") {
       setActiveTripsActionRequest(null);
       setActiveTripsOpen(true);
+    } else if (destination === "operator-dashboard" && operatorAccount) {
+      openOperatorDashboard("dashboard");
+    } else if (destination === "company-dashboard" && companyAccount) {
+      setCompanyWorkspaceInitialTab("Overview");
+      setCompanyWorkspaceOpen(true);
+    } else if (destination === "nearby-area") {
+      openNearbyAreaRoute();
+    } else if (destination === "home") {
+      setActiveTripsOpen(false);
     } else {
       setNotificationOpenRequest((value) => value + 1);
     }
     onNavigationRequestHandled?.(null);
+    // Account state is read at the moment a request arrives; re-running on
+    // account changes would replay an already handled request.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [navigationRequest, onNavigationRequestHandled]);
 
   useEffect(() => {
@@ -1517,11 +1542,6 @@ export default function Transport({
           setActiveTripsOpen(true);
         }}
       />
-      {operatorError && (
-        <div className="mx-4 mt-3 rounded-2xl border border-amber-200 bg-amber-50 px-4 py-3 text-sm font-bold text-amber-800">
-          {operatorError}
-        </div>
-      )}
       <CompanyOperatorInvitePanel
         invites={operatorCompanyInvites}
         loading={operatorInviteLoading}

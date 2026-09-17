@@ -9,6 +9,9 @@ import { enableAdminPreview, getAdminAccess, getAdminCases, getCaseSearchText, g
 import { friendlyErrorMessage } from "../Backend/services/friendlyErrorService";
 import AdminShell from "./components/AdminShell";
 import CaseDrawer from "./components/CaseDrawer";
+import AiAssistantHost from "../components/ai/AiAssistantHost";
+import { setAiRole, setAiSurface } from "../Backend/services/ai/aiSurfaceService";
+import { registerAdminAiTools } from "./adminAiTools";
 import ActionHistoryView from "./views/ActionHistoryView";
 import UsersView from "./views/UsersView";
 import UrMallMessageSupervisionView from "./views/UrMallMessageSupervisionView";
@@ -110,6 +113,14 @@ function AdminWorkspace({ access, user, preview }) {
   const [countryFilter, setCountryFilter] = useState("all");
 
   const visiblePages = useMemo(() => new Set(ADMIN_NAV_GROUPS.flatMap((group) => group.items).filter((item) => canAccess(access, item.permission, item.sector)).map((item) => item.id)), [access]);
+
+  // KAI in the admin workspace: admin-only tools, admin context. The
+  // server independently re-checks admin access on every AI request.
+  useEffect(() => {
+    registerAdminAiTools();
+    setAiSurface({ surface: "admin", screen: "admin workspace" });
+    setAiRole("admin", "admin", "admin workspace");
+  }, []);
   const page = visiblePages.has(requestedPage) ? requestedPage : "overview";
 
   const refresh = useCallback(async (quiet = false) => {
@@ -192,6 +203,7 @@ function AdminWorkspace({ access, user, preview }) {
       <GlobalOperationsFilter countryFilter={countryFilter} countryOptions={countryOptions} onCountryFilterChange={setCountryFilter} totalCases={cases.length} visibleCases={countryCases.length} />
       {content}
       {selectedCase ? <CaseDrawer item={selectedCase} access={access} onClose={() => setSelectedCase(null)} onUpdated={updateCase} /> : null}
+      {preview ? null : <AiAssistantHost />}
     </AdminShell>
   );
 }

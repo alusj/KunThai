@@ -47,3 +47,29 @@ export async function fetchSellerReputation() {
     recentReviews: reviews.slice(0, 3).map(toReview),
   };
 }
+
+// Reviews for KAI feedback insights: ratings and comments only (the
+// seller's own business, newest first). Names stay out of what AI receives.
+export async function fetchSellerReviewsForAssistant(limit = 30) {
+  const business = await readRegisteredBusiness();
+  if (!business) return null;
+
+  const { data, error } = await supabase
+    .from("marketplace_reviews")
+    .select("rating,comment,product_name,created_at")
+    .eq("business_id", business.id)
+    .order("created_at", { ascending: false })
+    .limit(limit);
+
+  if (error) throw new Error(error.message);
+  const reviews = data || [];
+  const { count } = await supabase
+    .from("marketplace_reviews")
+    .select("id", { count: "exact", head: true })
+    .eq("business_id", business.id);
+
+  return {
+    reviewCount: Number(count ?? reviews.length),
+    reviews: reviews.map((review) => ({ rating: Number(review.rating || 0), comment: review.comment || "", productName: review.product_name || "" })),
+  };
+}

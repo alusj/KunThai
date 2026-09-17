@@ -1,8 +1,15 @@
 import { useEffect, useRef, useState } from "react";
 import { createPortal } from "react-dom";
-import { HiOutlineChatBubbleLeftRight, HiOutlineXMark } from "react-icons/hi2";
+import { HiOutlineChatBubbleLeftRight, HiOutlineSparkles, HiOutlineXMark } from "react-icons/hi2";
 
 import { useExploreComments } from "../../../../../../Backend/hooks/useExploreComments";
+import { useAiAvailability, useAiTask } from "../../../../../../Backend/hooks/useAiTask";
+import {
+  collectDiscussionComments,
+  shouldOfferDiscussionSummary,
+} from "../../../../../../Backend/services/ai/exploreAiModels";
+import { getPostTitle } from "../../../../shared/advertUtils";
+import DiscussionSummary from "./DiscussionSummary";
 import { endGuestVisit, isGuestMode } from "../../../../../../Backend/services/guestModeService";
 import { useI18n } from "../../../../../../i18n";
 import ErrorState from "../../../../shared/ErrorState";
@@ -12,8 +19,11 @@ import CommentItem from "./CommentItem";
 const EXIT_MS = 260;
 
 export default function CommentsDrawer({ currentUserId, onClose, onCountChange, onViewProfile, open, post }) {
-  const { t } = useI18n();
+  const { t, locale } = useI18n();
   const [replyingTo, setReplyingTo] = useState(null);
+  const [summaryOpen, setSummaryOpen] = useState(false);
+  const aiAvailability = useAiAvailability();
+  const summary = useAiTask({ surface: "explore", screen: "comments" });
   const [rendered, setRendered] = useState(open);
   const [closing, setClosing] = useState(false);
   const [sendPreview, setSendPreview] = useState(null);
@@ -44,6 +54,7 @@ export default function CommentsDrawer({ currentUserId, onClose, onCountChange, 
       setRendered(false);
       setClosing(false);
       setReplyingTo(null);
+      setSummaryOpen(false);
     }, EXIT_MS);
 
     return () => window.clearTimeout(timeoutId);
@@ -85,6 +96,28 @@ export default function CommentsDrawer({ currentUserId, onClose, onCountChange, 
     return result;
   }
 
+  // Summaries are only offered on threads long enough to be worth it, and
+  // only run when the person asks — never automatically on open.
+  const canSummarize = aiAvailability.available && shouldOfferDiscussionSummary(comments.thread);
+
+  function summarizeDiscussion() {
+    setSummaryOpen(true);
+    summary.run({
+      task: "explore.discussion_summary",
+      input: {
+        post: { title: getPostTitle(post || {}), body: String(post?.body || "").slice(0, 800) },
+        comments: collectDiscussionComments(comments.thread),
+        language: locale,
+      },
+    });
+    listRef.current?.scrollTo({ top: 0, behavior: "smooth" });
+  }
+
+  function closeSummary() {
+    summary.stop();
+    setSummaryOpen(false);
+  }
+
   function viewProfile(profile) {
     requestClose();
     onViewProfile?.(profile);
@@ -115,14 +148,27 @@ export default function CommentsDrawer({ currentUserId, onClose, onCountChange, 
             <p className="text-xs font-black uppercase tracking-[0.18em] text-sky-700">{isSwip ? t("post.swipComments") : t("post.comments")}</p>
             <h3 className="truncate text-lg font-black text-slate-950">{t("post.responses", { count: post?.comments_count || comments.comments.length || 0 })}</h3>
           </div>
-          <button
-            type="button"
-            onClick={requestClose}
-            className="kt-pressable flex h-10 w-10 items-center justify-center rounded-2xl bg-slate-100 text-xl text-slate-700 hover:bg-slate-200"
-            aria-label={t("post.closeComments")}
-          >
-            <HiOutlineXMark />
-          </button>
+          <div className="flex flex-none items-center gap-2">
+            {canSummarize ? (
+              <button
+                type="button"
+                onClick={summarizeDiscussion}
+                disabled={summary.loading}
+                className="kt-pressable inline-flex h-10 items-center gap-1.5 rounded-2xl bg-indigo-50 px-3 text-xs font-black text-indigo-700 hover:bg-indigo-100 disabled:opacity-60"
+              >
+                <HiOutlineSparkles className="text-base" />
+                {t("ai.explore.summarize")}
+              </button>
+            ) : null}
+            <button
+              type="button"
+              onClick={requestClose}
+              className="kt-pressable flex h-10 w-10 items-center justify-center rounded-2xl bg-slate-100 text-xl text-slate-700 hover:bg-slate-200"
+              aria-label={t("post.closeComments")}
+            >
+              <HiOutlineXMark />
+            </button>
+          </div>
         </div>
 
         {sendPreview ? (
@@ -134,6 +180,8 @@ export default function CommentsDrawer({ currentUserId, onClose, onCountChange, 
         ) : null}
 
         <div ref={listRef} className="flex-1 space-y-4 overflow-y-auto overscroll-contain px-4 py-4 kuntai-scrollbar-none">
+          {summaryOpen ? <DiscussionSummary summary={summary} onClose={closeSummary} /> : null}
+
           {comments.error ? <ErrorState message={comments.error} onRetry={comments.reload} /> : null}
 
           {comments.loading && !comments.thread.length ? <CommentLoadingRows /> : null}
@@ -182,6 +230,8 @@ export default function CommentsDrawer({ currentUserId, onClose, onCountChange, 
           </div>
         ) : (
           <CommentDrawerComposer
+            currentUserId={currentUserId}
+            post={post}
             replyingTo={replyingTo}
             onCancelReply={() => setReplyingTo(null)}
             onSendPreview={previewSend}

@@ -57,6 +57,9 @@ import { getBusinessPermissions, getAllowedWorkspaceTabs } from "../../../../Bac
 import { requestOpenVerticalEditor } from "../../../../Backend/services/marketplace/verticalEditorBus";
 import { showToast } from "../../../../Backend/services/toastService";
 import { useI18n, t } from "../../../../i18n";
+import { useAiRoleContext } from "../../../../Backend/services/ai/aiSurfaceService";
+import { useCampaignSurfaceRole } from "../../../../Backend/services/campaigns/campaignSurfaceStore";
+import CampaignInboxSection from "../../../shared/campaigns/CampaignInboxSection";
 import { hasBusinessPlans, isProductBusinessKind } from "../../../../Backend/services/marketplace/marketplaceBusinessKinds";
 
 const SELLER_SCREEN_ANIMATION_MS = 360;
@@ -106,6 +109,9 @@ function SellerFullScreen({ animation = "stack", children, hideHeader = false, e
 
 export default function Business({ initialScreen = "", onBack, onInitialScreenHandled }) {
   useI18n();
+  // While the seller workspace is open, KAI in UrMall acts as the
+  // seller's business assistant rather than a shopping assistant.
+  useAiRoleContext("urmall", "seller", { screen: "seller workspace" });
   const { loading, hasBusiness, setHasBusiness } = useSellerBusinessStatus();
   const { capacity: typeCapacity, refresh: refreshTypeCapacity } = useBusinessTypeCapacity(hasBusiness);
   const addBusinessPlanLabel = typeCapacity?.requiredPlan === "premium" ? "Premium" : typeCapacity?.requiredPlan === "pro" ? "Pro" : "";
@@ -665,6 +671,7 @@ export default function Business({ initialScreen = "", onBack, onInitialScreenHa
           open={screenPanelOpen}
         >
           <div className="space-y-6">
+            <CampaignInboxSection inbox="urmall.seller" onNavigate={goBackSellerScreen} />
             <BusinessAttention
               onAction={(item) => {
                 if (item.id === "add-first-product") openSellerScreen("addProduct");
@@ -703,6 +710,8 @@ export default function Business({ initialScreen = "", onBack, onInitialScreenHa
   const activeBusinessId = selectedBusinessId || sellerOverview.business?.id || businesses[0]?.id || "";
   const activeRegisteredBusiness = businesses.find((business) => business.id === activeBusinessId) || businesses[0];
   const businessKind = sellerOverview.business?.kind || activeRegisteredBusiness?.businessKind || "retail";
+  // Admin campaigns aimed at the seller dashboard (optionally by business type) appear here.
+  useCampaignSurfaceRole("marketplace", "seller", { businessKind: hasBusiness ? businessKind : "" });
   // Invited admins are limited to the responsibilities the owner turned on.
   const permissions = getBusinessPermissions(activeRegisteredBusiness);
   const allowedTabs = getAllowedWorkspaceTabs(permissions);

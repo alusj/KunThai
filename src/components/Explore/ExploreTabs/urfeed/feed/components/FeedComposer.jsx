@@ -34,6 +34,7 @@ import { startPendingVideoReviewJob } from "../../../../../../Backend/services/e
 import { fetchExploreTopics } from "../../../../../../Backend/services/explore/topicService";
 import Avatar from "../../../../shared/Avatar";
 import VideoTrimmerScreen from "../../../../../shared/VideoTrimmerScreen";
+import { optimizeImageFile } from "../../../../../../Backend/services/marketplace/imageOptimization";
 import useBodyScrollLock from "../../../../../shared/useBodyScrollLock";
 import { getAdvertObjectiveRequirement, hasAdvertCoordinates } from "../../../../shared/advertUtils";
 import AdvertComposerFields from "../composer/AdvertComposerFields";
@@ -65,6 +66,10 @@ import {
   normalizeVisibilityCreditSpend,
 } from "../../../../../../Backend/services/visibilityCreditService";
 import { t as i18nText } from "../../../../../../i18n/index";
+import ExploreAiButton from "../../../../shared/ExploreAiButton";
+import { EXPLORE_COMPOSER_ACTIONS } from "../../../../../../Backend/services/ai/aiActionCatalog";
+import { loadExploreTopicsForAi, prepareImageForAi } from "../../../../../../Backend/services/ai/exploreAi";
+import { composerMediaKind, mergeHashtagsIntoText } from "../../../../../../Backend/services/ai/exploreAiModels";
 
 const LARGE_VIDEO_BACKGROUND_REVIEW_BYTES = 24 * 1024 * 1024;
 const LARGE_VIDEO_INITIAL_REVIEW_TIMEOUT_MS = 18_000;
@@ -956,11 +961,15 @@ export default function FeedComposer({ profile, creating, onSubmit }) {
         setAttachmentMode("image");
         const nextPreview = await prepareImageReviewDataUrl(file);
         if (!nextPreview) throw new Error("Unable to prepare this image. Please choose it again.");
-        originalImageFileRef.current = file;
+        // Upload a display-sized photo rather than the multi-megabyte original:
+        // KunThai never shows it larger, and posting finishes far sooner on a
+        // slow connection.
+        const uploadFile = await optimizeImageFile(file);
+        originalImageFileRef.current = uploadFile;
         const imageMetaPatch = {
-          imageName: file.name,
-          imageType: file.type,
-          imageSize: file.size,
+          imageName: uploadFile.name,
+          imageType: uploadFile.type,
+          imageSize: uploadFile.size,
         };
 
         if (!isAdvertMode) {
@@ -1281,6 +1290,59 @@ export default function FeedComposer({ profile, creating, onSubmit }) {
 
   function addHashtag() {
     selectHashtag(tagDraft);
+  }
+
+  // KAI hands a result back only after the person chooses to use it.
+  // It lands in the same editable fields they type into, and nothing is
+  // published until they press Post themselves.
+  function applyAiResult(result, meta = {}) {
+    setFeedback("");
+    if (meta.task === "explore.title_suggest") {
+      setPostTitle(String(result || "").slice(0, MAX_POST_TITLE_LENGTH));
+      return;
+    }
+    if (meta.kind === "topic") {
+      if (result?.slug) setPrimaryTopicSlug(result.slug);
+      return;
+    }
+    if (meta.kind === "tags") {
+      setValue((current) => mergeHashtagsIntoText(current, result));
+      setHashtagTrigger(null);
+      setTagPickerOpen(false);
+    } else {
+      setValue(String(result || ""));
+    }
+    window.setTimeout(() => textareaRef.current?.focus(), 0);
+  }
+
+  function buildAiComposerRequest() {
+    const title = postTitle.trim();
+    const topicName = selectedPrimaryTopic?.name || "";
+    const mediaKind = composerMediaKind({ imagePreview, videoPreview, pendingVideoFile, audioPreview });
+    const photo = imagePreview;
+
+    return {
+      screen: "post composer",
+      title: i18nText("ai.explore.composerTitle"),
+      sourceLabel: i18nText("ai.explore.yourDraft"),
+      text: value,
+      actions: EXPLORE_COMPOSER_ACTIONS,
+      buildInput: async (task) => {
+        if (task === "explore.caption_generate") {
+          // The photo is downscaled only when a caption is actually requested.
+          const image = photo ? await prepareImageForAi(photo) : "";
+          return { title, topic: topicName, mediaKind, ...(image ? { image } : {}) };
+        }
+        if (task === "explore.hashtags" || task === "explore.title_suggest") {
+          return { title, topic: topicName };
+        }
+        if (task === "explore.topic_suggest") {
+          return { title, topics: await loadExploreTopicsForAi() };
+        }
+        return {};
+      },
+      onInsert: applyAiResult,
+    };
   }
 
   function addMention(profileResult) {
@@ -2172,6 +2234,7 @@ if (!isMobileVideoDevice) {
                     >
                       <HiOutlineTag className="flex-none text-base" /> <span className="truncate">{selectedPrimaryTopic?.name || i18nText("ui.literals.k7e13bd176f89")}</span>
                     </button>
+                    <ExploreAiButton getRequest={buildAiComposerRequest} />
                   </div>
                 ) : null}
               </div>

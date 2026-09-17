@@ -119,3 +119,18 @@ export async function fetchSellerProductInsights(product) {
     latestPromotion,
   };
 }
+
+// Per-product performance for KAI. Read-only, scoped to the signed-in
+// seller's own business like every other seller query.
+export async function fetchSellerProductPerformance() {
+  const business = await readRegisteredBusiness();
+  if (!business) return null;
+
+  const { data, error } = await supabase
+    .from("marketplace_products")
+    .select("id,name,status,price,discount_price,stock,low_stock_alert,views,sales,revenue,category,created_at")
+    .eq("business_id", business.id);
+
+  if (error) throw new Error(error.message);
+  return { currency: business.location?.currency || "", products: data || [] };
+}

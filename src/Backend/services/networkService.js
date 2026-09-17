@@ -124,6 +124,54 @@ export function areGlobalNetworkToastsSuppressed() {
   return globalNetworkToastSuppressors > 0;
 }
 
+// The one network announcer for the whole of KunThai. Every section gets the
+// same toast for the same event instead of each screen inventing its own strip
+// or inline card. Screens with their own contextual messaging (Area View)
+// suppress it while they are mounted.
+let stopGlobalNetworkToasts = null;
+
+/**
+ * @param {object} options
+ * @param {(message: string, tone: string, config: object) => void} options.showToast
+ * @param {() => { title: string, offline: string, backOnline: string, slow: string }} options.messages
+ *        Read at announce time so a language change is picked up.
+ */
+export function startGlobalNetworkToasts({ showToast, messages }) {
+  if (typeof window === "undefined" || stopGlobalNetworkToasts) return () => {};
+
+  let previous = getNetworkStatus();
+  const text = (key) => messages()[key] || "";
+  const title = () => text("title");
+
+  function announce(status, { initial = false } = {}) {
+    if (areGlobalNetworkToastsSuppressed()) {
+      previous = status;
+      return;
+    }
+    if (!status.online) {
+      // Offline is worth repeating on entry, because nothing else will work.
+      if (initial || previous.online) {
+        showToast(text("offline"), "warning", { title: title(), duration: 5000, origin: false });
+      }
+    } else if (!previous.online) {
+      showToast(text("backOnline"), "success", { title: title(), duration: 2600, origin: false });
+    } else if (status.unstable && (initial || !previous.unstable)) {
+      showToast(text("slow"), "warning", { title: title(), duration: 4000, origin: false });
+    }
+    previous = status;
+  }
+
+  const initialStatus = getNetworkStatus();
+  if (!initialStatus.online || initialStatus.unstable) announce(initialStatus, { initial: true });
+
+  const unsubscribe = subscribeToNetworkStatus((status) => announce(status));
+  stopGlobalNetworkToasts = () => {
+    unsubscribe();
+    stopGlobalNetworkToasts = null;
+  };
+  return stopGlobalNetworkToasts;
+}
+
 export function getNetworkStatus() {
   const online = isOnline();
   const connection = getNetworkConnection();

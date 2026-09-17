@@ -18,6 +18,7 @@ import {
   isLegacyMisroutedExploreNotification,
   notificationBelongsToSurface,
 } from "../services/surfaceNotificationModels";
+import { platformRowBelongsInInbox } from "../services/campaigns/campaignDeliveryService";
 
 const NOTIFICATIONS_MEMORY = {
   items: [],
@@ -237,6 +238,7 @@ export function useExploreNotifications(requestedUserId = "") {
           (payload) => {
             if (!active || !payload.new) return;
             if (!notificationBelongsToSurface(payload.new, "explore")) return;
+            if (!platformRowBelongsInInbox(payload.new, "explore")) return;
             const nextItem = normalizeNotification({ ...payload.new, _notification_source: "platform" });
             const storedItems = storeNotificationMemory([nextItem, ...NOTIFICATIONS_MEMORY.items], currentUserId);
             setNotifications(visibleNotifications(storedItems));
@@ -254,8 +256,11 @@ export function useExploreNotifications(requestedUserId = "") {
             if (!active || !payload.new) return;
             if (!notificationBelongsToSurface(payload.new, "explore")) return;
             const nextItem = normalizeNotification({ ...payload.new, _notification_source: "platform" });
+            const keep = platformRowBelongsInInbox(payload.new, "explore");
             const storedItems = storeNotificationMemory(
-              NOTIFICATIONS_MEMORY.items.map((item) => (item.id === nextItem.id ? { ...item, ...nextItem } : item)),
+              NOTIFICATIONS_MEMORY.items
+                .filter((item) => keep || item.id !== nextItem.id)
+                .map((item) => (item.id === nextItem.id ? { ...item, ...nextItem } : item)),
               currentUserId,
             );
             setNotifications(visibleNotifications(storedItems));

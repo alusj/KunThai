@@ -18,6 +18,8 @@ import {
 } from "../../Backend/services/exploreService";
 import { guardGuestAction } from "../../Backend/services/guestModeService";
 import { consumePendingExploreScreen, OPEN_EXPLORE_SCREEN_EVENT } from "../../Backend/services/notificationBannerService";
+import { mapSurfacePlatformNotification, markSurfacePlatformNotificationRead } from "../../Backend/services/surfaceNotificationService";
+import { openUnifiedNotification } from "../../Backend/services/unifiedNotificationService";
 import { shareKunThaiLink } from "../../Backend/services/shareCtaService";
 import {
   clearPostingNotice,
@@ -446,6 +448,7 @@ export default function Explore({ active = true, onNavigateMain, onScreenModeCha
     function handleOpenTab(event) {
       const tab = event.detail?.tab;
       if (tab) {
+        if (event.detail) event.detail.handled = true;
         if (event.detail?.postId) {
           openPostTargetRef.current?.(event.detail.postId, { tabHint: tab, closeMenus: false });
           return;
@@ -522,6 +525,7 @@ export default function Explore({ active = true, onNavigateMain, onScreenModeCha
     function handleOpenProfileRequest(event) {
       const detail = event?.detail || {};
       if (!detail.userId) return;
+      if (event.detail) event.detail.handled = true;
       openViewedProfileRef.current?.({
         userId: detail.userId,
         displayName: detail.displayName || "",
@@ -655,6 +659,17 @@ export default function Explore({ active = true, onNavigateMain, onScreenModeCha
   }
 
   function openNotificationTarget(notification) {
+    // Admin campaigns and other platform notices carry their own action
+    // (a KunThai screen, an item or an https link).
+    if (notification?._notification_source === "platform") {
+      const item = mapSurfacePlatformNotification(notification);
+      if (item.actionTarget) {
+        markSurfacePlatformNotificationRead(item, { actioned: true }).catch(() => {});
+        openUnifiedNotification(item);
+      }
+      return;
+    }
+
     exploreNav.closeMenuScreens();
 
     if ((notification?.actor_type === "space" || notification?.actor_space_id) && notification.actor_name) {

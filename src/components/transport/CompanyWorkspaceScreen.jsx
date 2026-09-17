@@ -34,6 +34,11 @@ import { FiActivity, FiMapPin } from "react-icons/fi";
 import { HiOutlineCheckCircle } from "react-icons/hi2";
 
 import AppBackTab from "../shared/AppBackTab";
+import AiAssistButton from "../ai/AiAssistButton";
+import { useAiRoleContext } from "../../Backend/services/ai/aiSurfaceService";
+import { useCampaignSurfaceRole } from "../../Backend/services/campaigns/campaignSurfaceStore";
+import CampaignInboxSection from "../shared/campaigns/CampaignInboxSection";
+import { useCampaignInbox } from "../../Backend/hooks/useCampaignInbox";
 import AppPortal from "../shared/AppPortal";
 import HealthScoreCard from "../Marketplace/MarketplaceHeader/Business/MyBizDashboardHeader/HealthScoreCard";
 import { useI18n, t } from "../../i18n";
@@ -129,6 +134,9 @@ function roleDesc(roleId) {
 export default function CompanyWorkspaceScreen({ company, initialTab = "Overview", onAddRentalFleet, onBack, onCompanyLeft, onCompanyUpdate, onEditCompany, onLocateArea, onOpenOperatorDashboard, onOpenPersonalDashboard, onRegisterCompany, statusMessage = "" }) {
   useI18n();
   const basicOperator = Boolean(company?.access?.role === "operator" && !company?.access?.isOwner);
+  useAiRoleContext("urride", basicOperator ? "operator" : "company", { screen: "transport company workspace" });
+  // Company members (including company operators) receive company campaigns in this workspace.
+  useCampaignSurfaceRole("transport", "company");
   const companyOperatorAssignment = useMemo(
     () => basicOperator ? resolveTransportCompanyOperatorAssignment(company) : null,
     [basicOperator, company],
@@ -247,7 +255,9 @@ export default function CompanyWorkspaceScreen({ company, initialTab = "Overview
       .filter((item) => item.unread === false)
       .map((item) => item.id),
   );
-  const companyNotificationCount = getUnseenNotificationCount(notificationSeenScope, companyNotificationItems, { unreadOnly: true });
+  // Admin campaigns sent to transport companies share the company notification badge.
+  const companyCampaigns = useCampaignInbox("urride.company", { enabled: canViewCompanyNotifications });
+  const companyNotificationCount = getUnseenNotificationCount(notificationSeenScope, companyNotificationItems, { unreadOnly: true }) + companyCampaigns.unreadCount;
   // A booking is operational work, not a read receipt. Keep its badge until
   // the booking leaves the actionable queue through a status action.
   const bookingNotificationCount = bookingNotificationItems.length;
@@ -755,6 +765,20 @@ export default function CompanyWorkspaceScreen({ company, initialTab = "Overview
               {company?.companyName || t("urride.companyWs.fallbackName")}
             </h1>
           </div>
+          {company ? (
+            <AiAssistButton
+              chat
+              size="icon"
+              label={t("ai.urride.askAboutFleet")}
+              getRequest={() => ({
+                surface: "urride",
+                role: "company",
+                screen: "transport company workspace",
+                message: t("ai.urride.fleetOverviewMessage"),
+                autoSend: true,
+              })}
+            />
+          ) : null}
           {company && canViewCompanyNotifications ? (
             <button
               type="button"
@@ -2302,6 +2326,7 @@ function CompanyActivityDrawer({ activities, company, notificationPreferences, o
         {settingsOpen ? (
           <CompanyNotificationSettings settings={notificationPreferences} onToggle={onTogglePreference} />
         ) : null}
+        <CampaignInboxSection inbox="urride.company" tone="blue" className={settingsOpen ? "mt-4 mb-4" : "mb-4"} onNavigate={onClose} />
         {activities.length ? (
           <div className={`grid gap-3 ${settingsOpen ? "mt-4" : ""}`}>
             {activities.map((activity) => (

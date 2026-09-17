@@ -41,6 +41,8 @@ import LiveTripMetric from "./live/LiveTripMetric";
 import VerificationBadge from "./verification/VerificationBadge";
 import { useI18n, t } from "../../i18n";
 import SaveOperatorButton from "./SaveOperatorButton";
+import AiAssistButton from "../ai/AiAssistButton";
+import { tripFactsForAi } from "../../Backend/services/ai/urrideAiModels";
 
 const tripSteps = [
   { key: "requested", labelKey: "urride.activeTrips.stepRequested" },
@@ -569,6 +571,21 @@ function ContactOperatorScreen({ trip }) {
       <FiPhone className="text-emerald-700" size={24} />
       <h2 className="mt-3 text-xl font-black text-slate-950">{t("urride.activeTrips.contactOperator")}</h2>
       <p className="mt-2 text-sm font-semibold text-slate-600">{trip.fleet?.operatorName || trip.fleet?.fleetName || t("urride.activeTrips.assignedOperator")}</p>
+      <div className="mt-3">
+        <AiAssistButton
+          size="md"
+          label={t("ai.urride.draftMessage")}
+          getRequest={() => ({
+            surface: "urride",
+            screen: "passenger contact operator",
+            title: t("ai.urride.messageTitle"),
+            askTask: "urride.message_draft",
+            askPlaceholder: t("ai.urride.messagePlaceholder"),
+            buildAskInput: (situation) => ({ situation, from: "passenger", trip: tripFactsForAi(trip) }),
+            prompts: [t("ai.urride.passengerPrompt1"), t("ai.urride.passengerPrompt2"), t("ai.urride.passengerPrompt3")],
+          })}
+        />
+      </div>
       {phone ? <a href={`tel:${phone}`} className="mt-5 flex h-12 items-center justify-center gap-2 rounded-2xl bg-emerald-600 text-sm font-black text-white"><FiPhone size={17} /> {t("urride.activeTrips.callPhone", { phone })}</a> : <p className="mt-5 rounded-xl bg-amber-50 p-3 text-sm font-bold text-amber-700">{t("urride.activeTrips.noPhone")}</p>}
     </section>
   );
@@ -583,6 +600,27 @@ function ReportScreen({ trip, priority = "high", onSubmit }) {
       <FiFlag className="text-red-700" size={24} />
       <h2 className="mt-3 text-xl font-black text-slate-950">{t("urride.activeTrips.reportThis")}</h2>
       <p className="mt-2 text-sm font-semibold leading-6 text-slate-600">{t("urride.activeTrips.reportHint")}</p>
+      <div className="mt-3">
+        <AiAssistButton
+          size="md"
+          label={t("ai.urride.helpWriteReport")}
+          getRequest={() => ({
+            surface: "urride",
+            screen: "passenger trip report",
+            title: t("ai.urride.reportTitle"),
+            sourceLabel: t("ai.urride.yourReport"),
+            text: body,
+            hidePrompts: true,
+            hideAsk: true,
+            actions: ["urride.support_draft", "urride.lost_item_draft", "text.improve", "text.translate"],
+            buildInput: (task) =>
+              task === "urride.support_draft" || task === "urride.lost_item_draft"
+                ? { notes: body, trip: tripFactsForAi(trip), kind: task === "urride.lost_item_draft" ? "lost_item" : "report" }
+                : {},
+            onInsert: (text) => setBody(String(text || "")),
+          })}
+        />
+      </div>
       <textarea value={body} onChange={(event) => setBody(event.target.value)} rows={6} className="mt-4 w-full resize-none rounded-2xl border border-gray-200 bg-gray-50 px-3 py-3 text-sm font-semibold outline-none focus:border-emerald-500" />
       <button type="button" disabled={busy} onClick={async () => { setBusy(true); await onSubmit({ tripId: trip.id, fleetId: trip.fleetId, topic: priority === "urgent" ? "Urgent trip report" : "Trip report", priority, body }); setBusy(false); }} className="mt-4 h-12 w-full rounded-2xl bg-red-600 text-sm font-black text-white disabled:opacity-50">
         {busy ? t("urride.activeTrips.sending") : t("urride.activeTrips.sendReport")}

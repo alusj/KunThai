@@ -99,3 +99,20 @@ export async function deleteSellerOrder(orderId) {
   if (error) throw new Error(error.message);
   window.dispatchEvent(new CustomEvent("marketplace-orders-updated"));
 }
+
+// Orders for KAI sales trends: the last `days` plus the period before it,
+// so the assistant can compare like with like. Read-only, own business only.
+export async function fetchSellerOrdersForTrend(days = 30) {
+  const business = await readRegisteredBusiness();
+  if (!business) return null;
+
+  const since = new Date(Date.now() - Number(days) * 2 * 24 * 60 * 60 * 1000).toISOString();
+  const { data, error } = await supabase
+    .from("marketplace_orders")
+    .select("id,status,total_amount,item_count,created_at")
+    .eq("business_id", business.id)
+    .gte("created_at", since);
+
+  if (error) throw new Error(error.message);
+  return { currency: business.location?.currency || "", orders: data || [] };
+}

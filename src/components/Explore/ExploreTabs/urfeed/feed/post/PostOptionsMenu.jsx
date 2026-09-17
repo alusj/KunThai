@@ -8,6 +8,7 @@ import {
   HiOutlineLink,
   HiOutlinePencilSquare,
   HiOutlineShare,
+  HiOutlineSparkles,
   HiOutlineSpeakerXMark,
   HiOutlineTrash,
   HiOutlineUserMinus,
@@ -27,6 +28,7 @@ export default function PostOptionsMenu({
   onFollow,
   onHide,
   onMuteAdvertiser,
+  onReadWithAi,
   onReport,
   onRepost,
   onSave,
@@ -47,6 +49,8 @@ export default function PostOptionsMenu({
   ];
 
   const viewerActions = [
+    // Only present when KAI is available and the post has text.
+    ...(onReadWithAi ? [{ label: t("ai.explore.translatePost"), icon: HiOutlineSparkles, action: onReadWithAi }] : []),
     { label: saved ? t("post.removeSaved") : advertPost ? t("post.saveAdvert") : t("post.savePost"), icon: HiOutlineBookmark, action: onSave, active: saved },
     ...(!advertPost ? [{ label: t("post.repost"), icon: HiArrowPathRoundedSquare, action: onRepost }] : []),
     { label: t("post.share"), icon: HiOutlineShare, action: onShare },

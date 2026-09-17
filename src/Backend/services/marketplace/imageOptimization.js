@@ -30,6 +30,22 @@ function getCanvasBlob(canvas, type = "image/jpeg", quality = IMAGE_UPLOAD_QUALI
   });
 }
 
+// Below this a re-encode saves too little to be worth the delay.
+const SKIP_BELOW_BYTES = 320 * 1024;
+
+async function decodeImage(file) {
+  if (typeof createImageBitmap === "function") {
+    try {
+      // Decodes off the main thread where supported, so a large photo does not
+      // freeze the composer while it is prepared.
+      return await createImageBitmap(file);
+    } catch {
+      // Safari refuses some HEIC/AVIF here; the <img> path below handles those.
+    }
+  }
+  return loadImageElement(file);
+}
+
 async function loadImageElement(file) {
   const url = URL.createObjectURL(file);
   try {
@@ -45,14 +61,22 @@ async function loadImageElement(file) {
 
 // Downscale + re-encode an image File. Returns the original File unchanged when it
 // is not a compressible image, on any failure, or when the result isn't smaller.
+/** Optimize several photos at once, so a multi-image upload sends far less. */
+export function optimizeImageFiles(files = []) {
+  return Promise.all(Array.from(files || []).map((file) => optimizeImageFile(file)));
+}
+
 export async function optimizeImageFile(file) {
   if (!isCompressibleImage(file)) return file;
+  if (Number(file.size || 0) <= SKIP_BELOW_BYTES) return file;
 
   try {
-    const image = await loadImageElement(file);
-    const scale = Math.min(1, IMAGE_UPLOAD_MAX_WIDTH / image.naturalWidth, IMAGE_UPLOAD_MAX_HEIGHT / image.naturalHeight);
-    const width = Math.max(1, Math.round(image.naturalWidth * scale));
-    const height = Math.max(1, Math.round(image.naturalHeight * scale));
+    const image = await decodeImage(file);
+    const sourceWidth = image.naturalWidth || image.width || 1;
+    const sourceHeight = image.naturalHeight || image.height || 1;
+    const scale = Math.min(1, IMAGE_UPLOAD_MAX_WIDTH / sourceWidth, IMAGE_UPLOAD_MAX_HEIGHT / sourceHeight);
+    const width = Math.max(1, Math.round(sourceWidth * scale));
+    const height = Math.max(1, Math.round(sourceHeight * scale));
 
     const canvas = document.createElement("canvas");
     canvas.width = width;
@@ -61,6 +85,7 @@ export async function optimizeImageFile(file) {
     context.drawImage(image, 0, 0, width, height);
 
     const blob = await getCanvasBlob(canvas);
+    image.close?.();
     if (blob.size >= file.size) return file;
 
     const optimizedName = (file.name || "image").replace(/\.[^.]+$/, "") || "image";

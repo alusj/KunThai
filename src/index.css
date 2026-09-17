@@ -2006,67 +2006,39 @@
   }
 }
 
-@keyframes campaign-premium-fade-in {
-  from { opacity: 0; filter: blur(10px); transform: translate3d(0, 12px, 0) scale(0.96); }
-  to { opacity: 1; filter: blur(0); transform: none; }
-}
+/* Admin campaign presentations (CampaignPresentation.jsx). Transform and
+   opacity only, so they stay smooth on low-end phones; the global
+   prefers-reduced-motion rule below shortens them to 1ms. */
+.kt-campaign-anim { animation-duration: var(--kt-campaign-duration, 320ms); animation-fill-mode: both; will-change: transform, opacity; }
+.kt-campaign-in-fade { animation-name: kt-campaign-fade-in; animation-timing-function: ease-out; }
+.kt-campaign-in-slide_up { animation-name: kt-campaign-from-below; animation-timing-function: cubic-bezier(.16,1,.3,1); }
+.kt-campaign-in-slide_down { animation-name: kt-campaign-from-above; animation-timing-function: cubic-bezier(.16,1,.3,1); }
+.kt-campaign-in-slide_left { animation-name: kt-campaign-from-right; animation-timing-function: cubic-bezier(.16,1,.3,1); }
+.kt-campaign-in-slide_right { animation-name: kt-campaign-from-left; animation-timing-function: cubic-bezier(.16,1,.3,1); }
+.kt-campaign-in-scale { animation-name: kt-campaign-scale-in; animation-timing-function: cubic-bezier(.16,1,.3,1); }
+.kt-campaign-in-spring { animation-name: kt-campaign-spring-in; animation-timing-function: cubic-bezier(.2,.9,.2,1.15); }
+.kt-campaign-out-fade { animation-name: kt-campaign-fade-out; animation-timing-function: ease-in; }
+.kt-campaign-out-slide_down { animation-name: kt-campaign-to-below; animation-timing-function: cubic-bezier(.4,0,1,1); }
+.kt-campaign-out-slide_up { animation-name: kt-campaign-to-above; animation-timing-function: cubic-bezier(.4,0,1,1); }
+.kt-campaign-out-slide_left { animation-name: kt-campaign-to-left; animation-timing-function: cubic-bezier(.4,0,1,1); }
+.kt-campaign-out-slide_right { animation-name: kt-campaign-to-right; animation-timing-function: cubic-bezier(.4,0,1,1); }
+.kt-campaign-out-scale { animation-name: kt-campaign-scale-out; animation-timing-function: cubic-bezier(.4,0,1,1); }
+.kt-campaign-backdrop-in { animation: kt-campaign-fade-in var(--kt-campaign-duration, 320ms) ease-out both; }
+.kt-campaign-backdrop-out { animation: kt-campaign-fade-out var(--kt-campaign-duration, 320ms) ease-in both; }
 
-@keyframes campaign-slide-up-in {
-  from { opacity: 0; transform: translate3d(0, 72px, 0); }
-  to { opacity: 1; transform: none; }
-}
-
-@keyframes campaign-spring-in {
-  0% { opacity: 0; transform: scale(0.74); }
-  72% { opacity: 1; transform: scale(1.035); }
-  100% { opacity: 1; transform: scale(1); }
-}
-
-@keyframes campaign-zoom-in {
-  from { opacity: 0; transform: scale(0.82); }
-  to { opacity: 1; transform: scale(1); }
-}
-
-@keyframes campaign-reveal-in {
-  from { opacity: 0; clip-path: inset(0 100% 0 0 round 28px); transform: translate3d(-20px, 0, 0); }
-  to { opacity: 1; clip-path: inset(0 0 0 0 round 28px); transform: none; }
-}
-
-@keyframes campaign-soft-fade-out {
-  to { opacity: 0; filter: blur(7px); transform: scale(0.98); }
-}
-
-@keyframes campaign-slide-down-out {
-  to { opacity: 0; transform: translate3d(0, 72px, 0); }
-}
-
-@keyframes campaign-shrink-out {
-  to { opacity: 0; transform: scale(0.72); }
-}
-
-@keyframes campaign-flip-out {
-  to { opacity: 0; transform: perspective(900px) rotateX(-72deg) scale(0.92); }
-}
-
-@keyframes campaign-blur-out {
-  to { opacity: 0; filter: blur(20px); transform: scale(1.04); }
-}
-
-.campaign-preview-enter-premium_fade,
-.campaign-notification-enter--premium_fade { animation: campaign-premium-fade-in 480ms cubic-bezier(.2,.8,.2,1) both; }
-.campaign-preview-enter-glass_rise,
-.campaign-notification-enter--glass_rise { animation: campaign-slide-up-in 460ms cubic-bezier(.16,1,.3,1) both; }
-.campaign-preview-enter-spotlight,
-.campaign-notification-enter--spotlight { animation: campaign-spring-in 560ms cubic-bezier(.2,.9,.2,1.15) both; }
-.campaign-preview-enter-soft_zoom,
-.campaign-notification-enter--soft_zoom { animation: campaign-zoom-in 420ms cubic-bezier(.16,1,.3,1) both; }
-.campaign-preview-enter-slide_blur,
-.campaign-notification-enter--slide_blur { animation: campaign-reveal-in 520ms cubic-bezier(.16,1,.3,1) both; }
-.campaign-notification-exit--soft_fade { animation: campaign-soft-fade-out 340ms ease both; }
-.campaign-notification-exit--slide_down { animation: campaign-slide-down-out 340ms cubic-bezier(.4,0,1,1) both; }
-.campaign-notification-exit--scale_away { animation: campaign-shrink-out 340ms cubic-bezier(.4,0,1,1) both; }
-.campaign-notification-exit--swipe_away { transform-origin: top; animation: campaign-flip-out 360ms cubic-bezier(.4,0,1,1) both; }
-.campaign-notification-exit--blur_dissolve { animation: campaign-blur-out 340ms ease both; }
+@keyframes kt-campaign-fade-in { from { opacity: 0; } to { opacity: 1; } }
+@keyframes kt-campaign-fade-out { from { opacity: 1; } to { opacity: 0; } }
+@keyframes kt-campaign-from-below { from { opacity: 0; transform: translate3d(0, 32px, 0); } to { opacity: 1; transform: none; } }
+@keyframes kt-campaign-from-above { from { opacity: 0; transform: translate3d(0, -32px, 0); } to { opacity: 1; transform: none; } }
+@keyframes kt-campaign-from-right { from { opacity: 0; transform: translate3d(32px, 0, 0); } to { opacity: 1; transform: none; } }
+@keyframes kt-campaign-from-left { from { opacity: 0; transform: translate3d(-32px, 0, 0); } to { opacity: 1; transform: none; } }
+@keyframes kt-campaign-scale-in { from { opacity: 0; transform: scale(0.9); } to { opacity: 1; transform: none; } }
+@keyframes kt-campaign-spring-in { 0% { opacity: 0; transform: scale(0.8); } 70% { opacity: 1; transform: scale(1.03); } 100% { opacity: 1; transform: none; } }
+@keyframes kt-campaign-to-below { from { opacity: 1; transform: none; } to { opacity: 0; transform: translate3d(0, 32px, 0); } }
+@keyframes kt-campaign-to-above { from { opacity: 1; transform: none; } to { opacity: 0; transform: translate3d(0, -32px, 0); } }
+@keyframes kt-campaign-to-left { from { opacity: 1; transform: none; } to { opacity: 0; transform: translate3d(-32px, 0, 0); } }
+@keyframes kt-campaign-to-right { from { opacity: 1; transform: none; } to { opacity: 0; transform: translate3d(32px, 0, 0); } }
+@keyframes kt-campaign-scale-out { from { opacity: 1; transform: none; } to { opacity: 0; transform: scale(0.9); } }
 
 @media (prefers-reduced-motion: reduce) {
   *,

@@ -24,26 +24,27 @@ export default async function handler(req, res) {
   const adminClient = createClient(supabaseUrl, serviceRoleKey, {
     auth: { persistSession: false, autoRefreshToken: false },
   });
-  const startedAt = new Date().toISOString();
   const { data, error } = await adminClient.rpc("admin_publish_due_campaigns");
 
   if (error) {
     return json(res, 500, { ok: false, message: error.message || "Scheduled publication failed." });
   }
 
-  let pushQueued = 0;
-  if (Number(data || 0) > 0) {
-    const { data: pushCampaigns } = await adminClient
-      .from("admin_notification_campaigns")
-      .select("id")
-      .eq("status", "completed")
-      .contains("channels", ["push"])
-      .gte("sent_at", startedAt);
-    const results = await Promise.allSettled((pushCampaigns || []).map((campaign) => (
-      adminClient.functions.invoke("send-notification-push", { body: { campaignId: campaign.id } })
-    )));
-    pushQueued = results.filter((result) => result.status === "fulfilled" && !result.value?.error).length;
-  }
+  // Scheduled campaigns are usually released by the database's own pg_cron
+  // job, so push is queued for every push campaign published since the last
+  // run (this cron is daily), not only the ones released by this request.
+  // send-notification-push only sends to rows that have not been pushed yet.
+  const since = new Date(Date.now() - 26 * 60 * 60 * 1000).toISOString();
+  const { data: pushCampaigns } = await adminClient
+    .from("admin_notification_campaigns")
+    .select("id")
+    .eq("status", "completed")
+    .contains("channels", ["push"])
+    .gte("published_at", since);
+  const results = await Promise.allSettled((pushCampaigns || []).map((campaign) => (
+    adminClient.functions.invoke("send-notification-push", { body: { campaignId: campaign.id } })
+  )));
+  const pushQueued = results.filter((result) => result.status === "fulfilled" && !result.value?.error).length;
 
   return json(res, 200, { ok: true, published: Number(data || 0), pushQueued });
 }

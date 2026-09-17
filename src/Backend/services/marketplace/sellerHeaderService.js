@@ -2,6 +2,7 @@ import supabase from "../../lib/supabaseClient";
 import { fetchSellerAttentionItems } from "./sellerAttentionService";
 import { fetchSellerActivities } from "./sellerActivityService";
 import { readRegisteredBusiness } from "./sellerRegistrationService";
+import { fetchCampaignInbox } from "../campaigns/campaignDeliveryService";
 
 const SELLER_HEADER_STATE = {
   orderCount: 0,
@@ -24,7 +25,7 @@ export async function fetchSellerHeaderState() {
     const business = await readRegisteredBusiness();
     if (!business?.id) return SELLER_HEADER_STATE;
 
-    const [ordersResult, messagesResult, attentionItems, activityItems] = await Promise.all([
+    const [ordersResult, messagesResult, attentionItems, activityItems, campaignItems] = await Promise.all([
       supabase
         .from("marketplace_orders")
         .select("id,status,created_at")
@@ -42,6 +43,7 @@ export async function fetchSellerHeaderState() {
         .limit(30),
       fetchSellerAttentionItems().catch(() => []),
       fetchSellerActivities().catch(() => []),
+      fetchCampaignInbox("urmall.seller").catch(() => []),
     ]);
 
     const orderItems = (ordersResult.data || []).map((order) => ({
@@ -70,7 +72,11 @@ export async function fetchSellerHeaderState() {
       unread: true,
       created_at: item.createdAt || null,
     }));
-    const notificationItems = [...attentionNotificationItems, ...activityNotificationItems];
+    // Unread admin campaigns aimed at the seller dashboard.
+    const campaignNotificationItems = (campaignItems || [])
+      .filter((item) => item.status === "unread")
+      .map((item) => ({ id: `seller-campaign:${item.id}`, unread: true, created_at: item.created_at || null }));
+    const notificationItems = [...campaignNotificationItems, ...attentionNotificationItems, ...activityNotificationItems];
 
     return {
       ...SELLER_HEADER_STATE,

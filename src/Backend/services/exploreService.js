@@ -9,6 +9,7 @@ import { fetchExploreSpacesForDiscovery } from "./explore/spaceService";
 import { PROFILE_IDENTITY_TYPE, SPACE_IDENTITY_TYPE, getIdentityKey } from "./explore/identityService";
 import { mergeExploreDiscoveryItems } from "./explore/connectionDirectoryModels";
 import { isGuestMode } from "./guestModeService";
+import { platformRowBelongsInInbox } from "./campaigns/campaignDeliveryService";
 import {
   isLegacyMisroutedExploreNotification,
   notificationBelongsToSurface,
@@ -581,6 +582,8 @@ export async function markAllExploreNotificationsRead() {
       .eq("user_id", currentUserId)
       .eq("status", "unread")
       .in("sector", ["explore", "platform", "all"])
+      // On-screen-only campaigns are not in this inbox, so "mark all read" must not touch them.
+      .not("presentation", "in", "(floating,inline,banner)")
       .select(),
   ]);
 
@@ -678,9 +681,14 @@ export async function fetchExploreNotifications(options = {}) {
     throw error;
   }
 
+  const now = Date.now();
   const platformItems = platformResult.error && isMissingTable(platformResult.error)
     ? []
-    : (platformResult.data || []).map((item) => normalizeNotification({ ...item, _notification_source: "platform" }));
+    : (platformResult.data || [])
+        // Card-only campaigns, campaigns for other inboxes and expired or
+        // removed campaigns do not belong in the Explore centre.
+        .filter((item) => platformRowBelongsInInbox(item, "explore", now))
+        .map((item) => normalizeNotification({ ...item, _notification_source: "platform" }));
   const merged = mergeNotifications([...(data || []).map(normalizeNotification), ...platformItems], storedNotifications)
     .sort((first, second) => new Date(second.created_at || 0) - new Date(first.created_at || 0))
     .slice(0, limit);

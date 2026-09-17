@@ -1050,8 +1050,54 @@ export async function cancelNotificationCampaign(campaignId, reason) {
 }
 
 export async function getNotificationCampaignMetrics(campaignId) {
-  if (isAdminPreview()) return previewDelay({ created: 3842, displayed: 3210, read: 1840, actioned: 930, dismissed: 110, pushSent: 2700, pushFailures: 12 });
+  // Preview figures are labelled as sample data in the dev-only preview shell.
+  if (isAdminPreview()) return previewDelay({ status: "completed", targeted: 42, delivered: 42, queued: 0, failed: 0, viewed: 30, presented: 30, clicked: 9, ctaClicks: 7, dismissed: 5, inboxRead: 14, pending: 12, pushSent: null, pushFailures: null, viewRate: 71.4, clickRate: 30, dismissRate: 16.7, readRate: 33.3 });
   return unwrap(await supabase.rpc("admin_get_campaign_metrics", { campaign_uuid: campaignId }), "Unable to load campaign delivery analytics.") || {};
+}
+
+export async function endNotificationCampaign(campaignId, reason) {
+  if (isAdminPreview()) return runAdminMutation(() => previewDelay({ id: campaignId, status: "completed", expires_at: new Date().toISOString(), ended_at: new Date().toISOString() }), { action: "notification.campaign_ended", campaignId });
+  return runAdminMutation(async () => unwrap(await supabase.rpc("admin_end_campaign", { campaign_uuid: campaignId, end_reason: reason }), "Unable to end the campaign."), { action: "notification.campaign_ended", campaignId });
+}
+
+export async function checkNotificationCampaignTestRecipient(campaignId, targetUserId) {
+  if (isAdminPreview()) return previewDelay({ matchesAudience: true, matchesLocation: true });
+  return unwrap(await supabase.rpc("admin_check_campaign_test_recipient", { campaign_uuid: campaignId, target_user_id: targetUserId }), "Unable to check the test account.") || {};
+}
+
+/** Real country/city choices counted from KunThai accounts and businesses. */
+export async function getNotificationCampaignLocationOptions() {
+  if (isAdminPreview()) {
+    return previewDelay([
+      { country_code: "SL", country_name: "Sierra Leone", city: "Freetown", accounts: 31 },
+      { country_code: "SL", country_name: "Sierra Leone", city: "Bo", accounts: 6 },
+      { country_code: "NG", country_name: "Nigeria", city: "Lagos", accounts: 4 },
+    ]);
+  }
+  return unwrap(await supabase.rpc("admin_campaign_location_options"), "Unable to load campaign locations.") || [];
+}
+
+/**
+ * Release scheduled campaigns whose time has arrived. The database also does
+ * this every minute (pg_cron); this call closes any gap when the campaign
+ * center opens. Device push for anything released here is queued too.
+ */
+export async function runDueNotificationCampaigns() {
+  if (isAdminPreview()) return 0;
+  const startedAt = new Date(Date.now() - 5_000).toISOString();
+  const published = Number(unwrap(await supabase.rpc("admin_run_due_campaigns"), "Unable to release scheduled campaigns.") || 0);
+  if (published > 0) {
+    const { data } = await supabase
+      .from("admin_notification_campaigns")
+      .select("id")
+      .eq("status", "completed")
+      .contains("channels", ["push"])
+      .gte("published_at", startedAt);
+    (data || []).forEach((campaign) => {
+      supabase.functions.invoke("send-notification-push", { body: { campaignId: campaign.id } }).catch(() => {});
+    });
+  }
+  return published;
 }
 
 export async function getAdminMarketplaceConversations(search = "", limit = 100) {

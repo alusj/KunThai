@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
-import { BarChart3, CircleHelp, Copy, Download, Eye, EyeOff, Flag, Heart, Link, Repeat2, Send, Trash2, VolumeX, X } from "lucide-react";
+import { BarChart3, CircleHelp, Copy, Download, Eye, EyeOff, Flag, Heart, Link, Repeat2, Send, Sparkles, Trash2, VolumeX, X } from "lucide-react";
 
 import { useBrowserBack } from "../../../../../Backend/hooks/useBrowserBack";
 import {
@@ -18,6 +18,9 @@ import ExploreActionDrawer from "../../../shared/ExploreActionDrawer";
 import PostAnalyticsPanel from "../../../shared/PostAnalyticsPanel";
 import RepostComposer from "../../../shared/RepostComposer";
 import { isAdvertPost } from "../../../shared/advertUtils";
+import { useAiAvailability } from "../../../../../Backend/hooks/useAiTask";
+import { openPostReaderAi } from "../../../../../Backend/services/ai/exploreAi";
+import { isTranslatableText } from "../../../../../Backend/services/ai/exploreAiModels";
 import SwipActionRail from "./SwipActionRail";
 import SwipCaption from "./SwipCaption";
 import VideoProgress from "./VideoProgress";
@@ -78,7 +81,7 @@ export default function VideoCard({
   onViewProfile,
   profile,
 }) {
-  const { t } = useI18n();
+  const { t, locale } = useI18n();
   const [commentOpen, setCommentOpen] = useState(false);
   const [deleteOpen, setDeleteOpen] = useState(false);
   const [deleting, setDeleting] = useState(false);
@@ -97,6 +100,7 @@ export default function VideoCard({
   const [likeBurst, setLikeBurst] = useState(false);
   const [whyAdvertOpen, setWhyAdvertOpen] = useState(false);
   const advertPost = isAdvertPost(post);
+  const aiAvailability = useAiAvailability();
 
   const videoRef = useRef(null);
   const holdTimerRef = useRef(null);
@@ -844,6 +848,13 @@ export default function VideoCard({
       <SwipActionItem icon={Link} title={t("swip.copyLink")} onClick={handleCopyLink} />
       <SwipActionItem icon={Download} title={t("swip.saveVideo")} onClick={handleDownload} />
       <SwipActionItem icon={Copy} title={t("swip.copyCaption")} onClick={handleCopyCaption} />
+      {aiAvailability.available && !isOwner && isTranslatableText(post.body) ? (
+        <SwipActionItem
+          icon={Sparkles}
+          title={t("ai.explore.translateCaption")}
+          onClick={() => closeActionMenu(() => openPostReaderAi(post, { locale, swip: true }))}
+        />
+      ) : null}
       {isOwner ? (
         <SwipActionItem
           icon={BarChart3}

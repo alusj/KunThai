@@ -36,7 +36,9 @@ export default defineConfig([
     },
   },
   {
-    files: ['api/**/*.js', 'server/**/*.js'],
+    // Node contexts: serverless handlers, shared server modules, and the Vite
+    // config (which runs in the dev server process, not the browser).
+    files: ['api/**/*.js', 'server/**/*.js', 'vite.config.js'],
     languageOptions: {
       globals: {
         ...globals.browser,

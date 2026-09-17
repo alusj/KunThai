@@ -849,6 +849,8 @@ export const URRIDE = {
       fleetFallback: "Fleet",
       registeredFleet: "Registered Fleet",
       operatorError: "Unable to load fleet account.",
+      title: "UrRide",
+      retry: "Retry",
       report: {
         selectAgain: "Select the operator again so KunThai can attach the correct fleet record.",
         reasonPrefix: "Reason: {reason}",
@@ -3349,6 +3351,8 @@ export const URRIDE = {
       fleetFallback: "Flotte",
       registeredFleet: "Flotte enregistrée",
       operatorError: "Impossible de charger le compte de flotte.",
+      title: "UrRide",
+      retry: "Réessayer",
       report: {
         selectAgain: "Sélectionnez à nouveau l'opérateur pour que KunThai puisse joindre le bon dossier de flotte.",
         reasonPrefix: "Motif : {reason}",
@@ -5835,6 +5839,8 @@ export const URRIDE = {
       fleetFallback: "أسطول",
       registeredFleet: "أسطول مسجّل",
       operatorError: "تعذّر تحميل حساب الأسطول.",
+      title: "UrRide",
+      retry: "إعادة المحاولة",
       report: {
         selectAgain: "اختر المشغّل مرة أخرى حتى تتمكّن KunThai من إرفاق سجل الأسطول الصحيح.",
         reasonPrefix: "السبب: {reason}",
@@ -8321,6 +8327,8 @@ export const URRIDE = {
       fleetFallback: "flota",
       registeredFleet: "Flota registrada",
       operatorError: "No se puede cargar la cuenta de la flota.",
+      title: "UrRide",
+      retry: "Reintentar",
       report: {
         selectAgain: "Seleccione el operador nuevamente para que KunThai pueda adjuntar el registro de flota correcto.",
         reasonPrefix: "Razón: {reason}",
@@ -10845,6 +10853,8 @@ export const URRIDE = {
       fleetFallback: "舰队",
       registeredFleet: "注册船队",
       operatorError: "无法加载车队帐户。",
+      title: "UrRide",
+      retry: "重试",
       report: {
         selectAgain: "再次选择操作员，以便 KunThai 可以附加正确的车队记录。",
         reasonPrefix: "原因：{reason}",

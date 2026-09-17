@@ -198,7 +198,7 @@ export default function NotificationBannerHost({ userId = "" }) {
       if (!row?.id || row.user_id !== userId || row.status !== "unread") return;
       // Campaign rows have richer presentation, animation, frequency, snooze,
       // and dismiss rules handled by CampaignPresentationHost.
-      if (row.campaign_id) return;
+      if (row.campaign_id || row.notification_type === "admin_test") return;
       const referralNotification = REFERRAL_NOTIFICATION_TYPES.has(row.notification_type);
 
       // Referral rewards are stored in the notification inbox by default. The

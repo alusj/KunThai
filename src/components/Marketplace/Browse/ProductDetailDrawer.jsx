@@ -14,12 +14,16 @@ import {
   PackageCheck,
   Send,
   ShoppingCart,
+  Sparkles,
   Star,
   Truck,
   X,
 } from "lucide-react";
 import AppBackTab from "../../shared/AppBackTab";
 import { useI18n, t } from "../../../i18n";
+import { useAiAvailability } from "../../../Backend/hooks/useAiTask";
+import { openAiAssistant, openAiChat } from "../../../Backend/services/ai/aiSurfaceService";
+import { productFactsForAi, readBuyerCoordinates, reviewFactsForAi } from "../../../Backend/services/ai/urmallAiModels";
 import { ensureBuyerLocation, useBuyerLocation } from "../../../Backend/utils/buyerLocationContext";
 import { resizedImageUrl } from "../../../Backend/lib/imageProxy";
 import { BuyerProductCard } from "./BuyerProductGrid";
@@ -631,6 +635,7 @@ export default function ProductDetailDrawer({
   const [reviewEligibilityLoading, setReviewEligibilityLoading] = useState(false);
   const [activeImageIndex, setActiveImageIndex] = useState(-1);
   const detailScrollRef = useRef(null);
+  const aiAvailability = useAiAvailability();
 
   useEffect(() => {
     if (!open) return;
@@ -951,6 +956,48 @@ export default function ProductDetailDrawer({
     setVerificationOpen(true);
   }
 
+  // KAI works only from this real listing: the facts below are built
+  // from the loaded product record, and the model may not add to them.
+  const productAiReady = aiAvailability.available && actionMode === "order" && !product.isVertical;
+
+  function openProductAi() {
+    const listing = productFactsForAi(product, { buyer: readBuyerCoordinates(), detail: true });
+    const reviews = reviewFactsForAi(reviewSummary);
+    const hasWrittenReviews = reviews.reviews.some((review) => review.comment);
+    openAiAssistant({
+      surface: "urmall",
+      screen: "product detail",
+      title: t("ai.urmall.productTitle"),
+      sourceLabel: t("urmall.detail.description"),
+      text: product.description || "",
+      hidePrompts: true,
+      actions: [
+        "urmall.product_explain",
+        ...(hasWrittenReviews ? ["urmall.review_summary"] : []),
+        ...(product.description ? ["text.translate"] : []),
+      ],
+      buildInput: (task) =>
+        task === "urmall.review_summary" ? { reviews, productName: product.name } : { listing },
+      askTask: "urmall.product_question",
+      askPlaceholder: t("ai.urmall.askAboutProduct"),
+      buildAskInput: () => ({ listing }),
+      extraActions: [
+        {
+          label: t("ai.urmall.findSimilar"),
+          run: () =>
+            openAiChat({
+              surface: "urmall",
+              role: "buyer",
+              screen: "product detail",
+              message: t("ai.urmall.similarMessage", { name: product.name }),
+              autoSend: true,
+              selection: [product.id],
+            }),
+        },
+      ],
+    });
+  }
+
   return createPortal(
     <>
       <div className={`fixed inset-0 z-[55] bg-black/40 ${closing ? "kt-detail-backdrop-exit" : ""}`} onClick={requestClose} />
@@ -965,6 +1012,16 @@ export default function ProductDetailDrawer({
             <p className="truncate text-sm font-black uppercase text-emerald-700">{product.category}</p>
             <h2 className="truncate text-lg font-black text-gray-950">{product.name}</h2>
           </div>
+          {productAiReady ? (
+            <button
+              type="button"
+              onClick={openProductAi}
+              className="ml-auto inline-flex h-9 flex-none items-center gap-1.5 rounded-lg bg-indigo-50 px-3 text-xs font-black text-indigo-700 transition hover:bg-indigo-100"
+            >
+              <Sparkles size={14} />
+              <span className="hidden xs:inline">{t("ai.assist")}</span>
+            </button>
+          ) : null}
         </header>
 
         <div ref={detailScrollRef} className="min-h-0 flex-1 overflow-y-auto p-3 pb-32 sm:p-5 sm:pb-28">

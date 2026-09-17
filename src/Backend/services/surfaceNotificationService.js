@@ -4,6 +4,13 @@ import {
   notificationBelongsToSurface,
   surfaceSectors,
 } from "./surfaceNotificationModels";
+import { platformRowBelongsInInbox } from "./campaigns/campaignDeliveryService";
+import { isCampaignDelivery } from "./campaigns/campaignModel";
+
+// Admin campaigns aimed at the seller, operator or company dashboards have
+// their own inboxes there; these surface lists are the buyer bell, the UrRide
+// passenger header and the Explore centre.
+const SURFACE_INBOX = { explore: "explore", marketplace: "urmall", transport: "urride" };
 
 export {
   isLegacyMisroutedExploreNotification,
@@ -37,7 +44,9 @@ export async function fetchSurfacePlatformNotifications(surface, { limit = 100, 
   const now = Date.now();
   return (data || [])
     .filter((row) => notificationBelongsToSurface(row, surface))
-    .filter((row) => !row.dismissed_at && (!row.expires_at || new Date(row.expires_at).getTime() > now))
+    .filter((row) => (isCampaignDelivery(row)
+      ? platformRowBelongsInInbox(row, SURFACE_INBOX[surface], now)
+      : !row.dismissed_at && (!row.expires_at || new Date(row.expires_at).getTime() > now)))
     .map(mapSurfacePlatformNotification);
 }
 
@@ -51,7 +60,8 @@ export function markSurfacePlatformNotificationRead(item, { actioned = false } =
       status: "read",
       read_at: at,
       seen_at: at,
-      ...(actioned ? { actioned_at: at } : {}),
+      // An inbox tap counts as a click; the action counts only when there is one.
+      ...(actioned ? { clicked_at: at, ...(item?.actionTarget ? { actioned_at: at, cta_clicked_at: at } : {}) } : {}),
     })
     .eq("id", id);
 }

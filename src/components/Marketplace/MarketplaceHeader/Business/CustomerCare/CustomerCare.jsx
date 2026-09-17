@@ -2,6 +2,9 @@ import { useSellerCustomerCare } from "../../../../../Backend/hooks/useSellerCus
 import MessageImage from "../../../../shared/MessageImage";
 import RecentConversations from "./RecentConversations";
 import { useEffect, useMemo, useRef, useState } from "react";
+import AiAssistButton from "../../../../ai/AiAssistButton";
+import { fetchBuyerProductForAssistant } from "../../../../../Backend/services/marketplace/buyerMarketplaceService";
+import { productFactsForAi } from "../../../../../Backend/services/ai/urmallAiModels";
 import { ImagePlus, Send, X } from "lucide-react";
 import {
   markSellerConversationRead,
@@ -240,6 +243,34 @@ export default function CustomerCare({ onBack } = {}) {
     }
   }
 
+  // Replies KAI drafts go into the reply box; the seller still presses
+  // Send. The product is looked up from UrMall so drafts can cite real details.
+  function buildReplyAiRequest(conversation) {
+    const messages = threadMessages
+      .filter((message) => !message.pending && message.text)
+      .map((message) => ({ from: message.from === "seller" ? "seller" : "buyer", text: message.text }));
+    const draft = reply;
+    return {
+      surface: "urmall",
+      screen: "seller customer conversation",
+      title: t("ai.seller.careTitle"),
+      sourceLabel: t("ai.seller.yourReply"),
+      text: draft,
+      hidePrompts: true,
+      hideAsk: true,
+      task: draft.trim() ? "" : "urmall.customer_reply",
+      actions: ["urmall.customer_reply", "urmall.conversation_summary", "text.improve", "text.translate"],
+      buildInput: async (task) => {
+        if (task !== "urmall.customer_reply" && task !== "urmall.conversation_summary") return {};
+        const product = task === "urmall.customer_reply" && conversation.productId
+          ? await fetchBuyerProductForAssistant(conversation.productId).catch(() => null)
+          : null;
+        return { messages, draft, ...(product ? { listing: productFactsForAi(product, { detail: true }) } : {}) };
+      },
+      onInsert: (text) => setReply(String(text || "")),
+    };
+  }
+
   function renderConversation(conversation) {
     if (!conversation) return null;
 
@@ -327,6 +358,7 @@ export default function CustomerCare({ onBack } = {}) {
             >
               <ImagePlus size={18} />
             </button>
+            <AiAssistButton size="icon" getRequest={() => buildReplyAiRequest(conversation)} label={t("ai.seller.draftReply")} />
             <input
               value={reply}
               onChange={(event) => setReply(event.target.value)}

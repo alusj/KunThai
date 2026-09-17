@@ -20,6 +20,9 @@ import { openMentionContent } from "../../../../../../Backend/services/explore/l
 import ExpandablePostText from "../../../../shared/ExpandablePostText";
 import TextPostCanvas, { isTextCanvasPost } from "../../../../shared/TextPostCanvas";
 import { useI18n } from "../../../../../../i18n";
+import { useAiAvailability } from "../../../../../../Backend/hooks/useAiTask";
+import { openPostReaderAi } from "../../../../../../Backend/services/ai/exploreAi";
+import { isTranslatableText } from "../../../../../../Backend/services/ai/exploreAiModels";
 import {
   formatAdvertType,
   getAdvertMeta,
@@ -72,7 +75,7 @@ export default function FeedPost({
   onFollow,
   profile,
 }) {
-  const { t } = useI18n();
+  const { t, locale } = useI18n();
   const [optionsOpen, setOptionsOpen] = useState(false);
   const [optionsClosing, setOptionsClosing] = useState(false);
   const [repostOpen, setRepostOpen] = useState(false);
@@ -100,6 +103,8 @@ export default function FeedPost({
     contentHasModerationFlags(post.body || "").length > 0;
   const advert = getAdvertMeta(post);
   const advertPost = isAdvertPost(post);
+  const aiAvailability = useAiAvailability();
+  const canReadWithAi = aiAvailability.available && isTranslatableText(post.body);
   const postTitle = getPostTitle(post);
   const postLocation = post.media_meta?.location || post.mediaMeta?.location || null;
   const hashtags = Array.from(new Set([
@@ -279,6 +284,7 @@ export default function FeedPost({
             onFollow={() => runAction(followAndTrack)}
             onHide={() => runAction(onHide)}
             onMuteAdvertiser={() => runAction(onMuteAdvertiser)}
+            onReadWithAi={canReadWithAi ? () => closeOptions(() => openPostReaderAi(post, { locale })) : undefined}
             onReport={() => closeOptions(() => setReportOpen(true))}
             onRepost={() => closeOptions(() => setRepostOpen(true))}
             onSave={() => runAction(onSave)}

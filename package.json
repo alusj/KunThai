@@ -9,8 +9,9 @@
     "check": "npm run lint && npm run build",
     "lint": "eslint .",
     "preview": "vite preview",
-    "test:unit": "node --test \"src/**/*.test.js\"",
-    "test": "npm run check"
+    "test:unit": "node --test \"src/**/*.test.js\" \"server/**/*.test.js\"",
+    "test": "npm run check",
+    "ai:smoke": "node --env-file=.env scripts/ai-smoke.mjs"
   },
   "dependencies": {
     "@capacitor/android": "^8.4.2",

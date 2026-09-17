@@ -863,6 +863,15 @@ export async function fetchBuyerProductDetail(productId) {
   return mapBuyerProduct(data);
 }
 
+// Listing details for KAI. Same query and mapping as the product drawer
+// but WITHOUT the view-count increment: an assistant looking a product up is
+// not a buyer viewing it, and must never inflate a seller's analytics.
+export async function fetchBuyerProductForAssistant(productId) {
+  if (!productId) return null;
+  const data = await runProductDetailQuery(productId);
+  return data ? mapBuyerProduct(data) : null;
+}
+
 // Store/business-name search for the marketplace search overlay. Returns the
 // discoverable businesses whose name matches the query, mapped to a light shape
 // the overlay and seller drawer can consume. Respects RLS (only

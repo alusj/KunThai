@@ -3,10 +3,13 @@ import {
   HiOutlineChatBubbleLeftRight,
   HiOutlineFlag,
   HiOutlineHandThumbUp,
+  HiOutlineLanguage,
   HiOutlineTrash,
 } from "react-icons/hi2";
 
 import { formatRelativeTime } from "../../../../../../Backend/services/exploreService";
+import { useAiTranslation } from "../../../../../../Backend/hooks/useAiTranslation";
+import { isTranslatableText } from "../../../../../../Backend/services/ai/exploreAiModels";
 import { useI18n, t as translate } from "../../../../../../i18n";
 import Avatar from "../../../../shared/Avatar";
 import LinkifiedText from "../../../../shared/LinkifiedText";
@@ -49,6 +52,10 @@ export default function CommentItem({
   const authorName = getAuthorName(comment);
   const authorUsername = getAuthorUsername(comment);
   const [deleting, setDeleting] = useState(false);
+  const translation = useAiTranslation(comment.body, { screen: "comments" });
+  // Only offered for someone else's words: people don't need their own
+  // comment translated back to them.
+  const canTranslate = translation.available && !comment.pending && !isOwner && isTranslatableText(comment.body);
 
   function deleteWithWipe() {
     if (deleting) return;
@@ -90,7 +97,20 @@ export default function CommentItem({
 
           {comment.body ? (
             <p className="kuntai-break mt-2 whitespace-pre-wrap text-sm leading-6 text-slate-700">
-              <LinkifiedText text={comment.body} />
+              <LinkifiedText text={translation.showing ? translation.translated : comment.body} />
+            </p>
+          ) : null}
+          {translation.showing ? (
+            <p className="mt-1 text-[11px] font-bold text-indigo-600">{t("ai.explore.translatedByAi")}</p>
+          ) : null}
+          {translation.requested && translation.error ? (
+            <p className="mt-1 text-[11px] font-bold text-rose-600" role="alert">
+              {translation.error.message}{" "}
+              {translation.error.retryable ? (
+                <button type="button" onClick={translation.retry} className="underline">
+                  {t("ai.retry")}
+                </button>
+              ) : null}
             </p>
           ) : null}
           {comment.audio_url ? (
@@ -111,6 +131,21 @@ export default function CommentItem({
               <HiOutlineChatBubbleLeftRight />
               {t("post.reply")}
             </button>
+            {canTranslate ? (
+              <button
+                type="button"
+                onClick={translation.showing ? translation.showOriginal : translation.translate}
+                disabled={translation.loading}
+                className="kt-pressable inline-flex items-center gap-1 rounded-lg text-indigo-600 disabled:opacity-60"
+              >
+                <HiOutlineLanguage />
+                {translation.loading
+                  ? t("ai.explore.translating")
+                  : translation.showing
+                    ? t("ai.explore.seeOriginal")
+                    : t("ai.explore.translate")}
+              </button>
+            ) : null}
             {comment.pending ? (
               <span className="inline-flex items-center gap-1 text-sky-700">{t("post.posting")}</span>
             ) : isOwner ? (

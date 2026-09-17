@@ -1,6 +1,8 @@
 import ProductFormField from "./ProductFormField";
 import ProductFormInput from "./ProductFormInput";
 import { useI18n, t } from "../../../../../i18n";
+import AiAssistButton from "../../../../ai/AiAssistButton";
+import { appendKeywordsToDescription, listingDraftFacts } from "../../../../../Backend/services/ai/sellerAiModels";
 
 const CONDITION_KEYS = { new: "condNew", used: "condUsed", refurbished: "condRefurbished" };
 const CONDITIONS = ["new", "used", "refurbished"];
@@ -8,6 +10,44 @@ const CONDITIONS = ["new", "used", "refurbished"];
 export default function ProductBasicsStep({ productForm }) {
   useI18n();
   const { form, options, errors, updateSection } = productForm;
+
+  // KAI fills these fields only when the seller chooses a suggestion;
+  // nothing is saved or published until they finish the form themselves.
+  function applyAiResult(value, meta = {}) {
+    if (meta.task === "urmall.listing_title") {
+      updateSection("basics", { name: String(value || "").slice(0, 120) });
+    } else if (meta.kind === "category") {
+      if (options.categories.includes(value)) updateSection("basics", { category: value });
+    } else if (meta.kind === "keywords") {
+      updateSection("basics", { description: appendKeywordsToDescription(form.basics.description, value, t("ai.seller.keywordsLabel")) });
+    } else {
+      updateSection("basics", { description: String(value || "") });
+    }
+  }
+
+  function buildAiRequest() {
+    const listing = listingDraftFacts(form);
+    const categories = options.categories;
+    return {
+      surface: "urmall",
+      screen: "seller product form",
+      title: t("ai.seller.formTitle"),
+      sourceLabel: t("urmall.biz.pform.shortDesc"),
+      text: form.basics.description,
+      hidePrompts: true,
+      actions: [
+        "urmall.listing_description",
+        "urmall.listing_title",
+        "urmall.listing_category",
+        "urmall.listing_keywords",
+        "urmall.listing_quality",
+        "text.improve",
+        "text.translate",
+      ],
+      buildInput: (task) => (task === "urmall.listing_category" ? { listing, categories } : { listing }),
+      onInsert: applyAiResult,
+    };
+  }
 
   return (
     <div className="space-y-5">
@@ -31,6 +71,9 @@ export default function ProductBasicsStep({ productForm }) {
         </select>
       </ProductFormField>
 
+      <div className="-mb-3 flex justify-end">
+        <AiAssistButton getRequest={buildAiRequest} label={t("ai.seller.writeWithAi")} />
+      </div>
       <ProductFormField label={t("urmall.biz.pform.shortDesc")} error={errors.description}>
         <textarea
           value={form.basics.description}

@@ -1,17 +1,34 @@
 import { useEffect, useState } from "react";
-import { ChevronRight, Minimize2, Share2 } from "lucide-react";
+import { Maximize2, Minimize2, Share2 } from "lucide-react";
 
 import { postingStages } from "../ExploreTabs/urfeed/feed/composer/postReviewPipeline";
 import { t } from "../../../i18n";
 
+// A post that is still uploading shrinks to a progress ring after this long, so
+// it stops covering the feed while the upload continues in the background.
+const AUTO_COLLAPSE_MS = 5000;
+
 export default function PostingStatusBanner({ notice, onDismiss, onShareKunThai }) {
   const [collapsed, setCollapsed] = useState(false);
   const noticeId = notice?.id || "";
+  const status = notice?.status || "";
+  const stillWorking = Boolean(noticeId) && !["complete", "error"].includes(status);
 
   // A new posting session always starts expanded so the user sees it begin.
   useEffect(() => {
     if (noticeId) setCollapsed(false);
   }, [noticeId]);
+
+  // Collapse to the round button once posting has run for five seconds. The
+  // finished and failed states expand again so they are never missed.
+  useEffect(() => {
+    if (!stillWorking) {
+      setCollapsed(false);
+      return undefined;
+    }
+    const timer = window.setTimeout(() => setCollapsed(true), AUTO_COLLAPSE_MS);
+    return () => window.clearTimeout(timer);
+  }, [noticeId, stillWorking]);
 
   if (!notice) return null;
 
@@ -55,13 +72,13 @@ export default function PostingStatusBanner({ notice, onDismiss, onShareKunThai 
             {progress}%
           </span>
         </span>
-        <ChevronRight size={16} className="text-slate-500" />
+        <Maximize2 size={15} className="text-slate-500" />
       </button>
     );
   }
 
   return (
-    <div className="kt-toast-expand-in fixed left-3 right-3 top-3 z-[90] mx-auto max-w-xl overflow-hidden rounded-2xl border border-slate-200/90 bg-white/95 shadow-xl shadow-slate-900/12 backdrop-blur-xl">
+    <div className="kt-toast-expand-in fixed left-3 right-3 top-3 z-[90] ml-auto w-auto max-w-sm overflow-hidden rounded-3xl border border-slate-200/90 bg-white/95 shadow-2xl shadow-slate-900/20 backdrop-blur-xl sm:left-auto sm:right-4 sm:top-4 sm:w-[22rem]">
       {isActive ? (
         <>
           <div className="pointer-events-none absolute inset-0 bg-gradient-to-br from-sky-50 via-white to-indigo-50" />

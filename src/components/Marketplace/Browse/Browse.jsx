@@ -359,6 +359,9 @@ export default function Browse({ activeTab = "new", onProductModeChange, onClose
     function handleExternalProductOpen(event) {
       const product = event.detail?.product;
       if (!product) return;
+      // Lets a sender that switched to UrMall first (e.g. KAI) know the
+      // open landed, so it can stop re-sending.
+      if (event.detail) event.detail.handled = true;
       setSellerOpen(false);
       openProduct(product);
     }
@@ -371,6 +374,7 @@ export default function Browse({ activeTab = "new", onProductModeChange, onClose
     function handleExternalSellerOpen(event) {
       const seller = event.detail?.seller;
       if (!seller?.id) return;
+      if (event.detail) event.detail.handled = true;
       setDetailOpen(false);
       setSelectedSeller(seller);
       setSellerOpen(true);

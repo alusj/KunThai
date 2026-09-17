@@ -17,11 +17,13 @@ import AccountRestrictionNotice from "./components/shared/AccountRestrictionNoti
 import ReturningUserIntro from "./components/shared/ReturningUserIntro";
 import TwoFactorGate from "./components/auth/TwoFactorGate";
 import GuestGateCard from "./components/shared/GuestGateCard";
-import InlineNotificationHost from "./components/shared/InlineNotificationHost";
 import NotificationBannerHost from "./components/shared/NotificationBannerHost";
 import CampaignPresentationHost from "./components/shared/CampaignPresentationHost";
 import CrossServiceActivityHost from "./components/shared/CrossServiceActivityHost";
 import ScreenshotVoiceCard from "./components/shared/ScreenshotVoiceCard";
+import AiAssistantHost from "./components/ai/AiAssistantHost";
+import AiFloatingButton from "./components/ai/AiFloatingButton";
+import { setAiSurface, surfaceForMainPage } from "./Backend/services/ai/aiSurfaceService";
 import { endGuestVisit, isGuestMode } from "./Backend/services/guestModeService";
 import {
   captureVisibilityInviteFromLocation,
@@ -37,7 +39,7 @@ import { ensureExploreProfile } from "./Backend/services/explore/profileService"
 import { preloadMainDashboardData } from "./Backend/services/dashboardPreloadService";
 import { haptics } from "./Backend/services/feedbackService";
 import { canStartNavigationGesture, navigationGesturesLocked } from "./Backend/services/gestureArbitration";
-import { hasUnstableNetwork, areGlobalNetworkToastsSuppressed, runConnectivityChecks } from "./Backend/services/networkService";
+import { runConnectivityChecks, startGlobalNetworkToasts } from "./Backend/services/networkService";
 import {
   markReturningUserActivity,
   readReturningUserActivity,
@@ -421,46 +423,17 @@ export default function App() {
     };
   }, [guestSession, userId]);
 
-  useEffect(() => {
-    const connection = navigator.connection || navigator.mozConnection || navigator.webkitConnection;
-    let previousUnstable = hasUnstableNetwork(connection);
-
-    function announceNetworkState({ initial = false } = {}) {
-      const online = navigator.onLine;
-      const unstable = online && hasUnstableNetwork(connection);
-
-      // A screen with its own contextual network toasts (Area View) suppresses
-      // the global one. Keep the trackers current so no stale transition fires
-      // once suppression lifts.
-      if (areGlobalNetworkToastsSuppressed()) {
-        previousUnstable = unstable;
-        return;
-      }
-
-      // The persistent NetworkStatusBanner owns the offline and back-online
-      // indicators now (a transient toast would just duplicate the strip), so
-      // only the "slow / unstable connection" hint stays a toast here.
-      if (unstable && (initial || !previousUnstable)) {
-        showToast(i18nText("ui.literals.k131cd2aeb63b"), "warning", {
-          title: i18nText("ui.literals.kd589e58dce1b"),
-          duration: 2800,
-          origin: false,
-        });
-      }
-
-      previousUnstable = unstable;
-    }
-
-    announceNetworkState({ initial: true });
-    window.addEventListener("online", announceNetworkState);
-    window.addEventListener("offline", announceNetworkState);
-    connection?.addEventListener?.("change", announceNetworkState);
-    return () => {
-      window.removeEventListener("online", announceNetworkState);
-      window.removeEventListener("offline", announceNetworkState);
-      connection?.removeEventListener?.("change", announceNetworkState);
-    };
-  }, []);
+  // One network announcer for the whole app: offline, back online and slow
+  // connection all arrive as the same toast, in every section.
+  useEffect(() => startGlobalNetworkToasts({
+    showToast,
+    messages: () => ({
+      title: i18nText("ui.literals.kd589e58dce1b"),
+      offline: i18nText("common.offlineBanner"),
+      backOnline: i18nText("common.backOnline"),
+      slow: i18nText("common.networkUnstable"),
+    }),
+  }), []);
 
   // Each new sign-in re-checks whether the account needs its authenticator code.
   useEffect(() => {
@@ -586,6 +559,9 @@ export default function App() {
     setMarketplaceActivityOpen(false);
     setTransportActivityOpen(false);
     recordMainPageVisit(page, userId);
+    // Keep KAI aware of which surface the person is standing in, so an
+    // assistant opened from anywhere answers in the right context.
+    setAiSurface({ surface: surfaceForMainPage(page), screen: "" });
     if (page !== "explore" && /#\/?(swip|urfeed|connections)/i.test(window.location.hash || "")) {
       window.history.replaceState(window.history.state, "", window.location.pathname + window.location.search);
     }
@@ -1010,8 +986,10 @@ export default function App() {
           />
         </>
       ) : null}
-      {!guestSession ? <InlineNotificationHost bottomTabsHidden={bottomTabsHidden} currentPage={page} userId={userId} /> : null}
-      {!guestSession ? <CampaignPresentationHost currentPage={page} userId={userId} /> : null}
+      {!guestSession ? <CampaignPresentationHost bottomTabsHidden={bottomTabsHidden} currentPage={page} userId={userId} /> : null}
+      {/* KAI renders nothing until a screen calls openAiAssistant(). */}
+      {!guestSession ? <AiAssistantHost /> : null}
+      {!guestSession ? <AiFloatingButton hidden={bottomTabsHidden} /> : null}
       <NotificationBannerHost userId={userId} />
     </div>,
   );

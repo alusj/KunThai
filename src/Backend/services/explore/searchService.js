@@ -1,6 +1,7 @@
 import supabase from "../../lib/supabaseClient";
 import { recordExploreSearchInterests } from "./advertService";
 import { isMissingColumn, isMissingTable } from "./errors";
+import { rankPostsForIntent } from "../ai/exploreAiModels";
 
 const RECENT_SEARCHES_KEY = "explore-recent-searches";
 const POST_KEYS = ["explore-posts-feed", "explore-posts-connections", "explore-posts-swip"];
@@ -216,4 +217,46 @@ export async function searchExplore(query, filter = "all") {
     if (filter === "all") return true;
     return item.type === filter;
   });
+}
+
+/**
+ * Search Explore from a KAI search intent.
+ *
+ * The model only rewrote the person's words into terms ({ keywords, hashtags,
+ * topicSlugs, filter }); every result still comes from the same sources as
+ * ordinary search — the cached feed posts and the explore_profiles directory —
+ * so nothing shown here can be invented. Ranking favours posts matching more
+ * terms; interests only break ties when the person asked for personal picks.
+ */
+export async function searchExploreWithIntent(intent, { interestSlugs = [] } = {}) {
+  const filter = intent?.filter || "all";
+  const posts = readCachedPosts();
+
+  const postResults = filter === "people" || filter === "hashtag"
+    ? []
+    : rankPostsForIntent(posts, intent, interestSlugs)
+        .filter((post) => filter === "all" || (filter === "swip" ? Boolean(post.video_url) : !post.video_url))
+        .map(toPostResult);
+
+  const hashtagResults = filter === "all" || filter === "hashtag"
+    ? Array.from(
+        new Map(
+          intent.hashtags
+            .flatMap((tag) => getHashtagResults(posts, `#${tag}`))
+            .map((item) => [item.id, item]),
+        ).values(),
+      )
+    : [];
+
+  // At most two directory lookups, whatever the model returned, so an AI
+  // search never costs more database round trips than a couple of keystrokes.
+  let peopleResults = [];
+  if (filter === "all" || filter === "people") {
+    const lookups = await Promise.all(
+      intent.keywords.slice(0, 2).map((keyword) => searchPeople(keyword).catch(() => [])),
+    );
+    peopleResults = Array.from(new Map(lookups.flat().map((item) => [item.id, item])).values());
+  }
+
+  return [...postResults, ...peopleResults, ...hashtagResults];
 }
