@@ -1,5 +1,6 @@
 import { createHash, randomBytes } from "node:crypto";
 import { createClient } from "@supabase/supabase-js";
+import { handleCors } from "../server/cors.js";
 
 function json(res, status, payload) {
   return res.status(status).json(payload);
@@ -41,6 +42,7 @@ function requestIp(req) {
 }
 
 export default async function handler(req, res) {
+  if (handleCors(req, res)) return undefined;
   res.setHeader("Cache-Control", "no-store");
 
   if (req.method !== "POST") {

@@ -1,3 +1,5 @@
+import { handleCors } from "../server/cors.js";
+
 function json(res, status, payload) {
   return res.status(status).json(payload);
 }
@@ -242,6 +244,7 @@ async function moderateVideoUrlWithSightengine(videoUrl) {
 }
 
 export default async function handler(req, res) {
+  if (handleCors(req, res)) return undefined;
   if (req.method !== "POST") {
     return json(res, 405, {
       ok: false,

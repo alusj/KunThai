@@ -12,7 +12,9 @@
 // anything under `src/`, so the key cannot reach the browser bundle.
 
 import { handleAiRequest } from "../server/ai/aiHandler.js";
+import { handleCors } from "../server/cors.js";
 
 export default async function handler(req, res) {
+  if (handleCors(req, res)) return undefined;
   return handleAiRequest(req, res);
 }

@@ -1,3 +1,5 @@
+import { apiUrl } from "../lib/apiUrl.js";
+
 const ROUTE_API_PATH = "/api/route-directions";
 const ROUTE_CACHE_KEY = "kunthai.areaView.routes.v1";
 const ROUTE_CACHE_TTL_MS = 30 * 60 * 1000;
@@ -132,7 +134,7 @@ async function parseRouteResponse(response) {
 }
 
 async function getRouteFromServer(start, end) {
-  const response = await fetch(ROUTE_API_PATH, {
+  const response = await fetch(apiUrl(ROUTE_API_PATH), {
     method: "POST",
     headers: {
       "Content-Type": "application/json",

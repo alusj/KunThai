@@ -1,5 +1,6 @@
 import supabase from "../../lib/supabaseClient";
 import { friendlyErrorMessage } from "../friendlyErrorService";
+import { apiUrl } from "../../lib/apiUrl.js";
 
 // KAI — browser service.
 //
@@ -101,7 +102,7 @@ export async function getAiStatus() {
   if (!statusPromise) {
     statusPromise = (async () => {
       try {
-        const response = await fetch(AI_API_PATH, { method: "GET", headers: { Accept: "application/json" } });
+        const response = await fetch(apiUrl(AI_API_PATH), { method: "GET", headers: { Accept: "application/json" } });
         const data = await response.json().catch(() => null);
         if (!response.ok || !data?.ok) return UNAVAILABLE_STATUS;
         const value = {
@@ -169,7 +170,7 @@ async function postAi(body, signal) {
 
   let response;
   try {
-    response = await fetch(AI_API_PATH, {
+    response = await fetch(apiUrl(AI_API_PATH), {
       method: "POST",
       headers,
       body: JSON.stringify(body),

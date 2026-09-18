@@ -7,6 +7,7 @@ import {
   getBlockedIdentityStorageKeys,
   normalizeBlockedIdentityValues,
 } from "./safetyIdentityUtils.js";
+import { apiUrl } from "../../lib/apiUrl.js";
 
 export { normalizeBlockedIdentityValues } from "./safetyIdentityUtils.js";
 
@@ -442,7 +443,7 @@ export async function moderateExplorePost({ body = "", media = {}, signal = unde
 
   for (let attempt = 0; attempt < 2; attempt += 1) {
     try {
-      const response = await fetch(`${window.location.origin}/api/moderate-post`, {
+      const response = await fetch(apiUrl("/api/moderate-post"), {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         signal,

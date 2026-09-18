@@ -1,5 +1,6 @@
 import supabase from "../lib/supabaseClient";
 import { friendlyErrorMessage } from "./friendlyErrorService";
+import { apiUrl } from "../lib/apiUrl.js";
 
 export {
   getMarketplacePromotionDurationDays,
@@ -327,7 +328,7 @@ async function authenticatedPaymentRequest(path, body, fallbackMessage = "Paymen
 
   let response;
   try {
-    response = await fetch(path, {
+    response = await fetch(apiUrl(path), {
       method: "POST",
       headers: {
         Authorization: `Bearer ${accessToken}`,
