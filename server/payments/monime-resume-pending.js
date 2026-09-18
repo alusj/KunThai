@@ -9,7 +9,7 @@ import {
   monimePaymentMatchesPurchase,
   verifyAndGrantMonimePayment,
   verifyAndGrantMonimePaymentCode,
-} from "../server/monimeVisibilityCredits.js";
+} from "../monimeVisibilityCredits.js";
 
 // Only look at purchases young enough that their payment code could still have
 // been paid. The saved Payment id remains authoritative after its short-lived

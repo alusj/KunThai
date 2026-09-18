@@ -27,8 +27,6 @@ export const MINIMUM_EXPLORE_AD_VISIBILITY_CREDITS = MINIMUM_URFEED_AD_VISIBILIT
 export const MINIMUM_EXPLORE_DUAL_MEDIA_VISIBILITY_CREDITS = 15;
 export const MINIMUM_CREDIT_TRANSFER_BALANCE = 10;
 
-const FLUTTERWAVE_RETURN_PARAMS = ["kt_payment", "status", "tx_ref", "transaction_id"];
-
 export const VISIBILITY_BOOST_PACKAGES = [
   {
     id: "small",
@@ -303,7 +301,7 @@ export async function fetchVisibilityCreditWallet() {
 export async function fetchVisibilityCreditPackages() {
   const { data, error } = await supabase
     .from("visibility_credit_packages")
-    .select("id,credits,price_minor,usd_price_minor,currency,label,sort_order")
+    .select("id,credits,price_minor,currency,label,sort_order")
     .eq("active", true)
     .order("sort_order", { ascending: true })
     .order("credits", { ascending: true });
@@ -317,8 +315,6 @@ export async function fetchVisibilityCreditPackages() {
     id: item.id,
     credits: Number(item.credits || 0),
     priceMinor: Number(item.price_minor || 0),
-    // Card payments are billed in USD; mobile money uses the local price above.
-    usdPriceMinor: Number(item.usd_price_minor || 0),
     currency: String(item.currency || "SLE").toUpperCase(),
     label: item.label || "Visibility Credits",
   }));
@@ -351,33 +347,6 @@ async function authenticatedPaymentRequest(path, body, fallbackMessage = "Paymen
     const error = new Error(result?.message || fallbackMessage);
     error.pending = Boolean(result?.pending);
     throw error;
-  }
-  return result;
-}
-
-// Card is billed in USD. Custom amounts use the starter (no bulk-discount) rate,
-// mirroring how the SLE 15-credit package maps to $1.00 (100 USD minor / 15).
-export const CARD_MIN_CREDITS = 15;
-export const CARD_USD_PRICE_PER_CREDIT_MINOR = 7; // ≈ $0.07 / credit
-
-export function cardCustomUsdPriceMinor(credits) {
-  const value = Number(credits);
-  if (!Number.isFinite(value) || value < CARD_MIN_CREDITS) return 0;
-  return Math.round(value) * CARD_USD_PRICE_PER_CREDIT_MINOR;
-}
-
-// Start a card purchase for a package ({ packageId }) or a custom credit amount
-// ({ credits }). Returns the Flutterwave secure checkout URL to open.
-export async function startFlutterwaveCardPurchase({ packageId, credits } = {}) {
-  const body = packageId ? { packageId } : { credits: Math.round(Number(credits) || 0) };
-  const result = await authenticatedPaymentRequest(
-    "/api/flutterwave-create-payment",
-    body,
-    "Card payment is temporarily unavailable. Please try again.",
-  );
-  const checkoutUrl = String(result.checkoutUrl || "");
-  if (!checkoutUrl.startsWith("https://checkout.flutterwave.com/")) {
-    throw new Error("Flutterwave did not return a secure checkout link.");
   }
   return result;
 }
@@ -448,32 +417,6 @@ export async function resumePendingMonimePurchases() {
   } catch {
     return { ok: false, granted: 0, credits: 0 };
   }
-}
-
-export function readFlutterwavePaymentReturn() {
-  if (typeof window === "undefined") return null;
-  const url = new URL(window.location.href);
-  if (url.searchParams.get("kt_payment") !== "flutterwave") return null;
-
-  return {
-    status: String(url.searchParams.get("status") || "").toLowerCase(),
-    txRef: url.searchParams.get("tx_ref") || "",
-    transactionId: url.searchParams.get("transaction_id") || "",
-  };
-}
-
-export function clearFlutterwavePaymentReturn() {
-  if (typeof window === "undefined") return;
-  const url = new URL(window.location.href);
-  FLUTTERWAVE_RETURN_PARAMS.forEach((key) => url.searchParams.delete(key));
-  window.history.replaceState(window.history.state, "", `${url.pathname}${url.search}${url.hash}`);
-}
-
-export async function verifyFlutterwavePaymentReturn(paymentReturn) {
-  if (!paymentReturn?.txRef || !paymentReturn?.transactionId) {
-    throw new Error("Flutterwave did not return complete payment details.");
-  }
-  return authenticatedPaymentRequest("/api/flutterwave-verify-payment", paymentReturn);
 }
 
 export async function lookupVisibilityCreditRecipient(kunThaiId = "") {

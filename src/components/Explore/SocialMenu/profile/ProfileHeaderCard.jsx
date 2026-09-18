@@ -6,7 +6,6 @@ import {
   HiOutlineCheckBadge,
   HiOutlineChatBubbleLeftRight,
   HiOutlineClipboardDocument,
-  HiOutlineCreditCard,
   HiOutlineDevicePhoneMobile,
   HiOutlineEllipsisHorizontal,
   HiOutlineFlag,
@@ -31,15 +30,12 @@ import { resizedImageUrl } from "../../../../Backend/lib/imageProxy";
 import { getKunThaiPublicUserId } from "../../../../Backend/services/identityCodeService";
 import {
   fetchVisibilityCreditPackages,
-  startFlutterwaveCardPurchase,
   startMonimeMobileMoneyPurchase,
   getMonimePaymentInstructions,
   monimeWalletName,
   pollMonimePaymentStatus,
   MONIME_MIN_CREDITS,
   monimeCustomPriceMinor,
-  CARD_MIN_CREDITS,
-  cardCustomUsdPriceMinor,
 } from "../../../../Backend/services/visibilityCreditService";
 import { showToast } from "../../../../Backend/services/toastService";
 import { t } from "../../../../i18n";
@@ -95,9 +91,6 @@ export default function ProfileHeaderCard({
   const [buyCreditsMethod, setBuyCreditsMethod] = useState("");
   const [creditPackages, setCreditPackages] = useState([]);
   const [creditPackagesLoading, setCreditPackagesLoading] = useState(false);
-  const [cardCheckoutPackageId, setCardCheckoutPackageId] = useState("");
-  const [cardCheckoutError, setCardCheckoutError] = useState("");
-  const [cardCustomCredits, setCardCustomCredits] = useState("");
   const [momoProvider, setMomoProvider] = useState("orange");
   // Every label, error and toast in this flow names the wallet the customer
   // actually picked, so Afrimoney never reads as "Orange Money".
@@ -157,17 +150,15 @@ export default function ProfileHeaderCard({
   }, []);
 
   useEffect(() => {
-    if (!buyCreditsOpen || (buyCreditsMethod !== "card" && buyCreditsMethod !== "mobile-money")) return undefined;
+    if (!buyCreditsOpen || buyCreditsMethod !== "mobile-money") return undefined;
     let active = true;
     setCreditPackagesLoading(true);
-    setCardCheckoutError("");
     fetchVisibilityCreditPackages()
       .then((packages) => {
         if (active) setCreditPackages(packages);
       })
-      .catch((error) => {
-        if (active) setCardCheckoutError(error.message || t("profile.unableLoadCreditPackages"));
-      })
+      // A failed load leaves the list empty; the custom amount still works.
+      .catch(() => {})
       .finally(() => {
         if (active) setCreditPackagesLoading(false);
       });
@@ -226,23 +217,9 @@ export default function ProfileHeaderCard({
     stopMomoPolling();
     setBuyCreditsOpen(false);
     setBuyCreditsMethod("");
-    setCardCheckoutPackageId("");
-    setCardCheckoutError("");
     setMomoStage("select");
     setMomoPending(null);
     setMomoError("");
-  }
-
-  async function startCardCheckout({ packageId, credits } = {}) {
-    try {
-      setCardCheckoutPackageId(packageId || "custom");
-      setCardCheckoutError("");
-      const result = await startFlutterwaveCardPurchase(packageId ? { packageId } : { credits });
-      window.location.assign(result.checkoutUrl);
-    } catch (error) {
-      setCardCheckoutPackageId("");
-      setCardCheckoutError(error.message || t("profile.unableOpenCardCheckout"));
-    }
   }
 
   // Tap-to-dial link for a USSD string. The "#" has to be percent-encoded or
@@ -772,12 +749,6 @@ export default function ProfileHeaderCard({
               </div>
               <div className="mt-5 space-y-3">
                 <PaymentMethodButton
-                  icon={HiOutlineCreditCard}
-                  label={t("profile.buyWithCard")}
-                  helper={t("profile.paySecurelyByCard")}
-                  onClick={() => setBuyCreditsMethod("card")}
-                />
-                <PaymentMethodButton
                   icon={HiOutlineDevicePhoneMobile}
                   label={t("profile.buyWithMobileMoney")}
                   helper={t("profile.useMobileMoney")}
@@ -785,104 +756,6 @@ export default function ProfileHeaderCard({
                 />
               </div>
               <button type="button" onClick={closeBuyCredits} className="mt-3 h-12 w-full rounded-2xl border border-slate-200 bg-white px-4 text-sm font-black text-slate-700">
-                {t("common.close")}
-              </button>
-            </motion.div>
-          ) : buyCreditsMethod === "card" ? (
-            <motion.div
-              key="buy-credit-card-packages"
-              initial={{ opacity: 0, x: 28, scale: 0.98 }}
-              animate={{ opacity: 1, x: 0, scale: 1 }}
-              exit={{ opacity: 0, x: 28, scale: 0.98 }}
-              transition={{ type: "spring", stiffness: 360, damping: 28 }}
-            >
-              <div className="flex items-start gap-3">
-                <button
-                  type="button"
-                  onClick={() => setBuyCreditsMethod("")}
-                  className="flex h-11 w-11 shrink-0 items-center justify-center rounded-full bg-slate-100 text-xl text-slate-700 transition hover:bg-sky-50 hover:text-sky-700"
-                  aria-label={t("profile.chooseAnotherPaymentMethod")}
-                >
-                  <HiOutlineArrowLeft />
-                </button>
-                <div className="min-w-0">
-                  <p className="text-xs font-black uppercase tracking-[0.18em] text-sky-700">{t("profile.creditCard")}</p>
-                  <h2 id="buy-credits-title" className="mt-1 text-xl font-black text-slate-950">{t("profile.chooseCreditPackage")}</h2>
-                </div>
-              </div>
-
-              <div className="mt-5 space-y-3">
-                {creditPackagesLoading ? (
-                  <div className="space-y-3" aria-label={t("profile.loadingCreditPackages")}>
-                    {[1, 2, 3].map((item) => <div key={item} className="h-[74px] animate-pulse rounded-2xl bg-slate-100" />)}
-                  </div>
-                ) : creditPackages.filter((pkg) => pkg.usdPriceMinor > 0).length ? (
-                  creditPackages.filter((pkg) => pkg.usdPriceMinor > 0).map((item) => {
-                    const opening = cardCheckoutPackageId === item.id;
-                    return (
-                      <motion.button
-                        key={item.id}
-                        type="button"
-                        onClick={() => startCardCheckout({ packageId: item.id })}
-                        disabled={Boolean(cardCheckoutPackageId)}
-                        whileHover={{ y: -2, scale: 1.01 }}
-                        whileTap={{ scale: 0.98 }}
-                        className="flex w-full items-center gap-3 rounded-2xl border border-sky-100 bg-gradient-to-r from-sky-50 to-white p-4 text-left shadow-sm transition hover:border-sky-300 disabled:cursor-wait disabled:opacity-65"
-                      >
-                        <span className="grid h-11 min-w-11 shrink-0 place-items-center rounded-2xl bg-sky-700 px-2 text-sm font-black text-white">
-                          {item.credits}
-                        </span>
-                        <span className="min-w-0 flex-1">
-                          <span className="block truncate text-sm font-black text-slate-950">{item.label}</span>
-                          <span className="mt-0.5 block text-xs font-semibold text-slate-500">{t("profile.creditCount", { count: item.credits })}</span>
-                        </span>
-                        <span className="shrink-0 text-sm font-black text-sky-800">
-                          {opening ? t("profile.openingCheckout") : formatPackagePrice({ priceMinor: item.usdPriceMinor, currency: "USD" })}
-                        </span>
-                      </motion.button>
-                    );
-                  })
-                ) : (
-                  <div className="rounded-2xl border border-amber-200 bg-amber-50 px-4 py-4 text-sm font-semibold leading-6 text-amber-900">
-                    {t("profile.creditPackagesUnavailable")}
-                  </div>
-                )}
-
-                <div className="rounded-2xl border border-slate-200 bg-slate-50 p-4">
-                  <label className="block text-xs font-black uppercase tracking-wide text-slate-500">Custom amount (min {CARD_MIN_CREDITS})</label>
-                  <div className="mt-2 flex items-center gap-2">
-                    <input
-                      inputMode="numeric"
-                      value={cardCustomCredits}
-                      onChange={(event) => setCardCustomCredits(event.target.value.replace(/[^\d]/g, ""))}
-                      placeholder={String(CARD_MIN_CREDITS)}
-                      className="h-11 w-24 rounded-xl border border-slate-200 bg-white px-3 text-sm font-black text-slate-950"
-                    />
-                    <span className="min-w-0 flex-1 truncate text-xs font-bold text-slate-500">
-                      {Number(cardCustomCredits) >= CARD_MIN_CREDITS
-                        ? `${Number(cardCustomCredits)} credits · ${formatPackagePrice({ priceMinor: cardCustomUsdPriceMinor(cardCustomCredits), currency: "USD" })}`
-                        : "credits"}
-                    </span>
-                    <button
-                      type="button"
-                      disabled={Boolean(cardCheckoutPackageId) || Number(cardCustomCredits) < CARD_MIN_CREDITS}
-                      onClick={() => startCardCheckout({ credits: Number(cardCustomCredits) })}
-                      className="h-11 shrink-0 rounded-xl bg-sky-700 px-4 text-sm font-black text-white transition hover:bg-sky-800 disabled:opacity-50"
-                    >
-                      {cardCheckoutPackageId === "custom" ? t("profile.openingCheckout") : "Continue"}
-                    </button>
-                  </div>
-                </div>
-              </div>
-
-              {cardCheckoutError ? (
-                <p role="alert" className="mt-3 rounded-2xl bg-rose-50 px-4 py-3 text-sm font-bold text-rose-700">{cardCheckoutError}</p>
-              ) : null}
-              <div className="mt-4 flex items-center justify-center gap-2 text-xs font-bold text-slate-500">
-                <HiOutlineCreditCard className="text-base text-sky-700" />
-                {t("profile.cardDetailsPrivacy")}
-              </div>
-              <button type="button" onClick={closeBuyCredits} disabled={Boolean(cardCheckoutPackageId)} className="mt-3 h-12 w-full rounded-2xl border border-slate-200 bg-white px-4 text-sm font-black text-slate-700 disabled:opacity-50">
                 {t("common.close")}
               </button>
             </motion.div>
@@ -1126,7 +999,7 @@ export default function ProfileHeaderCard({
                 </button>
                 <div className="min-w-0">
                   <p className="text-xs font-black uppercase tracking-[0.18em] text-sky-700">
-                    {buyCreditsMethod === "card" ? t("profile.creditCard") : t("profile.mobileMoney")}
+                    {t("profile.mobileMoney")}
                   </p>
                   <h2 id="buy-credits-title" className="mt-1 text-xl font-black text-slate-950">{t("buyCredits.title")}</h2>
                 </div>

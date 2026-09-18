@@ -12,7 +12,7 @@ const migration = readFileSync(
   new URL("../../supabase/migrations/20260917120000_admin_campaign_delivery_v2.sql", import.meta.url),
   "utf8",
 );
-const scheduledPublisher = readFileSync(new URL("../../api/admin-publish-scheduled.js", import.meta.url), "utf8");
+const scheduledPublisher = readFileSync(new URL("../../server/cron/admin-publish-scheduled.js", import.meta.url), "utf8");
 const pushFunction = readFileSync(new URL("../../supabase/functions/send-notification-push/index.ts", import.meta.url), "utf8");
 
 function functionBody(name) {

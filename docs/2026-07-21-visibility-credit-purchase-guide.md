@@ -3,6 +3,10 @@
 **Date:** 2026-07-21
 **Status:** Guidance + reviewed DB foundation (not yet applied)
 
+> **Update 2026-09-18:** This was the original design. What shipped is mobile
+> money through **Monime** only (`/api/monime-*`, served by `api/payments/[action].js`).
+> Flutterwave was implemented and later removed; Stripe was never built.
+
 This document explains how to let a user **buy** Visibility Credits in addition to
 **earning** them from invites, and what decisions you need to make first.
 

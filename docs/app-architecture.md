@@ -24,7 +24,12 @@ Vercel serverless functions are used where secrets or server-side execution are 
 
 - `api/route-directions.js`: protected OpenRouteService routing proxy.
 - `api/moderate-post.js`: optional content moderation proxy using local text rules and Sightengine.
-- `api/admin-publish-scheduled.js`: scheduled admin notification publication using a service-role Supabase client.
+- `api/ai.js`: KAI, the single entry point for every AI feature.
+- `api/privacy-request.js`: public privacy/data request intake.
+- `api/payments/[action].js`: Monime mobile-money Visibility Credit payments (`/api/monime-create-payment`, `-verify-payment`, `-resume-pending`, `-webhook`).
+- `api/cron/[job].js`: Vercel cron jobs (`admin-publish-scheduled` — scheduled admin notification publication using a service-role Supabase client — and `process-business-subscriptions`).
+
+Vercel Hobby allows at most 12 serverless functions per deployment and every `.js` file under `api/` is one function. Related endpoints therefore share a router function; `vercel.json` rewrites keep their original `/api/<name>` URLs. Put shared or handler code under `server/`, not `api/`.
 
 The application is mobile-first and PWA-capable. The service worker intentionally handles push notifications only and does not cache fetch responses, so deployments are always served live by the hosting platform.
 
@@ -633,7 +638,7 @@ Client:
 - `Backend/services/explore/safetyService.js`.
 - Explore video review pipeline can continue background review when immediate scan cannot finish.
 
-### `api/admin-publish-scheduled.js`
+### `/api/admin-publish-scheduled` (`server/cron/admin-publish-scheduled.js`, served by `api/cron/[job].js`)
 
 Purpose:
 
@@ -1134,9 +1139,10 @@ Server-only variables must not be exposed with a `VITE_` prefix.
 
 Vercel config in `vercel.json`:
 
+- Rewrites the legacy Monime and cron URLs (`/api/monime-*`, `/api/admin-publish-scheduled`, `/api/process-business-subscriptions`) to their router functions.
 - Rewrites all non-API paths to `/index.html`, supporting SPA deep links.
-- Increases max duration for `api/moderate-post.js` to 60 seconds.
-- Runs `/api/admin-publish-scheduled` daily at midnight UTC.
+- Increases max duration for `api/moderate-post.js` and `api/ai.js` to 60 seconds.
+- Runs `/api/cron/admin-publish-scheduled` daily at midnight UTC and `/api/cron/process-business-subscriptions` at 00:15 UTC.
 
 Recommended validation before deployment:
 

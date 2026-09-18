@@ -1,5 +1,12 @@
 # Flutterwave card checkout setup
 
+> **Retired (2026-09-18).** KunThai no longer uses Flutterwave. The
+> `api/flutterwave-*` endpoints, `server/flutterwaveVisibilityCredits.js` and the
+> in-app card option were removed; Visibility Credits are bought with mobile
+> money through Monime only. Do not follow these steps. The
+> `20260812100000_flutterwave_visibility_credit_purchases.sql` migration stays
+> because the Monime flow uses the purchase tables and grant RPC it created.
+
 KunThai uses Flutterwave Standard hosted checkout. Card details are entered on
 Flutterwave's page and never pass through the KunThai browser or server.
 

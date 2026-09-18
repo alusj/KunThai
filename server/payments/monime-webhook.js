@@ -7,7 +7,7 @@ import {
   json,
   verifyAndGrantMonimePayment,
   verifyAndGrantMonimePaymentCode,
-} from "../server/monimeVisibilityCredits.js";
+} from "../monimeVisibilityCredits.js";
 
 function clean(value, maxLength = 120) {
   return Array.from(String(value || ""))

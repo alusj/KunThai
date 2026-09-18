@@ -27,12 +27,9 @@ import { setAiSurface, surfaceForMainPage } from "./Backend/services/ai/aiSurfac
 import { endGuestVisit, isGuestMode } from "./Backend/services/guestModeService";
 import {
   captureVisibilityInviteFromLocation,
-  clearFlutterwavePaymentReturn,
   ensureVisibilityInviteCode,
   finalizeStoredVisibilityInvite,
-  readFlutterwavePaymentReturn,
   resumePendingMonimePurchases,
-  verifyFlutterwavePaymentReturn,
 } from "./Backend/services/visibilityCreditService";
 import { showToast } from "./Backend/services/toastService";
 import { ensureExploreProfile } from "./Backend/services/explore/profileService";
@@ -300,7 +297,6 @@ export default function App() {
   // ref so it survives the reveal effect re-running before the refreshed
   // profile metadata arrives, which otherwise fell back to Explore.
   const pendingLandingRef = useRef("");
-  const paymentReturnHandledRef = useRef(false);
   const [accountControl, setAccountControl] = useState(null);
   const [twoFactorPending, setTwoFactorPending] = useState(null);
   const [returningIntroOpen, setReturningIntroOpen] = useState(false);
@@ -360,34 +356,6 @@ export default function App() {
   useEffect(() => {
     captureVisibilityInviteFromLocation();
   }, []);
-
-  useEffect(() => {
-    const paymentReturn = readFlutterwavePaymentReturn();
-    if (!paymentReturn || !userId || guestSession || paymentReturnHandledRef.current) return;
-    paymentReturnHandledRef.current = true;
-
-    if (!["successful", "succeeded", "completed"].includes(paymentReturn.status)) {
-      clearFlutterwavePaymentReturn();
-      showToast(i18nText("ui.literals.k84d8affea148"), "warning", {
-        title: i18nText("ui.literals.k21fd7cb6e40c"),
-      });
-      return;
-    }
-
-    verifyFlutterwavePaymentReturn(paymentReturn)
-      .then((result) => {
-        window.dispatchEvent(new CustomEvent("kuntai-visibility-credits-updated"));
-        showToast(i18nText("ui.literals.kb17e3e2167e5", { value0: Number(result.credits || 0) }), "success", {
-          title: i18nText("ui.literals.k43a3f3cba1c4"),
-        });
-      })
-      .catch((error) => {
-        showToast(error.message || i18nText("ui.literals.k2d184a7f2980"), error.pending ? "warning" : "danger", {
-          title: error.pending ? "Payment processing" : "Payment verification",
-        });
-      })
-      .finally(() => clearFlutterwavePaymentReturn());
-  }, [guestSession, userId]);
 
   // Mobile money (Monime payment codes) is collected in-app, so there is no
   // redirect-return URL to confirm. ProfileHeaderCard polls while its sheet is

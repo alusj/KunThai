@@ -8,7 +8,7 @@ import {
   getRequestOrigin,
   json,
   notifyVisibilityCreditPurchase,
-} from "./flutterwaveVisibilityCredits.js";
+} from "./visibilityCreditPayments.js";
 
 // Re-export the provider-agnostic helpers the Monime API handlers also use, so
 // they can import everything from one place.

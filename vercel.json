@@ -1,5 +1,11 @@
 {
   "rewrites": [
+    { "source": "/api/monime-create-payment", "destination": "/api/payments/monime-create-payment" },
+    { "source": "/api/monime-verify-payment", "destination": "/api/payments/monime-verify-payment" },
+    { "source": "/api/monime-resume-pending", "destination": "/api/payments/monime-resume-pending" },
+    { "source": "/api/monime-webhook", "destination": "/api/payments/monime-webhook" },
+    { "source": "/api/admin-publish-scheduled", "destination": "/api/cron/admin-publish-scheduled" },
+    { "source": "/api/process-business-subscriptions", "destination": "/api/cron/process-business-subscriptions" },
     { "source": "/((?!api/).*)", "destination": "/index.html" }
   ],
   "functions": {
@@ -12,11 +18,11 @@
   },
   "crons": [
     {
-      "path": "/api/admin-publish-scheduled",
+      "path": "/api/cron/admin-publish-scheduled",
       "schedule": "0 0 * * *"
     },
     {
-      "path": "/api/process-business-subscriptions",
+      "path": "/api/cron/process-business-subscriptions",
       "schedule": "15 0 * * *"
     }
   ]
