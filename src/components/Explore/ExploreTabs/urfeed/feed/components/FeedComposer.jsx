@@ -926,26 +926,59 @@ export default function FeedComposer({ profile, creating, onSubmit }) {
 
     const duration = await getVideoDuration(file);
 
+    // Same flow as UrMall products: a clip longer than the Explore limit opens
+    // the shared full-screen trimmer, which re-encodes just the chosen part.
+    // What gets uploaded is that trimmed file — never the full camera video.
+    if (duration > MAX_VIDEO_SECONDS + 0.5) {
+      setOversizedVideoFile(file);
+      showToast(
+        i18nText("ui.literals.k25df5f7aee32", { value0: formatVideoSeconds(duration), value1: MAX_VIDEO_SECONDS }),
+        "info",
+        { title: i18nText("ui.literals.k25866d0c0f6e"), duration: 6200 },
+      );
+      return;
+    }
+
+    acceptVideoClip(file, duration);
+  }
+
+  // The clip already fits Explore's length and size limits (either as picked or
+  // straight out of the trimmer), so it is attached exactly as it is.
+  function acceptVideoClip(file, duration) {
     if (pendingVideoUrl) URL.revokeObjectURL(pendingVideoUrl);
     if (videoPreview?.startsWith?.("blob:")) URL.revokeObjectURL(videoPreview);
 
-    setPendingVideoFile(file);
+    const clipSeconds = Math.max(0.5, Number(duration) || MAX_VIDEO_SECONDS);
+    const nextVideoMeta = {
+      ...mediaMeta,
+      videoName: file.name || "swip-video.mp4",
+      videoType: file.type || "video/mp4",
+      videoSize: file.size || 0,
+      videoDuration: clipSeconds,
+      videoTrimStart: 0,
+      videoTrimEnd: clipSeconds,
+      sourceVideoTrimStart: 0,
+      sourceVideoTrimEnd: clipSeconds,
+      ...(!isAdvertMode ? { imageName: "", imageType: "", imageSize: 0 } : {}),
+      audioName: "",
+      audioType: "",
+      audioSize: 0,
+    };
+
     originalVideoFileRef.current = file;
-    setPendingVideoUrl(URL.createObjectURL(file));
-    setVideoDuration(duration);
+    trimmedVideoMetaRef.current = nextVideoMeta;
+    setMediaMeta(nextVideoMeta);
+    setPendingVideoFile(null);
+    setPendingVideoUrl("");
+    setVideoDuration(clipSeconds);
     setVideoTrimStart(0);
-    setVideoTrimEnd(Math.min(duration || MAX_VIDEO_SECONDS, MAX_VIDEO_SECONDS));
-    setVideoPreview("");
+    setVideoTrimEnd(clipSeconds);
+    setVideoPreview(URL.createObjectURL(file));
     if (!isAdvertMode) setImagePreview("");
+    clearAudioState();
     showComposer();
-    // Long videos also stay: the trim screen that opens next selects the
-    // 15-second window to publish.
-    setFeedback(
-      duration > MAX_VIDEO_SECONDS
-        ? i18nText("ui.literals.k25df5f7aee32", { value0: formatVideoSeconds(duration), value1: MAX_VIDEO_SECONDS })
-        : "",
-    );
     setTrimError("");
+    setFeedback(i18nText("ui.literals.kd59c47ab5c49", { value0: clipSeconds.toFixed(1) }));
   }
 
   async function handleMediaChange(event) {
@@ -2030,11 +2063,17 @@ if (!isMobileVideoDevice) {
           maxMb={MAX_EXPLORE_VIDEO_MB}
           eyebrow="Trim Explore video"
           onCancel={() => setOversizedVideoFile(null)}
-          onComplete={(trimmedFile) => {
+          onComplete={(trimmedFile, { durationSeconds } = {}) => {
             setOversizedVideoFile(null);
-            processVideoFile(trimmedFile).catch((error) => {
-              showToast(error.message || i18nText("ui.literals.kc79794ed8fef"), "danger", { title: i18nText("ui.literals.ke248170a3849") });
-            });
+            // The trimmer knows the clip length; a MediaRecorder WebM often
+            // reports Infinity when measured, so it is not re-checked.
+            if (trimmedFile.size > MAX_EXPLORE_VIDEO_BYTES) {
+              showToast(i18nText("ui.literals.k053042183f66", { value0: formatVideoFileSize(trimmedFile.size), value1: MAX_EXPLORE_VIDEO_MB }), "danger", { title: i18nText("ui.literals.ke248170a3849") });
+              return;
+            }
+            trimRequestRef.current += 1;
+            cancelVoiceRecording();
+            acceptVideoClip(trimmedFile, durationSeconds);
           }}
         />
       ) : null}

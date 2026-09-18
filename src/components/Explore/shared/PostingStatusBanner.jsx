@@ -1,8 +1,14 @@
 import { useEffect, useState } from "react";
+import { createPortal } from "react-dom";
 import { Maximize2, Minimize2, Share2 } from "lucide-react";
 
 import { postingStages } from "../ExploreTabs/urfeed/feed/composer/postReviewPipeline";
 import { t } from "../../../i18n";
+
+// Rendered into <body> (like PostOutboxIndicator): inside Explore, an ancestor
+// with a transform turned `position: fixed` into page-relative positioning, so
+// the card scrolled away with the feed like an inline block instead of floating.
+const FLOATING_TOP = { top: "calc(var(--kt-safe-area-top, 0px) + 0.75rem)" };
 
 // A post that is still uploading shrinks to a progress ring after this long, so
 // it stops covering the feed while the upload continues in the background.
@@ -30,7 +36,7 @@ export default function PostingStatusBanner({ notice, onDismiss, onShareKunThai 
     return () => window.clearTimeout(timer);
   }, [noticeId, stillWorking]);
 
-  if (!notice) return null;
+  if (!notice || typeof document === "undefined") return null;
 
   const progress = Math.max(0, Math.min(100, notice.progress || 0));
   const isError = notice.status === "error";
@@ -57,12 +63,13 @@ export default function PostingStatusBanner({ notice, onDismiss, onShareKunThai 
   const ringColor = isError ? "#e11d48" : isComplete ? "#059669" : "#0284c7";
 
   if (collapsed) {
-    return (
+    return createPortal(
       <button
         type="button"
         onClick={() => setCollapsed(false)}
         aria-label={t("explore.showPostingProgress", { progress })}
-        className="kt-toast-expand-in kt-pressable fixed right-3 top-3 z-[90] flex items-center gap-1 rounded-full border border-slate-200/90 bg-white/95 py-1 pl-1 pr-2 shadow-xl shadow-slate-900/12 backdrop-blur-xl transition-transform hover:scale-105"
+        style={FLOATING_TOP}
+        className="kt-toast-expand-in kt-pressable fixed right-3 z-[1150] flex items-center gap-1 rounded-full border border-slate-200/90 bg-white/95 py-1 pl-1 pr-2 shadow-xl shadow-slate-900/12 backdrop-blur-xl transition-transform hover:scale-105"
       >
         <span
           className="grid h-10 w-10 place-items-center rounded-full transition-all duration-500"
@@ -73,12 +80,16 @@ export default function PostingStatusBanner({ notice, onDismiss, onShareKunThai 
           </span>
         </span>
         <Maximize2 size={15} className="text-slate-500" />
-      </button>
+      </button>,
+      document.body,
     );
   }
 
-  return (
-    <div className="kt-toast-expand-in fixed left-3 right-3 top-3 z-[90] ml-auto w-auto max-w-sm overflow-hidden rounded-3xl border border-slate-200/90 bg-white/95 shadow-2xl shadow-slate-900/20 backdrop-blur-xl sm:left-auto sm:right-4 sm:top-4 sm:w-[22rem]">
+  return createPortal(
+    <div
+      style={FLOATING_TOP}
+      className="kt-toast-expand-in fixed left-3 right-3 z-[1150] ml-auto w-auto max-w-sm overflow-hidden rounded-3xl border border-slate-200/90 bg-white/95 shadow-2xl shadow-slate-900/20 backdrop-blur-xl sm:left-auto sm:right-4 sm:w-[22rem]"
+    >
       {isActive ? (
         <>
           <div className="pointer-events-none absolute inset-0 bg-gradient-to-br from-sky-50 via-white to-indigo-50" />
@@ -155,6 +166,7 @@ export default function PostingStatusBanner({ notice, onDismiss, onShareKunThai 
           </>
         ) : null}
       </div>
-    </div>
+    </div>,
+    document.body,
   );
 }

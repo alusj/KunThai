@@ -1508,7 +1508,7 @@ export default function Explore({ active = true, onNavigateMain, onScreenModeCha
     <>
     <div
       className={`kt-mobile-viewport block w-full max-w-full touch-pan-y overscroll-x-none overflow-x-clip bg-slate-100 ${isSwipTab ? "" : "kuntai-safe-bottom"}`}
-      style={{ "--explore-top-chrome-height": `${topChromeHeight}px` }}
+      style={{ "--explore-top-chrome-height": `${navHidden ? 0 : topChromeHeight}px` }}
       onTouchStart={handleExploreTouchStart}
       onTouchMove={handleExploreTouchMove}
       onTouchEnd={handleExploreTouchEnd}
@@ -1520,10 +1520,14 @@ export default function Explore({ active = true, onNavigateMain, onScreenModeCha
       {/* =========================
           HEADER + PARENT TABS
       ========================= */}
+      {/* Hidden by sliding it up (like UrMall), never by collapsing its height:
+          collapsing shrank the page mid-scroll, the browser shifted the scroll
+          position to compensate, and that shift read as a scroll the other way —
+          so the header (and the bottom tabs) kept flickering in and out. */}
       <div
         ref={topChromeRef}
-        className={`sticky top-0 z-30 overflow-hidden bg-slate-100/95 backdrop-blur transition-[max-height,opacity,transform] duration-300 ease-out ${isSwipTab ? "pt-[var(--kt-safe-area-top)]" : ""} ${
-          navHidden ? "max-h-0 -translate-y-2 opacity-0 pointer-events-none" : "max-h-56 translate-y-0 opacity-100"
+        className={`sticky top-0 z-30 max-h-56 overflow-hidden bg-slate-100/95 backdrop-blur transition-[opacity,transform] duration-300 ease-out ${isSwipTab ? "pt-[var(--kt-safe-area-top)]" : ""} ${
+          navHidden ? "-translate-y-full opacity-0 pointer-events-none" : "translate-y-0 opacity-100"
         }`}
       >
         <div>
