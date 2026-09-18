@@ -367,7 +367,9 @@ export async function trimVideoFile(file, {
   }
 
   return {
-    file: new File([blob], trimmedFileName(file.name, result.outputType), { type: result.outputType }),
+    // Plain container type ("video/mp4", not "video/mp4;codecs=avc1"): that is
+    // what storage should record and what the Explore format check expects.
+    file: new File([blob], trimmedFileName(file.name, result.outputType), { type: String(result.outputType).split(";")[0].trim() }),
     durationSeconds: seconds,
     strategy: support.strategy,
   };

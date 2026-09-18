@@ -1,4 +1,5 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
+import { createPortal } from "react-dom";
 import { Pause, Play, Scissors, X } from "lucide-react";
 import { t as i18nText } from "../../i18n/index";
 import { canTrimVideos, formatVideoMb, trimVideoFile } from "../../Backend/services/media/videoTrimService";
@@ -16,6 +17,10 @@ function formatClock(seconds) {
 // the left or the right, preview the selection, then re-encode the clip so it
 // fits the given duration and size limits. Shared by UrMall products and
 // Explore posts.
+//
+// Rendered into <body>: inside Explore a transformed ancestor turns
+// `position: fixed` into page-relative positioning, which hid the trimmer
+// behind the post composer and left its dark backdrop stretched over the feed.
 export default function VideoTrimmerScreen({
   file,
   onCancel,
@@ -218,8 +223,12 @@ export default function VideoTrimmerScreen({
   const endPercent = duration ? (range.end / duration) * 100 : 100;
   const playheadPercent = duration ? Math.min((currentTime / duration) * 100, 100) : 0;
 
-  return (
-    <div className="fixed inset-0 z-[1300] flex flex-col bg-gray-950">
+  if (typeof document === "undefined") return null;
+
+  return createPortal(
+    // A modal dialog: while it is open, app back-swipes and tab swipes stay off
+    // so dragging a trim handle can never navigate away.
+    <div role="dialog" aria-modal="true" aria-label={eyebrow} className="fixed inset-0 z-[1300] flex flex-col bg-gray-950">
       <header className="flex h-16 shrink-0 items-center justify-between gap-3 px-4">
         <div className="min-w-0">
           <p className="text-xs font-black uppercase tracking-wide text-emerald-400">{eyebrow}</p>
@@ -247,6 +256,9 @@ export default function VideoTrimmerScreen({
           playsInline
           preload="auto"
           onLoadedMetadata={handleLoadedMetadata}
+          // A codec this device cannot decode must say so instead of leaving the
+          // trimmer waiting forever.
+          onError={() => setError(i18nText("ui.literals.k9f2e49a7c376"))}
           onTimeUpdate={handleTimeUpdate}
           onPause={() => setPreviewing(false)}
           className="max-h-full w-full max-w-3xl rounded-xl bg-black object-contain"
@@ -353,6 +365,7 @@ export default function VideoTrimmerScreen({
           </div>
         </div>
       </div>
-    </div>
+    </div>,
+    document.body,
   );
 }

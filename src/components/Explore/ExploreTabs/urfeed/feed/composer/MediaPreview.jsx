@@ -7,6 +7,7 @@ import {
   HiOutlineXMark,
 } from "react-icons/hi2";
 import { useEffect, useRef, useState } from "react";
+import { Scissors } from "lucide-react";
 
 import { pauseOtherExploreMedia } from "../../../../shared/singleMediaPlayback";
 import { shouldSkipBrowserVideoProcessing } from "./composerUtils";
@@ -123,6 +124,7 @@ export default function MediaPreview({
   onRetryTrim,
   onRemoveImage,
   onRemoveVideo,
+  onEditVideo,
   onRemoveAudio,
 }) {
   const pendingVideoRef = useRef(null);
@@ -324,6 +326,16 @@ export default function MediaPreview({
           <div className="absolute bottom-3 left-3 rounded-full bg-white/95 px-3 py-1 text-xs font-bold text-slate-800">
             {i18nText("ui.literals.k538067318035")}
           </div>
+          {onEditVideo ? (
+            <button
+              type="button"
+              onClick={onEditVideo}
+              className="kt-pressable absolute left-2 top-2 z-10 inline-flex h-8 items-center gap-1.5 rounded-full bg-slate-950/85 px-3.5 text-xs font-black text-white shadow-lg shadow-black/30 backdrop-blur"
+            >
+              <Scissors size={14} />
+              {t("urmall.biz.pform.trim")}
+            </button>
+          ) : null}
         </div>
       ) : null}
 

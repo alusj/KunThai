@@ -9,7 +9,14 @@
 const DEFAULT_NATIVE_API_ORIGIN = "https://kunthai.app";
 
 function nativeApiOrigin() {
-  const configured = String(import.meta.env?.VITE_API_ORIGIN || "").trim().replace(/\/+$/, "");
+  // Exactly `import.meta.env.VITE_…` so Vite substitutes it at build time; the
+  // try only covers Node tests, where import.meta.env is undefined.
+  let configured = "";
+  try {
+    configured = String(import.meta.env.VITE_API_ORIGIN || "").trim().replace(/\/+$/, "");
+  } catch {
+    configured = "";
+  }
   return configured || DEFAULT_NATIVE_API_ORIGIN;
 }
 

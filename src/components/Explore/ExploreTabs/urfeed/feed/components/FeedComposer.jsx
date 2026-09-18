@@ -76,6 +76,9 @@ const LARGE_VIDEO_INITIAL_REVIEW_TIMEOUT_MS = 18_000;
 const VIDEO_UPLOAD_TIMEOUT_MS = 5 * 60 * 1000;
 const VIDEO_UPLOAD_PROGRESS_INTERVAL_MS = 1500;
 const SUPPORTED_VIDEO_TYPES = ["video/mp4", "video/webm", "video/quicktime", "video/x-m4v"];
+const VIDEO_DURATION_PROBE_TIMEOUT_MS = 8000;
+// Some Android galleries hand over videos without a MIME type.
+const VIDEO_FILE_NAME_PATTERN = /\.(mp4|m4v|mov|webm|3gp|3g2|mkv|avi)$/i;
 const MAX_EXPLORE_VIDEO_MB = Math.round(MAX_EXPLORE_VIDEO_BYTES / (1024 * 1024));
 const MAX_POST_TITLE_LENGTH = 30;
 const COMPOSER_SHEET_ANIMATION_MS = 300;
@@ -293,13 +296,6 @@ function formatVideoFileSize(bytes = 0) {
   return `${Math.ceil(megabytes)} MB`;
 }
 
-function formatVideoSeconds(seconds = 0) {
-  const safeSeconds = Math.max(0, Number(seconds || 0));
-  if (!Number.isFinite(safeSeconds)) return "0 seconds";
-  const rounded = safeSeconds < 10 ? safeSeconds.toFixed(1) : Math.ceil(safeSeconds);
-  return `${rounded} second${Number(rounded) === 1 ? "" : "s"}`;
-}
-
 async function uploadVideoWithProgress(file, onProgress) {
   let progress = 24;
   let timedOut = false;
@@ -446,7 +442,8 @@ export default function FeedComposer({ profile, creating, onSubmit }) {
   const [trimmingVideo, setTrimmingVideo] = useState(false);
   const [trimError, setTrimError] = useState("");
   const [videoNotice, setVideoNotice] = useState(null);
-  const [oversizedVideoFile, setOversizedVideoFile] = useState(null);
+  // The video open in the full-screen trimmer (null when it is closed).
+  const [trimmerVideoFile, setTrimmerVideoFile] = useState(null);
   const [postingStage, setPostingStage] = useState("");
   const [postingProgress, setPostingProgress] = useState(0);
   const [cautionOpen, setCautionOpen] = useState(false);
@@ -491,6 +488,9 @@ export default function FeedComposer({ profile, creating, onSubmit }) {
   const discardRecordingRef = useRef(false);
   const trimmedVideoMetaRef = useRef(null);
   const originalVideoFileRef = useRef(null);
+  // The full picked video a clip was trimmed from (the clip itself when it was
+  // attached untrimmed), so it can be trimmed again.
+  const sourceVideoFileRef = useRef(null);
   const originalImageFileRef = useRef(null);
   const openComposerRef = useRef(null);
   const composerCloseTimerRef = useRef(null);
@@ -907,44 +907,50 @@ export default function FeedComposer({ profile, creating, onSubmit }) {
     trimmedVideoMetaRef.current = null;
     cancelVoiceRecording();
 
-    const isSupportedVideo = file.type.startsWith("video/") && (!file.type || SUPPORTED_VIDEO_TYPES.includes(file.type));
-    if (!isSupportedVideo) {
+    const looksLikeVideo = file.type.startsWith("video/") || (!file.type && VIDEO_FILE_NAME_PATTERN.test(file.name || ""));
+    if (!looksLikeVideo) {
       throw new Error("This video format is not supported. Please use MP4, MOV, or WebM.");
     }
 
-    // Oversized videos are not rejected: the shared trimmer re-encodes a
-    // shorter clip that fits the Explore limits.
-    if (file.size > MAX_EXPLORE_VIDEO_BYTES) {
-      setOversizedVideoFile(file);
-      showToast(
-        i18nText("ui.literals.k053042183f66", { value0: formatVideoFileSize(file.size), value1: MAX_EXPLORE_VIDEO_MB }),
-        "info",
-        { title: i18nText("ui.literals.k25866d0c0f6e"), duration: 6200 },
-      );
-      return;
-    }
-
-    const duration = await getVideoDuration(file);
-
-    // Same flow as UrMall products: a clip longer than the Explore limit opens
+    // Same flow as UrMall products: anything Explore cannot publish as-is — too
+    // heavy, too long, or a format other than MP4/MOV/WebM — goes straight to
     // the shared full-screen trimmer, which re-encodes just the chosen part.
-    // What gets uploaded is that trimmed file — never the full camera video.
-    if (duration > MAX_VIDEO_SECONDS + 0.5) {
-      setOversizedVideoFile(file);
-      showToast(
-        i18nText("ui.literals.k25df5f7aee32", { value0: formatVideoSeconds(duration), value1: MAX_VIDEO_SECONDS }),
-        "info",
-        { title: i18nText("ui.literals.k25866d0c0f6e"), duration: 6200 },
-      );
+    // What gets uploaded is that trimmed file, never the full camera video.
+    if (file.size > MAX_EXPLORE_VIDEO_BYTES || !SUPPORTED_VIDEO_TYPES.includes(file.type)) {
+      openVideoTrimmer(file);
       return;
     }
 
+    // A length the phone cannot read (or that never arrives) also goes to the
+    // trimmer, which handles unknown lengths and explains an undecodable file.
+    const duration = await Promise.race([
+      getVideoDuration(file).catch(() => Number.NaN),
+      new Promise((resolve) => window.setTimeout(() => resolve(Number.NaN), VIDEO_DURATION_PROBE_TIMEOUT_MS)),
+    ]);
+    if (!Number.isFinite(duration) || duration <= 0 || duration > MAX_VIDEO_SECONDS + 0.5) {
+      openVideoTrimmer(file);
+      return;
+    }
+
+    sourceVideoFileRef.current = file;
     acceptVideoClip(file, duration);
+  }
+
+  // Opens the freeform trimmer for a picked video. The picked file is kept as
+  // the trim source, so "Trim" on the attached clip can always start again from
+  // the full original.
+  function openVideoTrimmer(file) {
+    if (!file) return;
+    sourceVideoFileRef.current = file;
+    showComposer();
+    setTrimmerVideoFile(file);
   }
 
   // The clip already fits Explore's length and size limits (either as picked or
   // straight out of the trimmer), so it is attached exactly as it is.
   function acceptVideoClip(file, duration) {
+    // Never leave a trimmer mounted behind an attached clip.
+    setTrimmerVideoFile(null);
     if (pendingVideoUrl) URL.revokeObjectURL(pendingVideoUrl);
     if (videoPreview?.startsWith?.("blob:")) URL.revokeObjectURL(videoPreview);
 
@@ -1009,6 +1015,8 @@ export default function FeedComposer({ profile, creating, onSubmit }) {
           trimRequestRef.current += 1;
           trimmedVideoMetaRef.current = null;
           originalVideoFileRef.current = null;
+          sourceVideoFileRef.current = null;
+          setTrimmerVideoFile(null);
           setPendingVideoFile(null);
           if (pendingVideoUrl) {
             URL.revokeObjectURL(pendingVideoUrl);
@@ -1458,6 +1466,8 @@ export default function FeedComposer({ profile, creating, onSubmit }) {
     trimRequestRef.current += 1;
     trimmedVideoMetaRef.current = null;
     originalVideoFileRef.current = null;
+    sourceVideoFileRef.current = null;
+    setTrimmerVideoFile(null);
     if (videoPreview?.startsWith?.("blob:")) URL.revokeObjectURL(videoPreview);
     setVideoPreview("");
     setPendingVideoFile(null);
@@ -1656,6 +1666,8 @@ export default function FeedComposer({ profile, creating, onSubmit }) {
     setAdvertForm(normalizeAdvertDraft());
     setPendingVideoFile(null);
     originalVideoFileRef.current = null;
+    sourceVideoFileRef.current = null;
+    setTrimmerVideoFile(null);
     originalImageFileRef.current = null;
 
     if (pendingVideoUrl) {
@@ -1774,7 +1786,7 @@ export default function FeedComposer({ profile, creating, onSubmit }) {
       window.dispatchEvent(new CustomEvent("explore-open-tab", { detail: { tab: "UrFeed" } }));
 
       publishPostingUpdate({
-        status: i18nText("ui.literals.k77f0dc34eb53"),
+        status: "posting",
         stage: "preparing",
         progress: 5,
         message: i18nText("ui.literals.k08106a54365f"),
@@ -1784,19 +1796,10 @@ export default function FeedComposer({ profile, creating, onSubmit }) {
       let videoFrameExtractionFailed = false;
 
       if (finalVideoPreview) {
+        // Frames are read from the clip's blob URL. The whole video is never
+        // copied into a base64 string: that held up to ~64 MB in memory for the
+        // entire post and could make phones reload the app mid-upload.
         const frameSourceUrls = [];
-
-        if (
-          CONTENT_MODERATION_ENABLED &&
-          originalVideoFileRef.current &&
-          Number(originalVideoFileRef.current.size || 0) <= LARGE_VIDEO_BACKGROUND_REVIEW_BYTES
-        ) {
-          try {
-            frameSourceUrls.push(await fileToDataUrl(originalVideoFileRef.current));
-          } catch {
-            // Fall back to the preview URL below.
-          }
-        }
 
         if (CONTENT_MODERATION_ENABLED) {
           frameSourceUrls.push(finalVideoPreview);
@@ -1829,7 +1832,7 @@ if (!isMobileVideoDevice) {
           setPostingStage("uploading-media");
           setPostingProgress(24);
           publishPostingUpdate({
-            status: i18nText("ui.literals.k77f0dc34eb53"),
+            status: "posting",
             stage: "uploading-media",
             progress: 24,
             message: CONTENT_MODERATION_ENABLED
@@ -1839,7 +1842,7 @@ if (!isMobileVideoDevice) {
           uploadedReviewVideoUrl = await uploadVideoWithProgress(originalVideoFileRef.current, (progress) => {
             setPostingProgress(progress);
             publishPostingUpdate({
-              status: i18nText("ui.literals.k77f0dc34eb53"),
+              status: "posting",
               stage: "uploading-media",
               progress,
               message: i18nText("ui.literals.k7020c2243106"),
@@ -1873,7 +1876,7 @@ if (!isMobileVideoDevice) {
           setPostingStage(stage);
           setPostingProgress(progress);
           publishPostingUpdate({
-            status: i18nText("ui.literals.k77f0dc34eb53"),
+            status: "posting",
             stage,
             progress,
             message: stage === "media-scan" && postDraft.video_url
@@ -1889,7 +1892,7 @@ if (!isMobileVideoDevice) {
           setPostingStage("syncing");
           setPostingProgress(76);
           publishPostingUpdate({
-            status: i18nText("ui.literals.k7cd4341e2d7a"),
+            status: "reviewing",
             stage: "media-scan",
             progress: 76,
             persistent: true,
@@ -1951,7 +1954,7 @@ if (!isMobileVideoDevice) {
           setPostingProgress(0);
           showComposer();
           setFeedback(pendingMessage);
-          publishPostingUpdate({ status: i18nText("ui.literals.k11f9578d05e6"), progress: 0, message: pendingMessage });
+          publishPostingUpdate({ status: "error", progress: 0, message: pendingMessage });
           return;
         }
 
@@ -1960,7 +1963,7 @@ if (!isMobileVideoDevice) {
         setPostingProgress(0);
         showComposer();
         setFeedback(review.reason);
-        publishPostingUpdate({ status: i18nText("ui.literals.k11f9578d05e6"), progress: 0, message: review.reason });
+        publishPostingUpdate({ status: "error", progress: 0, message: review.reason });
         return;
       }
 
@@ -1968,7 +1971,7 @@ if (!isMobileVideoDevice) {
 
       setPostingStage("syncing");
       setPostingProgress(92);
-      publishPostingUpdate({ status: i18nText("ui.literals.k77f0dc34eb53"), stage: "syncing", progress: 92 });
+      publishPostingUpdate({ status: "posting", stage: "syncing", progress: 92 });
 
       const result = await onSubmit?.({
         video_trim_start: postDraft.mediaMeta?.videoTrimStart || 0,
@@ -2013,7 +2016,7 @@ if (!isMobileVideoDevice) {
         }));
 
         publishPostingUpdate({
-          status: i18nText("ui.literals.k0737c22d3bfa"),
+          status: "complete",
           stage: "complete",
           progress: 100,
           postId: publishedPostId,
@@ -2031,7 +2034,7 @@ if (!isMobileVideoDevice) {
       setPostingProgress(0);
       showComposer();
       setFeedback(message);
-      publishPostingUpdate({ status: i18nText("ui.literals.k11f9578d05e6"), progress: 0, message });
+      publishPostingUpdate({ status: "error", progress: 0, message });
     } catch (error) {
       await removeExploreVideoUpload(uploadedReviewVideoUrl).catch(() => {});
       const message = friendlyPublishError(
@@ -2042,7 +2045,7 @@ if (!isMobileVideoDevice) {
       setPostingProgress(0);
       showComposer();
       setFeedback(message);
-      publishPostingUpdate({ status: i18nText("ui.literals.k11f9578d05e6"), progress: 0, message });
+      publishPostingUpdate({ status: "error", progress: 0, message });
     }
   }
 
@@ -2056,15 +2059,15 @@ if (!isMobileVideoDevice) {
         onQuickVoice={() => openComposer("voice")}
       />
 
-      {oversizedVideoFile ? (
+      {trimmerVideoFile ? (
         <VideoTrimmerScreen
-          file={oversizedVideoFile}
+          file={trimmerVideoFile}
           maxSeconds={MAX_VIDEO_SECONDS}
           maxMb={MAX_EXPLORE_VIDEO_MB}
-          eyebrow="Trim Explore video"
-          onCancel={() => setOversizedVideoFile(null)}
+          eyebrow={i18nText("ui.literals.k25866d0c0f6e")}
+          onCancel={() => setTrimmerVideoFile(null)}
           onComplete={(trimmedFile, { durationSeconds } = {}) => {
-            setOversizedVideoFile(null);
+            setTrimmerVideoFile(null);
             // The trimmer knows the clip length; a MediaRecorder WebM often
             // reports Infinity when measured, so it is not re-checked.
             if (trimmedFile.size > MAX_EXPLORE_VIDEO_BYTES) {
@@ -2509,6 +2512,7 @@ if (!isMobileVideoDevice) {
                   onRetryTrim={() => trimPendingVideo(pendingVideoFile, videoTrimStart, videoTrimEnd)}
                   onRemoveImage={clearImageAttachment}
                   onRemoveVideo={clearVideoAttachment}
+                  onEditVideo={() => openVideoTrimmer(sourceVideoFileRef.current || originalVideoFileRef.current)}
                   onRemoveAudio={() => {
                     setAudioPreview("");
                     setAudioDuration(null);

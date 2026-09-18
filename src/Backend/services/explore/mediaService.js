@@ -41,6 +41,14 @@ function isRetryableUploadError(error) {
     message.includes("load failed") || message.includes("failed to fetch") || message.includes("network request failed") || message.includes("timeout");
 }
 
+// tus attaches the HTTP response to its errors; none means the request itself
+// failed (network, WebView or CORS level) rather than the server refusing it.
+function isResumableTransportFailure(error) {
+  const response = error?.originalResponse;
+  const status = Number(typeof response?.getStatus === "function" ? response.getStatus() : 0);
+  return !status;
+}
+
 function uploadDelay(ms) {
   return new Promise((resolve) => window.setTimeout(resolve, ms));
 }
@@ -128,9 +136,18 @@ export async function uploadMediaFile(file, mediaType, userId, options = {}) {
   }
 
   if (Number(file.size || 0) > RESUMABLE_UPLOAD_THRESHOLD_BYTES) {
-    await uploadMediaFileResumable(file, filePath, options);
-    const { data } = supabase.storage.from(EXPLORE_MEDIA_BUCKET).getPublicUrl(filePath);
-    return data?.publicUrl || "";
+    try {
+      await uploadMediaFileResumable(file, filePath, options);
+      const { data } = supabase.storage.from(EXPLORE_MEDIA_BUCKET).getPublicUrl(filePath);
+      return data?.publicUrl || "";
+    } catch (resumableError) {
+      // A resumable request that never got an HTTP response (the Android
+      // WebView reports "failed to create upload … response code: n/a") is a
+      // transport failure, not a rejection. Fall back to the single-request
+      // upload below, the same path UrMall media uses.
+      if (!isResumableTransportFailure(resumableError)) throw resumableError;
+      options.onProgress?.(0, Number(file.size || 0));
+    }
   }
 
   let lastError = null;

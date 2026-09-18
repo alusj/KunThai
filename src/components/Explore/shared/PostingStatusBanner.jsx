@@ -57,7 +57,9 @@ export default function PostingStatusBanner({ notice, onDismiss, onShareKunThai 
     syncing: t("explore.stageSyncing"),
     complete: t("explore.stageComplete"),
   };
-  const message = notice.message || stageMessages[notice.stage] || t("explore.processingSecurely");
+  const message = notice.interrupted
+    ? t("explore.postingInterrupted")
+    : notice.message || stageMessages[notice.stage] || t("explore.processingSecurely");
   const showMessage = (isError || isComplete) && message;
   const dismissLabel = isReviewing ? t("explore.cancelVideoPosting") : t("explore.dismissPosting");
   const ringColor = isError ? "#e11d48" : isComplete ? "#059669" : "#0284c7";

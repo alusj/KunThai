@@ -1,4 +1,4 @@
-import { CONTENT_MODERATION_ENABLED } from "../../../config/contentModeration";
+import { CONTENT_MODERATION_ENABLED } from "../../../config/contentModeration.js";
 
 export const POSTING_NOTICE_EVENT = "explore-posting-update";
 
@@ -8,6 +8,12 @@ const MAX_VIDEO_REVIEW_JOBS = 6;
 const COMPLETE_NOTICE_TTL_MS = 4500;
 // Statuses that mean work is still in flight, so the notice stays on screen.
 const ACTIVE_POSTING_STATUSES = new Set(["posting", "uploading", "reviewing"]);
+// Posting and uploading run inside this page. If the page is reloaded (Android
+// can restart the WebView under memory pressure) that work is gone, so a notice
+// saved by an earlier page load must not sit frozen at its last percentage.
+// "reviewing" is different: that review continues on the server.
+const PAGE_BOUND_POSTING_STATUSES = new Set(["posting", "uploading"]);
+const PAGE_SESSION_ID = `page-${Date.now().toString(36)}-${Math.random().toString(36).slice(2, 8)}`;
 
 function canUseStorage() {
   return typeof localStorage !== "undefined";
@@ -43,7 +49,30 @@ export function normalizePostingNotice(detail = {}) {
     pulse: detail.pulse ?? !["complete", "error"].includes(status),
     updatedAt: detail.updatedAt || timestamp,
     expiresAt: persistent ? null : detail.expiresAt || (isComplete ? timestamp + COMPLETE_NOTICE_TTL_MS : null),
+    interrupted: Boolean(detail.interrupted),
+    pageSession: detail.pageSession || PAGE_SESSION_ID,
   };
+}
+
+// True when the notice is for posting work that ran in an earlier page load and
+// therefore stopped when that page went away.
+export function wasInterruptedByReload(notice, pageSession = PAGE_SESSION_ID) {
+  return Boolean(notice && PAGE_BOUND_POSTING_STATUSES.has(notice.status) && notice.pageSession !== pageSession);
+}
+
+// A notice for work that ran in an earlier page load, turned into a failure the
+// person can read and dismiss.
+export function interruptedPostingNotice(notice) {
+  return normalizePostingNotice({
+    ...notice,
+    status: "error",
+    stage: "",
+    progress: 0,
+    message: "",
+    persistent: true,
+    interrupted: true,
+    updatedAt: now(),
+  });
 }
 
 export function readPostingNotice() {
@@ -70,6 +99,10 @@ export function readPostingNotice() {
   if (notice.expiresAt && Number(notice.expiresAt) <= now()) {
     clearPostingNotice(notice.id);
     return null;
+  }
+
+  if (wasInterruptedByReload(notice)) {
+    return writePostingNotice(interruptedPostingNotice(notice));
   }
 
   return notice;
