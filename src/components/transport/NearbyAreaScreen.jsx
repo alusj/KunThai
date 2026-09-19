@@ -1,4 +1,5 @@
 import { memo, useCallback, useEffect, useMemo, useRef, useState } from "react";
+import { getPreciseCurrentPosition } from "../../Backend/utils/precisePosition";
 import {
   FiAlertTriangle,
   FiBookmark,
@@ -22,7 +23,7 @@ import {
 import AppBackTab from "../shared/AppBackTab";
 import { useAutoCollapseCard } from "../shared/motionHooks";
 import NearbyAreaMap from "./area/NearbyAreaMap";
-import { searchLocations } from "../../Backend/services/locationSearchService";
+import { resolveAddressLocation, searchLocations } from "../../Backend/services/locationSearchService";
 import { getRouteBetweenPoints } from "../../Backend/services/routeService";
 import {
   getActiveAreaReports,
@@ -229,19 +230,14 @@ function createAddLocationDraft() {
   };
 }
 
+// "Locate me" saves a place, so it uses the most accurate fix the device gives
+// within a few seconds (not the first, often coarse, one) and keeps its exact
+// coordinates.
 function getBrowserCurrentPosition() {
-  return new Promise((resolve, reject) => {
-    if (typeof navigator === "undefined" || !navigator.geolocation) {
-      reject(new Error(t("urride.areaView.errNotSupported")));
-      return;
-    }
-
-    navigator.geolocation.getCurrentPosition(resolve, reject, {
-      enableHighAccuracy: true,
-      maximumAge: 0,
-      timeout: 15000,
-    });
-  });
+  if (typeof navigator === "undefined" || !navigator.geolocation) {
+    return Promise.reject(new Error(t("urride.areaView.errNotSupported")));
+  }
+  return getPreciseCurrentPosition();
 }
 
 function getFriendlyLocationError(error, fallback) {
@@ -775,8 +771,9 @@ async function resolveRouteWaypoint(point, center, fallbackName) {
   if (Number.isFinite(waypoint.lat) && Number.isFinite(waypoint.lng)) return waypoint;
   if (!waypoint.searchQuery) return null;
 
-  const results = await searchLocations(waypoint.searchQuery, center);
-  const result = Array.isArray(results) ? results[0] : null;
+  // Only a result in the typed community / town / country (near the person
+  // when known) is used; a same-named place elsewhere is never picked.
+  const { place: result } = await resolveAddressLocation(waypoint.searchQuery, center);
   const lat = Number(result?.lat);
   const lng = Number(result?.lng);
   if (!Number.isFinite(lat) || !Number.isFinite(lng)) return null;
@@ -1325,7 +1322,7 @@ export default function NearbyAreaScreen({
   }, [isBusinessLocationPicker, pickerStart]);
 
   useEffect(() => {
-    if (!isBusinessLocationPicker || businessPickerMode !== "current" || !userLocation?.lat || !userLocation?.lng) {
+    if (!isBusinessLocationPicker || businessPickerMode !== "current") {
       return undefined;
     }
 
@@ -1333,8 +1330,25 @@ export default function NearbyAreaScreen({
     setPickerBusy(true);
     setPickerStatus(resolvedPickerLabels.currentStatus);
 
-    reverseGeocodePoint(userLocation)
+    // A fresh, precise fix: the map's live position is rate-limited and can be
+    // smoothed onto a route, so it is only the fallback.
+    getBrowserCurrentPosition()
+      .then((position) => ({
+        lat: position.coords.latitude,
+        lng: position.coords.longitude,
+        accuracyMeters: position.coords.accuracy,
+      }))
+      .catch(() => userLocationRef.current)
+      .then((point) => {
+        if (cancelled) return null;
+        if (!Number.isFinite(Number(point?.lat)) || !Number.isFinite(Number(point?.lng))) {
+          setPickerStatus(t("urride.areaView.errGpsFallback"));
+          return null;
+        }
+        return reverseGeocodePoint(point).then((location) => ({ ...location, accuracyMeters: point.accuracyMeters }));
+      })
       .then((location) => {
+        if (!location) return;
         if (cancelled) return;
         const nextLocation = buildPinnedLocationPreview(location, resolvedPickerLabels.currentName);
         setCurrentPickerLocation(nextLocation);
@@ -1347,7 +1361,7 @@ export default function NearbyAreaScreen({
     return () => {
       cancelled = true;
     };
-  }, [businessPickerMode, isBusinessLocationPicker, resolvedPickerLabels.currentName, resolvedPickerLabels.currentStatus, userLocation]);
+  }, [businessPickerMode, isBusinessLocationPicker, resolvedPickerLabels.currentName, resolvedPickerLabels.currentStatus]);
 
   const resolveDroppedPinPreview = useCallback(async (point, target) => {
     const nextPosition = normalizePosition(point);
@@ -1541,15 +1555,18 @@ export default function NearbyAreaScreen({
       let cancelled = false;
       const searchCenter = mapCenterRef.current || userLocationRef.current;
 
-      searchLocations(searchText, searchCenter, {
+      // A saved or typed address is navigated to only when a result sits in its
+      // community / town / country (and near the person when their position is
+      // known). Otherwise the person picks from the matches, instead of being
+      // routed to a same-named street in another country.
+      resolveAddressLocation(searchText, searchCenter, {
         countryCode: normalizeCountryIso(initialDestination?.countryCode || initialDestination?.country),
       })
-        .then((results) => {
+        .then(({ place: result, results }) => {
           if (cancelled) return;
 
-          const result = Array.isArray(results) ? results[0] : null;
           if (!Number.isFinite(Number(result?.lat)) || !Number.isFinite(Number(result?.lng))) {
-            setSearchResults([]);
+            setSearchResults(Array.isArray(results) ? results : []);
             setSearchOverlayOpen(true);
             return;
           }
@@ -1792,7 +1809,8 @@ export default function NearbyAreaScreen({
 
       const text = searchQuery.trim();
 
-      if (text.length < 2) {
+      // Every letter searches (type-ahead), like Google or Apple Maps.
+      if (text.length < 1) {
         if (searchRequestRef.current === requestId) {
           setSearchResults([]);
           setSearching(false);
@@ -1815,7 +1833,7 @@ export default function NearbyAreaScreen({
           setSearching(false);
         }
       }
-    }, 350);
+    }, 250);
 
     return () => window.clearTimeout(timeout);
   }, [searchOverlayOpen, searchQuery, searchSortByDistance, selectionLocked]);

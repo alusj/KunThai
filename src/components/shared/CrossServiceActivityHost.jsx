@@ -1,4 +1,5 @@
 import { useEffect, useRef } from "react";
+import { isHeavyUploadActive } from "../../Backend/services/uploadActivity";
 
 import supabase from "../../Backend/lib/supabaseClient";
 import { haptics, sounds } from "../../Backend/services/feedbackService";
@@ -332,7 +333,11 @@ export default function CrossServiceActivityHost({
       refreshTransport().catch(() => {});
     }
 
-    const intervalId = window.setInterval(refreshAll, ACTIVITY_REFRESH_MS);
+    // Timed refreshes wait while a video uploads so they do not compete with
+    // it on slow connections; realtime events and user actions still refresh.
+    const intervalId = window.setInterval(() => {
+      if (!isHeavyUploadActive()) refreshAll();
+    }, ACTIVITY_REFRESH_MS);
     const seenCleanup = subscribeNotificationSeen(refreshAll);
     const eventNames = [
       "marketplace-orders-updated",

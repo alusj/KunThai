@@ -1,4 +1,5 @@
 import { useEffect, useMemo, useState } from "react";
+import { getPreciseCurrentPosition } from "../utils/precisePosition";
 import { friendlyErrorMessage } from "../services/friendlyErrorService";
 
 import {
@@ -584,7 +585,8 @@ export function useSellerRegistration({ mode = "create", onComplete } = {}) {
 
     setLocating(true);
     setLocationStatus("Locating your business...");
-    navigator.geolocation.getCurrentPosition(
+    // Best fix within a few seconds, saved with its exact coordinates.
+    getPreciseCurrentPosition().then(
       async (position) => {
         const coordinates = {
           latitude: position.coords.latitude,
@@ -606,7 +608,6 @@ export function useSellerRegistration({ mode = "create", onComplete } = {}) {
         setLocationStatus("Location permission denied. You can enter address manually.");
         setLocating(false);
       },
-      { enableHighAccuracy: true, timeout: 10000 },
     );
   }
 

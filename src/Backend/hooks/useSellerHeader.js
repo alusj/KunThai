@@ -1,4 +1,5 @@
 import { useCallback, useEffect, useState } from "react";
+import { isHeavyUploadActive } from "../services/uploadActivity";
 
 import {
   getUnseenNotificationCount,
@@ -88,6 +89,8 @@ export function useSellerHeader() {
       }
     });
     const interval = window.setInterval(() => {
+      // Skipped while a video uploads (see uploadActivity).
+      if (isHeavyUploadActive()) return;
       loadHeaderState(() => active).catch(() => {});
     }, 20000);
     subscribeSellerHeaderChanges(() => loadHeaderState(() => active).catch(() => {}))

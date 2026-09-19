@@ -3,6 +3,7 @@ import { isMissingTable } from "../explore/errors";
 import { optimizeImageFile } from "./imageOptimization";
 import { validateVerticalMediaPackage } from "./verticalMediaValidation";
 import { assertBusinessCapacity, parseBusinessPlanError } from "../businessSubscriptionService";
+import { invalidateRegisteredBusinessesCache } from "./sellerRegistrationService";
 import {
   assertVisibilityCreditsAvailable,
   MINIMUM_VISIBILITY_CREDITS,
@@ -222,6 +223,7 @@ export async function saveHotelMediaPackage(businessId, input = {}, onProgress) 
   if (imageError) throw new Error(imageError.message || "Unable to save hotel images.");
   const { error: videoError } = await supabase.from("marketplace_businesses").update({ vertical_video_url: videoUrl, updated_at: new Date().toISOString() }).eq("id", businessId);
   if (videoError) throw new Error(videoError.message || "Unable to save the hotel video.");
+  invalidateRegisteredBusinessesCache();
   return { coverUrl, extraUrls, videoUrl };
 }
 
@@ -248,6 +250,7 @@ export async function deleteHotelImage(image) {
 export async function deleteHotelVideo(businessId, videoUrl) {
   const { error } = await supabase.from("marketplace_businesses").update({ vertical_video_url: null, updated_at: new Date().toISOString() }).eq("id", businessId);
   if (error) throw new Error(error.message || "Unable to delete this hotel video.");
+  invalidateRegisteredBusinessesCache();
   await removeMarketplaceMedia([videoUrl]);
 }
 

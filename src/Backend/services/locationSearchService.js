@@ -294,22 +294,31 @@ function sortPlaces(places = [], searchText = "", distanceFirst = false) {
   });
 }
 
-function buildSearchVariants(searchText = "") {
+// A leading house number ("26a", "No. 5", "12-14") is dropped for searching:
+// OpenStreetMap rarely maps house numbers in KunThai's markets, and searching
+// on it pulled in same-named streets in other countries.
+const HOUSE_NUMBER_PREFIX = /^\s*(?:no\.?\s*|#\s*)?\d+[a-z]?(?:\s*[-/]\s*\d+[a-z]?)?\b\s*,?\s*/i;
+
+export function stripHouseNumber(text = "") {
+  const segments = cleanAddressText(text).split(",").map((segment) => segment.trim());
+  const first = segments[0] || "";
+  const withoutNumber = first.replace(HOUSE_NUMBER_PREFIX, "").trim();
+  if (!withoutNumber) return segments.slice(1).filter(Boolean).join(", ");
+  return [withoutNumber, ...segments.slice(1)].filter(Boolean).join(", ");
+}
+
+// Fallback queries for full addresses. Every variant keeps the community, town
+// and country the person typed; a street or number is never searched alone.
+export function buildSearchVariants(searchText = "") {
   const normalized = cleanAddressText(searchText);
-  const segments = normalized.split(",").map((segment) => segment.trim()).filter((segment) => segment.length >= 2);
-  const variants = [normalized];
-  const withoutPostcode = normalized.replace(/\b[A-Z]{0,2}\d{3,6}\b/gi, "").replace(/\s+,/g, ",").trim();
-  if (withoutPostcode && withoutPostcode !== normalized) variants.push(withoutPostcode);
-
-  if (segments.length > 1) {
-    variants.push(segments.slice(0, -1).join(", "));
-    variants.push(segments.slice(1).join(", "));
-    variants.push([segments[0], segments[1], ...segments.slice(-2)].filter(Boolean).join(", "));
-    variants.push(segments.slice(0, 2).join(", "));
-    variants.push(segments[0]);
-  }
-
-  return [...new Set(variants.filter(Boolean))].slice(0, 7);
+  const withoutNumber = stripHouseNumber(normalized);
+  const segments = withoutNumber.split(",").map((segment) => segment.trim()).filter((segment) => segment.length >= 2);
+  const variants = [normalized, withoutNumber];
+  const withoutPostcode = withoutNumber.replace(/\b[A-Z]{0,2}\d{3,6}\b/gi, "").replace(/\s+,/g, ",").trim();
+  if (withoutPostcode) variants.push(withoutPostcode);
+  // "Street, Community, Town, Country" -> "Community, Town, Country".
+  if (segments.length >= 3) variants.push(segments.slice(1).join(", "));
+  return [...new Set(variants.filter(Boolean))].slice(0, 4);
 }
 
 async function fetchNominatim(url) {
@@ -326,54 +335,159 @@ async function fetchNominatim(url) {
   return response.json();
 }
 
-export async function searchLocations(query, center = null, options = {}) {
-  const searchText = query?.trim();
+// Photon (photon.komoot.io) is OpenStreetMap search built for type-ahead: it
+// matches partial words ("Manf" -> "Manfred Lane") and ranks places near the
+// given point first. Nominatim only matches whole words.
+const PHOTON_URL = "https://photon.komoot.io/api/";
 
-  if (!searchText || searchText.length < 2) {
-    return [];
+export function photonFeatureToPlace(feature, center) {
+  const props = feature?.properties || {};
+  const [lng, lat] = Array.isArray(feature?.geometry?.coordinates) ? feature.geometry.coordinates.map(Number) : [];
+  if (!Number.isFinite(lat) || !Number.isFinite(lng)) return null;
+
+  const street = [props.housenumber, props.street].filter(Boolean).join(" ");
+  const name = props.name || street || props.district || props.locality || props.city || props.county || "Location";
+  const parts = [
+    street && street !== name ? street : "",
+    props.district || props.locality || "",
+    props.city || props.county || "",
+    props.state || "",
+  ].filter((part, index, list) => part && part !== name && list.indexOf(part) === index);
+  const shortAddress = parts.join(", ");
+  const fullAddress = [name, ...parts, props.country].filter(Boolean).join(", ");
+  const distanceMeters = center ? distanceInMeters(center, { lat, lng }) : null;
+
+  return {
+    id: `photon-${props.osm_type || ""}${props.osm_id || `${lat},${lng}`}`,
+    name,
+    label: name,
+    placeName: name,
+    address: shortAddress || fullAddress,
+    fullAddress,
+    country: props.country || "",
+    countryCode: String(props.countrycode || "").toLowerCase(),
+    category: props.osm_value || props.type || "Location",
+    lat,
+    lng,
+    distanceMeters,
+    distance: formatDistance(distanceMeters),
+    nearby: Number.isFinite(distanceMeters) && distanceMeters <= NEARBY_VIEWBOX_RADIUS_DEGREES * 111_000,
+  };
+}
+
+async function fetchPhoton(text, center, limit) {
+  const params = new URLSearchParams({ q: text, limit: String(limit), lang: "en" });
+  if (center) {
+    params.set("lat", String(center.lat));
+    params.set("lon", String(center.lng));
   }
+  const response = await fetch(`${PHOTON_URL}?${params.toString()}`, { headers: { Accept: "application/json" } });
+  if (!response.ok) throw new Error("Location search failed");
+  const data = await response.json();
+  return (Array.isArray(data?.features) ? data.features : [])
+    .map((feature) => photonFeatureToPlace(feature, center))
+    .filter(Boolean);
+}
+
+// True when a result sits in the community / town / country the person typed
+// (a single-part query always qualifies).
+export function isStrongAddressMatch(place, searchText = "") {
+  return hasStrongAddressMatch([place], buildAddressContext(stripHouseNumber(searchText)));
+}
+
+// Keeps the results that honour the typed context: the named country, the
+// named community/town, the caller's country, and distance from the person.
+function filterByContext(places, { searchText, center, countryCode, maxDistanceMeters }) {
+  let kept = places.filter((place) => {
+    if (countryCode && place.countryCode && place.countryCode !== countryCode) return false;
+    if (center && Number.isFinite(place.distanceMeters) && place.distanceMeters > maxDistanceMeters) return false;
+    return true;
+  });
+
+  const segments = cleanAddressText(searchText).split(",").map((segment) => segment.trim()).filter(Boolean);
+  if (segments.length > 1) {
+    const typedCountry = normalizeSearchText(segments[segments.length - 1]);
+    const inTypedCountry = kept.filter((place) => normalizeSearchText(place.country) === typedCountry);
+    if (inTypedCountry.length) kept = inTypedCountry;
+
+    const context = buildAddressContext(stripHouseNumber(searchText));
+    const strong = kept.filter((place) => hasStrongAddressMatch([place], context));
+    if (strong.length) kept = strong;
+  }
+  return kept;
+}
+
+export async function searchLocations(query, center = null, options = {}) {
+  const searchText = String(query || "").trim();
+  if (!searchText) return [];
 
   try {
     const normalizedCenter = normalizeCenter(center);
-    const viewbox = buildNearbyViewbox(normalizedCenter);
     const limit = Math.max(3, Math.min(12, Number(options.limit || 8)));
     const maxDistanceMeters = Number(options.maxDistanceMeters || NEARBY_FALLBACK_RADIUS_METERS);
-    const centerCountryCode = String(options.countryCode || normalizedCenter?.countryCode || "").toLowerCase();
-    const countryParam = centerCountryCode ? `&countrycodes=${encodeURIComponent(centerCountryCode)}` : "";
-    const baseParams = `format=json&addressdetails=1&namedetails=1&limit=${limit}${countryParam}`;
-    const variants = buildSearchVariants(searchText);
-    const addressContext = buildAddressContext(searchText);
-    let collected = [];
+    const countryCode = String(options.countryCode || normalizedCenter?.countryCode || "").toLowerCase();
+    const filterOptions = { searchText, center: normalizedCenter, countryCode, maxDistanceMeters };
+    const addressContext = buildAddressContext(stripHouseNumber(searchText));
 
-    const normalizeResults = (data, source) => (Array.isArray(data) ? data : [])
-      .map((place) => normalizePlace(place, normalizedCenter, source))
-      .filter(Boolean)
-      .filter((place) => {
-        if (!normalizedCenter || source === "nearby") return true;
-        if (centerCountryCode && place.countryCode && place.countryCode !== centerCountryCode) return false;
-        return place.distanceMeters == null || place.distanceMeters <= maxDistanceMeters;
-      });
+    // 1. Type-ahead: works from the first letter.
+    let collected = filterByContext(
+      await fetchPhoton(searchText, normalizedCenter, Math.min(15, limit + 4)).catch(() => []),
+      filterOptions,
+    );
 
-    for (let index = 0; index < variants.length; index += 1) {
-      const variant = variants[index];
-      const nearbyUrl = viewbox
-        ? `https://nominatim.openstreetmap.org/search?${baseParams}&bounded=1&viewbox=${encodeURIComponent(viewbox)}&q=${encodeURIComponent(variant)}`
-        : null;
-      const nearbyData = nearbyUrl ? await fetchNominatim(nearbyUrl).catch(() => []) : [];
-      collected = uniquePlaces([...collected, ...normalizeResults(nearbyData, "nearby")]);
+    // 2. Full addresses Photon could not place: Nominatim, keeping the typed
+    //    community/town/country in every query (whole words, so 3+ letters).
+    const needsFallback = searchText.length >= 3
+      && (collected.length < Math.min(3, limit) || (addressContext.structured && !hasStrongAddressMatch(collected, addressContext)));
+    if (needsFallback) {
+      const countryParam = countryCode ? `&countrycodes=${encodeURIComponent(countryCode)}` : "";
+      const baseParams = `format=json&addressdetails=1&namedetails=1&limit=${limit}${countryParam}`;
+      const viewbox = buildNearbyViewbox(normalizedCenter);
+      const variants = buildSearchVariants(searchText);
+      let requests = 0;
 
-      if (collected.length < Math.min(4, limit)) {
-        const globalUrl = `https://nominatim.openstreetmap.org/search?${baseParams}&q=${encodeURIComponent(variant)}`;
-        const globalData = await fetchNominatim(globalUrl).catch(() => []);
-        collected = uniquePlaces([...collected, ...normalizeResults(globalData, "global")]);
+      for (const variant of variants) {
+        if (requests >= 3) break;
+        const urls = [
+          viewbox ? `https://nominatim.openstreetmap.org/search?${baseParams}&bounded=1&viewbox=${encodeURIComponent(viewbox)}&q=${encodeURIComponent(variant)}` : null,
+          `https://nominatim.openstreetmap.org/search?${baseParams}&q=${encodeURIComponent(variant)}`,
+        ].filter(Boolean);
+        for (const url of urls) {
+          if (requests >= 3) break;
+          requests += 1;
+          const data = await fetchNominatim(url).catch(() => []);
+          const places = (Array.isArray(data) ? data : [])
+            .map((place) => normalizePlace(place, normalizedCenter, url.includes("bounded=1") ? "nearby" : "global"))
+            .filter(Boolean);
+          collected = uniquePlaces([...collected, ...filterByContext(places, filterOptions)]);
+          if (collected.length && hasStrongAddressMatch(collected, addressContext)) break;
+        }
+        if (collected.length && hasStrongAddressMatch(collected, addressContext)) break;
       }
-
-      if (collected.length >= Math.min(4, limit) && hasStrongAddressMatch(collected, addressContext)) break;
-      if (!addressContext.structured && index > 0 && collected.length > 0) break;
     }
 
-    return sortPlaces(collected, searchText, options.sortByDistance === true).slice(0, limit);
+    return sortPlaces(uniquePlaces(collected), stripHouseNumber(searchText) || searchText, options.sortByDistance === true).slice(0, limit);
   } catch {
     return [];
   }
+}
+
+// The place to navigate to for a typed or saved address, or null. Only a
+// result in the typed community / town / country (and near the person, when
+// their position is known) qualifies; otherwise the caller shows the choices.
+export async function resolveAddressLocation(query, center = null, options = {}) {
+  const searchText = String(query || "").trim();
+  const results = await searchLocations(searchText, center, { ...options, limit: options.limit || 8 });
+  // Every typed word (house numbers and words like "street" aside) must appear
+  // in the result, so "26a Grassfield" never auto-resolves to "Pump Station 260".
+  const requiredTokens = tokenizeAddressSegment(stripHouseNumber(searchText));
+  // Without the person's position, only an address that names its community,
+  // town or country is specific enough to navigate to on its own.
+  const hasContext = Boolean(normalizeCenter(center)) || buildAddressContext(stripHouseNumber(searchText)).structured;
+  if (!hasContext) return { place: null, results };
+  const place = results.find((result) => (
+    isStrongAddressMatch(result, searchText)
+    && countTokenMatches(getSearchablePlaceText(result), requiredTokens) === requiredTokens.length
+  )) || null;
+  return { place, results };
 }

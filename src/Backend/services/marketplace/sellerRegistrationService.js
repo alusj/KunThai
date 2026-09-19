@@ -396,7 +396,63 @@ async function readAcceptedAdminBusinessRows(userId) {
   }));
 }
 
-export async function readRegisteredBusinesses() {
+// Every seller surface (header, badges, overview, activity host) reads the
+// business list, often several times per refresh and on 20-second timers.
+// Each read is 1 + 3 + 4-per-business requests, which on a slow phone
+// connection competes with uploads. Concurrent reads share one request and a
+// result is reused for a few seconds; any write here, or the business-changed
+// event, drops it so edits are never shown stale.
+const REGISTERED_BUSINESSES_REUSE_MS = 3000;
+let registeredBusinessesCache = null;
+
+export function invalidateRegisteredBusinessesCache() {
+  registeredBusinessesCache = null;
+}
+
+if (typeof window !== "undefined") {
+  window.addEventListener(MARKETPLACE_BUSINESS_CHANGED_EVENT, invalidateRegisteredBusinessesCache);
+}
+
+async function readSessionUserId() {
+  const { data } = await supabase.auth.getSession();
+  return data?.session?.user?.id || "";
+}
+
+function copyBusinesses(list) {
+  try {
+    return structuredClone(list);
+  } catch {
+    return list;
+  }
+}
+
+export async function readRegisteredBusinesses({ fresh = false } = {}) {
+  const sessionUserId = await readSessionUserId();
+  const cached = registeredBusinessesCache;
+  if (
+    !fresh
+    && sessionUserId
+    && cached?.userId === sessionUserId
+    && (cached.pending || Date.now() - cached.settledAt < REGISTERED_BUSINESSES_REUSE_MS)
+  ) {
+    return copyBusinesses(await cached.promise);
+  }
+
+  const entry = { userId: sessionUserId, pending: true, settledAt: 0, promise: null };
+  entry.promise = loadRegisteredBusinesses();
+  registeredBusinessesCache = sessionUserId ? entry : null;
+  try {
+    const businesses = await entry.promise;
+    entry.pending = false;
+    entry.settledAt = Date.now();
+    return copyBusinesses(businesses);
+  } catch (error) {
+    if (registeredBusinessesCache === entry) registeredBusinessesCache = null;
+    throw error;
+  }
+}
+
+async function loadRegisteredBusinesses() {
   const userId = await getCurrentUserId();
   const [{ data: rows, error }, adminBusinesses] = await Promise.all([
     supabase
@@ -453,6 +509,7 @@ export async function readUsedBusinessKinds() {
 }
 
 export async function deleteRegisteredBusiness(businessId) {
+  invalidateRegisteredBusinessesCache();
   const userId = await getCurrentUserId();
   if (!businessId) throw new Error("Choose a business to delete.");
 
@@ -474,9 +531,9 @@ export async function deleteRegisteredBusiness(businessId) {
   window.dispatchEvent(new CustomEvent(MARKETPLACE_BUSINESS_CHANGED_EVENT, { detail: { businessId: null } }));
 }
 
-export async function readRegisteredBusiness() {
-  const userId = await getCurrentUserId();
-  const businesses = await readRegisteredBusinesses();
+export async function readRegisteredBusiness({ fresh = false } = {}) {
+  const businesses = await readRegisteredBusinesses({ fresh });
+  const userId = (await readSessionUserId()) || (await getCurrentUserId());
   if (!businesses.length) {
     cacheActiveRegisteredBusinessId("");
     return null;
@@ -495,6 +552,7 @@ export async function hasRegisteredBusiness() {
 }
 
 export async function submitSellerRegistration(registration) {
+  invalidateRegisteredBusinessesCache();
   const userId = await getCurrentUserId();
   await assertCanCreateBusinessType(registration.identity.businessKind || "retail");
   storeCountryContext(registration.location.country);
@@ -631,10 +689,11 @@ export async function submitSellerRegistration(registration) {
   });
 
   await setActiveRegisteredBusiness(business.id);
-  return readRegisteredBusiness();
+  return readRegisteredBusiness({ fresh: true });
 }
 
 export async function updateRegisteredBusinessProfile(updates) {
+  invalidateRegisteredBusinessesCache();
   const currentBusiness = await readRegisteredBusiness();
   if (!currentBusiness?.id) {
     throw new Error("No registered business profile was found.");
@@ -763,7 +822,7 @@ export async function updateRegisteredBusinessProfile(updates) {
 
   // Delegated editors may change public business information, but financial
   // payout details and verification documents always remain owner-only.
-  if (delegatedAdmin) return readRegisteredBusiness();
+  if (delegatedAdmin) return readRegisteredBusiness({ fresh: true });
 
   const payoutPayload = registration.trustPayout.skipped
     ? {
@@ -799,7 +858,7 @@ export async function updateRegisteredBusinessProfile(updates) {
     if (documentError) throw new Error(documentError.message);
   }
 
-  return readRegisteredBusiness();
+  return readRegisteredBusiness({ fresh: true });
 }
 
 function readinessItem(key, label, complete) {
