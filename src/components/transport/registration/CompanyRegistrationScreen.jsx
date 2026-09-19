@@ -57,6 +57,8 @@ import {
 } from "../../../data/globalTransportCapabilities";
 import { useI18n, t } from "../../../i18n";
 import { t as i18nText } from "../../../i18n/index";
+import { useAiScreen } from "../../../Backend/services/ai/aiScreenContext";
+import { buildCompanyRegistrationAiContext } from "./companyRegistrationAi";
 
 const steps = [
   { labelKey: "urride.companyReg.stepCompany", icon: FiBriefcase },
@@ -460,6 +462,19 @@ export default function CompanyRegistrationScreen({ existingCompany = null, mode
       documentReady,
     ].filter(Boolean).length;
   }, [companyDocumentRequirements, fleets, form]);
+
+  // KAI can see this registration and fill it (never documents, photos or the map pin).
+  useAiScreen(() => buildCompanyRegistrationAiContext({
+    step,
+    form,
+    fleets,
+    areaText,
+    fieldErrors,
+    status,
+    updateForm,
+    updateFleet,
+    setAreaText,
+  }), { enabled: !initializing && !finishing });
 
   function updateForm(field, value) {
     if (field === "country") {

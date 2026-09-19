@@ -246,25 +246,28 @@ registerToolGroup({
 
 export const MAX_TOOL_CALLS_PER_ROUND = 3;
 
-function toolAllowed(tool, surface, role) {
+// `capabilities` are what the current screen offers ("form", "message"). A tool
+// with a `capability` exists only while such a screen is open.
+function toolAllowed(tool, surface, role, capabilities = []) {
   const surfaceOk = tool.surfaces.includes("*") || tool.surfaces.includes(surface);
   if (!surfaceOk) return false;
+  if (tool.capability && !capabilities.includes(tool.capability)) return false;
   if (!tool.roles) return true;
   return tool.roles.includes(role || "");
 }
 
-/** Tool names available in a section for a role. */
-export function toolNamesFor(surface, role = "") {
+/** Tool names available in a section for a role and the screen's capabilities. */
+export function toolNamesFor(surface, role = "", capabilities = []) {
   return Object.entries(ASSISTANT_TOOLS)
-    .filter(([, tool]) => toolAllowed(tool, surface, role))
+    .filter(([, tool]) => toolAllowed(tool, surface, role, capabilities))
     .map(([name]) => name);
 }
 
 /** Gemini function declarations for a section and role. */
-export function functionDeclarationsFor(surface, role = "") {
+export function functionDeclarationsFor(surface, role = "", capabilities = []) {
   // Tools without arguments omit `parameters`: Gemini rejects an object schema
   // with no properties.
-  return toolNamesFor(surface, role).map((name) => ({
+  return toolNamesFor(surface, role, capabilities).map((name) => ({
     name,
     description: ASSISTANT_TOOLS[name].description,
     ...(ASSISTANT_TOOLS[name].parameters ? { parameters: ASSISTANT_TOOLS[name].parameters } : {}),
@@ -276,12 +279,12 @@ export function functionDeclarationsFor(surface, role = "") {
  * allow, or with unusable arguments, comes back `rejected` so the browser
  * reports the refusal to the model instead of running anything.
  */
-export function validateToolCall(call, surface, role = "") {
+export function validateToolCall(call, surface, role = "", capabilities = []) {
   const name = cleanSlug(call?.name, 48).replace(/[.-]/g, "_");
   const id = cleanLine(call?.id, 80) || `call_${Math.random().toString(36).slice(2, 10)}`;
   const tool = Object.prototype.hasOwnProperty.call(ASSISTANT_TOOLS, name) ? ASSISTANT_TOOLS[name] : null;
 
-  if (!tool || !toolAllowed(tool, surface, role)) {
+  if (!tool || !toolAllowed(tool, surface, role, capabilities)) {
     return { id, name: name || "unknown", kind: "data", args: {}, rejected: true, reason: "This KunThai tool is not available here." };
   }
   try {

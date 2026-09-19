@@ -10,6 +10,7 @@ import { friendlyErrorMessage } from "../Backend/services/friendlyErrorService";
 import AdminShell from "./components/AdminShell";
 import CaseDrawer from "./components/CaseDrawer";
 import AiAssistantHost from "../components/ai/AiAssistantHost";
+import AiFloatingButton from "../components/ai/AiFloatingButton";
 import { setAiRole, setAiSurface } from "../Backend/services/ai/aiSurfaceService";
 import { registerAdminAiTools } from "./adminAiTools";
 import ActionHistoryView from "./views/ActionHistoryView";
@@ -204,6 +205,7 @@ function AdminWorkspace({ access, user, preview }) {
       {content}
       {selectedCase ? <CaseDrawer item={selectedCase} access={access} onClose={() => setSelectedCase(null)} onUpdated={updateCase} /> : null}
       {preview ? null : <AiAssistantHost />}
+      {preview ? null : <AiFloatingButton />}
     </AdminShell>
   );
 }

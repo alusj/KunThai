@@ -8,6 +8,7 @@ import {
 } from "../../../../Backend/services/explore/messageService";
 import { readExploreSettings } from "../../../../Backend/services/explore/preferencesService";
 import { useKeyboardAwareConversation } from "../../../../Backend/hooks/useKeyboardAwareConversation";
+import { useHideAiAssistant } from "../../../../Backend/services/ai/aiScreenContext";
 import { useI18n } from "../../../../i18n";
 import MessageBubble from "./MessageBubble";
 import MessageComposer from "./MessageComposer";
@@ -88,6 +89,8 @@ function usePeerPresence(conversationId, peerUserId, onActivity) {
 }
 
 export default function ConversationScreen({ conversation, currentUserId, loading = false, messages, onAction, onActivity, onBack, onSend, onViewProfile }) {
+  // KAI is not offered in Explore messages.
+  useHideAiAssistant();
   const { t } = useI18n();
   const user = getOtherParticipant(conversation, currentUserId);
   const messagesRef = useRef(null);

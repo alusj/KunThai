@@ -1,6 +1,7 @@
 import { useEffect, useRef, useState } from "react";
 
 import { useExploreMessages } from "../../../../Backend/hooks/useExploreMessages";
+import { useHideAiAssistant } from "../../../../Backend/services/ai/aiScreenContext";
 import { useI18n } from "../../../../i18n";
 import EmptyState from "../../shared/EmptyState";
 import ErrorState from "../../shared/ErrorState";
@@ -13,6 +14,8 @@ import MessagePrivacyNotice from "../../../shared/MessagePrivacyNotice";
 const CONVERSATION_TRANSITION_MS = 280;
 
 export default function MessagesScreen({ currentProfile, hideHeader = false, initialRecipient, onConversationActiveChange, onViewProfile }) {
+  // KAI is not offered in Explore messages.
+  useHideAiAssistant();
   const { t } = useI18n();
   const [tab, setTab] = useState("inbox");
   const messages = useExploreMessages(currentProfile, initialRecipient);

@@ -33,6 +33,7 @@ function mergeEntities(target, entities = {}) {
  * @param {string} options.surface
  * @param {string} [options.role]       buyer | seller | passenger | operator | company | admin
  * @param {string} [options.screen]
+ * @param {string[]} [options.capabilities]  what the open screen offers ("form", "message")
  * @param {string} options.message
  * @param {Array<{role: string, text: string}>} [options.history]
  * @param {string[]} [options.selection]  ids of items selected on screen
@@ -44,6 +45,7 @@ export async function runAssistantExchange({
   surface = "global",
   role = "",
   screen = "",
+  capabilities = [],
   message,
   history = [],
   selection = [],
@@ -62,7 +64,7 @@ export async function runAssistantExchange({
     const response = await runAiTask({
       task: "assistant.chat",
       surface,
-      context: { screen, role },
+      context: { screen, role, ...(capabilities.length ? { capabilities } : {}) },
       signal,
       input: {
         message,

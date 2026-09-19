@@ -42,6 +42,8 @@ import {
   getPersonalServiceCategoryOptions,
 } from "../../../data/globalTransportCapabilities";
 import { useI18n, t } from "../../../i18n";
+import { useAiScreen } from "../../../Backend/services/ai/aiScreenContext";
+import { buildFleetRegistrationAiContext } from "./fleetRegistrationAi";
 import { t as i18nText } from "../../../i18n/index";
 
 // Stored enum values stay English; display localized via urride.fleetEdit.enum.
@@ -318,6 +320,22 @@ export default function FleetRegistrationDrawer({ onClose, onComplete, onSaveExi
     setFieldErrors((current) => clearFieldError(current, `answer-${field}`));
     setStepError("");
   };
+
+  // KAI can see this registration and fill it (never photos or documents).
+  useAiScreen(() => buildFleetRegistrationAiContext({
+    step,
+    form,
+    answers,
+    questions,
+    categoryOptions,
+    fleetTypeOptions,
+    documents,
+    fieldErrors,
+    stepError,
+    update,
+    updateCategory,
+    updateAnswer,
+  }), { enabled: !finishing });
 
   const markUpload = (field, file) => {
     setUploads((current) => ({

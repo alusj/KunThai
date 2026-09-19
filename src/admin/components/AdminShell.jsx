@@ -35,7 +35,6 @@ import {
   X,
 } from "lucide-react";
 import supabase from "../../Backend/lib/supabaseClient";
-import AiAssistButton from "../../components/ai/AiAssistButton";
 import { ADMIN_NAV_GROUPS, canAccess, formatRelativeTime } from "../adminConfig";
 import {
   ADMIN_ACTIVITY_REFRESH_EVENT,
@@ -401,14 +400,6 @@ export default function AdminShell({ access, user, page, setPage, children, case
             />
           </form>
 
-          <AiAssistButton
-            chat
-            size="icon"
-            variant="outline"
-            className="rounded-md border-zinc-200"
-            label="Ask KAI about the platform"
-            getRequest={() => ({ surface: "admin", role: "admin", screen: "admin workspace" })}
-          />
           <div className="relative">
             <button type="button" title="Admin activity" aria-expanded={activityOpen} onClick={() => { setActivityOpen((value) => !value); setProfileOpen(false); setActivityActionOpen(""); setActivityUndoDraft(null); }} className="relative grid h-10 w-10 shrink-0 place-items-center rounded-md border border-zinc-200 bg-white text-zinc-600 hover:bg-zinc-50 hover:text-zinc-950">
               <BellRing size={18} />

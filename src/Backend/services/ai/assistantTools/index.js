@@ -2,6 +2,7 @@ import { URMALL_BUYER_TOOLS } from "./urmallBuyerTools";
 import { SELLER_TOOLS } from "./sellerTools";
 import { URRIDE_TOOLS } from "./urrideTools";
 import { EXPLORE_TOOLS } from "./exploreTools";
+import { SCREEN_TOOLS } from "./screenTools";
 
 // KAI — browser tool executors.
 //
@@ -29,6 +30,7 @@ const REGISTRY = {
   ...SELLER_TOOLS,
   ...URRIDE_TOOLS,
   ...EXPLORE_TOOLS,
+  ...SCREEN_TOOLS,
 };
 
 export function registerAssistantTools(tools) {

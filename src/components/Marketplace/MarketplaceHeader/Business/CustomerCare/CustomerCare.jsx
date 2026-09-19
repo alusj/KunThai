@@ -18,6 +18,7 @@ import { useI18n, t } from "../../../../../i18n";
 import AppBackTab from "../../../../shared/AppBackTab";
 import MessagePrivacyNotice from "../../../../shared/MessagePrivacyNotice";
 import { useKeyboardAwareConversation } from "../../../../../Backend/hooks/useKeyboardAwareConversation";
+import { useAiScreen } from "../../../../../Backend/services/ai/aiScreenContext";
 
 const CONVERSATION_TRANSITION_MS = 360;
 
@@ -69,6 +70,35 @@ export default function CustomerCare({ onBack } = {}) {
     itemCount: threadMessages.length,
     threadRef: threadScrollRef,
   });
+
+  // KAI sees the open customer conversation and can suggest replies in the
+  // seller's voice; one is sent only when the person presses Send on it.
+  useAiScreen(() => (activeConversation
+    ? {
+        id: "urmall-seller-customer-chat",
+        title: `UrMall customer chat with ${activeConversation.buyerName || "a customer"}`,
+        describe: () => [
+          `The person is the seller, replying to a customer in their UrMall workspace.`,
+          activeConversation.productName ? `The conversation is about the product "${activeConversation.productName}".` : "",
+          activeConversation.topic ? `Topic: ${activeConversation.topic}.` : "",
+        ].filter(Boolean).join(" "),
+        messaging: {
+          thread: () => ({
+            with: activeConversation.buyerName || "the customer",
+            messages: threadMessages.map((item) => ({
+              from: item.from === "seller" ? "me" : "them",
+              text: item.text || (item.mediaUrl ? "[image]" : ""),
+            })),
+          }),
+          send: (text) => deliverReply(text, null, { fromAssistant: true }),
+          setDraft: (text) => setReply(text),
+        },
+      }
+    : {
+        id: "urmall-seller-customer-care",
+        title: "UrMall customer messages",
+        describe: () => `The person is the seller looking at their customer conversations (${conversations.length} in total). They can open one to reply.`,
+      }));
 
   useEffect(() => {
     return () => {
@@ -181,10 +211,20 @@ export default function CustomerCare({ onBack } = {}) {
   async function sendReply(event) {
     event.preventDefault();
     const text = reply.trim();
-    const conversation = activeConversation;
-    if ((!text && !attachment) || !conversation || sending) return;
+    if ((!text && !attachment) || !activeConversation || sending) return;
+    await deliverReply(text, attachment);
+  }
 
-    const pendingAttachment = attachment;
+  // The one way a reply is sent — from the reply box, or from a KAI suggestion
+  // the person pressed Send on (fromAssistant: the reply box is left as it is,
+  // and a failure is reported back to KAI's card).
+  async function deliverReply(text, pendingAttachment, { fromAssistant = false } = {}) {
+    const conversation = activeConversation;
+    if ((!text && !pendingAttachment) || !conversation) {
+      if (fromAssistant) throw new Error(t("urmall.biz.care.sendFail"));
+      return;
+    }
+    if (sending && fromAssistant) throw new Error(t("urmall.biz.care.sendFail"));
     const tempId = `pending-${Date.now()}`;
     const optimisticMessage = {
       id: tempId,
@@ -197,8 +237,10 @@ export default function CustomerCare({ onBack } = {}) {
     };
 
     setEchoes((current) => [...current, { conversationId: conversation.id, message: optimisticMessage }]);
-    setReply("");
-    setAttachment(null);
+    if (!fromAssistant) {
+      setReply("");
+      setAttachment(null);
+    }
     setSendError("");
     setSending(true);
 
@@ -212,6 +254,7 @@ export default function CustomerCare({ onBack } = {}) {
       reload?.();
     } catch (err) {
       setEchoes((current) => current.filter((echo) => echo.message.id !== tempId));
+      if (fromAssistant) throw err;
       setReply(text);
       setAttachment(pendingAttachment);
       setSendError(err.message || t("urmall.biz.care.sendFail"));
@@ -219,6 +262,7 @@ export default function CustomerCare({ onBack } = {}) {
       setSending(false);
     }
   }
+
 
   async function openConversation(conversation) {
     clearTransitionTimer();

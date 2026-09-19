@@ -2,7 +2,6 @@ import { Bell, Menu, MessageSquare, PackageCheck, Plus } from "lucide-react";
 
 import { useI18n, t } from "../../../../../i18n";
 import HeaderActionButton from "./HeaderActionButton";
-import AiAssistButton from "../../../../ai/AiAssistButton";
 
 export default function SellerHeaderActions({
   orderCount,
@@ -45,14 +44,6 @@ export default function SellerHeaderActions({
           onClick={onMessages}
         />
       : null}
-      <AiAssistButton
-        chat
-        size="icon"
-        variant="outline"
-        className="rounded-lg"
-        label={t("ai.seller.askAboutBusiness")}
-        getRequest={() => ({ surface: "urmall", role: "seller", screen: "seller workspace" })}
-      />
       <HeaderActionButton
         icon={Bell}
         label={t("urmall.biz.header.alerts")}

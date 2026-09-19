@@ -957,7 +957,8 @@ export default function App() {
       {!guestSession ? <CampaignPresentationHost bottomTabsHidden={bottomTabsHidden} currentPage={page} userId={userId} /> : null}
       {/* KAI renders nothing until a screen calls openAiAssistant(). */}
       {!guestSession ? <AiAssistantHost /> : null}
-      {!guestSession ? <AiFloatingButton hidden={bottomTabsHidden} /> : null}
+      {/* KAI floats on every screen, including full-screen flows; a screen can hide it. */}
+      {!guestSession ? <AiFloatingButton /> : null}
       <NotificationBannerHost userId={userId} />
     </div>,
   );

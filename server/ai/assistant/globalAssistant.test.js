@@ -9,7 +9,7 @@ import "./assistantEngine.js";
 import { ASSISTANT_TOOLS, functionDeclarationsFor, toolNamesFor, validateToolCall } from "./assistantTools.js";
 
 const WEB_ROOT = resolve(dirname(fileURLToPath(import.meta.url)), "../../..");
-const CLIENT_TOOL_FILES = ["urmallBuyerTools.js", "sellerTools.js", "urrideTools.js", "exploreTools.js"];
+const CLIENT_TOOL_FILES = ["urmallBuyerTools.js", "sellerTools.js", "urrideTools.js", "exploreTools.js", "screenTools.js"];
 
 function clientExecutorNames() {
   const names = new Set(["open_section"]);

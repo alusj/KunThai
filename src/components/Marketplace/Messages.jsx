@@ -14,6 +14,7 @@ import { useI18n, t } from "../../i18n";
 import AppBackTab from "../shared/AppBackTab";
 import MessagePrivacyNotice from "../shared/MessagePrivacyNotice";
 import { useKeyboardAwareConversation } from "../../Backend/hooks/useKeyboardAwareConversation";
+import { useAiScreen } from "../../Backend/services/ai/aiScreenContext";
 
 function readFileAsDataUrl(file) {
   return new Promise((resolve, reject) => {
@@ -191,10 +192,20 @@ export default function Messages({ initialConversationId = "", onBack, onInitial
   async function sendReply(event) {
     event.preventDefault();
     const text = draft.trim();
-    const conversation = activeMessage;
-    if ((!text && !attachment) || !conversation || sending) return;
+    if ((!text && !attachment) || !activeMessage || sending) return;
+    await deliverReply(text, attachment);
+  }
 
-    const pendingAttachment = attachment;
+  // The one way a reply is sent — from the reply box, or from a KAI suggestion
+  // the person pressed Send on (fromAssistant: the reply box is left as it is,
+  // and a failure is reported back to KAI's card).
+  async function deliverReply(text, pendingAttachment, { fromAssistant = false } = {}) {
+    const conversation = activeMessage;
+    if ((!text && !pendingAttachment) || !conversation) {
+      if (fromAssistant) throw new Error(t("urmall.messages.sendFailed"));
+      return;
+    }
+    if (sending && fromAssistant) throw new Error(t("urmall.messages.sendFailed"));
     const tempId = `pending-${Date.now()}`;
     const optimisticMessage = {
       id: tempId,
@@ -207,8 +218,10 @@ export default function Messages({ initialConversationId = "", onBack, onInitial
     };
 
     setEchoes((current) => [...current, { conversationId: conversation.id, message: optimisticMessage }]);
-    setDraft("");
-    setAttachment(null);
+    if (!fromAssistant) {
+      setDraft("");
+      setAttachment(null);
+    }
     setSendError("");
     setSending(true);
 
@@ -229,6 +242,7 @@ export default function Messages({ initialConversationId = "", onBack, onInitial
       loadMessages({ silent: true });
     } catch (err) {
       setEchoes((current) => current.filter((echo) => echo.message.id !== tempId));
+      if (fromAssistant) throw err;
       setDraft(text);
       setAttachment(pendingAttachment);
       setSendError(err.message || t("urmall.messages.sendFailed"));
@@ -236,6 +250,34 @@ export default function Messages({ initialConversationId = "", onBack, onInitial
       setSending(false);
     }
   }
+
+  // KAI sees the open conversation and can suggest replies; one is sent only
+  // when the person presses Send on it.
+  useAiScreen(() => (activeMessage
+    ? {
+        id: "urmall-buyer-chat",
+        title: `UrMall chat with ${activeMessage.sellerName || "a seller"}`,
+        describe: () => [
+          `The person is a shopper chatting with the UrMall business "${activeMessage.sellerName || "seller"}" about "${activeMessage.topic || "an enquiry"}".`,
+          activeMessage.productName ? `Product: ${activeMessage.productName}.` : "",
+        ].filter(Boolean).join(" "),
+        messaging: {
+          thread: () => ({
+            with: activeMessage.sellerName || "the seller",
+            messages: threadMessages.map((item) => ({
+              from: item.from === "buyer" ? "me" : "them",
+              text: item.text || (item.mediaUrl ? "[image]" : ""),
+            })),
+          }),
+          send: (text) => deliverReply(text, null, { fromAssistant: true }),
+          setDraft: (text) => setDraft(text),
+        },
+      }
+    : {
+        id: "urmall-buyer-messages",
+        title: "UrMall messages",
+        describe: () => `The person is viewing their UrMall conversations: ${messages.length} in total, ${unreadCount} unread. They can open one to reply.`,
+      }));
 
   function renderProductLink(message) {
     if (!message.productName || message.productName === message.topic) return null;

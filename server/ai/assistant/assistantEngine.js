@@ -19,11 +19,13 @@ import { MAX_TOOL_CALLS_PER_ROUND, functionDeclarationsFor, validateToolCall } f
 import "./urrideTools.js";
 import "./exploreTools.js";
 import "./adminTools.js";
+import { SCREEN_CAPABILITIES } from "./screenTools.js";
 import { signTurns, verifyTurns } from "./turnSigning.js";
 
 export const MAX_TOOL_ROUNDS = 2;
 const MAX_RESULT_CHARS = 7_000;
-const MAX_FACTS_CHARS = 3_000;
+// Screen data can hold a whole form or a conversation.
+const MAX_FACTS_CHARS = 6_000;
 const ROLES = ["buyer", "seller", "passenger", "operator", "company", "admin"];
 
 const SECTION_LABELS = {
@@ -52,6 +54,11 @@ export const ASSISTANT_RULES = [
   "- Action tools only PREPARE something. The person confirms it in KunThai. Never say an order, booking, payment, message, post, refund or change has been made.",
   "- You never state fares, ETAs, routes, travel times, coordinates, traffic or driver locations. UrRide calculates those after the person confirms a trip.",
   "- Do not ask for or repeat phone numbers, emails, addresses of other people, passwords, codes or card details.",
+  "",
+  "The screen the person has open:",
+  "- Each message may include data from the current screen (what it is, the form on it, the conversation on it). Use it to understand where the person is and what they are trying to do, and guide them step by step when they are stuck.",
+  "- Filling a form: when the person asks you to fill in or complete the form, use fill_form_fields with the field keys listed for that screen. Use only values the person gave you in this chat or that are already on the screen; if a required value is missing, ask for it instead of inventing it. The person's own business or contact details that they typed to you may be used. You cannot fill image, photo, document or file fields: tell the person to add those themselves. Never fill bank, card or account numbers.",
+  "- Replying to a conversation: when the person asks you to reply or write a message, use suggest_message_replies with 1 to 3 ready-to-send replies based only on the conversation shown. You never send anything: the person chooses a reply and presses Send.",
 ].join("\n");
 
 function systemInstructionFor(surface, role) {
@@ -106,14 +113,14 @@ function capResult(result) {
 // Pair each function call in a model turn with the browser's result for it.
 // A missing or mismatched result becomes an explicit "not available" so the
 // model can never be handed data it did not ask for.
-export function functionResponseTurn(modelTurn, results, surface, role) {
+export function functionResponseTurn(modelTurn, results, surface, role, capabilities = []) {
   const byId = new Map((Array.isArray(results) ? results : []).map((item) => [String(item?.id || ""), item]));
   const parts = (modelTurn.parts || [])
     .filter((part) => part?.functionCall)
     .slice(0, MAX_TOOL_CALLS_PER_ROUND)
     .map((part) => {
       const call = part.functionCall;
-      const validated = validateToolCall(call, surface, role);
+      const validated = validateToolCall(call, surface, role, capabilities);
       const supplied = byId.get(String(call.id || ""));
       let response;
       if (validated.rejected) response = { error: validated.reason };
@@ -143,6 +150,10 @@ export async function runAssistantChat({ user, surface, body }) {
   }
 
   const role = optionalChoice(body.context?.role, ROLES, "");
+  // What the open screen offers ("form", "message"); unknown values are dropped.
+  const capabilities = (Array.isArray(body.context?.capabilities) ? body.context.capabilities : [])
+    .map((value) => String(value || "").trim().toLowerCase())
+    .filter((value, index, list) => SCREEN_CAPABILITIES.includes(value) && list.indexOf(value) === index);
   const screen = cleanLine(body.context?.screen, 80);
   const facts = cleanFacts(input.facts);
   const selection = (Array.isArray(input.selection) ? input.selection : [])
@@ -164,10 +175,10 @@ export async function runAssistantChat({ user, surface, body }) {
   const contents = [...historyContents(input.history), userTurn({ message, screen, facts, selection })];
   modelTurns.forEach((turn, index) => {
     contents.push(turn);
-    contents.push(functionResponseTurn(turn, toolResults[index], surface, role));
+    contents.push(functionResponseTurn(turn, toolResults[index], surface, role, capabilities));
   });
 
-  const declarations = functionDeclarationsFor(surface, role);
+  const declarations = functionDeclarationsFor(surface, role, capabilities);
   const forceText = modelTurns.length >= MAX_TOOL_ROUNDS;
 
   const generation = await generateAssistantTurn({
@@ -176,7 +187,7 @@ export async function runAssistantChat({ user, surface, body }) {
     contents,
     tools: declarations.length ? [{ functionDeclarations: declarations }] : undefined,
     forceText: forceText || !declarations.length,
-    maxOutputTokens: 700,
+    maxOutputTokens: 1_000,
     temperature: 0.3,
   });
 
@@ -184,7 +195,7 @@ export async function runAssistantChat({ user, surface, body }) {
     const nextTurns = [...modelTurns, generation.content];
     const calls = generation.functionCalls
       .slice(0, MAX_TOOL_CALLS_PER_ROUND)
-      .map((call) => validateToolCall(call, surface, role));
+      .map((call) => validateToolCall(call, surface, role, capabilities));
 
     return {
       generation,

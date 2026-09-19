@@ -20,6 +20,7 @@ import {
 
 import { useI18n } from "../../../i18n";
 import { aiSurfaceLabel } from "../../../Backend/services/ai/aiSurfaceService";
+import { snapshotAiScreen, useAiScreenVersion } from "../../../Backend/services/ai/aiScreenContext";
 import {
   clearAssistantConversation,
   rateAssistantReply,
@@ -33,6 +34,7 @@ import { runAssistantAction } from "../../../Backend/services/ai/assistantAction
 import useBodyScrollLock from "../../shared/useBodyScrollLock";
 import AiEntityCards from "./AiEntityCards";
 import AiChatActionButtons from "./AiChatActionButtons";
+import AiScreenActionCards from "./AiScreenActionCards";
 
 // KAI — the conversational assistant.
 //
@@ -72,7 +74,20 @@ export default function AiChatPanel({ open, request, onClose }) {
   const surface = request?.surface || "global";
   const role = request?.role || "";
   const canInsert = typeof request?.onInsert === "function";
-  const prompts = useMemo(() => assistantPromptsFor(surface, role), [surface, role]);
+  // Prompts that fit the screen under the chat come first (fill this form,
+  // suggest a reply), then the section's usual prompts.
+  const screenVersion = useAiScreenVersion();
+  const prompts = useMemo(() => {
+    const capabilities = (open ? snapshotAiScreen()?.capabilities : null) || [];
+    const screenPrompts = [
+      capabilities.includes("form") ? t("ai.chat.screen.promptFill") : "",
+      capabilities.includes("message") ? t("ai.chat.screen.promptReply") : "",
+      capabilities.length ? t("ai.chat.screen.promptHelp") : "",
+    ].filter(Boolean);
+    return [...screenPrompts, ...assistantPromptsFor(surface, role)].slice(0, 6);
+    // screenVersion re-runs this when the screen underneath changes.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [surface, role, open, screenVersion, t]);
   const roleLabel = assistantRoleLabel(role);
 
   useBodyScrollLock(open);
@@ -287,6 +302,7 @@ export default function AiChatPanel({ open, request, onClose }) {
                           onToggleSelect={toggleSelect}
                           onOpened={onClose}
                         />
+                        <AiScreenActionCards actions={message.actions} onDone={onClose} />
                         <AiChatActionButtons actions={message.actions} onRun={(action) => runAssistantAction(action, { onDone: onClose })} />
                         <div className="mt-2.5 flex flex-wrap items-center gap-1.5 border-t border-slate-100 pt-2">
                           {canInsert ? (

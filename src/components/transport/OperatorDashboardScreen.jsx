@@ -36,7 +36,6 @@ import TransportGroupSwitcher from "./TransportGroupSwitcher";
 import HealthScoreCard from "../Marketplace/MarketplaceHeader/Business/MyBizDashboardHeader/HealthScoreCard";
 import RequestAccountDeletionPage from "./shared/RequestAccountDeletionPage";
 import AppBackTab from "../shared/AppBackTab";
-import AiAssistButton from "../ai/AiAssistButton";
 import { useAiRoleContext } from "../../Backend/services/ai/aiSurfaceService";
 import { useCampaignSurfaceRole } from "../../Backend/services/campaigns/campaignSurfaceStore";
 import CampaignInboxSection from "../shared/campaigns/CampaignInboxSection";
@@ -565,12 +564,6 @@ export default function OperatorDashboardScreen({
             </p>
           </div>
 
-          <AiAssistButton
-            chat
-            size="icon"
-            label={t("ai.urride.askAssistant")}
-            getRequest={() => ({ surface: "urride", role: "operator", screen: "operator dashboard" })}
-          />
           {dashboardReadOnly ? (
             <span className="hidden h-10 items-center gap-2 rounded-full border border-blue-100 bg-blue-50 px-3 text-sm font-black text-blue-700 sm:flex">
               <FiShield size={16} />

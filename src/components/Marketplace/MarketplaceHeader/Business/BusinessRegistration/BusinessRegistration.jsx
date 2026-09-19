@@ -17,6 +17,7 @@ import RegistrationProgress from "./RegistrationProgress";
 import ReviewSubmitStep from "./ReviewSubmitStep";
 import TrustPayoutStep from "./TrustPayoutStep";
 import UrMallCautionCard from "../../../shared/UrMallCautionCard";
+import { useBusinessRegistrationAi } from "./useBusinessRegistrationAi";
 import { useI18n, t } from "../../../../../i18n";
 
 const STEP_TITLE_KEYS = [
@@ -37,6 +38,8 @@ export default function BusinessRegistration({ mode = "create", onComplete, onEx
   const [transitionOrigin, setTransitionOrigin] = useState({ x: "50%", y: "70%" });
   const transitionOriginRef = useRef(transitionOrigin);
   const registration = useSellerRegistration({ mode, onComplete: completeSellerRegistration });
+  // KAI can see this form and fill it (never images, documents, the map pin or bank details).
+  useBusinessRegistrationAi(registration, { editing, active: acceptedCaution && !showIntro && !finishing });
   const [saveCheckpointOpen, setSaveCheckpointOpen] = useState(false);
   const [locationPickerMode, setLocationPickerMode] = useState(null);
   const stepSlideDirection = useDirectionalStep(registration.step);

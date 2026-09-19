@@ -1,5 +1,6 @@
 import { memo, useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { getPreciseCurrentPosition } from "../../Backend/utils/precisePosition";
+import { useAiScreen } from "../../Backend/services/ai/aiScreenContext";
 import {
   FiAlertTriangle,
   FiBookmark,
@@ -969,6 +970,21 @@ export default function NearbyAreaScreen({
   const dropPinExpandTimerRef = useRef(null);
   const isOneKmPreview = mode === "oneKmPreview";
   const isBusinessLocationPicker = mode === "businessLocationPicker";
+
+  // KAI knows what the map is showing, so it can help with searching, saving a
+  // place or planning a trip. It never states fares, ETAs or routes itself.
+  useAiScreen(() => ({
+    id: "urride-area-view",
+    title: "UrRide Area View (map)",
+    describe: () => [
+      isBusinessLocationPicker
+        ? "The person is picking an exact location on the map for a business or address (Locate me, or Drop a pin and confirm)."
+        : "The person is in Area View, KunThai's map of what is around them.",
+      activeLocation?.name ? `Selected place: ${activeLocation.name}${activeLocation.address ? ` — ${activeLocation.address}` : ""}.` : "",
+      searchQuery ? `Search box: "${searchQuery}" with ${searchResults.length} result(s) shown.` : "",
+      "Searching finds streets, places and businesses as the person types; Locate me and Drop a pin save an exact point.",
+    ].filter(Boolean).join(" "),
+  }));
   const isSpecialMode = isOneKmPreview || isBusinessLocationPicker;
   const isDropPinPositioning =
     (isBusinessLocationPicker && businessPickerMode === "dropPin") ||

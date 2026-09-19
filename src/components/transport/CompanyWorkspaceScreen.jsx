@@ -34,7 +34,6 @@ import { FiActivity, FiMapPin } from "react-icons/fi";
 import { HiOutlineCheckCircle } from "react-icons/hi2";
 
 import AppBackTab from "../shared/AppBackTab";
-import AiAssistButton from "../ai/AiAssistButton";
 import { useAiRoleContext } from "../../Backend/services/ai/aiSurfaceService";
 import { useCampaignSurfaceRole } from "../../Backend/services/campaigns/campaignSurfaceStore";
 import CampaignInboxSection from "../shared/campaigns/CampaignInboxSection";
@@ -765,20 +764,6 @@ export default function CompanyWorkspaceScreen({ company, initialTab = "Overview
               {company?.companyName || t("urride.companyWs.fallbackName")}
             </h1>
           </div>
-          {company ? (
-            <AiAssistButton
-              chat
-              size="icon"
-              label={t("ai.urride.askAboutFleet")}
-              getRequest={() => ({
-                surface: "urride",
-                role: "company",
-                screen: "transport company workspace",
-                message: t("ai.urride.fleetOverviewMessage"),
-                autoSend: true,
-              })}
-            />
-          ) : null}
           {company && canViewCompanyNotifications ? (
             <button
               type="button"

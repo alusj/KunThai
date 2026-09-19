@@ -1,30 +1,9 @@
 import RegistrationField from "./RegistrationField";
 import RegistrationInput from "./RegistrationInput";
 import ToggleRow from "./ToggleRow";
+import { BUSINESS_TYPES, SALES_MODELS, SELLING_UNITS, VENDOR_TYPES } from "./operationsOptions";
 import { useI18n, t } from "../../../../../i18n";
 import { supportsMarketplaceFulfillment } from "../../../../../Backend/services/marketplace/marketplaceBusinessKinds";
-
-const BUSINESS_TYPES = [
-  { id: "physical", labelKey: "typePhysical" },
-  { id: "online", labelKey: "typeOnline" },
-  { id: "both", labelKey: "typeBoth" },
-];
-
-const VENDOR_TYPES = [
-  ["wholesaler", "Wholesaler"],
-  ["distributor", "Distributor"],
-  ["manufacturer", "Manufacturer"],
-  ["importer", "Importer"],
-  ["general_supplier", "General supplier"],
-];
-
-const SALES_MODELS = [
-  ["wholesale", "Wholesale only"],
-  ["wholesale_retail", "Wholesale and retail"],
-  ["contract_supply", "Contract and institutional supply"],
-];
-
-const SELLING_UNITS = ["item", "pack", "carton", "bag", "kilogram", "tonne", "litre", "pallet", "roll", "box"];
 
 export default function OperationsStep({ registration }) {
   useI18n();

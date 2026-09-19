@@ -2,6 +2,7 @@ import { useSyncExternalStore } from "react";
 
 import { isAiCancellation, isRetryableAiError, sendAiFeedback } from "./aiService";
 import { runAssistantExchange } from "./assistantClient";
+import { snapshotAiScreen } from "./aiScreenContext";
 
 // KAI — the assistant conversation.
 //
@@ -63,6 +64,7 @@ async function runReply({ userMessage, replyId }) {
       surface: userMessage.surface,
       role: userMessage.role,
       screen: userMessage.screen,
+      capabilities: userMessage.capabilities || [],
       message: userMessage.text,
       history: historyFor(userMessage.surface, userMessage.role, userIndex),
       selection: userMessage.selection,
@@ -112,15 +114,24 @@ export function sendAssistantMessage({ text, surface = "global", role = "", scre
   const value = String(text || "").trim();
   if (!value || state.busy) return;
 
+  // What is on screen right now (the form or conversation under the chat). It
+  // is captured with the message, so "Try again" asks about the same screen.
+  const onScreen = snapshotAiScreen();
+  const screenFacts = [onScreen?.facts, typeof facts === "string" ? facts : facts ? JSON.stringify(facts) : ""]
+    .filter(Boolean)
+    .join("\n\n");
+
   const userMessage = {
     id: newId(),
     author: "user",
     text: value.slice(0, 1_500),
     surface,
     role,
-    screen,
     selection: Array.isArray(selection) ? selection.slice(0, 3) : [],
-    facts,
+    facts: screenFacts || null,
+    screen: onScreen?.screen || screen,
+    screenId: onScreen?.screenId || "",
+    capabilities: onScreen?.capabilities || [],
     status: "done",
   };
   const reply = { id: newId(), author: "assistant", text: "", surface, role, status: "loading", replyTo: userMessage.id };
