@@ -38,6 +38,8 @@ import { beginHeavyUpload } from "../../../../../../Backend/services/uploadActiv
 import { optimizeImageFile } from "../../../../../../Backend/services/marketplace/imageOptimization";
 import useBodyScrollLock from "../../../../../shared/useBodyScrollLock";
 import { getAdvertObjectiveRequirement, hasAdvertCoordinates } from "../../../../shared/advertUtils";
+import { normalizeRegionSelection } from "../../../../../../Backend/services/regions/regionModel";
+import { upgradeNearbyAdvertDraft } from "../../../../../../Backend/services/explore/advertDraft";
 import AdvertComposerFields from "../composer/AdvertComposerFields";
 import CompactComposer from "../composer/CompactComposer";
 import ComposerActions from "../composer/ComposerActions";
@@ -104,6 +106,9 @@ const DEFAULT_ADVERT = {
   genderTarget: "all",
   interests: [],
   targetArea: "",
+  // "everywhere" or "regions" (only people located in targetRegions).
+  regionMode: "everywhere",
+  targetRegions: [],
   durationPreset: "14",
   durationDays: 14,
   customStart: "",
@@ -130,10 +135,11 @@ const DEFAULT_ADVERT = {
 };
 
 function normalizeAdvertDraft(value = {}) {
-  return {
+  const draft = {
     ...DEFAULT_ADVERT,
     ...(value && typeof value === "object" ? value : {}),
   };
+  return upgradeNearbyAdvertDraft(draft);
 }
 
 function queueComposerAreaReturn(mode) {
@@ -278,6 +284,8 @@ function cleanAdvertCampaignForSubmit(advert = {}) {
     genderTarget: String(normalized.genderTarget || DEFAULT_ADVERT.genderTarget),
     interests: Array.isArray(normalized.interests) ? normalized.interests.slice(0, 20) : [],
     targetArea: String(normalized.targetArea || "").trim().slice(0, 80),
+    regionMode: normalized.regionMode === "regions" ? "regions" : "everywhere",
+    targetRegions: normalized.regionMode === "regions" ? normalizeRegionSelection(normalized.targetRegions) : [],
     durationPreset: String(normalized.durationPreset || DEFAULT_ADVERT.durationPreset),
     durationDays: Math.max(1, Math.min(Number(normalized.durationDays) || 14, 365)),
     customStart: String(normalized.customStart || ""),

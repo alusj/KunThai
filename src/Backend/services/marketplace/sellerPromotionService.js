@@ -28,6 +28,8 @@ export async function fetchSellerPromotions() {
       creditBudget: Number(promotion.credit_budget || promotion.budget_limit || 0),
       creditsSpent: Number(promotion.credits_spent || promotion.budget_limit || 0),
       audienceType: metadata.audienceType || "countrywide",
+      // States/districts this boost is limited to (empty = whole country).
+      targetRegions: Array.isArray(metadata.targetRegions) ? metadata.targetRegions : [],
       durationDays: Number(metadata.durationDays || 0),
       views: promotion.views,
       orders: promotion.orders,

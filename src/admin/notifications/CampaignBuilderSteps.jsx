@@ -1,10 +1,17 @@
-import { useEffect, useMemo, useState } from "react";
-import { Globe2, Info, LoaderCircle, MapPin, Plus, Search, ShieldAlert, UsersRound, X } from "lucide-react";
+import { useEffect, useMemo, useRef, useState } from "react";
+import { Check, Globe2, Info, LoaderCircle, MapPin, Plus, Search, ShieldAlert, UsersRound, X } from "lucide-react";
 
 import AiAssistButton from "../../components/ai/AiAssistButton";
 import SuggestedTextSelect from "../components/SuggestedTextSelect";
 import { NOTIFICATION_MESSAGE_SUGGESTIONS, NOTIFICATION_TITLE_SUGGESTIONS } from "../adminTextSuggestions";
-import { getNotificationCampaignLocationOptions, lookupNotificationCampaignUser } from "../adminService";
+import {
+  getNotificationCampaignLocationOptions,
+  getNotificationCampaignRegionCounts,
+  lookupNotificationCampaignUser,
+  searchNotificationCampaignUsers,
+} from "../adminService";
+import RegionPicker from "../../components/shared/regions/RegionPicker";
+import { useCountryRegions } from "../../components/shared/regions/regionHooks";
 import {
   ACTION_ENTITIES,
   AUDIENCE_PLATFORMS,
@@ -36,7 +43,9 @@ import {
   CAMPAIGN_ICONS,
   CAMPAIGN_PRIORITIES,
   CRITICAL_CATEGORIES,
+  MAX_CAMPAIGN_REGIONS_PER_COUNTRY,
   TIME_ZONE_OPTIONS,
+  campaignLocationScope,
   withAudience,
   withPresentation,
 } from "../notificationCampaignConfig";
@@ -154,7 +163,7 @@ export function AudienceStep({ form, setForm, canCritical, estimate, onEstimate,
             <legend className="text-sm font-black">Who within this audience</legend>
             <div className="grid gap-3 sm:grid-cols-2">
               <ChoiceCard label="Everyone in this audience" detail="Optionally narrowed by location and account activity." selected={form.audienceMode !== "users"} onClick={() => setForm((current) => ({ ...current, audienceMode: "everyone" }))} />
-              <ChoiceCard label="Specific KunThai IDs" detail="Exact accounts. Location filters do not apply." selected={form.audienceMode === "users"} onClick={() => setForm((current) => ({ ...current, audienceMode: "users" }))} />
+              <ChoiceCard label="Specific people" detail="Search by KunThai ID or name. Location filters do not apply." selected={form.audienceMode === "users"} onClick={() => setForm((current) => ({ ...current, audienceMode: "users" }))} />
             </div>
           </fieldset>
           {form.audienceMode === "users" ? (
@@ -186,58 +195,172 @@ export function AudienceStep({ form, setForm, canCritical, estimate, onEstimate,
   );
 }
 
+const KTU_ID_PATTERN = /^KTU[-\s]?[A-Z0-9]{4}[-\s]?[A-Z0-9]{4}[-\s]?[A-Z0-9]{4}$/i;
+
+function placeLabel(user) {
+  return [user.region_name || user.city, user.country].filter(Boolean).join(", ");
+}
+
+// Finds recipients as you type: any part of a KunThai ID ("KTU-7F31", "90C2")
+// or a name / username. Pasting several full IDs adds them all at once.
 function KunThaiUserPicker({ users, onChange }) {
   const [query, setQuery] = useState("");
-  const [busy, setBusy] = useState(false);
+  const [results, setResults] = useState([]);
+  const [searching, setSearching] = useState(false);
+  const [adding, setAdding] = useState(false);
   const [error, setError] = useState("");
+  const requestRef = useRef(0);
+  const trimmed = query.trim();
+  const pastedIds = useMemo(() => {
+    const parts = [...new Set(trimmed.split(/[\s,;]+/).map((value) => value.trim()).filter(Boolean))];
+    return parts.length > 1 && parts.every((part) => KTU_ID_PATTERN.test(part)) ? parts.slice(0, 25) : [];
+  }, [trimmed]);
+  const selectedIds = useMemo(() => new Set(users.map((user) => user.user_id)), [users]);
 
-  async function addIds() {
-    const ids = [...new Set(query.split(/[\s,;]+/).map((value) => value.trim()).filter(Boolean))].slice(0, 25);
-    if (!ids.length) return;
-    setBusy(true);
+  useEffect(() => {
+    const request = (requestRef.current += 1);
+    if (trimmed.length < 2 || pastedIds.length) {
+      setResults([]);
+      setSearching(false);
+      setError("");
+      return undefined;
+    }
+    setSearching(true);
+    const timer = window.setTimeout(() => {
+      searchNotificationCampaignUsers(trimmed, 12)
+        .then((rows) => {
+          if (request !== requestRef.current) return;
+          setResults(rows || []);
+          setError("");
+        })
+        .catch((searchError) => {
+          if (request !== requestRef.current) return;
+          setResults([]);
+          setError(searchError.message || "Search failed. Try again.");
+        })
+        .finally(() => request === requestRef.current && setSearching(false));
+    }, 250);
+    return () => window.clearTimeout(timer);
+  }, [trimmed, pastedIds.length]);
+
+  function toggleUser(user) {
+    if (selectedIds.has(user.user_id)) onChange(users.filter((item) => item.user_id !== user.user_id));
+    else onChange([...users, user]);
+  }
+
+  async function addPastedIds() {
+    setAdding(true);
     setError("");
     try {
-      const results = await Promise.all(ids.map((id) => lookupNotificationCampaignUser(id).catch(() => null)));
-      const found = results.filter(Boolean);
+      const found = await Promise.all(pastedIds.map((id) => lookupNotificationCampaignUser(id).catch(() => null)));
       const byId = new Map(users.map((user) => [user.user_id, user]));
-      found.forEach((user) => byId.set(user.user_id, user));
+      found.filter(Boolean).forEach((user) => byId.set(user.user_id, user));
       onChange([...byId.values()]);
-      const missing = ids.filter((_, index) => !results[index]);
+      const missing = pastedIds.filter((_, index) => !found[index]);
       setQuery(missing.join(", "));
       if (missing.length) setError(`${missing.length} KunThai ID${missing.length === 1 ? " was" : "s were"} not found: ${missing.join(", ")}`);
     } finally {
-      setBusy(false);
+      setAdding(false);
     }
   }
 
   return (
     <div className="rounded-2xl border border-zinc-200 bg-white p-4 dark:border-zinc-800 dark:bg-zinc-950">
-      <Field label="KunThai IDs" hint="Paste one or more KTU IDs (up to 25 at a time). Each is checked against real accounts; email addresses are never used.">
-        <div className="flex flex-col gap-2 sm:flex-row">
-          <textarea rows={2} value={query} onChange={(event) => setQuery(event.target.value)} placeholder="KTU-1234-5678-90AB, KTU-…" className="campaign-input min-h-12 min-w-0 flex-1 py-3" aria-label="KunThai IDs to add" />
-          <button type="button" disabled={busy || !query.trim()} onClick={addIds} className="campaign-action border-emerald-700 bg-emerald-700 text-white hover:bg-emerald-800 sm:self-start">
-            {busy ? <LoaderCircle className="animate-spin" size={16} /> : <Search size={16} />} Find
-          </button>
+      <Field label="Find people" hint="Type any part of a KunThai ID or a name — matching accounts appear as you type. You can also paste several full KTU IDs. Email addresses are never searched.">
+        <div className="relative">
+          <Search size={16} aria-hidden="true" className="pointer-events-none absolute left-3 top-1/2 -translate-y-1/2 text-zinc-400" />
+          <input
+            type="search"
+            value={query}
+            onChange={(event) => setQuery(event.target.value)}
+            onKeyDown={(event) => {
+              if (event.key !== "Enter") return;
+              event.preventDefault();
+              if (pastedIds.length) addPastedIds();
+              else if (results[0] && !selectedIds.has(results[0].user_id)) toggleUser(results[0]);
+            }}
+            placeholder="KTU-7F31… or Aminata"
+            autoComplete="off"
+            spellCheck={false}
+            aria-label="Search KunThai accounts by ID or name"
+            className="campaign-input w-full pl-9 pr-9"
+          />
+          {searching ? <LoaderCircle size={16} className="absolute right-3 top-1/2 -translate-y-1/2 animate-spin text-zinc-400" aria-label="Searching" /> : null}
         </div>
       </Field>
+
+      {pastedIds.length ? (
+        <button type="button" disabled={adding} onClick={addPastedIds} className="campaign-action mt-3 border-emerald-700 bg-emerald-700 text-white hover:bg-emerald-800">
+          {adding ? <LoaderCircle className="animate-spin" size={16} /> : <Plus size={16} />} Add {pastedIds.length} KunThai IDs
+        </button>
+      ) : null}
+
       {error ? <p role="alert" className="mt-2 text-xs font-bold text-rose-700">{error}</p> : null}
+
+      {trimmed.length >= 2 && !pastedIds.length ? (
+        <div className="mt-3" aria-live="polite">
+          {results.length ? (
+            <ul className="max-h-80 space-y-1 overflow-y-auto overscroll-contain rounded-2xl border border-zinc-200 p-1.5 dark:border-zinc-800">
+              {results.map((user) => {
+                const added = selectedIds.has(user.user_id);
+                return (
+                  <li key={user.user_id}>
+                    <button
+                      type="button"
+                      onClick={() => toggleUser(user)}
+                      aria-pressed={added}
+                      className={`flex w-full min-w-0 items-center gap-3 rounded-xl p-2.5 text-left transition ${added ? "bg-emerald-50 dark:bg-emerald-950/40" : "hover:bg-zinc-100 dark:hover:bg-zinc-900"}`}
+                    >
+                      <UserAvatar user={user} />
+                      <span className="min-w-0 flex-1">
+                        <span className="block truncate text-sm font-black">
+                          {user.display_name || "KunThai account"}
+                          {user.username ? <span className="ml-1 font-semibold text-zinc-500">@{user.username}</span> : null}
+                        </span>
+                        <span className="block truncate text-[11px] font-bold text-zinc-500">
+                          <span className="font-mono">{user.public_id || "No KunThai ID"}</span>{placeLabel(user) ? ` · ${placeLabel(user)}` : ""}
+                        </span>
+                      </span>
+                      <span className={`inline-flex shrink-0 items-center gap-1 rounded-full px-2.5 py-1 text-[11px] font-black ${added ? "bg-emerald-600 text-white" : "bg-zinc-100 text-zinc-700 dark:bg-zinc-800 dark:text-zinc-200"}`}>
+                        {added ? <><Check size={12} /> Added</> : <><Plus size={12} /> Add</>}
+                      </span>
+                    </button>
+                  </li>
+                );
+              })}
+            </ul>
+          ) : !searching && !error ? (
+            <p className="rounded-xl bg-zinc-50 p-3 text-xs font-bold text-zinc-500 dark:bg-zinc-900">No KunThai account matches “{trimmed}”.</p>
+          ) : null}
+        </div>
+      ) : null}
+
       {users.length ? (
-        <ul className="mt-4 grid gap-2 sm:grid-cols-2">
-          {users.map((user) => (
-            <li key={user.user_id} className="flex min-w-0 items-center gap-3 rounded-2xl bg-zinc-50 p-3 dark:bg-zinc-900">
-              <span className="grid h-10 w-10 shrink-0 place-items-center overflow-hidden rounded-full bg-emerald-100 font-black text-emerald-700">
-                {user.avatar_url ? <img src={user.avatar_url} alt="" className="h-full w-full object-cover" /> : (user.display_name || "K").slice(0, 1)}
-              </span>
-              <div className="min-w-0 flex-1">
-                <p className="truncate text-sm font-black">{user.display_name || "KunThai account"}</p>
-                <p className="truncate text-[11px] font-bold text-zinc-500">{user.public_id}{[user.city, user.country].filter(Boolean).length ? ` · ${[user.city, user.country].filter(Boolean).join(", ")}` : ""}</p>
-              </div>
-              <button type="button" aria-label={`Remove ${user.public_id}`} onClick={() => onChange(users.filter((item) => item.user_id !== user.user_id))} className="grid h-9 w-9 shrink-0 place-items-center rounded-xl hover:bg-zinc-200 dark:hover:bg-zinc-800"><X size={15} /></button>
-            </li>
-          ))}
-        </ul>
+        <>
+          <p className="mt-4 text-xs font-black uppercase tracking-wide text-zinc-500">{users.length} recipient{users.length === 1 ? "" : "s"}</p>
+          <ul className="mt-2 grid gap-2 sm:grid-cols-2">
+            {users.map((user) => (
+              <li key={user.user_id} className="flex min-w-0 items-center gap-3 rounded-2xl bg-zinc-50 p-3 dark:bg-zinc-900">
+                <UserAvatar user={user} />
+                <div className="min-w-0 flex-1">
+                  <p className="truncate text-sm font-black">{user.display_name || "KunThai account"}</p>
+                  <p className="truncate text-[11px] font-bold text-zinc-500">{user.public_id}{placeLabel(user) ? ` · ${placeLabel(user)}` : ""}</p>
+                </div>
+                <button type="button" aria-label={`Remove ${user.public_id || user.display_name}`} onClick={() => onChange(users.filter((item) => item.user_id !== user.user_id))} className="grid h-9 w-9 shrink-0 place-items-center rounded-xl hover:bg-zinc-200 dark:hover:bg-zinc-800"><X size={15} /></button>
+              </li>
+            ))}
+          </ul>
+        </>
       ) : null}
     </div>
+  );
+}
+
+function UserAvatar({ user }) {
+  return (
+    <span className="grid h-10 w-10 shrink-0 place-items-center overflow-hidden rounded-full bg-emerald-100 font-black text-emerald-700">
+      {user.avatar_url ? <img src={user.avatar_url} alt="" className="h-full w-full object-cover" /> : (user.display_name || "K").slice(0, 1)}
+    </span>
   );
 }
 
@@ -263,10 +386,33 @@ function useLocationOptions() {
   return state;
 }
 
+const regionCountCache = new Map();
+
+function useRegionCounts(country, enabled) {
+  const [counts, setCounts] = useState(() => regionCountCache.get(country) || null);
+  useEffect(() => {
+    let alive = true;
+    if (!enabled || !country) return undefined;
+    if (regionCountCache.has(country)) {
+      setCounts(regionCountCache.get(country));
+      return undefined;
+    }
+    getNotificationCampaignRegionCounts(country)
+      .then((next) => {
+        regionCountCache.set(country, next);
+        if (alive) setCounts(next);
+      })
+      .catch(() => alive && setCounts(null));
+    return () => {
+      alive = false;
+    };
+  }, [country, enabled]);
+  return counts;
+}
+
 function LocationPicker({ form, setForm }) {
   const { loading, options, error } = useLocationOptions();
   const [countryCode, setCountryCode] = useState("");
-  const [cityDrafts, setCityDrafts] = useState({});
 
   const citiesByCountry = useMemo(() => {
     const map = new Map();
@@ -286,7 +432,7 @@ function LocationPicker({ form, setForm }) {
   function addCountry() {
     const country = CAMPAIGN_COUNTRIES.find((item) => item.iso2 === countryCode);
     if (!country || form.locations.some((item) => item.country === country.iso2)) return;
-    setForm((current) => ({ ...current, locationMode: "countries", locations: [...current.locations, { country: country.iso2, countryName: country.name, entireCountry: true, cities: [] }] }));
+    setForm((current) => ({ ...current, locationMode: "countries", locations: [...current.locations, { country: country.iso2, countryName: country.name, scope: "country", entireCountry: true, cities: [], regions: [] }] }));
     setCountryCode("");
   }
 
@@ -295,12 +441,12 @@ function LocationPicker({ form, setForm }) {
       <legend className="text-sm font-black">Location</legend>
       <div className="grid gap-3 sm:grid-cols-2">
         <ChoiceCard label="All locations" detail="No country restriction. Publishing asks for an extra confirmation." selected={form.locationMode !== "countries"} onClick={() => setForm((current) => ({ ...current, locationMode: "all" }))} />
-        <ChoiceCard label="Specific countries" detail="One or more countries, each whole or limited to cities." selected={form.locationMode === "countries"} onClick={() => setForm((current) => ({ ...current, locationMode: "countries" }))} />
+        <ChoiceCard label="Specific places" detail="One or more countries, each whole or limited to states/districts or cities." selected={form.locationMode === "countries"} onClick={() => setForm((current) => ({ ...current, locationMode: "countries" }))} />
       </div>
       {form.locationMode === "countries" ? (
         <div className="space-y-3 rounded-2xl border border-zinc-200 bg-white p-4 dark:border-zinc-800 dark:bg-zinc-950">
           <p className="text-xs font-semibold leading-5 text-zinc-500">
-            A person matches when their profile country/city, or the location of a business they run, matches. City counts come from real KunThai accounts.
+            A person matches when the state/district on their profile (or matched from their city), their profile city, or the location of a business they run is inside what you choose. Choosing a province or state includes every district in it.
           </p>
           <div className="flex flex-col gap-2 sm:flex-row">
             <select value={countryCode} onChange={(event) => setCountryCode(event.target.value)} className="campaign-input min-w-0 flex-1" aria-label="Country to add">
@@ -318,56 +464,95 @@ function LocationPicker({ form, setForm }) {
           </div>
           {loading ? <p className="text-xs font-bold text-zinc-500">Loading city data…</p> : null}
           {error ? <p role="alert" className="text-xs font-bold text-rose-700">{error}</p> : null}
-          {form.locations.map((location) => {
-            const known = citiesByCountry.get(location.country) || [];
-            return (
-              <article key={location.country} className="rounded-2xl bg-zinc-50 p-4 dark:bg-zinc-900">
-                <div className="flex items-start gap-3">
-                  <MapPin className="mt-0.5 shrink-0 text-emerald-600" size={18} aria-hidden="true" />
-                  <div className="min-w-0 flex-1">
-                    <h4 className="font-black">{location.countryName}</h4>
-                    <p className="text-xs font-semibold text-zinc-500">{location.entireCountry ? "Entire country" : location.cities.join(", ") || "Choose at least one city"}</p>
-                  </div>
-                  <button type="button" aria-label={`Remove ${location.countryName}`} onClick={() => setForm((current) => ({ ...current, locations: current.locations.filter((item) => item.country !== location.country) }))} className="grid h-9 w-9 shrink-0 place-items-center rounded-xl hover:bg-zinc-200 dark:hover:bg-zinc-800"><X size={16} /></button>
-                </div>
-                <div className="mt-3 flex flex-wrap gap-2">
-                  <button type="button" aria-pressed={location.entireCountry} onClick={() => updateLocation(location.country, { entireCountry: true, cities: [] })} className={`campaign-chip ${location.entireCountry ? "campaign-chip-selected" : ""}`}>Entire country</button>
-                  <button type="button" aria-pressed={!location.entireCountry} onClick={() => updateLocation(location.country, { entireCountry: false })} className={`campaign-chip ${!location.entireCountry ? "campaign-chip-selected" : ""}`}>Selected cities</button>
-                </div>
-                {!location.entireCountry ? (
-                  <div className="mt-3 space-y-3">
-                    {known.length ? (
-                      <div className="flex flex-wrap gap-2">
-                        {known.slice(0, 24).map((item) => (
-                          <button key={item.city} type="button" aria-pressed={location.cities.includes(item.city)} onClick={() => updateLocation(location.country, { cities: toggle(location.cities, item.city) })} className={`campaign-chip ${location.cities.includes(item.city) ? "campaign-chip-selected" : ""}`}>
-                            {item.city} <span className="ml-1 opacity-70">{Number(item.accounts).toLocaleString()}</span>
-                          </button>
-                        ))}
-                      </div>
-                    ) : <p className="text-xs font-semibold text-zinc-500">No city data recorded yet for this country.</p>}
-                    <div className="flex flex-col gap-2 sm:flex-row">
-                      <input value={cityDrafts[location.country] || ""} onChange={(event) => setCityDrafts((current) => ({ ...current, [location.country]: event.target.value }))} placeholder="Another city (exact spelling)" className="campaign-input min-w-0 flex-1" aria-label={`Add a city in ${location.countryName}`} />
-                      <button type="button" className="campaign-action shrink-0" onClick={() => {
-                        const city = (cityDrafts[location.country] || "").trim();
-                        if (city && !location.cities.some((item) => item.toLowerCase() === city.toLowerCase())) updateLocation(location.country, { cities: [...location.cities, city] });
-                        setCityDrafts((current) => ({ ...current, [location.country]: "" }));
-                      }}>Add city</button>
-                    </div>
-                    {location.cities.filter((city) => !known.some((item) => item.city === city)).length ? (
-                      <div className="flex flex-wrap gap-2">
-                        {location.cities.filter((city) => !known.some((item) => item.city === city)).map((city) => (
-                          <button key={city} type="button" aria-label={`Remove ${city}`} onClick={() => updateLocation(location.country, { cities: location.cities.filter((item) => item !== city) })} className="campaign-chip campaign-chip-selected">{city} <X size={12} className="ml-1" /></button>
-                        ))}
-                      </div>
-                    ) : null}
-                  </div>
-                ) : null}
-              </article>
-            );
-          })}
+          {form.locations.map((location) => (
+            <CountryLocation
+              key={location.country}
+              location={location}
+              knownCities={citiesByCountry.get(location.country) || []}
+              onChange={(patch) => updateLocation(location.country, patch)}
+              onRemove={() => setForm((current) => ({ ...current, locations: current.locations.filter((item) => item.country !== location.country) }))}
+            />
+          ))}
         </div>
       ) : null}
     </fieldset>
+  );
+}
+
+function CountryLocation({ location, knownCities, onChange, onRemove }) {
+  const [cityDraft, setCityDraft] = useState("");
+  const scope = campaignLocationScope(location);
+  const { index } = useCountryRegions(location.country);
+  const counts = useRegionCounts(location.country, scope === "regions");
+  const plural = index?.labelPlural || "States / districts";
+  const hasRegions = Boolean(index?.regions?.length);
+  const regions = location.regions || [];
+  const summary = scope === "country"
+    ? "Entire country"
+    : scope === "regions"
+      ? regions.map((region) => region.name).join(", ") || `Choose at least one ${String(index?.label || "state or district").toLowerCase()}`
+      : (location.cities || []).join(", ") || "Choose at least one city";
+
+  return (
+    <article className="rounded-2xl bg-zinc-50 p-4 dark:bg-zinc-900">
+      <div className="flex items-start gap-3">
+        <MapPin className="mt-0.5 shrink-0 text-emerald-600" size={18} aria-hidden="true" />
+        <div className="min-w-0 flex-1">
+          <h4 className="font-black">{location.countryName}</h4>
+          <p className="text-xs font-semibold text-zinc-500">{summary}</p>
+        </div>
+        <button type="button" aria-label={`Remove ${location.countryName}`} onClick={onRemove} className="grid h-9 w-9 shrink-0 place-items-center rounded-xl hover:bg-zinc-200 dark:hover:bg-zinc-800"><X size={16} /></button>
+      </div>
+      <div className="mt-3 flex flex-wrap gap-2">
+        <button type="button" aria-pressed={scope === "country"} onClick={() => onChange({ scope: "country", entireCountry: true, cities: [], regions: [] })} className={`campaign-chip ${scope === "country" ? "campaign-chip-selected" : ""}`}>Entire country</button>
+        {hasRegions ? (
+          <button type="button" aria-pressed={scope === "regions"} onClick={() => onChange({ scope: "regions", entireCountry: false, cities: [] })} className={`campaign-chip ${scope === "regions" ? "campaign-chip-selected" : ""}`}>Selected {plural.toLowerCase()}</button>
+        ) : null}
+        <button type="button" aria-pressed={scope === "cities"} onClick={() => onChange({ scope: "cities", entireCountry: false, regions: [] })} className={`campaign-chip ${scope === "cities" ? "campaign-chip-selected" : ""}`}>Selected cities</button>
+      </div>
+
+      {scope === "regions" ? (
+        <div className="mt-3 rounded-2xl border border-zinc-200 bg-white p-3 dark:border-zinc-800 dark:bg-zinc-950">
+          <RegionPicker
+            country={location.country}
+            value={regions}
+            max={MAX_CAMPAIGN_REGIONS_PER_COUNTRY}
+            counts={counts}
+            onChange={(next) => onChange({ scope: "regions", entireCountry: false, regions: next })}
+          />
+          <p className="mt-2 text-[11px] font-semibold text-zinc-500">Numbers show KunThai accounts located there right now (a district's accounts also count towards its province).</p>
+        </div>
+      ) : null}
+
+      {scope === "cities" ? (
+        <div className="mt-3 space-y-3">
+          {knownCities.length ? (
+            <div className="flex flex-wrap gap-2">
+              {knownCities.slice(0, 24).map((item) => (
+                <button key={item.city} type="button" aria-pressed={(location.cities || []).includes(item.city)} onClick={() => onChange({ cities: toggle(location.cities || [], item.city) })} className={`campaign-chip ${(location.cities || []).includes(item.city) ? "campaign-chip-selected" : ""}`}>
+                  {item.city} <span className="ml-1 opacity-70">{Number(item.accounts).toLocaleString()}</span>
+                </button>
+              ))}
+            </div>
+          ) : <p className="text-xs font-semibold text-zinc-500">No city data recorded yet for this country.</p>}
+          <div className="flex flex-col gap-2 sm:flex-row">
+            <input value={cityDraft} onChange={(event) => setCityDraft(event.target.value)} placeholder="Another city (exact spelling)" className="campaign-input min-w-0 flex-1" aria-label={`Add a city in ${location.countryName}`} />
+            <button type="button" className="campaign-action shrink-0" onClick={() => {
+              const city = cityDraft.trim();
+              if (city && !(location.cities || []).some((item) => item.toLowerCase() === city.toLowerCase())) onChange({ cities: [...(location.cities || []), city] });
+              setCityDraft("");
+            }}>Add city</button>
+          </div>
+          {(location.cities || []).filter((city) => !knownCities.some((item) => item.city === city)).length ? (
+            <div className="flex flex-wrap gap-2">
+              {(location.cities || []).filter((city) => !knownCities.some((item) => item.city === city)).map((city) => (
+                <button key={city} type="button" aria-label={`Remove ${city}`} onClick={() => onChange({ cities: (location.cities || []).filter((item) => item !== city) })} className="campaign-chip campaign-chip-selected">{city} <X size={12} className="ml-1" /></button>
+              ))}
+            </div>
+          ) : null}
+        </div>
+      ) : null}
+    </article>
   );
 }
 

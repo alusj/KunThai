@@ -10,6 +10,7 @@ import {
 import ProductFormField from "./ProductFormField";
 import ProductFormInput from "./ProductFormInput";
 import ProductToggle from "./ProductToggle";
+import PromotionRegionSection from "../Promotion/PromotionRegionSection";
 import { getCountryCurrencyCode } from "../../../../../data/globalCountryProfiles";
 import { uiText, useI18n, t } from "../../../../../i18n";
 import { t as i18nText } from "../../../../../i18n/index";
@@ -245,6 +246,15 @@ export default function ProductPricingStep({ productForm }) {
                 );
               })}
             </div>
+          </div>
+
+          <div className="mt-4">
+            <PromotionRegionSection
+              mode={form.pricing.promotionRegionMode}
+              regions={form.pricing.promotionRegions}
+              onChange={({ mode, regions }) => updateSection("pricing", { promotionRegionMode: mode, promotionRegions: regions })}
+            />
+            {errors.promotionRegions ? <p className="mt-2 text-xs font-bold text-red-600">{errors.promotionRegions}</p> : null}
           </div>
 
           <div className={`mt-4 rounded-lg border p-3 text-sm font-black ${hasEnoughCredits ? "border-emerald-200 bg-white text-emerald-800" : "border-amber-200 bg-amber-50 text-amber-900"}`}>

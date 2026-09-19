@@ -11,7 +11,7 @@ import {
   presentationMeta,
 } from "../../Backend/services/campaigns/campaignModel";
 import { formatDateTime, titleCase } from "../adminConfig";
-import { AUDIENCE_SEGMENTS, CAMPAIGN_CATEGORIES, buildCampaignPayload, firstCampaignError, isWorldwideCampaign } from "../notificationCampaignConfig";
+import { AUDIENCE_SEGMENTS, CAMPAIGN_CATEGORIES, buildCampaignPayload, describeCampaignLocation, firstCampaignError, isWorldwideCampaign } from "../notificationCampaignConfig";
 import { Notice, ReviewRow } from "./campaignUi";
 
 const LARGE_AUDIENCE = 1000;
@@ -62,7 +62,7 @@ export default function CampaignReviewStep({ form, estimate, onEstimate, estimat
         {form.audienceMode !== "users" ? (
           <ReviewRow
             label="Location"
-            value={form.locationMode === "countries" ? form.locations.map((location) => `${location.countryName} (${location.entireCountry ? "entire country" : location.cities.join(", ")})`).join("; ") : "All locations"}
+            value={form.locationMode === "countries" ? form.locations.map(describeCampaignLocation).join("; ") : "All locations"}
           />
         ) : null}
         {form.segments.length && form.audienceMode !== "users" ? <ReviewRow label="Activity" value={form.segments.map((segment) => AUDIENCE_SEGMENTS.find(([value]) => value === segment)?.[1] || segment).join(", ")} /> : null}

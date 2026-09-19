@@ -1044,6 +1044,50 @@ export async function lookupNotificationCampaignUser(kunThaiId) {
   return Array.isArray(rows) ? rows[0] || null : rows;
 }
 
+/**
+ * Live recipient search for campaigns: any part of a KunThai ID, or a name /
+ * username. Email addresses and phone numbers are never searched or returned.
+ */
+export async function searchNotificationCampaignUsers(query, limit = 12) {
+  const text = String(query || "").trim();
+  if (text.length < 2) return [];
+  if (isAdminPreview()) {
+    const idQuery = text.replace(/[^A-Za-z0-9]/g, "").toUpperCase().replace(/^KTU/, "");
+    const nameQuery = text.replace(/^@/, "").toLowerCase();
+    const rows = previewUsers
+      .filter((user) => {
+        const idKey = String(user.public_id || "").replace(/[^A-Za-z0-9]/g, "").toUpperCase().slice(3);
+        return (/^ktu|\d/i.test(text) && idKey.includes(idQuery))
+          || `${user.display_name} ${user.username}`.toLowerCase().includes(nameQuery);
+      })
+      .slice(0, limit)
+      .map((user) => ({
+        user_id: user.user_id,
+        public_id: user.public_id,
+        display_name: user.display_name,
+        username: user.username || "",
+        avatar_url: user.avatar_url || "",
+        country: user.country || "Sierra Leone",
+        city: user.city || "Freetown",
+        region_name: user.region_name || "Western Area Urban",
+      }));
+    return previewDelay(rows);
+  }
+  return unwrap(
+    await supabase.rpc("admin_search_campaign_users", { search_text: text, result_limit: Math.max(1, Math.min(25, limit)) }),
+    "Unable to search KunThai accounts.",
+  ) || [];
+}
+
+/** Accounts located in each state/district of a country: { [regionId]: count } (null in preview). */
+export async function getNotificationCampaignRegionCounts(country) {
+  if (!country) return {};
+  // The preview shell has no real accounts, so it shows no counts.
+  if (isAdminPreview()) return previewDelay(null);
+  const rows = unwrap(await supabase.rpc("admin_campaign_region_counts", { p_country: country }), "Unable to count accounts by area.") || [];
+  return Object.fromEntries(rows.map((row) => [String(row.region_id), Number(row.accounts) || 0]));
+}
+
 export async function cancelNotificationCampaign(campaignId, reason) {
   if (isAdminPreview()) return runAdminMutation(() => previewDelay({ id: campaignId, status: "cancelled" }), { action: "notification.campaign_cancelled", campaignId });
   return runAdminMutation(async () => unwrap(await supabase.rpc("admin_cancel_campaign", { campaign_uuid: campaignId, cancel_reason: reason }), "Unable to cancel the campaign."), { action: "notification.campaign_cancelled", campaignId });

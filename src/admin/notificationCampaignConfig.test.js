@@ -3,7 +3,9 @@ import test from "node:test";
 
 import {
   buildCampaignPayload,
+  campaignLocationScope,
   campaignToEditorForm,
+  describeCampaignLocation,
   createEmptyCampaignForm,
   firstCampaignError,
   isWorldwideCampaign,
@@ -137,4 +139,46 @@ test("saved campaigns reopen in the builder", () => {
   assert.equal(legacy.presentation.type, "floating");
   assert.equal(legacy.presentation.screen, "urride.operator");
   assert.equal(legacy.content.title, "Hello operators");
+});
+
+test("states and districts: several regions per country travel as regionIds", () => {
+  const form = restaurantFloatingCampaign();
+  form.locations = [
+    { country: "SL", countryName: "Sierra Leone", scope: "regions", entireCountry: false, cities: ["Freetown"], regions: [
+      { id: "11111111-1111-4111-8111-111111111111", name: "Kambia", type: "District" },
+      { id: "22222222-2222-4222-8222-222222222222", name: "Port Loko", type: "District" },
+      { id: "11111111-1111-4111-8111-111111111111", name: "Kambia", type: "District" },
+    ] },
+    { country: "NG", countryName: "Nigeria", scope: "country", entireCountry: true, cities: [], regions: [] },
+  ];
+  assert.equal(validateCampaignStep("audience", form), "");
+  const payload = buildCampaignPayload(form, NOW);
+  assert.deepEqual(payload.filter.locations, [
+    {
+      country: "SL",
+      countryName: "Sierra Leone",
+      entireCountry: false,
+      cities: [],
+      regionIds: ["11111111-1111-4111-8111-111111111111", "22222222-2222-4222-8222-222222222222"],
+      regions: [
+        { id: "11111111-1111-4111-8111-111111111111", name: "Kambia", type: "District" },
+        { id: "22222222-2222-4222-8222-222222222222", name: "Port Loko", type: "District" },
+      ],
+    },
+    { country: "NG", countryName: "Nigeria", entireCountry: true, cities: [] },
+  ]);
+  assert.equal(isWorldwideCampaign(payload), false);
+  assert.equal(describeCampaignLocation(form.locations[0]), "Sierra Leone (Kambia, Port Loko)");
+  assert.equal(describeCampaignLocation(form.locations[1]), "Nigeria (entire country)");
+});
+
+test("a country limited to states/districts needs at least one", () => {
+  const form = restaurantFloatingCampaign();
+  form.locations = [{ country: "NG", countryName: "Nigeria", scope: "regions", entireCountry: false, cities: [], regions: [] }];
+  assert.match(validateCampaignStep("audience", form), /state or district in Nigeria/);
+  assert.equal(campaignLocationScope(form.locations[0]), "regions");
+  // Older saved campaigns without a scope keep their meaning.
+  assert.equal(campaignLocationScope({ entireCountry: true }), "country");
+  assert.equal(campaignLocationScope({ entireCountry: false, cities: ["Bo"] }), "cities");
+  assert.equal(campaignLocationScope({ entireCountry: false, regionIds: ["x"] }), "regions");
 });

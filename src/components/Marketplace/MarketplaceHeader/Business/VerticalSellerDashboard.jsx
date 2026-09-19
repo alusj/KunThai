@@ -236,6 +236,8 @@ function RestaurantDashboard({ business, canManage = true, initialWorkspace = nu
           await promoteVerticalListing("meal", { id: saved.id, name: saved.name }, {
             credits: promotionSettings.promotionCredits,
             audience: promotionSettings.promotionAudience,
+            regionMode: promotionSettings.promotionRegionMode,
+            regions: promotionSettings.promotionRegions,
           });
         } catch (promoError) {
           showToast(promoError.message || t("urmall.biz.vert.promoteFailed"), "danger");
@@ -504,6 +506,8 @@ function PropertyDashboard({ business, canManage = true, initialWorkspace = null
           await promoteVerticalListing("property", { id: saved.id, name: saved.title }, {
             credits: promotionSettings.promotionCredits,
             audience: promotionSettings.promotionAudience,
+            regionMode: promotionSettings.promotionRegionMode,
+            regions: promotionSettings.promotionRegions,
           });
         } catch (promoError) {
           showToast(promoError.message || t("urmall.biz.vert.promoteFailed"), "danger");
@@ -770,6 +774,8 @@ function VerticalPromoteSheet({ listingType, listing, onClose, onPromoted }) {
       await promoteVerticalListing(listingType, listing, {
         credits: nextSettings.promotionCredits,
         audience: nextSettings.promotionAudience,
+        regionMode: nextSettings.promotionRegionMode,
+        regions: nextSettings.promotionRegions,
       });
       haptics.medium("marketplace");
       sounds.success("marketplace");

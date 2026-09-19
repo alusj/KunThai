@@ -1,5 +1,6 @@
 import { formatCurrency } from "../../../../../Backend/utils/formatCurrency";
 import { useI18n, t } from "../../../../../i18n";
+import { describeRegionSelection } from "../../../../../Backend/services/regions/regionModel";
 
 export default function ActivePromotionCard({ promotion }) {
   useI18n();
@@ -15,7 +16,10 @@ export default function ActivePromotionCard({ promotion }) {
           <h4 className="mt-1 font-black text-gray-950">{promotion.name}</h4>
           <p className="mt-1 text-sm font-medium text-gray-500">{promotion.productName}</p>
           <p className="mt-2 text-xs font-black uppercase text-gray-400">
-            {formatAudience(promotion.audienceType)} {promotion.durationDays ? t("urmall.biz.promo.durationDays", { count: promotion.durationDays }) : ""}
+            {promotion.targetRegions?.length
+              ? t("regions.target.summary", { places: describeRegionSelection(promotion.targetRegions, { max: 3, andMore: (count) => t("regions.picker.andMore", { count }) }) })
+              : formatAudience(promotion.audienceType)}{" "}
+            {promotion.durationDays ? t("urmall.biz.promo.durationDays", { count: promotion.durationDays }) : ""}
           </p>
         </div>
         <span className="rounded-full bg-amber-50 px-3 py-1 text-xs font-black text-amber-700">

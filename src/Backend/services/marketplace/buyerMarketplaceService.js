@@ -20,6 +20,7 @@ import {
   rankSearchResults,
 } from "./productSearch";
 import { fetchPromotedVerticalListings } from "./marketplaceVerticalService";
+import { getMyRegion, selectRegionScopedPromotions } from "../regions/regionService";
 import { rankMarketplaceProductsNearby, rankMarketplacePromotionsForBuyer } from "./marketplaceDiscovery";
 
 function toOptionalNumber(value) {
@@ -723,8 +724,11 @@ async function loadBuyerMarketplaceProducts(filters = {}) {
 // Active promotion rows power the advert slider. When a boost ends, the product
 // leaves this surface even if an older product flag is still true.
 export async function fetchPromotedMarketplaceProducts(limit = 12, options = {}) {
+  // Boosts limited to states/districts depend on where the shopper is, so the
+  // cache is per region.
+  const myRegion = await getMyRegion();
   const products = await cachedQuery(
-    `marketplace-promoted|${getActiveCountryProfile().iso2}|${limit}`,
+    `marketplace-promoted|${getActiveCountryProfile().iso2}|${myRegion?.regionId || "no-region"}|${limit}`,
     () => loadAllPromotedListings(limit),
     BUYER_DISCOVERY_TTL_MS,
     { force: options.force === true },
@@ -760,14 +764,15 @@ async function loadPromotedVerticalAds(limit = 12) {
 
 async function loadPromotedMarketplaceProducts(limit = 12) {
   const nowIso = new Date().toISOString();
-  const { data: promotionRows, error: promotionError } = await supabase
+  // Only boosts for the whole country or for the shopper's own state/district.
+  const { data: promotionRows, error: promotionError } = await selectRegionScopedPromotions(() => supabase
     .from("marketplace_promotions")
     .select("product_id,created_at,ends_at,status,credit_budget,metadata")
     .eq("status", "active")
     .not("product_id", "is", null)
     .gt("ends_at", nowIso)
     .order("created_at", { ascending: false })
-    .limit(Math.max(limit, 1) * 3);
+    .limit(Math.max(limit, 1) * 3));
 
   if (!promotionError) {
     const productIds = Array.from(new Set((promotionRows || []).map((row) => row.product_id).filter(Boolean))).slice(0, limit);

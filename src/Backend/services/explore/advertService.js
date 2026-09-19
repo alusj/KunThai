@@ -1,6 +1,7 @@
 import supabase from "../../lib/supabaseClient";
 import { getCountryCurrencyCode } from "../../../data/globalCountryProfiles";
 import { getMinimumExploreAdvertCredits, normalizeVisibilityCreditSpend } from "../visibilityCreditService";
+import { regionSelectionIds } from "../regions/regionModel";
 
 const AD_SESSION_KEY = "kunthai_explore_ad_session_v1";
 const AD_SEEN_SESSION_KEY = "kunthai_explore_seen_ads_v1";
@@ -109,7 +110,11 @@ export async function createExploreAdvertCampaign(post, advertInput = {}) {
     ? Math.max(minimumAge, Number(advert.maximumAge) || 120)
     : null;
 
-  const { data, error } = await supabase.rpc("create_explore_ad_campaign", {
+  // Regional adverts go through the wrapper that stores the states/districts in
+  // the same transaction; everything else uses the original RPC unchanged.
+  const regionIds = advert.regionMode === "regions" ? regionSelectionIds(advert.targetRegions) : [];
+  const { data, error } = await supabase.rpc(regionIds.length ? "create_explore_ad_campaign_in_regions" : "create_explore_ad_campaign", {
+    ...(regionIds.length ? { p_target_region_ids: regionIds } : {}),
     p_post_id: post.id,
     p_placement: advert.placement || "urfeed",
     p_objective: advert.objective || "brand_awareness",
@@ -129,6 +134,10 @@ export async function createExploreAdvertCampaign(post, advertInput = {}) {
   });
 
   if (error) {
+    // Never fall back to an unrestricted advert when regions were chosen.
+    if (isUnavailableDatabaseFeature(error) && regionIds.length) {
+      throw new Error("Regional adverts are not available yet. Remove the location limit or try again later.");
+    }
     if (isUnavailableDatabaseFeature(error)) return null;
     throw error;
   }

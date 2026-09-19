@@ -4,6 +4,8 @@ import { optimizeImageFile } from "./imageOptimization";
 import { validateVerticalMediaPackage } from "./verticalMediaValidation";
 import { assertBusinessCapacity, parseBusinessPlanError } from "../businessSubscriptionService";
 import { invalidateRegisteredBusinessesCache } from "./sellerRegistrationService";
+import { regionSelectionIds } from "../regions/regionModel";
+import { selectRegionScopedPromotions } from "../regions/regionService";
 import {
   assertVisibilityCreditsAvailable,
   MINIMUM_VISIBILITY_CREDITS,
@@ -457,13 +459,22 @@ export async function promoteVerticalListing(listingType, listing, options = {})
   const creditBudget = normalizeVisibilityCreditSpend(options.credits, MINIMUM_VISIBILITY_CREDITS);
   await assertVisibilityCreditsAvailable(creditBudget);
   const audienceType = String(options.audience || "countrywide").trim() || "countrywide";
+  // States/districts chosen for the boost; empty = the whole country.
+  const regionIds = options.regionMode === "regions" ? regionSelectionIds(options.regions) : [];
+  if (options.regionMode === "regions" && !regionIds.length) {
+    throw new Error("Choose at least one state or district for this boost. (code: PROMO_NO_REGION)");
+  }
 
-  const { data, error } = await supabase.rpc("create_marketplace_listing_promotion", {
-    p_listing_type: type,
-    p_listing_id: listing.id,
-    p_credit_budget: creditBudget,
-    p_audience_type: audienceType,
-  });
+  const { data, error } = await supabase.rpc(
+    regionIds.length ? "create_marketplace_listing_promotion_in_regions" : "create_marketplace_listing_promotion",
+    {
+      p_listing_type: type,
+      p_listing_id: listing.id,
+      p_credit_budget: creditBudget,
+      p_audience_type: audienceType,
+      ...(regionIds.length ? { p_target_region_ids: regionIds } : {}),
+    },
+  );
 
   if (error) throw new Error(`${error.message} (code: PROMO_RPC)`);
 
@@ -705,14 +716,15 @@ function promotedVerticalAd(listingType, row, promotion = {}) {
 // `listingType` and the `item` needed to open the vertical detail.
 export async function fetchPromotedVerticalListings(limit = 12) {
   const nowIso = new Date().toISOString();
-  const { data: promos, error } = await supabase
+  // Only boosts for the whole country or for the shopper's own state/district.
+  const { data: promos, error } = await selectRegionScopedPromotions(() => supabase
     .from("marketplace_promotions")
     .select("meal_id,property_id,listing_type,created_at,ends_at,status,credit_budget,metadata")
     .eq("status", "active")
     .in("listing_type", ["meal", "property"])
     .gt("ends_at", nowIso)
     .order("created_at", { ascending: false })
-    .limit(Math.max(limit, 1) * 3);
+    .limit(Math.max(limit, 1) * 3));
 
   if (error || !promos?.length) return [];
 

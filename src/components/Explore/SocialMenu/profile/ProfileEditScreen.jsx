@@ -8,6 +8,7 @@ import { showToast } from "../../../../Backend/services/toastService";
 import { useI18n } from "../../../../i18n";
 import ProfileEditForm from "./ProfileEditForm";
 import ProfileHeaderCard from "./ProfileHeaderCard";
+import MyRegionCard from "../../../shared/regions/MyRegionCard";
 
 function fileToDataUrl(file) {
   return new Promise((resolve, reject) => {
@@ -118,6 +119,8 @@ export default function ProfileEditScreen({
       />
 
       <ProfileEditForm values={values} onChange={updateField} />
+
+      {isSpace ? null : <MyRegionCard />}
 
       <div className="sticky bottom-0 z-10 -mx-4 border-t border-slate-200 bg-white/95 px-4 py-3 backdrop-blur sm:-mx-6 sm:px-6 lg:-mx-8 lg:px-8">
         <button

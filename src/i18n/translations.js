@@ -4,6 +4,7 @@
 
 import { URRIDE } from "./urride";
 import { UI_TRANSLATIONS } from "./ui";
+import { REGIONS } from "./regions";
 
 export const TRANSLATIONS = {
   en: {
@@ -17365,6 +17366,13 @@ export const TRANSLATIONS = {
 for (const [locale, section] of Object.entries(URRIDE)) {
   if (TRANSLATIONS[locale]) {
     TRANSLATIONS[locale].urride = section;
+  }
+}
+
+// Graft the states / districts (regional targeting) bundle.
+for (const [locale, section] of Object.entries(REGIONS)) {
+  if (TRANSLATIONS[locale]) {
+    TRANSLATIONS[locale].regions = section;
   }
 }
 

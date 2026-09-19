@@ -6,6 +6,7 @@ import {
   normalizeVisibilityCreditSpend,
   VISIBILITY_BOOST_PACKAGES,
 } from "../../../../../Backend/services/visibilityCreditService";
+import { normalizeRegionSelection } from "../../../../../Backend/services/regions/regionModel";
 
 export const PROMOTION_AUDIENCES = [
   { id: "recommended", icon: Sparkles, labelKey: "audRecommended", descKey: "audRecommendedDesc" },
@@ -29,5 +30,13 @@ export function normalizePromotionSettings(settings = {}) {
     promotionCredits,
     promotionCreditPackage: settings.promotionCreditPackage || settings.creditPackage || matchedPackage?.id || "custom",
     promotionAudience: settings.promotionAudience || settings.audience || "recommended",
+    // "country" (whole country) or "regions" (only the chosen states/districts).
+    promotionRegionMode: settings.promotionRegionMode === "regions" ? "regions" : "country",
+    promotionRegions: settings.promotionRegionMode === "regions" ? normalizeRegionSelection(settings.promotionRegions) : [],
   };
+}
+
+/** True when the boost's location choice is complete. */
+export function promotionRegionsReady(mode, regions) {
+  return mode !== "regions" || normalizeRegionSelection(regions).length > 0;
 }

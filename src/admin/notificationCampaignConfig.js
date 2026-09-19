@@ -25,6 +25,7 @@ import {
   zonedLocalToUtcIso,
 } from "../Backend/services/campaigns/campaignModel.js";
 import { GLOBAL_COUNTRY_PROFILES } from "../data/globalCountryProfiles.js";
+import { normalizeRegionSelection } from "../Backend/services/regions/regionModel.js";
 
 // Admin campaign builder: form state, per-step validation and the payload
 // sent to admin_create_campaign / admin_update_campaign. The database repeats
@@ -140,6 +141,47 @@ export function createEmptyCampaignForm() {
   };
 }
 
+// --- Locations ----------------------------------------------------------------------
+
+export const MAX_CAMPAIGN_REGIONS_PER_COUNTRY = 50;
+
+/** How a chosen country is narrowed: "country" (all of it), "regions" or "cities". */
+export function campaignLocationScope(location = {}) {
+  if (location.entireCountry) return "country";
+  if (location.scope === "regions" || (location.scope !== "cities" && (location.regions || location.regionIds || []).length)) return "regions";
+  return "cities";
+}
+
+/**
+ * The location entry sent to the database: states/districts travel as
+ * regionIds (matched by admin_notification_user_matches_location) plus their
+ * names for display; cities stay a list of names.
+ */
+export function normalizeCampaignLocation(location = {}) {
+  const scope = campaignLocationScope(location);
+  const regions = scope === "regions"
+    ? normalizeRegionSelection(location.regions || (location.regionIds || []).map((id) => ({ id })), MAX_CAMPAIGN_REGIONS_PER_COUNTRY)
+    : [];
+  return {
+    country: location.country,
+    countryName: location.countryName,
+    entireCountry: scope === "country",
+    cities: scope === "cities" ? (location.cities || []) : [],
+    ...(scope === "regions" ? { regionIds: regions.map((region) => region.id), regions: regions.map(({ id, name, type }) => ({ id, name, type })) } : {}),
+  };
+}
+
+/** "Sierra Leone (Kambia, Port Loko)" for summaries. */
+export function describeCampaignLocation(location = {}) {
+  const scope = campaignLocationScope(location);
+  const detail = scope === "country"
+    ? "entire country"
+    : scope === "regions"
+      ? normalizeCampaignLocation(location).regions.map((region) => region.name).filter(Boolean).join(", ") || `${(location.regionIds || []).length} areas`
+      : (location.cities || []).join(", ");
+  return `${location.countryName || location.country} (${detail})`;
+}
+
 // --- Keeping choices consistent -------------------------------------------------------
 
 /** Apply an audience change and repair every dependent choice. */
@@ -189,7 +231,9 @@ export function validateCampaignStep(stepId, form, { canCritical = false, now = 
     if (form.audienceMode === "users" && !form.users.length) return "Add at least one KunThai ID.";
     if (form.audienceMode !== "users" && form.locationMode === "countries") {
       if (!form.locations.length) return "Choose at least one country, or target all locations.";
-      if (form.locations.some((location) => !location.entireCountry && !location.cities.length)) {
+      const missingRegions = form.locations.find((location) => campaignLocationScope(location) === "regions" && !normalizeCampaignLocation(location).regionIds.length);
+      if (missingRegions) return `Choose at least one state or district in ${missingRegions.countryName}, or target the entire country.`;
+      if (form.locations.some((location) => campaignLocationScope(location) === "cities" && !(location.cities || []).length)) {
         return "Choose at least one city for each country limited to cities.";
       }
     }
@@ -273,7 +317,7 @@ export function buildCampaignPayload(form, now = Date.now()) {
   const audience = normalizeAudience(form.audience);
   const targetPaths = audienceTargetPaths(audience);
   const specificUsers = form.audienceMode === "users";
-  const locations = !specificUsers && form.locationMode === "countries" ? form.locations : [];
+  const locations = !specificUsers && form.locationMode === "countries" ? form.locations.map(normalizeCampaignLocation) : [];
   const segments = !specificUsers ? form.segments : [];
   const type = form.presentation.type;
   const dismissible = ALWAYS_DISMISSIBLE_CATEGORIES.includes(form.campaign.category) ? true : type === "critical" ? false : form.presentation.dismissible !== false;

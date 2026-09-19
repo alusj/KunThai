@@ -24,6 +24,8 @@ export default function ProductPromotionScreen({ onPromoted, product }) {
       const promotion = await promoteSellerProduct(product, {
         credits: nextSettings.promotionCredits,
         audience: nextSettings.promotionAudience,
+        regionMode: nextSettings.promotionRegionMode,
+        regions: nextSettings.promotionRegions,
       });
       const chargedCredits = Number(promotion?.credit_budget || promotion?.credits_spent || nextSettings.promotionCredits);
       haptics.medium("marketplace");
@@ -39,6 +41,7 @@ export default function ProductPromotionScreen({ onPromoted, product }) {
   return (
     <PromotionSetupPanel
       title={t("urmall.biz.promo.promoteListing", { name: product?.name || t("urmall.biz.cat.productKicker") })}
+      country={product?.country_iso || product?.countryIso || ""}
       settings={settings}
       onChange={setSettings}
       onConfirm={launch}

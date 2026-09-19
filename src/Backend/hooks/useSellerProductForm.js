@@ -13,6 +13,7 @@ import {
   MINIMUM_VISIBILITY_CREDITS,
   normalizeVisibilityCreditSpend,
 } from "../services/visibilityCreditService";
+import { regionSelectionIds } from "../services/regions/regionModel";
 import {
   clearProductDraft,
   productDraftHasContent,
@@ -83,6 +84,8 @@ function buildProductForm(product, options) {
       promotionCreditPackage: product.promotionCreditPackage || "small",
       promotionCredits: String(product.promotionCredits || MINIMUM_VISIBILITY_CREDITS),
       promotionAudience: product.promotionAudience || "countrywide",
+      promotionRegionMode: "country",
+      promotionRegions: [],
     },
     delivery: {
       deliveryAvailable: product.deliveryAvailable ?? options.deliveryAvailable,
@@ -215,6 +218,9 @@ export function useSellerProductForm({ onComplete, mode = "create", product = nu
         const promotionCredits = normalizeVisibilityCreditSpend(form.pricing.promotionCredits, MINIMUM_VISIBILITY_CREDITS);
         if (promotionCredits < MINIMUM_VISIBILITY_CREDITS) {
           nextErrors.promotionCredits = `Choose at least ${MINIMUM_VISIBILITY_CREDITS} Visibility Credits.`;
+        }
+        if (form.pricing.promotionRegionMode === "regions" && !regionSelectionIds(form.pricing.promotionRegions).length) {
+          nextErrors.promotionRegions = "Choose at least one state or district, or show it in the whole country.";
         }
       }
     }

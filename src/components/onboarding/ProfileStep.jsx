@@ -15,6 +15,7 @@ import {
 } from "../../data/globalCountryProfiles";
 import PhoneCountryField from "../shared/PhoneCountryField";
 import CenteredModal from "../shared/CenteredModal";
+import MyRegionCard from "../shared/regions/MyRegionCard";
 import OnboardingFrame from "./OnboardingFrame";
 import { scrollToFirstBlockingFieldSoon } from "../shared/formValidationNavigation";
 import { useI18n, t } from "../../i18n";
@@ -403,6 +404,8 @@ export default function ProfileStep({ values, saving = false, error, errorCode =
               </select>
             </label>
           </div>
+
+          <MyRegionCard className="mt-5" country={countryProfile.iso2} />
 
           <div className="mt-5">
             <span className="mb-2 block text-xs font-semibold uppercase tracking-[0.26em] text-slate-500">{t("onboarding.profile.socialProfiles")}</span>

@@ -4,6 +4,7 @@ import {
   ArrowRight,
   CalendarClock,
   Check,
+  Globe2,
   Image,
   Layers3,
   Link,
@@ -31,6 +32,10 @@ import {
 import { getAdvertObjectiveRequirement, hasAdvertCoordinates } from "../../../../shared/advertUtils";
 import { useAddressAreaValidation } from "../../../../../shared/AddressAreaValidation";
 import { t as i18nText, uiText } from "../../../../../../i18n/index";
+import { getActiveCountryProfile } from "../../../../../../data/globalCountryProfiles";
+import { describeRegionSelection, normalizeRegionSelection } from "../../../../../../Backend/services/regions/regionModel";
+import RegionPicker from "../../../../../shared/regions/RegionPicker";
+import { regionLabel, useCountryRegions } from "../../../../../shared/regions/regionHooks";
 
 const ADVERT_TYPES = [
   { value: "offer", label: "Offer" },
@@ -85,6 +90,10 @@ const AUDIENCES = [
   { value: "followers_similar", label: "Connections + Similar Users", description: "Connected people plus others with related Explore interests." },
   { value: "nearby", label: "Nearby Reach", description: "Uses only coarse area personalization that viewers have permitted." },
 ];
+
+// "Nearby Reach" is kept only to label older campaigns. Location is now chosen
+// with the state/district picker ("Where should it appear?").
+const SELECTABLE_AUDIENCES = AUDIENCES.filter((audience) => audience.value !== "nearby");
 
 const INTERESTS = [
   "Technology", "Fashion", "Beauty", "Food", "Sports", "Music", "Entertainment",
@@ -157,8 +166,9 @@ export default function AdvertComposerFields({
 
   const customDatesValid = advert.durationPreset !== "custom"
     || (advert.customStart && advert.customEnd && advert.customEnd >= advert.customStart);
-  const canContinue = step === 3 && advert.audienceType === "nearby"
-    ? Boolean(String(advert.targetArea || "").trim())
+  const regionsReady = advert.regionMode !== "regions" || normalizeRegionSelection(advert.targetRegions).length > 0;
+  const canContinue = step === 3
+    ? regionsReady
       : step === 4
       ? customDatesValid
       : step === 5
@@ -217,23 +227,9 @@ export default function AdvertComposerFields({
 
           {step === 3 ? (
             <div className="space-y-5">
-              <ChoiceGrid options={AUDIENCES} value={advert.audienceType} onChange={(value) => onChange("audienceType", value)} />
+              <ChoiceGrid options={SELECTABLE_AUDIENCES} value={advert.audienceType} onChange={(value) => onChange("audienceType", value)} />
 
-              {advert.audienceType === "nearby" ? (
-                <label className="block rounded-[22px] border border-emerald-100 bg-emerald-50/60 p-3">
-                  <span className="flex items-center gap-2 text-xs font-black uppercase tracking-[0.14em] text-emerald-700">
-                    <MapPin size={14} /> {i18nText("ui.literals.kde12b8e3e498")}
-                  </span>
-                  <input
-                    value={advert.targetArea}
-                    onChange={(event) => onChange("targetArea", event.target.value)}
-                    placeholder={i18nText("ui.literals.kde12b8e3e498")}
-                    maxLength={80}
-                    className="mt-2 h-11 w-full rounded-2xl border border-emerald-100 bg-white px-4 text-sm font-bold text-slate-900 outline-none focus:border-emerald-300"
-                  />
-                  <span className="mt-2 block text-xs font-semibold leading-5 text-slate-500">{i18nText("ui.literals.k906b57dc1464")}</span>
-                </label>
-              ) : null}
+              <AdvertRegionTargeting advert={advert} onChange={onChange} />
 
               <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
                 <label className="block">
@@ -419,6 +415,12 @@ function CreativeFields({
           <CampaignDetail label={uiText("Audience")} value={formatAudience(advert.audienceType)} />
           <CampaignDetail label={uiText("Schedule")} value={formatDuration(advert)} />
         </div>
+        {advert.regionMode === "regions" && normalizeRegionSelection(advert.targetRegions).length ? (
+          <p className="mt-2 flex items-start gap-2 rounded-2xl bg-emerald-50 px-3 py-2 text-xs font-black text-emerald-800">
+            <MapPin size={14} className="mt-0.5 flex-none" />
+            {i18nText("regions.target.summary", { places: describeRegionSelection(advert.targetRegions, { max: 4, andMore: (count) => i18nText("regions.picker.andMore", { count }) }) })}
+          </p>
+        ) : null}
         <CampaignBudgetStrip
           availableCredits={availableCredits}
           balanceAfterSpend={balanceAfterSpend}
@@ -705,6 +707,34 @@ function CampaignDetail({ label, value }) {
       <p className="text-[9px] font-black uppercase tracking-[0.1em] text-slate-400">{label}</p>
       <p className="mt-1 truncate text-xs font-black text-slate-800">{value}</p>
     </div>
+  );
+}
+
+// Limit an advert to people located in chosen states / districts.
+function AdvertRegionTargeting({ advert, onChange }) {
+  const country = getActiveCountryProfile()?.iso2 || "";
+  const { index } = useCountryRegions(country);
+  const plural = regionLabel(index?.labelPlural || "Regions");
+  const singular = regionLabel(index?.label || "Region");
+  const mode = advert.regionMode === "regions" ? "regions" : "everywhere";
+  const selection = normalizeRegionSelection(advert.targetRegions);
+  const options = [
+    { value: "everywhere", icon: Globe2, label: i18nText("regions.target.everywhereTitle"), description: i18nText("regions.target.everywhereAdvert") },
+    { value: "regions", icon: MapPin, label: i18nText("regions.target.specificTitle", { plural }), description: i18nText("regions.target.specificDesc", { plural: plural.toLowerCase() }) },
+  ];
+
+  return (
+    <section className="space-y-3">
+      <p className="flex items-center gap-2 text-xs font-black uppercase tracking-[0.14em] text-slate-500"><MapPin size={14} /> {i18nText("regions.target.title")}</p>
+      <ChoiceGrid options={options} value={mode} onChange={(value) => onChange("regionMode", value)} />
+      {mode === "regions" ? (
+        <div className="rounded-[22px] border border-emerald-100 bg-emerald-50/40 p-3">
+          <RegionPicker country={country} value={selection} onChange={(next) => onChange("targetRegions", next)} allowLocate />
+          <p className="mt-3 text-[11px] font-semibold leading-5 text-slate-500">{i18nText("regions.target.reachNote", { singular: singular.toLowerCase(), plural: plural.toLowerCase() })}</p>
+          {!selection.length ? <p className="mt-2 text-xs font-black text-amber-700">{i18nText("regions.target.needOne", { singular: singular.toLowerCase() })}</p> : null}
+        </div>
+      ) : null}
+    </section>
   );
 }
 

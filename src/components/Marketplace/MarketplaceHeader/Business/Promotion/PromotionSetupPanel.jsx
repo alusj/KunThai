@@ -15,10 +15,12 @@ import {
   VISIBILITY_BOOST_PACKAGES,
 } from "../../../../../Backend/services/visibilityCreditService";
 import { uiText, useI18n, t } from "../../../../../i18n";
-import { estimatePromotionDays, normalizePromotionSettings, PROMOTION_AUDIENCES } from "./promotionSetup";
+import { estimatePromotionDays, normalizePromotionSettings, PROMOTION_AUDIENCES, promotionRegionsReady } from "./promotionSetup";
+import PromotionRegionSection from "./PromotionRegionSection";
 
 export default function PromotionSetupPanel({
   confirmLabel = "",
+  country = "",
   error = "",
   onChange,
   onConfirm = null,
@@ -148,6 +150,14 @@ export default function PromotionSetupPanel({
           </div>
         </div>
 
+        <PromotionRegionSection
+          country={country}
+          mode={normalized.promotionRegionMode}
+          regions={normalized.promotionRegions}
+          disabled={submitting}
+          onChange={({ mode, regions }) => update({ promotionRegionMode: mode, promotionRegions: regions })}
+        />
+
         <div className={`kt-promotion-estimate rounded-2xl border p-4 ${hasEnoughCredits ? "kt-promotion-estimate--ready border-emerald-200 bg-emerald-50/70" : "kt-promotion-estimate--warning border-amber-200 bg-amber-50"}`}>
           <div className="flex items-center justify-between gap-3">
             <div>
@@ -174,7 +184,7 @@ export default function PromotionSetupPanel({
           <button
             type="button"
             onClick={() => onConfirm(normalized)}
-            disabled={submitting || wallet.loading || !hasEnoughCredits || selectedCredits < MINIMUM_VISIBILITY_CREDITS}
+            disabled={submitting || wallet.loading || !hasEnoughCredits || selectedCredits < MINIMUM_VISIBILITY_CREDITS || !promotionRegionsReady(normalized.promotionRegionMode, normalized.promotionRegions)}
             className="flex h-12 w-full items-center justify-center gap-2 rounded-2xl bg-emerald-600 px-4 text-sm font-black text-white shadow-lg shadow-emerald-600/20 transition hover:bg-emerald-700 disabled:cursor-not-allowed disabled:opacity-50"
           >
             {submitting ? t("urmall.biz.promo.launching") : `${launchLabel} · ${selectedCredits} ${t("urmall.biz.promo.creditsUnit")}`}

@@ -11,6 +11,7 @@ import { assertBusinessCapacity } from "../businessSubscriptionService";
 import { normalizeTierPricing } from "./tierPricingUtils";
 import { optimizeImageFile } from "./imageOptimization";
 import { hasBusinessPlans } from "./marketplaceBusinessKinds";
+import { regionSelectionIds } from "../regions/regionModel";
 
 function withTimeout(promise, message, timeoutMs = 60000) {
   return Promise.race([
@@ -69,6 +70,9 @@ export const INITIAL_PRODUCT_FORM = {
     promotionCreditPackage: "small",
     promotionCredits: String(MINIMUM_VISIBILITY_CREDITS),
     promotionAudience: "countrywide",
+    // "country" or "regions" (only shoppers in promotionRegions).
+    promotionRegionMode: "country",
+    promotionRegions: [],
   },
   delivery: {
     deliveryAvailable: true,
@@ -480,7 +484,12 @@ export async function submitSellerProduct(form, onProgress) {
       try {
         await promoteSellerProduct(
           { id: promotedProductId, name: productName },
-          { credits: promotionCredits, audience: form.pricing.promotionAudience },
+          {
+            credits: promotionCredits,
+            audience: form.pricing.promotionAudience,
+            regionMode: form.pricing.promotionRegionMode,
+            regions: form.pricing.promotionRegions,
+          },
         );
       } catch (promotionError) {
         promotionWarning =
@@ -613,7 +622,12 @@ export async function updateSellerProductListing(product, form, onProgress) {
     try {
       await promoteSellerProduct(
         { id: product.id, name: form.basics.name.trim() },
-        { credits: promotionCredits, audience: form.pricing.promotionAudience },
+        {
+          credits: promotionCredits,
+          audience: form.pricing.promotionAudience,
+          regionMode: form.pricing.promotionRegionMode,
+          regions: form.pricing.promotionRegions,
+        },
       );
     } catch (promotionError) {
       promotionWarning =
@@ -748,12 +762,21 @@ export async function promoteSellerProduct(product, options = {}) {
     MINIMUM_VISIBILITY_CREDITS,
   );
   const audienceType = String(options.audience || product.promotionAudience || "countrywide").trim() || "countrywide";
+  // States/districts chosen for the boost; empty = the whole country.
+  const regionIds = options.regionMode === "regions" ? regionSelectionIds(options.regions) : [];
+  if (options.regionMode === "regions" && !regionIds.length) {
+    throw new Error("Choose at least one state or district for this boost. (code: PROMO_NO_REGION)");
+  }
 
-  const { data, error } = await supabase.rpc("create_marketplace_visibility_promotion", {
-    p_product_id: product.id,
-    p_credit_budget: creditBudget,
-    p_audience_type: audienceType,
-  });
+  const { data, error } = await supabase.rpc(
+    regionIds.length ? "create_marketplace_visibility_promotion_in_regions" : "create_marketplace_visibility_promotion",
+    {
+      p_product_id: product.id,
+      p_credit_budget: creditBudget,
+      p_audience_type: audienceType,
+      ...(regionIds.length ? { p_target_region_ids: regionIds } : {}),
+    },
+  );
 
   if (error) throw new Error(`${error.message} (code: PROMO_RPC)`);
   if (typeof window !== "undefined") {
