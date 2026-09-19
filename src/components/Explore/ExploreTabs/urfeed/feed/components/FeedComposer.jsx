@@ -80,11 +80,6 @@ const VIDEO_UPLOAD_TIMEOUT_MS = 5 * 60 * 1000;
 // The timeout grows with the file for slow connections: at least 5 minutes,
 // and never less than the time needed at ~20 KB/s.
 const VIDEO_UPLOAD_MIN_BYTES_PER_SECOND = 20 * 1024;
-// Explore uploads a clip of at most this size. Anything heavier goes to the
-// trimmer, which re-encodes it to fit: on a phone connection a 30-50 MB camera
-// clip can take longer than the upload may run.
-const EXPLORE_UPLOAD_TARGET_MB = 12;
-const EXPLORE_UPLOAD_TARGET_BYTES = EXPLORE_UPLOAD_TARGET_MB * 1024 * 1024;
 const VIDEO_UPLOAD_PROGRESS_INTERVAL_MS = 1500;
 const SUPPORTED_VIDEO_TYPES = ["video/mp4", "video/webm", "video/quicktime", "video/x-m4v"];
 const VIDEO_DURATION_PROBE_TIMEOUT_MS = 8000;
@@ -935,7 +930,7 @@ export default function FeedComposer({ profile, creating, onSubmit }) {
     // heavy, too long, or a format other than MP4/MOV/WebM — goes straight to
     // the shared full-screen trimmer, which re-encodes just the chosen part.
     // What gets uploaded is that trimmed file, never the full camera video.
-    if (file.size > EXPLORE_UPLOAD_TARGET_BYTES || !SUPPORTED_VIDEO_TYPES.includes(file.type)) {
+    if (file.size > MAX_EXPLORE_VIDEO_BYTES || !SUPPORTED_VIDEO_TYPES.includes(file.type)) {
       openVideoTrimmer(file);
       return;
     }
@@ -2082,7 +2077,7 @@ if (!isMobileVideoDevice) {
         <VideoTrimmerScreen
           file={trimmerVideoFile}
           maxSeconds={MAX_VIDEO_SECONDS}
-          maxMb={EXPLORE_UPLOAD_TARGET_MB}
+          maxMb={MAX_EXPLORE_VIDEO_MB}
           eyebrow={i18nText("ui.literals.k25866d0c0f6e")}
           onCancel={() => setTrimmerVideoFile(null)}
           onComplete={(trimmedFile, { durationSeconds } = {}) => {
