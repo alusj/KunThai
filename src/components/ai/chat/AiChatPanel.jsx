@@ -46,6 +46,10 @@ import AiScreenActionCards from "./AiScreenActionCards";
 // real KunThai records under each answer. Nothing it shows is actioned without
 // the person pressing a button.
 
+// The panel opens at 75% of the screen height; "-" and "+" step between these.
+const HEIGHT_STEPS = [25, 50, 75];
+const DEFAULT_HEIGHT = 75;
+
 function IconButton({ onClick, label, children, disabled = false, active = "" }) {
   return (
     <button
@@ -69,10 +73,11 @@ export default function AiChatPanel({ open, request, onClose }) {
   const [draft, setDraft] = useState("");
   const [selection, setSelection] = useState([]);
   const [copiedId, setCopiedId] = useState("");
-  // minimised -> normal -> full screen. "-" steps down, "+" steps up, and the
-  // panel grows or shrinks into its new size.
-  const [size, setSize] = useState("normal");
-  const minimised = size === "min";
+  // The panel opens at 75% of the screen. "-" steps it down (75 -> 50 -> 25)
+  // and "+" steps it back up; the conversation stays visible at every size and
+  // the panel grows or shrinks into the new height.
+  const [heightStep, setHeightStep] = useState(HEIGHT_STEPS.indexOf(DEFAULT_HEIGHT));
+  const heightPercent = HEIGHT_STEPS[heightStep];
   const listRef = useRef(null);
   const inputRef = useRef(null);
   const autoSentRef = useRef("");
@@ -96,12 +101,11 @@ export default function AiChatPanel({ open, request, onClose }) {
   }, [surface, role, open, screenVersion, t]);
   const roleLabel = assistantRoleLabel(role);
 
-  // A minimised KAI must not lock the page behind it.
-  useBodyScrollLock(open && !minimised);
+  useBodyScrollLock(open);
 
-  // Every new conversation opens at the normal size.
+  // Every new conversation opens at the default height.
   useEffect(() => {
-    if (open) setSize("normal");
+    if (open) setHeightStep(HEIGHT_STEPS.indexOf(DEFAULT_HEIGHT));
   }, [open, request?.key]);
 
   function send(text, extra = {}) {
@@ -171,30 +175,20 @@ export default function AiChatPanel({ open, request, onClose }) {
       {open ? (
         <motion.div
           key="kt-ai-chat"
-          className={`fixed inset-0 z-[2147483050] flex justify-end ${
-            minimised
-              ? "pointer-events-none items-end bg-transparent p-3 sm:items-end"
-              : "items-end bg-slate-950/40 backdrop-blur-[2px] sm:items-stretch"
-          }`}
+          className="fixed inset-0 z-[2147483050] flex items-end justify-end bg-slate-950/40 backdrop-blur-[2px]"
           initial={{ opacity: 0 }}
           animate={{ opacity: 1 }}
           exit={{ opacity: 0 }}
           transition={{ duration: 0.16 }}
-          onMouseDown={minimised ? undefined : onClose}
+          onMouseDown={onClose}
           role="presentation"
         >
           <motion.section
-            layout
             role="dialog"
-            aria-modal={minimised ? undefined : "true"}
+            aria-modal="true"
             aria-label={t("ai.chat.title")}
-            className={`pointer-events-auto flex flex-col overflow-hidden bg-slate-50 shadow-2xl ${
-              minimised
-                ? "h-auto w-[min(21rem,calc(100vw-1.5rem))] rounded-3xl"
-                : size === "max"
-                  ? "h-[100dvh] w-full rounded-none"
-                  : "h-[90dvh] w-full rounded-t-3xl sm:h-full sm:max-w-md sm:rounded-none sm:rounded-l-3xl"
-            }`}
+            style={{ height: `${heightPercent}dvh` }}
+            className="flex w-full flex-col overflow-hidden rounded-t-3xl bg-slate-50 shadow-2xl transition-[height] duration-300 ease-out motion-reduce:transition-none sm:max-w-md sm:rounded-l-3xl sm:rounded-tr-none"
             initial={{ y: 60, opacity: 0.6 }}
             animate={{ y: 0, opacity: 1 }}
             exit={{ y: 60, opacity: 0 }}
@@ -202,9 +196,7 @@ export default function AiChatPanel({ open, request, onClose }) {
             onMouseDown={(event) => event.stopPropagation()}
           >
             <motion.header
-              layout="position"
-              onClick={minimised ? () => setSize("normal") : undefined}
-              className={`flex items-center gap-2.5 bg-gradient-to-br from-slate-900 via-slate-800 to-sky-900 px-4 py-3 text-white ${minimised ? "cursor-pointer" : ""}`}
+              className="flex items-center gap-2.5 bg-gradient-to-br from-slate-900 via-slate-800 to-sky-900 px-4 py-3 text-white"
             >
               <span className="grid h-9 w-9 flex-none place-items-center rounded-2xl border border-white/20 bg-white/10">
                 <Sparkles size={17} />
@@ -216,7 +208,7 @@ export default function AiChatPanel({ open, request, onClose }) {
                   {roleLabel ? ` · ${roleLabel}` : ""}
                 </p>
               </div>
-              {!empty && !minimised ? (
+              {!empty ? (
                 <button
                   type="button"
                   onClick={() => {
@@ -233,11 +225,11 @@ export default function AiChatPanel({ open, request, onClose }) {
                 type="button"
                 onClick={(event) => {
                   event.stopPropagation();
-                  setSize(size === "max" ? "normal" : "min");
+                  setHeightStep((current) => Math.max(0, current - 1));
                 }}
-                disabled={minimised}
-                aria-label={t("ai.chat.minimize")}
-                title={t("ai.chat.minimize")}
+                disabled={heightStep === 0}
+                aria-label={t("ai.chat.minimize", { percent: HEIGHT_STEPS[Math.max(0, heightStep - 1)] })}
+                title={t("ai.chat.minimize", { percent: HEIGHT_STEPS[Math.max(0, heightStep - 1)] })}
                 className="rounded-full border border-white/20 bg-white/10 p-1.5 transition hover:bg-white/20 disabled:opacity-30"
               >
                 <Minus size={16} />
@@ -246,11 +238,11 @@ export default function AiChatPanel({ open, request, onClose }) {
                 type="button"
                 onClick={(event) => {
                   event.stopPropagation();
-                  setSize(minimised ? "normal" : "max");
+                  setHeightStep((current) => Math.min(HEIGHT_STEPS.length - 1, current + 1));
                 }}
-                disabled={size === "max"}
-                aria-label={t("ai.chat.maximize")}
-                title={t("ai.chat.maximize")}
+                disabled={heightStep === HEIGHT_STEPS.length - 1}
+                aria-label={t("ai.chat.maximize", { percent: HEIGHT_STEPS[Math.min(HEIGHT_STEPS.length - 1, heightStep + 1)] })}
+                title={t("ai.chat.maximize", { percent: HEIGHT_STEPS[Math.min(HEIGHT_STEPS.length - 1, heightStep + 1)] })}
                 className="rounded-full border border-white/20 bg-white/10 p-1.5 transition hover:bg-white/20 disabled:opacity-30"
               >
                 <Plus size={16} />
@@ -268,7 +260,6 @@ export default function AiChatPanel({ open, request, onClose }) {
               </button>
             </motion.header>
 
-            {minimised ? null : (<>
             <div ref={listRef} className="flex-1 space-y-3 overflow-y-auto overscroll-contain px-3 py-4" aria-live="polite">
               {empty ? (
                 <div className="space-y-3 px-1">
@@ -474,7 +465,6 @@ export default function AiChatPanel({ open, request, onClose }) {
               </form>
               <p className="mt-1.5 text-center text-[10px] font-semibold text-slate-400">{t("ai.chat.disclaimer")}</p>
             </footer>
-            </>)}
           </motion.section>
         </motion.div>
       ) : null}

@@ -3426,9 +3426,8 @@ export const TRANSLATIONS = {
       chat: {
         title: "KAI",
         newChat: "New chat",
-        minimize: "Minimise KAI",
-        maximize: "Make KAI bigger",
-        minimized: "KAI is minimised — tap to open",
+        minimize: "Make KAI smaller ({percent}% of the screen)",
+        maximize: "Make KAI bigger ({percent}% of the screen)",
         placeholder: "Ask KAI…",
         welcomeTitle: "How can I help?",
         welcomeBody: "I look things up in KunThai for you — real listings, prices and options — and explain them. I never buy, book, post or change anything without you.",
