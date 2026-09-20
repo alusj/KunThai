@@ -1,6 +1,9 @@
 import { CONTENT_MODERATION_ENABLED } from "../../../config/contentModeration.js";
 
 export const POSTING_NOTICE_EVENT = "explore-posting-update";
+// Dispatched when the person dismisses a posting card, so the post that is
+// still running can stop and clean up after itself.
+export const POSTING_CANCEL_EVENT = "explore-posting-cancel";
 
 const POSTING_NOTICE_KEY = "explore-posting-notice";
 const VIDEO_REVIEW_JOBS_KEY = "explore-video-review-jobs";
@@ -122,6 +125,31 @@ export function writePostingNotice(detail = {}) {
   return notice;
 }
 
+// Ids the person dismissed. Progress updates for these are dropped, so a card
+// the person closed can never be brought back by the next update.
+const dismissedIds = new Set();
+const MAX_DISMISSED_IDS = 20;
+
+export function isPostingNoticeDismissed(id) {
+  return dismissedIds.has(String(id || ""));
+}
+
+/**
+ * The person closed the card: stop showing it, remember that, and tell the
+ * posting to stop.
+ */
+export function cancelPostingNotice(id = "") {
+  const noticeId = String(id || "");
+  if (noticeId) {
+    dismissedIds.add(noticeId);
+    if (dismissedIds.size > MAX_DISMISSED_IDS) dismissedIds.delete(dismissedIds.values().next().value);
+  }
+  clearPostingNotice(noticeId);
+  if (typeof window !== "undefined") {
+    window.dispatchEvent(new CustomEvent(POSTING_CANCEL_EVENT, { detail: { id: noticeId } }));
+  }
+}
+
 export function clearPostingNotice(id = "") {
   if (!canUseStorage()) return;
 
@@ -136,6 +164,9 @@ export function clearPostingNotice(id = "") {
 }
 
 export function publishPostingNotice(detail = {}) {
+  // A card the person closed is never shown again by a later update.
+  if (detail?.id && isPostingNoticeDismissed(detail.id)) return null;
+
   const notice = writePostingNotice(detail);
 
   if (typeof window !== "undefined") {

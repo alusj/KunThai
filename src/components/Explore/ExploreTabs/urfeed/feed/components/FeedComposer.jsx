@@ -25,7 +25,7 @@ import {
   uploadExploreVideoForReview,
 } from "../../../../../../Backend/services/exploreService";
 import { guardGuestAction } from "../../../../../../Backend/services/guestModeService";
-import { publishPostingNotice } from "../../../../../../Backend/services/explore/postingProgressService";
+import { POSTING_CANCEL_EVENT, publishPostingNotice } from "../../../../../../Backend/services/explore/postingProgressService";
 import { searchExplorePeople } from "../../../../../../Backend/services/explore/searchService";
 import { readPrivacySettings } from "../../../../../../Backend/services/explore/safetyService";
 import { showToast } from "../../../../../../Backend/services/toastService";
@@ -498,6 +498,9 @@ export default function FeedComposer({ profile, creating, onSubmit }) {
   const recorderRef = useRef(null);
   const chunksRef = useRef([]);
   const trimRequestRef = useRef(0);
+  // One id for the whole posting session, and whether the person cancelled it.
+  const postingSessionIdRef = useRef("");
+  const postingCancelledRef = useRef(false);
   const recordingTimerRef = useRef(null);
   const discardRecordingRef = useRef(false);
   const trimmedVideoMetaRef = useRef(null);
@@ -1709,9 +1712,24 @@ export default function FeedComposer({ profile, creating, onSubmit }) {
     clearDraft();
   }
 
+  // Every update of one post carries the SAME id: the card keeps its place
+  // (a collapsed card stays collapsed) instead of being replaced by a new card
+  // on every progress tick, which is why a video's card never collapsed.
   function publishPostingUpdate(detail) {
-    publishPostingNotice(detail);
+    if (postingCancelledRef.current) return;
+    publishPostingNotice({ id: postingSessionIdRef.current, ...detail });
   }
+
+  // The person pressed X on the posting card: stop updating it and stop the
+  // post itself (below, the upload is dropped and any uploaded file removed).
+  useEffect(() => {
+    function onCancel(event) {
+      if (event.detail?.id && event.detail.id !== postingSessionIdRef.current) return;
+      postingCancelledRef.current = true;
+    }
+    window.addEventListener(POSTING_CANCEL_EVENT, onCancel);
+    return () => window.removeEventListener(POSTING_CANCEL_EVENT, onCancel);
+  }, []);
 
   function handleSubmit(event) {
     event?.preventDefault?.();
@@ -1734,7 +1752,21 @@ export default function FeedComposer({ profile, creating, onSubmit }) {
   async function performSubmit() {
     setCautionOpen(false);
 
+    postingSessionIdRef.current = `posting-${Date.now().toString(36)}-${Math.random().toString(36).slice(2, 8)}`;
+    postingCancelledRef.current = false;
     let uploadedReviewVideoUrl = "";
+
+    // Stops the post wherever it has got to, and leaves nothing behind.
+    async function stopIfCancelled() {
+      if (!postingCancelledRef.current) return false;
+      if (uploadedReviewVideoUrl) {
+        await removeExploreVideoUpload(uploadedReviewVideoUrl).catch(() => {});
+        uploadedReviewVideoUrl = "";
+      }
+      setPostingStage("");
+      setPostingProgress(0);
+      return true;
+    }
 
     try {
       let finalVideoPreview = videoPreview;
@@ -1865,6 +1897,8 @@ if (!isMobileVideoDevice) {
         }
       }
 
+      if (await stopIfCancelled()) return;
+
       const tags = parseTags(postDraft.body);
       const uploadedVideoSize = Number(postDraft.mediaMeta?.videoSize || originalVideoFileRef.current?.size || 0);
       const shouldUseBackgroundReview = Boolean(
@@ -1980,6 +2014,8 @@ if (!isMobileVideoDevice) {
         publishPostingUpdate({ status: "error", progress: 0, message: review.reason });
         return;
       }
+
+      if (await stopIfCancelled()) return;
 
       const uploadedVideoUrl = uploadedReviewVideoUrl || postDraft.video_url;
 

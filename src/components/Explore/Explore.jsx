@@ -22,6 +22,7 @@ import { mapSurfacePlatformNotification, markSurfacePlatformNotificationRead } f
 import { openUnifiedNotification } from "../../Backend/services/unifiedNotificationService";
 import { shareKunThaiLink } from "../../Backend/services/shareCtaService";
 import {
+  cancelPostingNotice,
   clearPostingNotice,
   getPostingNoticeClearDelay,
   POSTING_NOTICE_EVENT,
@@ -550,7 +551,7 @@ export default function Explore({ active = true, onNavigateMain, onScreenModeCha
     const noticeId = postingNotice?.id;
     const shouldCancelReview = postingNotice?.status === "reviewing" || String(noticeId || "").startsWith("video-review:");
 
-    clearPostingNotice(noticeId);
+    cancelPostingNotice(noticeId);
     setPostingNotice(null);
 
     if (shouldCancelReview) {
