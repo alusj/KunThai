@@ -27,6 +27,7 @@ import {
   LABEL_OVERRIDES,
   PRIMARY_LEVEL_OVERRIDES,
 } from "./regionSupplements.mjs";
+import { territoryLabelRows, territoryRegionRows } from "./territoryRegions.mjs";
 
 const here = dirname(fileURLToPath(import.meta.url));
 const [, , isoPath, outArg] = process.argv;
@@ -87,7 +88,10 @@ for (const entry of iso) {
   const parent = entry.parent ? (entry.parent.includes("-") ? entry.parent : `${country}-${entry.parent}`) : null;
   rows.push({ country, code: entry.code, officialName: entry.name, cleaned, type: entry.type, parent, source: "iso_3166_2" });
 }
-for (const extra of EXTRA_REGIONS) {
+// ISO covers 202 countries; the territories it leaves out (Bermuda, the Isle
+// of Man, Puerto Rico, Mayotte…) come from territoryRegions.mjs, so the world
+// file and 20260920120000_kunthai_territory_regions.sql always agree.
+for (const extra of [...EXTRA_REGIONS, ...territoryRegionRows()]) {
   const country = extra.code.split("-")[0];
   rows.push({
     country,
@@ -161,6 +165,8 @@ for (const list of byCountry.values()) {
 }
 
 // Country labels ("State", "District", …) from the level people normally use.
+const labelOverrides = { ...LABEL_OVERRIDES };
+for (const item of territoryLabelRows()) labelOverrides[item.country] = [item.label, item.plural];
 const countryLabels = [];
 for (const [country, list] of [...byCountry.entries()].sort(([a], [b]) => a.localeCompare(b))) {
   const counts = new Map();
@@ -175,7 +181,7 @@ for (const [country, list] of [...byCountry.entries()].sort(([a], [b]) => a.loca
     tally.set(label, (tally.get(label) || 0) + 1);
   }
   const dominant = [...tally.entries()].sort((a, b) => b[1] - a[1])[0]?.[0] || "Region";
-  const [label, plural] = LABEL_OVERRIDES[country] || [dominant, pluralize(dominant)];
+  const [label, plural] = labelOverrides[country] || [dominant, pluralize(dominant)];
   countryLabels.push({ country, level, label, plural });
 }
 

@@ -1,6 +1,8 @@
 import { ArrowUpRight, CircleUserRound } from "lucide-react";
 import { formatCaseNumber, formatRelativeTime, titleCase } from "../adminConfig";
 import { getCaseCountryLabel, getCaseTypeLabel } from "../adminService";
+import { t as i18nText } from "../../i18n/index";
+import { uiText as translateUi, useI18n as useUiLocale } from "../../i18n/index.js";
 
 const priorityStyles = {
   low: "bg-zinc-100 text-zinc-600",
@@ -18,10 +20,11 @@ const sectorStyles = {
 };
 
 export default function CaseTable({ cases = [], onOpen, emptyTitle = "No cases in this queue", emptyMessage = "New work will appear here automatically." }) {
+  useUiLocale();
   if (!cases.length) {
     return (
       <div className="border-y border-zinc-200 bg-white px-5 py-16 text-center sm:rounded-lg sm:border">
-        <p className="text-sm font-black text-zinc-900">{emptyTitle}</p>
+        <p className="text-sm font-black text-zinc-900">{translateUi(emptyTitle)}</p>
         <p className="mt-2 text-sm font-medium text-zinc-500">{emptyMessage}</p>
       </div>
     );
@@ -33,15 +36,15 @@ export default function CaseTable({ cases = [], onOpen, emptyTitle = "No cases i
         <table className="w-full min-w-[1040px] border-collapse text-left">
           <thead className="bg-zinc-50 text-[11px] font-black uppercase text-zinc-500">
             <tr>
-              <th className="px-4 py-3">Case</th>
-              <th className="px-4 py-3">Subject</th>
-              <th className="px-4 py-3">Sector</th>
-              <th className="px-4 py-3">Country</th>
-              <th className="px-4 py-3">Priority</th>
-              <th className="px-4 py-3">Status</th>
-              <th className="px-4 py-3">Owner</th>
-              <th className="px-4 py-3">Opened</th>
-              <th className="w-14 px-4 py-3"><span className="sr-only">Open</span></th>
+              <th className="px-4 py-3">{i18nText("ui.literals.k9254c4bba00f")}</th>
+              <th className="px-4 py-3">{i18nText("ui.literals.k8d183dbdcea3")}</th>
+              <th className="px-4 py-3">{i18nText("ui.literals.k39fd2070d41b")}</th>
+              <th className="px-4 py-3">{i18nText("ui.literals.kd523ebbd1014")}</th>
+              <th className="px-4 py-3">{i18nText("ui.literals.k886cbff9d9df")}</th>
+              <th className="px-4 py-3">{i18nText("ui.literals.kbae7d5be7082")}</th>
+              <th className="px-4 py-3">{i18nText("ui.literals.k89ff31225c5f")}</th>
+              <th className="px-4 py-3">{i18nText("ui.literals.kc4f1f5b1d49f")}</th>
+              <th className="w-14 px-4 py-3"><span className="sr-only">{i18nText("ui.literals.kcf9b77061f7b")}</span></th>
             </tr>
           </thead>
           <tbody className="divide-y divide-zinc-100">
@@ -58,12 +61,12 @@ export default function CaseTable({ cases = [], onOpen, emptyTitle = "No cases i
                 <td className="whitespace-nowrap px-4 py-3 text-xs font-bold text-zinc-700">{titleCase(item.status)}</td>
                 <td className="px-4 py-3">
                   <span className="inline-flex items-center gap-1.5 text-xs font-semibold text-zinc-600">
-                    <CircleUserRound size={15} /> {item.assignee_user_id ? "Assigned" : "Unassigned"}
+                    <CircleUserRound size={15} /> {item.assignee_user_id ? i18nText("ui.literals.ke24e824b6811") : i18nText("ui.literals.ke57016edceec")}
                   </span>
                 </td>
                 <td className="whitespace-nowrap px-4 py-3 text-xs font-semibold text-zinc-500">{formatRelativeTime(item.created_at)}</td>
                 <td className="px-4 py-3">
-                  <button type="button" title="Open case" onClick={(event) => { event.stopPropagation(); onOpen(item); }} className="grid h-8 w-8 place-items-center rounded-md text-zinc-400 hover:bg-zinc-200 hover:text-zinc-950">
+                  <button type="button" title={i18nText("ui.literals.k99308dbd5d47")} onClick={(event) => { event.stopPropagation(); onOpen(item); }} className="grid h-8 w-8 place-items-center rounded-md text-zinc-400 hover:bg-zinc-200 hover:text-zinc-950">
                     <ArrowUpRight size={17} />
                   </button>
                 </td>

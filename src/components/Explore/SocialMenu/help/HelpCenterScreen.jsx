@@ -18,6 +18,7 @@ import {
 import { useSupportCenter } from "../../../../Backend/hooks/useSupportCenter";
 import SocialScreenHeader from "../shared/SocialScreenHeader";
 import { t as i18nText, uiText } from "../../../../i18n/index";
+import { uiText as translateUi, useI18n as useUiLocale } from "../../../../i18n/index.js";
 
 const helpTopics = [
   {
@@ -85,6 +86,7 @@ const quickActions = [
 ];
 
 function TopicCard({ topic }) {
+  useUiLocale();
   const Icon = topic.icon;
   return (
     <article className="rounded-[24px] border border-slate-200 bg-white p-5 shadow-sm">
@@ -100,6 +102,7 @@ function TopicCard({ topic }) {
 }
 
 export default function HelpCenterScreen({ focusReport = false, hideHeader = false, onOpenYourVoice }) {
+  const { locale: memoLocale } = useUiLocale();
   const support = useSupportCenter();
   const reportFormRef = useRef(null);
   const [query, setQuery] = useState("");
@@ -109,7 +112,7 @@ export default function HelpCenterScreen({ focusReport = false, hideHeader = fal
     const value = query.trim().toLowerCase();
     if (!value) return helpTopics;
     return helpTopics.filter((topic) => [topic.title, topic.summary, ...topic.bullets, uiText(topic.title), uiText(topic.summary), ...topic.bullets.map(uiText)].join(" ").toLowerCase().includes(value));
-  }, [query]);
+  }, [query, memoLocale]);
   const popularTopics = helpTopics.filter((topic) => topic.group === "popular");
   const serviceTopics = helpTopics.filter((topic) => topic.group === "service");
 
@@ -197,7 +200,7 @@ export default function HelpCenterScreen({ focusReport = false, hideHeader = fal
 
               <form onSubmit={submitTicket} className="rounded-[28px] border border-slate-200 bg-white p-5 shadow-sm">
                 <div className="flex items-center gap-3"><span className="grid h-12 w-12 place-items-center rounded-2xl bg-sky-50 text-sky-700"><HiOutlineLifebuoy className="text-2xl" /></span><div><p className="text-lg font-black text-slate-950">{i18nText("ui.literals.kcb38f57cdb90")}</p><p className="text-sm font-semibold text-slate-500">{i18nText("ui.literals.kcf1653315dae")}</p></div></div>
-                {support.feedback ? <p className="mt-4 rounded-2xl bg-sky-50 px-4 py-3 text-sm font-black text-sky-700">{support.feedback}</p> : null}
+                {support.feedback ? <p className="mt-4 rounded-2xl bg-sky-50 px-4 py-3 text-sm font-black text-sky-700">{translateUi(support.feedback)}</p> : null}
                 <div className="mt-4 grid gap-3">
                   <select value={form.category} onChange={(event) => setForm((current) => ({ ...current, category: event.target.value }))} className="h-12 rounded-2xl bg-slate-100 px-4 text-sm font-black text-slate-700 outline-none">
                     <option>Explore</option><option>{i18nText("ui.literals.kff4fc0276e96")}</option><option>{i18nText("ui.literals.kf1702b468627")}</option><option>{i18nText("ui.literals.k0e3ce14578d9")}</option><option>{i18nText("ui.literals.k983095c0ea49")}</option><option>UrRide</option><option>{i18nText("ui.literals.k44357ae55a21")}</option>
@@ -226,5 +229,6 @@ export default function HelpCenterScreen({ focusReport = false, hideHeader = fal
 }
 
 function SectionHeading({ description, title }) {
-  return <div className="mb-3 px-1"><p className="text-xs font-black uppercase tracking-[0.2em] text-sky-700">{title}</p><p className="mt-1 text-sm font-semibold leading-6 text-slate-500">{description}</p></div>;
+  useUiLocale();
+  return <div className="mb-3 px-1"><p className="text-xs font-black uppercase tracking-[0.2em] text-sky-700">{translateUi(title)}</p><p className="mt-1 text-sm font-semibold leading-6 text-slate-500">{translateUi(description)}</p></div>;
 }

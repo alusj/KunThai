@@ -4,6 +4,7 @@ import { getActiveCountryProfile } from "../../../../../data/globalCountryProfil
 import ProductFormField from "./ProductFormField";
 import ProductFormInput from "./ProductFormInput";
 import { useI18n, t } from "../../../../../i18n";
+import { t as i18nText } from "../../../../../i18n/index";
 
 const VENDOR_SELLING_UNITS = ["item", "pack", "carton", "bag", "kilogram", "tonne", "litre", "pallet", "roll", "box"];
 
@@ -50,30 +51,30 @@ export default function ProductDetailsStep({ productForm }) {
       {isVendor ? (
         <section className="space-y-4 rounded-xl border border-emerald-100 bg-emerald-50/60 p-4">
           <div>
-            <p className="text-sm font-black text-emerald-950">Wholesale terms</p>
+            <p className="text-sm font-black text-emerald-950">{i18nText("ui.literals.k0bdd8ba2f72f")}</p>
             <p className="mt-1 text-xs font-bold leading-5 text-emerald-800">
-              Tell buyers exactly how this product is packed, ordered, and prepared.
+              {i18nText("ui.literals.kc116c3adfea0")}
             </p>
           </div>
           <div className="grid gap-4 sm:grid-cols-2">
-            <ProductFormField label="Selling unit" error={errors.sellingUnit}>
+            <ProductFormField label={i18nText("ui.literals.k5e04d1386ae6")} error={errors.sellingUnit}>
               <select
                 value={form.details.sellingUnit}
                 onChange={(event) => updateDetails({ sellingUnit: event.target.value })}
                 className="h-11 w-full rounded-lg border border-gray-300 bg-white px-3 text-sm font-bold capitalize outline-none focus:border-emerald-500"
               >
-                <option value="">Choose a unit</option>
+                <option value="">{i18nText("ui.literals.k57dcffa9eff9")}</option>
                 {VENDOR_SELLING_UNITS.map((unit) => <option key={unit} value={unit}>{unit}</option>)}
               </select>
             </ProductFormField>
-            <ProductFormField label="Pack size">
+            <ProductFormField label={i18nText("ui.literals.k87dd2c9768b9")}>
               <ProductFormInput
                 value={form.details.packSize}
                 onChange={(event) => updateDetails({ packSize: event.target.value })}
-                placeholder="For example: 24 bottles"
+                placeholder={i18nText("ui.literals.k9ce2d6666a20")}
               />
             </ProductFormField>
-            <ProductFormField label="Minimum order quantity" error={errors.minimumOrderQuantity}>
+            <ProductFormField label={i18nText("ui.literals.k747443a231ae")} error={errors.minimumOrderQuantity}>
               <ProductFormInput
                 type="number"
                 min="1"
@@ -83,7 +84,7 @@ export default function ProductDetailsStep({ productForm }) {
                 onChange={(event) => updateDetails({ minimumOrderQuantity: event.target.value })}
               />
             </ProductFormField>
-            <ProductFormField label="Lead time (days)" error={errors.leadTimeDays}>
+            <ProductFormField label={i18nText("ui.literals.k1350465686d9")} error={errors.leadTimeDays}>
               <ProductFormInput
                 type="number"
                 min="0"
@@ -93,11 +94,11 @@ export default function ProductDetailsStep({ productForm }) {
                 onChange={(event) => updateDetails({ leadTimeDays: event.target.value })}
               />
             </ProductFormField>
-            <ProductFormField label="Barcode or manufacturer code">
+            <ProductFormField label={i18nText("ui.literals.k91a3710524c4")}>
               <ProductFormInput
                 value={form.details.barcode}
                 onChange={(event) => updateDetails({ barcode: event.target.value })}
-                placeholder="Optional"
+                placeholder={i18nText("ui.literals.k0c6c4102d4df")}
               />
             </ProductFormField>
           </div>

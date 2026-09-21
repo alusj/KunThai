@@ -1,6 +1,8 @@
 import { AlertTriangle } from "lucide-react";
+import { uiText as translateUi, useI18n as useUiLocale } from "../../../../../i18n/index.js";
 
 export default function PayoutWarning({ warning }) {
+  useUiLocale();
   if (!warning?.active) {
     return null;
   }
@@ -12,9 +14,9 @@ export default function PayoutWarning({ warning }) {
           <AlertTriangle size={18} strokeWidth={2.3} />
         </span>
         <div>
-          <p className="font-black text-red-900">{warning.title}</p>
+          <p className="font-black text-red-900">{translateUi(warning.title)}</p>
           <p className="mt-1 text-sm font-medium leading-5 text-red-700">
-            {warning.description}
+            {translateUi(warning.description)}
           </p>
         </div>
       </div>

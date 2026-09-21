@@ -13,12 +13,13 @@ import {
 } from "../../../../../Backend/services/marketplace/sellerCustomerCareService";
 import { formatMessageTime } from "../../../../../Backend/utils/formatMessageTime";
 import { optimizeImageFile } from "../../../../../Backend/services/marketplace/imageOptimization";
-import { friendlyErrorMessage } from "../../../../../Backend/services/friendlyErrorService";
+import { inlineErrorMessage } from "../../../../../Backend/services/friendlyErrorService";
 import { useI18n, t } from "../../../../../i18n";
 import AppBackTab from "../../../../shared/AppBackTab";
 import MessagePrivacyNotice from "../../../../shared/MessagePrivacyNotice";
 import { useKeyboardAwareConversation } from "../../../../../Backend/hooks/useKeyboardAwareConversation";
 import { useAiScreen } from "../../../../../Backend/services/ai/aiScreenContext";
+import { t as i18nText } from "../../../../../i18n/index";
 
 const CONVERSATION_TRANSITION_MS = 360;
 
@@ -71,33 +72,33 @@ export default function CustomerCare({ onBack } = {}) {
     threadRef: threadScrollRef,
   });
 
-  // KAI sees the open customer conversation and can suggest replies in the
-  // seller's voice; one is sent only when the person presses Send on it.
-  useAiScreen(() => (activeConversation
-    ? {
-        id: "urmall-seller-customer-chat",
-        title: `UrMall customer chat with ${activeConversation.buyerName || "a customer"}`,
-        describe: () => [
-          `The person is the seller, replying to a customer in their UrMall workspace.`,
-          activeConversation.productName ? `The conversation is about the product "${activeConversation.productName}".` : "",
-          activeConversation.topic ? `Topic: ${activeConversation.topic}.` : "",
-        ].filter(Boolean).join(" "),
-        messaging: {
-          thread: () => ({
-            with: activeConversation.buyerName || "the customer",
-            messages: threadMessages.map((item) => ({
-              from: item.from === "seller" ? "me" : "them",
-              text: item.text || (item.mediaUrl ? "[image]" : ""),
-            })),
-          }),
-          send: (text) => deliverReply(text, null, { fromAssistant: true }),
-          setDraft: (text) => setReply(text),
-        },
-      }
-    : {
-        id: "urmall-seller-customer-care",
-        title: "UrMall customer messages",
-        describe: () => `The person is the seller looking at their customer conversations (${conversations.length} in total). They can open one to reply.`,
+  // KAI sees the open customer conversation and can suggest replies in the
+  // seller's voice; one is sent only when the person presses Send on it.
+  useAiScreen(() => (activeConversation
+    ? {
+        id: "urmall-seller-customer-chat",
+        title: i18nText("ui.literals.kc68c850fef94", { value0: activeConversation.buyerName || "a customer" }),
+        describe: () => [
+          `The person is the seller, replying to a customer in their UrMall workspace.`,
+          activeConversation.productName ? `The conversation is about the product "${activeConversation.productName}".` : "",
+          activeConversation.topic ? `Topic: ${activeConversation.topic}.` : "",
+        ].filter(Boolean).join(" "),
+        messaging: {
+          thread: () => ({
+            with: activeConversation.buyerName || "the customer",
+            messages: threadMessages.map((item) => ({
+              from: item.from === "seller" ? "me" : "them",
+              text: item.text || (item.mediaUrl ? "[image]" : ""),
+            })),
+          }),
+          send: (text) => deliverReply(text, null, { fromAssistant: true }),
+          setDraft: (text) => setReply(text),
+        },
+      }
+    : {
+        id: "urmall-seller-customer-care",
+        title: i18nText("ui.literals.k6d0e9ee148e5"),
+        describe: () => `The person is the seller looking at their customer conversations (${conversations.length} in total). They can open one to reply.`,
       }));
 
   useEffect(() => {
@@ -204,7 +205,7 @@ export default function CustomerCare({ onBack } = {}) {
       setAttachment({ dataUrl, name: file.name || t("urmall.biz.care.selectedPhoto") });
       setSendError("");
     } catch (err) {
-      setSendError(friendlyErrorMessage(err, t("urmall.biz.care.prepareFail")));
+      setSendError(inlineErrorMessage(err, t("urmall.biz.care.prepareFail")));
     }
   }
 
@@ -257,7 +258,7 @@ export default function CustomerCare({ onBack } = {}) {
       if (fromAssistant) throw err;
       setReply(text);
       setAttachment(pendingAttachment);
-      setSendError(err.message || t("urmall.biz.care.sendFail"));
+      setSendError(inlineErrorMessage(err, t("urmall.biz.care.sendFail")));
     } finally {
       setSending(false);
     }

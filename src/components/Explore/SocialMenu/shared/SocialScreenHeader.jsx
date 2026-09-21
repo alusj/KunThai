@@ -1,7 +1,9 @@
 import AppBackTab from "../../../shared/AppBackTab";
 import { t as i18nText } from "../../../../i18n/index";
+import { uiText as translateUi, useI18n as useUiLocale } from "../../../../i18n/index.js";
 
 export default function SocialScreenHeader({ eyebrow = "Explore", subtitle = "", title, onBack }) {
+  useUiLocale();
   return (
     <header className="sticky top-0 z-30 border-b border-slate-200 bg-white/95 px-3 py-3 backdrop-blur sm:px-5">
       <div className="flex min-w-0 items-start gap-3">
@@ -17,8 +19,8 @@ export default function SocialScreenHeader({ eyebrow = "Explore", subtitle = "",
 
         <div className="min-w-0 flex-1">
           <p className="text-[10px] font-semibold uppercase tracking-[0.22em] text-sky-700 sm:text-xs">{eyebrow}</p>
-          <h2 className="mt-1 text-xl font-semibold text-slate-950 sm:text-2xl">{title}</h2>
-          {subtitle ? <p className="mt-1 line-clamp-2 text-xs font-semibold leading-5 text-slate-500 sm:text-sm">{subtitle}</p> : null}
+          <h2 className="mt-1 text-xl font-semibold text-slate-950 sm:text-2xl">{translateUi(title)}</h2>
+          {subtitle ? <p className="mt-1 line-clamp-2 text-xs font-semibold leading-5 text-slate-500 sm:text-sm">{translateUi(subtitle)}</p> : null}
         </div>
       </div>
     </header>

@@ -16,9 +16,10 @@ import EmptyState from "../../shared/EmptyState";
 import ErrorState from "../../shared/ErrorState";
 import NotificationSettings from "./components/NotificationSettings";
 import NotificationsList from "./list/NotificationsList";
+import { uiText as translateUi, useI18n as useUiLocale } from "../../../../i18n/index.js";
 
 export default function Notifications({ currentUserId, onOpenNotification }) {
-  const { t } = useI18n();
+  const { t , locale: memoLocale } = useI18n();
   const { notifications, unreadCount, loading, loadingMore, hasMore, error, loadMore, markRead, markAllRead } = useExploreNotifications(currentUserId);
   const follows = useExploreFollows(currentUserId);
   const preferences = useExplorePreferences();
@@ -43,7 +44,7 @@ export default function Notifications({ currentUserId, onOpenNotification }) {
       { id: "mentions", label: t("notifications.tabMentions"), count: notifications.filter((item) => item.category === "mentions").length },
       { id: "connections", label: t("notifications.tabConnections"), count: notifications.filter((item) => item.category === "connections").length },
     ],
-    [notifications, t],
+    [notifications, t, memoLocale],
   );
 
   const visibleNotifications = useMemo(() => {
@@ -140,13 +141,13 @@ export default function Notifications({ currentUserId, onOpenNotification }) {
               activeTab === tab.id ? "bg-slate-950 text-white shadow-sm" : "bg-white text-slate-600 shadow-sm hover:bg-slate-50"
             }`}
           >
-            {tab.label}
+            {translateUi(tab.label)}
             {tab.count ? <span className={activeTab === tab.id ? "text-white/70" : "text-slate-400"}>{tab.count}</span> : null}
           </button>
         ))}
       </div>
 
-      {error ? <ErrorState message={error} /> : null}
+      {error ? <ErrorState message={translateUi(error)} /> : null}
 
       {loading ? (
         <NotificationSkeletons />
@@ -172,6 +173,7 @@ export default function Notifications({ currentUserId, onOpenNotification }) {
 }
 
 function NotificationSkeletons() {
+  useUiLocale();
   return (
     <div className="space-y-3">
       {Array.from({ length: 5 }).map((_, index) => (

@@ -8,6 +8,7 @@ import {
 import { buildSearchSuggestions, MIN_QUERY_LENGTH } from "../../../Backend/services/marketplace/productSearch";
 import { addRecentMarketplaceSearch, getRecentMarketplaceSearches } from "../../../Backend/services/marketplace/recentSearchesService";
 import { useI18n } from "../../../i18n";
+import { uiText as translateUi } from "../../../i18n/index.js";
 
 const SORT_OPTIONS = [
   { value: "nearby", labelKey: "urmall.browse.sortNearby" },
@@ -45,7 +46,7 @@ export default function BuyerDiscoveryBar({
   onClear,
   autoFocus = false,
 }) {
-  const { t } = useI18n();
+  const { t , locale: memoLocale } = useI18n();
   const [filtersOpen, setFiltersOpen] = useState(false);
   // Once the shopper commits to a term (taps "see results"), collapse the
   // suggestion dropdown so the live results below are unobstructed — without
@@ -74,7 +75,7 @@ export default function BuyerDiscoveryBar({
       filters.sort !== "nearby" ? t(SORT_OPTIONS.find((option) => option.value === filters.sort)?.labelKey || "") : "",
     ].filter(Boolean),
     // eslint-disable-next-line react-hooks/exhaustive-deps
-    [filters],
+    [filters, memoLocale],
   );
 
   // Unique seller/store list drawn from the products already loaded for the
@@ -109,7 +110,7 @@ export default function BuyerDiscoveryBar({
     });
     return built.slice(0, 8);
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [searchQuery, categories, locations, products, stores]);
+  }, [searchQuery, categories, locations, products, stores, memoLocale]);
 
   const hasQuery = searchQuery.length >= MIN_QUERY_LENGTH;
   const showSuggestions = hasQuery && !suggestionsDismissed;
@@ -288,7 +289,7 @@ export default function BuyerDiscoveryBar({
                     className="flex w-full items-center gap-2 px-3 py-2.5 text-left text-sm font-bold text-gray-700 hover:bg-gray-50"
                   >
                     {suggestionIcon(suggestion.type)}
-                    <span className="min-w-0 flex-1 truncate">{suggestion.label}</span>
+                    <span className="min-w-0 flex-1 truncate">{translateUi(suggestion.label)}</span>
                     <span className="shrink-0 rounded-full bg-gray-100 px-2 py-0.5 text-[10px] font-black uppercase tracking-wide text-gray-500">
                       {suggestionTypeLabel(suggestion.type)}
                     </span>

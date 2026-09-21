@@ -1,5 +1,6 @@
 import Avatar from "../../shared/Avatar";
 import { t as i18nText } from "../../../../i18n/index";
+import { useI18n as useUiLocale } from "../../../../i18n/index.js";
 
 function getOtherParticipant(conversation, currentUserId) {
   const otherId = conversation.participantIds?.find((id) => id !== currentUserId);
@@ -16,6 +17,7 @@ function getConversationPreview(conversation, username) {
 }
 
 export default function ConversationRow({ conversation, currentUserId, onOpen, onRespond, request = false }) {
+  useUiLocale();
   const user = getOtherParticipant(conversation, currentUserId);
 
   return (

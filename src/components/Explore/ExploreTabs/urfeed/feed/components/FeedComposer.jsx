@@ -1,5 +1,5 @@
 import { useEffect, useLayoutEffect, useRef, useState } from "react";
-import { friendlyErrorMessage, sanitizeUserMessage } from "../../../../../../Backend/services/friendlyErrorService";
+import { inlineErrorMessage, sanitizeUserMessage } from "../../../../../../Backend/services/friendlyErrorService";
 import { createPortal } from "react-dom";
 import {
   HiOutlineArrowsUpDown,
@@ -73,6 +73,7 @@ import ExploreAiButton from "../../../../shared/ExploreAiButton";
 import { EXPLORE_COMPOSER_ACTIONS } from "../../../../../../Backend/services/ai/aiActionCatalog";
 import { loadExploreTopicsForAi, prepareImageForAi } from "../../../../../../Backend/services/ai/exploreAi";
 import { composerMediaKind, mergeHashtagsIntoText } from "../../../../../../Backend/services/ai/exploreAiModels";
+import { uiText as translateUi, useI18n as useUiLocale } from "../../../../../../i18n/index.js";
 
 const LARGE_VIDEO_BACKGROUND_REVIEW_BYTES = 24 * 1024 * 1024;
 const LARGE_VIDEO_INITIAL_REVIEW_TIMEOUT_MS = 18_000;
@@ -348,6 +349,7 @@ async function uploadVideoWithProgress(file, onProgress) {
 }
 
 function VideoLimitNotice() {
+  useUiLocale();
   return (
     <div className="flex items-start gap-3 rounded-[24px] border border-amber-200 bg-amber-50 px-4 py-3 text-amber-950 shadow-sm">
       <span className="mt-0.5 grid h-10 w-10 flex-none place-items-center rounded-2xl bg-white text-amber-700 shadow-sm">
@@ -364,6 +366,7 @@ function VideoLimitNotice() {
 }
 
 function MediaPickerCallout({ refNode, type, onPick }) {
+  useUiLocale();
   const isVideo = type === "video";
   const Icon = isVideo ? HiOutlineVideoCamera : HiOutlinePhoto;
 
@@ -422,6 +425,7 @@ function friendlyPublishError(rawMessage, fallback) {
 }
 
 export default function FeedComposer({ profile, creating, onSubmit }) {
+  useUiLocale();
   const draft = readDraft();
   const privacySettings = readPrivacySettings();
 
@@ -1056,7 +1060,7 @@ export default function FeedComposer({ profile, creating, onSubmit }) {
       showComposer();
       setFeedback("");
     } catch (error) {
-      const message = friendlyErrorMessage(error, "Unable to attach media.");
+      const message = inlineErrorMessage(error, "Unable to attach media.");
       const videoSpecError = error.name === "VideoSpecError";
       setFeedback("");
       if (videoSpecError) {
@@ -1153,7 +1157,7 @@ export default function FeedComposer({ profile, creating, onSubmit }) {
       return sourcePreview;
     } catch (error) {
       if (trimRequestRef.current === 0) return "";
-      const message = friendlyErrorMessage(error, "Unable to prepare this clip. Try a shorter section or another video.");
+      const message = inlineErrorMessage(error, "Unable to prepare this clip. Try a shorter section or another video.");
       setTrimError(message);
       setFeedback(message);
       return "";
@@ -1231,7 +1235,7 @@ export default function FeedComposer({ profile, creating, onSubmit }) {
           }));
           setFeedback("");
         } catch (error) {
-          setFeedback(error.message || i18nText("ui.literals.k1c586584698d"));
+          setFeedback(inlineErrorMessage(error, i18nText("ui.literals.k1c586584698d")));
         } finally {
           setIsRecording(false);
           setRecordingPaused(false);
@@ -1247,7 +1251,7 @@ export default function FeedComposer({ profile, creating, onSubmit }) {
       startRecordingTimer();
       setFeedback(i18nText("ui.literals.k9562768f373f"));
     } catch (error) {
-      setFeedback(error.message || i18nText("ui.literals.k6080e69708d6"));
+      setFeedback(inlineErrorMessage(error, i18nText("ui.literals.k6080e69708d6")));
       setIsRecording(false);
       setRecordingPaused(false);
       stopRecordingTimer();
@@ -2143,8 +2147,8 @@ if (!isMobileVideoDevice) {
                 <HiOutlineExclamationTriangle className="text-2xl" />
               </span>
               <div className="min-w-0 flex-1">
-                <p className="text-sm font-black text-slate-950">{videoNotice.title}</p>
-                <p className="mt-1 text-sm font-semibold leading-6 text-slate-600">{videoNotice.message}</p>
+                <p className="text-sm font-black text-slate-950">{translateUi(videoNotice.title)}</p>
+                <p className="mt-1 text-sm font-semibold leading-6 text-slate-600">{translateUi(videoNotice.message)}</p>
               </div>
             </div>
             <div className="mt-3 flex justify-end">
@@ -2578,7 +2582,7 @@ if (!isMobileVideoDevice) {
 
               {feedback ? (
                 <p className={`text-sm font-semibold ${feedback === "Recording voice note..." ? "text-sky-700" : "text-rose-600"}`}>
-                  {feedback}
+                  {translateUi(feedback)}
                 </p>
               ) : null}
             </div>

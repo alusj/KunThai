@@ -10,6 +10,8 @@ import {
   sendAiFeedback,
 } from "../services/ai/aiService";
 import { isGuestMode } from "../services/guestModeService";
+import { isConnectionFailure } from "../services/friendlyErrorService";
+import { announceConnectionTrouble } from "../services/networkService";
 
 // KAI — the one hook every AI entry point uses.
 //
@@ -120,6 +122,12 @@ export function useAiTask({ surface = "global", screen = "" } = {}) {
         return response;
       } catch (error) {
         if (!mountedRef.current || isAiCancellation(error)) return null;
+        // Offline: back to ready, so pressing again retries. The global
+        // network toast says why; no error card of its own.
+        if (isConnectionFailure(error) && announceConnectionTrouble()) {
+          setState({ loading: false, result: null, meta: null, error: null, task });
+          return null;
+        }
         setState({
           loading: false,
           result: null,

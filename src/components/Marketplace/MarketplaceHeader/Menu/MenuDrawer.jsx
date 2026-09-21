@@ -63,6 +63,8 @@ import {
   writeBuyerAddressList,
   writeBuyerAddressPreference,
 } from "../../shared/buyerAddressPreferences";
+import { uiText as translateUi, useI18n as useUiLocale } from "../../../../i18n/index.js";
+import { inlineErrorMessage } from "../../../../Backend/services/friendlyErrorService";
 
 const BUYER_PAYMENT_KEY = "marketplace-buyer-payment";
 const RECENT_PRODUCTS_KEY = "marketplace-recent-products";
@@ -184,8 +186,9 @@ function statusTone(status) {
 }
 
 function ProductMiniList({ products, emptyText, onProductSelect }) {
+  useUiLocale();
   if (!products.length) {
-    return <p className="rounded-lg bg-gray-50 p-4 text-center text-sm font-bold text-gray-500">{emptyText}</p>;
+    return <p className="rounded-lg bg-gray-50 p-4 text-center text-sm font-bold text-gray-500">{translateUi(emptyText)}</p>;
   }
 
   return (
@@ -219,6 +222,7 @@ function ProductMiniList({ products, emptyText, onProductSelect }) {
 }
 
 function OrderedItemsList({ orders, loading }) {
+  useUiLocale();
   if (loading) {
     return <p className="rounded-lg bg-gray-50 p-4 text-center text-sm font-bold text-gray-500">{t("urmall.menu.loadingOrdered")}</p>;
   }
@@ -243,7 +247,7 @@ function OrderedItemsList({ orders, loading }) {
               <p className="mt-1 text-xs font-bold text-gray-500">{order.sellerName}</p>
             </div>
             <span className={`shrink-0 rounded-lg px-2.5 py-1 text-xs font-black capitalize ${statusTone(order.status)}`}>
-              {order.status}
+              {translateUi(order.status)}
             </span>
           </div>
           <div className="mt-3 flex flex-wrap items-center justify-between gap-2">
@@ -260,6 +264,7 @@ function OrderedItemsList({ orders, loading }) {
 }
 
 function BuyerArticlePanel({ icon, tone = "emerald", title, summary, sections }) {
+  useUiLocale();
   const toneClass = tone === "amber" ? "bg-amber-50 text-amber-700" : tone === "blue" ? "bg-blue-50 text-blue-700" : "bg-emerald-50 text-emerald-700";
 
   return (
@@ -268,13 +273,13 @@ function BuyerArticlePanel({ icon, tone = "emerald", title, summary, sections })
         <span className={`flex h-12 w-12 items-center justify-center rounded-xl ${toneClass}`}>
           {createElement(icon, { size: 24 })}
         </span>
-        <h4 className="mt-4 text-xl font-black text-gray-950">{title}</h4>
-        <p className="mt-2 text-sm font-semibold leading-7 text-gray-600">{summary}</p>
+        <h4 className="mt-4 text-xl font-black text-gray-950">{translateUi(title)}</h4>
+        <p className="mt-2 text-sm font-semibold leading-7 text-gray-600">{translateUi(summary)}</p>
       </section>
 
       {sections.map((section) => (
         <article key={section.title} className="rounded-2xl border border-gray-200 bg-white p-5 shadow-sm">
-          <h5 className="text-base font-black text-gray-950">{section.title}</h5>
+          <h5 className="text-base font-black text-gray-950">{translateUi(section.title)}</h5>
           {section.paragraphs.map((paragraph) => (
             <p key={paragraph} className="mt-3 text-sm font-semibold leading-7 text-gray-600">
               {paragraph}
@@ -287,6 +292,7 @@ function BuyerArticlePanel({ icon, tone = "emerald", title, summary, sections })
 }
 
 function SavedAddressMenuAction({ danger = false, icon: Icon, label, onClick }) {
+  useUiLocale();
   return (
     <button
       type="button"
@@ -298,7 +304,7 @@ function SavedAddressMenuAction({ danger = false, icon: Icon, label, onClick }) 
       <span className={`flex h-9 w-9 shrink-0 items-center justify-center rounded-xl ${danger ? "bg-rose-50" : "bg-slate-50"}`}>
         <Icon size={18} />
       </span>
-      <span className="min-w-0 flex-1 truncate">{label}</span>
+      <span className="min-w-0 flex-1 truncate">{translateUi(label)}</span>
     </button>
   );
 }
@@ -379,7 +385,7 @@ export default function MenuDrawer({ open, onClose, onRequestedScreenHandled, re
       .catch(() => null);
     fetchSavedBuyerProducts()
       .then(setSavedProducts)
-      .catch((err) => setMessage(err.message || t("urmall.menu.savedLoadFailed")));
+      .catch((err) => setMessage(inlineErrorMessage(err, t("urmall.menu.savedLoadFailed"))));
   }, [open]);
 
   useEffect(() => {
@@ -613,7 +619,7 @@ export default function MenuDrawer({ open, onClose, onRequestedScreenHandled, re
   function renderActiveContent(screenKey = visibleActive) {
     return (
       <>
-        {message && <p className="mb-3 rounded-xl bg-emerald-50 p-3 text-sm font-bold text-emerald-700">{message}</p>}
+        {message && <p className="mb-3 rounded-xl bg-emerald-50 p-3 text-sm font-bold text-emerald-700">{translateUi(message)}</p>}
 
         {screenKey === "caution" && <UrMallCautionCard showMenuNote={false} />}
 

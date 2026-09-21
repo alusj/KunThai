@@ -3,6 +3,7 @@ import { AlertTriangle, BadgeCheck, ChevronRight, Clock, Store } from "lucide-re
 import { useSellerOverview } from "../../../../../../Backend/hooks/useSellerOverview";
 import { resizedImageUrl } from "../../../../../../Backend/lib/imageProxy";
 import { useI18n, t } from "../../../../../../i18n";
+import { uiText as translateUi } from "../../../../../../i18n/index.js";
 
 function getVerificationTone(status, verified) {
   const value = String(status || "").toLowerCase();
@@ -84,7 +85,7 @@ export default function SellerDrawerProfile({ onOpenProfile }) {
 
       <div className="mt-4 grid grid-cols-2 gap-2 text-xs font-bold">
         <span className="rounded-lg bg-white/10 px-3 py-2">
-          {statusLabel}
+          {translateUi(statusLabel)}
         </span>
         <span className="rounded-lg bg-white/10 px-3 py-2">
           {t("urmall.biz.menu.percentReady", { score: health?.score ?? 0 })}

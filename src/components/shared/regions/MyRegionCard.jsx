@@ -4,6 +4,8 @@ import { Check, LoaderCircle, MapPinned } from "lucide-react";
 import { t, useI18n } from "../../../i18n";
 import { getActiveCountryProfile } from "../../../data/globalCountryProfiles";
 import { getMyRegion, readMyRegionChoice, saveMyRegion } from "../../../Backend/services/regions/regionService";
+import { isConnectionFailure } from "../../../Backend/services/friendlyErrorService";
+import { announceConnectionTrouble, whenOnline } from "../../../Backend/services/networkService";
 import RegionPicker from "./RegionPicker";
 import { regionLabel } from "./regionHooks";
 
@@ -22,6 +24,7 @@ export default function MyRegionCard({ country = "", className = "" }) {
   const [index, setIndex] = useState(null);
   const [status, setStatus] = useState({ state: "idle", message: "" });
   const saveCounter = useRef(0);
+  const retrySaveRef = useRef(null);
 
   useEffect(() => {
     let alive = true;
@@ -50,9 +53,22 @@ export default function MyRegionCard({ country = "", className = "" }) {
       if (selection.length) setMatched(null);
     } catch (error) {
       if (attempt !== saveCounter.current) return;
+      // Saving the latest choice is safe to repeat, so a lost connection keeps
+      // the card "saving" and sends it again once reconnected — unless a newer
+      // choice has replaced it by then. The global network toast explains.
+      if (isConnectionFailure(error) && announceConnectionTrouble()) {
+        retrySaveRef.current?.();
+        retrySaveRef.current = whenOnline(() => {
+          retrySaveRef.current = null;
+          if (attempt === saveCounter.current) persist(selection, source);
+        });
+        return;
+      }
       setStatus({ state: "error", message: error?.message || "" });
     }
   }
+
+  useEffect(() => () => retrySaveRef.current?.(), []);
 
   // A choice from a different country no longer applies.
   useEffect(() => {

@@ -1,6 +1,7 @@
 import { useI18n, t } from "../../../../../i18n";
 import ActivityIcon from "./ActivityIcon";
 import ActivityStatusBadge from "./ActivityStatusBadge";
+import { uiText as translateUi } from "../../../../../i18n/index.js";
 
 export default function ActivityItem({ actionBusy = false, activity, dismissing = false, onAction, onDone }) {
   useI18n();
@@ -21,9 +22,9 @@ export default function ActivityItem({ actionBusy = false, activity, dismissing 
       <div className="min-w-0 flex-1">
         <div className="flex items-start justify-between gap-3">
           <div className="min-w-0">
-            <p className="font-black text-gray-950">{activity.title}</p>
+            <p className="font-black text-gray-950">{translateUi(activity.title)}</p>
             <p className="mt-1 text-sm font-medium leading-5 text-gray-500">
-              {activity.description}
+              {translateUi(activity.description)}
             </p>
           </div>
           <ActivityStatusBadge status={activity.status} onDone={activity.dismissible === false ? null : handleDone} />

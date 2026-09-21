@@ -3,6 +3,8 @@ import { createPortal } from "react-dom";
 import { Pause, Play, Scissors, X } from "lucide-react";
 import { t as i18nText } from "../../i18n/index";
 import { canTrimVideos, formatVideoMb, trimVideoFile } from "../../Backend/services/media/videoTrimService";
+import { uiText as translateUi, useI18n as useUiLocale } from "../../i18n/index.js";
+import { inlineErrorMessage } from "../../Backend/services/friendlyErrorService";
 
 const MIN_CLIP_SECONDS = 1;
 
@@ -29,6 +31,7 @@ export default function VideoTrimmerScreen({
   maxMb = 50,
   eyebrow = "Trim video",
 }) {
+  useUiLocale();
   // Whether this engine can trim at all, checked once so the screen can say so
   // up front instead of failing when the person presses Trim.
   const trimmingAvailable = useMemo(() => canTrimVideos(), []);
@@ -209,7 +212,7 @@ export default function VideoTrimmerScreen({
       onComplete?.(result.file, { durationSeconds: result.durationSeconds, strategy: result.strategy });
     } catch (trimError) {
       if (trimError?.code !== "CANCELLED") {
-        setError(trimError.message || i18nText("ui.literals.k4588413b0525"));
+        setError(inlineErrorMessage(trimError, i18nText("ui.literals.k4588413b0525")));
       }
     } finally {
       trimSessionRef.current = null;
@@ -228,11 +231,11 @@ export default function VideoTrimmerScreen({
   return createPortal(
     // A modal dialog: while it is open, app back-swipes and tab swipes stay off
     // so dragging a trim handle can never navigate away.
-    <div role="dialog" aria-modal="true" aria-label={eyebrow} className="fixed inset-0 z-[1300] flex flex-col bg-gray-950">
+    <div role="dialog" aria-modal="true" aria-label={translateUi(eyebrow)} className="fixed inset-0 z-[1300] flex flex-col bg-gray-950">
       <header className="flex h-16 shrink-0 items-center justify-between gap-3 px-4">
         <div className="min-w-0">
           <p className="text-xs font-black uppercase tracking-wide text-emerald-400">{eyebrow}</p>
-          <p className="truncate text-sm font-black text-white">{file.name}<span className="ml-2 font-bold text-white/50">{formatVideoMb(file.size)} MB</span></p>
+          <p className="truncate text-sm font-black text-white">{file.name}<span className="ml-2 font-bold text-white/50">{formatVideoMb(file.size)} {i18nText("ui.literals.k6e979f426b67")}</span></p>
         </div>
         <button
           type="button"
@@ -323,7 +326,7 @@ export default function VideoTrimmerScreen({
           ) : null}
 
           {error ? (
-            <p className="rounded-lg border border-red-400/40 bg-red-400/10 px-3 py-2 text-xs font-black text-red-300">{error}</p>
+            <p className="rounded-lg border border-red-400/40 bg-red-400/10 px-3 py-2 text-xs font-black text-red-300">{translateUi(error)}</p>
           ) : null}
 
           {trimming ? (

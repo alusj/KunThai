@@ -13,6 +13,9 @@ import PublicCodeResultCard from "../../shared/PublicCodeResultCard";
 import { usePublicCodeLookup } from "../../../Backend/hooks/usePublicCodeLookup";
 import VerificationBadge from "../verification/VerificationBadge";
 import { useI18n, t } from "../../../i18n";
+import { t as i18nText } from "../../../i18n/index";
+import { uiText as translateUi, useI18n as useUiLocale } from "../../../i18n/index.js";
+import { inlineErrorMessage } from "../../../Backend/services/friendlyErrorService";
 
 // Search scopes shown as pills so a passenger can target a specific identity —
 // car name, plate, service category, operator code, or pickup area — instead of
@@ -73,7 +76,7 @@ export default function SearchButton({ onOpenChange, onViewCompany, onViewFleet 
       })
       .catch((err) => {
         if (alive) {
-          setError(err.message || t("urride.search.loadError"));
+          setError(inlineErrorMessage(err, t("urride.search.loadError")));
           setFleets([]);
         }
       })
@@ -106,7 +109,7 @@ export default function SearchButton({ onOpenChange, onViewCompany, onViewFleet 
         .catch((searchError) => {
           if (alive) {
             setCompanies([]);
-            setCompanyError(searchError.message || "Company search is temporarily unavailable.");
+            setCompanyError(inlineErrorMessage(searchError, "Company search is temporarily unavailable."));
           }
         })
         .finally(() => {
@@ -204,24 +207,24 @@ export default function SearchButton({ onOpenChange, onViewCompany, onViewFleet 
                   {codeLookup.kind && codeLookup.kind !== "urride" ? (
                     <PublicCodeResultCard lookup={codeLookup} surface="urride" onOpen={openCodeResult} />
                   ) : null}
-                  {companyLoading ? <p className="rounded-2xl bg-emerald-50 px-4 py-3 text-sm font-bold text-emerald-800">Searching company profiles…</p> : null}
+                  {companyLoading ? <p className="rounded-2xl bg-emerald-50 px-4 py-3 text-sm font-bold text-emerald-800">{i18nText("ui.literals.kb3cab3f793f0")}</p> : null}
                   {companyError ? <p className="rounded-2xl border border-amber-200 bg-amber-50 px-4 py-3 text-sm font-bold text-amber-800">{companyError}</p> : null}
                   {companies.map((company) => (
                     <article key={`company-${company.id}`} className="rounded-2xl border border-emerald-200 bg-emerald-50/50 p-3 shadow-sm">
                       <div className="flex items-start gap-3">
                         <span className="grid h-11 w-11 shrink-0 place-items-center rounded-2xl bg-emerald-700 text-white"><Building2 size={20} /></span>
                         <div className="min-w-0 flex-1">
-                          <p className="text-[10px] font-black uppercase tracking-[0.16em] text-emerald-700">Transport company</p>
+                          <p className="text-[10px] font-black uppercase tracking-[0.16em] text-emerald-700">{i18nText("ui.literals.kd19b78e4cb46")}</p>
                           <h3 className="mt-0.5 truncate text-base font-black text-slate-950">{company.companyName}</h3>
                           <p className="mt-1 text-xs font-bold text-slate-500">{[company.companyCode, company.city].filter(Boolean).join(" · ")}</p>
                         </div>
                       </div>
                       <div className="mt-3 flex flex-wrap gap-2 text-[11px] font-black text-slate-700">
                         {company.fleetTypes.map((type) => <span key={type} className="rounded-full bg-white px-2.5 py-1">{type}</span>)}
-                        {company.rentalCount ? <span className="rounded-full bg-white px-2.5 py-1">Rentals</span> : null}
-                        <span className="inline-flex items-center gap-1 rounded-full bg-white px-2.5 py-1"><Star size={12} fill="currentColor" className="text-amber-500" />{company.reviewCount ? company.rating.toFixed(1) : "New"}</span>
+                        {company.rentalCount ? <span className="rounded-full bg-white px-2.5 py-1">{i18nText("ui.literals.k05793976369d")}</span> : null}
+                        <span className="inline-flex items-center gap-1 rounded-full bg-white px-2.5 py-1"><Star size={12} fill="currentColor" className="text-amber-500" />{company.reviewCount ? company.rating.toFixed(1) : i18nText("ui.literals.k6403f2b7eb2a")}</span>
                       </div>
-                      <button type="button" onClick={() => { setOpen(false); onViewCompany?.(company.id); }} className="kt-touchable mt-3 h-10 w-full rounded-2xl bg-emerald-700 text-sm font-black text-white hover:bg-emerald-800">View company profile</button>
+                      <button type="button" onClick={() => { setOpen(false); onViewCompany?.(company.id); }} className="kt-touchable mt-3 h-10 w-full rounded-2xl bg-emerald-700 text-sm font-black text-white hover:bg-emerald-800">{i18nText("ui.literals.k1248e2f7f2e4")}</button>
                     </article>
                   ))}
                   {error ? (
@@ -273,9 +276,10 @@ export default function SearchButton({ onOpenChange, onViewCompany, onViewFleet 
 }
 
 function SearchState({ title, body }) {
+  useUiLocale();
   return (
     <div className="rounded-2xl border border-slate-100 bg-slate-50 p-5 text-center">
-      <h3 className="text-sm font-black text-slate-950">{title}</h3>
+      <h3 className="text-sm font-black text-slate-950">{translateUi(title)}</h3>
       <p className="mt-1 text-sm font-semibold text-slate-500">{body}</p>
     </div>
   );

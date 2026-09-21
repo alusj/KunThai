@@ -7,8 +7,10 @@ import { ensureBuyerLocation, useBuyerLocation } from "../../../Backend/utils/bu
 import { resizedImageUrl } from "../../../Backend/lib/imageProxy";
 import { useI18n, t } from "../../../i18n";
 import { t as i18nText } from "../../../i18n/index";
+import { uiText as translateUi, useI18n as useUiLocale } from "../../../i18n/index.js";
 
 function ProductImage({ product }) {
+  useUiLocale();
   if (product.imageUrl) {
     return (
       <img
@@ -29,6 +31,7 @@ function ProductImage({ product }) {
 }
 
 export function BuyerProductCard({ product, onProductSelect, onAddToCart, onToggleSaved, saved, buyerLocation }) {
+  useUiLocale();
   const hasDiscount = product.discountPrice && product.discountPrice < product.price;
   const isVertical = Boolean(product.isVertical && product.verticalType);
   const verticalLabel = product.badgePrimary || (
@@ -87,7 +90,7 @@ export function BuyerProductCard({ product, onProductSelect, onAddToCart, onTogg
                 : product.verticalType === "property"
                   ? "bg-violet-700"
                   : "bg-slate-950/95"
-          }`}>{isVertical ? verticalLabel : vendorProduct ? "Vendor supply" : t("urmall.browse.retail")}</span>
+          }`}>{isVertical ? verticalLabel : vendorProduct ? i18nText("ui.literals.k9a0e418529c8") : t("urmall.browse.retail")}</span>
           {hasDiscount ? <span className="rounded-md bg-red-600 px-2 py-1 text-[11px] font-black uppercase text-white">-{discountPercent}%</span> : null}
         </div>
         {verifiedSeller ? (
@@ -160,7 +163,7 @@ export function BuyerProductCard({ product, onProductSelect, onAddToCart, onTogg
             {!isVertical ? <p className="truncate text-[10px] font-bold text-gray-400">{t("urmall.browse.inStock", { count: product.stock })}</p> : null}
             {vendorProduct && product.details?.minimumOrderQuantity ? (
               <p className="truncate text-[10px] font-black text-emerald-700">
-                Min. {product.details.minimumOrderQuantity} {product.details.sellingUnit || "unit"}(s)
+                {i18nText("ui.literals.k023a4dbc82aa")} {product.details.minimumOrderQuantity} {product.details.sellingUnit || i18nText("ui.literals.k0df9eea0bad5")}(s)
               </p>
             ) : null}
           </div>
@@ -186,6 +189,7 @@ export function BuyerProductCard({ product, onProductSelect, onAddToCart, onTogg
 // lines, and the add-to-cart button slot — so the loaded grid appears in place
 // without the card shape shifting.
 function ProductSkeleton() {
+  useUiLocale();
   return (
     <div className="rounded-[22px] border border-slate-200 bg-white p-3 shadow-sm">
       <div className="relative aspect-[4/3] animate-pulse rounded-[18px] bg-slate-100">
@@ -247,7 +251,7 @@ export default function BuyerProductGrid({
     return (
       <div className="rounded-lg border border-red-100 bg-red-50 p-4 text-center">
         <p className="font-black text-red-700">{t("urmall.browse.productsLoadFailed")}</p>
-        <p className="mt-1 text-sm font-medium text-red-600">{error}</p>
+        <p className="mt-1 text-sm font-medium text-red-600">{translateUi(error)}</p>
       </div>
     );
   }
@@ -255,7 +259,7 @@ export default function BuyerProductGrid({
   if (!products.length && !supplementalContent) {
     return (
       <div className="rounded-lg border border-gray-200 bg-white p-5 text-center shadow-sm">
-        <p className="font-black text-gray-950">{emptyTitle}</p>
+        <p className="font-black text-gray-950">{translateUi(emptyTitle)}</p>
         <p className="mt-1 text-sm font-medium text-gray-500">{emptyBody}</p>
         <p className="mt-3 text-sm font-semibold leading-6 text-gray-500">{t("urmall.browse.shareInvite")}</p>
         <button

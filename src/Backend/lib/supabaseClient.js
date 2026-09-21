@@ -1,5 +1,8 @@
 import { createClient } from "@supabase/supabase-js";
 
+import { createReadRetryingFetch } from "../services/networkService";
+import { isRetryableSupabaseRead } from "./supabaseReadRequests";
+
 const supabaseUrl = import.meta.env.VITE_SUPABASE_URL;
 const supabaseAnonKey = import.meta.env.VITE_SUPABASE_ANON_KEY;
 
@@ -17,6 +20,13 @@ const supabase = createClient(supabaseUrl, supabaseAnonKey, {
     // On the web, `detectSessionInUrl` still exchanges the code automatically,
     // so the existing browser flow is preserved.
     flowType: "pkce",
+  },
+  global: {
+    // Reads wait out a lost connection and retry by themselves, so no screen
+    // has to show its own "no internet" state or clear what it already loaded;
+    // the global network toast is the one offline notice. Writes still fail
+    // at once. The browser fetch is looked up per call so tests can stub it.
+    fetch: createReadRetryingFetch((...args) => fetch(...args), { isRead: isRetryableSupabaseRead }),
   },
 });
 

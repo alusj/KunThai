@@ -25,6 +25,8 @@ import SwipActionRail from "./SwipActionRail";
 import SwipCaption from "./SwipCaption";
 import VideoProgress from "./VideoProgress";
 import { t as i18nText } from "../../../../../i18n/index";
+import { uiText as translateUi, useI18n as useUiLocale } from "../../../../../i18n/index.js";
+import { inlineErrorMessage } from "../../../../../Backend/services/friendlyErrorService";
 
 const MAX_SWIP_SECONDS = 15;
 
@@ -488,7 +490,7 @@ export default function VideoCard({
       }
       setDeleteOpen(false);
     } catch (error) {
-      setMessage(error.message || i18nText("ui.literals.k0a3558c86a73"));
+      setMessage(inlineErrorMessage(error, i18nText("ui.literals.k0a3558c86a73")));
     } finally {
       setDeleting(false);
     }
@@ -837,7 +839,7 @@ export default function VideoCard({
 
       {message && !fullscreen ? (
         <p className="absolute left-4 top-16 z-10 rounded-full bg-white/95 px-3 py-1 text-xs font-black text-sky-700">
-          {message}
+          {translateUi(message)}
         </p>
       ) : null}
 
@@ -968,6 +970,7 @@ export default function VideoCard({
 }
 
 function SwipActionItem({ danger = false, icon, onClick, title }) {
+  useUiLocale();
   const ActionIcon = icon;
 
   return (
@@ -988,18 +991,19 @@ function SwipActionItem({ danger = false, icon, onClick, title }) {
         <ActionIcon size={18} />
       </span>
 
-      <span className="truncate">{title}</span>
+      <span className="truncate">{translateUi(title)}</span>
     </button>
   );
 }
 
 function SwipQuickAction({ danger = false, icon, label, onClick }) {
+  useUiLocale();
   const ActionIcon = icon;
 
   return (
     <button
       type="button"
-      aria-label={label}
+      aria-label={translateUi(label)}
       onClick={(event) => {
         event.stopPropagation();
         onClick?.(event);
@@ -1012,7 +1016,7 @@ function SwipQuickAction({ danger = false, icon, label, onClick }) {
       }`}
     >
       <ActionIcon size={20} aria-hidden="true" />
-      <span className="w-full truncate">{label}</span>
+      <span className="w-full truncate">{translateUi(label)}</span>
     </button>
   );
 }

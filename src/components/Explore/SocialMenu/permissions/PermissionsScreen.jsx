@@ -12,6 +12,7 @@ import {
 
 import SocialScreenHeader from "../shared/SocialScreenHeader";
 import { t as i18nText, uiText } from "../../../../i18n/index";
+import { useI18n as useUiLocale } from "../../../../i18n/index.js";
 
 const permissions = [
   {
@@ -57,6 +58,7 @@ const permissions = [
 ];
 
 export default function PermissionsScreen({ hideHeader = false, onOpenPrivacy }) {
+  useUiLocale();
   const [expandedId, setExpandedId] = useState("");
 
   return (

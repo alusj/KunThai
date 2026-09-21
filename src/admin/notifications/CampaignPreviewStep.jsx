@@ -12,6 +12,8 @@ import {
 import { buildCampaignPayload } from "../notificationCampaignConfig";
 import { checkNotificationCampaignTestRecipient, lookupNotificationCampaignUser, sendNotificationCampaignTest } from "../adminService";
 import { Notice } from "./campaignUi";
+import { t as i18nText } from "../../i18n/index";
+import { uiText as translateUi, useI18n as useUiLocale } from "../../i18n/index.js";
 
 const SCREEN_BACKDROPS = {
   any: ["KunThai", "bg-gradient-to-b from-emerald-50 to-white"],
@@ -41,13 +43,14 @@ function previewRow(form) {
 }
 
 function PreviewFrame({ device, screen, bottomTabs, children }) {
+  useUiLocale();
   const [label, backdrop] = SCREEN_BACKDROPS[screen] || SCREEN_BACKDROPS.any;
   const phone = device === "phone";
   return (
     <div className={`relative mx-auto w-full overflow-hidden border-zinc-900 bg-white shadow-2xl ${phone ? "aspect-[9/17] max-w-[340px] rounded-[40px] border-[10px]" : "aspect-[16/10] max-w-[760px] rounded-2xl border-[6px]"}`}>
       <div aria-hidden="true" className={`absolute inset-0 ${backdrop}`}>
         <div className="flex items-center justify-between px-4 pt-4">
-          <span className="text-xs font-black text-zinc-700">{label}</span>
+          <span className="text-xs font-black text-zinc-700">{translateUi(label)}</span>
           <span className="h-6 w-6 rounded-full bg-zinc-200" />
         </div>
         <div className="mt-4 space-y-3 px-4">
@@ -62,6 +65,7 @@ function PreviewFrame({ device, screen, bottomTabs, children }) {
 }
 
 export default function CampaignPreviewStep({ form, canTest, ensureSaved, busy }) {
+  useUiLocale();
   const [device, setDevice] = useState("phone");
   const [phase, setPhase] = useState({ key: 0, leaving: false, closed: false });
   const row = useMemo(() => previewRow(form), [form]);
@@ -88,17 +92,17 @@ export default function CampaignPreviewStep({ form, canTest, ensureSaved, busy }
   return (
     <div className="space-y-6">
       <div className="flex flex-wrap items-center gap-2">
-        <div role="group" aria-label="Preview device" className="inline-flex rounded-xl border border-zinc-200 bg-white p-1 dark:border-zinc-800 dark:bg-zinc-950">
+        <div role="group" aria-label={i18nText("ui.literals.k321a67fad72d")} className="inline-flex rounded-xl border border-zinc-200 bg-white p-1 dark:border-zinc-800 dark:bg-zinc-950">
           {[["phone", "Phone", Smartphone], ["desktop", "Desktop", Monitor]].map(([value, label, Icon]) => (
             <button key={value} type="button" aria-pressed={device === value} onClick={() => setDevice(value)} className={`inline-flex min-h-9 items-center gap-1.5 rounded-lg px-3 text-xs font-black transition focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-emerald-600 ${device === value ? "bg-emerald-700 text-white" : "text-zinc-600 hover:text-zinc-900 dark:text-zinc-300"}`}>
-              <Icon size={14} /> {label}
+              <Icon size={14} /> {translateUi(label)}
             </button>
           ))}
         </div>
         {inApp ? (
           <>
-            <button type="button" onClick={replay} className="campaign-action"><Play size={15} /> Play opening</button>
-            <button type="button" onClick={close} disabled={phase.leaving} className="campaign-action"><Square size={15} /> Play closing</button>
+            <button type="button" onClick={replay} className="campaign-action"><Play size={15} /> {i18nText("ui.literals.kbe9b5bb981aa")}</button>
+            <button type="button" onClick={close} disabled={phase.leaving} className="campaign-action"><Square size={15} /> {i18nText("ui.literals.k943ee2f0887f")}</button>
           </>
         ) : null}
       </div>
@@ -119,17 +123,17 @@ export default function CampaignPreviewStep({ form, canTest, ensureSaved, busy }
           )
         ) : (
           <div className="absolute inset-x-3 top-12 rounded-2xl bg-white p-3 shadow-xl ring-1 ring-zinc-200">
-            <p className="text-[10px] font-black uppercase tracking-wide text-zinc-500">{CAMPAIGN_INBOXES[form.audience.platform ? row.display_config.inbox : "explore"] || "Inbox"}</p>
+            <p className="text-[10px] font-black uppercase tracking-wide text-zinc-500">{CAMPAIGN_INBOXES[form.audience.platform ? row.display_config.inbox : i18nText("ui.literals.k9dda9754b3ee")] || i18nText("ui.literals.k44caf74675ce")}</p>
             <div className="mt-2 rounded-xl border border-emerald-100 p-3">
-              <p className="text-sm font-black">{content.title || "Notification title"}</p>
-              <p className="mt-1 line-clamp-3 text-xs font-semibold text-zinc-600">{content.body || "Your message appears here."}</p>
-              {content.hasAction ? <span className="mt-2 inline-block rounded-lg bg-zinc-950 px-2.5 py-1.5 text-[11px] font-black text-white">{content.actionLabel}</span> : null}
+              <p className="text-sm font-black">{content.title || i18nText("ui.literals.kcdc4fe8e5a7d")}</p>
+              <p className="mt-1 line-clamp-3 text-xs font-semibold text-zinc-600">{content.body || i18nText("ui.literals.k51dce5fa0540")}</p>
+              {content.hasAction ? <span className="mt-2 inline-block rounded-lg bg-zinc-950 px-2.5 py-1.5 text-[11px] font-black text-white">{translateUi(content.actionLabel)}</span> : null}
             </div>
           </div>
         )}
       </PreviewFrame>
       <p className="text-center text-xs font-semibold text-zinc-500">
-        {inApp ? `Shown on: ${CAMPAIGN_SCREENS[screen]?.label || "KunThai"}` : "Inbox only"} · The preview uses the same component KunThai renders, in your admin theme; people see it in their own light or dark theme. Use a test send to check the real interface.
+        {inApp ? i18nText("ui.literals.kbb2ec93af0d1", { value0: CAMPAIGN_SCREENS[screen]?.label || "KunThai" }) : i18nText("ui.literals.k8b7b9efcf152")} {i18nText("ui.literals.k81ad8171f438")}
       </p>
 
       <TestSendPanel form={form} canTest={canTest} ensureSaved={ensureSaved} busy={busy} />
@@ -138,11 +142,12 @@ export default function CampaignPreviewStep({ form, canTest, ensureSaved, busy }
 }
 
 function TestSendPanel({ form, canTest, ensureSaved, busy }) {
+  useUiLocale();
   const [query, setQuery] = useState("");
   const [user, setUser] = useState(null);
   const [state, setState] = useState({ status: "idle", message: "", match: null });
 
-  if (!canTest) return <Notice icon={FlaskConical}>You do not have permission to send campaign tests.</Notice>;
+  if (!canTest) return <Notice icon={FlaskConical}>{i18nText("ui.literals.kc24d814a8b74")}</Notice>;
 
   async function lookup() {
     setUser(null);
@@ -178,15 +183,15 @@ function TestSendPanel({ form, canTest, ensureSaved, busy }) {
   return (
     <section className="space-y-4 rounded-2xl border border-zinc-200 bg-white p-4 sm:p-5 dark:border-zinc-800 dark:bg-zinc-950" aria-labelledby="campaign-test-heading">
       <div>
-        <h4 id="campaign-test-heading" className="flex items-center gap-2 font-black"><FlaskConical size={18} className="text-sky-700" /> Send a real test</h4>
+        <h4 id="campaign-test-heading" className="flex items-center gap-2 font-black"><FlaskConical size={18} className="text-sky-700" /> {i18nText("ui.literals.k76fec41460fd")}</h4>
         <p className="mt-1 text-sm font-semibold leading-6 text-zinc-500">
-          Saves the draft, then delivers this exact campaign to one KunThai account through the normal delivery pipeline, marked [TEST] and removed after 24 hours. It never goes to the real audience and is not counted in analytics.
+          {i18nText("ui.literals.k95b397be5d58")}
         </p>
       </div>
       <div className="flex flex-col gap-2 sm:flex-row">
-        <input value={query} onChange={(event) => { setQuery(event.target.value); setUser(null); }} placeholder="KTU-XXXX-XXXX-XXXX" className="campaign-input min-w-0 flex-1" aria-label="Test account KunThai ID" />
+        <input value={query} onChange={(event) => { setQuery(event.target.value); setUser(null); }} placeholder="KTU-XXXX-XXXX-XXXX" className="campaign-input min-w-0 flex-1" aria-label={i18nText("ui.literals.kb95ed9524c4f")} />
         <button type="button" onClick={lookup} disabled={!query.trim() || state.status === "looking"} className="campaign-action shrink-0">
-          {state.status === "looking" ? <LoaderCircle className="animate-spin" size={16} /> : <Search size={16} />} Find account
+          {state.status === "looking" ? <LoaderCircle className="animate-spin" size={16} /> : <Search size={16} />} {i18nText("ui.literals.ke7cca67e7c86")}
         </button>
       </div>
       {user ? (
@@ -196,18 +201,18 @@ function TestSendPanel({ form, canTest, ensureSaved, busy }) {
             <p className="truncate text-xs font-bold text-zinc-500">{user.public_id}{user.city || user.country ? ` · ${[user.city, user.country].filter(Boolean).join(", ")}` : ""}</p>
           </div>
           <button type="button" onClick={send} disabled={busy || state.status === "sending"} className="campaign-action border-sky-700 bg-sky-700 text-white hover:bg-sky-800">
-            {state.status === "sending" ? <LoaderCircle className="animate-spin" size={16} /> : <FlaskConical size={16} />} Send test
+            {state.status === "sending" ? <LoaderCircle className="animate-spin" size={16} /> : <FlaskConical size={16} />} {i18nText("ui.literals.k1aba33d6c2ec")}
           </button>
         </div>
       ) : null}
-      {state.status === "error" ? <Notice tone="danger" icon={AlertTriangle}>{state.message}</Notice> : null}
+      {state.status === "error" ? <Notice tone="danger" icon={AlertTriangle}>{translateUi(state.message)}</Notice> : null}
       {state.status === "sent" ? (
         <Notice tone="success" icon={CheckCircle2}>
-          <p className="font-black">Test delivered to {user?.public_id}.</p>
+          <p className="font-black">{i18nText("ui.literals.k302315e98da8")} {user?.public_id}.</p>
           <p>
-            Sign in to KunThai as that account and open {screen ? CAMPAIGN_SCREENS[screen]?.label : "the matching notification inbox"}.
+            {i18nText("ui.literals.kc20f2f2c3825")} {screen ? CAMPAIGN_SCREENS[screen]?.label : i18nText("ui.literals.kf1bbca3e2927")}.
             {state.match && (!state.match.matchesAudience || !state.match.matchesLocation)
-              ? " Note: this account is not in the campaign's real audience, so it may not have access to that screen."
+              ? i18nText("ui.literals.k514da94829d8")
               : ""}
           </p>
         </Notice>

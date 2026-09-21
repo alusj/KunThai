@@ -4,6 +4,8 @@ import { useState } from "react";
 import { createSellerCase } from "../../../../../../../../../Backend/services/marketplace/sellerBoardService";
 import { useI18n, t } from "../../../../../../../../../i18n";
 import SellerMenuPageHeader from "../../SellerMenuPageHeader";
+import { uiText as translateUi } from "../../../../../../../../../i18n/index.js";
+import { inlineErrorMessage } from "../../../../../../../../../Backend/services/friendlyErrorService";
 
 export default function DisputesReports({ onBack }) {
   useI18n();
@@ -35,7 +37,7 @@ export default function DisputesReports({ onBack }) {
       setForm({ caseType: "order_dispute", priority: "normal", title: "", description: "" });
       setStatus(t("urmall.biz.board.reports.submitted"));
     } catch (error) {
-      setStatus(error.message || t("urmall.biz.board.reports.submitFailed"));
+      setStatus(inlineErrorMessage(error, t("urmall.biz.board.reports.submitFailed")));
     } finally {
       setSubmitting(false);
     }
@@ -100,7 +102,7 @@ export default function DisputesReports({ onBack }) {
             </label>
           </div>
 
-          {status ? <p className="mt-4 rounded-xl border border-gray-200 bg-gray-50 px-4 py-3 text-sm font-bold text-gray-700">{status}</p> : null}
+          {status ? <p className="mt-4 rounded-xl border border-gray-200 bg-gray-50 px-4 py-3 text-sm font-bold text-gray-700">{translateUi(status)}</p> : null}
 
           <button
             type="submit"

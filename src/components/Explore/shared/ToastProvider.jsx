@@ -4,6 +4,7 @@ import { HiOutlineCheckCircle, HiOutlineExclamationTriangle, HiOutlineInformatio
 import { TOAST_EVENT } from "../../../Backend/services/toastService";
 import { useI18n, t } from "../../../i18n";
 import { t as i18nText } from "../../../i18n/index";
+import { uiText as translateUi } from "../../../i18n/index.js";
 
 const TOAST_EXIT_MS = 280;
 
@@ -140,7 +141,7 @@ export default function ToastProvider({ children }) {
                 <div className="min-w-0 flex-1">
                   <p className="text-[11px] font-black uppercase tracking-[0.18em] text-slate-400">{item.title || t(TONE_TITLE_KEYS[item.tone] || TONE_TITLE_KEYS.info)}</p>
                   <p className={`kuntai-break mt-1 text-sm font-black leading-5 text-slate-950 ${item.allowLongMessage ? "" : "line-clamp-2"}`}>
-                    {item.message}
+                    {translateUi(item.message)}
                   </p>
                   {item.actionLabel && item.onAction ? (
                     <button
@@ -151,7 +152,7 @@ export default function ToastProvider({ children }) {
                       }}
                       className="kt-pressable mt-3 rounded-2xl bg-slate-950 px-4 py-2 text-xs font-black text-white"
                     >
-                      {item.actionLabel}
+                      {translateUi(item.actionLabel)}
                     </button>
                   ) : null}
                 </div>

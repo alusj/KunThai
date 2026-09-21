@@ -18,6 +18,9 @@ import {
   setJoinApplicationStatus,
   weightedScore,
 } from "../joinKunThaiAdminService";
+import { t as i18nText } from "../../i18n/index";
+import { uiText as translateUi, useI18n as useUiLocale } from "../../i18n/index.js";
+import { inlineErrorMessage } from "../../Backend/services/friendlyErrorService";
 
 const TABS = [
   ["application", "Application"],
@@ -41,16 +44,18 @@ function describeValue(value, optionLabels) {
 }
 
 function Field({ label, value }) {
+  useUiLocale();
   if (!value) return null;
   return (
     <div className="border-t border-zinc-100 py-2.5 first:border-0 first:pt-0">
-      <p className="text-[11px] font-black uppercase tracking-wide text-zinc-400">{label}</p>
+      <p className="text-[11px] font-black uppercase tracking-wide text-zinc-400">{translateUi(label)}</p>
       <p className="mt-0.5 whitespace-pre-wrap text-sm font-semibold leading-6 text-zinc-800">{value}</p>
     </div>
   );
 }
 
 function DocumentLink({ document }) {
+  useUiLocale();
   const [busy, setBusy] = useState(false);
 
   async function open() {
@@ -68,13 +73,14 @@ function DocumentLink({ document }) {
       className="flex w-full items-center gap-2 rounded-md border border-zinc-200 px-3 py-2 text-left text-sm font-bold text-zinc-800 hover:bg-zinc-50 disabled:opacity-50"
     >
       <FileText size={16} className="flex-none text-zinc-400" />
-      <span className="min-w-0 flex-1 truncate">{document.file_name || "Attachment"}</span>
+      <span className="min-w-0 flex-1 truncate">{document.file_name || i18nText("ui.literals.k83a56249e5cf")}</span>
       <span className="flex-none text-[11px] font-black uppercase text-zinc-400">{titleCase(document.document_type)}</span>
     </button>
   );
 }
 
 export default function JoinApplicationDrawer({ application, canManage, canDecide, onClose, onUpdated }) {
+  useUiLocale();
   const [detail, setDetail] = useState(null);
   const [catalogue, setCatalogue] = useState(null);
   const [tab, setTab] = useState("application");
@@ -104,7 +110,7 @@ export default function JoinApplicationDrawer({ application, canManage, canDecid
       setDetail(nextDetail);
       setCatalogue(nextCatalogue);
     } catch (loadError) {
-      setError(loadError.message || "Unable to load this application.");
+      setError(inlineErrorMessage(loadError, i18nText("ui.literals.k59f789bcef89")));
     } finally {
       setLoading(false);
     }
@@ -152,7 +158,7 @@ export default function JoinApplicationDrawer({ application, canManage, canDecid
       if (successMessage) setError("");
       return updated;
     } catch (taskError) {
-      setError(taskError.message || "That action could not be completed.");
+      setError(inlineErrorMessage(taskError, i18nText("ui.literals.k961cb08f9102")));
       return null;
     } finally {
       setBusy(false);
@@ -163,20 +169,20 @@ export default function JoinApplicationDrawer({ application, canManage, canDecid
 
   return (
     <aside className="fixed inset-0 z-50 flex justify-end bg-zinc-950/40" role="dialog" aria-modal="true">
-      <button type="button" aria-label="Close" onClick={onClose} className="flex-1" />
+      <button type="button" aria-label={i18nText("ui.literals.kbbfa773e5a63")} onClick={onClose} className="flex-1" />
       <section className="flex h-full w-full max-w-2xl flex-col bg-white shadow-2xl">
         <header className="flex items-start justify-between gap-3 border-b border-zinc-200 p-5">
           <div className="min-w-0">
             <p className="text-[11px] font-black uppercase tracking-wide text-emerald-700">
-              {titleCase(application.application_type)} application
+              {titleCase(application.application_type)} {i18nText("ui.literals.kd2005cc206cc")}
             </p>
             <h2 className="mt-0.5 text-xl font-black text-zinc-950">{application.reference}</h2>
             <p className="mt-0.5 truncate text-sm font-bold text-zinc-600">
-              {application.display_name || "Applicant"}
+              {application.display_name || i18nText("ui.literals.k1560dc40a1e1")}
               {application.headline ? ` · ${application.headline}` : ""}
             </p>
             <p className="mt-0.5 text-xs font-semibold text-zinc-400">
-              Submitted {formatDateTime(application.submitted_at)}
+              {i18nText("ui.literals.k2e00359b9802")} {formatDateTime(application.submitted_at)}
               {application.country ? ` · ${application.country}` : ""}
             </p>
           </div>
@@ -193,7 +199,7 @@ export default function JoinApplicationDrawer({ application, canManage, canDecid
               onClick={() => setTab(key)}
               className={`h-11 px-3 text-sm font-black ${tab === key ? "border-b-2 border-emerald-700 text-emerald-800" : "text-zinc-500 hover:text-zinc-800"}`}
             >
-              {label}
+              {translateUi(label)}
               {key === "conversation" && application.admin_unread_count ? (
                 <span className="ml-1.5 rounded-full bg-red-600 px-1.5 text-[10px] text-white">{application.admin_unread_count}</span>
               ) : null}
@@ -202,10 +208,10 @@ export default function JoinApplicationDrawer({ application, canManage, canDecid
         </nav>
 
         <div className="flex-1 overflow-y-auto p-5">
-          {error ? <p role="alert" className="mb-4 rounded-md bg-red-50 px-3 py-2 text-sm font-bold text-red-700">{error}</p> : null}
+          {error ? <p role="alert" className="mb-4 rounded-md bg-red-50 px-3 py-2 text-sm font-bold text-red-700">{translateUi(error)}</p> : null}
           {loading ? (
             <p className="flex items-center gap-2 text-sm font-bold text-zinc-500">
-              <LoaderCircle className="animate-spin" size={16} /> Loading application…
+              <LoaderCircle className="animate-spin" size={16} /> {i18nText("ui.literals.k6155044e8645")}
             </p>
           ) : null}
 
@@ -221,9 +227,9 @@ export default function JoinApplicationDrawer({ application, canManage, canDecid
                 if (!rows.length) return null;
                 return (
                   <section key={section.key}>
-                    <h3 className="text-[11px] font-black uppercase tracking-wide text-emerald-700">{section.title}</h3>
+                    <h3 className="text-[11px] font-black uppercase tracking-wide text-emerald-700">{translateUi(section.title)}</h3>
                     <div className="mt-2 rounded-lg border border-zinc-200 p-4">
-                      {rows.map((row) => <Field key={row.label} label={row.label} value={row.value} />)}
+                      {rows.map((row) => <Field key={row.label} label={translateUi(row.label)} value={row.value} />)}
                     </div>
                   </section>
                 );
@@ -231,16 +237,16 @@ export default function JoinApplicationDrawer({ application, canManage, canDecid
 
               {detail.education.length ? (
                 <section>
-                  <h3 className="text-[11px] font-black uppercase tracking-wide text-emerald-700">Qualifications</h3>
+                  <h3 className="text-[11px] font-black uppercase tracking-wide text-emerald-700">{i18nText("ui.literals.k56663729aef0")}</h3>
                   <ul className="mt-2 space-y-2">
                     {detail.education.map((entry) => (
                       <li key={entry.id} className="rounded-lg border border-zinc-200 p-3">
-                        <p className="text-sm font-black text-zinc-950">{entry.qualification || titleCase(entry.level) || "Qualification"}</p>
+                        <p className="text-sm font-black text-zinc-950">{entry.qualification || titleCase(entry.level) || i18nText("ui.literals.k2ffe44e54758")}</p>
                         <p className="text-xs font-bold text-zinc-500">
                           {[entry.institution, entry.country, entry.field_of_study].filter(Boolean).join(" · ")}
                         </p>
                         <p className="text-xs font-semibold text-zinc-400">
-                          {[entry.start_year, entry.currently_studying ? "present" : entry.end_year].filter(Boolean).join(" – ")}
+                          {[entry.start_year, entry.currently_studying ? i18nText("ui.literals.k50644481c7cd") : entry.end_year].filter(Boolean).join(" – ")}
                         </p>
                       </li>
                     ))}
@@ -250,15 +256,15 @@ export default function JoinApplicationDrawer({ application, canManage, canDecid
 
               {detail.experience.length ? (
                 <section>
-                  <h3 className="text-[11px] font-black uppercase tracking-wide text-emerald-700">Experience</h3>
+                  <h3 className="text-[11px] font-black uppercase tracking-wide text-emerald-700">{i18nText("ui.literals.k5b5aafe6b9e2")}</h3>
                   <ul className="mt-2 space-y-2">
                     {detail.experience.map((entry) => (
                       <li key={entry.id} className="rounded-lg border border-zinc-200 p-3">
-                        <p className="text-sm font-black text-zinc-950">{entry.position_title || "Role"}</p>
+                        <p className="text-sm font-black text-zinc-950">{entry.position_title || i18nText("ui.literals.kc3f104d13657")}</p>
                         <p className="text-xs font-bold text-zinc-500">{entry.organization}</p>
                         <p className="text-xs font-semibold text-zinc-400">
-                          {[entry.start_date, entry.currently_here ? "present" : entry.end_date].filter(Boolean).join(" – ")}
-                          {entry.may_contact ? " · may contact" : ""}
+                          {[entry.start_date, entry.currently_here ? i18nText("ui.literals.k50644481c7cd") : entry.end_date].filter(Boolean).join(" – ")}
+                          {entry.may_contact ? i18nText("ui.literals.k06e50267cf7a") : ""}
                         </p>
                         {entry.responsibilities ? (
                           <p className="mt-1.5 whitespace-pre-wrap text-sm font-semibold leading-6 text-zinc-700">{entry.responsibilities}</p>
@@ -271,7 +277,7 @@ export default function JoinApplicationDrawer({ application, canManage, canDecid
 
               {detail.skills.length ? (
                 <section>
-                  <h3 className="text-[11px] font-black uppercase tracking-wide text-emerald-700">Skills</h3>
+                  <h3 className="text-[11px] font-black uppercase tracking-wide text-emerald-700">{i18nText("ui.literals.ke09212c7d3ea")}</h3>
                   <ul className="mt-2 space-y-2">
                     {detail.skills.map((entry) => (
                       <li key={entry.id} className="rounded-lg border border-zinc-200 p-3">
@@ -295,7 +301,7 @@ export default function JoinApplicationDrawer({ application, canManage, canDecid
 
               {detail.documents.length ? (
                 <section>
-                  <h3 className="text-[11px] font-black uppercase tracking-wide text-emerald-700">Documents</h3>
+                  <h3 className="text-[11px] font-black uppercase tracking-wide text-emerald-700">{i18nText("ui.literals.k687c82861c95")}</h3>
                   <div className="mt-2 space-y-2">
                     {detail.documents.map((document) => <DocumentLink key={document.id} document={document} />)}
                   </div>
@@ -315,7 +321,7 @@ export default function JoinApplicationDrawer({ application, canManage, canDecid
                         <div className={`max-w-[85%] rounded-lg px-3 py-2 ${fromTeam ? "bg-emerald-700 text-white" : "bg-zinc-100 text-zinc-900"}`}>
                           <p className="whitespace-pre-wrap text-sm font-semibold leading-6">{message.body}</p>
                           <p className={`mt-1 text-[10px] font-bold ${fromTeam ? "text-emerald-100" : "text-zinc-400"}`}>
-                            {fromTeam ? "KunThai" : "Applicant"} · {formatDateTime(message.created_at)}
+                            {fromTeam ? "KunThai" : i18nText("ui.literals.k1560dc40a1e1")} · {formatDateTime(message.created_at)}
                           </p>
                         </div>
                       </div>
@@ -323,7 +329,7 @@ export default function JoinApplicationDrawer({ application, canManage, canDecid
                   })
                 ) : (
                   <p className="rounded-lg border border-dashed border-zinc-300 px-3 py-5 text-center text-sm font-bold text-zinc-400">
-                    No messages yet.
+                    {i18nText("ui.literals.k048dda89e153")}
                   </p>
                 )}
               </section>
@@ -331,7 +337,7 @@ export default function JoinApplicationDrawer({ application, canManage, canDecid
               {canManage ? (
                 <section className="rounded-lg border border-zinc-200 p-4">
                   <label className="block">
-                    <span className="text-[11px] font-black uppercase tracking-wide text-zinc-500">Reply to the applicant</span>
+                    <span className="text-[11px] font-black uppercase tracking-wide text-zinc-500">{i18nText("ui.literals.kaa08f6657691")}</span>
                     <textarea
                       rows={3}
                       maxLength={4000}
@@ -349,25 +355,25 @@ export default function JoinApplicationDrawer({ application, canManage, canDecid
                     }}
                     className="mt-3 flex h-10 items-center gap-2 rounded-md bg-emerald-700 px-4 text-sm font-black text-white disabled:opacity-40"
                   >
-                    <Send size={15} /> Send
+                    <Send size={15} /> {i18nText("ui.literals.k9bc2575c3930")}
                   </button>
                 </section>
               ) : null}
 
               <section className="rounded-lg border border-zinc-200 p-4">
-                <h3 className="text-sm font-black text-zinc-950">Assessments</h3>
+                <h3 className="text-sm font-black text-zinc-950">{i18nText("ui.literals.k5aa9636c31ca")}</h3>
                 {detail.assessments.length ? (
                   <ul className="mt-3 space-y-2">
                     {detail.assessments.map((assessment) => (
                       <li key={assessment.id} className="rounded-md border border-zinc-200 p-3">
-                        <p className="text-sm font-black text-zinc-950">{assessment.title}</p>
+                        <p className="text-sm font-black text-zinc-950">{translateUi(assessment.title)}</p>
                         <p className="text-[11px] font-black uppercase text-zinc-400">
-                          {titleCase(assessment.status)} · assigned {formatDateTime(assessment.assigned_at)}
+                          {titleCase(assessment.status)} {i18nText("ui.literals.kd30e4790691a")} {formatDateTime(assessment.assigned_at)}
                         </p>
                         <p className="mt-1.5 whitespace-pre-wrap text-sm font-semibold leading-6 text-zinc-600">{assessment.prompt}</p>
                         {assessment.response ? (
                           <div className="mt-2 rounded-md bg-zinc-50 p-3">
-                            <p className="text-[11px] font-black uppercase text-zinc-400">Answer</p>
+                            <p className="text-[11px] font-black uppercase text-zinc-400">{i18nText("ui.literals.ka16a4eda7cb2")}</p>
                             <p className="mt-1 whitespace-pre-wrap text-sm font-semibold leading-6 text-zinc-800">{assessment.response}</p>
                           </div>
                         ) : null}
@@ -375,7 +381,7 @@ export default function JoinApplicationDrawer({ application, canManage, canDecid
                     ))}
                   </ul>
                 ) : (
-                  <p className="mt-2 text-sm font-bold text-zinc-400">No assessment sent yet.</p>
+                  <p className="mt-2 text-sm font-bold text-zinc-400">{i18nText("ui.literals.k18c374398cac")}</p>
                 )}
 
                 {canManage ? (
@@ -383,14 +389,14 @@ export default function JoinApplicationDrawer({ application, canManage, canDecid
                     <input
                       value={assessmentTitle}
                       onChange={(event) => setAssessmentTitle(event.target.value)}
-                      placeholder="Assessment title"
+                      placeholder={i18nText("ui.literals.k87ab88c0c177")}
                       className="h-10 w-full rounded-md border border-zinc-200 bg-zinc-50 px-3 text-sm font-bold outline-none focus:border-emerald-600 focus:bg-white"
                     />
                     <textarea
                       rows={4}
                       value={assessmentPrompt}
                       onChange={(event) => setAssessmentPrompt(event.target.value)}
-                      placeholder="Describe the scenario you want them to work through."
+                      placeholder={i18nText("ui.literals.k13957887dbaa")}
                       className="w-full resize-none rounded-md border border-zinc-200 bg-zinc-50 px-3 py-2 text-sm font-semibold outline-none focus:border-emerald-600 focus:bg-white"
                     />
                     <button
@@ -404,7 +410,7 @@ export default function JoinApplicationDrawer({ application, canManage, canDecid
                       }}
                       className="h-10 rounded-md bg-zinc-950 px-4 text-sm font-black text-white disabled:opacity-40"
                     >
-                      Send assessment
+                      {i18nText("ui.literals.k6d32671a3cdd")}
                     </button>
                   </div>
                 ) : null}
@@ -415,15 +421,15 @@ export default function JoinApplicationDrawer({ application, canManage, canDecid
           {!loading && detail && tab === "review" ? (
             <div className="space-y-5">
               <section className="rounded-lg border border-zinc-200 p-4">
-                <h3 className="text-sm font-black text-zinc-950">Your review</h3>
+                <h3 className="text-sm font-black text-zinc-950">{i18nText("ui.literals.k501c17289aa6")}</h3>
                 <p className="mt-1 text-xs font-semibold leading-5 text-zinc-500">
-                  Rate each area from 0 to 5. The weighted total is a prompt for discussion, not a decision.
+                  {i18nText("ui.literals.kddbfc3bab6dd")}
                 </p>
                 <div className="mt-3 space-y-3">
                   {areas.map((area) => (
                     <label key={area.key} className="block">
                       <span className="flex items-center justify-between text-xs font-black text-zinc-700">
-                        {area.label}
+                        {translateUi(area.label)}
                         <span className="text-zinc-400">{area.weight}% · {ratings[area.key] ?? "–"}</span>
                       </span>
                       <input
@@ -439,34 +445,34 @@ export default function JoinApplicationDrawer({ application, canManage, canDecid
                   ))}
                 </div>
                 <p className="mt-4 text-sm font-black text-zinc-950">
-                  Application strength: {suggestedScore === null ? "not rated" : `${suggestedScore}/100`}
+                  {i18nText("ui.literals.k446acf2c294d")} {suggestedScore === null ? i18nText("ui.literals.k58efc7eab0ee") : `${suggestedScore}/100`}
                 </p>
 
                 <label className="mt-3 block">
-                  <span className="text-[11px] font-black uppercase tracking-wide text-zinc-500">Recommendation</span>
+                  <span className="text-[11px] font-black uppercase tracking-wide text-zinc-500">{i18nText("ui.literals.k6422fcc967f4")}</span>
                   <select
                     value={recommendation}
                     onChange={(event) => setRecommendation(event.target.value)}
                     className="mt-1.5 h-10 w-full rounded-md border border-zinc-200 bg-zinc-50 px-3 text-sm font-black outline-none focus:border-emerald-600 focus:bg-white"
                   >
-                    <option value="undecided">Undecided</option>
-                    <option value="advance">Advance</option>
-                    <option value="hold">Hold</option>
-                    <option value="decline">Decline</option>
+                    <option value="undecided">{i18nText("ui.literals.k2a03a4b73a88")}</option>
+                    <option value="advance">{i18nText("ui.literals.k67e70c3c1a89")}</option>
+                    <option value="hold">{i18nText("ui.literals.k3bd32832287a")}</option>
+                    <option value="decline">{i18nText("ui.literals.kb59cf9ed55bb")}</option>
                   </select>
                 </label>
                 <textarea
                   rows={2}
                   value={strengths}
                   onChange={(event) => setStrengths(event.target.value)}
-                  placeholder="Strengths"
+                  placeholder={i18nText("ui.literals.k739a7c874a21")}
                   className="mt-2 w-full resize-none rounded-md border border-zinc-200 bg-zinc-50 px-3 py-2 text-sm font-semibold outline-none focus:border-emerald-600 focus:bg-white"
                 />
                 <textarea
                   rows={2}
                   value={concerns}
                   onChange={(event) => setConcerns(event.target.value)}
-                  placeholder="What to check"
+                  placeholder={i18nText("ui.literals.k2e062db20779")}
                   className="mt-2 w-full resize-none rounded-md border border-zinc-200 bg-zinc-50 px-3 py-2 text-sm font-semibold outline-none focus:border-emerald-600 focus:bg-white"
                 />
                 <button
@@ -480,19 +486,19 @@ export default function JoinApplicationDrawer({ application, canManage, canDecid
                   }
                   className="mt-3 h-10 w-full rounded-md bg-emerald-700 text-sm font-black text-white disabled:opacity-40"
                 >
-                  Save review
+                  {i18nText("ui.literals.kf450a9da05a2")}
                 </button>
               </section>
 
               {detail.reviews.length ? (
                 <section>
-                  <h3 className="text-[11px] font-black uppercase tracking-wide text-emerald-700">Reviews on file</h3>
+                  <h3 className="text-[11px] font-black uppercase tracking-wide text-emerald-700">{i18nText("ui.literals.k6bc7cfad4328")}</h3>
                   <ul className="mt-2 space-y-2">
                     {detail.reviews.map((review) => (
                       <li key={review.id} className="rounded-lg border border-zinc-200 p-3">
                         <p className="text-sm font-black text-zinc-950">{titleCase(review.recommendation)}</p>
-                        {review.strengths ? <p className="mt-1 text-sm font-semibold text-zinc-700">Strengths: {review.strengths}</p> : null}
-                        {review.concerns ? <p className="mt-1 text-sm font-semibold text-zinc-700">Check: {review.concerns}</p> : null}
+                        {review.strengths ? <p className="mt-1 text-sm font-semibold text-zinc-700">{i18nText("ui.literals.kf0a3b9eb7ed6")} {review.strengths}</p> : null}
+                        {review.concerns ? <p className="mt-1 text-sm font-semibold text-zinc-700">{i18nText("ui.literals.k695ef898e510")} {review.concerns}</p> : null}
                         <p className="mt-1 text-[11px] font-bold text-zinc-400">{formatDateTime(review.created_at)}</p>
                       </li>
                     ))}
@@ -501,8 +507,8 @@ export default function JoinApplicationDrawer({ application, canManage, canDecid
               ) : null}
 
               <section className="rounded-lg border border-zinc-200 p-4">
-                <h3 className="text-sm font-black text-zinc-950">Internal notes</h3>
-                <p className="mt-1 text-xs font-semibold text-zinc-500">Never shown to the applicant.</p>
+                <h3 className="text-sm font-black text-zinc-950">{i18nText("ui.literals.ka2c2ffc93c06")}</h3>
+                <p className="mt-1 text-xs font-semibold text-zinc-500">{i18nText("ui.literals.k56b02c4c1432")}</p>
                 {canManage ? (
                   <>
                     <textarea
@@ -520,7 +526,7 @@ export default function JoinApplicationDrawer({ application, canManage, canDecid
                       }}
                       className="mt-2 h-10 rounded-md bg-zinc-950 px-4 text-sm font-black text-white disabled:opacity-40"
                     >
-                      Add note
+                      {i18nText("ui.literals.k757092db3c4b")}
                     </button>
                   </>
                 ) : null}
@@ -537,7 +543,7 @@ export default function JoinApplicationDrawer({ application, canManage, canDecid
               </section>
 
               <section>
-                <h3 className="text-[11px] font-black uppercase tracking-wide text-emerald-700">History</h3>
+                <h3 className="text-[11px] font-black uppercase tracking-wide text-emerald-700">{i18nText("ui.literals.k90ccd6497400")}</h3>
                 <ul className="mt-2 space-y-1.5">
                   {[...detail.statusHistory].reverse().map((event) => (
                     <li key={event.id} className="text-xs font-bold leading-5 text-zinc-500">
@@ -578,7 +584,7 @@ export default function JoinApplicationDrawer({ application, canManage, canDecid
             <input
               value={statusReason}
               onChange={(event) => setStatusReason(event.target.value)}
-              placeholder={decisionStatus ? "Reason shown to the applicant (required)" : "Optional note shown to the applicant"}
+              placeholder={decisionStatus ? i18nText("ui.literals.ka59a01cd527b") : i18nText("ui.literals.k1dc8c610559c")}
               className="mt-2 h-10 w-full rounded-md border border-zinc-200 bg-white px-3 text-sm font-semibold outline-none focus:border-emerald-600"
             />
             <button
@@ -590,7 +596,7 @@ export default function JoinApplicationDrawer({ application, canManage, canDecid
               }}
               className="mt-2 h-11 w-full rounded-md bg-emerald-700 text-sm font-black text-white disabled:opacity-40"
             >
-              {busy ? "Working…" : `Move to ${titleCase(statusChoice)}`}
+              {busy ? i18nText("ui.literals.k13b7bfcac438") : i18nText("ui.literals.k3453c10396d9", { value0: titleCase(statusChoice) })}
             </button>
           </footer>
         ) : null}

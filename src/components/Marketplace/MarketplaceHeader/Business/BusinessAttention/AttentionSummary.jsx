@@ -1,4 +1,5 @@
 import { useI18n, t } from "../../../../../i18n";
+import { uiText as translateUi, useI18n as useUiLocale } from "../../../../../i18n/index.js";
 
 export default function AttentionSummary({ summary }) {
   useI18n();
@@ -12,9 +13,10 @@ export default function AttentionSummary({ summary }) {
 }
 
 function SummaryPill({ label, value, tone }) {
+  useUiLocale();
   return (
     <div className={`rounded-lg px-3 py-2 ${tone}`}>
-      <p className="text-xs font-black uppercase">{label}</p>
+      <p className="text-xs font-black uppercase">{translateUi(label)}</p>
       <p className="text-xl font-black">{value}</p>
     </div>
   );

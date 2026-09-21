@@ -1,6 +1,7 @@
 import { AlertTriangle, BadgeCheck, Clock, Info, ShieldCheck, X } from "lucide-react";
 
 import { useI18n, t } from "../../../i18n";
+import { useI18n as useUiLocale } from "../../../i18n/index.js";
 
 // Text fields are i18n keys resolved via t() at render time; the icon and
 // colour classes stay literal. The status objects are consumed only through the
@@ -189,6 +190,7 @@ export function MarketplaceVerificationModal({
 }
 
 export function MarketplaceVerificationCaution(props) {
+  useUiLocale();
   return (
     <MarketplaceVerificationInline {...props} />
   );

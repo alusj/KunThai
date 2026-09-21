@@ -22,6 +22,9 @@ import SocialScreenHeader from "../shared/SocialScreenHeader";
 import JoinApplicationForm from "./JoinApplicationForm";
 import JoinApplicationTracker from "./JoinApplicationTracker";
 import { JOIN_PATHS } from "./joinNotices";
+import { t as i18nText } from "../../../../i18n/index";
+import { uiText as translateUi, useI18n as useUiLocale } from "../../../../i18n/index.js";
+import { inlineErrorMessage } from "../../../../Backend/services/friendlyErrorService";
 
 const PATH_ICONS = {
   investor: HiOutlineBanknotes,
@@ -62,6 +65,7 @@ function statusTone(status) {
 }
 
 function ApplicationRow({ application, onOpen }) {
+  useUiLocale();
   return (
     <button
       type="button"
@@ -73,7 +77,7 @@ function ApplicationRow({ application, onOpen }) {
       </span>
       <div className="min-w-0 flex-1">
         <p className="truncate text-sm font-black text-slate-950">
-          {application.reference || `${APPLICATION_TYPE_LABELS[application.applicationType]} draft`}
+          {application.reference || i18nText("ui.literals.k99515105d8e9", { value0: APPLICATION_TYPE_LABELS[application.applicationType] })}
         </p>
         <p className="mt-0.5 truncate text-xs font-bold text-slate-500">
           {application.headline || APPLICATION_TYPE_LABELS[application.applicationType]}
@@ -92,6 +96,7 @@ function ApplicationRow({ application, onOpen }) {
 }
 
 export default function JoinKunThaiScreen({ hideHeader = false }) {
+  useUiLocale();
   const [view, setView] = useState("hub");
   const [applications, setApplications] = useState([]);
   const [catalogue, setCatalogue] = useState(null);
@@ -105,7 +110,7 @@ export default function JoinKunThaiScreen({ hideHeader = false }) {
     try {
       setApplications(await fetchMyApplications());
     } catch (loadError) {
-      setError(loadError.message || "Could not load your applications.");
+      setError(inlineErrorMessage(loadError, i18nText("ui.literals.k69723a1d8710")));
     } finally {
       setLoading(false);
     }
@@ -127,7 +132,7 @@ export default function JoinKunThaiScreen({ hideHeader = false }) {
       setDetail(nextDetail);
       setView(nextDetail.application.status === "draft" ? "form" : "tracker");
     } catch (openError) {
-      setError(openError.message || "Could not open that application.");
+      setError(inlineErrorMessage(openError, i18nText("ui.literals.k5ae1acbcacc4")));
     } finally {
       setBusyPath("");
     }
@@ -149,7 +154,7 @@ export default function JoinKunThaiScreen({ hideHeader = false }) {
       );
       setView("form");
     } catch (startError) {
-      setError(startError.message || "Could not open that application.");
+      setError(inlineErrorMessage(startError, i18nText("ui.literals.k5ae1acbcacc4")));
     } finally {
       setBusyPath("");
     }
@@ -167,7 +172,7 @@ export default function JoinKunThaiScreen({ hideHeader = false }) {
       await discardDraftApplication(detail.application.id);
       backToHub();
     } catch (discardError) {
-      setError(discardError.message || "Could not discard that draft.");
+      setError(inlineErrorMessage(discardError, i18nText("ui.literals.k6904e8b0e8c1")));
     }
   }
 
@@ -180,18 +185,18 @@ export default function JoinKunThaiScreen({ hideHeader = false }) {
   return (
     <div className="min-h-full bg-slate-50">
       {!hideHeader ? (
-        <SocialScreenHeader title="Join KunThai" subtitle="Invest, build, or volunteer with KunThai." />
+        <SocialScreenHeader title={i18nText("ui.literals.k17d2f5e61683")} subtitle={i18nText("ui.literals.k68eb91a454be")} />
       ) : null}
 
       <div className="w-full space-y-5 px-4 py-4 sm:px-6 lg:px-8">
         {error ? (
-          <p role="alert" className="rounded-2xl bg-rose-50 px-4 py-3 text-sm font-bold leading-6 text-rose-700">{error}</p>
+          <p role="alert" className="rounded-2xl bg-rose-50 px-4 py-3 text-sm font-bold leading-6 text-rose-700">{translateUi(error)}</p>
         ) : null}
 
         {view === "form" && detail && catalogue ? (
           <JoinApplicationForm
             catalogue={catalogue}
-            detail={detail}
+            detail={translateUi(detail)}
             onCancel={backToHub}
             onDetailChange={setDetail}
             onDiscard={discardDraft}
@@ -207,7 +212,7 @@ export default function JoinKunThaiScreen({ hideHeader = false }) {
         {view === "tracker" && detail ? (
           <JoinApplicationTracker
             catalogue={catalogue}
-            detail={detail}
+            detail={translateUi(detail)}
             onBack={backToHub}
             onDetailChange={setDetail}
           />
@@ -216,11 +221,10 @@ export default function JoinKunThaiScreen({ hideHeader = false }) {
         {view === "hub" ? (
           <>
             <section className="rounded-[28px] border border-sky-100 bg-gradient-to-br from-white to-sky-50 p-5 shadow-sm sm:p-6">
-              <p className="text-xs font-black uppercase tracking-[0.2em] text-sky-700">Join KunThai</p>
-              <h2 className="mt-1 text-2xl font-black text-slate-950">Help build the future of KunThai.</h2>
+              <p className="text-xs font-black uppercase tracking-[0.2em] text-sky-700">{i18nText("ui.literals.k17d2f5e61683")}</p>
+              <h2 className="mt-1 text-2xl font-black text-slate-950">{i18nText("ui.literals.kbdb99c217113")}</h2>
               <p className="mt-2 max-w-3xl text-sm font-semibold leading-6 text-slate-600">
-                Three ways in. Each one has its own application, its own review, and a thread where you can talk to the
-                KunThai team about it.
+                {i18nText("ui.literals.kd9f7149c68c5")}
               </p>
             </section>
 
@@ -242,16 +246,16 @@ export default function JoinKunThaiScreen({ hideHeader = false }) {
                     <span className={`grid h-12 w-12 place-items-center rounded-2xl text-white ${accent.badge}`}>
                       <Icon className="text-2xl" />
                     </span>
-                    <h3 className="mt-4 text-lg font-black text-slate-950">{path.title}</h3>
-                    <p className="mt-1.5 text-sm font-semibold leading-6 text-slate-600">{path.description}</p>
+                    <h3 className="mt-4 text-lg font-black text-slate-950">{translateUi(path.title)}</h3>
+                    <p className="mt-1.5 text-sm font-semibold leading-6 text-slate-600">{translateUi(path.description)}</p>
                     <p className="mt-4 flex items-center gap-1.5 text-xs font-black uppercase tracking-[0.12em] text-slate-700">
                       {busyPath === path.type
-                        ? "Opening…"
+                        ? i18nText("ui.literals.kb1b8530bbd68")
                         : existing
                           ? existing.status === "draft"
-                            ? "Continue your draft"
-                            : "View your application"
-                          : "Start"}
+                            ? i18nText("ui.literals.kab7fd7e4a92a")
+                            : i18nText("ui.literals.k919bad32ad44")
+                          : i18nText("ui.literals.k952f375412e8")}
                       <HiOutlineArrowRight className="text-base" />
                     </p>
                   </button>
@@ -263,34 +267,34 @@ export default function JoinKunThaiScreen({ hideHeader = false }) {
               <div className="mb-3 flex items-center gap-2 px-1">
                 <HiOutlineInboxStack className="text-lg text-sky-700" />
                 <div>
-                  <p className="text-xs font-black uppercase tracking-[0.2em] text-sky-700">My Applications</p>
-                  <p className="mt-0.5 text-sm font-semibold text-slate-500">Track everything you have sent to KunThai.</p>
+                  <p className="text-xs font-black uppercase tracking-[0.2em] text-sky-700">{i18nText("ui.literals.kc46eb77bdf38")}</p>
+                  <p className="mt-0.5 text-sm font-semibold text-slate-500">{i18nText("ui.literals.kc59df12774ab")}</p>
                 </div>
               </div>
 
               {loading ? (
-                <p className="rounded-[24px] bg-white p-5 text-sm font-bold text-slate-500 shadow-sm">Loading…</p>
+                <p className="rounded-[24px] bg-white p-5 text-sm font-bold text-slate-500 shadow-sm">{i18nText("ui.literals.k33ce417454bf")}</p>
               ) : !applications.length ? (
                 <p className="rounded-[24px] border border-dashed border-slate-300 bg-white p-5 text-sm font-bold text-slate-500">
-                  You have not applied yet. Choose a path above to begin.
+                  {i18nText("ui.literals.k679b5057bced")}
                 </p>
               ) : (
                 <div className="space-y-4">
                   {drafts.length ? (
                     <div className="space-y-2">
-                      <p className="px-1 text-[11px] font-black uppercase tracking-[0.12em] text-slate-400">Drafts</p>
+                      <p className="px-1 text-[11px] font-black uppercase tracking-[0.12em] text-slate-400">{i18nText("ui.literals.k22a31d86e018")}</p>
                       {drafts.map((item) => <ApplicationRow key={item.id} application={item} onOpen={openApplication} />)}
                     </div>
                   ) : null}
                   {openApplications.length ? (
                     <div className="space-y-2">
-                      <p className="px-1 text-[11px] font-black uppercase tracking-[0.12em] text-slate-400">In review</p>
+                      <p className="px-1 text-[11px] font-black uppercase tracking-[0.12em] text-slate-400">{i18nText("ui.literals.kc49bceb8a70b")}</p>
                       {openApplications.map((item) => <ApplicationRow key={item.id} application={item} onOpen={openApplication} />)}
                     </div>
                   ) : null}
                   {closedApplications.length ? (
                     <div className="space-y-2">
-                      <p className="px-1 text-[11px] font-black uppercase tracking-[0.12em] text-slate-400">Closed</p>
+                      <p className="px-1 text-[11px] font-black uppercase tracking-[0.12em] text-slate-400">{i18nText("ui.literals.k88d86b7721d5")}</p>
                       {closedApplications.map((item) => <ApplicationRow key={item.id} application={item} onOpen={openApplication} />)}
                     </div>
                   ) : null}

@@ -1,7 +1,9 @@
+import { BUSINESS_CATEGORIES } from "../../../../../Backend/services/marketplace/sellerRegistrationService";
 import { useEffect, useRef, useState } from "react";
 import { HiOutlineChevronDown, HiOutlineXMark } from "react-icons/hi2";
 
 import { useI18n, t } from "../../../../../i18n";
+import { uiText as translateUi } from "../../../../../i18n/index.js";
 
 export default function CategorySelector({
   categories,
@@ -49,7 +51,7 @@ export default function CategorySelector({
             <span className="flex flex-wrap gap-2">
               {selected.slice(0, 3).map((category) => (
                 <span key={category} className="inline-flex items-center gap-1 rounded-full bg-blue-50 px-3 py-1 text-xs font-black text-blue-800">
-                  {category}
+                  {BUSINESS_CATEGORIES.includes(category) ? translateUi(category) : category}
                   <span
                     role="button"
                     tabIndex={0}
@@ -65,7 +67,7 @@ export default function CategorySelector({
                       }
                     }}
                     className="inline-flex h-4 w-4 items-center justify-center rounded-full hover:bg-blue-100"
-                    aria-label={t("urmall.biz.reg.removeCategory", { category })}
+                    aria-label={t("urmall.biz.reg.removeCategory", { category: BUSINESS_CATEGORIES.includes(category) ? translateUi(category) : category })}
                   >
                     <HiOutlineXMark />
                   </span>
@@ -94,7 +96,7 @@ export default function CategorySelector({
                     active ? "bg-blue-50 text-blue-800" : "text-gray-700 hover:bg-gray-50"
                   }`}
                 >
-                  <span>{category}</span>
+                  <span>{BUSINESS_CATEGORIES.includes(category) ? translateUi(category) : category}</span>
                   {active ? <span className="text-xs uppercase tracking-[0.18em]">{t("urmall.biz.reg.selectedTag")}</span> : null}
                 </button>
               );
@@ -112,7 +114,7 @@ export default function CategorySelector({
               onClick={() => onToggle(category)}
               className="inline-flex items-center gap-2 rounded-full bg-gray-100 px-3 py-1.5 text-xs font-black text-gray-700 hover:bg-red-50 hover:text-red-700"
             >
-              {category}
+              {BUSINESS_CATEGORIES.includes(category) ? translateUi(category) : category}
               <HiOutlineXMark />
             </button>
           ))}
@@ -140,7 +142,7 @@ export default function CategorySelector({
           {otherError ? <p className="mt-2 text-xs font-bold text-red-600">{otherError}</p> : null}
         </div>
       ) : null}
-      {error ? <p className="mt-2 text-xs font-bold text-red-600">{error}</p> : null}
+      {error ? <p className="mt-2 text-xs font-bold text-red-600">{translateUi(error)}</p> : null}
     </div>
   );
 }

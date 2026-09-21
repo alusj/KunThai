@@ -1,10 +1,9 @@
-import { createElement, useCallback, useEffect, useRef, useState } from "react";
+import { createElement, useEffect, useState } from "react";
 import {
   FiAlertCircle,
   FiBox,
   FiBriefcase,
   FiCheckCircle,
-  FiChevronLeft,
   FiChevronRight,
   FiClock,
   FiImage,
@@ -29,15 +28,15 @@ import {
 import { formatCountryMoney } from "../../data/globalCountryProfiles";
 import AppBackTab from "../shared/AppBackTab";
 import AppPortal from "../shared/AppPortal";
-import useBodyScrollLock from "../shared/useBodyScrollLock";
-import useImageViewerGestures from "../shared/useImageViewerGestures";
+import MediaGalleryViewer from "../shared/MediaGalleryViewer";
 import VerificationBadge from "./verification/VerificationBadge";
 import { verificationStatuses } from "./verification/verificationStatus";
-import { useBrowserBack } from "../../Backend/hooks/useBrowserBack";
 import { resizedImageUrl } from "../../Backend/lib/imageProxy";
 import { useI18n, t } from "../../i18n";
 import { t as i18nText } from "../../i18n/index";
 import SaveOperatorButton from "./SaveOperatorButton";
+import { uiText as translateUi, useI18n as useUiLocale } from "../../i18n/index.js";
+import { inlineErrorMessage } from "../../Backend/services/friendlyErrorService";
 
 function cleanAreaText(value) {
   const text = String(value || "").trim();
@@ -128,7 +127,7 @@ export default function FleetProfileScreen({ fleetId, onBack, onOpenCompany, onS
       })
       .catch((err) => {
         if (alive) {
-          setError(err.message || t("urride.fleetProfile.loadError"));
+          setError(inlineErrorMessage(err, t("urride.fleetProfile.loadError")));
           setFleet(null);
         }
       })
@@ -170,7 +169,7 @@ export default function FleetProfileScreen({ fleetId, onBack, onOpenCompany, onS
       .catch((err) => {
         if (alive) {
           setReviews([]);
-          setReviewsError(err.message || t("urride.fleetProfile.reviewsLoadError"));
+          setReviewsError(inlineErrorMessage(err, t("urride.fleetProfile.reviewsLoadError")));
         }
       })
       .finally(() => {
@@ -289,7 +288,7 @@ export default function FleetProfileScreen({ fleetId, onBack, onOpenCompany, onS
                     onClick={() => onOpenCompany?.(fleet.companyId)}
                     className="mt-3 inline-flex items-center gap-2 rounded-2xl bg-blue-700 px-4 py-2.5 text-sm font-black text-white transition hover:bg-blue-800"
                   >
-                    View company profile
+                    {i18nText("ui.literals.k1248e2f7f2e4")}
                     <FiChevronRight size={16} />
                   </button>
                 </div>
@@ -397,11 +396,21 @@ export default function FleetProfileScreen({ fleetId, onBack, onOpenCompany, onS
         reviews={reviews}
         reviewsError={reviewsError}
       />
-      <ProfileMediaViewer
+      <MediaGalleryViewer
         activeIndex={mediaViewer?.index ?? -1}
         images={mediaViewer?.images || []}
         onChange={(index) => setMediaViewer((current) => current ? { ...current, index } : current)}
         onClose={() => setMediaViewer(null)}
+        backKey="transport-public-fleet-media"
+        labels={{
+          aria: t("urride.fleetProfile.mediaViewer"),
+          close: t("urride.fleetProfile.closeMedia"),
+          counter: ({ index, total }) => t("urride.fleetProfile.imageCount", { index, total }),
+          zoomPrompt: t("urride.fleetProfile.pinchToZoom"),
+          previous: t("urride.fleetProfile.previousPhoto"),
+          next: t("urride.fleetProfile.nextPhoto"),
+          openImage: ({ label, index }) => t("urride.fleetProfile.openFleetPhoto", { label: label || index }),
+        }}
       />
     </div>
   );
@@ -419,6 +428,7 @@ function OperatorIdentityCard({
   reviewCount,
   status,
 }) {
+  useUiLocale();
   const initials = String(fleet.operatorName || fleet.fleetName || "O").slice(0, 1).toUpperCase();
 
   return (
@@ -434,7 +444,7 @@ function OperatorIdentityCard({
               className="group relative flex h-20 w-20 shrink-0 items-center justify-center overflow-hidden rounded-[1.65rem] border border-slate-200 bg-slate-100 text-2xl font-black text-slate-700 shadow-sm disabled:cursor-default"
               aria-label={fleet.operatorPhotoUrl ? t("urride.fleetProfile.openOperatorPhoto") : undefined}
             >
-              {fleet.operatorPhotoUrl ? <img src={resizedImageUrl(fleet.operatorPhotoUrl, { width: 200, quality: 70 })} alt={`${fleet.operatorName || t("urride.fleetProfile.transportOperator")} profile`} className="h-full w-full object-cover transition duration-300 group-hover:scale-105" /> : initials}
+              {fleet.operatorPhotoUrl ? <img src={resizedImageUrl(fleet.operatorPhotoUrl, { width: 200, quality: 70 })} alt={i18nText("ui.literals.kaa8beb42f5ff", { value0: fleet.operatorName || t("urride.fleetProfile.transportOperator") })} className="h-full w-full object-cover transition duration-300 group-hover:scale-105" /> : initials}
               {fleet.operatorPhotoUrl ? (
                 <span className="absolute bottom-1.5 right-1.5 grid h-7 w-7 place-items-center rounded-full border border-white/70 bg-slate-950/80 text-white shadow-lg backdrop-blur">
                   <FiMaximize2 size={13} />
@@ -493,6 +503,7 @@ function OperatorIdentityCard({
 }
 
 function FleetMediaGallery({ fleet, onOpen }) {
+  useUiLocale();
   const photos = fleet.photos || [];
 
   return (
@@ -529,7 +540,7 @@ function FleetMediaGallery({ fleet, onOpen }) {
                 loading={index === 0 ? "eager" : "lazy"}
               />
               <span className="absolute inset-x-0 bottom-0 flex items-end justify-between gap-2 bg-gradient-to-t from-slate-950/85 via-slate-950/35 to-transparent px-3 pb-3 pt-8 text-white">
-                <span className="truncate text-xs font-black">{photo.label}</span>
+                <span className="truncate text-xs font-black">{translateUi(photo.label)}</span>
                 <FiMaximize2 className="shrink-0" size={14} />
               </span>
             </button>
@@ -549,140 +560,18 @@ function FleetMediaGallery({ fleet, onOpen }) {
 }
 
 function HeroStat({ detail, label, value }) {
+  useUiLocale();
   return (
     <div className="min-w-0 rounded-2xl border border-slate-200 bg-slate-50 px-3 py-3">
-      <p className="truncate text-[9px] font-black uppercase tracking-[0.14em] text-slate-400">{label}</p>
+      <p className="truncate text-[9px] font-black uppercase tracking-[0.14em] text-slate-400">{translateUi(label)}</p>
       <p className="mt-1 truncate text-base font-black text-slate-950 sm:text-xl">{value}</p>
-      <p className="mt-0.5 truncate text-[10px] font-bold text-slate-500 sm:text-xs">{detail}</p>
+      <p className="mt-0.5 truncate text-[10px] font-bold text-slate-500 sm:text-xs">{translateUi(detail)}</p>
     </div>
   );
 }
 
-function ProfileMediaViewer({ activeIndex, images, onChange, onClose }) {
-  const open = activeIndex >= 0 && images.length > 0;
-  const current = images[activeIndex] || images[0];
-  const closeRef = useRef(onClose);
-  closeRef.current = onClose;
-  const closeViewer = useCallback(() => closeRef.current?.(), []);
-  const move = useCallback((direction) => {
-    if (images.length < 2) return;
-    onChange?.((activeIndex + direction + images.length) % images.length);
-  }, [activeIndex, images.length, onChange]);
-  const gestures = useImageViewerGestures({
-    enabled: open,
-    onClose: closeViewer,
-    onSwipe: images.length > 1 ? move : undefined,
-    resetKey: `${current?.url || ""}-${activeIndex}`,
-    tapToClose: false,
-  });
-
-  useBrowserBack(open, closeViewer, "transport-public-fleet-media");
-  useBodyScrollLock(open);
-
-  useEffect(() => {
-    if (!open) return undefined;
-    function handleKeyDown(event) {
-      if (event.key === "Escape") closeViewer();
-      if (event.key === "ArrowLeft") move(-1);
-      if (event.key === "ArrowRight") move(1);
-    }
-    window.addEventListener("keydown", handleKeyDown);
-    return () => window.removeEventListener("keydown", handleKeyDown);
-  }, [closeViewer, move, open]);
-
-  if (!open) return null;
-
-  return (
-    <AppPortal>
-      <div
-        role="dialog"
-        aria-modal="true"
-        aria-label={t("urride.fleetProfile.mediaViewer")}
-        className="fixed inset-0 z-[1500] flex h-dvh flex-col overflow-hidden bg-slate-950 text-white"
-        data-suppress-app-swipe="true"
-      >
-        <header className="pointer-events-none absolute inset-x-0 top-0 z-20 flex items-center gap-3 px-3 pt-[max(0.75rem,env(safe-area-inset-top))]">
-          <button
-            type="button"
-            onClick={closeViewer}
-            className="pointer-events-auto grid h-11 w-11 place-items-center rounded-full border border-white/15 bg-black/45 text-white shadow-xl backdrop-blur"
-            aria-label={t("urride.fleetProfile.closeMedia")}
-          >
-            <FiX size={22} />
-          </button>
-          <div className="min-w-0 rounded-2xl border border-white/10 bg-black/40 px-3 py-2 backdrop-blur">
-            <p className="truncate text-xs font-black">{current.label}</p>
-            <p className="mt-0.5 text-[10px] font-bold text-white/65">{t("urride.fleetProfile.imageCount", { index: activeIndex + 1, total: images.length })}</p>
-          </div>
-          <div className="ml-auto rounded-full border border-white/10 bg-black/40 px-3 py-2 text-[10px] font-black text-white/80 backdrop-blur">
-            {gestures.scale > 1 ? `${Math.round(gestures.scale * 100)}%` : t("urride.fleetProfile.pinchToZoom")}
-          </div>
-        </header>
-
-        <div
-          ref={gestures.viewportRef}
-          className="relative min-h-0 flex-1 overflow-hidden"
-          style={{ touchAction: "none" }}
-          {...gestures.stageHandlers}
-        >
-          <img
-            ref={gestures.imageRef}
-            src={current.url}
-            alt={current.label}
-            draggable="false"
-            className="absolute inset-0 m-auto max-h-full max-w-full select-none object-contain"
-            style={{
-              touchAction: "none",
-              transform: `translate3d(${gestures.pan.x}px, ${gestures.pan.y}px, 0) scale(${gestures.scale})`,
-              transformOrigin: "center",
-              transition: gestures.isDragging ? "none" : "transform 220ms ease-out",
-            }}
-          />
-          {images.length > 1 && gestures.scale <= 1 ? (
-            <>
-              <button
-                type="button"
-                onClick={() => move(-1)}
-                className="absolute left-3 top-1/2 z-10 grid h-11 w-11 -translate-y-1/2 place-items-center rounded-full border border-white/10 bg-black/35 text-white backdrop-blur"
-                aria-label={t("urride.fleetProfile.previousPhoto")}
-              >
-                <FiChevronLeft size={22} />
-              </button>
-              <button
-                type="button"
-                onClick={() => move(1)}
-                className="absolute right-3 top-1/2 z-10 grid h-11 w-11 -translate-y-1/2 place-items-center rounded-full border border-white/10 bg-black/35 text-white backdrop-blur"
-                aria-label={t("urride.fleetProfile.nextPhoto")}
-              >
-                <FiChevronRight size={22} />
-              </button>
-            </>
-          ) : null}
-        </div>
-
-        {images.length > 1 ? (
-          <div className="border-t border-white/10 bg-black/30 px-3 pb-[max(0.75rem,env(safe-area-inset-bottom))] pt-3 backdrop-blur">
-            <div className="flex justify-center gap-2 overflow-x-auto">
-              {images.map((image, index) => (
-                <button
-                  key={`${image.url}-${index}`}
-                  type="button"
-                  onClick={() => onChange?.(index)}
-                  className={`h-14 w-14 shrink-0 overflow-hidden rounded-xl border-2 ${index === activeIndex ? "border-blue-400" : "border-white/15 opacity-65"}`}
-                  aria-label={t("urride.fleetProfile.openFleetPhoto", { label: image.label })}
-                >
-                  <img src={resizedImageUrl(image.url, { width: 320, quality: 70 })} alt="" className="h-full w-full object-cover" />
-                </button>
-              ))}
-            </div>
-          </div>
-        ) : null}
-      </div>
-    </AppPortal>
-  );
-}
-
 function VehicleCard({ fleet }) {
+  useUiLocale();
   return (
     <section className="rounded-3xl border border-amber-100 bg-amber-50/60 p-4 shadow-sm">
       <div className="flex items-start gap-3">
@@ -706,6 +595,7 @@ function VehicleCard({ fleet }) {
 }
 
 function PricingCard({ fleet }) {
+  useUiLocale();
   return (
     <section className="rounded-3xl border border-sky-100 bg-white p-4 shadow-sm">
       <div className="flex items-start gap-3">
@@ -729,6 +619,7 @@ function PricingCard({ fleet }) {
 }
 
 function LocationCard({ fleet, fleetAreaDestination, isActive, onLocateArea }) {
+  useUiLocale();
   return (
     <section className="overflow-hidden rounded-3xl border border-slate-200 bg-white shadow-sm">
       <div className="relative h-28 bg-slate-100">
@@ -772,24 +663,27 @@ function LocationCard({ fleet, fleetAreaDestination, isActive, onLocateArea }) {
 }
 
 function MiniDetail({ label, value }) {
+  useUiLocale();
   return (
     <div className="rounded-2xl border border-white bg-white/80 px-3 py-3">
-      <p className="text-[10px] font-black uppercase tracking-[0.14em] text-slate-400">{label}</p>
+      <p className="text-[10px] font-black uppercase tracking-[0.14em] text-slate-400">{translateUi(label)}</p>
       <p className="mt-1 text-sm font-black text-slate-800">{value}</p>
     </div>
   );
 }
 
 function InfoLine({ icon, text }) {
+  useUiLocale();
   return (
     <div className="flex min-w-0 items-center gap-2">
       {createElement(icon, { size: 16, className: "shrink-0 text-slate-500" })}
-      <span className="break-words">{text}</span>
+      <span className="break-words">{translateUi(text)}</span>
     </div>
   );
 }
 
 function ReviewDrawer({ fleet, loading, onClose, onReviewAdded, open, reviewEligibility, reviews, reviewsError }) {
+  useUiLocale();
   const [rating, setRating] = useState(0);
   const [reviewText, setReviewText] = useState("");
   const [submitting, setSubmitting] = useState(false);
@@ -818,7 +712,7 @@ function ReviewDrawer({ fleet, loading, onClose, onReviewAdded, open, reviewElig
       setStatus(t("urride.fleetProfile.reviewAdded"));
       setStatusSuccess(true);
     } catch (err) {
-      setStatus(err.message || t("urride.fleetProfile.reviewSubmitError"));
+      setStatus(inlineErrorMessage(err, t("urride.fleetProfile.reviewSubmitError")));
       setStatusSuccess(false);
     } finally {
       setSubmitting(false);
@@ -897,7 +791,7 @@ function ReviewDrawer({ fleet, loading, onClose, onReviewAdded, open, reviewElig
                 ))}
                 {!reviewEligibility?.eligible ? (
                   <p className="rounded-2xl border border-blue-100 bg-blue-50 px-4 py-3 text-sm font-bold leading-6 text-blue-900">
-                    {reviewEligibility?.reason}
+                    {translateUi(reviewEligibility?.reason)}
                   </p>
                 ) : null}
               </div>
@@ -906,7 +800,7 @@ function ReviewDrawer({ fleet, loading, onClose, onReviewAdded, open, reviewElig
                 <FiAlertCircle className="mx-auto text-slate-400" size={34} />
                 <p className="mt-4 text-lg font-black text-slate-950">{t("urride.fleetProfile.noReviews")}</p>
                 <p className="mx-auto mt-1 max-w-sm text-sm font-semibold leading-6 text-slate-500">
-                  {reviewEligibility?.reason}
+                  {translateUi(reviewEligibility?.reason)}
                 </p>
               </div>
             )}
@@ -914,7 +808,7 @@ function ReviewDrawer({ fleet, loading, onClose, onReviewAdded, open, reviewElig
               <p className={`mt-3 rounded-2xl px-3 py-2 text-xs font-black ${
                 statusSuccess ? "bg-blue-50 text-blue-700" : "bg-amber-50 text-amber-800"
               }`}>
-                {status}
+                {translateUi(status)}
               </p>
             ) : null}
           </div>

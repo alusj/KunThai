@@ -15,6 +15,7 @@ import {
   normalizeAdvertWhatsApp,
   openAdvertAreaView,
 } from "./advertUtils";
+import { uiText as translateUi, useI18n as useUiLocale } from "../../../i18n/index.js";
 
 const EXIT_MS = 280;
 const FLOATING_CARD_ESTIMATED_HEIGHT = 230;
@@ -35,6 +36,7 @@ function getFloatingPosition(anchor) {
 }
 
 export default function AdvertMetaActions({ post, advert = {}, dark = false, className = "" }) {
+  useUiLocale();
   const [activeDetail, setActiveDetail] = useState("");
   const [closing, setClosing] = useState(false);
   const [floatingPosition, setFloatingPosition] = useState(null);
@@ -284,11 +286,12 @@ export default function AdvertMetaActions({ post, advert = {}, dark = false, cla
 }
 
 function MetaIconButton({ active, className, icon, label, onClick }) {
+  useUiLocale();
   return (
     <button
       type="button"
-      title={label}
-      aria-label={label}
+      title={translateUi(label)}
+      aria-label={translateUi(label)}
       aria-expanded={active}
       onClick={onClick}
       className={`kt-pressable grid h-10 w-10 place-items-center rounded-full border shadow-sm transition ${className} ${active ? "ring-2 ring-amber-400/70" : ""}`}

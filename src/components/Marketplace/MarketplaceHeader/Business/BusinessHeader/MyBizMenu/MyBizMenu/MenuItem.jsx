@@ -1,10 +1,12 @@
-// MenuHeader.jsx
+
+import { uiText as translateUi, useI18n as useUiLocale } from "../../../../../../../i18n/index.js";// MenuHeader.jsx
 // --------------
 // Drawer header (title + close button)
 
 // src/components/.../MyBizMenu/MenuItem.jsx
 
 export default function MenuItem({ label, danger = false, onClick }) {
+  useUiLocale();
   return (
     <button
       onClick={onClick}
@@ -15,7 +17,7 @@ export default function MenuItem({ label, danger = false, onClick }) {
             : "text-gray-700 hover:bg-gray-100"
         }`}
     >
-      {label}
+      {translateUi(label)}
     </button>
   );
 }

@@ -9,6 +9,7 @@ import {
 
 import { useI18n } from "../../../../i18n";
 import MessageImage from "../../../shared/MessageImage";
+import { uiText as translateUi, useI18n as useUiLocale } from "../../../../i18n/index.js";
 
 export default function MessageBubble({
   mine,
@@ -190,6 +191,7 @@ export default function MessageBubble({
 }
 
 function MessageAction({ danger = false, icon: Icon, label, onClick }) {
+  useUiLocale();
   return (
     <button
       type="button"
@@ -199,7 +201,7 @@ function MessageAction({ danger = false, icon: Icon, label, onClick }) {
       }`}
     >
       <Icon className="text-base" />
-      {label}
+      {translateUi(label)}
     </button>
   );
 }

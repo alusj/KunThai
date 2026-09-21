@@ -1,6 +1,8 @@
 import { useCallback, useEffect, useRef, useState } from "react";
 
 import { isAiCancellation, isRetryableAiError } from "../services/ai/aiService";
+import { isConnectionFailure } from "../services/friendlyErrorService";
+import { announceConnectionTrouble } from "../services/networkService";
 import { runSmartExploreSearch } from "../services/ai/exploreAi";
 
 // KAI — natural-language Explore search state.
@@ -40,6 +42,12 @@ export function useExploreAiSearch() {
       setState({ ...IDLE, status: "done", query: value, ...outcome });
     } catch (error) {
       if (controller.signal.aborted || isAiCancellation(error)) return;
+      // Offline: back to ready with the query kept, so pressing again retries.
+      // The global network toast says why; no error card of its own.
+      if (isConnectionFailure(error) && announceConnectionTrouble()) {
+        setState({ ...IDLE, query: value });
+        return;
+      }
       setState({
         ...IDLE,
         status: "error",

@@ -4,6 +4,8 @@ import ToggleRow from "./ToggleRow";
 import { BUSINESS_TYPES, SALES_MODELS, SELLING_UNITS, VENDOR_TYPES } from "./operationsOptions";
 import { useI18n, t } from "../../../../../i18n";
 import { supportsMarketplaceFulfillment } from "../../../../../Backend/services/marketplace/marketplaceBusinessKinds";
+import { t as i18nText } from "../../../../../i18n/index";
+import { uiText as translateUi } from "../../../../../i18n/index.js";
 
 export default function OperationsStep({ registration }) {
   useI18n();
@@ -31,35 +33,35 @@ export default function OperationsStep({ registration }) {
       {isVendor ? (
         <section className="space-y-4 rounded-2xl border border-emerald-100 bg-emerald-50/60 p-4">
           <div>
-            <p className="text-xs font-black uppercase tracking-[0.16em] text-emerald-700">Vendor operations</p>
-            <h3 className="mt-1 text-lg font-black text-gray-950">Set your normal supply terms</h3>
+            <p className="text-xs font-black uppercase tracking-[0.16em] text-emerald-700">{i18nText("ui.literals.ka9e28da74abe")}</p>
+            <h3 className="mt-1 text-lg font-black text-gray-950">{i18nText("ui.literals.k06d627574a11")}</h3>
             <p className="mt-1 text-sm font-semibold leading-6 text-gray-600">
-              These defaults help buyers understand how you sell. You can override them on individual products.
+              {i18nText("ui.literals.k38e27a5375de")}
             </p>
           </div>
 
           <div className="grid gap-4 sm:grid-cols-2">
-            <RegistrationField label="Vendor type" error={errors.vendorType}>
+            <RegistrationField label={i18nText("ui.literals.ke7423d9b8d54")} error={errors.vendorType}>
               <select
                 value={form.operations.vendorType}
                 onChange={(event) => updateSection("operations", { vendorType: event.target.value })}
                 className="h-12 w-full rounded-xl border border-gray-300 bg-white px-4 text-sm font-bold text-gray-800 outline-none focus:border-emerald-500 focus:ring-4 focus:ring-emerald-500/10"
               >
-                {VENDOR_TYPES.map(([value, label]) => <option key={value} value={value}>{label}</option>)}
+                {VENDOR_TYPES.map(([value, label]) => <option key={value} value={value}>{translateUi(label)}</option>)}
               </select>
             </RegistrationField>
 
-            <RegistrationField label="Sales model" error={errors.salesModel}>
+            <RegistrationField label={i18nText("ui.literals.k434cdcea254d")} error={errors.salesModel}>
               <select
                 value={form.operations.salesModel}
                 onChange={(event) => updateSection("operations", { salesModel: event.target.value })}
                 className="h-12 w-full rounded-xl border border-gray-300 bg-white px-4 text-sm font-bold text-gray-800 outline-none focus:border-emerald-500 focus:ring-4 focus:ring-emerald-500/10"
               >
-                {SALES_MODELS.map(([value, label]) => <option key={value} value={value}>{label}</option>)}
+                {SALES_MODELS.map(([value, label]) => <option key={value} value={value}>{translateUi(label)}</option>)}
               </select>
             </RegistrationField>
 
-            <RegistrationField label="Default selling unit" error={errors.defaultSellingUnit}>
+            <RegistrationField label={i18nText("ui.literals.ka831eaf47b4e")} error={errors.defaultSellingUnit}>
               <select
                 value={form.operations.defaultSellingUnit}
                 onChange={(event) => updateSection("operations", { defaultSellingUnit: event.target.value })}
@@ -69,7 +71,7 @@ export default function OperationsStep({ registration }) {
               </select>
             </RegistrationField>
 
-            <RegistrationField label="Default minimum order" error={errors.defaultMinOrderQuantity}>
+            <RegistrationField label={i18nText("ui.literals.kb2255780aa20")} error={errors.defaultMinOrderQuantity}>
               <RegistrationInput
                 type="number"
                 min="1"
@@ -80,7 +82,7 @@ export default function OperationsStep({ registration }) {
               />
             </RegistrationField>
 
-            <RegistrationField label="Typical lead time (days)" error={errors.leadTimeDays}>
+            <RegistrationField label={i18nText("ui.literals.kdb9508d2ad00")} error={errors.leadTimeDays}>
               <RegistrationInput
                 type="number"
                 min="0"
@@ -91,18 +93,18 @@ export default function OperationsStep({ registration }) {
               />
             </RegistrationField>
 
-            <RegistrationField label="Areas you supply">
+            <RegistrationField label={i18nText("ui.literals.k89d00754a9f9")}>
               <RegistrationInput
                 value={form.operations.serviceAreas}
                 onChange={(event) => updateSection("operations", { serviceAreas: event.target.value })}
-                placeholder="Freetown, Bo, nationwide"
+                placeholder={i18nText("ui.literals.k6a77859394d3")}
               />
             </RegistrationField>
           </div>
 
           <ToggleRow
-            label="Accept quotation requests"
-            description="Buyers can contact you to discuss bulk quantities and supply terms."
+            label={i18nText("ui.literals.ka65fd54f13ed")}
+            description={i18nText("ui.literals.k5988c37cd739")}
             checked={form.operations.quotationEnabled}
             onChange={(checked) => updateSection("operations", { quotationEnabled: checked })}
           />
@@ -111,12 +113,12 @@ export default function OperationsStep({ registration }) {
 
       {usesFulfillment ? <div className="grid gap-3 sm:grid-cols-2">
         <ToggleRow
-          label={kind === "restaurant" ? t("urmall.biz.reg.mealDelivery") : isVendor ? "Vendor delivery" : t("urmall.biz.reg.deliveryOption")}
+          label={kind === "restaurant" ? t("urmall.biz.reg.mealDelivery") : isVendor ? i18nText("ui.literals.ka6476527505b") : t("urmall.biz.reg.deliveryOption")}
           checked={form.operations.deliveryEnabled}
           onChange={(checked) => updateSection("operations", { deliveryEnabled: checked })}
         />
         <ToggleRow
-          label={kind === "restaurant" ? t("urmall.biz.reg.mealPickup") : isVendor ? "Warehouse pickup" : t("urmall.biz.reg.pickupOption")}
+          label={kind === "restaurant" ? t("urmall.biz.reg.mealPickup") : isVendor ? i18nText("ui.literals.k7645417f4220") : t("urmall.biz.reg.pickupOption")}
           checked={form.operations.pickupEnabled}
           onChange={(checked) => updateSection("operations", { pickupEnabled: checked })}
         />

@@ -1,7 +1,9 @@
 import { HiOutlineFolderPlus, HiOutlineMagnifyingGlass } from "react-icons/hi2";
 import { t as i18nText } from "../../../../i18n/index";
+import { useI18n as useUiLocale } from "../../../../i18n/index.js";
 
 export default function SavedToolbar({ query, onCreateCollection, onQueryChange }) {
+  useUiLocale();
   return (
     <div className="rounded-[24px] border border-slate-200 bg-white p-3 shadow-sm">
       <div className="flex items-center gap-2">

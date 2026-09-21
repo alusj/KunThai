@@ -2,6 +2,7 @@
 
 import InsightItem from "./InsightItem";
 import { t as i18nText } from "../../../../../i18n/index";
+import { useI18n as useUiLocale } from "../../../../../i18n/index.js";
 
 /**
  * SalesTrend
@@ -11,6 +12,7 @@ import { t as i18nText } from "../../../../../i18n/index";
  */
 
 export default function SalesTrend() {
+  useUiLocale();
   return (
     <InsightItem
       icon="📈"

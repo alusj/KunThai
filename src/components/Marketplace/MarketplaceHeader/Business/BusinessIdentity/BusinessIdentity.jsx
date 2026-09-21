@@ -2,8 +2,10 @@ import { getActiveCountryProfile } from "../../../../../data/globalCountryProfil
 import BusinessStatus from "./BusinessStatus";
 import EditBusinessButton from "./EditBusinessButton";
 import { t as i18nText } from "../../../../../i18n/index";
+import { useI18n as useUiLocale } from "../../../../../i18n/index.js";
 
 export default function BusinessIdentity({ onEditProfile }) {
+  useUiLocale();
   const countryProfile = getActiveCountryProfile();
 
   return (

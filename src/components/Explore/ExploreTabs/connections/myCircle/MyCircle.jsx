@@ -2,12 +2,14 @@ import EmptyState from "../../../shared/EmptyState";
 import ErrorState from "../../../shared/ErrorState";
 import MyCircleList from "./MyCircleList";
 import { t as i18nText } from "../../../../../i18n/index";
+import { uiText as translateUi, useI18n as useUiLocale } from "../../../../../i18n/index.js";
 
 export default function MyCircle({ connectionState, kind = "mycircle", onViewProfile }) {
+  useUiLocale();
   const { items = [], loading = false, error = "", blockUser, followUser, removeUser, reload } = connectionState || {};
 
   if (error) {
-    return <ErrorState message={error} onRetry={reload} />;
+    return <ErrorState message={translateUi(error)} onRetry={reload} />;
   }
 
   if (loading && !items.length) {
@@ -35,6 +37,7 @@ export default function MyCircle({ connectionState, kind = "mycircle", onViewPro
 }
 
 function ConnectionListSkeleton() {
+  useUiLocale();
   return (
     <div className="space-y-3">
       {[1, 2, 3].map((item) => (

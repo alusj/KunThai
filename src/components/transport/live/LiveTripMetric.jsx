@@ -8,11 +8,13 @@ import {
   getElapsedTripSeconds,
 } from "./liveTripMetricUtils";
 import { useI18n, t } from "../../../i18n";
+import { uiText as translateUi } from "../../../i18n/index.js";
 
 const MIN_DISTANCE_UPDATE_METERS = 8;
 const MIN_PROGRESS_SAVE_MS = 7000;
 
 function useLiveTripMetric(trip) {
+  const { locale: memoLocale } = useI18n();
   const [distanceMeters, setDistanceMeters] = useState(Number(trip?.distanceCoveredMeters || 0));
   const [clockNow, setClockNow] = useState(Date.now());
   const [trackingMessage, setTrackingMessage] = useState("");
@@ -79,7 +81,7 @@ function useLiveTripMetric(trip) {
         ? trip?.rawStatus === "paused" ? t("urride.live.timerPaused") : t("urride.live.counting")
         : trackingMessage || t("urride.live.gpsMovement"),
     }),
-    [distanceMeters, elapsedSeconds, trackingMessage, trip?.bookingMethod, trip?.rawStatus],
+    [distanceMeters, elapsedSeconds, trackingMessage, trip?.bookingMethod, trip?.rawStatus, memoLocale],
   );
 }
 
@@ -89,9 +91,9 @@ export default function LiveTripMetric({ trip, compact = false }) {
 
   return (
     <div className={`rounded-2xl border border-emerald-100 bg-emerald-50 ${compact ? "px-3 py-2" : "p-4"}`}>
-      <p className="text-[11px] font-black uppercase tracking-[0.16em] text-emerald-700">{metric.label}</p>
+      <p className="text-[11px] font-black uppercase tracking-[0.16em] text-emerald-700">{translateUi(metric.label)}</p>
       <p className={`${compact ? "mt-1 text-xl" : "mt-2 text-3xl"} font-black text-slate-950`}>{metric.value}</p>
-      <p className="mt-1 text-xs font-bold text-emerald-700">{metric.detail}</p>
+      <p className="mt-1 text-xs font-bold text-emerald-700">{translateUi(metric.detail)}</p>
     </div>
   );
 }

@@ -1,6 +1,7 @@
 import { formatCurrency } from "../../../../../Backend/utils/formatCurrency";
 import { useI18n, t } from "../../../../../i18n";
 import { describeRegionSelection } from "../../../../../Backend/services/regions/regionModel";
+import { uiText as translateUi, useI18n as useUiLocale } from "../../../../../i18n/index.js";
 
 export default function ActivePromotionCard({ promotion }) {
   useI18n();
@@ -58,9 +59,10 @@ function formatAudience(value = "") {
 }
 
 function MiniMetric({ label, value }) {
+  useUiLocale();
   return (
     <div className="rounded-lg bg-gray-50 p-3">
-      <p className="text-xs font-black uppercase text-gray-400">{label}</p>
+      <p className="text-xs font-black uppercase text-gray-400">{translateUi(label)}</p>
       <p className="mt-1 text-sm font-black text-gray-950">{value}</p>
     </div>
   );

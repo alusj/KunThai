@@ -9,7 +9,8 @@ import {
 
 import { submitPublicPrivacyRequest } from "../../Backend/services/publicPrivacyRequestService";
 import { legalConfig } from "../../config/legalConfig";
-import { t as i18nText } from "../../i18n/index";
+import { t as i18nText, uiText, useI18n } from "../../i18n/index";
+import { policyText } from "../../i18n/policyText";
 
 const EMPTY_FORM = {
   fullName: "",
@@ -34,6 +35,7 @@ function RequestField({ children, hint = "", label, required = false }) {
 }
 
 export default function PublicPrivacyRequestDialog({ requestType, onClose }) {
+  const { locale } = useI18n();
   const titleId = useId();
   const [form, setForm] = useState(EMPTY_FORM);
   const [busy, setBusy] = useState(false);
@@ -59,11 +61,11 @@ export default function PublicPrivacyRequestDialog({ requestType, onClose }) {
     setError("");
 
     if (!form.accountEmail.trim() && !form.accountPhone.trim()) {
-      setError(i18nText("ui.literals.k2993549da5bd"));
+      setError({ key: "ui.literals.k2993549da5bd" });
       return;
     }
     if (!form.confirmed) {
-      setError(i18nText("ui.literals.ka18d150563c3"));
+      setError({ key: "ui.literals.ka18d150563c3" });
       return;
     }
 
@@ -81,13 +83,13 @@ export default function PublicPrivacyRequestDialog({ requestType, onClose }) {
       });
       setReceipt(result);
     } catch (submitError) {
-      setError(submitError.message || i18nText("ui.literals.k2d70d1b8ad29"));
+      setError(submitError.message ? { message: submitError.message } : { key: "ui.literals.k2d70d1b8ad29" });
     } finally {
       setBusy(false);
     }
   }
 
-  const mailSubject = encodeURIComponent(isDeletion ? "KunThai account deletion request" : "KunThai data access request");
+  const mailSubject = encodeURIComponent(policyText(isDeletion ? "KunThai account deletion request" : "KunThai data access request", locale));
   const mailHref = `mailto:${legalConfig.privacyEmail}?subject=${mailSubject}`;
 
   return (
@@ -116,7 +118,7 @@ export default function PublicPrivacyRequestDialog({ requestType, onClose }) {
             </span>
             <h2 id={titleId} className="mt-5 text-2xl font-black text-slate-950 dark:text-white">{i18nText("ui.literals.kd5656f0ed572")}</h2>
             <p className="mx-auto mt-3 max-w-md text-sm font-semibold leading-6 text-slate-600 dark:text-slate-300">
-              {i18nText("ui.literals.k8ab0e2d2fce2")} {isDeletion ? i18nText("ui.literals.k0c759066f86c") : i18nText("ui.literals.k855f632a1ffa")} {i18nText("ui.literals.k3cd2720e660e")}
+              {policyText(isDeletion ? "Your account deletion request has been received. Keep this reference for follow-up." : "Your data access request has been received. Keep this reference for follow-up.", locale)}
             </p>
             <p className="mx-auto mt-4 w-fit rounded-2xl bg-slate-100 px-5 py-3 font-mono text-base font-black tracking-wide text-slate-950 dark:bg-slate-800 dark:text-white">
               {receipt.reference}
@@ -158,7 +160,7 @@ export default function PublicPrivacyRequestDialog({ requestType, onClose }) {
               </RequestField>
 
               <div className="grid gap-4 sm:grid-cols-2">
-                <RequestField label={i18nText("ui.literals.kd705c691c087")} hint="Enter this or the account phone number.">
+                <RequestField label={i18nText("ui.literals.kd705c691c087")} hint={policyText("Enter this or the account phone number.", locale)}>
                   <input
                     type="email"
                     autoComplete="email"
@@ -167,7 +169,7 @@ export default function PublicPrivacyRequestDialog({ requestType, onClose }) {
                     className="mt-2 h-12 w-full rounded-2xl border border-slate-300 bg-white px-4 text-sm font-bold text-slate-950 outline-none transition focus:border-sky-500 focus:ring-4 focus:ring-sky-100 dark:border-slate-700 dark:bg-slate-950 dark:text-white dark:focus:ring-sky-950"
                   />
                 </RequestField>
-                <RequestField label={i18nText("ui.literals.kecc68a263411")} hint="Include the international country code.">
+                <RequestField label={i18nText("ui.literals.kecc68a263411")} hint={policyText("Include the international country code.", locale)}>
                   <input
                     type="tel"
                     autoComplete="tel"
@@ -188,7 +190,7 @@ export default function PublicPrivacyRequestDialog({ requestType, onClose }) {
                 />
               </RequestField>
 
-              <RequestField label={isDeletion ? i18nText("ui.literals.k11149163ec7f") : i18nText("ui.literals.keeb19db0d05d")} hint="Do not include passwords or one-time codes.">
+              <RequestField label={isDeletion ? i18nText("ui.literals.k11149163ec7f") : i18nText("ui.literals.keeb19db0d05d")} hint={policyText("Do not include passwords or one-time codes.", locale)}>
                 <textarea
                   rows={4}
                   maxLength={2000}
@@ -210,7 +212,7 @@ export default function PublicPrivacyRequestDialog({ requestType, onClose }) {
                 </span>
               </label>
 
-              {error ? <p role="alert" className="rounded-2xl border border-rose-200 bg-rose-50 px-4 py-3 text-sm font-bold leading-6 text-rose-700 dark:border-rose-900 dark:bg-rose-950 dark:text-rose-200">{error}</p> : null}
+              {error ? <p role="alert" className="rounded-2xl border border-rose-200 bg-rose-50 px-4 py-3 text-sm font-bold leading-6 text-rose-700 dark:border-rose-900 dark:bg-rose-950 dark:text-rose-200">{error.key ? i18nText(error.key) : uiText(error.message)}</p> : null}
 
               <div className="flex flex-col gap-3 pt-1 sm:flex-row sm:items-center sm:justify-between">
                 <a href={mailHref} className="inline-flex items-center gap-2 text-sm font-black text-sky-700 hover:text-sky-800 dark:text-sky-300">

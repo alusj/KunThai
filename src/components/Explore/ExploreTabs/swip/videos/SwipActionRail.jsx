@@ -7,8 +7,10 @@ import {
   HiOutlineHandThumbUp,
 } from "react-icons/hi2";
 import { t as i18nText } from "../../../../../i18n/index";
+import { uiText as translateUi, useI18n as useUiLocale } from "../../../../../i18n/index.js";
 
 function RailButton({ active, children, label, title, onClick, danger = false, emphasis = "tap" }) {
+  useUiLocale();
   const [tapped, setTapped] = useState(false);
 
   useEffect(() => {
@@ -33,7 +35,7 @@ function RailButton({ active, children, label, title, onClick, danger = false, e
       onPointerDown={(event) => event.stopPropagation()}
       className={`kt-pressable group flex w-9 flex-col items-center gap-0.5 text-white xs:w-10 ${danger ? "text-rose-100" : ""}`}
       aria-label={title || String(label || i18nText("ui.literals.k4845338f6866"))}
-      title={title}
+      title={translateUi(title)}
     >
       <span
         className={`flex h-8 w-8 items-center justify-center rounded-full text-[17px] transition xs:h-9 xs:w-9 xs:text-[18px] ${
@@ -51,7 +53,7 @@ function RailButton({ active, children, label, title, onClick, danger = false, e
         {children}
       </span>
       {label !== undefined && label !== "" ? (
-        <span className="max-w-9 truncate text-[9px] font-black leading-none text-white/90 drop-shadow xs:max-w-10 xs:text-[10px]">{label}</span>
+        <span className="max-w-9 truncate text-[9px] font-black leading-none text-white/90 drop-shadow xs:max-w-10 xs:text-[10px]">{translateUi(label)}</span>
       ) : null}
     </button>
   );
@@ -68,6 +70,7 @@ export default function SwipActionRail({
   onMore,
   onSave,
 }) {
+  useUiLocale();
   return (
     <div
       className="absolute bottom-[calc(var(--kt-safe-area-bottom)+7rem)] right-[max(0.5rem,var(--kt-safe-area-right))] z-20 flex flex-col items-center gap-1 rounded-full border border-white/18 bg-black/18 px-1 py-1.5 shadow-xl backdrop-blur-sm xs:gap-1.5 xs:px-1.5 xs:py-2 sm:right-5"

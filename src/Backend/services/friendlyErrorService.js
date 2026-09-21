@@ -9,7 +9,8 @@
 // still surface.
 
 import { t } from "../../i18n/index";
-import { isOnline } from "./networkService";
+import { TRANSLATIONS } from "../../i18n/translations";
+import { announceConnectionTrouble, isOnline } from "./networkService";
 
 // Strings that browsers / fetch / supabase-js emit when a request never reached
 // the network. Matched case-insensitively against the error message and name.
@@ -61,13 +62,45 @@ function errorText(error) {
 }
 
 // True when the failure looks like a lost/broken connection rather than a real
-// server or validation error. Checks the live online flag first (definitive
-// when the device reports itself offline), then the error text patterns.
+// server or validation error. The error text decides first. While the device
+// reports itself offline, an error with no readable message or raw runtime
+// noise is also the connection — but a plain human message (a validation or
+// business rule thrown before any request) is still that message.
 export function isNetworkError(error) {
-  if (!isOnline()) return true;
   const text = errorText(error);
-  if (!text.trim()) return false;
-  return NETWORK_ERROR_PATTERNS.some((pattern) => text.includes(pattern));
+  if (text.trim() && NETWORK_ERROR_PATTERNS.some((pattern) => text.includes(pattern))) return true;
+  if (isOnline()) return false;
+  const message = typeof error === "string" ? error : String(error?.message || "");
+  const lower = message.trim().toLowerCase();
+  return !lower
+    || error?.name === "TypeError"
+    || TECHNICAL_NOISE_PATTERNS.some((pattern) => lower.includes(pattern));
+}
+
+// The friendly "lost your connection" line in every language. Services often
+// rethrow `new Error(friendlyErrorMessage(error))`, which drops the original
+// error, so this is how a caught error is still recognised as the connection.
+const NETWORK_LOST_TEXTS = new Set(
+  Object.values(TRANSLATIONS)
+    .map((bundle) => bundle?.common?.networkLost)
+    .filter(Boolean),
+);
+
+// A lost connection, from the raw error or from a message already made friendly.
+export function isConnectionFailure(errorOrMessage) {
+  if (!errorOrMessage) return false;
+  const message = typeof errorOrMessage === "string" ? errorOrMessage : String(errorOrMessage.message || "");
+  if (NETWORK_LOST_TEXTS.has(message.trim())) return true;
+  return isNetworkError(errorOrMessage);
+}
+
+// For a message shown inside a card, form, sheet or banner. A lost connection
+// yields "" — the component keeps its normal state — and the global network
+// toast says why instead. Everything else is the usual friendly message, so
+// real backend and validation errors still show where they happened.
+export function inlineErrorMessage(error, fallback = "") {
+  if (isConnectionFailure(error) && announceConnectionTrouble()) return "";
+  return friendlyErrorMessage(error, fallback);
 }
 
 // The main helper. Returns a message safe to show inline or in a toast:

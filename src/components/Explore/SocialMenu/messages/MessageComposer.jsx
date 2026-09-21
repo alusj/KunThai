@@ -15,6 +15,8 @@ import { optimizeImageFile } from "../../../../Backend/services/marketplace/imag
 import { resizedImageUrl } from "../../../../Backend/lib/imageProxy";
 import { useI18n } from "../../../../i18n";
 import { t as i18nText } from "../../../../i18n/index";
+import { uiText as translateUi } from "../../../../i18n/index.js";
+import { inlineErrorMessage } from "../../../../Backend/services/friendlyErrorService";
 
 function formatRecordingTime(seconds) {
   const minutes = Math.floor(seconds / 60);
@@ -139,7 +141,7 @@ export default function MessageComposer({ focused = false, onAction, onActivity,
       setNotice("");
       onActivity?.("active");
     } catch (error) {
-      setNotice(error.message || i18nText("ui.literals.kf4d43d3e6dbf"));
+      setNotice(inlineErrorMessage(error, i18nText("ui.literals.kf4d43d3e6dbf")));
     }
   }
 
@@ -225,7 +227,7 @@ export default function MessageComposer({ focused = false, onAction, onActivity,
         setNotice(result.error || i18nText("ui.literals.k18f909a27edd"));
       }
     } catch (error) {
-      setNotice(error?.message || i18nText("ui.literals.k18f909a27edd"));
+      setNotice(inlineErrorMessage(error, i18nText("ui.literals.k18f909a27edd")));
     }
   }
 
@@ -266,7 +268,7 @@ export default function MessageComposer({ focused = false, onAction, onActivity,
         </div>
       ) : null}
 
-      {notice ? <p className="mb-2 rounded-2xl bg-amber-50 px-3 py-2 text-xs font-bold text-amber-800">{notice}</p> : null}
+      {notice ? <p className="mb-2 rounded-2xl bg-amber-50 px-3 py-2 text-xs font-bold text-amber-800">{translateUi(notice)}</p> : null}
 
       {actionsOpen ? (
         <div className="absolute bottom-[4.35rem] right-3 z-20 w-64 overflow-hidden rounded-[24px] border border-slate-200 bg-white p-2 text-sm font-black text-slate-700 shadow-2xl">

@@ -1,10 +1,65 @@
-import { readFileSync } from 'node:fs'
+import { existsSync, readFileSync, readdirSync } from 'node:fs'
 import { pathToFileURL } from 'node:url'
 import { resolve } from 'node:path'
 
 import { defineConfig } from 'vite'
 import react from '@vitejs/plugin-react'
 import { qrcode } from 'vite-plugin-qrcode'
+
+// Production resolves the flat /api/* URLs through vercel.json, but vite dev
+// never reads that file. Mirror its literal /api/ rewrites so a local call
+// lands on the same handler it would hit on Vercel. Only plain-path sources
+// are taken; the regex catch-all is a build concern, not a dev one.
+function readApiRewrites(root) {
+  try {
+    const { rewrites = [] } = JSON.parse(readFileSync(resolve(root, 'vercel.json'), 'utf8'))
+    return new Map(
+      rewrites
+        .filter(({ source }) => /^\/api\/[a-zA-Z0-9/-]+$/.test(source))
+        .map(({ source, destination }) => [source, destination]),
+    )
+  } catch {
+    // Without vercel.json only the on-disk paths resolve, which is still
+    // enough for every handler that has a file of its own.
+    return new Map()
+  }
+}
+
+// Mirror Vercel's file routing: an exact api/<path>.js, otherwise the
+// directory's [param].js router. The payments and cron endpoints were folded
+// into such routers to stay under the Hobby function cap, so without this the
+// dev server keeps looking for files that no longer exist.
+async function resolveApiHandler(server, pathname) {
+  const segments = pathname
+    .slice('/api/'.length)
+    .split('/')
+    .map((segment) => segment.replace(/[^a-zA-Z0-9-]/g, ''))
+    .filter(Boolean)
+  if (!segments.length) return null
+
+  // Existence is checked before loading: ssrLoadModule prints the failure
+  // itself, so probing a missing file spams the terminal on every 404.
+  const load = async (file) => {
+    if (!existsSync(file)) return null
+    const module = await server.ssrLoadModule(pathToFileURL(file).href)
+    return typeof module.default === 'function' ? module.default : null
+  }
+
+  const apiDir = resolve(server.config.root, 'api')
+  const exact = await load(resolve(apiDir, `${segments.join('/')}.js`))
+  if (exact) return { handler: exact, params: {} }
+  if (segments.length < 2) return null
+
+  const directory = resolve(apiDir, ...segments.slice(0, -1))
+  if (!existsSync(directory)) return null
+  const dynamic = readdirSync(directory).find((file) => /^\[[a-zA-Z]+\]\.js$/.test(file))
+  if (!dynamic) return null
+
+  const handler = await load(resolve(directory, dynamic))
+  if (!handler) return null
+  const param = dynamic.match(/^\[([a-zA-Z]+)\]\.js$/)[1]
+  return { handler, params: { [param]: segments[segments.length - 1] } }
+}
 
 // Vercel serves everything in `api/` as a serverless function in production,
 // but `vite dev` knows nothing about them, so locally every /api/* call used to
@@ -16,6 +71,8 @@ function kunthaiDevApi() {
     name: 'kunthai-dev-api',
     apply: 'serve',
     configureServer(server) {
+      const rewrites = readApiRewrites(server.config.root)
+
       // Vite only exposes VITE_-prefixed values to the app; API handlers read
       // real server variables from process.env, so load .env for the dev
       // process. Never bundled — this runs in the Node dev server only.
@@ -39,19 +96,13 @@ function kunthaiDevApi() {
         const url = new URL(req.url || '/', 'http://localhost')
         if (!url.pathname.startsWith('/api/')) return next()
 
-        const name = url.pathname.slice('/api/'.length).replace(/[^a-zA-Z0-9-]/g, '')
-        if (!name) return next()
-
-        let handler
+        let route
         try {
-          const module = await server.ssrLoadModule(
-            pathToFileURL(resolve(server.config.root, 'api', `${name}.js`)).href,
-          )
-          handler = module.default
+          route = await resolveApiHandler(server, rewrites.get(url.pathname) || url.pathname)
         } catch {
           return next()
         }
-        if (typeof handler !== 'function') return next()
+        if (!route) return next()
 
         const body = await new Promise((resolveBody) => {
           const chunks = []
@@ -86,9 +137,12 @@ function kunthaiDevApi() {
         })
 
         try {
-          await handler(Object.assign(req, { body, query: Object.fromEntries(url.searchParams) }), response)
+          await route.handler(
+            Object.assign(req, { body, query: { ...Object.fromEntries(url.searchParams), ...route.params } }),
+            response,
+          )
         } catch (error) {
-          console.error(`[dev api] ${name} failed`, error)
+          console.error(`[dev api] ${url.pathname} failed`, error)
           if (!res.writableEnded) {
             res.statusCode = 500
             res.end(JSON.stringify({ ok: false, message: 'Dev API handler failed.' }))

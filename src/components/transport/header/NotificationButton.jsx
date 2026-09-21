@@ -26,6 +26,9 @@ import {
 } from "../../../Backend/services/surfaceNotificationService";
 import { openUnifiedNotification } from "../../../Backend/services/unifiedNotificationService";
 import { runNotificationAction } from "../../../Backend/services/notificationBannerService";
+import { t as i18nText } from "../../../i18n/index";
+import { uiText as translateUi, useI18n as useUiLocale } from "../../../i18n/index.js";
+import { inlineErrorMessage } from "../../../Backend/services/friendlyErrorService";
 
 export default function NotificationButton({ companyAccount, openRequest = 0, operatorAccount, onOpenChange, onUnreadCountChange, onViewFleet, onViewTrip }) {
   useI18n();
@@ -72,7 +75,7 @@ export default function NotificationButton({ companyAccount, openRequest = 0, op
       })
       .catch((err) => {
         if (alive) {
-          setError(err.message || t("urride.notifications.loadError"));
+          setError(inlineErrorMessage(err, t("urride.notifications.loadError")));
           setNotifications([]);
         }
       })
@@ -269,7 +272,7 @@ export default function NotificationButton({ companyAccount, openRequest = 0, op
                         </span>
                         <div className="min-w-0 flex-1">
                           <div className="flex items-start justify-between gap-3">
-                            <h3 className="text-sm font-black text-slate-950">{notification.title}</h3>
+                            <h3 className="text-sm font-black text-slate-950">{translateUi(notification.title)}</h3>
                           </div>
                           <p className="mt-1 text-sm font-semibold text-slate-600">{notification.body}</p>
                           {notification.meta ? (
@@ -285,7 +288,7 @@ export default function NotificationButton({ companyAccount, openRequest = 0, op
                               }}
                               className="kt-touchable mt-3 text-sm font-black text-green-700 hover:text-green-800"
                             >
-                              {notification.actionLabel || "Open"}
+                              {notification.actionLabel || i18nText("ui.literals.kcf9b77061f7b")}
                             </button>
                           ) : notification.tripId ? (
                             <button
@@ -333,9 +336,10 @@ export default function NotificationButton({ companyAccount, openRequest = 0, op
 }
 
 function NotificationState({ title, body }) {
+  useUiLocale();
   return (
     <div className="rounded-2xl border border-slate-100 bg-slate-50 p-5 text-center">
-      <h3 className="text-sm font-black text-slate-950">{title}</h3>
+      <h3 className="text-sm font-black text-slate-950">{translateUi(title)}</h3>
       <p className="mt-1 text-sm font-semibold text-slate-500">{body}</p>
     </div>
   );

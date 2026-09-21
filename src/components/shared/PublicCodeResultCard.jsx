@@ -2,6 +2,7 @@ import { BadgeCheck, Bike, ShoppingBag, UserRound } from "lucide-react";
 
 import { CODE_SURFACE_LABELS } from "../../Backend/services/publicCodeService";
 import { t as i18nText } from "../../i18n/index";
+import { uiText as translateUi, useI18n as useUiLocale } from "../../i18n/index.js";
 
 const KIND_ICONS = { kunthai: UserRound, urmall: ShoppingBag, urride: Bike };
 
@@ -9,6 +10,7 @@ const KIND_ICONS = { kunthai: UserRound, urmall: ShoppingBag, urride: Bike };
 // the surface the user is currently on, the label is a plain "Open"; when it
 // belongs to another surface the button reads "View in Explore/UrMall/UrRide".
 export default function PublicCodeResultCard({ lookup, surface, onOpen }) {
+  useUiLocale();
   const { pending, result, kind } = lookup;
   if (!kind) return null;
 
@@ -53,7 +55,7 @@ export default function PublicCodeResultCard({ lookup, surface, onOpen }) {
           onClick={() => onOpen?.(result)}
           className="h-10 shrink-0 rounded-xl bg-emerald-600 px-3 text-xs font-black text-white hover:bg-emerald-700"
         >
-          {buttonLabel}
+          {translateUi(buttonLabel)}
         </button>
       </div>
     </article>

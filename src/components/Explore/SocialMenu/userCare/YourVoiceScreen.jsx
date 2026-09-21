@@ -19,6 +19,9 @@ import {
 import { showToast } from "../../../../Backend/services/toastService";
 import SocialScreenHeader from "../shared/SocialScreenHeader";
 import { t as i18nText, uiText } from "../../../../i18n/index";
+import { uiText as translateUi, useI18n as useUiLocale } from "../../../../i18n/index.js";
+import { inlineErrorMessage } from "../../../../Backend/services/friendlyErrorService";
+import { announceConnectionTrouble } from "../../../../Backend/services/networkService";
 
 const FEEDBACK_TYPES = [
   ["idea", "Idea"],
@@ -53,6 +56,7 @@ function formatLabel(value) {
 }
 
 export default function YourVoiceScreen({ hideHeader = false, initialDraft = null }) {
+  useUiLocale();
   const [form, setForm] = useState(emptyForm);
   const [currentScreen, setCurrentScreen] = useState("Explore / Your Voice");
   const [screenshot, setScreenshot] = useState(null);
@@ -90,7 +94,7 @@ export default function YourVoiceScreen({ hideHeader = false, initialDraft = nul
         if (active) setFeedbackItems(items);
       })
       .catch((error) => {
-        if (active) setFeedback(error.message || i18nText("ui.literals.k6e21b7bb0d6e"));
+        if (active) setFeedback(inlineErrorMessage(error, i18nText("ui.literals.k6e21b7bb0d6e")));
       })
       .finally(() => {
         if (active) setLoading(false);
@@ -214,7 +218,9 @@ export default function YourVoiceScreen({ hideHeader = false, initialDraft = nul
       return;
     }
     if (!navigator.onLine) {
-      setFeedback(i18nText("ui.literals.kc96504d16779"));
+      // The global network toast is the offline notice; the form keeps its
+      // contents so it can be sent once reconnected.
+      if (!announceConnectionTrouble()) setFeedback(i18nText("ui.literals.kc96504d16779"));
       return;
     }
 
@@ -230,7 +236,7 @@ export default function YourVoiceScreen({ hideHeader = false, initialDraft = nul
       setFeedback(i18nText("ui.literals.ke9c05bfc7aef"));
       showToast(i18nText("ui.literals.ke9c05bfc7aef"), "success");
     } catch (error) {
-      setFeedback(error.message || i18nText("ui.literals.kefa4fc61bfff"));
+      setFeedback(inlineErrorMessage(error, i18nText("ui.literals.kefa4fc61bfff")));
     } finally {
       setSubmitting(false);
     }
@@ -284,7 +290,7 @@ export default function YourVoiceScreen({ hideHeader = false, initialDraft = nul
           </div>
 
           <div className="mt-4 rounded-2xl bg-slate-50 px-4 py-3 text-xs font-bold leading-5 text-slate-500">{i18nText("ui.literals.k3676bb0b4170")} {uiText(currentScreen)}</div>
-          {feedback ? <p role="status" className="mt-4 rounded-2xl bg-sky-50 px-4 py-3 text-sm font-black leading-6 text-sky-800">{feedback}</p> : null}
+          {feedback ? <p role="status" className="mt-4 rounded-2xl bg-sky-50 px-4 py-3 text-sm font-black leading-6 text-sky-800">{translateUi(feedback)}</p> : null}
           <button type="submit" disabled={submitting || recording} className="mt-5 flex h-12 w-full items-center justify-center gap-2 rounded-2xl bg-sky-700 text-sm font-black text-white transition hover:bg-sky-800 disabled:opacity-50"><HiOutlinePaperAirplane className="text-lg" /> {submitting ? i18nText("ui.literals.kd3c78a10f7c4") : i18nText("ui.literals.k5b341f5ba850")}</button>
         </form>
 
@@ -300,19 +306,22 @@ export default function YourVoiceScreen({ hideHeader = false, initialDraft = nul
 }
 
 function Field({ children, label }) {
-  return <label className="block"><span className="mb-2 block text-xs font-black uppercase tracking-[0.14em] text-slate-500">{label}</span>{children}</label>;
+  useUiLocale();
+  return <label className="block"><span className="mb-2 block text-xs font-black uppercase tracking-[0.14em] text-slate-500">{translateUi(label)}</span>{children}</label>;
 }
 
 function AttachmentCard({ active, actionLabel = "Attach", detail, icon: Icon, onAdd, onRemove, title }) {
+  useUiLocale();
   return (
     <div className={`rounded-[22px] border p-4 ${active ? "border-sky-200 bg-sky-50" : "border-slate-200 bg-white"}`}>
-      <div className="flex items-start gap-3"><span className="grid h-10 w-10 flex-none place-items-center rounded-2xl bg-white text-sky-700 shadow-sm"><Icon className="text-xl" /></span><div className="min-w-0 flex-1"><p className="text-sm font-black text-slate-950">{title}</p><p className="mt-1 break-words text-xs font-semibold leading-5 text-slate-500">{detail}</p></div></div>
-      <div className="mt-3 flex gap-2"><button type="button" onClick={onAdd} className="h-10 flex-1 rounded-xl bg-slate-950 px-3 text-xs font-black text-white">{actionLabel}</button>{active && onRemove ? <button type="button" onClick={onRemove} className="grid h-10 w-10 place-items-center rounded-xl bg-white text-rose-600" aria-label={i18nText("ui.literals.ka2d40d3386fc", { value0: title })}><HiOutlineXMark /></button> : null}</div>
+      <div className="flex items-start gap-3"><span className="grid h-10 w-10 flex-none place-items-center rounded-2xl bg-white text-sky-700 shadow-sm"><Icon className="text-xl" /></span><div className="min-w-0 flex-1"><p className="text-sm font-black text-slate-950">{translateUi(title)}</p><p className="mt-1 break-words text-xs font-semibold leading-5 text-slate-500">{translateUi(detail)}</p></div></div>
+      <div className="mt-3 flex gap-2"><button type="button" onClick={onAdd} className="h-10 flex-1 rounded-xl bg-slate-950 px-3 text-xs font-black text-white">{translateUi(actionLabel)}</button>{active && onRemove ? <button type="button" onClick={onRemove} className="grid h-10 w-10 place-items-center rounded-xl bg-white text-rose-600" aria-label={i18nText("ui.literals.ka2d40d3386fc", { value0: title })}><HiOutlineXMark /></button> : null}</div>
     </div>
   );
 }
 
 function FeedbackCard({ item }) {
+  useUiLocale();
   const safety = item.feedbackType === "safety";
   return (
     <article className="rounded-[24px] border border-slate-200 bg-white p-5 shadow-sm">

@@ -1,4 +1,5 @@
-export default function TodayMetric({
+
+import { uiText as translateUi, useI18n as useUiLocale } from "../../../../../i18n/index.js";export default function TodayMetric({
   icon: Icon,
   label,
   value,
@@ -6,6 +7,7 @@ export default function TodayMetric({
   active = false,
   onClick,
 }) {
+  useUiLocale();
   const tones = {
     gray: "bg-gray-100 text-gray-700",
     green: "bg-emerald-50 text-emerald-700",
@@ -25,7 +27,7 @@ export default function TodayMetric({
       ].join(" ")}
     >
       <div className="flex items-center justify-between gap-3">
-        <p className="text-sm font-bold text-gray-500">{label}</p>
+        <p className="text-sm font-bold text-gray-500">{translateUi(label)}</p>
         <span className={`flex h-9 w-9 items-center justify-center rounded-lg ${tones[tone]}`}>
           <Icon size={18} strokeWidth={2.3} />
         </span>

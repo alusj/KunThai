@@ -25,6 +25,7 @@ import {
   readTransportDashboardSnapshot,
   writeTransportDashboardSnapshot,
 } from "../../services/transportDashboardCacheService";
+import { useI18n as useUiLocale } from "../../../i18n/index.js";
 //import Radar from "./Radar";
 
 export default function Body({
@@ -39,6 +40,7 @@ export default function Body({
   onReportConcern,
   userId = "",
 }) {
+  useUiLocale();
   const countryIso = getActiveCountryProfile().iso2 || "";
   const initialSnapshot = readTransportDashboardSnapshot({ userId, countryIso });
   const [movementFilters, setMovementFilters] = useState({

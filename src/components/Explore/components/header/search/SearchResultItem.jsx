@@ -1,8 +1,10 @@
 import { HiOutlineHashtag, HiOutlinePlayCircle, HiOutlineUserCircle } from "react-icons/hi2";
 
 import Avatar from "../../../shared/Avatar";
+import { useI18n as useUiLocale } from "../../../../../i18n/index.js";
 
 function ResultIcon({ item }) {
+  useUiLocale();
   if (item.type === "people") return <Avatar name={item.title} src={item.avatarUrl} size="sm" />;
   if (item.type === "swip") return <HiOutlinePlayCircle className="text-xl text-sky-700" />;
   if (item.type === "hashtag") return <HiOutlineHashtag className="text-xl text-sky-700" />;
@@ -10,6 +12,7 @@ function ResultIcon({ item }) {
 }
 
 export default function SearchResultItem({ item, onOpen }) {
+  useUiLocale();
   return (
     <button
       type="button"

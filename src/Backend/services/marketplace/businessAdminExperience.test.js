@@ -1,6 +1,7 @@
 import assert from "node:assert/strict";
 import { readFileSync } from "node:fs";
 import test from "node:test";
+import { UI_TRANSLATIONS } from "../../../i18n/ui.js";
 
 const readSource = (relativePath) => readFileSync(new URL(relativePath, import.meta.url), "utf8");
 
@@ -9,7 +10,8 @@ test("the responsibility card stays centered with persistent OK confirmation", (
   assert.match(source, /flex items-center justify-center/);
   assert.match(source, /max-h-\[min\(78dvh,680px\)\]/);
   assert.match(source, /aria-pressed=\{active\}/);
-  assert.match(source, /: "OK"/);
+  assert.match(source, /savingResponsibilities \? t\("urmall\.biz\.saving"\) : i18nText\("ui\.literals\.k9ce3bd4224c8"\)/);
+  assert.equal(UI_TRANSLATIONS.en.literals.k9ce3bd4224c8, "OK");
 });
 
 test("admin capacity failures name the selected person and required plan", () => {

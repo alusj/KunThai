@@ -87,6 +87,8 @@ import {
   fetchBusinessSubscription,
   getCapacityStatus,
 } from "../../Backend/services/businessSubscriptionService";
+import { uiText as translateUi, useI18n as useUiLocale } from "../../i18n/index.js";
+import { inlineErrorMessage } from "../../Backend/services/friendlyErrorService";
 
 const tabs = ["Overview", "Fleets", "Rentals", "Operators", "Requests", "Activity"];
 const DRAWER_TRANSITION_MS = 300;
@@ -131,7 +133,7 @@ function roleDesc(roleId) {
 }
 
 export default function CompanyWorkspaceScreen({ company, initialTab = "Overview", onAddRentalFleet, onBack, onCompanyLeft, onCompanyUpdate, onEditCompany, onLocateArea, onOpenOperatorDashboard, onOpenPersonalDashboard, onRegisterCompany, statusMessage = "" }) {
-  useI18n();
+  const { locale: memoLocale } = useI18n();
   const basicOperator = Boolean(company?.access?.role === "operator" && !company?.access?.isOwner);
   useAiRoleContext("urride", basicOperator ? "operator" : "company", { screen: "transport company workspace" });
   // Company members (including company operators) receive company campaigns in this workspace.
@@ -289,7 +291,7 @@ export default function CompanyWorkspaceScreen({ company, initialTab = "Overview
       nextStep: score >= 100 ? t("urride.companyWs.health.complete") : t("urride.companyWs.health.nextStep"),
       missingItems: checklist.filter((item) => !item.complete).map((item) => item.label),
     };
-  }, [company, fleets.length, acceptedOperators.length]);
+  }, [company, fleets.length, acceptedOperators.length, memoLocale]);
 
   const menuItems = useMemo(
     () => [
@@ -337,13 +339,13 @@ export default function CompanyWorkspaceScreen({ company, initialTab = "Overview
       },
       ...(canManagePlans ? [{
         id: "plans",
-        label: "Plans & capacity",
-        detail: "Operator, vehicle, admin, and renewal controls",
+        label: i18nText("ui.literals.kef395ca5a659"),
+        detail: i18nText("ui.literals.k505c879e2673"),
         icon: Crown,
         stat: planState?.entitlement?.planName || "Free",
       }] : []),
     ],
-    [acceptedOperators.length, canManagePlans, company?.activities?.length, company?.companyCode, company?.verificationStatus, fleets.length, pendingRequests.length, planState?.entitlement?.planName],
+    [acceptedOperators.length, canManagePlans, company?.activities?.length, company?.companyCode, company?.verificationStatus, fleets.length, pendingRequests.length, planState?.entitlement?.planName, memoLocale],
   );
   const visibleMenuItem = menuItems.find((item) => item.id === visibleMenuScreen);
 
@@ -698,7 +700,7 @@ export default function CompanyWorkspaceScreen({ company, initialTab = "Overview
     if (planState?.available) {
       const capacity = getCapacityStatus(planState, "operators", 1);
       if (!capacity.allowed) {
-        showToast(`Your ${planState.entitlement.planName} plan is using all ${capacity.limit} operator spaces. Open Plans & capacity to upgrade.`, "danger");
+        showToast(i18nText("ui.literals.kff8043be52b4", { value0: planState.entitlement.planName, value1: capacity.limit }), "danger");
         if (canManagePlans) openMenuScreen("plans");
         return;
       }
@@ -876,7 +878,7 @@ export default function CompanyWorkspaceScreen({ company, initialTab = "Overview
               <span className="flex h-14 w-14 items-center justify-center rounded-2xl bg-blue-50 text-blue-700"><Building2 size={28} /></span>
               <h2 className="max-w-full break-words text-2xl font-black leading-tight text-slate-950">{company.companyName}</h2>
               <button type="button" disabled={!canManagePlans} onClick={() => openMenuScreen("plans")} className="inline-flex items-center gap-2 rounded-full bg-blue-50 px-3 py-1 text-xs font-bold text-blue-700">
-                <Crown size={14} />{planState?.entitlement?.planName || "Free"}
+                <Crown size={14} />{planState?.entitlement?.planName || i18nText("ui.literals.k75f527181b57")}
               </button>
               <p className="max-w-lg text-sm font-semibold leading-5 text-slate-600">{company.address || company.city || t("urride.companyWs.cityNotAdded")}</p>
               {company.phone ? <a href={`tel:${company.phone}`} className="text-sm font-bold text-blue-700">{company.phone}</a> : null}
@@ -1102,7 +1104,7 @@ export default function CompanyWorkspaceScreen({ company, initialTab = "Overview
                 } : fleet),
               });
               setInvitationFleet(null);
-              showToast(invite.status === "accepted" ? "This operator is already assigned to this fleet." : "Invitation sent. Waiting for the operator to accept.", "success");
+              showToast(invite.status === "accepted" ? i18nText("ui.literals.k746cb1d0f577") : i18nText("ui.literals.k7c2c61be4a68"), "success");
             }}
           /> : null}
           <FleetConfirmDrawer
@@ -1151,6 +1153,7 @@ function useDrawerTransition(open, duration = DRAWER_TRANSITION_MS) {
 }
 
 function FleetHqMenuDrawer({ company, menuItems, open, onClose, onEdit, onNavigate }) {
+  useUiLocale();
   const { rendered, panelOpen } = useDrawerTransition(open);
   const requestClose = useBrowserBack(rendered, onClose, "transport-company-menu-drawer");
   const drawerSwipeRef = useBackSwipe(rendered, requestClose, { minDistance: 58, maxVerticalDrift: 92 });
@@ -1241,6 +1244,7 @@ function FleetHqMenuDrawer({ company, menuItems, open, onClose, onEdit, onNaviga
 }
 
 function FleetHqMenuItem({ item, onClick }) {
+  useUiLocale();
   const Icon = item.icon;
   return (
     <button
@@ -1253,21 +1257,22 @@ function FleetHqMenuItem({ item, onClick }) {
       </span>
       <span className="min-w-0 flex-1">
         <span className="flex min-w-0 items-center justify-between gap-3">
-          <span className="truncate text-sm font-black text-slate-950">{item.label}</span>
+          <span className="truncate text-sm font-black text-slate-950">{translateUi(item.label)}</span>
           <span className="shrink-0 rounded-full bg-slate-100 px-2.5 py-1 text-[11px] font-black uppercase text-slate-500">{item.stat}</span>
         </span>
-        <span className="mt-1 block line-clamp-2 text-xs font-semibold leading-5 text-slate-500">{item.detail}</span>
+        <span className="mt-1 block line-clamp-2 text-xs font-semibold leading-5 text-slate-500">{translateUi(item.detail)}</span>
       </span>
     </button>
   );
 }
 
 function MenuStat({ icon, label, value }) {
+  useUiLocale();
   return (
     <div className="min-w-0 rounded-2xl bg-slate-50 px-3 py-3">
       <div className="flex items-center gap-2 text-blue-700">
         {createElement(icon, { size: 16 })}
-        <p className="truncate text-[10px] font-black uppercase tracking-wide text-slate-400">{label}</p>
+        <p className="truncate text-[10px] font-black uppercase tracking-wide text-slate-400">{translateUi(label)}</p>
       </div>
       <p className="mt-1 truncate text-sm font-black text-slate-950">{value}</p>
     </div>
@@ -1290,6 +1295,7 @@ function FleetHqMenuScreen({
   requests,
   screen,
 }) {
+  useUiLocale();
   return (
     <AppPortal>
       <div className="kt-mobile-screen kt-safe-screen fixed inset-0 z-[1240] w-screen overflow-hidden bg-slate-50" data-back-swipe-scope>
@@ -1335,6 +1341,7 @@ function FleetHqMenuScreen({
 }
 
 function CompanyProfilePanel({ company }) {
+  useUiLocale();
   return (
     <div className="grid gap-4 lg:grid-cols-[1.15fr_0.85fr]">
       <section className="rounded-3xl border border-blue-100 bg-white p-5 shadow-sm">
@@ -1367,15 +1374,17 @@ function CompanyProfilePanel({ company }) {
 }
 
 function ProfileFact({ label, value }) {
+  useUiLocale();
   return (
     <div className="rounded-2xl bg-slate-50 px-4 py-3">
-      <p className="text-xs font-black uppercase text-slate-400">{label}</p>
+      <p className="text-xs font-black uppercase text-slate-400">{translateUi(label)}</p>
       <p className="mt-1 break-words text-sm font-black text-slate-950">{value}</p>
     </div>
   );
 }
 
 function FleetRecordsPanel({ fleets, onEdit }) {
+  useUiLocale();
   return (
     <div className="grid gap-4">
       <section className="rounded-3xl border border-slate-100 bg-white p-5 shadow-sm">
@@ -1402,6 +1411,7 @@ function FleetRecordsPanel({ fleets, onEdit }) {
 }
 
 function OperatorAccessPanel({ canManageOperators, onAddOperator, onManageOperator, operators, onOpenOperatorDashboard }) {
+  useUiLocale();
   return (
     <div className="grid gap-4">
       <section className="rounded-3xl border border-slate-100 bg-white p-5 shadow-sm">
@@ -1423,6 +1433,7 @@ function OperatorAccessPanel({ canManageOperators, onAddOperator, onManageOperat
 }
 
 function RequestsPanel({ requests, pendingRequests }) {
+  useUiLocale();
   return (
     <div className="grid gap-4">
       <section className="rounded-3xl border border-slate-100 bg-white p-5 shadow-sm">
@@ -1438,6 +1449,7 @@ function RequestsPanel({ requests, pendingRequests }) {
 }
 
 function VerificationCenterPanel({ company, fleets, pendingRequests, onEdit }) {
+  useUiLocale();
   const documents = Object.entries(company.documents || {});
 
   return (
@@ -1485,6 +1497,7 @@ function VerificationCenterPanel({ company, fleets, pendingRequests, onEdit }) {
 }
 
 function ActivityPanel({ company }) {
+  useUiLocale();
   return (
     <div className="grid gap-4">
       <section className="rounded-3xl border border-slate-100 bg-white p-5 shadow-sm">
@@ -1512,6 +1525,7 @@ function formatDocumentValue(value) {
 }
 
 function MetricCard({ metric }) {
+  useUiLocale();
   const Icon = metric.icon;
   const body = (
     <div className="flex min-w-0 flex-col items-center gap-1 text-center">
@@ -1519,7 +1533,7 @@ function MetricCard({ metric }) {
         <Icon size={20} />
       </span>
       <div className="min-w-0 flex-1">
-        <p className="break-words text-[10px] font-black uppercase text-slate-400 sm:text-xs">{metric.label}</p>
+        <p className="break-words text-[10px] font-black uppercase text-slate-400 sm:text-xs">{translateUi(metric.label)}</p>
         <p className="mt-1 truncate text-xl font-black text-slate-950">{metric.value}</p>
       </div>
     </div>
@@ -1541,6 +1555,7 @@ function MetricCard({ metric }) {
 }
 
 function Overview({ company, fleets, pendingRequests }) {
+  useUiLocale();
   return (
     <div className="grid gap-4 lg:grid-cols-[1.1fr_0.9fr]">
       <section className="rounded-3xl border border-slate-100 bg-white p-5 shadow-sm">
@@ -1566,6 +1581,7 @@ function Overview({ company, fleets, pendingRequests }) {
 }
 
 function BasicOperatorCompanyDashboard({ assignment, available, availabilitySaving, bookingCount = 0, company, dashboard, onOpenBookings, onToggleAvailability, onViewRoute }) {
+  useUiLocale();
   const access = company?.access || {};
   const responsibilities = access.responsibilities || [];
   const operatorName = assignment?.operatorName || access.fullName || t("urride.companyWs.operatorFallbackName");
@@ -1765,6 +1781,7 @@ function BasicOperatorCompanyDashboard({ assignment, available, availabilitySavi
 }
 
 function CompanyOperatorMetric({ detail, icon, label, tone, value }) {
+  useUiLocale();
   const tones = {
     emerald: "bg-emerald-50 text-emerald-700",
     blue: "bg-blue-50 text-blue-700",
@@ -1774,22 +1791,25 @@ function CompanyOperatorMetric({ detail, icon, label, tone, value }) {
   return (
     <div className="rounded-3xl border border-slate-100 bg-white p-4 shadow-sm">
       <span className={`grid h-10 w-10 place-items-center rounded-2xl ${tones[tone] || tones.slate}`}>{createElement(icon, { size: 18 })}</span>
-      <p className="mt-3 text-xs font-black uppercase tracking-wide text-slate-400">{label}</p>
+      <p className="mt-3 text-xs font-black uppercase tracking-wide text-slate-400">{translateUi(label)}</p>
       <p className="mt-1 text-2xl font-black text-slate-950">{value}</p>
-      <p className="text-xs font-bold text-slate-500">{detail}</p>
+      <p className="text-xs font-bold text-slate-500">{translateUi(detail)}</p>
     </div>
   );
 }
 
 function ServiceChip({ label }) {
-  return <span className="rounded-full bg-blue-50 px-3 py-1.5 text-xs font-black text-blue-700">{label}</span>;
+  useUiLocale();
+  return <span className="rounded-full bg-blue-50 px-3 py-1.5 text-xs font-black text-blue-700">{translateUi(label)}</span>;
 }
 
 function EmptyCompanyOperatorLine({ text }) {
-  return <p className="rounded-2xl bg-slate-50 px-4 py-5 text-center text-sm font-bold text-slate-500">{text}</p>;
+  useUiLocale();
+  return <p className="rounded-2xl bg-slate-50 px-4 py-5 text-center text-sm font-bold text-slate-500">{translateUi(text)}</p>;
 }
 
 function CompanyOperatorMenu({ company, onClose, onCopy, onLeave, onOpenPersonalDashboard, open }) {
+  useUiLocale();
   return (
     <FleetHqActionSheet label={t("urride.companyWs.operatorActionsSheet")} onClose={onClose} open={open}>
       <ActionSheetHeader eyebrow={company?.companyName || t("urride.companyWs.fleetHqFallback")} icon={MoreHorizontal} onClose={onClose} title={t("urride.companyWs.operatorActionsTitle")} />
@@ -1819,6 +1839,7 @@ function CompanyOperatorMenu({ company, onClose, onCopy, onLeave, onOpenPersonal
 }
 
 function LeaveCompanyDrawer({ busy, company, onClose, onConfirm, open }) {
+  useUiLocale();
   return (
     <FleetHqActionSheet label={t("urride.companyWs.leaveCompany")} onClose={onClose} open={open}>
       <ActionSheetHeader eyebrow={t("urride.companyWs.membershipEyebrow")} icon={LogOut} onClose={onClose} title={t("urride.companyWs.leaveTitle", { name: company?.companyName || t("urride.companyWs.companyFallback") })} />
@@ -1838,10 +1859,11 @@ function LeaveCompanyDrawer({ busy, company, onClose, onConfirm, open }) {
 }
 
 function ReadinessItem({ label, ready }) {
+  useUiLocale();
   return (
     <div className="flex items-center gap-3 rounded-2xl bg-slate-50 px-4 py-3">
       <ShieldCheck className={ready ? "text-emerald-700" : "text-slate-300"} size={20} />
-      <span className="text-sm font-black text-slate-700">{label}</span>
+      <span className="text-sm font-black text-slate-700">{translateUi(label)}</span>
     </div>
   );
 }
@@ -1853,6 +1875,7 @@ function getFleetAssignedOperator(fleet = {}) {
 }
 
 function FleetList({ canManage = false, fleets, onManageFleet }) {
+  useUiLocale();
   if (!fleets.length) return <EmptyPanel title={t("urride.companyWs.noFleetsTitle")} body={t("urride.companyWs.noFleetsBody")} />;
   return (
     <div className="grid gap-3 md:grid-cols-2 xl:grid-cols-3">
@@ -1864,7 +1887,7 @@ function FleetList({ canManage = false, fleets, onManageFleet }) {
               <p className="min-w-0 truncate text-xs font-black uppercase tracking-wide text-blue-700">{fleet.fleetCode || t("urride.companyWs.fleetCodePending")}</p>
               <div className="flex shrink-0 items-center gap-2">
                 <span className={`rounded-full px-2.5 py-1 text-[10px] font-black uppercase ${fleet.activeStatus === "active" ? "bg-emerald-50 text-emerald-700" : "bg-slate-100 text-slate-500"}`}>
-                  {fleet.serviceCategory === "Rental" ? "Rental" : fleet.activeStatus || t("urride.companyWs.offlineStatus")}
+                  {fleet.serviceCategory === "Rental" ? i18nText("ui.literals.ke703935c66bf") : fleet.activeStatus || t("urride.companyWs.offlineStatus")}
                 </span>
                 {canManage && onManageFleet ? (
                   <button
@@ -1885,7 +1908,7 @@ function FleetList({ canManage = false, fleets, onManageFleet }) {
               <span className="min-w-0 truncate">{fleet.homeBase || fleet.operatingArea || t("urride.companyWs.homeBaseNotAdded")}</span>
             </div>
             <p className={`mt-3 rounded-2xl px-3 py-2 text-xs font-black ${assignedOperator ? "bg-emerald-50 text-emerald-700" : "bg-slate-50 text-slate-500"}`}>
-              {fleet.serviceCategory === "Rental" ? "Managed by company owner / admin · Self-drive" : assignedOperator ? t("urride.companyWs.operatorPrefix", { name: assignedOperator.name || assignedOperator.publicId || t("urride.companyWs.operatorAssigned") }) : t("urride.companyWs.noOperatorAssigned")}
+              {fleet.serviceCategory === "Rental" ? i18nText("ui.literals.k6379cb780d32") : assignedOperator ? t("urride.companyWs.operatorPrefix", { name: assignedOperator.name || assignedOperator.publicId || t("urride.companyWs.operatorAssigned") }) : t("urride.companyWs.noOperatorAssigned")}
             </p>
           </section>
         );
@@ -1895,6 +1918,7 @@ function FleetList({ canManage = false, fleets, onManageFleet }) {
 }
 
 function Colleagues({ canManageOperators, onAddOperator, onManageOperator, operators, onOpenOperatorDashboard }) {
+  useUiLocale();
   if (!operators.length) {
     return (
       <div className="grid gap-3">
@@ -1971,6 +1995,7 @@ function Colleagues({ canManageOperators, onAddOperator, onManageOperator, opera
 }
 
 function Requests({ requests }) {
+  useUiLocale();
   if (!requests.length) return <EmptyPanel title={t("urride.companyWs.noRequestsTitle")} body={t("urride.companyWs.noRequestsBody")} />;
   return (
     <div className="grid gap-3">
@@ -1978,7 +2003,7 @@ function Requests({ requests }) {
         <section key={request.requestId} className="rounded-3xl border border-slate-100 bg-white p-4 shadow-sm">
           <div className="flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
             <div>
-              <p className="text-xs font-black uppercase tracking-wide text-slate-400">{request.status}</p>
+              <p className="text-xs font-black uppercase tracking-wide text-slate-400">{translateUi(request.status)}</p>
               <h3 className="mt-1 font-black text-slate-950">{request.name}</h3>
               <p className="mt-1 text-sm font-semibold text-slate-500">{request.publicId} - {request.fleetName || request.fleetType}</p>
               {request.status === "accepted_pending_documents" || request.documents?.operatorDocumentsRequired || request.documents?.registrationRequired ? (
@@ -2000,6 +2025,7 @@ function Requests({ requests }) {
 }
 
 function Activity({ company }) {
+  useUiLocale();
   const activities = company.activities || [];
   if (!activities.length) return <EmptyPanel title={t("urride.companyWs.noActivityTitle")} body={t("urride.companyWs.noActivityBody")} />;
   return (
@@ -2011,7 +2037,7 @@ function Activity({ company }) {
               <FiActivity />
             </span>
             <div>
-              <h3 className="font-black text-slate-950">{activity.title}</h3>
+              <h3 className="font-black text-slate-950">{translateUi(activity.title)}</h3>
               <p className="mt-1 text-sm font-semibold leading-6 text-slate-500">{activity.body}</p>
             </div>
           </div>
@@ -2022,6 +2048,7 @@ function Activity({ company }) {
 }
 
 function FleetHqActionSheet({ children, label, onClose, open, widthClass = "max-w-lg" }) {
+  useUiLocale();
   const { rendered, panelOpen } = useDrawerTransition(open);
 
   useEffect(() => {
@@ -2049,7 +2076,7 @@ function FleetHqActionSheet({ children, label, onClose, open, widthClass = "max-
           className={`absolute inset-0 h-full w-full bg-slate-950/45 backdrop-blur-sm transition-opacity duration-300 ${panelOpen ? "opacity-100" : "opacity-0"}`}
         />
         <section
-          aria-label={label}
+          aria-label={translateUi(label)}
           className={`relative max-h-[88dvh] w-full ${widthClass} overflow-hidden rounded-[30px] border border-white/70 bg-white shadow-2xl transition duration-300 ease-[var(--kt-ease-emphasized)] ${
             panelOpen ? "kt-toast-expand-in translate-y-0 scale-100 opacity-100" : "translate-y-6 scale-95 opacity-0"
           }`}
@@ -2071,6 +2098,7 @@ function CompanyDashboardTabDrawer({
   onTabChange,
   tabs = [],
 }) {
+  useUiLocale();
   const { rendered, panelOpen } = useDrawerTransition(expanded, DRAWER_TRANSITION_MS);
   useBodyScrollLock(rendered);
   const uniqueTabs = [...new Set(tabs)];
@@ -2188,6 +2216,7 @@ function CompanyDashboardTabDrawer({
   );
 }
 function FleetHqFullScreen({ children, label, onClose, open }) {
+  useUiLocale();
   const { rendered, panelOpen } = useDrawerTransition(open);
 
   useEffect(() => {
@@ -2209,7 +2238,7 @@ function FleetHqFullScreen({ children, label, onClose, open }) {
   return (
     <AppPortal>
       <section
-        aria-label={label}
+        aria-label={translateUi(label)}
         className={`${panelOpen ? "kt-toast-expand-in" : "kt-toast-collapse-out"} kt-mobile-screen kt-safe-screen fixed inset-0 z-[1320] flex w-screen flex-col overflow-hidden bg-white`}
       >
         {children}
@@ -2219,11 +2248,12 @@ function FleetHqFullScreen({ children, label, onClose, open }) {
 }
 
 function FleetHqFullScreenHeader({ eyebrow, icon, label, onBack, rightAction = null, title }) {
+  useUiLocale();
   return (
     <header className="kt-header-glass flex flex-none items-start gap-3 border-b border-slate-100 px-4 py-4 shadow-sm">
       <AppBackTab
         onBack={onBack}
-        label={label}
+        label={translateUi(label)}
         historyKey={`fleet-hq-${String(eyebrow || "screen").toLowerCase().replaceAll(" ", "-")}`}
         iconSize={28}
         className="mt-0.5 shrink-0 rounded-full border border-slate-200 bg-white shadow-sm hover:bg-slate-50"
@@ -2236,7 +2266,7 @@ function FleetHqFullScreenHeader({ eyebrow, icon, label, onBack, rightAction = n
       ) : null}
       <div className="min-w-0 flex-1">
         <p className="text-xs font-black uppercase tracking-wide text-blue-700">{eyebrow}</p>
-        <h2 className="mt-1 truncate text-xl font-black text-slate-950">{title}</h2>
+        <h2 className="mt-1 truncate text-xl font-black text-slate-950">{translateUi(title)}</h2>
       </div>
       {rightAction}
     </header>
@@ -2244,6 +2274,7 @@ function FleetHqFullScreenHeader({ eyebrow, icon, label, onBack, rightAction = n
 }
 
 function ActionSheetHeader({ eyebrow, icon, onClose, title }) {
+  useUiLocale();
   return (
     <div className="flex items-start gap-3 border-b border-slate-100 px-5 py-4">
       <span className="flex h-12 w-12 shrink-0 items-center justify-center rounded-2xl bg-blue-50 text-blue-700">
@@ -2251,7 +2282,7 @@ function ActionSheetHeader({ eyebrow, icon, onClose, title }) {
       </span>
       <div className="min-w-0 flex-1">
         <p className="text-xs font-black uppercase tracking-wide text-blue-700">{eyebrow}</p>
-        <h2 className="truncate text-xl font-black text-slate-950">{title}</h2>
+        <h2 className="truncate text-xl font-black text-slate-950">{translateUi(title)}</h2>
       </div>
       <button
         type="button"
@@ -2266,6 +2297,7 @@ function ActionSheetHeader({ eyebrow, icon, onClose, title }) {
 }
 
 function CompanyActivityDrawer({ activities, company, notificationPreferences, onClose, onDelete, onDeleteAll, onMarkAllRead, onRead, onTogglePreference, onToggleSettings, open, settingsOpen }) {
+  useUiLocale();
   return (
     <FleetHqFullScreen label={t("urride.companyWs.notificationsLabel")} onClose={onClose} open={open}>
       <FleetHqFullScreenHeader
@@ -2325,7 +2357,7 @@ function CompanyActivityDrawer({ activities, company, notificationPreferences, o
                     <Bell size={17} />
                   </span>
                   <div className="min-w-0 flex-1">
-                    <h3 className="text-sm font-black text-slate-950">{activity.title}</h3>
+                    <h3 className="text-sm font-black text-slate-950">{translateUi(activity.title)}</h3>
                     <p className="mt-1 text-xs font-semibold leading-5 text-slate-600">{activity.body}</p>
                     {activity.created_at ? (
                       <p className="mt-2 text-[11px] font-bold text-slate-400">{new Date(activity.created_at).toLocaleString()}</p>
@@ -2368,6 +2400,7 @@ const COMPANY_NOTIFICATION_OPTIONS = [
 ];
 
 function CompanyNotificationSettings({ onToggle, settings = DEFAULT_COMPANY_NOTIFICATION_PREFERENCES }) {
+  useUiLocale();
   return (
     <section className="rounded-3xl border border-blue-100 bg-white p-4 shadow-sm">
       <p className="text-xs font-black uppercase tracking-[0.18em] text-blue-700">{t("urride.companyWs.settingsTitle")}</p>
@@ -2393,6 +2426,7 @@ function CompanyNotificationSettings({ onToggle, settings = DEFAULT_COMPANY_NOTI
 }
 
 function CompanyBookingQueueDrawer({ bookings, company, isActive, loading, onClose, onRead, onUpdateTrip, onViewRoute, open, operatorMode }) {
+  useUiLocale();
   return (
     <FleetHqFullScreen label={t("urride.companyWs.waitingBookingsLabel")} onClose={onClose} open={open}>
       <FleetHqFullScreenHeader eyebrow={t("urride.companyWs.waitingBookingsEyebrow")} icon={CalendarClock} label={t("urride.companyWs.backToFleetHq")} onBack={onClose} title={company?.companyName || t("urride.companyWs.fleetHqFallback")} />
@@ -2432,6 +2466,7 @@ function CompanyBookingQueueDrawer({ bookings, company, isActive, loading, onClo
 }
 
 function OperatorActionButton({ danger = false, detail, disabled, icon, label, onClick }) {
+  useUiLocale();
   return (
     <button
       type="button"
@@ -2445,14 +2480,15 @@ function OperatorActionButton({ danger = false, detail, disabled, icon, label, o
         {createElement(icon, { size: 19 })}
       </span>
       <span className="min-w-0 flex-1">
-        <span className={`block text-sm font-black ${danger ? "text-rose-800" : "text-slate-950"}`}>{label}</span>
-        <span className="mt-0.5 block text-xs font-semibold leading-5 text-slate-500">{detail}</span>
+        <span className={`block text-sm font-black ${danger ? "text-rose-800" : "text-slate-950"}`}>{translateUi(label)}</span>
+        <span className="mt-0.5 block text-xs font-semibold leading-5 text-slate-500">{translateUi(detail)}</span>
       </span>
     </button>
   );
 }
 
 function OperatorActionDrawer({ busy, canManage, company, onAddOperator, onClose, onOpenDashboard, onRemove, onResponsibility, onRestore, onSuspend, open, operator }) {
+  useUiLocale();
   if (!operator && !open) return null;
   const suspended = operator?.serviceStatus === "suspended";
   return (
@@ -2515,31 +2551,33 @@ function OperatorActionDrawer({ busy, canManage, company, onAddOperator, onClose
 }
 
 function FleetOperatorInvitationDrawer({ fleet, onClose, onSend }) {
+  useUiLocale();
   const [publicId, setPublicId] = useState("");
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState("");
   const close = () => { if (!busy) onClose(); };
-  return <FleetHqActionSheet label="Invite operator" open onClose={close}>
-    <ActionSheetHeader eyebrow={fleet.fleetName || fleet.fleetCode} icon={UserRoundPlus} title="Invite operator" onClose={close} />
+  return <FleetHqActionSheet label={i18nText("ui.literals.kce0b15807cd7")} open onClose={close}>
+    <ActionSheetHeader eyebrow={fleet.fleetName || fleet.fleetCode} icon={UserRoundPlus} title={i18nText("ui.literals.kce0b15807cd7")} onClose={close} />
     <form className="space-y-4 bg-slate-50 p-4" onSubmit={async (event) => {
       event.preventDefault();
       if (busy || !publicId.trim()) return;
       setBusy(true);
       setError("");
       try { await onSend(publicId.trim()); }
-      catch (failure) { setError(failure.message || "Unable to send invitation. Try again."); setBusy(false); }
+      catch (failure) { setError(inlineErrorMessage(failure, i18nText("ui.literals.k6b73b3290cd3"))); setBusy(false); }
     }}>
       <label className="block text-sm font-bold text-slate-700">KunThai ID
         <input autoFocus required disabled={busy} value={publicId} onChange={(event) => setPublicId(event.target.value)} placeholder="KTU-XXXX-XXXX" autoCapitalize="characters" autoComplete="off" className="mt-2 w-full rounded-2xl border border-slate-200 bg-white px-4 py-3 text-slate-950" />
       </label>
-      <p className="text-sm text-slate-500">The operator will receive an invitation to accept or reject for this fleet.</p>
-      {error ? <p role="alert" className="text-sm font-bold text-rose-600">{error}</p> : null}
-      <button type="submit" disabled={busy || !publicId.trim()} className="w-full rounded-2xl bg-blue-600 px-4 py-3 font-bold text-white disabled:opacity-50">{busy ? "Sending…" : "Send invitation"}</button>
+      <p className="text-sm text-slate-500">{i18nText("ui.literals.kd5c7d7b67c17")}</p>
+      {error ? <p role="alert" className="text-sm font-bold text-rose-600">{translateUi(error)}</p> : null}
+      <button type="submit" disabled={busy || !publicId.trim()} className="w-full rounded-2xl bg-blue-600 px-4 py-3 font-bold text-white disabled:opacity-50">{busy ? i18nText("ui.literals.kcf765512cc6d") : i18nText("ui.literals.kabb6cb2d460a")}</button>
     </form>
   </FleetHqActionSheet>;
 }
 
 function FleetActionDrawer({ busy, canManage, company, fleet, onAssignOperator, onClose, onDelete, onEditFleet, onRemoveOperator, open }) {
+  useUiLocale();
   if (!fleet && !open) return null;
   const assignedOperator = getFleetAssignedOperator(fleet || {});
   return (
@@ -2563,10 +2601,10 @@ function FleetActionDrawer({ busy, canManage, company, fleet, onAssignOperator, 
           ) : null}
           {onAssignOperator ? (
             <OperatorActionButton
-              detail="Send an invitation using the operator's KunThai ID."
+              detail={i18nText("ui.literals.k60188c49183c")}
               disabled={busy}
               icon={UserRoundPlus}
-              label="Invite operator"
+              label={i18nText("ui.literals.kce0b15807cd7")}
               onClick={onAssignOperator}
             />
           ) : null}
@@ -2596,6 +2634,7 @@ function FleetActionDrawer({ busy, canManage, company, fleet, onAssignOperator, 
 }
 
 function FleetConfirmDrawer({ busy, confirm, onClose, onConfirm, open }) {
+  useUiLocale();
   const fleet = confirm?.fleet || {};
   const isDelete = confirm?.action === "delete";
   const fleetLabel = fleet.fleetName || fleet.fleetCode || t("urride.companyWs.thisFleet");
@@ -2632,6 +2671,7 @@ function FleetConfirmDrawer({ busy, confirm, onClose, onConfirm, open }) {
 }
 
 function ResponsibilityDrawer({ busy, onAssign, onClose, open, operator }) {
+  useUiLocale();
   return (
     <FleetHqActionSheet label={t("urride.companyWs.giveRespLabel")} onClose={onClose} open={open}>
       <ActionSheetHeader eyebrow={t("urride.companyWs.accessResp")} icon={Shield} onClose={onClose} title={operator?.name || t("urride.companyWs.operatorTitleFallback")} />
@@ -2669,6 +2709,7 @@ function ResponsibilityDrawer({ busy, onAssign, onClose, open, operator }) {
 }
 
 function RemoveOperatorDrawer({ busy, onClose, onConfirm, open, operator }) {
+  useUiLocale();
   return (
     <FleetHqActionSheet label={t("urride.companyWs.removeOpLabel")} onClose={onClose} open={open}>
       <ActionSheetHeader eyebrow={t("urride.companyWs.companyAccess")} icon={Trash2} onClose={onClose} title={t("urride.companyWs.removeOpTitle", { name: operator?.name || t("urride.companyWs.operatorFallback") })} />
@@ -2688,9 +2729,10 @@ function RemoveOperatorDrawer({ busy, onClose, onConfirm, open, operator }) {
 }
 
 function EmptyPanel({ body, title }) {
+  useUiLocale();
   return (
     <section className="rounded-3xl border border-dashed border-slate-200 bg-white p-8 text-center shadow-sm">
-      <h3 className="font-black text-slate-950">{title}</h3>
+      <h3 className="font-black text-slate-950">{translateUi(title)}</h3>
       <p className="mt-2 text-sm font-semibold text-slate-500">{body}</p>
     </section>
   );

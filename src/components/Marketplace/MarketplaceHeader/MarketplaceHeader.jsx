@@ -13,6 +13,7 @@ import PremiumHeader, { PremiumHeaderButton } from "../../shared/PremiumHeader";
 import BuyerNotifications from "./BuyerNotifications";
 import Cart from "./Cart/Cart";
 import Menu from "./Menu/Menu";
+import { uiText as translateUi, useI18n as useUiLocale } from "../../../i18n/index.js";
 
 const BUYER_MESSAGE_SCOPE = "urmall:buyer:messages";
 
@@ -167,7 +168,7 @@ export default function MarketplaceHeader({
             accent="emerald"
             badge={sellerNotificationCount}
             icon={hasBusiness ? Store : Plus}
-            label={businessLabel}
+            label={translateUi(businessLabel)}
             onClick={() => {
               if (guardGuestAction("open", "seller workspace")) return;
               onMyBizClick?.();
@@ -217,6 +218,7 @@ export default function MarketplaceHeader({
 }
 
 function HeaderButtonWithHint({ children, hint, onClick, visible }) {
+  useUiLocale();
   return (
     <div className="relative">
       {children}
@@ -226,7 +228,7 @@ function HeaderButtonWithHint({ children, hint, onClick, visible }) {
           onClick={onClick}
           className="absolute right-0 top-[calc(100%+0.55rem)] z-50 w-36 rounded-xl border border-emerald-100 bg-white px-3 py-2 text-left text-xs font-black text-slate-700 shadow-xl shadow-slate-900/10"
         >
-          {hint}
+          {translateUi(hint)}
           <span className="absolute -top-1 right-5 h-3 w-3 rotate-45 border-l border-t border-emerald-100 bg-white" />
         </button>
       ) : null}

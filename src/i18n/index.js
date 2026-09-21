@@ -107,15 +107,53 @@ export function t(key, vars = null) {
   return text;
 }
 
-const UI_LITERAL_KEY_BY_SOURCE = new Map(
-  Object.entries(TRANSLATIONS.en?.ui?.literals || {}).map(([key, value]) => [value, key]),
-);
+const UI_KEYS_BY_SOURCE = new Map();
+function indexDisplayText(node, prefix = "") {
+  for (const [name, value] of Object.entries(node || {})) {
+    const key = prefix ? `${prefix}.${name}` : name;
+    if (typeof value === "string") {
+      const keys = UI_KEYS_BY_SOURCE.get(value) || [];
+      keys.push(key);
+      UI_KEYS_BY_SOURCE.set(value, keys);
+    } else if (value && typeof value === "object") {
+      indexDisplayText(value, key);
+    }
+  }
+}
+indexDisplayText(TRANSLATIONS.en);
+
+const DISPLAY_TEMPLATES = [...UI_KEYS_BY_SOURCE].flatMap(([source, keys]) => {
+  const names = [...source.matchAll(/\{([A-Za-z0-9_]+)\}/g)].map((match) => match[1]);
+  const parts = source.split(/\{[A-Za-z0-9_]+\}/g);
+  const literalLength = parts.join("").replace(/[^A-Za-z]/g, "").length;
+  // Short, generic fragments must never match arbitrary user content.
+  if (!names.length || (literalLength < 8 && !/^\{\w+\} per (hour|km)$/.test(source))) return [];
+  const pattern = parts.map((part) => part.replace(/[.*+?^${}()|[\]\\]/g, "\\$&")).join("([\\s\\S]+?)");
+  return [{ keys, names, literalLength, pattern: new RegExp(`^${pattern}$`) }];
+}).sort((a, b) => b.literalLength - a.literalLength);
+
+function displayKey(keys) {
+  return keys.find((key) => lookup(activeLocale, key) !== undefined) || keys[0];
+}
 
 // Translate English source text held in module-level configuration objects.
 // The lookup happens at render time so changing locale updates immediately.
 export function uiText(source, vars = null) {
-  const key = UI_LITERAL_KEY_BY_SOURCE.get(source);
-  return key ? t(`ui.literals.${key}`, vars) : source;
+  if (typeof source !== "string") return source;
+  const keys = UI_KEYS_BY_SOURCE.get(source);
+  if (keys) return t(displayKey(keys), vars);
+  if (activeLocale === "en") return source;
+  const optionalDocument = /^(.*) \(if available\)$/.exec(source);
+  if (optionalDocument) return `${uiText(optionalDocument[1])} (${uiText("if available")})`;
+  // Shared services retain canonical English messages. Resolve their displayed
+  // templates here, preserving interpolated names, IDs and amounts verbatim.
+  for (const template of DISPLAY_TEMPLATES) {
+    const match = template.pattern.exec(source);
+    if (!match) continue;
+    const values = Object.fromEntries(template.names.map((name, index) => [name, match[index + 1]]));
+    return t(displayKey(template.keys), values);
+  }
+  return source;
 }
 
 function subscribe(listener) {

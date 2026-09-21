@@ -1,4 +1,4 @@
-import { legalConfig } from "../../config/legalConfig";
+import { legalConfig } from "../../config/legalConfig.js";
 
 export const policyChangelog = [
   {

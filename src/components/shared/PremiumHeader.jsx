@@ -1,4 +1,5 @@
 import { createElement } from "react";
+import { uiText as translateUi, useI18n as useUiLocale } from "../../i18n/index.js";
 
 const ACCENT = {
   sky: {
@@ -36,6 +37,7 @@ export function PremiumHeaderButton({
   title,
   wide = false,
 }) {
+  useUiLocale();
   const Icon = icon;
   const tone = getAccent(accent);
   const badgeValue = Number(badge || 0);
@@ -71,6 +73,7 @@ export default function PremiumHeader({
   right,
   title,
 }) {
+  useUiLocale();
   const tone = getAccent(accent);
   const CenterIcon = centerIcon;
 
@@ -83,7 +86,7 @@ export default function PremiumHeader({
           <p className={`kt-premium-eyebrow text-[10px] font-black uppercase ${tone.text}`}>{eyebrow}</p>
           <h1 className="mt-1 inline-flex min-w-0 items-center justify-center gap-1.5 truncate text-[15px] font-black text-slate-950">
             {CenterIcon ? createElement(CenterIcon, { size: 16, strokeWidth: 2.25, absoluteStrokeWidth: true }) : null}
-            <span className="truncate">{title}</span>
+            <span className="truncate">{translateUi(title)}</span>
           </h1>
         </div>
 

@@ -1,4 +1,5 @@
 import { LockKeyhole, ShieldCheck } from "lucide-react";
+import { uiText as translateUi, useI18n as useUiLocale } from "../../i18n/index.js";
 
 const COPY = {
   explore: {
@@ -14,6 +15,7 @@ const COPY = {
 };
 
 export default function MessagePrivacyNotice({ compact = false, variant = "explore" }) {
+  useUiLocale();
   const copy = COPY[variant] || COPY.explore;
   const Icon = variant === "urmall" ? ShieldCheck : LockKeyhole;
   const tone = variant === "urmall"
@@ -30,12 +32,12 @@ export default function MessagePrivacyNotice({ compact = false, variant = "explo
   }
 
   return (
-    <aside className={`rounded-2xl border p-4 ${tone}`} aria-label={copy.eyebrow}>
+    <aside className={`rounded-2xl border p-4 ${tone}`} aria-label={translateUi(copy.eyebrow)}>
       <div className="flex items-start gap-3">
         <span className="grid h-10 w-10 shrink-0 place-items-center rounded-2xl bg-white/80 shadow-sm"><Icon size={19} /></span>
         <div className="min-w-0">
           <p className="text-[10px] font-black uppercase tracking-[0.16em] opacity-70">{copy.eyebrow}</p>
-          <h3 className="mt-1 text-sm font-black">{copy.title}</h3>
+          <h3 className="mt-1 text-sm font-black">{translateUi(copy.title)}</h3>
           <p className="mt-1 text-xs font-semibold leading-5 opacity-75">{copy.body}</p>
         </div>
       </div>

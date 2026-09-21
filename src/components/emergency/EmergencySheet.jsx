@@ -13,6 +13,7 @@ import { getEmergencyContacts } from "../../data/emergencyContacts";
 import { getCountryProfile } from "../../data/globalCountryProfiles";
 import FlagIcon from "../FlagIcon";
 import { t as i18nText, uiText } from "../../i18n/index";
+import { uiText as translateUi, useI18n as useUiLocale } from "../../i18n/index.js";
 
 const nearbyActions = [
   {
@@ -47,6 +48,7 @@ function safeTelHref(number) {
 }
 
 function NumbersList({ numbers }) {
+  useUiLocale();
   const safeNumbers = Array.isArray(numbers) ? numbers.filter(Boolean) : [];
 
   if (!safeNumbers.length) {
@@ -70,6 +72,7 @@ function NumbersList({ numbers }) {
 }
 
 function CallButton({ icon, label, numbers }) {
+  useUiLocale();
   const safeNumbers = Array.isArray(numbers) ? numbers.filter(Boolean) : [];
   const primaryNumber = safeNumbers[0] || "";
   const telHref = safeTelHref(primaryNumber);
@@ -81,7 +84,7 @@ function CallButton({ icon, label, numbers }) {
           {icon}
         </span>
         <div className="min-w-0 flex-1">
-          <p className="text-sm font-black text-slate-950">{label}</p>
+          <p className="text-sm font-black text-slate-950">{translateUi(label)}</p>
           <NumbersList numbers={safeNumbers} />
         </div>
         <a
@@ -110,6 +113,7 @@ export default function EmergencySheet({
   onNavigateNearby,
   presentation = "sheet",
 }) {
+  useUiLocale();
   if (!open) return null;
 
   const normalizedCountryCode = String(countryCode || "").toUpperCase();

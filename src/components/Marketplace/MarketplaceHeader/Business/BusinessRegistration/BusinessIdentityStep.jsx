@@ -7,6 +7,7 @@ import {
   supportsMarketplaceFulfillment,
   usesMarketplaceCategories,
 } from "../../../../../Backend/services/marketplace/marketplaceBusinessKinds";
+import { uiText as translateUi } from "../../../../../i18n/index.js";
 
 export default function BusinessIdentityStep({ registration }) {
   useI18n();
@@ -46,10 +47,10 @@ export default function BusinessIdentityStep({ registration }) {
             }}
             className="h-14 w-full appearance-none rounded-2xl border border-gray-300 bg-white pl-12 pr-4 text-sm font-black text-gray-900 outline-none transition focus:border-blue-500 focus:ring-4 focus:ring-blue-500/10"
           >
-            {businessKinds.map((kind) => <option key={kind.id} value={kind.id}>{kind.label}</option>)}
+            {businessKinds.map((kind) => <option key={kind.id} value={kind.id}>{translateUi(kind.label)}</option>)}
           </select>
           <p className="mt-2 text-xs font-semibold leading-5 text-gray-500">
-            {businessKinds.find((kind) => kind.id === form.identity.businessKind)?.description}
+            {translateUi(businessKinds.find((kind) => kind.id === form.identity.businessKind)?.description)}
           </p>
         </div>
       </RegistrationField>

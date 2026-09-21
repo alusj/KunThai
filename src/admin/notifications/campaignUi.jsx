@@ -1,28 +1,32 @@
 import { useEffect, useId, useRef } from "react";
 import { Check, CircleDot, X } from "lucide-react";
+import { t as i18nText } from "../../i18n/index";
+import { uiText as translateUi, useI18n as useUiLocale } from "../../i18n/index.js";
 
 // Small, accessible building blocks shared by the campaign center screens.
 
 export function Field({ children, hint, label, htmlFor, error }) {
+  useUiLocale();
   return (
     <div className="block min-w-0">
-      <label htmlFor={htmlFor} className="mb-1.5 block text-sm font-black text-zinc-900 dark:text-zinc-100">{label}</label>
-      {hint ? <p className="mb-2 text-xs font-semibold leading-5 text-zinc-500">{hint}</p> : null}
+      <label htmlFor={htmlFor} className="mb-1.5 block text-sm font-black text-zinc-900 dark:text-zinc-100">{translateUi(label)}</label>
+      {hint ? <p className="mb-2 text-xs font-semibold leading-5 text-zinc-500">{translateUi(hint)}</p> : null}
       {children}
-      {error ? <p role="alert" className="mt-1.5 text-xs font-bold text-rose-700">{error}</p> : null}
+      {error ? <p role="alert" className="mt-1.5 text-xs font-bold text-rose-700">{translateUi(error)}</p> : null}
     </div>
   );
 }
 
 export function TextField({ label, hint, value, onChange, placeholder = "", maxLength, type = "text", multiline = false, rows = 4 }) {
+  useUiLocale();
   const id = useId();
   const count = maxLength ? `${String(value || "").length}/${maxLength}` : "";
   return (
-    <Field label={label} hint={hint} htmlFor={id}>
+    <Field label={translateUi(label)} hint={hint} htmlFor={id}>
       {multiline ? (
-        <textarea id={id} rows={rows} value={value} maxLength={maxLength} placeholder={placeholder} onChange={(event) => onChange(event.target.value)} className="campaign-input min-h-28 py-3" />
+        <textarea id={id} rows={rows} value={value} maxLength={maxLength} placeholder={translateUi(placeholder)} onChange={(event) => onChange(event.target.value)} className="campaign-input min-h-28 py-3" />
       ) : (
-        <input id={id} type={type} value={value} maxLength={maxLength} placeholder={placeholder} onChange={(event) => onChange(event.target.value)} className="campaign-input" />
+        <input id={id} type={type} value={value} maxLength={maxLength} placeholder={translateUi(placeholder)} onChange={(event) => onChange(event.target.value)} className="campaign-input" />
       )}
       {count ? <p className="mt-1 text-right text-[11px] font-bold text-zinc-400">{count}</p> : null}
     </Field>
@@ -30,17 +34,19 @@ export function TextField({ label, hint, value, onChange, placeholder = "", maxL
 }
 
 export function SelectField({ label, hint, onChange, options, value, disabled = false }) {
+  useUiLocale();
   const id = useId();
   return (
-    <Field label={label} hint={hint} htmlFor={id}>
+    <Field label={translateUi(label)} hint={hint} htmlFor={id}>
       <select id={id} value={value} disabled={disabled} onChange={(event) => onChange(event.target.value)} className="campaign-input disabled:opacity-60">
-        {options.map(([option, text]) => <option key={option} value={option}>{text}</option>)}
+        {options.map(([option, text]) => <option key={option} value={option}>{translateUi(text)}</option>)}
       </select>
     </Field>
   );
 }
 
 export function ChoiceCard({ detail = "", label, onClick, selected, disabled = false }) {
+  useUiLocale();
   return (
     <button
       type="button"
@@ -51,20 +57,21 @@ export function ChoiceCard({ detail = "", label, onClick, selected, disabled = f
     >
       <span className="flex items-center gap-2 text-sm font-black">
         {selected ? <Check className="shrink-0 text-emerald-600" size={16} /> : <CircleDot className="shrink-0 text-zinc-300" size={16} />}
-        <span className="min-w-0 break-words">{label}</span>
+        <span className="min-w-0 break-words">{translateUi(label)}</span>
       </span>
-      {detail ? <span className="mt-1.5 block text-xs font-semibold leading-5 text-zinc-500">{detail}</span> : null}
+      {detail ? <span className="mt-1.5 block text-xs font-semibold leading-5 text-zinc-500">{translateUi(detail)}</span> : null}
     </button>
   );
 }
 
 export function ChoiceGroup({ label, options, value, onChange, columns = "sm:grid-cols-2 xl:grid-cols-3" }) {
+  useUiLocale();
   return (
     <fieldset className="min-w-0">
-      {label ? <legend className="mb-2 text-sm font-black text-zinc-900 dark:text-zinc-100">{label}</legend> : null}
+      {label ? <legend className="mb-2 text-sm font-black text-zinc-900 dark:text-zinc-100">{translateUi(label)}</legend> : null}
       <div className={`grid gap-3 ${columns}`}>
         {options.map((option) => (
-          <ChoiceCard key={option.value} label={option.label} detail={option.detail} selected={value === option.value} onClick={() => onChange(option.value)} />
+          <ChoiceCard key={option.value} label={translateUi(option.label)} detail={translateUi(option.detail)} selected={value === option.value} onClick={() => onChange(option.value)} />
         ))}
       </div>
     </fieldset>
@@ -72,16 +79,17 @@ export function ChoiceGroup({ label, options, value, onChange, columns = "sm:gri
 }
 
 export function ChipChoices({ label, onToggle, options, selected, emptyLabel = "" }) {
+  useUiLocale();
   return (
     <fieldset className="min-w-0">
-      {label ? <legend className="mb-2 text-xs font-black uppercase tracking-wide text-zinc-500">{label}</legend> : null}
+      {label ? <legend className="mb-2 text-xs font-black uppercase tracking-wide text-zinc-500">{translateUi(label)}</legend> : null}
       <div className="flex flex-wrap gap-2">
         {emptyLabel ? (
           <button type="button" aria-pressed={!selected.length} onClick={() => onToggle(null)} className={`campaign-chip ${!selected.length ? "campaign-chip-selected" : ""}`}>{emptyLabel}</button>
         ) : null}
         {options.map((option) => (
           <button type="button" key={option.value} aria-pressed={selected.includes(option.value)} onClick={() => onToggle(option.value)} className={`campaign-chip ${selected.includes(option.value) ? "campaign-chip-selected" : ""}`}>
-            {option.label}
+            {translateUi(option.label)}
           </button>
         ))}
       </div>
@@ -90,20 +98,22 @@ export function ChipChoices({ label, onToggle, options, selected, emptyLabel = "
 }
 
 export function ToggleRow({ checked, detail, disabled = false, label, onChange }) {
+  useUiLocale();
   return (
     <button type="button" role="switch" aria-checked={checked} disabled={disabled} onClick={() => onChange(!checked)} className="flex w-full items-center gap-4 rounded-2xl border border-zinc-200 bg-white p-4 text-left focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-emerald-600 disabled:opacity-60 dark:border-zinc-800 dark:bg-zinc-950">
       <span aria-hidden="true" className={`relative h-7 w-12 shrink-0 rounded-full transition ${checked ? "bg-emerald-600" : "bg-zinc-300 dark:bg-zinc-700"}`}>
         <span className={`absolute top-1 h-5 w-5 rounded-full bg-white shadow transition-all ${checked ? "left-6" : "left-1"}`} />
       </span>
       <span className="min-w-0">
-        <strong className="block text-sm font-black">{label}</strong>
-        {detail ? <span className="mt-1 block text-xs font-semibold leading-5 text-zinc-500">{detail}</span> : null}
+        <strong className="block text-sm font-black">{translateUi(label)}</strong>
+        {detail ? <span className="mt-1 block text-xs font-semibold leading-5 text-zinc-500">{translateUi(detail)}</span> : null}
       </span>
     </button>
   );
 }
 
 export function Notice({ tone = "info", icon: Icon, children }) {
+  useUiLocale();
   const tones = {
     info: "border-sky-200 bg-sky-50 text-sky-900 dark:border-sky-900 dark:bg-sky-950/40 dark:text-sky-200",
     warning: "border-amber-300 bg-amber-50 text-amber-900 dark:border-amber-900 dark:bg-amber-950/40 dark:text-amber-200",
@@ -119,16 +129,18 @@ export function Notice({ tone = "info", icon: Icon, children }) {
 }
 
 export function ReviewRow({ label, value, children }) {
+  useUiLocale();
   return (
     <div className="grid gap-1 border-b border-zinc-100 py-3 last:border-b-0 sm:grid-cols-[10rem_1fr] sm:gap-4 dark:border-zinc-800">
-      <p className="text-xs font-black uppercase tracking-wide text-zinc-400">{label}</p>
-      <div className="min-w-0 break-words text-sm font-bold">{children || value || "Not set"}</div>
+      <p className="text-xs font-black uppercase tracking-wide text-zinc-400">{translateUi(label)}</p>
+      <div className="min-w-0 break-words text-sm font-bold">{children || value || i18nText("ui.literals.k93039e609d94")}</div>
     </div>
   );
 }
 
 /** Dialog with focus trapping, Escape to close and scroll containment. */
 export function Modal({ title, description = "", children, onClose, size = "max-w-lg", closeDisabled = false }) {
+  useUiLocale();
   const panelRef = useRef(null);
   const titleId = useId();
   const onCloseRef = useRef(onClose);
@@ -177,10 +189,10 @@ export function Modal({ title, description = "", children, onClose, size = "max-
       >
         <header className="flex items-start gap-3 border-b border-zinc-100 p-5 dark:border-zinc-800">
           <div className="min-w-0 flex-1">
-            <h2 id={titleId} className="text-lg font-black">{title}</h2>
-            {description ? <p className="mt-1 text-sm font-semibold text-zinc-500">{description}</p> : null}
+            <h2 id={titleId} className="text-lg font-black">{translateUi(title)}</h2>
+            {description ? <p className="mt-1 text-sm font-semibold text-zinc-500">{translateUi(description)}</p> : null}
           </div>
-          <button type="button" onClick={onClose} disabled={closeDisabled} aria-label="Close" className="grid h-10 w-10 shrink-0 place-items-center rounded-xl hover:bg-zinc-100 disabled:opacity-40 dark:hover:bg-zinc-800">
+          <button type="button" onClick={onClose} disabled={closeDisabled} aria-label={i18nText("ui.literals.kbbfa773e5a63")} className="grid h-10 w-10 shrink-0 place-items-center rounded-xl hover:bg-zinc-100 disabled:opacity-40 dark:hover:bg-zinc-800">
             <X size={18} />
           </button>
         </header>
@@ -191,6 +203,7 @@ export function Modal({ title, description = "", children, onClose, size = "max-
 }
 
 export function StatusChip({ status, label }) {
+  useUiLocale();
   const tones = {
     draft: "bg-zinc-100 text-zinc-700 ring-zinc-200",
     awaiting_approval: "bg-amber-50 text-amber-800 ring-amber-200",
@@ -202,5 +215,5 @@ export function StatusChip({ status, label }) {
     cancelled: "bg-rose-50 text-rose-700 ring-rose-200",
     failed: "bg-rose-50 text-rose-700 ring-rose-200",
   };
-  return <span className={`inline-flex rounded-full px-2.5 py-1 text-[10px] font-black uppercase tracking-wide ring-1 ${tones[status] || tones.draft}`}>{label}</span>;
+  return <span className={`inline-flex rounded-full px-2.5 py-1 text-[10px] font-black uppercase tracking-wide ring-1 ${tones[status] || tones.draft}`}>{translateUi(label)}</span>;
 }

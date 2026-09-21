@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
-import { friendlyErrorMessage } from "../../Backend/services/friendlyErrorService";
+import { friendlyErrorMessage, inlineErrorMessage } from "../../Backend/services/friendlyErrorService";
 import {
   AlertTriangle,
   ArrowRight,
@@ -29,6 +29,8 @@ import {
   setBusinessPlanAutoRenew,
 } from "../../Backend/services/businessSubscriptionService";
 import { showToast } from "../../Backend/services/toastService";
+import { t as i18nText } from "../../i18n/index";
+import { uiText as translateUi, useI18n as useUiLocale } from "../../i18n/index.js";
 
 const PLAN_ICONS = { free: Sparkles, pro: Crown, premium: Gem };
 const PLAN_STYLES = {
@@ -76,6 +78,7 @@ function planPricing(plan, interval) {
 }
 
 function UsageMeter({ label, current, limit, icon: Icon }) {
+  useUiLocale();
   const unlimited = limit === null;
   const percent = unlimited ? 0 : Math.min(100, Math.round((current / Math.max(1, limit)) * 100));
   const atLimit = !unlimited && current >= limit;
@@ -88,9 +91,9 @@ function UsageMeter({ label, current, limit, icon: Icon }) {
         </span>
         <div className="min-w-0 flex-1">
           <div className="flex items-center justify-between gap-3">
-            <p className="truncate text-sm font-black text-slate-900">{label}</p>
+            <p className="truncate text-sm font-black text-slate-900">{translateUi(label)}</p>
             <p className={`shrink-0 text-xs font-black ${atLimit ? "text-amber-700" : "text-slate-500"}`}>
-              {current} / {unlimited ? "Unlimited" : limit}
+              {current} / {unlimited ? i18nText("ui.literals.kb8bef37b7153") : limit}
             </p>
           </div>
           {!unlimited ? (
@@ -101,7 +104,7 @@ function UsageMeter({ label, current, limit, icon: Icon }) {
               />
             </div>
           ) : (
-            <p className="mt-1 text-xs font-bold text-violet-600">No product ceiling on this plan</p>
+            <p className="mt-1 text-xs font-bold text-violet-600">{i18nText("ui.literals.k140cc18a736a")}</p>
           )}
         </div>
       </div>
@@ -110,6 +113,7 @@ function UsageMeter({ label, current, limit, icon: Icon }) {
 }
 
 function PlanCard({ plan, currentCode, currentInterval, pendingCode, pendingInterval, interval, busy, onChoose }) {
+  useUiLocale();
   const Icon = PLAN_ICONS[plan.planCode] || Sparkles;
   const isFree = plan.planCode === "free";
   // Free ignores cadence; a paid plan is "current" only when both tier and
@@ -124,7 +128,7 @@ function PlanCard({ plan, currentCode, currentInterval, pendingCode, pendingInte
     <article className={`relative overflow-hidden rounded-[26px] border p-5 shadow-sm ${PLAN_STYLES[plan.planCode] || PLAN_STYLES.free}`}>
       {plan.planCode === "pro" ? (
         <span className="absolute right-0 top-0 rounded-bl-2xl bg-emerald-600 px-3 py-1.5 text-[10px] font-black uppercase tracking-wider text-white">
-          Most popular
+          {i18nText("ui.literals.k5adbdd07e7a4")}
         </span>
       ) : null}
       <div className="flex items-start gap-3">
@@ -135,7 +139,7 @@ function PlanCard({ plan, currentCode, currentInterval, pendingCode, pendingInte
           <h3 className="text-lg font-black text-slate-950">{plan.displayName}</h3>
           <p className="mt-0.5 text-sm font-bold text-slate-500">{pricing.priceLabel}</p>
           {!isFree && interval === "yearly" && pricing.monthlySaving > 0 ? (
-            <p className="mt-0.5 text-xs font-black text-emerald-600">Save {pricing.monthlySaving} credits a year</p>
+            <p className="mt-0.5 text-xs font-black text-emerald-600">{i18nText("ui.literals.kefc007a393f6")} {pricing.monthlySaving} {i18nText("ui.literals.k822b26a5a1c6")}</p>
           ) : null}
         </div>
       </div>
@@ -163,7 +167,7 @@ function PlanCard({ plan, currentCode, currentInterval, pendingCode, pendingInte
                 : "bg-slate-950 text-white hover:bg-slate-800"
         }`}
       >
-        {isCurrent ? "Current plan" : isPending ? "Scheduled" : isDeferred ? "Schedule this plan" : `Choose ${plan.displayName}`}
+        {isCurrent ? i18nText("ui.literals.kec5cfba8f01b") : isPending ? i18nText("ui.literals.k1cd1bdad468f") : isDeferred ? i18nText("ui.literals.k1cf1bb8bc6d8") : i18nText("ui.literals.k41d6c6f3b0bd", { value0: plan.displayName })}
         {!isCurrent && !isPending ? <ArrowRight size={16} /> : null}
       </button>
     </article>
@@ -171,6 +175,7 @@ function PlanCard({ plan, currentCode, currentInterval, pendingCode, pendingInte
 }
 
 export default function BusinessPlanScreen({ surface, entityId, entityName = "Your business" }) {
+  const { locale: memoLocale } = useUiLocale();
   const [state, setState] = useState(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState("");
@@ -194,7 +199,7 @@ export default function BusinessPlanScreen({ surface, entityId, entityName = "Yo
     try {
       setState(await fetchBusinessSubscription(surface, entityId, { sync: true }));
     } catch (loadError) {
-      setError(friendlyErrorMessage(loadError, "Unable to load plans right now."));
+      setError(inlineErrorMessage(loadError, "Unable to load plans right now."));
     } finally {
       if (!quiet) setLoading(false);
     }
@@ -225,16 +230,16 @@ export default function BusinessPlanScreen({ surface, entityId, entityName = "Yo
     if (!state) return [];
     if (surface === "urmall") {
       return [
-        { key: "products", label: "Active products", icon: Gauge },
-        { key: "admins", label: "Business admins", icon: Users },
+        { key: "products", label: i18nText("ui.literals.kcd372d5300fe"), icon: Gauge },
+        { key: "admins", label: i18nText("ui.literals.kb0f5fae31a3f"), icon: Users },
       ];
     }
     return [
-      { key: "operators", label: "Company operators", icon: Users },
-      { key: "vehicles", label: "Registered vehicles", icon: Gauge },
-      { key: "admins", label: "Company admins", icon: ShieldCheck },
+      { key: "operators", label: i18nText("ui.literals.k06b2b4443c55"), icon: Users },
+      { key: "vehicles", label: i18nText("ui.literals.k4e84be89368c"), icon: Gauge },
+      { key: "admins", label: i18nText("ui.literals.k0b4b3550a31a"), icon: ShieldCheck },
     ];
-  }, [state, surface]);
+  }, [state, surface, memoLocale]);
 
   async function confirmPlanChange() {
     if (!selectedPlan || busy) return;
@@ -249,7 +254,7 @@ export default function BusinessPlanScreen({ surface, entityId, entityName = "Yo
         selectedInterval,
       );
       const cadence = selectedPlan.planCode !== "free" && selectedInterval === "yearly" ? " (yearly)" : "";
-      showToast(scheduled ? `${selectedPlan.displayName} is scheduled for the next renewal.` : `${selectedPlan.displayName} plan${cadence} is active.`, "success");
+      showToast(scheduled ? i18nText("ui.literals.kdbc34ee5d013", { value0: selectedPlan.displayName }) : i18nText("ui.literals.ke2754335f5b0", { value0: selectedPlan.displayName, value1: cadence }), "success");
       setSelectedPlan(null);
     } catch (changeError) {
       showToast(friendlyErrorMessage(changeError, "Unable to change this plan."), "danger");
@@ -275,7 +280,7 @@ export default function BusinessPlanScreen({ surface, entityId, entityName = "Yo
     setBusy("renewal");
     try {
       setState(await setBusinessPlanAutoRenew(surface, entityId, next));
-      showToast(next ? "Automatic renewal is on." : "Automatic renewal is off.", "success");
+      showToast(next ? i18nText("ui.literals.k7ba71d9d2e26") : i18nText("ui.literals.k2c90ca26876f"), "success");
     } catch (renewError) {
       showToast(friendlyErrorMessage(renewError, "Unable to change automatic renewal."), "danger");
     } finally {
@@ -288,7 +293,7 @@ export default function BusinessPlanScreen({ surface, entityId, entityName = "Yo
     setBusy("operator-pack");
     try {
       setState(await buyOperatorCapacityPack(entityId));
-      showToast(`${OPERATOR_CAPACITY_PACK_SIZE} operator spaces were added.`, "success");
+      showToast(i18nText("ui.literals.k539f5e59ee29", { value0: OPERATOR_CAPACITY_PACK_SIZE }), "success");
     } catch (packError) {
       showToast(friendlyErrorMessage(packError, "Unable to add operator capacity."), "danger");
     } finally {
@@ -308,9 +313,9 @@ export default function BusinessPlanScreen({ surface, entityId, entityName = "Yo
     return (
       <div className="mx-auto max-w-lg px-4 py-10 text-center">
         <AlertTriangle className="mx-auto text-amber-600" size={30} />
-        <p className="mt-3 text-sm font-bold text-slate-700">{error || "Plans are unavailable."}</p>
+        <p className="mt-3 text-sm font-bold text-slate-700">{error || i18nText("ui.literals.k88c331bef6eb")}</p>
         <button type="button" onClick={() => load()} className="mt-4 inline-flex h-11 items-center gap-2 rounded-2xl bg-slate-950 px-5 text-sm font-black text-white">
-          <RefreshCw size={16} /> Retry
+          <RefreshCw size={16} /> {i18nText("ui.literals.k9f5cd8a2e880")}
         </button>
       </div>
     );
@@ -334,7 +339,7 @@ export default function BusinessPlanScreen({ surface, entityId, entityName = "Yo
       {!state.available ? (
         <div className="flex items-start gap-3 rounded-2xl border border-amber-200 bg-amber-50 p-4 text-amber-900">
           <AlertTriangle size={19} className="mt-0.5 shrink-0" />
-          <p className="text-sm font-semibold leading-5">The plan service is waiting for the latest database migration. Existing business actions remain available during rollout.</p>
+          <p className="text-sm font-semibold leading-5">{i18nText("ui.literals.kdb45706c4bb9")}</p>
         </div>
       ) : null}
 
@@ -344,10 +349,10 @@ export default function BusinessPlanScreen({ surface, entityId, entityName = "Yo
       >
         <div className="flex items-start justify-between gap-4">
           <div className="min-w-0">
-            <p className="text-xs font-black uppercase tracking-[0.18em] text-emerald-300">Plans & capacity</p>
+            <p className="text-xs font-black uppercase tracking-[0.18em] text-emerald-300">{i18nText("ui.literals.kef395ca5a659")}</p>
             <h2 className="mt-2 truncate text-2xl font-black">{entityName}</h2>
             <p className="mt-1 text-sm font-semibold text-slate-300">
-              {entitlement.planName} plan{subscription.planCode !== "free" ? ` · ${subscription.billingInterval === "yearly" ? "Yearly" : "Monthly"}` : ""} · {entitlement.status === "expired" ? "Paid plan expired" : entitlement.status === "grace" ? `Grace until ${graceDate}` : renewalDate ? `${subscription.autoRenew ? "Renews" : "Ends"} ${renewalDate}` : "No renewal required"}
+              {entitlement.planName} {i18nText("ui.literals.kbed97175b06e")}{subscription.planCode !== "free" ? ` · ${subscription.billingInterval === "yearly" ? "Yearly" : "Monthly"}` : ""} · {entitlement.status === "expired" ? i18nText("ui.literals.kbdc792551ee6") : entitlement.status === "grace" ? i18nText("ui.literals.k7e20d07186c9", { value0: graceDate }) : renewalDate ? `${subscription.autoRenew ? "Renews" : "Ends"} ${renewalDate}` : i18nText("ui.literals.k23848f280e14")}
             </p>
           </div>
           <span className="grid h-12 w-12 shrink-0 place-items-center rounded-2xl bg-white/10 text-emerald-300">
@@ -359,11 +364,11 @@ export default function BusinessPlanScreen({ surface, entityId, entityName = "Yo
           <div className="flex min-w-0 items-center gap-3">
             <WalletCards size={20} className="shrink-0 text-emerald-300" />
             <div>
-              <p className="text-xs font-bold text-slate-400">Visibility Credit wallet</p>
-              <p className="text-lg font-black">{state.walletBalance} credits</p>
+              <p className="text-xs font-bold text-slate-400">{i18nText("ui.literals.kf88d3143c08a")}</p>
+              <p className="text-lg font-black">{state.walletBalance} {i18nText("ui.literals.k66c22fad3a99")}</p>
             </div>
           </div>
-          <button type="button" onClick={() => load({ quiet: true })} disabled={Boolean(busy)} className="grid h-10 w-10 place-items-center rounded-xl bg-white/10 text-white disabled:opacity-50" aria-label="Refresh plan">
+          <button type="button" onClick={() => load({ quiet: true })} disabled={Boolean(busy)} className="grid h-10 w-10 place-items-center rounded-xl bg-white/10 text-white disabled:opacity-50" aria-label={i18nText("ui.literals.ka0d9da3b5101")}>
             <RefreshCw size={17} className={busy ? "animate-spin" : ""} />
           </button>
         </div>
@@ -373,38 +378,38 @@ export default function BusinessPlanScreen({ surface, entityId, entityName = "Yo
         <div className="flex items-start gap-3 rounded-2xl border border-amber-200 bg-amber-50 p-4 text-amber-950">
           <AlertTriangle size={19} className="mt-0.5 shrink-0 text-amber-600" />
           <div>
-            <p className="text-sm font-black">Your plan is in its safety grace period</p>
-            <p className="mt-1 text-sm font-semibold leading-5 text-amber-800">Existing resources are preserved. Add credits or select a plan before {graceDate || "the grace period ends"} to keep adding at this capacity.</p>
+            <p className="text-sm font-black">{i18nText("ui.literals.ke980fc61e207")}</p>
+            <p className="mt-1 text-sm font-semibold leading-5 text-amber-800">{i18nText("ui.literals.kdd26e7a58990")} {graceDate || i18nText("ui.literals.kefa2bd19dbd1")} {i18nText("ui.literals.kee0db1530e65")}</p>
           </div>
         </div>
       ) : null}
 
       {surface === "urmall" ? (
         <section className="rounded-2xl border border-amber-200 bg-amber-50 p-4 text-amber-950">
-          <p className="text-sm font-black">Business types and expiry</p>
-          <p className="mt-1 text-sm font-semibold leading-6">Your highest active UrMall plan unlocks 1 business type on Free, 2 on Pro, or all 4 on Premium. Each business has its own inventory capacity and billing.</p>
-          <p className="mt-2 text-sm font-semibold leading-6">We remind you 7, 3, and 1 day before expiry. If a paid plan expires without renewal, only 10 published items stay visible. Choose which 10 to keep in your dashboard; the newest are selected by default. Renew or upgrade within 15 days to prevent permanent deletion of excess items and drafts.</p>
+          <p className="text-sm font-black">{i18nText("ui.literals.kc685274b8754")}</p>
+          <p className="mt-1 text-sm font-semibold leading-6">{i18nText("ui.literals.k1ecaa9b2d462")}</p>
+          <p className="mt-2 text-sm font-semibold leading-6">{i18nText("ui.literals.k4172026634c5")}</p>
         </section>
       ) : null}
 
       <section>
         <div className="mb-3 flex items-end justify-between gap-3">
           <div>
-            <p className="text-xs font-black uppercase tracking-wider text-slate-400">Current usage</p>
-            <h2 className="mt-1 text-xl font-black text-slate-950">Capacity at a glance</h2>
+            <p className="text-xs font-black uppercase tracking-wider text-slate-400">{i18nText("ui.literals.ke184fd9cf46e")}</p>
+            <h2 className="mt-1 text-xl font-black text-slate-950">{i18nText("ui.literals.k36f1b23bcbb8")}</h2>
           </div>
           {subscription.pendingPlanCode ? (
             <span className="rounded-full bg-amber-100 px-3 py-1 text-xs font-black text-amber-800">
               {subscription.pendingPlanCode === "free"
-                ? "Free scheduled"
-                : `${subscription.pendingPlanCode} ${subscription.pendingBillingInterval || "monthly"} scheduled`}
+                ? i18nText("ui.literals.kdaf778d9d571")
+                : i18nText("ui.literals.k8088648459ee", { value0: subscription.pendingPlanCode, value1: subscription.pendingBillingInterval || "monthly" })}
             </span>
           ) : null}
         </div>
         <div className="grid gap-3 sm:grid-cols-2">
           {usageRows.map((row) => {
             const capacity = getCapacityStatus(state, row.key);
-            return <UsageMeter key={row.key} label={row.label} current={capacity.current} limit={capacity.limit} icon={row.icon} />;
+            return <UsageMeter key={row.key} label={translateUi(row.label)} current={capacity.current} limit={capacity.limit} icon={row.icon} />;
           })}
         </div>
       </section>
@@ -412,8 +417,8 @@ export default function BusinessPlanScreen({ surface, entityId, entityName = "Yo
       {subscription.planCode !== "free" ? (
         <section className="flex items-center justify-between gap-4 rounded-2xl border border-slate-200 bg-white p-4 shadow-sm">
           <div>
-            <p className="text-sm font-black text-slate-950">Automatic renewal</p>
-            <p className="mt-0.5 text-xs font-semibold leading-5 text-slate-500">Uses Visibility Credits at renewal. You receive notices 7, 3, and 1 day before.</p>
+            <p className="text-sm font-black text-slate-950">{i18nText("ui.literals.k1a14b840e0e9")}</p>
+            <p className="mt-0.5 text-xs font-semibold leading-5 text-slate-500">{i18nText("ui.literals.k8e84fe25b197")}</p>
           </div>
           <button
             type="button"
@@ -429,9 +434,9 @@ export default function BusinessPlanScreen({ surface, entityId, entityName = "Yo
       ) : null}
 
       <section>
-        <p className="text-xs font-black uppercase tracking-wider text-slate-400">Plan options</p>
-        <h2 className="mt-1 text-xl font-black text-slate-950">Choose room to grow</h2>
-        <p className="mt-1 text-sm font-semibold leading-6 text-slate-500">{surface === "urmall" ? "Upgrades start immediately. Downgrades start at the next renewal. Moving to Free limits visibility to 10 published items and starts the 15-day retention window explained above." : "Upgrades start immediately. Downgrades are scheduled for the next renewal, and no existing resources are deleted."}</p>
+        <p className="text-xs font-black uppercase tracking-wider text-slate-400">{i18nText("ui.literals.k108eb3e8ed65")}</p>
+        <h2 className="mt-1 text-xl font-black text-slate-950">{i18nText("ui.literals.ka053256d7de9")}</h2>
+        <p className="mt-1 text-sm font-semibold leading-6 text-slate-500">{surface === "urmall" ? i18nText("ui.literals.kfe609faac816") : i18nText("ui.literals.k55a471f5eac7")}</p>
 
         <div className="relative mt-4 grid w-full max-w-sm grid-cols-2 gap-1 rounded-full border border-slate-200 bg-slate-100 p-1">
           <span
@@ -443,8 +448,8 @@ export default function BusinessPlanScreen({ surface, entityId, entityName = "Yo
             }}
           />
           {[
-            { id: "monthly", label: "Monthly" },
-            { id: "yearly", label: "Yearly" },
+            { id: "monthly", label: i18nText("ui.literals.kd31edb7b8a94") },
+            { id: "yearly", label: i18nText("ui.literals.k7622eb5aa42d") },
           ].map((option) => {
             const active = billingInterval === option.id;
             return (
@@ -457,10 +462,10 @@ export default function BusinessPlanScreen({ surface, entityId, entityName = "Yo
                   active ? "text-slate-950" : "text-slate-500 hover:text-slate-700"
                 }`}
               >
-                {option.label}
+                {translateUi(option.label)}
                 {option.id === "yearly" ? (
                   <span className={`rounded-full px-1.5 py-0.5 text-[10px] font-black uppercase tracking-wide ${active ? "bg-emerald-100 text-emerald-700" : "bg-emerald-600/10 text-emerald-600"}`}>
-                    2 months free
+                    {i18nText("ui.literals.ke0934649b86f")}
                   </span>
                 ) : null}
               </button>
@@ -493,11 +498,11 @@ export default function BusinessPlanScreen({ surface, entityId, entityName = "Yo
           <div className="flex items-start gap-3">
             <span className="grid h-11 w-11 shrink-0 place-items-center rounded-2xl bg-violet-100 text-violet-700"><PackagePlus size={20} /></span>
             <div className="min-w-0 flex-1">
-              <h3 className="text-base font-black text-violet-950">Need more operators?</h3>
-              <p className="mt-1 text-sm font-semibold leading-5 text-violet-800">Add {OPERATOR_CAPACITY_PACK_SIZE} operator spaces for {OPERATOR_CAPACITY_PACK_CREDITS} Visibility Credits until the current Premium period ends.</p>
+              <h3 className="text-base font-black text-violet-950">{i18nText("ui.literals.k0dac9ffaf77c")}</h3>
+              <p className="mt-1 text-sm font-semibold leading-5 text-violet-800">{i18nText("ui.literals.k61cc55aa0453")} {OPERATOR_CAPACITY_PACK_SIZE} {i18nText("ui.literals.kcd51da8038f8")} {OPERATOR_CAPACITY_PACK_CREDITS} {i18nText("ui.literals.k73fa72a77097")}</p>
               <button type="button" disabled={Boolean(busy)} onClick={addOperatorPack} className="mt-4 inline-flex h-11 items-center gap-2 rounded-2xl bg-violet-700 px-4 text-sm font-black text-white disabled:opacity-50">
                 {busy === "operator-pack" ? <LoaderCircle size={16} className="animate-spin" /> : <PackagePlus size={16} />}
-                Add capacity pack
+                {i18nText("ui.literals.k08cb36b30f87")}
               </button>
             </div>
           </div>
@@ -506,33 +511,33 @@ export default function BusinessPlanScreen({ surface, entityId, entityName = "Yo
 
       {selectedPlan ? (
         <div className="fixed inset-0 z-[1600] flex items-center justify-center bg-slate-950/55 p-4 backdrop-blur-sm" role="presentation">
-          <section role="dialog" aria-modal="true" aria-label="Confirm plan change" className="kt-modal-enter w-full max-w-md rounded-[28px] bg-white p-6 shadow-2xl">
+          <section role="dialog" aria-modal="true" aria-label={i18nText("ui.literals.k7495d4fe4c84")} className="kt-modal-enter w-full max-w-md rounded-[28px] bg-white p-6 shadow-2xl">
             <div className="flex items-start justify-between gap-4">
               <span className={`grid h-12 w-12 place-items-center rounded-2xl ${PLAN_ICON_STYLES[selectedPlan.planCode]}`}>
                 {(() => { const Icon = PLAN_ICONS[selectedPlan.planCode] || Sparkles; return <Icon size={21} />; })()}
               </span>
               <button type="button" onClick={() => setSelectedPlan(null)} disabled={Boolean(busy)} className="grid h-10 w-10 place-items-center rounded-xl bg-slate-100 text-slate-600"><X size={18} /></button>
             </div>
-            <h2 className="mt-4 text-xl font-black text-slate-950">{selectedIsDeferred ? `Schedule ${selectedPlan.displayName}?` : `Activate ${selectedPlan.displayName}?`}</h2>
+            <h2 className="mt-4 text-xl font-black text-slate-950">{selectedIsDeferred ? i18nText("ui.literals.k278d08a815e1", { value0: selectedPlan.displayName }) : i18nText("ui.literals.k6a6adb0fd670", { value0: selectedPlan.displayName })}</h2>
             <p className="mt-2 text-sm font-semibold leading-6 text-slate-600">
               {selectedIsDeferred
                 ? surface === "urmall" && selectedPlan.planCode === "free"
-                  ? "The change starts at your next renewal. On Free, only your selected 10 published items remain visible. Excess items and drafts will be permanently deleted 15 days later unless you renew or upgrade."
-                  : "The change starts at your next renewal. Current capacity remains available until then."
+                  ? i18nText("ui.literals.kb422d4f5d492")
+                  : i18nText("ui.literals.k0f7c0316b2e6")
                 : selectedPricing.cost > 0
                   ? selectedInterval === "yearly"
-                    ? `This starts a 12-month term and uses up to ${selectedPricing.cost} Visibility Credits.`
-                    : `This uses up to ${selectedPricing.cost} Visibility Credits. Active-period upgrades are automatically prorated.`
-                  : "The Free plan has no credit charge."}
+                    ? i18nText("ui.literals.k548c19a5ebc1", { value0: selectedPricing.cost })
+                    : i18nText("ui.literals.kde6c06d91d2a", { value0: selectedPricing.cost })
+                  : i18nText("ui.literals.kf649b2a11b29")}
             </p>
             {selectedPricing.cost > state.walletBalance && !selectedIsDeferred ? (
-              <p className="mt-3 rounded-2xl bg-amber-50 p-3 text-sm font-bold text-amber-800">Your wallet may need more credits before this plan can activate.</p>
+              <p className="mt-3 rounded-2xl bg-amber-50 p-3 text-sm font-bold text-amber-800">{i18nText("ui.literals.k4a8050d4f6a2")}</p>
             ) : null}
             <div className="mt-5 grid grid-cols-2 gap-2">
-              <button type="button" disabled={Boolean(busy)} onClick={() => setSelectedPlan(null)} className="h-12 rounded-2xl bg-slate-100 text-sm font-black text-slate-700">Not now</button>
+              <button type="button" disabled={Boolean(busy)} onClick={() => setSelectedPlan(null)} className="h-12 rounded-2xl bg-slate-100 text-sm font-black text-slate-700">{i18nText("ui.literals.ke45714907316")}</button>
               <button type="button" disabled={Boolean(busy)} onClick={confirmPlanChange} className="flex h-12 items-center justify-center gap-2 rounded-2xl bg-slate-950 text-sm font-black text-white disabled:opacity-50">
                 {busy ? <LoaderCircle size={16} className="animate-spin" /> : null}
-                Confirm
+                {i18nText("ui.literals.k04a212215ef9")}
               </button>
             </div>
           </section>

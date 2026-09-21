@@ -11,6 +11,7 @@ import Avatar from "../../../shared/Avatar";
 import EmptyState from "../../../shared/EmptyState";
 import FeedPost from "./components/FeedPost";
 import { t as i18nText } from "../../../../../i18n/index";
+import { useI18n as useUiLocale } from "../../../../../i18n/index.js";
 
 export default function FeedList({
   posts,
@@ -382,6 +383,7 @@ const IMPRESSION_SESSION = new Set();
 const VIEW_SESSION = new Set();
 
 function ObservedFeedPost({ children, post }) {
+  useUiLocale();
   const containerRef = useRef(null);
 
   useEffect(() => {
@@ -425,6 +427,7 @@ function ObservedFeedPost({ children, post }) {
 }
 
 function FeedListSkeleton() {
+  useUiLocale();
   return (
     <div className="mt-4 w-full overflow-x-clip px-4 pb-8 sm:px-5 lg:px-8">
       <div className="space-y-4">

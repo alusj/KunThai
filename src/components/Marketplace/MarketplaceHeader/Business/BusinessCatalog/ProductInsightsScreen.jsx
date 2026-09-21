@@ -17,6 +17,7 @@ import { formatCurrency } from "../../../../../Backend/utils/formatCurrency";
 import { useI18n, t } from "../../../../../i18n";
 import AnimatedMetricValue from "../BusinessInsights/AnimatedMetricValue";
 import { t as i18nText } from "../../../../../i18n/index";
+import { uiText as translateUi, useI18n as useUiLocale } from "../../../../../i18n/index.js";
 
 const TONES = {
   sky: "bg-sky-500/15 text-sky-300 ring-sky-400/20",
@@ -26,17 +27,19 @@ const TONES = {
 };
 
 function StatCard({ delay, detail, icon: Icon, label, tone, value }) {
+  useUiLocale();
   return (
     <article className="kt-catalog-insight-tile group min-h-[164px] rounded-[24px] border border-white/10 bg-white/[0.055] p-4 transition-all duration-300 hover:-translate-y-1 hover:border-white/20 hover:bg-white/[0.075]" style={{ animationDelay: `${delay}ms` }}>
       <span className={`grid h-11 w-11 place-items-center rounded-2xl ring-1 transition-transform duration-300 group-hover:scale-105 ${TONES[tone] || TONES.sky}`}><Icon size={20} /></span>
       <AnimatedMetricValue value={value} className="mt-5 block truncate text-[1.7rem] font-black leading-none text-white" />
-      <p className="mt-2 text-[11px] font-black uppercase tracking-[0.18em] text-slate-400">{label}</p>
-      {detail ? <p className="mt-2 truncate text-xs font-semibold text-slate-500">{detail}</p> : null}
+      <p className="mt-2 text-[11px] font-black uppercase tracking-[0.18em] text-slate-400">{translateUi(label)}</p>
+      {detail ? <p className="mt-2 truncate text-xs font-semibold text-slate-500">{translateUi(detail)}</p> : null}
     </article>
   );
 }
 
 function ProductJourney({ insights }) {
+  useUiLocale();
   const max = Math.max(1, insights.views);
   const rows = [
     { label: t("urmall.biz.cat.views"), value: insights.views, width: insights.views ? 100 : 3, color: "from-sky-500 to-cyan-400" },
@@ -49,7 +52,7 @@ function ProductJourney({ insights }) {
       <div className="mt-5 space-y-4">
         {rows.map((row, index) => (
           <div key={row.label}>
-            <div className="flex items-center justify-between text-xs font-bold text-slate-400"><span>{row.label}</span><AnimatedMetricValue value={row.value} className="font-black text-white" /></div>
+            <div className="flex items-center justify-between text-xs font-bold text-slate-400"><span>{translateUi(row.label)}</span><AnimatedMetricValue value={row.value} className="font-black text-white" /></div>
             <div className="mt-2 h-2.5 overflow-hidden rounded-full bg-white/[0.07]"><div className={`kt-catalog-insight-bar h-full rounded-full bg-gradient-to-r ${row.color}`} style={{ "--kt-insight-width": `${row.width}%`, animationDelay: `${520 + index * 140}ms` }} /></div>
           </div>
         ))}
@@ -64,6 +67,7 @@ function formatPromotionDate(value) {
 }
 
 function PromotionSnapshot({ insights }) {
+  useUiLocale();
   const promotion = insights.activePromotion || insights.latestPromotion;
   if (!promotion) {
     return (
@@ -97,10 +101,12 @@ function PromotionSnapshot({ insights }) {
 }
 
 function MiniMetric({ label, value }) {
-  return <div className="rounded-xl bg-white/[0.05] px-2 py-3"><AnimatedMetricValue value={value} className="block truncate text-sm font-black text-white" /><span className="mt-1 block truncate text-[9px] font-black uppercase tracking-wide text-slate-500">{label}</span></div>;
+  useUiLocale();
+  return <div className="rounded-xl bg-white/[0.05] px-2 py-3"><AnimatedMetricValue value={value} className="block truncate text-sm font-black text-white" /><span className="mt-1 block truncate text-[9px] font-black uppercase tracking-wide text-slate-500">{translateUi(label)}</span></div>;
 }
 
 function InsightsSkeleton() {
+  useUiLocale();
   return <div className="rounded-[28px] bg-slate-950 p-4"><div className="h-32 animate-pulse rounded-[24px] bg-white/[0.06]" /><div className="mt-3 grid grid-cols-2 gap-3">{[0, 1, 2, 3, 4, 5].map((item) => <div key={item} className="h-40 animate-pulse rounded-[24px] bg-white/[0.06]" />)}</div></div>;
 }
 

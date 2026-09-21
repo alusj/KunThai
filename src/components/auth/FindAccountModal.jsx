@@ -7,11 +7,14 @@ import {
   sendKunThaiAccountVerificationLink,
 } from "../../Backend/services/accountIdentityService";
 import { t as i18nText } from "../../i18n/index";
+import { uiText as translateUi, useI18n as useUiLocale } from "../../i18n/index.js";
+import { inlineErrorMessage } from "../../Backend/services/friendlyErrorService";
 
 const VERIFICATION_SENT_MESSAGE =
   "We sent a secure verification link to your email. Open it to continue.";
 
 export default function FindAccountModal({ country, phone, redirectTo, onClose, onTryAnotherNumber }) {
+  useUiLocale();
   const [email, setEmail] = useState("");
   const [account, setAccount] = useState(null);
   const [sent, setSent] = useState(false);
@@ -67,7 +70,7 @@ export default function FindAccountModal({ country, phone, redirectTo, onClose, 
 
       setAccount(match);
     } catch (lookupError) {
-      setError(lookupError.message || i18nText("ui.literals.kb8ef41c84939"));
+      setError(inlineErrorMessage(lookupError, i18nText("ui.literals.kb8ef41c84939")));
     } finally {
       setLoading(false);
     }
@@ -81,7 +84,7 @@ export default function FindAccountModal({ country, phone, redirectTo, onClose, 
       await sendKunThaiAccountVerificationLink(email, redirectTo);
       setSent(true);
     } catch (sendError) {
-      setError(sendError.message || i18nText("ui.literals.k2b5a126eb050"));
+      setError(inlineErrorMessage(sendError, i18nText("ui.literals.k2b5a126eb050")));
     } finally {
       setLoading(false);
     }
@@ -198,7 +201,7 @@ export default function FindAccountModal({ country, phone, redirectTo, onClose, 
 
           {error ? (
             <p className="mt-4 rounded-xl border border-rose-200 bg-rose-50 px-4 py-3 text-sm text-rose-700" role="alert">
-              {error}
+              {translateUi(error)}
             </p>
           ) : null}
 

@@ -5,6 +5,7 @@ import { formatCurrency } from "../../../../../Backend/utils/formatCurrency";
 import { useI18n, t } from "../../../../../i18n";
 import TodayMetric from "./TodayMetric";
 import TodaySummaryPanel from "./TodaySummaryPanel";
+import { uiText as translateUi } from "../../../../../i18n/index.js";
 
 export default function TodaySummaryCard({ today }) {
   useI18n();
@@ -70,7 +71,7 @@ export default function TodaySummaryCard({ today }) {
           <TodayMetric
             key={item.key}
             icon={item.icon}
-            label={item.label}
+            label={translateUi(item.label)}
             value={item.value}
             tone={item.tone}
             active={activeItem.key === item.key}

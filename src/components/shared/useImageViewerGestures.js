@@ -166,7 +166,14 @@ export default function useImageViewerGestures({
     if (!enabled || (event.pointerType === "mouse" && event.button !== 0)) return;
     window.clearTimeout(singleTapTimerRef.current);
     pointersRef.current.set(event.pointerId, { x: event.clientX, y: event.clientY });
-    event.currentTarget.setPointerCapture?.(event.pointerId);
+    // Capture is an optimisation, not a requirement: it throws when the pointer
+    // is no longer active, and that must not abort the rest of the gesture
+    // setup (a second finger would otherwise never start a pinch).
+    try {
+      event.currentTarget.setPointerCapture?.(event.pointerId);
+    } catch {
+      // Ignore: the gesture still tracks the pointer from the events.
+    }
 
     // A second finger cancels any in-flight single-pointer drag and starts a
     // pinch; a third or later finger is ignored.

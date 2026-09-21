@@ -1,8 +1,10 @@
 import { Bike, Clock, Store } from "lucide-react";
 
 import { useI18n, t } from "../../../../../i18n";
+import { uiText as translateUi, useI18n as useUiLocale } from "../../../../../i18n/index.js";
 
 function StatusPill({ icon: Icon, label, active }) {
+  useUiLocale();
   return (
     <span
       className={[
@@ -11,7 +13,7 @@ function StatusPill({ icon: Icon, label, active }) {
       ].join(" ")}
     >
       <Icon size={14} strokeWidth={2.3} />
-      {label}
+      {translateUi(label)}
     </span>
   );
 }

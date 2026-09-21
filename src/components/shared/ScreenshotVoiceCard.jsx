@@ -11,6 +11,9 @@ import {
 
 import { createUserCareFeedback, validateUserCareAttachment } from "../../Backend/services/explore/userCareService";
 import { t as i18nText } from "../../i18n/index";
+import { uiText as translateUi, useI18n as useUiLocale } from "../../i18n/index.js";
+import { inlineErrorMessage } from "../../Backend/services/friendlyErrorService";
+import { announceConnectionTrouble } from "../../Backend/services/networkService";
 
 const FEEDBACK_TYPES = [
   ["idea", "Idea"],
@@ -31,6 +34,7 @@ function formatLabel(value) {
 // title, message, screenshot, and voice note) on the screen the user is
 // already on — no navigation to the Explore menu.
 export default function ScreenshotVoiceCard({ category, currentScreen, initialScreenshot = null, onClose }) {
+  useUiLocale();
   const [form, setForm] = useState(() => ({
     feedbackType: "bug",
     category: CATEGORIES.includes(category) ? category : "other",
@@ -174,7 +178,9 @@ export default function ScreenshotVoiceCard({ category, currentScreen, initialSc
       return;
     }
     if (!navigator.onLine) {
-      setFeedback(i18nText("ui.literals.kc96504d16779"));
+      // The global network toast is the offline notice; the form keeps its
+      // contents so it can be sent once reconnected.
+      if (!announceConnectionTrouble()) setFeedback(i18nText("ui.literals.kc96504d16779"));
       return;
     }
 
@@ -184,7 +190,7 @@ export default function ScreenshotVoiceCard({ category, currentScreen, initialSc
       await createUserCareFeedback({ ...form, title, message, screenshot, voiceNote, currentScreen });
       setSent(true);
     } catch (error) {
-      setFeedback(error.message || i18nText("ui.literals.k5b75435c2c92"));
+      setFeedback(inlineErrorMessage(error, i18nText("ui.literals.k5b75435c2c92")));
     } finally {
       setSending(false);
     }
@@ -230,7 +236,7 @@ export default function ScreenshotVoiceCard({ category, currentScreen, initialSc
         ) : (
           <form onSubmit={handleSubmit} className="mt-4 space-y-3">
             {feedback ? (
-              <p role="status" className="rounded-2xl bg-amber-50 px-4 py-2.5 text-xs font-black text-amber-800">{feedback}</p>
+              <p role="status" className="rounded-2xl bg-amber-50 px-4 py-2.5 text-xs font-black text-amber-800">{translateUi(feedback)}</p>
             ) : null}
 
             <div className="grid grid-cols-2 gap-2">
@@ -242,7 +248,7 @@ export default function ScreenshotVoiceCard({ category, currentScreen, initialSc
                   className="h-11 w-full rounded-2xl bg-slate-100 px-3 text-sm font-black text-slate-800 outline-none"
                 >
                   {FEEDBACK_TYPES.map(([value, label]) => (
-                    <option key={value} value={value}>{label}</option>
+                    <option key={value} value={value}>{translateUi(label)}</option>
                   ))}
                 </select>
               </label>
@@ -294,7 +300,7 @@ export default function ScreenshotVoiceCard({ category, currentScreen, initialSc
                 aria-label={screenshot ? i18nText("ui.literals.kd66871ffd8e9") : i18nText("ui.literals.k5c4e7b7a7b55")}
               >
                 {screenshotPreview ? (
-                  <img src={screenshotPreview} alt="Attached screenshot" className="h-10 w-14 rounded-lg object-cover" />
+                  <img src={screenshotPreview} alt={i18nText("ui.literals.k43e9ee9712da")} className="h-10 w-14 rounded-lg object-cover" />
                 ) : (
                   <HiOutlineCamera className="text-xl text-sky-600" />
                 )}

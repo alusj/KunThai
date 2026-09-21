@@ -1,5 +1,7 @@
 
-import { t as i18nText } from "../../../../../i18n/index";export default function NotificationAction({ followed, onFollowBack, type }) {
+import { t as i18nText } from "../../../../../i18n/index";
+import { useI18n as useUiLocale } from "../../../../../i18n/index.js";export default function NotificationAction({ followed, onFollowBack, type }) {
+  useUiLocale();
   if (type === "follow" || type === "connect") {
     return (
       <button

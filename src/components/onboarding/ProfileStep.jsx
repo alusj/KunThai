@@ -20,6 +20,7 @@ import OnboardingFrame from "./OnboardingFrame";
 import { scrollToFirstBlockingFieldSoon } from "../shared/formValidationNavigation";
 import { useI18n, t } from "../../i18n";
 import { t as i18nText } from "../../i18n/index";
+import { uiText as translateUi, useI18n as useUiLocale } from "../../i18n/index.js";
 
 // KunThai's minimum age to hold an account.
 const MINIMUM_AGE = 13;
@@ -88,6 +89,7 @@ const platformIcons = {
 };
 
 function SocialLinkInput({ index, onChange, value }) {
+  useUiLocale();
   const platform = detectSocialPlatform(value?.url);
   const Icon = platformIcons[platform?.id];
 
@@ -121,8 +123,9 @@ function clearFieldError(setFieldErrors, field) {
 }
 
 function InlineFieldError({ message }) {
+  useUiLocale();
   if (!message) return null;
-  return <span className="mt-2 block text-xs font-semibold text-rose-600" role="alert">{message}</span>;
+  return <span className="mt-2 block text-xs font-semibold text-rose-600" role="alert">{translateUi(message)}</span>;
 }
 
 export default function ProfileStep({ values, saving = false, error, errorCode = "", onChange, onBack, onNext }) {
@@ -230,7 +233,7 @@ export default function ProfileStep({ values, saving = false, error, errorCode =
                   aria-invalid={fieldErrors.firstName ? "true" : undefined}
                   className={`w-full rounded-[20px] border bg-slate-50 px-4 py-3 outline-none focus:border-sky-400 ${fieldErrors.firstName ? "border-rose-300" : "border-slate-200"}`}
                 />
-                <InlineFieldError message={fieldErrors.firstName} />
+                <InlineFieldError message={translateUi(fieldErrors.firstName)} />
               </label>
 
               <label className="block">
@@ -252,7 +255,7 @@ export default function ProfileStep({ values, saving = false, error, errorCode =
                   aria-invalid={fieldErrors.lastName ? "true" : undefined}
                   className={`w-full rounded-[20px] border bg-slate-50 px-4 py-3 outline-none focus:border-sky-400 ${fieldErrors.lastName ? "border-rose-300" : "border-slate-200"}`}
                 />
-                <InlineFieldError message={fieldErrors.lastName} />
+                <InlineFieldError message={translateUi(fieldErrors.lastName)} />
               </label>
 
               <label className="block" data-field-error={fieldErrors.dateOfBirth ? "true" : undefined}>
@@ -267,7 +270,7 @@ export default function ProfileStep({ values, saving = false, error, errorCode =
                   aria-invalid={fieldErrors.dateOfBirth ? "true" : undefined}
                   className={`w-full rounded-[20px] border bg-slate-50 px-4 py-3 outline-none focus:border-sky-400 ${fieldErrors.dateOfBirth ? "border-rose-300" : "border-slate-200"}`}
                 />
-                <InlineFieldError message={fieldErrors.dateOfBirth} />
+                <InlineFieldError message={translateUi(fieldErrors.dateOfBirth)} />
               </label>
             </div>
           </div>
@@ -286,7 +289,7 @@ export default function ProfileStep({ values, saving = false, error, errorCode =
                 aria-invalid={fieldErrors.email || !emailValid ? "true" : undefined}
                 className={`w-full rounded-[20px] border bg-slate-50 px-4 py-3 outline-none focus:border-sky-400 ${fieldErrors.email ? "border-rose-300" : "border-slate-200"}`}
               />
-              {fieldErrors.email ? <InlineFieldError message={fieldErrors.email} /> : !emailValid ? (
+              {fieldErrors.email ? <InlineFieldError message={translateUi(fieldErrors.email)} /> : !emailValid ? (
                 <span className="mt-2 block text-xs font-semibold text-rose-600">
                   {t("onboarding.profile.errEmail")}
                 </span>
@@ -322,7 +325,7 @@ export default function ProfileStep({ values, saving = false, error, errorCode =
                   {t("onboarding.profile.phoneConflict")}
                 </span>
               ) : fieldErrors.phone ? (
-                <InlineFieldError message={fieldErrors.phone} />
+                <InlineFieldError message={translateUi(fieldErrors.phone)} />
               ) : (
                 <span className={`mt-2 block text-xs font-semibold ${phoneValidation.valid || !values.phone ? "text-slate-500" : "text-rose-600"}`}>
                   {phoneValidation.valid ? i18nText("ui.literals.k23576fc890bc", { value0: countryProfile.name, value1: countryProfile.dialCode, value2: countryProfile.placeholder }) : phoneValidation.message}
@@ -367,7 +370,7 @@ export default function ProfileStep({ values, saving = false, error, errorCode =
                 aria-invalid={fieldErrors.username ? "true" : undefined}
                 className={`w-full rounded-[20px] border bg-slate-50 px-4 py-3 outline-none focus:border-sky-400 ${fieldErrors.username ? "border-rose-300" : "border-slate-200"}`}
               />
-              <InlineFieldError message={fieldErrors.username} />
+              <InlineFieldError message={translateUi(fieldErrors.username)} />
             </label>
 
             <label className="block">
@@ -502,7 +505,7 @@ export default function ProfileStep({ values, saving = false, error, errorCode =
 
       {error && !phoneConflict ? (
         <p className="mt-5 rounded-xl border border-rose-200 bg-rose-50 px-4 py-3 text-sm text-rose-700" role="alert">
-          {error}
+          {translateUi(error)}
         </p>
       ) : null}
 

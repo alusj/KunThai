@@ -28,3 +28,10 @@ test("a missing or unreadable timestamp reads Just now", () => {
   assert.equal(formatRelativeTime(null), "Just now");
   assert.equal(formatRelativeTime("not a date"), "Just now");
 });
+
+test("relative times follow the selected language, including missing timestamps", () => {
+  assert.equal(formatRelativeTime(ago(2 * 60_000), "fr"), "il y a 2 minutes");
+  assert.equal(formatRelativeTime(ago(3 * 24 * 60 * 60_000), "es"), "hace 3 días");
+  assert.equal(formatRelativeTime("", "zh"), "刚刚");
+  assert.equal(formatRelativeTime("", "ar"), "الآن");
+});

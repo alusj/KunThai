@@ -29,6 +29,7 @@ import { useI18n } from "../../../../i18n";
 import PremiumHeader, { PremiumHeaderButton } from "../../../shared/PremiumHeader";
 import useBodyScrollLock from "../../../shared/useBodyScrollLock";
 import SearchOverlay from "./search/SearchOverlay";
+import { uiText as translateUi, useI18n as useUiLocale } from "../../../../i18n/index.js";
 
 const CREATE_MENU_EXIT_MS = 280;
 
@@ -270,6 +271,7 @@ const createItemAccent = {
 };
 
 function CreateMenuItem({ accent = "sky", icon, label, onClick }) {
+  useUiLocale();
   const Icon = icon;
   const accentStyles = createItemAccent[accent] || createItemAccent.sky;
 
@@ -282,7 +284,7 @@ function CreateMenuItem({ accent = "sky", icon, label, onClick }) {
       <span className={`grid h-11 w-11 place-items-center rounded-2xl ring-1 ${accentStyles.chip}`}>
         {Icon ? <Icon size={20} strokeWidth={2.3} absoluteStrokeWidth /> : null}
       </span>
-      <span className="text-base font-black text-slate-950">{label}</span>
+      <span className="text-base font-black text-slate-950">{translateUi(label)}</span>
     </button>
   );
 }

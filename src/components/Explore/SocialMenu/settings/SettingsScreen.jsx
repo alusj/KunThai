@@ -27,8 +27,10 @@ import { useI18n } from "../../../../i18n";
 import SocialScreenHeader from "../shared/SocialScreenHeader";
 import TwoFactorSection from "./TwoFactorSection";
 import { t as i18nText } from "../../../../i18n/index";
+import { uiText as translateUi, useI18n as useUiLocale } from "../../../../i18n/index.js";
 
 function Toggle({ active, label, onChange }) {
+  useUiLocale();
   return (
     <button
       type="button"
@@ -43,6 +45,7 @@ function Toggle({ active, label, onChange }) {
 }
 
 function SelectControl({ value, onChange, options }) {
+  useUiLocale();
   return (
     <select
       value={value}
@@ -51,7 +54,7 @@ function SelectControl({ value, onChange, options }) {
     >
       {options.map((option) => (
         <option key={option.value} value={option.value}>
-          {option.label}
+          {translateUi(option.label)}
         </option>
       ))}
     </select>
@@ -59,6 +62,7 @@ function SelectControl({ value, onChange, options }) {
 }
 
 function SettingRow({ children, description, icon, title }) {
+  useUiLocale();
   return (
     <div className="flex flex-col gap-4 rounded-[24px] border border-slate-200 bg-white p-4 shadow-sm sm:flex-row sm:items-center sm:justify-between">
       <div className="flex min-w-0 items-start gap-3">
@@ -66,8 +70,8 @@ function SettingRow({ children, description, icon, title }) {
           {createElement(icon, { className: "text-2xl" })}
         </span>
         <div className="min-w-0">
-          <p className="text-base font-black text-slate-950">{title}</p>
-          <p className="mt-1 text-sm font-semibold leading-6 text-slate-500">{description}</p>
+          <p className="text-base font-black text-slate-950">{translateUi(title)}</p>
+          <p className="mt-1 text-sm font-semibold leading-6 text-slate-500">{translateUi(description)}</p>
         </div>
       </div>
       <div className="flex flex-none flex-wrap gap-2 sm:justify-end">{children}</div>
@@ -76,11 +80,12 @@ function SettingRow({ children, description, icon, title }) {
 }
 
 function SettingsSection({ children, subtitle, title }) {
+  useUiLocale();
   return (
     <section className="space-y-3">
       <div>
-        <p className="text-xs font-black uppercase tracking-[0.2em] text-sky-700">{title}</p>
-        {subtitle ? <p className="mt-1 text-sm font-semibold text-slate-500">{subtitle}</p> : null}
+        <p className="text-xs font-black uppercase tracking-[0.2em] text-sky-700">{translateUi(title)}</p>
+        {subtitle ? <p className="mt-1 text-sm font-semibold text-slate-500">{translateUi(subtitle)}</p> : null}
       </div>
       <div className="grid gap-3">{children}</div>
     </section>
@@ -150,7 +155,7 @@ export default function SettingsScreen({ hideHeader = false, onOpenDataMobile, o
           <p className="mt-2 max-w-3xl text-base font-semibold leading-7 text-slate-600">
             {i18n.t("settings.intro")}
           </p>
-          {feedback ? <p className="mt-3 text-sm font-black text-sky-700">{feedback}</p> : null}
+          {feedback ? <p className="mt-3 text-sm font-black text-sky-700">{translateUi(feedback)}</p> : null}
         </div>
 
         <SettingsSection title={i18n.t("settings.appearanceTitle")} subtitle={i18n.t("settings.appearanceSubtitle")}>
@@ -282,7 +287,7 @@ export default function SettingsScreen({ hideHeader = false, onOpenDataMobile, o
           </SettingsSection>
 
           <SettingsSection title={i18n.t("settings.feedTitle")} subtitle={i18n.t("settings.feedSubtitle")}>
-            <SettingRow icon={HiOutlineHome} title="Default dashboard" description="Choose which dashboard KunThai opens on. Auto keeps the last one you used.">
+            <SettingRow icon={HiOutlineHome} title={i18nText("ui.literals.k70bd52d7f68d")} description={i18nText("ui.literals.ka485e1d255fc")}>
               <SelectControl
                 value={defaultDashboard}
                 onChange={(value) => {
@@ -290,7 +295,7 @@ export default function SettingsScreen({ hideHeader = false, onOpenDataMobile, o
                   setDefaultMainPage(value === "auto" ? "" : value);
                 }}
                 options={[
-                  { value: "auto", label: "Auto (last used)" },
+                  { value: "auto", label: i18nText("ui.literals.kf5000d2670af") },
                   { value: "explore", label: "Explore" },
                   { value: "marketplace", label: "UrMall" },
                   { value: "transport", label: "UrRide" },
@@ -386,11 +391,12 @@ export default function SettingsScreen({ hideHeader = false, onOpenDataMobile, o
 }
 
 function SettingsShortcut({ description, icon: Icon, onClick, title }) {
+  useUiLocale();
   return (
     <button type="button" onClick={onClick} className="rounded-[22px] border border-slate-200 bg-white p-4 text-left shadow-sm transition hover:border-sky-200 hover:bg-sky-50">
       <span className="grid h-11 w-11 place-items-center rounded-2xl bg-sky-50 text-sky-700"><Icon className="text-xl" /></span>
-      <p className="mt-3 text-sm font-black text-slate-950">{title}</p>
-      <p className="mt-1 text-xs font-semibold leading-5 text-slate-500">{description}</p>
+      <p className="mt-3 text-sm font-black text-slate-950">{translateUi(title)}</p>
+      <p className="mt-1 text-xs font-semibold leading-5 text-slate-500">{translateUi(description)}</p>
     </button>
   );
 }

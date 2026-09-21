@@ -43,6 +43,9 @@ import CenteredModal from "../../../shared/CenteredModal";
 import Avatar from "../../shared/Avatar";
 import ShareVisibilityCreditsModal from "./ShareVisibilityCreditsModal";
 import { t as i18nText } from "../../../../i18n/index";
+import { uiText as translateUi, useI18n as useUiLocale } from "../../../../i18n/index.js";
+import { inlineErrorMessage, isConnectionFailure } from "../../../../Backend/services/friendlyErrorService";
+import { announceConnectionTrouble, whenOnline } from "../../../../Backend/services/networkService";
 
 const platformIcons = {
   facebook: FaFacebookF,
@@ -81,6 +84,7 @@ export default function ProfileHeaderCard({
   stats,
   values,
 }) {
+  useUiLocale();
   const [menuOpen, setMenuOpen] = useState(false);
   const [copiedPublicId, setCopiedPublicId] = useState(false);
   const [creditHelpOpen, setCreditHelpOpen] = useState(false);
@@ -106,6 +110,7 @@ export default function ProfileHeaderCard({
   const [momoSecondsLeft, setMomoSecondsLeft] = useState(null);
   const [momoCodeCopied, setMomoCodeCopied] = useState(false);
   const momoPollRef = useRef(null);
+  const momoReconnectRef = useRef(null);
   const [publicIdHelpOpen, setPublicIdHelpOpen] = useState(false);
   const menuRef = useRef(null);
   const creditMenuRef = useRef(null);
@@ -146,6 +151,7 @@ export default function ProfileHeaderCard({
   useEffect(() => {
     return () => {
       if (momoPollRef.current) window.clearTimeout(momoPollRef.current);
+      momoReconnectRef.current?.();
     };
   }, []);
 
@@ -286,6 +292,8 @@ export default function ProfileHeaderCard({
       window.clearTimeout(momoPollRef.current);
       momoPollRef.current = null;
     }
+    momoReconnectRef.current?.();
+    momoReconnectRef.current = null;
   }
 
   // The code has expired: nothing more can confirm this purchase, so stop
@@ -309,7 +317,7 @@ export default function ProfileHeaderCard({
     pollMonimePaymentStatus(purchaseId)
       .then((result) => {
         window.dispatchEvent(new CustomEvent("kuntai-visibility-credits-updated"));
-        showToast(`${Number(result.credits || 0)} Visibility Credits added.`, "success", {
+        showToast(i18nText("ui.literals.k2d68fd682d8f", { value0: Number(result.credits || 0) }), "success", {
           title: result.walletName || momoWalletName,
         });
         setMomoStage("select");
@@ -322,12 +330,26 @@ export default function ProfileHeaderCard({
           momoPollRef.current = window.setTimeout(() => pollMomoStatus(purchaseId, attempt + 1), 3000);
           return;
         }
+        // Losing the connection says nothing about the payment, which may
+        // already have gone through. Keep waiting and check again once the
+        // connection is back, instead of sending the person back to pick a
+        // wallet — where they might pay a second time. The global network
+        // toast explains the pause.
+        if (!error.pending && isConnectionFailure(error)) {
+          announceConnectionTrouble();
+          momoReconnectRef.current?.();
+          momoReconnectRef.current = whenOnline(() => {
+            momoReconnectRef.current = null;
+            pollMomoStatus(purchaseId, attempt);
+          });
+          return;
+        }
         setMomoBusy(false);
         setMomoStage("select");
         setMomoError(
           error.pending
             ? "This is taking longer than expected. Check your phone, or try again."
-            : error.message || `${momoWalletName} couldn't confirm this payment. Please try again.`,
+            : inlineErrorMessage(error, `${momoWalletName} couldn't confirm this payment. Please try again.`),
         );
       });
   }
@@ -361,7 +383,7 @@ export default function ProfileHeaderCard({
       pollMomoStatus(result.purchaseId);
     } catch (error) {
       setMomoBusy(false);
-      setMomoError(error.message || `${momoWalletName} couldn't start this payment. Please try again.`);
+      setMomoError(inlineErrorMessage(error, `${momoWalletName} couldn't start this payment. Please try again.`));
     }
   }
 
@@ -705,7 +727,7 @@ export default function ProfileHeaderCard({
             <StatTile label={isSpace ? t("profile.statTeam") : t("profile.statConnected")} value={isSpace ? stats?.team : stats?.following} loading={loadingStats} />
           </div>
 
-          {feedback ? <p className="mt-3 text-xs font-bold text-sky-700">{feedback}</p> : null}
+          {feedback ? <p className="mt-3 text-xs font-bold text-sky-700">{translateUi(feedback)}</p> : null}
         </div>
       </div>
 
@@ -772,23 +794,23 @@ export default function ProfileHeaderCard({
                 <span className="h-9 w-9 animate-spin rounded-full border-[3px] border-orange-200 border-t-orange-600" aria-hidden="true" />
               </span>
               <h2 className="mt-4 text-xl font-black text-slate-950">
-                {getMonimePaymentInstructions({
+                {translateUi(getMonimePaymentInstructions({
                   credits: momoPending?.credits,
                   phoneNumber: momoPending?.phoneNumber,
                   walletName: momoWalletName,
-                }).title}
+                }).title)}
               </h2>
               <p className="mt-2 text-sm font-semibold leading-6 text-slate-500">
-                {getMonimePaymentInstructions({
+                {translateUi(getMonimePaymentInstructions({
                   credits: momoPending?.credits,
                   phoneNumber: momoPending?.phoneNumber,
                   walletName: momoWalletName,
-                }).message}
+                }).message)}
               </p>
 
               {momoPending?.ussdCode ? (
                 <div className="mt-4 rounded-2xl border border-slate-200 bg-slate-50 p-4">
-                  <p className="text-xs font-black uppercase tracking-[0.14em] text-slate-400">Continue securely by USSD</p>
+                  <p className="text-xs font-black uppercase tracking-[0.14em] text-slate-400">{i18nText("ui.literals.k0460a54f0e0b")}</p>
                   <a
                     href={ussdDialHref(momoPending.ussdCode)}
                     className={`mt-2 flex h-12 w-full items-center justify-center gap-2 rounded-2xl bg-slate-900 px-4 text-base font-black tracking-wide text-white transition hover:bg-slate-800 ${
@@ -796,7 +818,7 @@ export default function ProfileHeaderCard({
                     }`}
                   >
                     <HiOutlineDevicePhoneMobile className="text-lg" aria-hidden="true" />
-                    Dial {momoPending.ussdCode}
+                    {i18nText("ui.literals.k646a9a5d7a21")} {momoPending.ussdCode}
                   </a>
                   <button
                     type="button"
@@ -807,19 +829,18 @@ export default function ProfileHeaderCard({
                     }}
                     className="mt-2 text-xs font-black text-slate-500 underline decoration-slate-300 underline-offset-2"
                   >
-                    {momoCodeCopied ? "Code copied" : "Copy code instead"}
+                    {momoCodeCopied ? i18nText("ui.literals.k1cca33a67b6e") : i18nText("ui.literals.k6c753de34f1f")}
                   </button>
                   {momoSecondsLeft !== null ? (
                     <p className="mt-3 text-xs font-black uppercase tracking-[0.14em] text-slate-400">
-                      {momoSecondsLeft === 0 ? "Code expired" : <>Code expires in <span className="text-slate-700">{formatCountdown(momoSecondsLeft)}</span></>}
+                      {momoSecondsLeft === 0 ? i18nText("ui.literals.k5689b6c2914d") : <>{i18nText("ui.literals.ke9834291b179")} <span className="text-slate-700">{formatCountdown(momoSecondsLeft)}</span></>}
                     </p>
                   ) : null}
                 </div>
               ) : null}
               {momoPending?.testMode ? (
                 <p className="mt-3 rounded-2xl bg-amber-50 px-4 py-3 text-left text-xs font-bold leading-5 text-amber-800">
-                  Monime is in test mode, so this code runs on simulated rails — dialling it on a real phone will say the
-                  reference code cannot be found. Swap in a live Monime token to take real payments.
+                  {i18nText("ui.literals.k4ad8b14d31ee")}
                 </p>
               ) : null}
               {momoError ? (
@@ -835,7 +856,7 @@ export default function ProfileHeaderCard({
                 }}
                 className="mt-5 h-12 w-full rounded-2xl border border-slate-200 bg-white px-4 text-sm font-black text-slate-700"
               >
-                Cancel
+                {i18nText("ui.literals.k77dfd2135f4d")}
               </button>
             </motion.div>
           ) : buyCreditsMethod === "mobile-money" ? (
@@ -857,7 +878,7 @@ export default function ProfileHeaderCard({
                 </button>
                 <div className="min-w-0">
                   <p className="text-xs font-black uppercase tracking-[0.18em] text-sky-700">{t("profile.mobileMoney")}</p>
-                  <h2 id="buy-credits-title" className="mt-1 text-xl font-black text-slate-950">Choose a wallet</h2>
+                  <h2 id="buy-credits-title" className="mt-1 text-xl font-black text-slate-950">{i18nText("ui.literals.k880e2bf59e9b")}</h2>
                 </div>
               </div>
 
@@ -887,7 +908,7 @@ export default function ProfileHeaderCard({
                       <span className={`rounded-full px-2 py-0.5 text-[10px] font-black uppercase tracking-wide ${
                         disabled ? "bg-slate-100 text-slate-500" : "bg-emerald-100 text-emerald-700"
                       }`}>
-                        {disabled ? "Coming soon" : "Instant"}
+                        {disabled ? i18nText("ui.literals.ke4115be258db") : i18nText("ui.literals.ke5dd7083ff5f")}
                       </span>
                     </button>
                   );
@@ -896,7 +917,7 @@ export default function ProfileHeaderCard({
 
               <div className="mt-5">
                 <label htmlFor="momo-phone" className="block text-xs font-black uppercase tracking-[0.14em] text-slate-400">
-                  {momoWalletName} number <span className="text-slate-300">(optional)</span>
+                  {momoWalletName} {i18nText("ui.literals.k53b0a1b2fadf")} <span className="text-slate-300">{i18nText("ui.literals.kb16c7ac6faff")}</span>
                 </label>
                 <input
                   id="momo-phone"
@@ -909,12 +930,12 @@ export default function ProfileHeaderCard({
                   className="mt-2 h-12 w-full rounded-2xl border border-slate-300 px-4 text-sm font-black text-slate-950 focus:border-orange-400 focus:outline-none"
                 />
                 <p className="mt-2 text-xs font-semibold leading-5 text-slate-500">
-                  Adding a number secures the code to that account. Payment still starts from the Dial button; no push is sent.
+                  {i18nText("ui.literals.k33a111af1759")}
                 </p>
               </div>
 
               <div className="mt-5">
-                <p className="text-xs font-black uppercase tracking-[0.14em] text-slate-400">Credit amount</p>
+                <p className="text-xs font-black uppercase tracking-[0.14em] text-slate-400">{i18nText("ui.literals.k9314586384f8")}</p>
                 {creditPackagesLoading ? (
                   <div className="mt-3 space-y-3">
                     {[1, 2, 3].map((item) => <div key={item} className="h-[64px] animate-pulse rounded-2xl bg-slate-100" />)}
@@ -931,7 +952,7 @@ export default function ProfileHeaderCard({
                       >
                         <span className="grid h-10 min-w-10 shrink-0 place-items-center rounded-2xl bg-orange-500 px-2 text-sm font-black text-white">{item.credits}</span>
                         <span className="min-w-0 flex-1">
-                          <span className="block truncate text-sm font-black text-slate-950">{item.label}</span>
+                          <span className="block truncate text-sm font-black text-slate-950">{translateUi(item.label)}</span>
                           <span className="mt-0.5 block text-xs font-semibold text-slate-500">{t("profile.creditCount", { count: item.credits })}</span>
                         </span>
                         <span className="shrink-0 text-sm font-black text-orange-700">{formatPackagePrice(item)}</span>
@@ -939,7 +960,7 @@ export default function ProfileHeaderCard({
                     ))}
 
                     <div className="rounded-2xl border border-slate-200 bg-white p-3.5">
-                      <label className="block text-xs font-black uppercase tracking-wide text-slate-500">Custom amount (min {MONIME_MIN_CREDITS})</label>
+                      <label className="block text-xs font-black uppercase tracking-wide text-slate-500">{i18nText("ui.literals.k2abac4be5f5d")} {MONIME_MIN_CREDITS})</label>
                       <div className="mt-2 flex items-center gap-2">
                         <input
                           type="number"
@@ -952,8 +973,8 @@ export default function ProfileHeaderCard({
                         />
                         <span className="flex-1 text-xs font-semibold text-slate-500">
                           {Number(momoCustomCredits) >= MONIME_MIN_CREDITS
-                            ? `${Number(momoCustomCredits)} credits · ${formatPackagePrice({ priceMinor: monimeCustomPriceMinor(momoCustomCredits), currency: "SLE" })}`
-                            : "credits"}
+                            ? i18nText("ui.literals.k9ac8b04d7b4f", { value0: Number(momoCustomCredits), value1: formatPackagePrice({ priceMinor: monimeCustomPriceMinor(momoCustomCredits), currency: "SLE" }) })
+                            : i18nText("ui.literals.k66c22fad3a99")}
                         </span>
                         <button
                           type="button"
@@ -961,7 +982,7 @@ export default function ProfileHeaderCard({
                           onClick={() => startMonimeCheckout({ credits: Number(momoCustomCredits) })}
                           className="h-11 shrink-0 rounded-xl bg-orange-500 px-4 text-sm font-black text-white transition hover:bg-orange-600 disabled:opacity-50"
                         >
-                          {momoBusy ? t("profile.openingCheckout") : "Continue"}
+                          {momoBusy ? t("profile.openingCheckout") : i18nText("ui.literals.k2e02623966f9")}
                         </button>
                       </div>
                     </div>
@@ -974,7 +995,7 @@ export default function ProfileHeaderCard({
               ) : null}
               <div className="mt-4 flex items-center justify-center gap-2 text-xs font-bold text-slate-500">
                 <HiOutlineDevicePhoneMobile className="text-base text-orange-600" />
-                You’ll approve the payment on your phone. Credits arrive the moment it’s confirmed.
+                {i18nText("ui.literals.k640064436379")}
               </div>
               <button type="button" onClick={closeBuyCredits} disabled={momoBusy} className="mt-3 h-12 w-full rounded-2xl border border-slate-200 bg-white px-4 text-sm font-black text-slate-700 disabled:opacity-50">
                 {t("common.close")}
@@ -1083,20 +1104,22 @@ export default function ProfileHeaderCard({
 }
 
 function VisibilityCreditUse({ description, icon: Icon, iconClassName, title }) {
+  useUiLocale();
   return (
     <div className="flex items-start gap-3 rounded-2xl border border-white/10 bg-white/[0.07] p-3">
       <span className={`grid h-10 w-10 shrink-0 place-items-center rounded-xl text-xl ${iconClassName}`}>
         <Icon />
       </span>
       <div className="min-w-0">
-        <p className="text-sm font-black text-white">{title}</p>
-        <p className="mt-0.5 text-xs font-semibold leading-5 text-slate-300">{description}</p>
+        <p className="text-sm font-black text-white">{translateUi(title)}</p>
+        <p className="mt-0.5 text-xs font-semibold leading-5 text-slate-300">{translateUi(description)}</p>
       </div>
     </div>
   );
 }
 
 function CreditMenuAction({ helper = "", icon: Icon, label, onClick }) {
+  useUiLocale();
   return (
     <button
       type="button"
@@ -1108,14 +1131,15 @@ function CreditMenuAction({ helper = "", icon: Icon, label, onClick }) {
         <Icon />
       </span>
       <span className="min-w-0">
-        <span className="block text-sm font-black">{label}</span>
-        {helper ? <span className="mt-0.5 block text-[11px] font-semibold text-slate-500">{helper}</span> : null}
+        <span className="block text-sm font-black">{translateUi(label)}</span>
+        {helper ? <span className="mt-0.5 block text-[11px] font-semibold text-slate-500">{translateUi(helper)}</span> : null}
       </span>
     </button>
   );
 }
 
 function PaymentMethodButton({ helper, icon: Icon, label, onClick }) {
+  useUiLocale();
   return (
     <motion.button
       type="button"
@@ -1129,8 +1153,8 @@ function PaymentMethodButton({ helper, icon: Icon, label, onClick }) {
         <Icon />
       </span>
       <span className="min-w-0 flex-1">
-        <span className="block text-sm font-black text-slate-950">{label}</span>
-        <span className="mt-1 block text-xs font-semibold text-slate-500">{helper}</span>
+        <span className="block text-sm font-black text-slate-950">{translateUi(label)}</span>
+        <span className="mt-1 block text-xs font-semibold text-slate-500">{translateUi(helper)}</span>
       </span>
       <HiOutlineArrowTopRightOnSquare className="shrink-0 text-lg text-sky-700" />
     </motion.button>
@@ -1151,6 +1175,7 @@ function formatPackagePrice(item) {
 }
 
 function StatTile({ label, loading, value }) {
+  useUiLocale();
   return (
     <div className="rounded-2xl bg-slate-50 px-3 py-2">
       {loading ? (
@@ -1158,7 +1183,7 @@ function StatTile({ label, loading, value }) {
       ) : (
         <p className="text-lg font-black text-slate-950">{Number(value || 0)}</p>
       )}
-      <p className="text-[11px] font-bold text-slate-500">{label}</p>
+      <p className="text-[11px] font-bold text-slate-500">{translateUi(label)}</p>
     </div>
   );
 }

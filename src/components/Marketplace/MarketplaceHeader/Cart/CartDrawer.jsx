@@ -19,6 +19,8 @@ import {
   writeBuyerAddressPreference,
 } from "../../shared/buyerAddressPreferences";
 import CartItem from "./CartItem";
+import { uiText as translateUi } from "../../../../i18n/index.js";
+import { inlineErrorMessage } from "../../../../Backend/services/friendlyErrorService";
 
 const BUYER_PAYMENT_KEY = "marketplace-buyer-payment";
 
@@ -139,7 +141,7 @@ export default function CartDrawer({
       setCheckoutStatus(t(orders.length === 1 ? "urmall.cart.ordersCreatedOne" : "urmall.cart.ordersCreatedOther", { count: orders.length }));
       setDeliveryLocation("");
     } catch (err) {
-      setCheckoutStatus(err.message || t("urmall.cart.checkoutFailed"));
+      setCheckoutStatus(inlineErrorMessage(err, t("urmall.cart.checkoutFailed")));
     }
   }
 
@@ -231,7 +233,7 @@ export default function CartDrawer({
             <p className="mt-10 text-center font-bold text-gray-500">{t("urmall.cart.cartEmpty")}</p>
           ) : null}
 
-          {error && <p className="rounded-lg bg-red-50 p-3 text-sm font-bold text-red-700">{error}</p>}
+          {error && <p className="rounded-lg bg-red-50 p-3 text-sm font-bold text-red-700">{translateUi(error)}</p>}
         </div>
 
         <div className="shrink-0 space-y-3 border-t p-4">

@@ -73,6 +73,9 @@ import ExploreTabs from "./ExploreTabs/ExploreTabs";
 import PostingStatusBanner from "./shared/PostingStatusBanner";
 import PostOutboxIndicator from "./shared/PostOutboxIndicator";
 import { stopAllExploreMedia } from "./shared/singleMediaPlayback";
+import { uiText as translateUi, useI18n as useUiLocale } from "../../i18n/index.js";
+import { inlineErrorMessage, isConnectionFailure } from "../../Backend/services/friendlyErrorService";
+import { announceConnectionTrouble } from "../../Backend/services/networkService";
 
 const EXPLORE_TAB_ORDER = ["UrFeed", "Swip", "Connections"];
 const EXPLORE_STACK_ANIMATION_MS = 280;
@@ -429,7 +432,7 @@ export default function Explore({ active = true, onNavigateMain, onScreenModeCha
       })
       .catch((error) => {
         if (alive) {
-          setProfileError(error.message || t("explore.unableLoadProfile"));
+          setProfileError(inlineErrorMessage(error, t("explore.unableLoadProfile")));
           setProfileOverride(null);
           setProfileFetched(true);
         }
@@ -743,7 +746,7 @@ export default function Explore({ active = true, onNavigateMain, onScreenModeCha
       setPostFocusRequest((current) => current?.key === requestKey
         ? { ...current, post, tab: actualTab }
         : current);
-    } catch {
+    } catch (error) {
       if (postFocusRequestKeyRef.current !== requestKey) return;
       const targetNode = document.getElementById(`post-${normalizedPostId}`);
       if (targetNode) {
@@ -752,7 +755,11 @@ export default function Explore({ active = true, onNavigateMain, onScreenModeCha
         setPostFocusRequest((current) => current?.key === requestKey ? { ...current, tab: cachedTab } : current);
       } else {
         setPostFocusRequest(null);
-        showToast(t("notifications.postOpenError"), "warning");
+        // Offline, the global network toast is the notice; this one is for a
+        // post that could not be opened with the connection up.
+        if (!(isConnectionFailure(error) && announceConnectionTrouble())) {
+          showToast(t("notifications.postOpenError"), "warning");
+        }
       }
     }
   }
@@ -1558,7 +1565,7 @@ export default function Explore({ active = true, onNavigateMain, onScreenModeCha
           ACTIVE PAGE
       ========================= */}
       <div className={`w-full max-w-full overflow-x-clip ${isSwipTab ? "pt-0" : "pt-2"}`}>
-        {!profileLoading && profileError ? <ExploreProfileError message={profileError} /> : null}
+        {!profileLoading && profileError ? <ExploreProfileError message={translateUi(profileError)} /> : null}
        {profileExists ? (
   <>
     <section
@@ -1668,10 +1675,11 @@ export default function Explore({ active = true, onNavigateMain, onScreenModeCha
 }
 
 function ExploreProfileError({ message }) {
+  useUiLocale();
   return (
     <div className="px-4 py-4 sm:px-5 lg:px-8">
       <div className="rounded-[24px] border border-rose-100 bg-white p-5 text-sm font-bold text-rose-700 shadow-sm">
-        {message}
+        {translateUi(message)}
       </div>
     </div>
   );

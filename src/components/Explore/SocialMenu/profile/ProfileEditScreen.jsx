@@ -2,7 +2,7 @@ import { useEffect, useRef, useState } from "react";
 
 import { SPACE_IDENTITY_TYPE, getProfileIdentity, updateExploreProfile, updateExploreSpace } from "../../../../Backend/services/exploreService";
 import { optimizeImageFile } from "../../../../Backend/services/marketplace/imageOptimization";
-import { friendlyErrorMessage } from "../../../../Backend/services/friendlyErrorService";
+import { inlineErrorMessage } from "../../../../Backend/services/friendlyErrorService";
 import { haptics } from "../../../../Backend/services/feedbackService";
 import { showToast } from "../../../../Backend/services/toastService";
 import { useI18n } from "../../../../i18n";
@@ -52,7 +52,7 @@ export default function ProfileEditScreen({
       // uploads a small image instead of a multi-megabyte phone photo.
       updateField("avatarUrl", await fileToDataUrl(await optimizeImageFile(file)));
     } catch (error) {
-      setFeedback(error.message || t("profile.unableLoadImage"));
+      setFeedback(inlineErrorMessage(error, t("profile.unableLoadImage")));
     } finally {
       event.target.value = "";
     }
@@ -67,7 +67,7 @@ export default function ProfileEditScreen({
       // it no longer takes a long time on a normal connection.
       updateField("coverUrl", await fileToDataUrl(await optimizeImageFile(file)));
     } catch (error) {
-      setFeedback(error.message || t("profile.unableLoadCover"));
+      setFeedback(inlineErrorMessage(error, t("profile.unableLoadCover")));
     } finally {
       event.target.value = "";
     }
@@ -89,7 +89,7 @@ export default function ProfileEditScreen({
       showToast(isSpace ? t("profile.spaceUpdated") : t("profile.profileUpdated"), "success");
       haptics.light("explore");
     } catch (error) {
-      setFeedback(friendlyErrorMessage(error, t("profile.unableUpdateProfile")));
+      setFeedback(inlineErrorMessage(error, t("profile.unableUpdateProfile")));
     } finally {
       setSaving(false);
     }

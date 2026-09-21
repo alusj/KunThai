@@ -3,6 +3,7 @@ import { Sparkles } from "lucide-react";
 import { useI18n } from "../../i18n";
 import { useAiAvailability } from "../../Backend/hooks/useAiTask";
 import { openAiAssistant, openAiChat } from "../../Backend/services/ai/aiSurfaceService";
+import { uiText as translateUi } from "../../i18n/index.js";
 
 // KAI — the standard way a screen offers AI help.
 //
@@ -52,12 +53,12 @@ export default function AiAssistButton({
       type="button"
       onClick={open}
       disabled={disabled}
-      aria-label={text}
-      title={text}
+      aria-label={translateUi(text)}
+      title={translateUi(text)}
       className={`kt-pressable inline-flex flex-none items-center rounded-xl font-black transition disabled:cursor-not-allowed disabled:opacity-50 ${VARIANTS[variant] || VARIANTS.soft} ${SIZES[size] || SIZES.sm} ${className}`}
     >
       <Sparkles size={size === "sm" ? 12 : 15} />
-      {size === "icon" ? null : <span>{text}</span>}
+      {size === "icon" ? null : <span>{translateUi(text)}</span>}
     </button>
   );
 }

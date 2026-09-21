@@ -4,6 +4,7 @@ import { createElement, useEffect, useRef, useState } from "react";
 import { Compass, ShoppingBag, Truck } from "lucide-react";
 
 import { useI18n } from "../i18n";
+import { uiText as translateUi } from "../i18n/index.js";
 
 const tabs = [
   { id: "explore", label: "Explore", icon: Compass },
@@ -123,7 +124,7 @@ export default function BottomTabs({ badges = {}, page, setPage }) {
           </span>
         ) : null}
       </span>
-      <span className="leading-tight">{label}</span>
+      <span className="leading-tight">{translateUi(label)}</span>
     </button>
   );
 

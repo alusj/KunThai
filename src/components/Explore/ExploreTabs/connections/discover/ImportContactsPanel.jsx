@@ -11,6 +11,8 @@ import {
 import Avatar from "../../../shared/Avatar";
 import { useI18n } from "../../../../../i18n";
 import { t as i18nText } from "../../../../../i18n/index";
+import { uiText as translateUi } from "../../../../../i18n/index.js";
+import { inlineErrorMessage } from "../../../../../Backend/services/friendlyErrorService";
 
 // Facebook-style "find your contacts" surface. Matched accounts render inline as
 // connect cards. Browsers cannot silently read the whole address book, so on
@@ -39,7 +41,7 @@ export default function ImportContactsPanel({ onFollow, onViewProfile }) {
       setResults(matches);
       setExpanded(true);
     } catch (matchError) {
-      setError(matchError.message || t("importContacts.noMatches"));
+      setError(inlineErrorMessage(matchError, t("importContacts.noMatches")));
     } finally {
       setBusy(false);
     }
@@ -52,7 +54,7 @@ export default function ImportContactsPanel({ onFollow, onViewProfile }) {
         await runMatch(numbers);
       } catch (pickError) {
         if (pickError?.name !== "AbortError") {
-          setError(pickError.message || t("importContacts.noMatches"));
+          setError(inlineErrorMessage(pickError, t("importContacts.noMatches")));
         }
       }
       return;
@@ -164,7 +166,7 @@ export default function ImportContactsPanel({ onFollow, onViewProfile }) {
                 </div>
               ) : null}
 
-              {error ? <p className="mt-3 text-xs font-bold text-rose-600" role="alert">{error}</p> : null}
+              {error ? <p className="mt-3 text-xs font-bold text-rose-600" role="alert">{translateUi(error)}</p> : null}
               <p className="mt-3 text-[11px] font-semibold leading-5 text-slate-500">{t("importContacts.privacy")}</p>
             </div>
           </motion.div>

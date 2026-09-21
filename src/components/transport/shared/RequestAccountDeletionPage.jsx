@@ -4,6 +4,8 @@ import { Trash2 } from "lucide-react";
 import { deleteMyUrRideOperatorAccount } from "../../../Backend/services/accountDeletionRequestService";
 import { clearOperatorAccount } from "../../services/transportOperatorAccountService";
 import { useI18n, t } from "../../../i18n";
+import { uiText as translateUi } from "../../../i18n/index.js";
+import { inlineErrorMessage } from "../../../Backend/services/friendlyErrorService";
 
 // Operators delete their own UrRide account directly from the operator menu.
 // The operator profile, fleets, and trips are removed immediately (server-side
@@ -29,7 +31,7 @@ export default function RequestAccountDeletionPage() {
       // the user to the passenger/register state cleanly.
       window.setTimeout(() => window.location.reload(), 1600);
     } catch (error) {
-      setMessage(error.message || t("urride.deletion.errorMessage"));
+      setMessage(inlineErrorMessage(error, t("urride.deletion.errorMessage")));
       setMessageIsError(true);
       setConfirming(false);
     } finally {
@@ -41,7 +43,7 @@ export default function RequestAccountDeletionPage() {
     <div className="space-y-4">
       {message ? (
         <p className={`rounded-xl p-3 text-sm font-bold ${messageIsError ? "bg-red-50 text-red-700" : "bg-emerald-50 text-emerald-700"}`}>
-          {message}
+          {translateUi(message)}
         </p>
       ) : null}
 

@@ -521,6 +521,9 @@ export async function deleteRegisteredBusiness(businessId) {
     throw new Error("KunThai could not delete this business right now. Please try again.");
   }
 
+  // Reads started during the RPC may have cached the business being deleted.
+  // Drop that result before other seller surfaces react to the change.
+  invalidateRegisteredBusinessesCache();
   const activeKey = activeBusinessStorageKey(userId);
   if (localStorage.getItem(activeKey) === businessId) {
     localStorage.removeItem(activeKey);

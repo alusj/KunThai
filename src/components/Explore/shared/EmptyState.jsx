@@ -2,15 +2,17 @@ import { createElement } from "react";
 import { HiOutlineSparkles } from "react-icons/hi2";
 
 import { t } from "../../../i18n";
+import { uiText as translateUi, useI18n as useUiLocale } from "../../../i18n/index.js";
 
 export default function EmptyState({ title = t("explore.emptyDefaultTitle"), message = t("explore.emptyDefaultMsg"), icon = HiOutlineSparkles }) {
+  useUiLocale();
   return (
     <div className="rounded-[24px] border border-dashed border-slate-300 bg-white p-6 text-center shadow-sm">
       <div className="mx-auto flex h-12 w-12 items-center justify-center rounded-2xl bg-sky-50 text-2xl text-sky-700">
         {createElement(icon)}
       </div>
-      <h3 className="mt-4 text-base font-black text-slate-950">{title}</h3>
-      <p className="mx-auto mt-2 max-w-sm text-sm leading-6 text-slate-600">{message}</p>
+      <h3 className="mt-4 text-base font-black text-slate-950">{translateUi(title)}</h3>
+      <p className="mx-auto mt-2 max-w-sm text-sm leading-6 text-slate-600">{translateUi(message)}</p>
     </div>
   );
 }

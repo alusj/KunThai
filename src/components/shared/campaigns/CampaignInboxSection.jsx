@@ -12,8 +12,11 @@ import { useCampaignInbox } from "../../../Backend/hooks/useCampaignInbox";
 import { mapSurfacePlatformNotification } from "../../../Backend/services/surfaceNotificationModels";
 import { openUnifiedNotification } from "../../../Backend/services/unifiedNotificationService";
 import { formatRelativeTime } from "../../../Backend/services/explore/time";
+import { t as i18nText } from "../../../i18n/index";
+import { uiText as translateUi, useI18n as useUiLocale } from "../../../i18n/index.js";
 
 export default function CampaignInboxSection({ inbox, title = "KunThai updates", tone = "emerald", onNavigate, className = "" }) {
+  useUiLocale();
   const { items, setItems } = useCampaignInbox(inbox);
   const seenRef = useRef(new Set());
 
@@ -51,8 +54,8 @@ export default function CampaignInboxSection({ inbox, title = "KunThai updates",
   }
 
   return (
-    <section aria-label={title} className={`space-y-3 ${className}`}>
-      <p className="text-xs font-black uppercase tracking-wide text-gray-500">{title}</p>
+    <section aria-label={translateUi(title)} className={`space-y-3 ${className}`}>
+      <p className="text-xs font-black uppercase tracking-wide text-gray-500">{translateUi(title)}</p>
       {items.map((item) => {
         const content = campaignContentFromRow(item);
         const unread = item.status === "unread";
@@ -67,7 +70,7 @@ export default function CampaignInboxSection({ inbox, title = "KunThai updates",
               </span>
               <div className="min-w-0 flex-1">
                 <div className="flex flex-wrap items-center gap-1.5">
-                  {unread ? <span className="h-2 w-2 rounded-full bg-emerald-600" aria-label="Unread" /> : null}
+                  {unread ? <span className="h-2 w-2 rounded-full bg-emerald-600" aria-label={i18nText("ui.literals.k07b032b56f7a")} /> : null}
                   {content.badge ? <span className="rounded-full bg-amber-100 px-2 py-0.5 text-[10px] font-black text-amber-800">{content.badge}</span> : null}
                   <span className="text-[11px] font-bold text-gray-400">{formatRelativeTime(item.created_at)}</span>
                 </div>
@@ -80,7 +83,7 @@ export default function CampaignInboxSection({ inbox, title = "KunThai updates",
                     onClick={() => open(item)}
                     className="inline-flex min-h-10 items-center gap-1 rounded-xl bg-gray-950 px-3 text-xs font-black text-white hover:bg-gray-800 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-gray-950"
                   >
-                    {content.hasAction ? content.actionLabel : "Mark as read"}
+                    {content.hasAction ? content.actionLabel : i18nText("ui.literals.kc1ee860bc3a9")}
                     {content.hasAction ? <ChevronRight size={14} /> : null}
                   </button>
                   ) : null}
@@ -93,7 +96,7 @@ export default function CampaignInboxSection({ inbox, title = "KunThai updates",
                       }}
                       className="min-h-10 rounded-xl border border-gray-200 bg-white px-3 text-xs font-black text-gray-700 hover:bg-gray-50"
                     >
-                      Mark as read
+                      {i18nText("ui.literals.kc1ee860bc3a9")}
                     </button>
                   ) : null}
                 </div>
@@ -101,7 +104,7 @@ export default function CampaignInboxSection({ inbox, title = "KunThai updates",
               <button
                 type="button"
                 onClick={() => remove(item)}
-                aria-label={`Remove ${content.title}`}
+                aria-label={i18nText("ui.literals.ka2d40d3386fc", { value0: content.title })}
                 className="grid h-9 w-9 shrink-0 place-items-center rounded-xl text-gray-400 hover:bg-gray-100 hover:text-gray-700"
               >
                 <X size={16} />

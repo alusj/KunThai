@@ -6,6 +6,7 @@ import { useI18n } from "../../i18n";
 import { useAiAvailability } from "../../Backend/hooks/useAiTask";
 import { aiSurfaceLabel, openAiChat, useAiSurface } from "../../Backend/services/ai/aiSurfaceService";
 import { useAiAssistantHidden } from "../../Backend/services/ai/aiScreenContext";
+import { t as i18nText } from "../../i18n/index";
 
 // KAI — the one floating entry point to the assistant, on every screen.
 //
@@ -155,7 +156,7 @@ export default function AiFloatingButton() {
     >
       <Sparkles size={21} />
       <span className="pointer-events-none absolute -bottom-1 rounded-full bg-white px-1.5 text-[9px] font-black leading-4 text-slate-900 shadow">
-        KAI
+        {i18nText("ui.literals.keb25056a8f48")}
       </span>
     </motion.button>
   );

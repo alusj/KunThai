@@ -17,7 +17,7 @@ import {
 } from "../../../../Backend/services/exploreService";
 import { blockExploreIdentity, reportExploreProfile, reportExploreSpace } from "../../../../Backend/services/explore/safetyService";
 import { showToast } from "../../../../Backend/services/toastService";
-import { friendlyErrorMessage } from "../../../../Backend/services/friendlyErrorService";
+import { inlineErrorMessage } from "../../../../Backend/services/friendlyErrorService";
 import { useI18n } from "../../../../i18n";
 import FeedPost from "../../ExploreTabs/urfeed/feed/components/FeedPost";
 import VideoCard from "../../ExploreTabs/swip/videos/VideoCard";
@@ -29,6 +29,7 @@ import SocialScreenHeader from "../shared/SocialScreenHeader";
 import ProfileEditForm from "./ProfileEditForm";
 import ProfileHeaderCard from "./ProfileHeaderCard";
 import ProfileTabs from "./ProfileTabs";
+import { uiText as translateUi } from "../../../../i18n/index.js";
 
 const PROFILE_TAB_ORDER = ["feed", "swip", "saved", "activity"];
 
@@ -166,7 +167,7 @@ export default function ProfileScreen({
       setFeedback(updated.avatarWarning || (isSpace ? t("profile.spaceUpdated") : t("profile.profileUpdated")));
       showToast(isSpace ? t("profile.spaceUpdated") : t("profile.profileUpdated"), "success");
     } catch (error) {
-      setFeedback(error.message || t("profile.unableUpdateProfile"));
+      setFeedback(inlineErrorMessage(error, t("profile.unableUpdateProfile")));
     } finally {
       setSaving(false);
     }
@@ -201,7 +202,7 @@ export default function ProfileScreen({
       setFeedback(t("profile.inviteLinkReady"));
       showToast(t("profile.inviteLinkReady"), "success", { title: "Visibility Credits" });
     } catch (error) {
-      const message = friendlyErrorMessage(error, t("profile.unableShareInvite"));
+      const message = inlineErrorMessage(error, t("profile.unableShareInvite"));
       setFeedback(message);
       showToast(message, "danger");
     }
@@ -216,7 +217,7 @@ export default function ProfileScreen({
       showToast(message, "success", { title: t("profile.creditsShared") });
       return result;
     } catch (error) {
-      const message = friendlyErrorMessage(error, t("profile.unableShareCredits"));
+      const message = inlineErrorMessage(error, t("profile.unableShareCredits"));
       setFeedback(message);
       showToast(message, "danger");
       throw error;
@@ -348,7 +349,7 @@ export default function ProfileScreen({
         {loading && !profile ? (
           <p className="py-12 text-center text-sm font-bold text-slate-400">{t("profile.opening")}</p>
         ) : loadError ? (
-          <EmptyState title={t("profile.couldNotLoad")} message={loadError} />
+          <EmptyState title={t("profile.couldNotLoad")} message={translateUi(loadError)} />
         ) : accountUnavailable ? (
           <EmptyState
             title={t("profile.accountUnavailable")}

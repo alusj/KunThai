@@ -47,6 +47,8 @@ import {
   resolveBookingLocationPreferences,
 } from "./bookingLocationPreferences";
 import { t as i18nText } from "../../../i18n/index";
+import { uiText as translateUi, useI18n as useUiLocale } from "../../../i18n/index.js";
+import { inlineErrorMessage } from "../../../Backend/services/friendlyErrorService";
 
 const PASSENGER_CAUTION_KEY = "kunthai-passenger-booking-caution-accepted";
 
@@ -199,7 +201,7 @@ export default function TransportBookingDrawer({ open, target, onClose, onCreate
     distanceKm: routeEstimate?.distanceKm || 0,
     bookedHours: form.bookedHours,
   };
-  const fareEstimate = describeFleetFare(displayFleet, pricingInput);
+  const fareEstimate = translateUi(describeFleetFare(displayFleet, pricingInput));
   const requirementMessage = getBookingRequirementMessage(form, bookingMode);
   const fleetMessage = !isDirectedBooking && loadingFleets
     ? t("urride.booking.checkingOperators")
@@ -317,7 +319,7 @@ export default function TransportBookingDrawer({ open, target, onClose, onCreate
       } catch (error) {
         if (!alive) return;
         setRouteEstimate(null);
-        setRouteMessage(error.message || t("urride.booking.routeError"));
+        setRouteMessage(inlineErrorMessage(error, t("urride.booking.routeError")));
       } finally {
         if (alive) setRouteLoading(false);
       }
@@ -361,7 +363,7 @@ export default function TransportBookingDrawer({ open, target, onClose, onCreate
       .catch((error) => {
         if (alive) {
           setAvailableFleets([]);
-          setStatus(error.message || t("urride.booking.noOperatorsAvailable"));
+          setStatus(inlineErrorMessage(error, t("urride.booking.noOperatorsAvailable")));
         }
       })
       .finally(() => {
@@ -523,7 +525,7 @@ export default function TransportBookingDrawer({ open, target, onClose, onCreate
 
       onCreated?.(booking);
     } catch (error) {
-      setStatus(error.message || t("urride.booking.sendError"));
+      setStatus(inlineErrorMessage(error, t("urride.booking.sendError")));
       setStatusSuccess(false);
     } finally {
       setSubmitting(false);
@@ -569,7 +571,7 @@ export default function TransportBookingDrawer({ open, target, onClose, onCreate
                   statusSuccess ? "bg-emerald-50 text-emerald-700" : "bg-amber-50 text-amber-700"
                 }`}
               >
-                {status}
+                {translateUi(status)}
               </p>
             ) : null}
 
@@ -615,7 +617,7 @@ export default function TransportBookingDrawer({ open, target, onClose, onCreate
                     className="h-12 w-full rounded-xl border border-gray-200 bg-gray-50 px-3 text-sm font-black text-gray-950 outline-none focus:border-emerald-500"
                   >
                     {fleetTypes.map((type) => (
-                      <option key={type.value || "all"} value={type.value}>{type.label}</option>
+                      <option key={type.value || "all"} value={type.value}>{translateUi(type.label)}</option>
                     ))}
                   </select>
                 </label>
@@ -944,6 +946,7 @@ export default function TransportBookingDrawer({ open, target, onClose, onCreate
 }
 
 function LocateAreaButton({ icon, label, detail, disabled, onClick, primary = false }) {
+  useUiLocale();
   const enabledClass = primary
     ? "border-emerald-200 bg-slate-950 text-white shadow-sm shadow-slate-200/70 hover:bg-slate-900"
     : "border-emerald-100 bg-emerald-50 text-emerald-800 hover:border-emerald-200 hover:bg-emerald-100";
@@ -961,9 +964,9 @@ function LocateAreaButton({ icon, label, detail, disabled, onClick, primary = fa
         {createElement(icon, { size: 18 })}
       </span>
       <span className="min-w-0">
-        <span className="block truncate text-sm font-black">{label}</span>
+        <span className="block truncate text-sm font-black">{translateUi(label)}</span>
         <span className={`block truncate text-xs font-bold ${primary && !disabled ? "text-white/70" : "text-current opacity-70"}`}>
-          {detail}
+          {translateUi(detail)}
         </span>
       </span>
     </button>
@@ -971,11 +974,12 @@ function LocateAreaButton({ icon, label, detail, disabled, onClick, primary = fa
 }
 
 function InfoLine({ icon, label, value }) {
+  useUiLocale();
   return (
     <div className="flex min-w-0 items-center gap-2">
       {createElement(icon, { size: 15, className: "shrink-0 text-gray-500" })}
       <span className="min-w-0">
-        <span className="mr-1 text-xs font-black uppercase text-gray-400">{label}:</span>
+        <span className="mr-1 text-xs font-black uppercase text-gray-400">{translateUi(label)}:</span>
         <span className="break-words">{value || t("urride.booking.pending")}</span>
       </span>
     </div>
@@ -983,6 +987,7 @@ function InfoLine({ icon, label, value }) {
 }
 
 function AddressSuggestionInput({ icon, label, value, selectedPoint, center, onChange, onSelect, onLocateMe, onDropPin, placeholder }) {
+  useUiLocale();
   const [focused, setFocused] = useState(false);
   const [searching, setSearching] = useState(false);
   const [suggestions, setSuggestions] = useState([]);
@@ -1022,7 +1027,7 @@ function AddressSuggestionInput({ icon, label, value, selectedPoint, center, onC
   return (
     <label className="min-w-0 space-y-1">
       <span className="inline-flex items-center gap-2 text-xs font-black uppercase text-gray-500">
-        {label}
+        {translateUi(label)}
         <AddressAreaStatusIcon status={validation.status} />
       </span>
       <span className="relative block min-w-0">
@@ -1035,7 +1040,7 @@ function AddressSuggestionInput({ icon, label, value, selectedPoint, center, onC
           onFocus={() => setFocused(true)}
           onBlur={() => window.setTimeout(() => setFocused(false), 140)}
           onChange={(event) => onChange(event.target.value)}
-          placeholder={placeholder}
+          placeholder={translateUi(placeholder)}
           className="h-12 w-full min-w-0 rounded-xl border border-gray-200 bg-gray-50 pl-10 pr-9 text-sm font-semibold outline-none focus:border-emerald-500"
         />
         <AddressAreaStatusIcon status={validation.status} className="absolute right-3 top-1/2 -translate-y-1/2" />
@@ -1112,9 +1117,10 @@ function AddressSuggestionInput({ icon, label, value, selectedPoint, center, onC
 }
 
 function FormInput({ icon, label, value, onChange, placeholder }) {
+  useUiLocale();
   return (
     <label className="space-y-1">
-      <span className="text-xs font-black uppercase text-gray-500">{label}</span>
+      <span className="text-xs font-black uppercase text-gray-500">{translateUi(label)}</span>
       <span className="relative block">
         {createElement(icon, {
           size: 17,
@@ -1123,7 +1129,7 @@ function FormInput({ icon, label, value, onChange, placeholder }) {
         <input
           value={value}
           onChange={(event) => onChange(event.target.value)}
-          placeholder={placeholder}
+          placeholder={translateUi(placeholder)}
           className="h-12 w-full rounded-xl border border-gray-200 bg-gray-50 pl-10 pr-3 text-sm font-semibold outline-none focus:border-emerald-500"
         />
       </span>

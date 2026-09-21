@@ -9,6 +9,7 @@ import { resizedImageUrl } from "../../../../Backend/lib/imageProxy";
 import { showToast } from "../../../../Backend/services/toastService";
 import { getProductMinimumOrderQuantity } from "../../../../Backend/services/marketplace/vendorOrderRules";
 import { useI18n, t } from "../../../../i18n";
+import { t as i18nText } from "../../../../i18n/index";
 
 function productLink(item) {
   const productId = item.productId || item.product?.id;
@@ -90,7 +91,7 @@ export default function CartItem({ item, onUpdateQty, onRemoveItem, onViewProduc
         <p className="mt-1 text-xs font-bold text-gray-500">{formatCurrency(item.price, moneyScope)}</p>
         <p className="truncate text-xs font-semibold text-gray-400">{item.location}</p>
         {stock ? <p className="mt-0.5 text-[11px] font-bold text-gray-400">{t("urmall.detail.inStock", { count: stock })}</p> : null}
-        {minimumQuantity > 1 ? <p className="mt-0.5 text-[11px] font-black text-emerald-700">Minimum order: {minimumQuantity}</p> : null}
+        {minimumQuantity > 1 ? <p className="mt-0.5 text-[11px] font-black text-emerald-700">{i18nText("ui.literals.kde8956a7c355")} {minimumQuantity}</p> : null}
       </div>
 
       <div className="flex flex-col items-end justify-between">

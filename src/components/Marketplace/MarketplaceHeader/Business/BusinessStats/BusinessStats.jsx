@@ -25,6 +25,8 @@ import BestSalesWindowCard from "./BestSalesWindowCard";
 import OrderStatusGrid from "./OrderStatusGrid";
 import RevenueMetrics from "./RevenueMetrics";
 import SalesMetricCard from "./SalesMetricCard";
+import { uiText as translateUi, useI18n as useUiLocale } from "../../../../../i18n/index.js";
+import { inlineErrorMessage } from "../../../../../Backend/services/friendlyErrorService";
 
 function orderStatusTone(status) {
   if (status === "completed") return "bg-emerald-50 text-emerald-700";
@@ -77,7 +79,7 @@ export default function BusinessStats({ initialView = "revenue" }) {
       setOrderStatusPatches((current) => ({ ...current, [order.id]: status }));
       setFeedback(t("urmall.biz.stats.orderUpdated"));
     } catch (err) {
-      setFeedback(err.message || t("urmall.biz.stats.orderUpdateFailed"));
+      setFeedback(inlineErrorMessage(err, t("urmall.biz.stats.orderUpdateFailed")));
     }
   }
 
@@ -91,7 +93,7 @@ export default function BusinessStats({ initialView = "revenue" }) {
       });
       setFeedback(t("urmall.biz.stats.orderDeleted"));
     } catch (err) {
-      setFeedback(err.message || t("urmall.biz.stats.orderDeleteFailed"));
+      setFeedback(inlineErrorMessage(err, t("urmall.biz.stats.orderDeleteFailed")));
     }
   }
 
@@ -152,7 +154,7 @@ export default function BusinessStats({ initialView = "revenue" }) {
                   : "text-gray-600 hover:bg-gray-50 hover:text-gray-950"
               }`}
             >
-              {item.label}
+              {translateUi(item.label)}
             </button>
           ))}
         </div>
@@ -175,7 +177,7 @@ export default function BusinessStats({ initialView = "revenue" }) {
           </>
         ) : null}
 
-        {feedback ? <p className="rounded-lg bg-emerald-50 p-3 text-sm font-bold text-emerald-700">{feedback}</p> : null}
+        {feedback ? <p className="rounded-lg bg-emerald-50 p-3 text-sm font-bold text-emerald-700">{translateUi(feedback)}</p> : null}
 
         {activeView === "orders" ? (
           <div className="space-y-4">
@@ -194,6 +196,7 @@ export default function BusinessStats({ initialView = "revenue" }) {
 }
 
 function SellerOrderActionMenu({ order, onAction, onClose }) {
+  useUiLocale();
   const actions = [
     order.status !== "shipped" && order.status !== "completed" && order.status !== "cancelled"
       ? { id: "shipped", label: t("urmall.biz.stats.markShipped"), icon: Truck, className: "text-blue-700 hover:bg-blue-50" }
@@ -227,7 +230,7 @@ function SellerOrderActionMenu({ order, onAction, onClose }) {
               className={`flex w-full items-center gap-2 rounded-xl px-3 py-2.5 text-left text-sm font-black ${action.className}`}
             >
               <Icon size={16} />
-              {action.label}
+              {translateUi(action.label)}
             </button>
           );
         })}
@@ -237,6 +240,7 @@ function SellerOrderActionMenu({ order, onAction, onClose }) {
 }
 
 function SellerOrderDetailSheet({ order, onClose, onStatusChange, onDelete, onLocate }) {
+  useUiLocale();
   const details = parseOrderDeliveryDetails(order.deliveryLocation);
   const fulfillment = formatOrderFulfillment(details);
   const address = details.address || details.raw;
@@ -288,7 +292,7 @@ function SellerOrderDetailSheet({ order, onClose, onStatusChange, onDelete, onLo
 
         <div className="mt-4 flex items-center justify-between gap-3 rounded-2xl bg-gray-50 p-3">
           <span className={`rounded-lg px-2.5 py-1 text-xs font-black capitalize ${orderStatusTone(order.status)}`}>
-            {order.status}
+            {translateUi(order.status)}
           </span>
           <p className="text-xl font-black text-gray-950">{formatCurrency(order.totalAmount)}</p>
         </div>
@@ -302,7 +306,7 @@ function SellerOrderDetailSheet({ order, onClose, onStatusChange, onDelete, onLo
                   <Icon size={16} />
                 </span>
                 <div className="min-w-0">
-                  <p className="text-[11px] font-black uppercase text-gray-500">{row.label}</p>
+                  <p className="text-[11px] font-black uppercase text-gray-500">{translateUi(row.label)}</p>
                   <p className="mt-0.5 break-words text-sm font-bold text-gray-950">{row.value}</p>
                 </div>
               </div>
@@ -364,6 +368,7 @@ function SellerOrderDetailSheet({ order, onClose, onStatusChange, onDelete, onLo
 }
 
 function SellerOrderQueue({ orders = [], onStatusChange, onDelete, onLocate }) {
+  useUiLocale();
   const [openMenuId, setOpenMenuId] = useState("");
   const [selectedOrderId, setSelectedOrderId] = useState("");
   const selectedOrder = orders.find((order) => order.id === selectedOrderId) || null;
@@ -453,7 +458,7 @@ function SellerOrderQueue({ orders = [], onStatusChange, onDelete, onLocate }) {
                   </button>
                   <p className="text-base font-black text-gray-950">{formatCurrency(order.totalAmount)}</p>
                   <p className={`rounded-lg px-2.5 py-1 text-xs font-black capitalize ${orderStatusTone(order.status)}`}>
-                    {order.status}
+                    {translateUi(order.status)}
                   </p>
                 </div>
               </div>

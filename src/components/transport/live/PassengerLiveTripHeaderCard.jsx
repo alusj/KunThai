@@ -24,6 +24,7 @@ import {
 } from "../../services/passengerTransportService";
 import LiveTripMetric from "./LiveTripMetric";
 import { useI18n, t } from "../../../i18n";
+import { uiText as translateUi, useI18n as useUiLocale } from "../../../i18n/index.js";
 
 function isHeaderTrip(trip) {
   return ["start_requested", "in_progress", "paused"].includes(trip.rawStatus);
@@ -234,6 +235,7 @@ export default function PassengerLiveTripHeaderCard({ onOpenTrips }) {
 }
 
 function PassengerAction({ icon, label, danger = false, onClick }) {
+  useUiLocale();
   return (
     <button
       type="button"
@@ -243,7 +245,7 @@ function PassengerAction({ icon, label, danger = false, onClick }) {
       }`}
     >
       {createElement(icon, { size: 16 })}
-      <span className="min-w-0 truncate">{label}</span>
+      <span className="min-w-0 truncate">{translateUi(label)}</span>
     </button>
   );
 }

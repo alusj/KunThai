@@ -8,11 +8,21 @@ import test from "node:test";
 
 const regions = readFileSync(new URL("../../../../supabase/migrations/20260919100000_kunthai_country_regions.sql", import.meta.url), "utf8");
 const targeting = readFileSync(new URL("../../../../supabase/migrations/20260919110000_regional_targeting.sql", import.meta.url), "utf8");
+const territories = readFileSync(new URL("../../../../supabase/migrations/20260920120000_kunthai_territory_regions.sql", import.meta.url), "utf8");
+const countrySeed = readFileSync(new URL("../../../../supabase/migrations/20260712190000_global_full_access_country_rollout.sql", import.meta.url), "utf8");
 
 const ROW = /^ {2}\('([A-Z]{2})', '([^']+)', '((?:[^']|'')*)', '((?:[^']|'')*)', '((?:[^']|'')*)', (null|'[^']*'), (\d), /gm;
 const rows = [...regions.matchAll(ROW)].map(([, country, code, name, display, type, parent, level]) => ({
   country, code, name, display, type, parent: parent === "null" ? null : parent.slice(1, -1), level: Number(level),
 }));
+
+const territoryRows = [...territories.matchAll(ROW)].map(([, country, code, name, display, type, parent, level]) => ({
+  country, code, name, display, type, parent: parent === "null" ? null : parent.slice(1, -1), level: Number(level),
+}));
+
+// Every country KunThai sells in, from the rollout migration that seeds them.
+const SEEDED = /^ {2}\('([A-Z]{2})', '[^']+', '\+/gm;
+const seededCountries = [...new Set([...countrySeed.matchAll(SEEDED)].map(([, iso]) => iso))];
 
 function functionBody(source, name) {
   const start = source.search(new RegExp(`create or replace function public\\.${name}\\(`, "i"));
@@ -53,6 +63,39 @@ test("Nigeria has 36 states plus the FCT, and the USA its 50 states plus DC", ()
   assert.equal(rows.filter((row) => row.country === "US" && row.type === "State").length, 50);
   assert.ok(rows.some((row) => row.code === "US-DC"));
   assert.match(regions, /\('NG', 1, 'State', 'States'\)/);
+});
+
+test("every KunThai country has areas to target, not just the 202 ISO covers", () => {
+  const covered = new Set([...rows, ...territoryRows].map((row) => row.country));
+  const missing = seededCountries.filter((iso) => !covered.has(iso));
+  assert.ok(seededCountries.length > 240, `expected every seeded country, got ${seededCountries.length}`);
+  assert.deepEqual(missing, [], `countries with no state, district or area: ${missing.join(", ")}`);
+});
+
+test("the territories ISO skips get real areas, and their own labels", () => {
+  const codes = new Set(rows.map((row) => row.code));
+  assert.equal(new Set(territoryRows.map((row) => row.country)).size, 50);
+  for (const row of territoryRows) {
+    assert.match(row.code, /^[A-Z]{2}-[A-Z0-9]{4,}$/, `${row.code} cannot collide with an ISO code`);
+    assert.ok(!codes.has(row.code), `${row.code} is not already in the world file`);
+    assert.equal(row.level, 1, row.code);
+    assert.equal(row.parent, null, row.code);
+  }
+  // The places in the screenshot that could only offer "entire country".
+  assert.equal(territoryRows.filter((row) => row.country === "BM").length, 11);
+  assert.ok(territoryRows.some((row) => row.code === "BM-SANDYS"));
+  assert.equal(territoryRows.filter((row) => row.country === "IM").length, 22);
+  assert.equal(territoryRows.filter((row) => row.country === "PR").length, 78);
+  assert.match(territories, /\('BM', 1, 'Parish', 'Parishes'\)/);
+  assert.match(territories, /\('PR', 1, 'Municipality', 'Municipalities'\)/);
+  assert.match(territories, /\('YT', 1, 'Commune', 'Communes'\)/);
+});
+
+test("the territory file is safe to run again", () => {
+  assert.match(territories, /on conflict \(code\) do update set/);
+  assert.match(territories, /select public\.kunthai_refresh_region_paths\(\);/);
+  assert.doesNotMatch(territories, /\bdelete from public\.kunthai_country_regions\b/);
+  assert.doesNotMatch(territories, /\bdrop (table|function)\b/i);
 });
 
 test("the auth trigger can never block a sign-up or profile save", () => {

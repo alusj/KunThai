@@ -20,6 +20,7 @@ import AppBackTab from "../../../../shared/AppBackTab";
 import AiAssistButton from "../../../../ai/AiAssistButton";
 import { productFactsForAi } from "../../../../../Backend/services/ai/urmallAiModels";
 import ProductStatusBadge from "./ProductStatusBadge";
+import { uiText as translateUi, useI18n as useUiLocale } from "../../../../../i18n/index.js";
 
 function uniqueImages(product = {}) {
   return Array.from(new Set([product.mainImageUrl, ...(product.imageUrls || [])].filter(Boolean)));
@@ -253,11 +254,12 @@ export default function SellerProductDetail({ product, onBack, onEdit }) {
 }
 
 function DetailMetric({ icon: Icon, label, value }) {
+  useUiLocale();
   return (
     <div className="rounded-xl bg-gray-50 p-3">
       <p className="flex items-center gap-1.5 text-[11px] font-black uppercase tracking-wide text-gray-400">
         {createElement(Icon, { size: 14 })}
-        {label}
+        {translateUi(label)}
       </p>
       <p className="mt-1 truncate text-base font-black text-gray-950">{value}</p>
     </div>
@@ -265,11 +267,12 @@ function DetailMetric({ icon: Icon, label, value }) {
 }
 
 function InfoPanel({ icon: Icon, label, value }) {
+  useUiLocale();
   return (
     <div className="rounded-2xl border border-gray-200 bg-white p-4 shadow-sm">
       <p className="flex items-center gap-2 text-xs font-black uppercase tracking-wide text-gray-400">
         {createElement(Icon, { size: 15 })}
-        {label}
+        {translateUi(label)}
       </p>
       <p className="mt-2 break-words text-sm font-black text-gray-950">{value}</p>
     </div>

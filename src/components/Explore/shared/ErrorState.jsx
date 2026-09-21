@@ -1,8 +1,10 @@
 import { HiOutlineExclamationTriangle } from "react-icons/hi2";
 
 import { t } from "../../../i18n";
+import { uiText as translateUi, useI18n as useUiLocale } from "../../../i18n/index.js";
 
 export default function ErrorState({ message = t("explore.errorDefault"), onRetry }) {
+  useUiLocale();
   return (
     <div className="rounded-[22px] border border-rose-200 bg-rose-50 p-4 text-sm text-rose-700 shadow-sm">
       <div className="flex items-start gap-3">
@@ -10,7 +12,7 @@ export default function ErrorState({ message = t("explore.errorDefault"), onRetr
           <HiOutlineExclamationTriangle />
         </span>
         <div className="min-w-0 flex-1">
-          <p className="font-bold leading-6">{message}</p>
+          <p className="font-bold leading-6">{translateUi(message)}</p>
           {onRetry && (
             <button
               type="button"

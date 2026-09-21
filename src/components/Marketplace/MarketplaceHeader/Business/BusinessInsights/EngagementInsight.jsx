@@ -2,6 +2,7 @@
 
 import InsightItem from "./InsightItem";
 import { t as i18nText } from "../../../../../i18n/index";
+import { useI18n as useUiLocale } from "../../../../../i18n/index.js";
 
 /**
  * EngagementInsight
@@ -10,6 +11,7 @@ import { t as i18nText } from "../../../../../i18n/index";
  */
 
 export default function EngagementInsight() {
+  useUiLocale();
   return (
     <InsightItem
       icon="💬"

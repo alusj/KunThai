@@ -2,27 +2,28 @@ import crypto from "node:crypto";
 import fs from "node:fs/promises";
 import path from "node:path";
 import { execFileSync } from "node:child_process";
+import { fileURLToPath } from "node:url";
 
 import parser from "@babel/parser";
 import traverseImport from "@babel/traverse";
 
 const traverse = traverseImport.default || traverseImport;
-const root = path.resolve(path.dirname(new URL(import.meta.url).pathname), "..");
+const root = path.resolve(path.dirname(fileURLToPath(import.meta.url)), "..");
 const mode = process.argv[2] || "audit";
 const userFacingAttributes = new Set([
-  "aria-label", "title", "placeholder", "label", "helper", "description",
+  "aria-label", "alt", "title", "placeholder", "label", "helper", "description",
   "subtitle", "detail", "actionLabel", "emptyText", "emptyTitle", "confirmLabel", "cancelLabel", "message",
 ]);
 const userFacingObjectKeys = new Set([
   "label", "title", "description", "subtitle", "helper", "placeholder",
-  "emptyText", "emptyTitle", "message", "body", "summary", "status",
+  "emptyText", "emptyTitle", "message", "body", "summary",
   "actionLabel", "detail",
 ]);
-const userFacingArrayKeys = new Set(["bullets", "details"]);
+const userFacingArrayKeys = new Set(["bullets", "details", "paragraphs", "tips", "warnings"]);
 const userFacingArrayVariables = new Set(["CTA_OPTIONS", "INTERESTS", "STEP_LABELS"]);
 const userFacingCalls = new Set([
   "showToast", "setFeedback", "setNotice", "setMessage", "setError",
-  "setWarning", "setSuccess", "setStatus", "setLocationStatus",
+  "setWarning", "setSuccess", "setLocationStatus",
   "setAddLocationStatus", "setCreditFeedback", "setMediaError",
   "publishGpsUi", "alert", "confirm",
 ]);
@@ -39,11 +40,11 @@ const additionalSources = [
   "Marketplace", "Transport", "Payments", "Account", "Submitted", "Under review",
   "Planned", "Fixed", "Closed",
 ];
-const protectedOnly = /^(KunThai|Explore|UrFeed|Swip|UrMall|UrRide|Fleet HQ|Spaces?|KunThai ID|Visibility Credits|Car|Motorcycle|Tricycle|Taxi|Van|WhatsApp|Facebook|Instagram|TikTok|YouTube|Google|Apple|Flutterwave)$/;
+const protectedOnly = /^(KunThai|Explore|UrFeed|Swip|UrMall|UrRide|Fleet HQ|Spaces?|KunThai ID|Visibility Credits|WhatsApp|Facebook|Instagram|TikTok|YouTube|Google|Apple|Flutterwave)$/;
 const protectedTerms = [
-  "Visibility Credits", "Motorcycle", "Tricycle", "Fleet HQ", "KunThai ID",
+  "Visibility Credits", "Fleet HQ", "KunThai ID",
   "KunThai", "Explore", "UrFeed", "UrMall", "UrRide", "Spaces", "Space",
-  "Swip", "Taxi", "Van", "Car", "Flutterwave", "WhatsApp", "Facebook",
+  "Swip", "Flutterwave", "WhatsApp", "Facebook",
   "Instagram", "TikTok", "YouTube", "Google", "Apple",
 ];
 
@@ -71,11 +72,15 @@ function keyFor(text) {
 }
 
 function sourceFiles() {
-  return execFileSync("rg", ["--files", "src", "-g", "*.jsx"], { cwd: root, encoding: "utf8" })
+  return execFileSync("rg", ["--files", "src", "-g", "*.jsx", "-g", "*.js", "-g", "!*.test.js"], { cwd: root, encoding: "utf8" })
     .trim()
     .split("\n")
     .filter(Boolean)
-    .filter((file) => !file.startsWith("src/admin/"));
+    .map((file) => file.replaceAll("\\", "/"))
+    .filter((file) => !file.startsWith("src/i18n/") && !file.startsWith("src/data/policies/"))
+    // These are localized by the policy generator; the deletion flow is
+    // independently maintained and already uses semantic translation keys.
+    .filter((file) => !file.includes("/SocialMenu/terms/") && !file.includes("/components/public/") && !file.endsWith("/MyBizMenu.jsx"));
 }
 
 async function collect() {
@@ -144,7 +149,9 @@ async function collect() {
         if (enclosingTemplate && enclosingTemplate.node !== p.node) return;
         const attribute = container.parentPath.isJSXAttribute() ? container.parentPath.node.name?.name : "";
         if (attribute && !userFacingAttributes.has(attribute)) return;
-        if (parent.isConditionalExpression() && (parent.node.consequent === p.node || parent.node.alternate === p.node)) {
+        if (parent.isJSXExpressionContainer()) {
+          add(p.node, "expression", p.node.value);
+        } else if (parent.isConditionalExpression() && (parent.node.consequent === p.node || parent.node.alternate === p.node)) {
           add(p.node, "expression", p.node.value);
         } else if (parent.isLogicalExpression() && parent.node.right === p.node) {
           add(p.node, "expression", p.node.value);
@@ -185,6 +192,12 @@ async function collect() {
           }
         };
         visitMessage(argument);
+      },
+      NewExpression(p) {
+        if (p.node.callee?.name !== "Error") return;
+        const argument = p.node.arguments[0];
+        if (argument?.type === "StringLiteral") add(argument, "error", argument.value);
+        if (argument?.type === "TemplateLiteral") addTemplate(argument, "error-template");
       },
     });
   }
@@ -305,8 +318,8 @@ async function writeTranslations(hits) {
       existingBundle[locale]?.literals?.[keyFor(source)],
     ]).filter(([, value]) => typeof value === "string"));
     const missing = sources.filter((source) => !(source in retained));
-    translated[locale] = { ...retained, ...(missing.length ? await translateSources(missing, locale) : {}) };
-    console.log(`${locale}: retained ${Object.keys(retained).length}, translated ${missing.length} UI literals`);
+    translated[locale] = { ...retained, ...(missing.length && mode !== "sources" ? await translateSources(missing, locale) : {}) };
+    console.log(`${locale}: retained ${Object.keys(retained).length}, ${mode === "sources" ? "pending" : "translated"} ${missing.length} UI literals`);
   }
   const blocks = [formatLocale("en", sources), ...locales.map((locale) => formatLocale(locale, sources, translated[locale]))];
   const output = `// Generated translations for formerly hard-coded user-interface text.\n// Brand vocabulary is masked and restored unchanged during generation.\n\nexport const UI_TRANSLATIONS = {\n${blocks.join(",\n\n")}\n};\n`;
@@ -322,7 +335,9 @@ function importPathFor(file) {
 
 async function applyDirectReplacements(hits) {
   const byFile = new Map();
-  for (const hit of hits.filter((item) => !item.topLevel)) {
+  // Keep canonical service values and stored metadata in English. Translate
+  // them at display boundaries; only JSX literals are rewritten in place.
+  for (const hit of hits.filter((item) => !item.topLevel && item.file.endsWith(".jsx") && !item.kind.startsWith("error"))) {
     if (!byFile.has(hit.file)) byFile.set(hit.file, []);
     byFile.get(hit.file).push(hit);
   }
@@ -330,7 +345,9 @@ async function applyDirectReplacements(hits) {
     const absolute = path.join(root, file);
     let code = await fs.readFile(absolute, "utf8");
     const replacements = [];
-    for (const hit of fileHits) {
+    // Prefer the outer expression so a nested fallback is not rewritten twice.
+    const outerHits = fileHits.filter((hit) => !fileHits.some((other) => other !== hit && other.start <= hit.start && other.end >= hit.end && (other.start < hit.start || other.end > hit.end)));
+    for (const hit of outerHits) {
       const variables = hit.vars?.length
         ? `, { ${hit.vars.map(({ name, source }) => `${name}: ${source}`).join(", ")} }`
         : "";
@@ -367,11 +384,15 @@ async function applyDirectReplacements(hits) {
   console.log(`rewrote direct UI literals in ${byFile.size} files`);
 }
 
-const hits = await collect();
+const hits = process.argv[3]
+  ? JSON.parse((await fs.readFile(process.argv[3], "utf8")).replace(/^.*?\n/, ""))
+  : await collect();
 const topLevel = hits.filter((hit) => hit.topLevel);
 console.log(`actionable=${hits.length} direct=${hits.length - topLevel.length} moduleLevel=${topLevel.length}`);
 
-if (mode === "translate") await writeTranslations(hits);
+if (mode === "json") console.log(JSON.stringify(hits));
+else if (mode === "translate") await writeTranslations(hits);
+else if (mode === "sources") await writeTranslations(hits);
 else if (mode === "apply") await applyDirectReplacements(hits);
 else {
   for (const hit of mode === "audit-all" ? hits : topLevel) console.log(`${hit.file}:${hit.line}\t${hit.kind}\t${hit.text}`);

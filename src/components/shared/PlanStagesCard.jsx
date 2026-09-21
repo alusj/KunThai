@@ -1,6 +1,8 @@
 import { ArrowUpRight, Check, Crown, Gem, Sparkles, WalletCards } from "lucide-react";
 
 import { getFallbackBusinessPlans } from "../../Backend/services/businessSubscriptionService";
+import { t as i18nText } from "../../i18n/index";
+import { useI18n as useUiLocale } from "../../i18n/index.js";
 
 const TIER_META = {
   free: { icon: Sparkles, bestFor: "Getting started" },
@@ -35,6 +37,7 @@ function priceLine(plan) {
 // Premium) for a surface. Reads the fallback plan catalog so limits and prices stay
 // in one place. `accent` themes it to the host caution card (emerald / blue).
 export default function PlanStagesCard({ surface = "urmall", accent = "emerald" }) {
+  useUiLocale();
   const theme = ACCENTS[accent] || ACCENTS.emerald;
   const plans = getFallbackBusinessPlans(surface);
   const entity = surface === "urride" ? "company" : "business";
@@ -46,14 +49,13 @@ export default function PlanStagesCard({ surface = "urmall", accent = "emerald" 
           <WalletCards size={19} />
         </span>
         <div>
-          <h3 className="font-black text-slate-950">Your plan grows with you</h3>
+          <h3 className="font-black text-slate-950">{i18nText("ui.literals.k92263cee86db")}</h3>
           <p className="mt-1 text-xs font-semibold leading-5 text-slate-600">
-            Every {entity} starts on <strong>Free</strong> the moment it is registered. As you grow you can move up to
-            {" "}<strong>Pro</strong> or <strong>Premium</strong> using Visibility Credits. Upgrades start immediately,
-            downgrades apply at your next renewal.
+            {i18nText("ui.literals.k3560d90b708f")} {entity} {i18nText("ui.literals.ke1978a9dc51d")} <strong>{i18nText("ui.literals.k75f527181b57")}</strong> {i18nText("ui.literals.k8a40efec37aa")}
+            {" "}<strong>{i18nText("ui.literals.k66d0c5e6b170")}</strong> {i18nText("ui.literals.k1758356db217")} <strong>{i18nText("ui.literals.k6c2f2888c561")}</strong> {i18nText("ui.literals.kcf2df129b993")}
             {surface === "urmall"
-              ? " When a paid plan expires or you move to Free, only 10 published items remain visible. Renew or upgrade within 15 days to prevent permanent deletion of excess items and drafts."
-              : " Existing company resources are preserved; your plan limits what you can add."}
+              ? i18nText("ui.literals.k520a89e76d64")
+              : i18nText("ui.literals.kacde1f9f0f83")}
           </p>
         </div>
       </div>
@@ -95,7 +97,7 @@ export default function PlanStagesCard({ surface = "urmall", accent = "emerald" 
 
       <p className="mt-3 flex items-center gap-1.5 text-[11px] font-bold leading-5 text-slate-500">
         <ArrowUpRight size={13} className={theme.check} />
-        Manage or change your plan any time from <strong className="text-slate-700">Plans &amp; capacity</strong> in the menu.
+        {i18nText("ui.literals.k6c31b65169c7")} <strong className="text-slate-700">{i18nText("ui.literals.kef395ca5a659")}</strong> {i18nText("ui.literals.k4c17f1002270")}
       </p>
     </div>
   );

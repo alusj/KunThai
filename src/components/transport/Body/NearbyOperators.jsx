@@ -12,6 +12,9 @@ import { verificationStatuses } from "../verification/verificationStatus";
 import { useI18n, t } from "../../../i18n";
 import RentalCatalogue from "../rentals/RentalCatalogue";
 import SaveOperatorButton from "../SaveOperatorButton";
+import { t as i18nText } from "../../../i18n/index";
+import { uiText as translateUi, useI18n as useUiLocale } from "../../../i18n/index.js";
+import { inlineErrorMessage } from "../../../Backend/services/friendlyErrorService";
 
 function matchesQuery(operator, query) {
   const term = String(query || "").trim().toLowerCase();
@@ -117,7 +120,7 @@ export default function NearbyOperators({
       })
       .catch((err) => {
         if (alive) {
-          setError(hasExistingOperators ? "" : err.message || t("urride.operators.loadError"));
+          setError(hasExistingOperators ? "" : inlineErrorMessage(err, t("urride.operators.loadError")));
           if (!hasExistingOperators) {
             setOperators([]);
           }
@@ -148,9 +151,9 @@ export default function NearbyOperators({
         </button> : null}
       </div>
 
-      <div className="mb-4 flex w-full flex-nowrap gap-2 overflow-x-auto rounded-2xl bg-slate-100 p-1.5 [scrollbar-width:none] [&::-webkit-scrollbar]:hidden" role="tablist" aria-label="Nearby transport category">
-        <button type="button" role="tab" aria-selected={category === "operators"} onClick={() => setCategory("operators")} className={`min-w-[9rem] flex-1 whitespace-nowrap rounded-xl px-4 py-2.5 text-sm font-black transition ${category === "operators" ? "bg-emerald-700 text-white shadow-sm" : "bg-white text-slate-700"}`}>Live operators</button>
-        <button type="button" role="tab" aria-selected={category === "rentals"} onClick={() => setCategory("rentals")} className={`min-w-[9rem] flex-1 whitespace-nowrap rounded-xl px-4 py-2.5 text-sm font-black transition ${category === "rentals" ? "bg-amber-600 text-white shadow-sm" : "bg-white text-slate-700"}`}>Rentals</button>
+      <div className="mb-4 flex w-full flex-nowrap gap-2 overflow-x-auto rounded-2xl bg-slate-100 p-1.5 [scrollbar-width:none] [&::-webkit-scrollbar]:hidden" role="tablist" aria-label={i18nText("ui.literals.kf1213680c4fa")}>
+        <button type="button" role="tab" aria-selected={category === "operators"} onClick={() => setCategory("operators")} className={`min-w-[9rem] flex-1 whitespace-nowrap rounded-xl px-4 py-2.5 text-sm font-black transition ${category === "operators" ? "bg-emerald-700 text-white shadow-sm" : "bg-white text-slate-700"}`}>{i18nText("ui.literals.k886d9ce16cd6")}</button>
+        <button type="button" role="tab" aria-selected={category === "rentals"} onClick={() => setCategory("rentals")} className={`min-w-[9rem] flex-1 whitespace-nowrap rounded-xl px-4 py-2.5 text-sm font-black transition ${category === "rentals" ? "bg-amber-600 text-white shadow-sm" : "bg-white text-slate-700"}`}>{i18nText("ui.literals.k05793976369d")}</button>
       </div>
 
       {category === "rentals" ? <RentalCatalogue /> : error ? (
@@ -286,9 +289,10 @@ export default function NearbyOperators({
 }
 
 function EmptyState({ title, body }) {
+  useUiLocale();
   return (
     <div className="rounded-2xl border border-gray-100 bg-white p-5 text-center shadow-sm">
-      <h3 className="text-sm font-black text-gray-950">{title}</h3>
+      <h3 className="text-sm font-black text-gray-950">{translateUi(title)}</h3>
       <p className="mt-1 text-xs font-semibold text-gray-500">{body}</p>
     </div>
   );

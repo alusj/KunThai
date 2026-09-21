@@ -2,8 +2,10 @@ import { HiOutlineCheckCircle, HiOutlineShieldCheck } from "react-icons/hi2";
 
 import { postingStages } from "./postReviewPipeline";
 import { t as i18nText } from "../../../../../../i18n/index";
+import { uiText as translateUi, useI18n as useUiLocale } from "../../../../../../i18n/index.js";
 
 export default function PostingProgress({ progress = 0, stage = "preparing" }) {
+  useUiLocale();
   const activeIndex = Math.max(0, postingStages.findIndex((item) => item.key === stage));
 
   return (
@@ -29,7 +31,7 @@ export default function PostingProgress({ progress = 0, stage = "preparing" }) {
           return (
             <div key={item.key} className={`flex items-center gap-2 rounded-2xl px-3 py-2 text-xs font-black ${active ? "bg-white text-sky-700" : "text-slate-500"}`}>
               {done ? <HiOutlineCheckCircle className="flex-none text-emerald-600" /> : <span className="h-2 w-2 flex-none rounded-full bg-slate-300" />}
-              <span className="truncate">{item.label}</span>
+              <span className="truncate">{translateUi(item.label)}</span>
             </div>
           );
         })}

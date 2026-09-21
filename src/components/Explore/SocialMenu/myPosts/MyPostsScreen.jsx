@@ -4,6 +4,7 @@ import EmptyState from "../../shared/EmptyState";
 import ErrorState from "../../shared/ErrorState";
 import FeedPost from "../../ExploreTabs/urfeed/feed/components/FeedPost";
 import SocialScreenHeader from "../shared/SocialScreenHeader";
+import { uiText as translateUi } from "../../../../i18n/index.js";
 
 export default function MyPostsScreen({ currentUserId, hideHeader = false }) {
   const { t } = useI18n();
@@ -15,7 +16,7 @@ export default function MyPostsScreen({ currentUserId, hideHeader = false }) {
       {!hideHeader ? <SocialScreenHeader title={t("screens.MyPostsTitle")} subtitle={t("screens.MyPostsSubtitle")} /> : null}
 
       <div className="w-full space-y-4 px-4 py-4 sm:px-5">
-        {feed.error ? <ErrorState message={feed.error} onRetry={feed.reload} /> : null}
+        {feed.error ? <ErrorState message={translateUi(feed.error)} onRetry={feed.reload} /> : null}
 
         {!myPosts.length ? (
           <EmptyState title={t("explore.noPostsYet")} message={t("explore.noPostsYetMsg")} />

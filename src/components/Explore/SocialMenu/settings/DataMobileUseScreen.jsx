@@ -12,8 +12,10 @@ import { useExplorePreferences } from "../../../../Backend/hooks/useExplorePrefe
 import { isPostOutboxEnabled, setPostOutboxEnabled } from "../../../../Backend/services/explore/postOutboxConfig";
 import SocialScreenHeader from "../shared/SocialScreenHeader";
 import { t as i18nText } from "../../../../i18n/index";
+import { uiText as translateUi, useI18n as useUiLocale } from "../../../../i18n/index.js";
 
 function Toggle({ active, onChange }) {
+  useUiLocale();
   return (
     <button type="button" role="switch" aria-checked={active} onClick={() => onChange(!active)} className={`h-11 min-w-20 rounded-2xl px-4 text-sm font-black ${active ? "bg-sky-700 text-white" : "bg-slate-100 text-slate-600"}`}>
       {active ? i18nText("ui.literals.ke0049a66519c") : i18nText("ui.literals.ke3de5ab0ca4c")}
@@ -22,11 +24,12 @@ function Toggle({ active, onChange }) {
 }
 
 function DataRow({ children, description, icon: Icon, title }) {
+  useUiLocale();
   return (
     <div className="flex flex-col gap-4 rounded-[24px] border border-slate-200 bg-white p-4 shadow-sm sm:flex-row sm:items-center sm:justify-between">
       <div className="flex items-start gap-3">
         <span className="grid h-12 w-12 flex-none place-items-center rounded-2xl bg-sky-50 text-sky-700"><Icon className="text-2xl" /></span>
-        <div><h4 className="text-base font-black text-slate-950">{title}</h4><p className="mt-1 text-sm font-semibold leading-6 text-slate-500">{description}</p></div>
+        <div><h4 className="text-base font-black text-slate-950">{translateUi(title)}</h4><p className="mt-1 text-sm font-semibold leading-6 text-slate-500">{translateUi(description)}</p></div>
       </div>
       <div className="flex-none">{children}</div>
     </div>
@@ -34,6 +37,7 @@ function DataRow({ children, description, icon: Icon, title }) {
 }
 
 export default function DataMobileUseScreen({ hideHeader = false }) {
+  useUiLocale();
   const { clearCache, feedback, settings, updateSection } = useExplorePreferences();
   const { video } = settings;
   const [backgroundPosting, setBackgroundPosting] = useState(isPostOutboxEnabled());
@@ -47,7 +51,7 @@ export default function DataMobileUseScreen({ hideHeader = false }) {
           <p className="text-xs font-black uppercase tracking-[0.2em] text-sky-700">{i18nText("ui.literals.kc36c996818eb")}</p>
           <h3 className="mt-2 text-2xl font-black text-slate-950">{i18nText("ui.literals.kb5254c8bd4f4")}</h3>
           <p className="mt-2 max-w-3xl text-sm font-semibold leading-6 text-slate-600">{i18nText("ui.literals.k9caa5321a133")}</p>
-          {feedback ? <p className="mt-3 text-sm font-black text-sky-700">{feedback}</p> : null}
+          {feedback ? <p className="mt-3 text-sm font-black text-sky-700">{translateUi(feedback)}</p> : null}
         </section>
 
         <section className="grid gap-3 lg:grid-cols-2">
@@ -60,7 +64,7 @@ export default function DataMobileUseScreen({ hideHeader = false }) {
           <DataRow icon={HiOutlineSpeakerWave} title={i18nText("ui.literals.k852ed2593e28")} description={i18nText("ui.literals.kd5fe1510e61f")}>
             <Toggle active={!video.defaultMuted} onChange={(value) => updateSection("video", { defaultMuted: !value })} />
           </DataRow>
-          <DataRow icon={HiOutlineCloudArrowUp} title="Keep posts publishing in the background" description="If your connection drops while posting, KunThai keeps the post and finishes it automatically once you're back online.">
+          <DataRow icon={HiOutlineCloudArrowUp} title={i18nText("ui.literals.k8462ff560426")} description={i18nText("ui.literals.k95e3b45242ad")}>
             <Toggle
               active={backgroundPosting}
               onChange={(value) => {

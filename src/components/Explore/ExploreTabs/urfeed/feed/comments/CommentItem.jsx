@@ -14,6 +14,7 @@ import { useI18n, t as translate } from "../../../../../../i18n";
 import Avatar from "../../../../shared/Avatar";
 import LinkifiedText from "../../../../shared/LinkifiedText";
 import { pauseOtherExploreMedia } from "../../../../shared/singleMediaPlayback";
+import { uiText as translateUi } from "../../../../../../i18n/index.js";
 
 function isPlaceholderName(value) {
   const normalized = String(value || "").trim().toLowerCase();
@@ -105,7 +106,7 @@ export default function CommentItem({
           ) : null}
           {translation.requested && translation.error ? (
             <p className="mt-1 text-[11px] font-bold text-rose-600" role="alert">
-              {translation.error.message}{" "}
+              {translateUi(translation.error.message)}{" "}
               {translation.error.retryable ? (
                 <button type="button" onClick={translation.retry} className="underline">
                   {t("ai.retry")}

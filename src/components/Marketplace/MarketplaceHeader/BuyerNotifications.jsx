@@ -20,6 +20,9 @@ import {
 } from "../../../Backend/services/surfaceNotificationService";
 import { openUnifiedNotification } from "../../../Backend/services/unifiedNotificationService";
 import { runNotificationAction } from "../../../Backend/services/notificationBannerService";
+import { t as i18nText } from "../../../i18n/index";
+import { uiText as translateUi, useI18n as useUiLocale } from "../../../i18n/index.js";
+import { inlineErrorMessage } from "../../../Backend/services/friendlyErrorService";
 
 const BUYER_NOTIFICATION_SCOPE = "urmall:buyer:notifications";
 const BUYER_NOTIFICATION_READ_SCOPE = `${BUYER_NOTIFICATION_SCOPE}:read`;
@@ -64,7 +67,7 @@ export default function BuyerNotifications({ onOpenChange, onUnreadCountChange, 
         read: readItems[index]?.unread === false,
       })));
     } catch (err) {
-      setError(err.message || t("urmall.notifications.loadError"));
+      setError(inlineErrorMessage(err, t("urmall.notifications.loadError")));
       setNotifications([]);
     } finally {
       if (!quiet) setLoading(false);
@@ -221,8 +224,8 @@ export default function BuyerNotifications({ onOpenChange, onUnreadCountChange, 
                           {notification.sourceTable === "platform_notifications" ? <BellRing size={18} /> : <PackageCheck size={18} />}
                         </span>
                         <div className="min-w-0 flex-1">
-                          <h3 className="text-sm font-black text-slate-950">{notification.title}</h3>
-                          <p className="mt-1 text-sm font-semibold leading-5 text-slate-600">{notification.body}</p>
+                          <h3 className="text-sm font-black text-slate-950">{translateUi(notification.title)}</h3>
+                          <p className="mt-1 text-sm font-semibold leading-5 text-slate-600">{translateUi(notification.body)}</p>
                           {notification.createdAt ? (
                             <p className="mt-1 text-xs font-bold text-slate-400">{formatNotificationTime(notification.createdAt)}</p>
                           ) : null}
@@ -235,7 +238,7 @@ export default function BuyerNotifications({ onOpenChange, onUnreadCountChange, 
                             }}
                             className="kt-touchable mt-3 text-sm font-black text-emerald-700 hover:text-emerald-800"
                           >
-                            {notification.actionLabel || "Open"}
+                            {notification.actionLabel || i18nText("ui.literals.kcf9b77061f7b")}
                           </button>
                         </div>
                       </div>
@@ -252,10 +255,11 @@ export default function BuyerNotifications({ onOpenChange, onUnreadCountChange, 
 }
 
 function NotificationState({ title, body }) {
+  useUiLocale();
   return (
     <div className="rounded-2xl border border-slate-100 bg-white p-5 text-center">
       <Bell className="mx-auto text-slate-300" size={28} />
-      <h3 className="mt-3 text-sm font-black text-slate-950">{title}</h3>
+      <h3 className="mt-3 text-sm font-black text-slate-950">{translateUi(title)}</h3>
       <p className="mt-1 text-sm font-semibold text-slate-500">{body}</p>
     </div>
   );

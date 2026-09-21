@@ -99,7 +99,7 @@ export default function AddressLocationField({ onChange, value }) {
             required
             value={value.address}
             onChange={(event) => onChange({ address: event.target.value })}
-            onBlur={caution.handleAddressBlur}
+            {...caution.inputProps}
             placeholder={t("urmall.biz.reg.bizAddressPlaceholder")}
             autoComplete="street-address"
             className="kt-address-entry-input mt-1 h-11 w-full rounded-xl border border-gray-200 bg-white px-3 text-sm font-bold text-gray-900 outline-none focus:border-emerald-400 focus:ring-4 focus:ring-emerald-500/10"

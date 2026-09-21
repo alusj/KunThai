@@ -2,6 +2,7 @@ import { HiOutlineMicrophone, HiOutlinePause, HiOutlinePlay, HiOutlineTrash, HiO
 
 import { t } from "../../../../../../i18n";
 import { t as i18nText } from "../../../../../../i18n/index";
+import { useI18n as useUiLocale } from "../../../../../../i18n/index.js";
 
 function formatTime(seconds = 0) {
   const mins = Math.floor(seconds / 60);
@@ -20,6 +21,7 @@ export default function VoiceCapsuleRecorder({
   onResume,
   onCancel,
 }) {
+  useUiLocale();
   const bars = Array.from({ length: 18 });
 
   return (

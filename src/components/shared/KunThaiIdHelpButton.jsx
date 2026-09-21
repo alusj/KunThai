@@ -4,6 +4,7 @@ import { useEffect, useId, useState } from "react";
 
 import { useI18n } from "../../i18n";
 import CenteredModal from "./CenteredModal";
+import { uiText as translateUi, useI18n as useUiLocale } from "../../i18n/index.js";
 
 const TONES = {
   blue: "from-blue-500 to-blue-700 shadow-blue-500/25",
@@ -83,6 +84,7 @@ export default function KunThaiIdHelpButton({ subject = "person", tone = "blue",
 }
 
 function HelpStep({ body, icon: Icon, number, title }) {
+  useUiLocale();
   return (
     <motion.div
       initial={{ opacity: 0, x: -8 }}
@@ -95,7 +97,7 @@ function HelpStep({ body, icon: Icon, number, title }) {
         <span className="absolute -right-1.5 -top-1.5 grid h-5 w-5 place-items-center rounded-full bg-blue-700 text-[10px] font-black text-white">{number}</span>
       </span>
       <div className="min-w-0">
-        <p className="text-sm font-black text-slate-950">{title}</p>
+        <p className="text-sm font-black text-slate-950">{translateUi(title)}</p>
         <p className="mt-1 text-xs font-semibold leading-5 text-slate-600">{body}</p>
       </div>
     </motion.div>

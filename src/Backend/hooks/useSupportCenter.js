@@ -1,5 +1,5 @@
 import { useEffect, useMemo, useState } from "react";
-import { friendlyErrorMessage } from "../services/friendlyErrorService";
+import { inlineErrorMessage } from "../services/friendlyErrorService";
 
 import { createSupportTicket, fetchSupportTickets } from "../services/explore/supportService";
 import { showToast } from "../services/toastService";
@@ -40,7 +40,7 @@ export function useSupportCenter() {
       showToast("Support request submitted.", "success");
       return ticket;
     } catch (error) {
-      setFeedback(friendlyErrorMessage(error, "Unable to submit support request."));
+      setFeedback(inlineErrorMessage(error, "Unable to submit support request."));
       return null;
     } finally {
       setSubmitting(false);

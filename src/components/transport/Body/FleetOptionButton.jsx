@@ -1,9 +1,11 @@
-export default function FleetOptionButton({ icon, label, onClick }) {
+
+import { uiText as translateUi, useI18n as useUiLocale } from "../../../i18n/index.js";export default function FleetOptionButton({ icon, label, onClick }) {
+  useUiLocale();
   return (
     <button
       type="button"
-      aria-label={label}
-      title={label}
+      aria-label={translateUi(label)}
+      title={translateUi(label)}
       onClick={onClick}
       className="
         flex min-h-16 min-w-0 flex-col items-center justify-center
@@ -15,7 +17,7 @@ export default function FleetOptionButton({ icon, label, onClick }) {
     >
       <span className="flex h-7 items-center text-2xl leading-none">{icon}</span>
       <span className="mt-1 max-w-full truncate text-[11px] font-black leading-tight sm:text-xs">
-        {label}
+        {translateUi(label)}
       </span>
     </button>
   );

@@ -45,6 +45,8 @@ import { useI18n, t } from "../../../i18n";
 import { useAiScreen } from "../../../Backend/services/ai/aiScreenContext";
 import { buildFleetRegistrationAiContext } from "./fleetRegistrationAi";
 import { t as i18nText } from "../../../i18n/index";
+import { uiText as translateUi, useI18n as useUiLocale } from "../../../i18n/index.js";
+import { inlineErrorMessage } from "../../../Backend/services/friendlyErrorService";
 
 // Stored enum values stay English; display localized via urride.fleetEdit.enum.
 const availabilityOptions = ["Full-time", "Part-time", "Scheduled", "Weekends only", "Night service"];
@@ -457,7 +459,7 @@ export default function FleetRegistrationDrawer({ onClose, onComplete, onSaveExi
       setSubmitError("");
       return true;
     } catch (error) {
-      setSubmitError(error.message || t("urride.fleetReg.draftError"));
+      setSubmitError(inlineErrorMessage(error, t("urride.fleetReg.draftError")));
       return false;
     } finally {
       setSavingDraft(false);
@@ -503,7 +505,7 @@ export default function FleetRegistrationDrawer({ onClose, onComplete, onSaveExi
       await new Promise((resolve) => window.setTimeout(resolve, 480));
       onComplete?.(account, origin);
     } catch (error) {
-      setSubmitError(error.message || t("urride.fleetReg.submitError"));
+      setSubmitError(inlineErrorMessage(error, t("urride.fleetReg.submitError")));
     } finally {
       setSubmitting(false);
     }
@@ -561,7 +563,7 @@ export default function FleetRegistrationDrawer({ onClose, onComplete, onSaveExi
       setSavedMessage(t("urride.fleetReg.reviewCheckpointSaved"));
       window.setTimeout(() => setSavedMessage(""), 4200);
     } catch (error) {
-      setSubmitError(error.message || t("urride.fleetReg.draftError"));
+      setSubmitError(inlineErrorMessage(error, t("urride.fleetReg.draftError")));
     }
   };
   const prevStep = () => setStep((current) => Math.max(current - 1, 0));
@@ -1096,7 +1098,7 @@ export default function FleetRegistrationDrawer({ onClose, onComplete, onSaveExi
                 await saveOperatorDraft(buildPayload("draft"));
                 await handleSubmit(origin);
               } catch (error) {
-                setSubmitError(error.message || t("urride.fleetReg.draftError"));
+                setSubmitError(inlineErrorMessage(error, t("urride.fleetReg.draftError")));
               }
             }}
             className="h-11 rounded-2xl bg-green-600 text-sm font-bold text-white"
@@ -1148,45 +1150,48 @@ function PricingGuide({ type, open, onToggle, onViewOneKm, disabled = false }) {
 }
 
 function FormInput({ error = "", label, value, onChange, type = "text", placeholder = "", helper = "", ...props }) {
+  useUiLocale();
   return (
     <label className="block" data-field-error={error ? "true" : undefined}>
-      <span className="mb-2 block text-sm font-semibold text-gray-800">{label}</span>
+      <span className="mb-2 block text-sm font-semibold text-gray-800">{translateUi(label)}</span>
       <input
         {...props}
         type={type}
         value={value}
-        placeholder={placeholder}
+        placeholder={translateUi(placeholder)}
         onChange={(event) => onChange(event.target.value)}
         aria-invalid={error ? "true" : undefined}
         className={`h-12 w-full rounded-2xl border bg-gray-50 px-4 text-sm font-medium outline-none transition placeholder:text-gray-400 focus:border-green-500 focus:bg-white focus:ring-4 focus:ring-green-100 ${error ? "border-red-300" : "border-gray-200"}`}
       />
-      {error ? <span className="mt-2 block text-xs font-bold leading-5 text-red-600" role="alert">{error}</span> : null}
-      {helper ? <span className="mt-2 block text-xs font-medium leading-5 text-gray-500">{helper}</span> : null}
+      {error ? <span className="mt-2 block text-xs font-bold leading-5 text-red-600" role="alert">{translateUi(error)}</span> : null}
+      {helper ? <span className="mt-2 block text-xs font-medium leading-5 text-gray-500">{translateUi(helper)}</span> : null}
     </label>
   );
 }
 
 function LocationInput({ error = "", label, value, onChange, placeholder = "", helper = "" }) {
+  useUiLocale();
   return (
     <label className="block" data-field-error={error ? "true" : undefined}>
-      <span className="mb-2 block text-sm font-semibold text-gray-800">{label}</span>
+      <span className="mb-2 block text-sm font-semibold text-gray-800">{translateUi(label)}</span>
       <input
         value={value}
-        placeholder={placeholder}
+        placeholder={translateUi(placeholder)}
         onChange={(event) => onChange(event.target.value)}
         aria-invalid={error ? "true" : undefined}
         className={`h-12 w-full rounded-2xl border bg-gray-50 px-4 text-sm font-medium outline-none transition placeholder:text-gray-400 focus:border-green-500 focus:bg-white focus:ring-4 focus:ring-green-100 ${error ? "border-red-300" : "border-gray-200"}`}
       />
-      {error ? <span className="mt-2 block text-xs font-bold leading-5 text-red-600" role="alert">{error}</span> : null}
-      {helper ? <span className="mt-2 block text-xs font-medium leading-5 text-gray-500">{helper}</span> : null}
+      {error ? <span className="mt-2 block text-xs font-bold leading-5 text-red-600" role="alert">{translateUi(error)}</span> : null}
+      {helper ? <span className="mt-2 block text-xs font-medium leading-5 text-gray-500">{translateUi(helper)}</span> : null}
     </label>
   );
 }
 
 function SelectField({ error = "", label, options, value, onChange, helper = "", optionLabels }) {
+  useUiLocale();
   return (
     <label className="block" data-field-error={error ? "true" : undefined}>
-      <span className="mb-2 block text-sm font-semibold text-gray-800">{label}</span>
+      <span className="mb-2 block text-sm font-semibold text-gray-800">{translateUi(label)}</span>
       <select
         value={value}
         onChange={(event) => onChange(event.target.value)}
@@ -1196,17 +1201,18 @@ function SelectField({ error = "", label, options, value, onChange, helper = "",
         {!value ? <option value="">{t("urride.fleetEdit.selectPlaceholder", { label: String(label).toLowerCase() })}</option> : null}
         {options.map((option) => (
           <option key={option} value={option}>
-            {optionLabels ? optionLabels(option) : option}
+            {optionLabels ? optionLabels(option) : translateUi(option)}
           </option>
         ))}
       </select>
-      {error ? <span className="mt-2 block text-xs font-bold leading-5 text-red-600" role="alert">{error}</span> : null}
-      {helper ? <span className="mt-2 block text-xs font-medium leading-5 text-gray-500">{helper}</span> : null}
+      {error ? <span className="mt-2 block text-xs font-bold leading-5 text-red-600" role="alert">{translateUi(error)}</span> : null}
+      {helper ? <span className="mt-2 block text-xs font-medium leading-5 text-gray-500">{translateUi(helper)}</span> : null}
     </label>
   );
 }
 
 function UploadField({ error = "", label, value, onChange }) {
+  useUiLocale();
   const selectedName = typeof value === "string" ? value : value?.fileName || value?.name || "";
   return (
     <label data-field-error={error ? "true" : undefined} className={`block cursor-pointer rounded-2xl border border-dashed bg-gray-50 px-4 py-4 transition hover:border-green-300 hover:bg-green-50 ${error ? "border-red-300" : "border-gray-300"}`}>
@@ -1222,19 +1228,20 @@ function UploadField({ error = "", label, value, onChange }) {
           <FiCamera size={18} />
         </span>
         <span className="min-w-0">
-          <span className="block text-sm font-semibold text-gray-900">{label}</span>
+          <span className="block text-sm font-semibold text-gray-900">{translateUi(label)}</span>
           <span className="block truncate text-xs text-gray-500">{selectedName || t("urride.fleetEdit.uploadPhoto")}</span>
         </span>
       </span>
-      {error ? <span className="mt-3 block text-xs font-bold leading-5 text-red-600" role="alert">{error}</span> : null}
+      {error ? <span className="mt-3 block text-xs font-bold leading-5 text-red-600" role="alert">{translateUi(error)}</span> : null}
     </label>
   );
 }
 
 function ReviewRow({ label, value }) {
+  useUiLocale();
   return (
     <div className="flex flex-col gap-1 rounded-2xl border border-gray-100 px-4 py-3 sm:flex-row sm:items-center sm:justify-between">
-      <span className="text-sm text-gray-500">{label}</span>
+      <span className="text-sm text-gray-500">{translateUi(label)}</span>
       <span className="break-words text-sm font-semibold text-gray-900 sm:text-right">{value}</span>
     </div>
   );

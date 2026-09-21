@@ -1,6 +1,7 @@
 import { HiOutlineArrowPath, HiOutlineExclamationTriangle, HiOutlineSparkles, HiOutlineXMark } from "react-icons/hi2";
 
 import { useI18n } from "../../../../../../i18n";
+import { uiText as translateUi } from "../../../../../../i18n/index.js";
 
 // KAI — the "Summarise discussion" card shown at the top of a long
 // comment thread. Read-only: it describes the conversation and never replies,
@@ -44,7 +45,7 @@ export default function DiscussionSummary({ summary, onClose }) {
       {summary.error && !summary.loading ? (
         <div className="mt-3 flex items-start gap-2 text-sm font-bold text-rose-700" role="alert">
           <HiOutlineExclamationTriangle className="mt-0.5 flex-none" />
-          <span className="min-w-0 flex-1">{summary.error.message}</span>
+          <span className="min-w-0 flex-1">{translateUi(summary.error.message)}</span>
           {summary.error.retryable ? (
             <button type="button" onClick={summary.regenerate} className="kt-pressable inline-flex items-center gap-1 rounded-lg text-xs font-black text-rose-700">
               <HiOutlineArrowPath />

@@ -20,6 +20,7 @@ import { showToast } from "../../../../Backend/services/toastService";
 import SocialScreenHeader from "../shared/SocialScreenHeader";
 import LinkedAccountsSection from "./LinkedAccountsSection";
 import { t as i18nText, uiText } from "../../../../i18n/index";
+import { uiText as translateUi, useI18n as useUiLocale } from "../../../../i18n/index.js";
 
 const securityItems = [
   {
@@ -53,6 +54,7 @@ const securityItems = [
 ];
 
 export default function SecurityScreen({ currentProfile, hideHeader = false, onOpenHelp, onSwitchAccount }) {
+  useUiLocale();
   const currentUserId = currentProfile?.userId || "";
   const [biometricAvailability, setBiometricAvailability] = useState({ available: false, checking: true, reason: "" });
   const [biometricPreference, setBiometricPreference] = useState(() => readBiometricPreference(currentUserId));
@@ -177,7 +179,7 @@ export default function SecurityScreen({ currentProfile, hideHeader = false, onO
 
               {!biometricAvailability.checking && !biometricAvailability.available ? (
                 <p className="mt-3 rounded-2xl bg-amber-50 px-3 py-2 text-sm font-bold text-amber-800">
-                  {biometricAvailability.reason}
+                  {translateUi(biometricAvailability.reason)}
                 </p>
               ) : null}
 

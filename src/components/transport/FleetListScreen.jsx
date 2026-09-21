@@ -11,6 +11,8 @@ import VerificationBadge from "./verification/VerificationBadge";
 import { verificationStatuses } from "./verification/verificationStatus";
 import { useI18n, t } from "../../i18n";
 import SaveOperatorButton from "./SaveOperatorButton";
+import { uiText as translateUi, useI18n as useUiLocale } from "../../i18n/index.js";
+import { inlineErrorMessage } from "../../Backend/services/friendlyErrorService";
 
 function filterFleetsForSelection(items, selection) {
   return selection.verifiedOnly
@@ -64,7 +66,7 @@ export default function FleetListScreen({ selection, onBack, onViewCompany, onVi
         if (alive) setFleets(visibleItems);
       } catch (err) {
         if (alive) {
-          setError(hasExistingFleets ? "" : err.message || t("urride.fleetList.loadError"));
+          setError(hasExistingFleets ? "" : inlineErrorMessage(err, t("urride.fleetList.loadError")));
           if (!hasExistingFleets) {
             setFleets([]);
           }
@@ -101,7 +103,7 @@ export default function FleetListScreen({ selection, onBack, onViewCompany, onVi
           />
 
           <div className="min-w-0 flex-1">
-            <h1 className="truncate text-lg font-bold text-gray-950">{selection.label}</h1>
+            <h1 className="truncate text-lg font-bold text-gray-950">{translateUi(selection.label)}</h1>
             <p className="truncate text-xs text-gray-500">{helperText}</p>
           </div>
 
@@ -253,6 +255,7 @@ function FleetListCard({ fleet, onViewCompany, onViewFleet, onShowVerification, 
 }
 
 function StatusPill({ active }) {
+  useUiLocale();
   return (
     <span
       className={`shrink-0 rounded-full border px-2.5 py-1 text-xs font-bold ${
@@ -267,27 +270,30 @@ function StatusPill({ active }) {
 }
 
 function InfoLine({ icon, text }) {
+  useUiLocale();
   return (
     <div className="flex min-w-0 items-center gap-2">
       {createElement(icon, { size: 15, className: "shrink-0 text-gray-500" })}
-      <span className="truncate">{text}</span>
+      <span className="truncate">{translateUi(text)}</span>
     </div>
   );
 }
 
 function SummaryItem({ label, value }) {
+  useUiLocale();
   return (
     <div>
-      <p className="text-xs font-semibold uppercase tracking-wide text-gray-400">{label}</p>
+      <p className="text-xs font-semibold uppercase tracking-wide text-gray-400">{translateUi(label)}</p>
       <p className="mt-1 text-sm font-bold text-gray-900">{value}</p>
     </div>
   );
 }
 
 function EmptyState({ title, body }) {
+  useUiLocale();
   return (
     <div className="rounded-2xl border border-gray-100 bg-white p-6 text-center shadow-sm">
-      <h2 className="text-base font-black text-gray-950">{title}</h2>
+      <h2 className="text-base font-black text-gray-950">{translateUi(title)}</h2>
       <p className="mt-2 text-sm font-semibold text-gray-500">{body}</p>
     </div>
   );

@@ -1,5 +1,7 @@
 import { useEffect, useId, useRef } from "react";
 import { BellRing, CalendarDays, Car, ChevronRight, Gift, Info, Megaphone, ShieldAlert, Sparkles, Store, X } from "lucide-react";
+import { t as i18nText } from "../../../i18n/index";
+import { useI18n as useUiLocale } from "../../../i18n/index.js";
 
 // One renderer for every on-screen admin campaign presentation: floating card,
 // banner, bottom sheet, modal, critical alert and inline card.
@@ -33,6 +35,7 @@ function campaignPresentationKind(type) {
 }
 
 function FocusTrap({ active, children, onEscape }) {
+  useUiLocale();
   const ref = useRef(null);
   const escapeRef = useRef(onEscape);
   useEffect(() => {
@@ -88,6 +91,7 @@ export default function CampaignPresentation({
   onAction,
   onDismiss,
 }) {
+  useUiLocale();
   const kind = campaignPresentationKind(settings.type);
   const critical = ["critical", "urgent"].includes(settings.type);
   const Icon = critical ? ShieldAlert : ICONS[content.icon] || BellRing;
@@ -103,7 +107,7 @@ export default function CampaignPresentation({
     <button
       type="button"
       onClick={onDismiss}
-      aria-label="Dismiss"
+      aria-label={i18nText("ui.literals.k70afe9eff3f2")}
       className={`grid h-9 w-9 shrink-0 place-items-center rounded-xl transition focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 ${critical ? "bg-white/10 text-white hover:bg-white/20 focus-visible:outline-white" : "bg-slate-100 text-slate-500 hover:bg-slate-200 hover:text-slate-800 focus-visible:outline-emerald-600"}`}
     >
       <X size={17} />
@@ -142,13 +146,13 @@ export default function CampaignPresentation({
       <div className="min-w-0 flex-1">
         <div className="flex flex-wrap items-center gap-1.5">
           <p className={`text-[10px] font-black uppercase tracking-[0.16em] ${critical ? "text-rose-200" : "text-emerald-700"}`}>
-            {critical ? "Important KunThai notice" : content.sectionLabel || "KunThai update"}
+            {critical ? i18nText("ui.literals.k5aa9bf37d371") : content.sectionLabel || i18nText("ui.literals.k552b54660318")}
           </p>
           {content.badge ? (
             <span className={`rounded-full px-2 py-0.5 text-[10px] font-black ${critical ? "bg-white/15 text-white" : "bg-amber-100 text-amber-800"}`}>{content.badge}</span>
           ) : null}
         </div>
-        <h2 id={titleId} className="mt-1 break-words text-base font-black leading-snug">{content.title || "Notification title"}</h2>
+        <h2 id={titleId} className="mt-1 break-words text-base font-black leading-snug">{content.title || i18nText("ui.literals.kcdc4fe8e5a7d")}</h2>
       </div>
       {closeButton}
     </div>
@@ -158,7 +162,7 @@ export default function CampaignPresentation({
     <>
       {content.mediaUrl ? <img src={content.mediaUrl} alt="" loading="lazy" className="mt-3 max-h-48 w-full rounded-2xl object-cover" /> : null}
       <p className={`mt-3 whitespace-pre-line break-words text-sm font-semibold leading-6 ${critical ? "text-rose-50" : "text-slate-600"}`}>
-        {content.body || "Your message appears here."}
+        {content.body || i18nText("ui.literals.k51dce5fa0540")}
       </p>
       {buttons}
     </>
@@ -182,13 +186,13 @@ export default function CampaignPresentation({
           <div className="min-w-0 flex-1">
             <p className="truncate text-sm font-black">
               {content.badge ? <span className="mr-1.5 rounded-full bg-amber-100 px-1.5 py-0.5 text-[10px] text-amber-800">{content.badge}</span> : null}
-              {content.title || "Notification title"}
+              {content.title || i18nText("ui.literals.kcdc4fe8e5a7d")}
             </p>
-            <p className="truncate text-xs font-semibold text-slate-500">{content.body || "Your message appears here."}</p>
+            <p className="truncate text-xs font-semibold text-slate-500">{content.body || i18nText("ui.literals.k51dce5fa0540")}</p>
           </div>
           {content.hasAction ? (
             <button type="button" onClick={onAction} className="min-h-10 shrink-0 rounded-xl bg-emerald-700 px-3 text-xs font-black text-white hover:bg-emerald-800 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-emerald-700">
-              {content.actionLabel || "View"}
+              {content.actionLabel || i18nText("ui.literals.k69bd4ef9fbd0")}
             </button>
           ) : null}
           {closeButton}

@@ -61,10 +61,13 @@ import { useAiRoleContext } from "../../../../Backend/services/ai/aiSurfaceServi
 import { useCampaignSurfaceRole } from "../../../../Backend/services/campaigns/campaignSurfaceStore";
 import CampaignInboxSection from "../../../shared/campaigns/CampaignInboxSection";
 import { hasBusinessPlans, isProductBusinessKind } from "../../../../Backend/services/marketplace/marketplaceBusinessKinds";
+import { t as i18nText } from "../../../../i18n/index";
+import { uiText as translateUi, useI18n as useUiLocale } from "../../../../i18n/index.js";
 
 const SELLER_SCREEN_ANIMATION_MS = 360;
 
 function SellerFullScreen({ animation = "stack", children, hideHeader = false, eyebrow, onBack, open, subtitle, title }) {
+  useUiLocale();
   const animationClass = animation === "zoom"
     ? open ? "kt-route-zoom-open" : "kt-route-zoom-close"
     : open ? "kt-explore-stack-enter" : "kt-explore-stack-leave-right";
@@ -93,8 +96,8 @@ function SellerFullScreen({ animation = "stack", children, hideHeader = false, e
             />
             <div className="min-w-0">
               <p className="text-xs font-black uppercase text-emerald-700">{eyebrow}</p>
-              <h1 className="truncate text-lg font-black text-gray-950">{title}</h1>
-              {subtitle ? <p className="truncate text-xs text-gray-500">{subtitle}</p> : null}
+              <h1 className="truncate text-lg font-black text-gray-950">{translateUi(title)}</h1>
+              {subtitle ? <p className="truncate text-xs text-gray-500">{translateUi(subtitle)}</p> : null}
             </div>
           </header>
         ) : null}
@@ -323,10 +326,10 @@ export default function Business({ initialScreen = "", onBack, onInitialScreenHa
       } else if (capacity.requiredPlan && capacity.upgradeBusinessId) {
         openSellerScreen("businessTypePlans");
       } else {
-        showToast("You already have all four business types. Choose a workspace to add locations or inventory.", "info");
+        showToast(i18nText("ui.literals.kf0c5a81330d1"), "info");
       }
     } catch (error) {
-      showToast(error.message || "Unable to check your business plan. Please try again.", "danger");
+      showToast(error.message || i18nText("ui.literals.k964e6ea332bc"), "danger");
     }
   }
 
@@ -382,12 +385,12 @@ export default function Business({ initialScreen = "", onBack, onInitialScreenHa
   function renderSellerScreen() {
     if (visibleScreen === "businessTypePlans") {
       return (
-        <SellerFullScreen key="businessTypePlans" title="Add another business type" eyebrow="UrMall" onBack={goBackSellerScreen} open={screenPanelOpen}>
+        <SellerFullScreen key="businessTypePlans" title={i18nText("ui.literals.kd56069e01899")} eyebrow="UrMall" onBack={goBackSellerScreen} open={screenPanelOpen}>
           <p className="mx-auto max-w-3xl rounded-2xl border border-emerald-200 bg-emerald-50 p-4 text-sm font-semibold text-emerald-950">
-            Your account uses {typeCapacity?.current || 0} of {typeCapacity?.limit || 1} business types. Free supports 1, Pro supports 2, and Premium supports all 4. Your highest active plan unlocks these types; inventory capacity and billing stay with each business.
+            {i18nText("ui.literals.k8d2bc124d5b9")} {typeCapacity?.current || 0} {i18nText("ui.literals.kde04fa0e29f9")} {typeCapacity?.limit || 1} {i18nText("ui.literals.k7463c6ba3a3b")}
           </p>
           {typeCapacity?.upgradeBusinessId ? <BusinessPlanScreen surface="urmall" entityId={typeCapacity.upgradeBusinessId} entityName={businesses.find((business) => business.id === typeCapacity.upgradeBusinessId)?.identity?.businessName || "Your business"} /> : null}
-          {typeCapacity?.allowed ? <button type="button" onClick={() => openSellerScreen("addBusiness")} className="mx-auto flex min-h-12 items-center gap-2 rounded-2xl bg-emerald-600 px-5 font-black text-white"><Plus size={18} /> Continue to new business</button> : null}
+          {typeCapacity?.allowed ? <button type="button" onClick={() => openSellerScreen("addBusiness")} className="mx-auto flex min-h-12 items-center gap-2 rounded-2xl bg-emerald-600 px-5 font-black text-white"><Plus size={18} /> {i18nText("ui.literals.k0ae50a656458")}</button> : null}
         </SellerFullScreen>
       );
     }
@@ -523,7 +526,7 @@ export default function Business({ initialScreen = "", onBack, onInitialScreenHa
                 entityId={sellerOverview.business?.id}
                 requiredTier="pro"
                 featureName={t("urmall.biz.intel.insightsTab")}
-                description="Advanced product insights are part of the Pro plan. Upgrade to see per-product performance."
+                description={i18nText("ui.literals.kfe48d0530221")}
                 onOpenPlans={() => openSellerScreen("plans")}
               >
                 <ProductInsightsScreen product={selectedProduct} />
@@ -592,7 +595,7 @@ export default function Business({ initialScreen = "", onBack, onInitialScreenHa
                 entityId={sellerOverview.business?.id}
                 requiredTier="premium"
                 featureName={t("urmall.biz.intel.title")}
-                description="Full business insights are part of the Premium plan. Upgrade to unlock Seller Intelligence."
+                description={i18nText("ui.literals.k1d634d5c6104")}
                 onOpenPlans={() => openSellerScreen("plans")}
               >
                 <SellerIntelligence />
@@ -739,7 +742,7 @@ export default function Business({ initialScreen = "", onBack, onInitialScreenHa
 
   return (
     <div className={`${dashboardRevealClass} kt-mobile-viewport kt-safe-screen bg-gray-50`} style={dashboardRevealStyle}>
-      <ProductSuccessToast message={toastMessage} onClose={() => setToastMessage("")} />
+      <ProductSuccessToast message={translateUi(toastMessage)} onClose={() => setToastMessage("")} />
 
       {/* =========================
           MyBiz Header (ONLY PLACE)
@@ -797,7 +800,7 @@ export default function Business({ initialScreen = "", onBack, onInitialScreenHa
               setSelectedBusinessId(previousBusinessId);
               setSwitchingBusiness(false);
               pendingSwitchToastRef.current = false;
-              showToast(error.message || "Unable to switch businesses right now.", "danger");
+              showToast(error.message || i18nText("ui.literals.ka31183561f0f"), "danger");
             }
             // The "switched" toast is announced once the switch overlay closes
             // (see the switchingBusiness effect), so it never sits behind the
@@ -855,7 +858,7 @@ export default function Business({ initialScreen = "", onBack, onInitialScreenHa
               <MyBizDashboardHeader
                 onEditProfile={() => {
                   if (!permissions.canEditBusiness) {
-                    showToast("The business owner has not assigned you responsibility for editing business information.", "info");
+                    showToast(i18nText("ui.literals.kf4360f16101b"), "info");
                     return;
                   }
                   if (permissions.isAdmin) openDelegatedProfileEditor();
@@ -955,6 +958,7 @@ export default function Business({ initialScreen = "", onBack, onInitialScreenHa
 // cards shimmer. Header actions, the business icon, workspace tabs, and the
 // dashboard information cards must not masquerade as loading data.
 function SellerDashboardSkeleton({ onBack }) {
+  useUiLocale();
   return (
     <>
       <header className="sticky top-0 z-30 border-b border-gray-200 bg-white" data-static-shell="seller-header">
@@ -998,7 +1002,7 @@ function SellerDashboardSkeleton({ onBack }) {
             t("urmall.biz.cat.titleDraft"),
           ].map((label, index) => (
             <span key={label} className={`grid min-h-10 place-items-center rounded-xl px-2 text-xs font-black ${index === 0 ? "bg-slate-950 text-white" : "text-gray-500"}`}>
-              {label}
+              {translateUi(label)}
             </span>
           ))}
         </nav>
@@ -1028,6 +1032,7 @@ function SellerDashboardSkeleton({ onBack }) {
 // off-centre or is clipped. z-index sits above the sticky header (z-30) so the
 // animation is never partially hidden behind it.
 function BusinessSwitchOverlay({ name }) {
+  useUiLocale();
   return (
     <AppPortal>
       <div className="kt-detail-backdrop-enter fixed inset-0 z-[1200] flex items-center justify-center bg-slate-950/70 p-6 backdrop-blur-sm">
@@ -1056,6 +1061,7 @@ function BusinessSwitchOverlay({ name }) {
 // Shows an admin exactly which responsibilities the owner granted, so the
 // limited workspace never looks broken.
 function AdminRoleBanner({ permissions }) {
+  useUiLocale();
   const abilities = [
     permissions.canAddProducts ? t("urmall.biz.dash.abAddEdit") : null,
     permissions.canReplyMessages ? t("urmall.biz.dash.abReply") : null,
@@ -1081,6 +1087,7 @@ function AdminRoleBanner({ permissions }) {
 // Landing card for admins whose only responsibility is replying to messages
 // (or who have nothing assigned yet) — the dashboard/catalog stay hidden.
 function AdminLimitedCard({ permissions, onOpenMessages, onEditBusiness, onOpenPlans }) {
+  useUiLocale();
   return (
     <div className="rounded-[24px] border border-dashed border-gray-300 bg-white p-8 text-center">
       <span className="mx-auto grid h-12 w-12 place-items-center rounded-2xl bg-gray-100 text-gray-500">
@@ -1102,30 +1109,30 @@ function AdminLimitedCard({ permissions, onOpenMessages, onEditBusiness, onOpenP
         </>
       ) : permissions.canEditBusiness ? (
         <>
-          <p className="mt-3 text-base font-black text-gray-950">Business information access</p>
+          <p className="mt-3 text-base font-black text-gray-950">{i18nText("ui.literals.k7dd551c39b84")}</p>
           <p className="mt-1 text-sm font-semibold leading-6 text-gray-500">
-            You can update the store profile, contact details, location, categories, and opening hours.
+            {i18nText("ui.literals.k728efa742e9a")}
           </p>
           <button
             type="button"
             onClick={onEditBusiness}
             className="mt-4 inline-flex h-11 items-center gap-2 rounded-2xl bg-emerald-600 px-5 text-sm font-black text-white"
           >
-            <Store size={16} /> Edit business information
+            <Store size={16} /> {i18nText("ui.literals.kda13f39cae7d")}
           </button>
         </>
       ) : permissions.canManagePlans ? (
         <>
-          <p className="mt-3 text-base font-black text-gray-950">Plans & capacity access</p>
+          <p className="mt-3 text-base font-black text-gray-950">{i18nText("ui.literals.k4685d92a44d2")}</p>
           <p className="mt-1 text-sm font-semibold leading-6 text-gray-500">
-            You can manage this store’s subscription and capacity.
+            {i18nText("ui.literals.ka97a077dde31")}
           </p>
           <button
             type="button"
             onClick={onOpenPlans}
             className="mt-4 inline-flex h-11 items-center gap-2 rounded-2xl bg-emerald-600 px-5 text-sm font-black text-white"
           >
-            Open plans
+            {i18nText("ui.literals.k13ce0e526e6d")}
           </button>
         </>
       ) : (

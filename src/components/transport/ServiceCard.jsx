@@ -1,11 +1,13 @@
-// ServiceCard.jsx
+
+import { uiText as translateUi, useI18n as useUiLocale } from "../../i18n/index.js";// ServiceCard.jsx
 
 export default function ServiceCard({ icon, title, color }) {
+  useUiLocale();
   return (
     <div
       className="
-        bg-white 
-        rounded-2xl 
+        bg-white
+        rounded-2xl
         shadow-md
         hover:shadow-xl
         transition-all duration-300
@@ -20,7 +22,7 @@ export default function ServiceCard({ icon, title, color }) {
       </div>
 
       <h3 className="text-gray-700 font-semibold text-center text-base">
-        {title}
+        {translateUi(title)}
       </h3>
     </div>
   );

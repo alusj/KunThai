@@ -1,10 +1,12 @@
-import { resolvePolicy } from "../../data/policies";
+import { getLocalizedPolicies } from "../../data/policies/localizedPolicies";
+import { policyText } from "../../i18n/policyText";
 import TermsPoliciesScreen from "../Explore/SocialMenu/terms/TermsPoliciesScreen";
-import { t as i18nText } from "../../i18n/index";
+import { t as i18nText, useI18n } from "../../i18n/index";
 
 export default function PublicPolicyPage({ initialPolicyId = "" }) {
-  const activePolicy = resolvePolicy(initialPolicyId);
-  const pageTitle = activePolicy?.title || "Policy Center";
+  const { locale } = useI18n();
+  const activePolicy = getLocalizedPolicies(locale).resolvePolicy(initialPolicyId);
+  const pageTitle = activePolicy?.title || policyText("Policy Center", locale);
 
   return (
     <div className="min-h-screen bg-slate-100">

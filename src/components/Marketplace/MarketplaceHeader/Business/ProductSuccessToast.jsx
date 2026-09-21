@@ -2,6 +2,7 @@ import { Share2 } from "lucide-react";
 
 import { shareUrMallLink } from "../../../../Backend/services/shareCtaService";
 import { useI18n, t } from "../../../../i18n";
+import { uiText as translateUi } from "../../../../i18n/index.js";
 
 export default function ProductSuccessToast({ message, onClose }) {
   useI18n();
@@ -13,7 +14,7 @@ export default function ProductSuccessToast({ message, onClose }) {
     <div className="fixed left-1/2 top-4 z-50 w-[calc(100%-2rem)] max-w-md -translate-x-1/2 rounded-xl border border-emerald-200 bg-white px-4 py-3 shadow-lg">
       <div className="flex items-start justify-between gap-3">
         <div>
-          <p className="font-black text-emerald-700">{message}</p>
+          <p className="font-black text-emerald-700">{translateUi(message)}</p>
           <p className="mt-1 text-sm font-medium text-gray-500">
             {t("urmall.biz.dash.storeUpdated")}
           </p>

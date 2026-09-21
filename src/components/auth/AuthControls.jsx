@@ -1,14 +1,16 @@
-export function AuthField({ label, hint, className = "", inputClassName = "", ...props }) {
+
+import { uiText as translateUi, useI18n as useUiLocale } from "../../i18n/index.js";export function AuthField({ label, hint, className = "", inputClassName = "", ...props }) {
+  useUiLocale();
   return (
     <label className={`block ${className}`}>
       {(label || hint) && (
         <div className="mb-2 flex items-center justify-between gap-3">
           {label && (
             <span className="text-[11px] font-semibold uppercase tracking-[0.28em] text-slate-300">
-              {label}
+              {translateUi(label)}
             </span>
           )}
-          {hint && <span className="text-xs text-slate-400">{hint}</span>}
+          {hint && <span className="text-xs text-slate-400">{translateUi(hint)}</span>}
         </div>
       )}
       <input
@@ -20,6 +22,7 @@ export function AuthField({ label, hint, className = "", inputClassName = "", ..
 }
 
 export function AuthButton({ tone = "primary", className = "", children, ...props }) {
+  useUiLocale();
   const tones = {
     primary:
       "bg-[linear-gradient(135deg,#f97316_0%,#ea580c_50%,#0284c7_100%)] text-white shadow-[0_18px_36px_rgba(249,115,22,0.22)]",
@@ -38,6 +41,7 @@ export function AuthButton({ tone = "primary", className = "", children, ...prop
 }
 
 export function AuthMessage({ tone = "info", children }) {
+  useUiLocale();
   const tones = {
     info: "border-sky-300/18 bg-sky-400/10 text-sky-50",
     success: "border-emerald-300/18 bg-emerald-400/10 text-emerald-50",
@@ -52,6 +56,7 @@ export function AuthMessage({ tone = "info", children }) {
 }
 
 export function AuthSegment({ active, onClick, children }) {
+  useUiLocale();
   return (
     <button
       type="button"

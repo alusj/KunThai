@@ -21,10 +21,13 @@ import VerificationBadge from "./VerificationBadge";
 import { MarketplaceVerificationInline, MarketplaceVerificationModal } from "../../../shared/MarketplaceVerification";
 import { planTierMeets } from "../../../../../Backend/services/businessSubscriptionService";
 import { useI18n, t } from "../../../../../i18n";
+import { t as i18nText } from "../../../../../i18n/index";
+import { uiText as translateUi, useI18n as useUiLocale } from "../../../../../i18n/index.js";
 
 const TIER_BADGE = { pro: "Pro", premium: "Premium" };
 
 function StatusPill({ icon: Icon, label, active }) {
+  useUiLocale();
   return (
     <span
       className={[
@@ -33,7 +36,7 @@ function StatusPill({ icon: Icon, label, active }) {
       ].join(" ")}
     >
       <Icon size={14} strokeWidth={2.3} />
-      {label}
+      {translateUi(label)}
     </span>
   );
 }
@@ -141,11 +144,11 @@ export default function BusinessProfileCard({ business, status, onEditProfile, o
             <button
               type="button"
               onClick={onOpenPlans}
-              aria-label={t("urmall.biz.vert.actionsFor", { label: `Plan ${planName}` })}
+              aria-label={t("urmall.biz.vert.actionsFor", { label: i18nText("ui.literals.k7ab579cf93a4", { value0: planName }) })}
               className="inline-flex items-center gap-1.5 rounded-full border border-emerald-200 bg-emerald-50 px-3 py-1.5 text-[11px] font-black uppercase tracking-wide text-emerald-700 transition-all duration-300 hover:-translate-y-0.5 hover:border-emerald-300 hover:bg-emerald-100 hover:shadow-sm"
             >
               <Crown size={13} strokeWidth={2.4} />
-              Plan · {planName}
+              {i18nText("ui.literals.kfb47bb60dcb3")} {planName}
             </button>
           ) : null}
         </div>
@@ -263,7 +266,7 @@ export default function BusinessProfileCard({ business, status, onEditProfile, o
                     </span>
                     <span className="min-w-0 flex-1">
                       <span className="flex items-center gap-1.5">
-                        <span className="block text-sm font-black text-gray-900">{item.title}</span>
+                        <span className="block text-sm font-black text-gray-900">{translateUi(item.title)}</span>
                         {locked ? (
                           <span className="inline-flex items-center gap-1 rounded-full bg-violet-100 px-1.5 py-0.5 text-[10px] font-black uppercase tracking-wide text-violet-700">
                             <Lock size={10} strokeWidth={2.6} />
@@ -271,7 +274,7 @@ export default function BusinessProfileCard({ business, status, onEditProfile, o
                           </span>
                         ) : null}
                       </span>
-                      <span className="mt-0.5 block truncate text-xs font-semibold text-gray-500">{item.description}</span>
+                      <span className="mt-0.5 block truncate text-xs font-semibold text-gray-500">{translateUi(item.description)}</span>
                     </span>
                     <ChevronRight size={17} className="shrink-0 text-gray-300 transition-transform duration-300 group-hover:translate-x-0.5 group-hover:text-gray-500" />
                   </button>

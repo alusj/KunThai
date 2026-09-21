@@ -5,12 +5,14 @@ import FlagIcon from "../FlagIcon";
 import { GLOBAL_COUNTRY_CODES } from "../../data/globalCountryCodes";
 import { storeCountryContext } from "../../data/globalCountryProfiles";
 import { t as i18nText } from "../../i18n/index";
+import { useI18n as useUiLocale } from "../../i18n/index.js";
 
 // The same country picker style used by phone sign-in: flag + dial code beside
 // the number field, dropdown with every dialing profile. Used by onboarding and
 // any other screen that collects an international phone number.
 
 function CountryPickerButton({ country, onCountryChange }) {
+  useUiLocale();
   const [open, setOpen] = useState(false);
   const pickerRef = useRef(null);
 
@@ -98,6 +100,7 @@ export default function PhoneCountryField({
   placeholder = "",
   invalid = false,
 }) {
+  useUiLocale();
   return (
     <div className="flex items-stretch gap-2">
       <div className="w-32 flex-none">

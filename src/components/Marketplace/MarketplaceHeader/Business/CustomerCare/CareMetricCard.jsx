@@ -1,4 +1,6 @@
-export default function CareMetricCard({ label, value, helper, tone = "gray" }) {
+
+import { uiText as translateUi, useI18n as useUiLocale } from "../../../../../i18n/index.js";export default function CareMetricCard({ label, value, helper, tone = "gray" }) {
+  useUiLocale();
   const tones = {
     gray: "bg-gray-100 text-gray-700",
     green: "bg-emerald-50 text-emerald-700",
@@ -10,10 +12,10 @@ export default function CareMetricCard({ label, value, helper, tone = "gray" }) 
   return (
     <div className="rounded-lg border border-gray-200 bg-white p-4">
       <div className={`mb-3 inline-flex rounded-full px-2.5 py-1 text-xs font-black ${tones[tone]}`}>
-        {label}
+        {translateUi(label)}
       </div>
       <p className="text-2xl font-black text-gray-950">{value}</p>
-      {helper ? <p className="mt-1 text-xs font-bold text-gray-500">{helper}</p> : null}
+      {helper ? <p className="mt-1 text-xs font-bold text-gray-500">{translateUi(helper)}</p> : null}
     </div>
   );
 }

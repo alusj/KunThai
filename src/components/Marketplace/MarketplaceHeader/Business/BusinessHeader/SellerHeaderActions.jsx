@@ -2,6 +2,7 @@ import { Bell, Menu, MessageSquare, PackageCheck, Plus } from "lucide-react";
 
 import { useI18n, t } from "../../../../../i18n";
 import HeaderActionButton from "./HeaderActionButton";
+import { uiText as translateUi } from "../../../../../i18n/index.js";
 
 export default function SellerHeaderActions({
   orderCount,
@@ -23,7 +24,7 @@ export default function SellerHeaderActions({
       {showAddProduct ?
         <HeaderActionButton
           icon={Plus}
-          label={primaryActionLabel}
+          label={translateUi(primaryActionLabel)}
           primary
           onClick={onAddProduct}
         />

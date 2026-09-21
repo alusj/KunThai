@@ -1,6 +1,7 @@
 import assert from "node:assert/strict";
 import { readFileSync } from "node:fs";
 import test from "node:test";
+import { UI_TRANSLATIONS } from "../../i18n/ui.js";
 
 const nearbyOperatorsSource = readFileSync(
   new URL("../../components/transport/Body/NearbyOperators.jsx", import.meta.url),
@@ -56,7 +57,8 @@ test("company dashboard tabs stay in one de-duplicated horizontal rail", () => {
 });
 
 test("passengers can switch directly between live operators and rentals", () => {
-  assert.match(nearbyOperatorsSource, /role="tablist" aria-label="Nearby transport category"/);
+  assert.match(nearbyOperatorsSource, /role="tablist" aria-label=\{i18nText\("ui\.literals\.kf1213680c4fa"\)\}/);
+  assert.equal(UI_TRANSLATIONS.en.literals.kf1213680c4fa, "Nearby transport category");
   assert.match(nearbyOperatorsSource, /setCategory\("operators"\)/);
   assert.match(nearbyOperatorsSource, /setCategory\("rentals"\)/);
   assert.match(nearbyOperatorsSource, /category === "rentals" \? <RentalCatalogue \/>/);
@@ -75,8 +77,10 @@ test("rental service selection removes operator assignment and uses rental readi
   assert.match(companyRegistrationSource, /fleet\.serviceCategory !== "Rental" && <div data-field-error/);
   assert.match(companyRegistrationSource, /actionMode: addingRentalFleet \? "add_rental"/);
   assert.match(companyRegistrationSource, /accountStatus: incrementalFleetMode \? form\.accountStatus \|\| accountStatus : accountStatus/);
-  assert.match(companyRegistrationSource, /rentalSubmission \? "Add rental vehicle"/);
-  assert.match(companyRegistrationSource, /rentalSubmission \? "Add rental fleet"/);
+  assert.match(companyRegistrationSource, /rentalSubmission \? i18nText\("ui\.literals\.kb883f465c09a"\)/);
+  assert.equal(UI_TRANSLATIONS.en.literals.kb883f465c09a, "Add rental vehicle");
+  assert.match(companyRegistrationSource, /rentalSubmission \? i18nText\("ui\.literals\.k7af252cec249"\)/);
+  assert.equal(UI_TRANSLATIONS.en.literals.k7af252cec249, "Add rental fleet");
 });
 
 test("rental saves update the selected company without resetting verification", () => {
@@ -97,9 +101,12 @@ test("rental and operator fleet forms include the general Vehicle / Car type", (
 test("rental pricing supports fixed or negotiable time and distance choices", () => {
   assert.match(companyRegistrationSource, /rentalDistanceNegotiable/);
   assert.match(companyRegistrationSource, /rentalTimeNegotiable/);
-  assert.match(companyRentalsSource, /Time price is negotiable/);
-  assert.match(companyRentalsSource, /Distance price is negotiable/);
-  assert.match(rentalDetailsSource, /Pricing is arranged with the company/);
+  assert.match(companyRentalsSource, /checked=\{timeNegotiable\} label=\{i18nText\("ui\.literals\.kb3e010f98913"\)\}/);
+  assert.equal(UI_TRANSLATIONS.en.literals.kb3e010f98913, "Time price is negotiable");
+  assert.match(companyRentalsSource, /checked=\{distanceNegotiable\} label=\{i18nText\("ui\.literals\.k3bbb577489a7"\)\}/);
+  assert.equal(UI_TRANSLATIONS.en.literals.k3bbb577489a7, "Distance price is negotiable");
+  assert.match(rentalDetailsSource, /i18nText\("ui\.literals\.kf95f3ec42978"\)/);
+  assert.equal(UI_TRANSLATIONS.en.literals.kf95f3ec42978, "Pricing is arranged with the company. Send your preferred dates; the company will confirm the price before the rental is reserved.");
   assert.match(pricingMigrationSource, /add column if not exists distance_rate numeric\(14,2\)/i);
   assert.match(pricingMigrationSource, /add column if not exists time_negotiable boolean/i);
   assert.match(pricingMigrationSource, /add column if not exists distance_negotiable boolean/i);

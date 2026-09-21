@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useState } from "react";
-import { friendlyErrorMessage } from "../services/friendlyErrorService";
+import { inlineErrorMessage } from "../services/friendlyErrorService";
 
 import {
   fetchVisibilityCreditWallet,
@@ -36,7 +36,7 @@ export function useVisibilityCredits({ enabled = true } = {}) {
       setWallet(nextWallet);
       return nextWallet;
     } catch (nextError) {
-      setError(friendlyErrorMessage(nextError, "Unable to load Visibility Credits."));
+      setError(inlineErrorMessage(nextError, "Unable to load Visibility Credits."));
       return DEFAULT_WALLET;
     } finally {
       setLoading(false);
@@ -57,7 +57,7 @@ export function useVisibilityCredits({ enabled = true } = {}) {
         if (active) setWallet(nextWallet);
       })
       .catch((nextError) => {
-        if (active) setError(friendlyErrorMessage(nextError, "Unable to load Visibility Credits."));
+        if (active) setError(inlineErrorMessage(nextError, "Unable to load Visibility Credits."));
       })
       .finally(() => {
         if (active) setLoading(false);

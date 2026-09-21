@@ -7,6 +7,8 @@ import {
 } from "../../../../../../../../../Backend/services/marketplace/sellerRegistrationService";
 import { useI18n, t } from "../../../../../../../../../i18n";
 import SellerMenuPageHeader from "../../SellerMenuPageHeader";
+import { uiText as translateUi } from "../../../../../../../../../i18n/index.js";
+import { inlineErrorMessage } from "../../../../../../../../../Backend/services/friendlyErrorService";
 
 function buildForm(business) {
   return {
@@ -61,7 +63,7 @@ export default function DeliverySettings({ onBack }) {
       });
       setStatus(t("urmall.biz.board.delivery.saved"));
     } catch (error) {
-      setStatus(error.message || t("urmall.biz.board.delivery.saveFailed"));
+      setStatus(inlineErrorMessage(error, t("urmall.biz.board.delivery.saveFailed")));
     } finally {
       setSaving(false);
     }
@@ -133,8 +135,8 @@ export default function DeliverySettings({ onBack }) {
             ].map(([field, title, description]) => (
               <label key={field} className="flex items-center justify-between gap-3 rounded-2xl border border-gray-200 bg-white p-4 shadow-sm">
                 <span>
-                  <span className="block text-sm font-black text-gray-950">{title}</span>
-                  <span className="text-xs font-semibold leading-5 text-gray-500">{description}</span>
+                  <span className="block text-sm font-black text-gray-950">{translateUi(title)}</span>
+                  <span className="text-xs font-semibold leading-5 text-gray-500">{translateUi(description)}</span>
                 </span>
                 <input
                   type="checkbox"
@@ -146,7 +148,7 @@ export default function DeliverySettings({ onBack }) {
             ))}
           </section>
 
-          {status ? <p className="rounded-xl border border-gray-200 bg-gray-50 px-4 py-3 text-sm font-bold text-gray-700">{status}</p> : null}
+          {status ? <p className="rounded-xl border border-gray-200 bg-gray-50 px-4 py-3 text-sm font-bold text-gray-700">{translateUi(status)}</p> : null}
 
           <button
             type="submit"

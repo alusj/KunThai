@@ -1,11 +1,13 @@
 import { createPortal } from "react-dom";
 import { ShieldAlert } from "lucide-react";
 import { t as i18nText } from "../../i18n/index";
+import { useI18n as useUiLocale } from "../../i18n/index.js";
 
 // Centered floating caution shown right after the SECOND OTP is sent (account
 // creation or password recovery). That second code is the last one allowed for
 // this number until the 72-hour cooldown ends.
 export default function LastOtpNoticeCard({ open, onCancel, onVerify }) {
+  useUiLocale();
   if (!open) return null;
 
   return createPortal(

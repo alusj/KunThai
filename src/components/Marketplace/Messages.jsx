@@ -9,12 +9,14 @@ import {
 import { formatMessageTime } from "../../Backend/utils/formatMessageTime";
 import MessageImage from "../shared/MessageImage";
 import { optimizeImageFile } from "../../Backend/services/marketplace/imageOptimization";
-import { friendlyErrorMessage } from "../../Backend/services/friendlyErrorService";
+import { inlineErrorMessage } from "../../Backend/services/friendlyErrorService";
 import { useI18n, t } from "../../i18n";
 import AppBackTab from "../shared/AppBackTab";
 import MessagePrivacyNotice from "../shared/MessagePrivacyNotice";
 import { useKeyboardAwareConversation } from "../../Backend/hooks/useKeyboardAwareConversation";
 import { useAiScreen } from "../../Backend/services/ai/aiScreenContext";
+import { t as i18nText } from "../../i18n/index";
+import { uiText as translateUi, useI18n as useUiLocale } from "../../i18n/index.js";
 
 function readFileAsDataUrl(file) {
   return new Promise((resolve, reject) => {
@@ -75,7 +77,7 @@ export default function Messages({ initialConversationId = "", onBack, onInitial
       setMessages(rows);
       setActiveId((current) => (rows.some((row) => row.id === current) ? current : current ? "" : current));
     } catch (err) {
-      if (!silent) setError(err.message || t("urmall.messages.loadFailed"));
+      if (!silent) setError(inlineErrorMessage(err, t("urmall.messages.loadFailed")));
     } finally {
       if (!silent) setLoading(false);
     }
@@ -185,7 +187,7 @@ export default function Messages({ initialConversationId = "", onBack, onInitial
       setAttachment({ dataUrl, name: file.name || "Selected photo" });
       setSendError("");
     } catch (err) {
-      setSendError(friendlyErrorMessage(err, t("urmall.messages.imagePrepFailed")));
+      setSendError(inlineErrorMessage(err, t("urmall.messages.imagePrepFailed")));
     }
   }
 
@@ -245,7 +247,7 @@ export default function Messages({ initialConversationId = "", onBack, onInitial
       if (fromAssistant) throw err;
       setDraft(text);
       setAttachment(pendingAttachment);
-      setSendError(err.message || t("urmall.messages.sendFailed"));
+      setSendError(inlineErrorMessage(err, t("urmall.messages.sendFailed")));
     } finally {
       setSending(false);
     }
@@ -256,7 +258,7 @@ export default function Messages({ initialConversationId = "", onBack, onInitial
   useAiScreen(() => (activeMessage
     ? {
         id: "urmall-buyer-chat",
-        title: `UrMall chat with ${activeMessage.sellerName || "a seller"}`,
+        title: i18nText("ui.literals.k50c89f0f04aa", { value0: activeMessage.sellerName || "a seller" }),
         describe: () => [
           `The person is a shopper chatting with the UrMall business "${activeMessage.sellerName || "seller"}" about "${activeMessage.topic || "an enquiry"}".`,
           activeMessage.productName ? `Product: ${activeMessage.productName}.` : "",
@@ -275,7 +277,7 @@ export default function Messages({ initialConversationId = "", onBack, onInitial
       }
     : {
         id: "urmall-buyer-messages",
-        title: "UrMall messages",
+        title: i18nText("ui.literals.kf2ad33ecd417"),
         describe: () => `The person is viewing their UrMall conversations: ${messages.length} in total, ${unreadCount} unread. They can open one to reply.`,
       }));
 
@@ -327,7 +329,7 @@ export default function Messages({ initialConversationId = "", onBack, onInitial
               {unreadCount ? <span className="rounded-full bg-emerald-600 px-2.5 py-1 text-xs font-black text-white">{unreadCount}</span> : null}
             </div>
 
-            {error && <p className="rounded-lg bg-red-50 p-3 text-sm font-bold text-red-700">{error}</p>}
+            {error && <p className="rounded-lg bg-red-50 p-3 text-sm font-bold text-red-700">{translateUi(error)}</p>}
 
             {loading ? <MarketplaceMessagesSkeleton /> : null}
 
@@ -492,8 +494,9 @@ export default function Messages({ initialConversationId = "", onBack, onInitial
 }
 
 function MarketplaceMessagesSkeleton() {
+  useUiLocale();
   return (
-    <div className="space-y-2" aria-label="Loading UrMall conversations" aria-busy="true">
+    <div className="space-y-2" aria-label={i18nText("ui.literals.k8c3b557c4b95")} aria-busy="true">
       {[0, 1, 2, 3].map((item) => (
         <div key={item} className="rounded-2xl border border-gray-200 bg-white p-4 shadow-sm">
           <div className="flex items-center justify-between gap-3">

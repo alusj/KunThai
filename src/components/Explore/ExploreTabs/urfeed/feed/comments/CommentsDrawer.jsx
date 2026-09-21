@@ -15,6 +15,7 @@ import { useI18n } from "../../../../../../i18n";
 import ErrorState from "../../../../shared/ErrorState";
 import CommentDrawerComposer from "./CommentDrawerComposer";
 import CommentItem from "./CommentItem";
+import { uiText as translateUi, useI18n as useUiLocale } from "../../../../../../i18n/index.js";
 
 const EXIT_MS = 260;
 
@@ -182,7 +183,7 @@ export default function CommentsDrawer({ currentUserId, onClose, onCountChange, 
         <div ref={listRef} className="flex-1 space-y-4 overflow-y-auto overscroll-contain px-4 py-4 kuntai-scrollbar-none">
           {summaryOpen ? <DiscussionSummary summary={summary} onClose={closeSummary} /> : null}
 
-          {comments.error ? <ErrorState message={comments.error} onRetry={comments.reload} /> : null}
+          {comments.error ? <ErrorState message={translateUi(comments.error)} onRetry={comments.reload} /> : null}
 
           {comments.loading && !comments.thread.length ? <CommentLoadingRows /> : null}
 
@@ -245,6 +246,7 @@ export default function CommentsDrawer({ currentUserId, onClose, onCountChange, 
 }
 
 function CommentLoadingRows() {
+  useUiLocale();
   return (
     <div className="space-y-4">
       {Array.from({ length: 4 }).map((_, index) => (

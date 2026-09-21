@@ -9,15 +9,18 @@ import { useI18n, t } from "../../../../../../../../../i18n";
 import SellerMenuPageHeader from "../../SellerMenuPageHeader";
 import { t as i18nText } from "../../../../../../../../../i18n/index";
 import { resizedImageUrl } from "../../../../../../../../../Backend/lib/imageProxy";
+import { uiText as translateUi, useI18n as useUiLocale } from "../../../../../../../../../i18n/index.js";
+import { inlineErrorMessage } from "../../../../../../../../../Backend/services/friendlyErrorService";
 
 const inputClass =
   "mt-2 w-full rounded-xl border border-gray-200 bg-white px-4 py-3 text-sm font-semibold text-gray-950 outline-none transition focus:border-gray-950 focus:ring-4 focus:ring-gray-950/10";
 const labelClass = "text-xs font-black uppercase tracking-[0.16em] text-gray-500";
 
 function ProfileField({ label, children }) {
+  useUiLocale();
   return (
     <label className="block">
-      <span className={labelClass}>{label}</span>
+      <span className={labelClass}>{translateUi(label)}</span>
       {children}
     </label>
   );
@@ -56,7 +59,7 @@ export default function EditProfile({ onBack }) {
         setForm(buildForm(nextBusiness));
       })
       .catch((nextError) => {
-        if (mounted) setError(nextError.message || t("urmall.seller.loadProfileFailed"));
+        if (mounted) setError(inlineErrorMessage(nextError, t("urmall.seller.loadProfileFailed")));
       })
       .finally(() => {
         if (mounted) setLoading(false);
@@ -109,7 +112,7 @@ export default function EditProfile({ onBack }) {
       setForm(buildForm(updated));
       setStatus(t("urmall.biz.profile.updated"));
     } catch (nextError) {
-      setError(nextError.message || t("urmall.biz.profile.updateFailed"));
+      setError(inlineErrorMessage(nextError, t("urmall.biz.profile.updateFailed")));
     } finally {
       setSaving(false);
     }
@@ -280,12 +283,12 @@ export default function EditProfile({ onBack }) {
 
           {error ? (
             <p className="rounded-xl border border-red-200 bg-red-50 px-4 py-3 text-sm font-bold text-red-700">
-              {error}
+              {translateUi(error)}
             </p>
           ) : null}
           {status ? (
             <p className="rounded-xl border border-emerald-200 bg-emerald-50 px-4 py-3 text-sm font-bold text-emerald-700">
-              {status}
+              {translateUi(status)}
             </p>
           ) : null}
 

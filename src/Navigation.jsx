@@ -1,5 +1,6 @@
 import { useState } from "react";
 import { t as i18nText, uiText } from "./i18n/index";
+import { uiText as translateUi, useI18n as useUiLocale } from "./i18n/index.js";
 
 const TABS = [
   { id: "nearby",  label: "Nearby",  emoji: "📍" },
@@ -10,9 +11,11 @@ const TABS = [
 ];
 
 export default function Navigation() {
+  useUiLocale();
   const [tab, setTab] = useState("nearby");
 
   const Pill = ({ id, label, emoji }) => {
+  useUiLocale();
     const active = tab === id;
     return (
       <button
@@ -48,10 +51,11 @@ export default function Navigation() {
 }
 
 function Card({ title, subtitle }) {
+  useUiLocale();
   return (
     <div className="bg-white border rounded-lg p-4 hover:shadow-sm transition">
-      <h3 className="font-semibold text-gray-800">{title}</h3>
-      {subtitle && <p className="text-sm text-gray-600 mt-1">{subtitle}</p>}
+      <h3 className="font-semibold text-gray-800">{translateUi(title)}</h3>
+      {subtitle && <p className="text-sm text-gray-600 mt-1">{translateUi(subtitle)}</p>}
     </div>
   );
 }

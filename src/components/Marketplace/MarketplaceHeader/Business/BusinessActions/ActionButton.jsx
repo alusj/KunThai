@@ -1,4 +1,5 @@
-// src/components/Marketplace/MarketplaceHeader/Business/BusinessActions/ActionButton.jsx
+
+import { uiText as translateUi, useI18n as useUiLocale } from "../../../../../i18n/index.js";// src/components/Marketplace/MarketplaceHeader/Business/BusinessActions/ActionButton.jsx
 
 /**
  * Generic action button
@@ -7,6 +8,7 @@
  */
 
 export default function ActionButton({ icon, label, onClick }) {
+  useUiLocale();
   return (
     <button
       type="button"
@@ -27,7 +29,7 @@ export default function ActionButton({ icon, label, onClick }) {
       </div>
 
       <span className="font-medium text-gray-800">
-        {label}
+        {translateUi(label)}
       </span>
     </button>
   );

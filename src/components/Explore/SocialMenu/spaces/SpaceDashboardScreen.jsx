@@ -1,5 +1,5 @@
 import { useEffect, useRef, useState } from "react";
-import { friendlyErrorMessage } from "../../../../Backend/services/friendlyErrorService";
+import { inlineErrorMessage } from "../../../../Backend/services/friendlyErrorService";
 
 import { decorateShareUrl } from "../../../../Backend/services/visibilityCreditService";
 import {
@@ -39,6 +39,7 @@ import Avatar from "../../shared/Avatar";
 import EmptyState from "../../shared/EmptyState";
 import KunThaiIdHelpButton from "../../../shared/KunThaiIdHelpButton";
 import { t as i18nText } from "../../../../i18n/index";
+import { uiText as translateUi, useI18n as useUiLocale } from "../../../../i18n/index.js";
 
 const INVITE_INITIAL = {
   kunthaiId: "",
@@ -62,6 +63,7 @@ export default function SpaceDashboardScreen({
   personalProfile,
   space,
 }) {
+  useUiLocale();
   const [members, setMembers] = useState([]);
   const [departments, setDepartments] = useState([]);
   const [loading, setLoading] = useState(true);
@@ -97,7 +99,7 @@ export default function SpaceDashboardScreen({
           setDepartments(departmentRows);
         }
       } catch (error) {
-        if (alive) setFeedback(error.message || i18nText("ui.literals.k69ebed906fb7"));
+        if (alive) setFeedback(inlineErrorMessage(error, i18nText("ui.literals.k69ebed906fb7")));
       } finally {
         if (alive) setLoading(false);
       }
@@ -149,7 +151,7 @@ export default function SpaceDashboardScreen({
       await action();
     } catch (error) {
       if (error?.name === "AbortError") return;
-      const message = friendlyErrorMessage(error, "Unable to complete this Space action.");
+      const message = inlineErrorMessage(error, "Unable to complete this Space action.");
       setFeedback(message);
       showToast(message, "danger");
     } finally {
@@ -271,7 +273,7 @@ export default function SpaceDashboardScreen({
       setInviteOpen(false);
       showToast(i18nText("ui.literals.k8891f9f7e891"), "success");
     } catch (error) {
-      setFeedback(error.message || i18nText("ui.literals.k077d6829745d"));
+      setFeedback(inlineErrorMessage(error, i18nText("ui.literals.k077d6829745d")));
       showToast(error.message || i18nText("ui.literals.k077d6829745d"), "danger");
     } finally {
       setSavingInvite(false);
@@ -390,7 +392,7 @@ export default function SpaceDashboardScreen({
           <Metric label={i18nText("ui.literals.k218887269ad5")} value={members.filter((member) => member.status === "active").length} />
         </div>
 
-        {feedback && !inviteOpen ? <p className="mt-4 text-sm font-bold text-rose-600">{feedback}</p> : null}
+        {feedback && !inviteOpen ? <p className="mt-4 text-sm font-bold text-rose-600">{translateUi(feedback)}</p> : null}
       </section>
 
       {inviteOpen ? (
@@ -411,14 +413,14 @@ export default function SpaceDashboardScreen({
               {inviteLookup.status === "found" ? (
                 <p aria-live="polite" className="kt-modal-enter mt-1.5 text-xs font-black text-emerald-600">✓ {inviteLookup.name}</p>
               ) : inviteLookup.status === "checking" ? (
-                <p aria-live="polite" className="kt-modal-enter mt-1.5 text-xs font-bold text-slate-500">{inviteLookup.message}</p>
+                <p aria-live="polite" className="kt-modal-enter mt-1.5 text-xs font-bold text-slate-500">{translateUi(inviteLookup.message)}</p>
               ) : inviteLookup.message ? (
-                <p aria-live="polite" className="kt-modal-enter mt-1.5 text-xs font-bold text-rose-600">{inviteLookup.message}</p>
+                <p aria-live="polite" className="kt-modal-enter mt-1.5 text-xs font-bold text-rose-600">{translateUi(inviteLookup.message)}</p>
               ) : null}
             </Field>
             <Field label={i18nText("ui.literals.kc3f104d13657")}>
               <select value={invite.role} onChange={(event) => setInviteRole(event.target.value)} className="h-12 w-full rounded-2xl bg-slate-100 px-4 text-sm font-bold text-slate-900 outline-none">
-                {SPACE_ROLES.filter((role) => role.id !== "owner").map((role) => <option key={role.id} value={role.id}>{role.label}</option>)}
+                {SPACE_ROLES.filter((role) => role.id !== "owner").map((role) => <option key={role.id} value={role.id}>{translateUi(role.label)}</option>)}
               </select>
             </Field>
             <Field label={i18nText("ui.literals.kdb40106a4051")}>
@@ -431,7 +433,7 @@ export default function SpaceDashboardScreen({
 
           <ResponsibilityGrid values={invite.responsibilities} onToggle={toggleInviteResponsibility} />
 
-          {feedback ? <p className="mt-3 text-sm font-bold text-rose-600">{feedback}</p> : null}
+          {feedback ? <p className="mt-3 text-sm font-bold text-rose-600">{translateUi(feedback)}</p> : null}
           <button type="submit" disabled={savingInvite || inviteLookup.status !== "found"} className="mt-5 h-12 w-full rounded-2xl bg-slate-950 text-sm font-black text-white disabled:bg-slate-300">
             {savingInvite ? i18nText("ui.literals.k69b0298ac2e1") : i18nText("ui.literals.kabb6cb2d460a")}
           </button>
@@ -460,10 +462,12 @@ export default function SpaceDashboardScreen({
 }
 
 function MenuDivider() {
+  useUiLocale();
   return <div className="my-1 h-px bg-slate-100" />;
 }
 
 function ActionMenuButton({ disabled = false, icon: Icon, label, onClick, tone = "default" }) {
+  useUiLocale();
   const toneClass = tone === "danger"
     ? "text-rose-700 hover:bg-rose-50 disabled:text-rose-300"
     : "text-slate-700 hover:bg-slate-100 disabled:text-slate-300";
@@ -476,25 +480,27 @@ function ActionMenuButton({ disabled = false, icon: Icon, label, onClick, tone =
       className={`flex w-full items-center gap-3 rounded-xl px-4 py-3 text-left transition disabled:cursor-not-allowed ${toneClass}`}
     >
       <Icon className="text-lg" />
-      <span className="min-w-0 truncate">{label}</span>
+      <span className="min-w-0 truncate">{translateUi(label)}</span>
     </button>
   );
 }
 
 function Metric({ label, value }) {
+  useUiLocale();
   return (
     <div className="rounded-2xl bg-slate-50 px-3 py-3 text-center">
       <p className="text-xl font-black text-slate-950">{Number(value || 0)}</p>
-      <p className="text-[11px] font-bold text-slate-500">{label}</p>
+      <p className="text-[11px] font-bold text-slate-500">{translateUi(label)}</p>
     </div>
   );
 }
 
 function Field({ action = null, children, label }) {
+  useUiLocale();
   if (!action) {
     return (
       <label className="block">
-        <span className="mb-2 block min-h-8 text-xs font-black uppercase tracking-[0.14em] text-slate-500">{label}</span>
+        <span className="mb-2 block min-h-8 text-xs font-black uppercase tracking-[0.14em] text-slate-500">{translateUi(label)}</span>
         {children}
       </label>
     );
@@ -503,7 +509,7 @@ function Field({ action = null, children, label }) {
   return (
     <div className="block">
       <span className="mb-2 flex min-h-8 items-center justify-between gap-2 text-xs font-black uppercase tracking-[0.14em] text-slate-500">
-        {label}
+        {translateUi(label)}
         {action}
       </span>
       {children}
@@ -512,6 +518,7 @@ function Field({ action = null, children, label }) {
 }
 
 function ResponsibilityGrid({ onToggle, values }) {
+  useUiLocale();
   return (
     <div className="mt-4 grid gap-2 md:grid-cols-2">
       {SPACE_RESPONSIBILITIES.map((item) => (
@@ -521,8 +528,8 @@ function ResponsibilityGrid({ onToggle, values }) {
           onClick={() => onToggle(item.key)}
           className={`rounded-2xl border px-3 py-3 text-left ${values[item.key] ? "border-sky-200 bg-sky-50 text-sky-800" : "border-slate-200 bg-slate-50 text-slate-600"}`}
         >
-          <span className="block text-sm font-black">{item.label}</span>
-          <span className="mt-1 block text-xs font-semibold leading-5 text-slate-500">{item.description}</span>
+          <span className="block text-sm font-black">{translateUi(item.label)}</span>
+          <span className="mt-1 block text-xs font-semibold leading-5 text-slate-500">{translateUi(item.description)}</span>
         </button>
       ))}
     </div>
@@ -530,6 +537,7 @@ function ResponsibilityGrid({ onToggle, values }) {
 }
 
 function MemberRow({ canManage, member, onRemove, onUpdate }) {
+  useUiLocale();
   const [editing, setEditing] = useState(false);
   const [draft, setDraft] = useState(() => ({
     role: member.role,
@@ -557,7 +565,7 @@ function MemberRow({ canManage, member, onRemove, onUpdate }) {
           <Avatar name={member.memberName} src={member.memberAvatarUrl} />
           <div className="min-w-0">
             <p className="truncate text-sm font-black text-slate-950">{member.memberName}</p>
-            <p className="truncate text-xs font-bold text-slate-500">{member.memberCode || member.memberUsername || member.userId} · {member.status}</p>
+            <p className="truncate text-xs font-bold text-slate-500">{member.memberCode || member.memberUsername || member.userId} · {translateUi(member.status)}</p>
           </div>
         </div>
         {canManage && member.role !== "owner" ? (
@@ -587,7 +595,7 @@ function MemberRow({ canManage, member, onRemove, onUpdate }) {
               }}
               className="h-12 w-full rounded-2xl bg-white px-4 text-sm font-bold text-slate-900 outline-none"
             >
-              {SPACE_ROLES.filter((role) => role.id !== "owner").map((role) => <option key={role.id} value={role.id}>{role.label}</option>)}
+              {SPACE_ROLES.filter((role) => role.id !== "owner").map((role) => <option key={role.id} value={role.id}>{translateUi(role.label)}</option>)}
             </select>
           </Field>
           <ResponsibilityGrid values={draft.responsibilities} onToggle={toggle} />
@@ -598,7 +606,7 @@ function MemberRow({ canManage, member, onRemove, onUpdate }) {
       ) : (
         <div className="mt-3 flex flex-wrap gap-2">
           {SPACE_RESPONSIBILITIES.filter((item) => member.responsibilities[item.key]).map((item) => (
-            <span key={item.key} className="rounded-full bg-white px-2.5 py-1 text-[11px] font-black text-slate-600">{item.label}</span>
+            <span key={item.key} className="rounded-full bg-white px-2.5 py-1 text-[11px] font-black text-slate-600">{translateUi(item.label)}</span>
           ))}
         </div>
       )}

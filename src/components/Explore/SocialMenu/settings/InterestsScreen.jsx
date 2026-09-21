@@ -8,10 +8,13 @@ import {
 } from "../../../../Backend/services/explore/topicService";
 import SocialScreenHeader from "../shared/SocialScreenHeader";
 import { t as i18nText } from "../../../../i18n/index";
+import { uiText as translateUi, useI18n as useUiLocale } from "../../../../i18n/index.js";
+import { inlineErrorMessage } from "../../../../Backend/services/friendlyErrorService";
 
 const ALL_CATEGORIES = "All topics";
 
 export default function InterestsScreen({ hideHeader = false }) {
+  useUiLocale();
   const [topics, setTopics] = useState([]);
   const [selected, setSelected] = useState([]);
   const [query, setQuery] = useState("");
@@ -67,7 +70,7 @@ export default function InterestsScreen({ hideHeader = false }) {
       const result = await saveUserTopicFollows(selected, { source: "settings" });
       setFeedback(result.synced ? i18nText("ui.literals.kac83087cc173") : i18nText("ui.literals.k807996e9cec8"));
     } catch (error) {
-      setFeedback(error.message || i18nText("ui.literals.ka5657796c5db"));
+      setFeedback(inlineErrorMessage(error, i18nText("ui.literals.ka5657796c5db")));
     } finally {
       setSaving(false);
     }
@@ -149,7 +152,7 @@ export default function InterestsScreen({ hideHeader = false }) {
           {!loading && !visibleTopics.length ? <p className="mt-5 text-sm font-bold text-slate-500">{i18nText("ui.literals.k5f5d075858c7")}</p> : null}
         </section>
 
-        {feedback ? <p className="rounded-2xl bg-sky-50 px-4 py-3 text-sm font-black text-sky-800" role="status">{feedback}</p> : null}
+        {feedback ? <p className="rounded-2xl bg-sky-50 px-4 py-3 text-sm font-black text-sky-800" role="status">{translateUi(feedback)}</p> : null}
 
         <div className="flex flex-wrap gap-3">
           <button

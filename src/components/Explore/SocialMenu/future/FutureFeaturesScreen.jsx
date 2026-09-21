@@ -20,6 +20,7 @@ import {
 import { showToast } from "../../../../Backend/services/toastService";
 import SocialScreenHeader from "../shared/SocialScreenHeader";
 import { t as i18nText, uiText } from "../../../../i18n/index";
+import { uiText as translateUi, useI18n as useUiLocale } from "../../../../i18n/index.js";
 
 const FUTURE_INTEREST_KEY = "kunthai.explore.futureFeatureInterest";
 
@@ -192,6 +193,7 @@ function getAccentClasses(accent) {
 }
 
 export default function FutureFeaturesScreen({ hideHeader = false, onOpenYourVoice }) {
+  useUiLocale();
   const [activeGroup, setActiveGroup] = useState("all");
   const [interest, setInterest] = useState(() => readInterest());
 
@@ -292,27 +294,30 @@ export default function FutureFeaturesScreen({ hideHeader = false, onOpenYourVoi
 }
 
 function RoadmapStat({ label, value }) {
+  useUiLocale();
   return (
     <div className="rounded-[22px] bg-slate-50 px-4 py-3">
       <p className="text-2xl font-black text-slate-950">{value}</p>
-      <p className="text-xs font-black uppercase tracking-[0.14em] text-slate-500">{label}</p>
+      <p className="text-xs font-black uppercase tracking-[0.14em] text-slate-500">{translateUi(label)}</p>
     </div>
   );
 }
 
 function FilterButton({ active, label, onClick }) {
+  useUiLocale();
   return (
     <button
       type="button"
       onClick={onClick}
       className={`h-11 flex-none rounded-2xl px-4 text-sm font-black transition ${active ? "bg-slate-950 text-white" : "bg-slate-50 text-slate-700 hover:bg-slate-100"}`}
     >
-      {label}
+      {translateUi(label)}
     </button>
   );
 }
 
 function FeatureCard({ feature, interested, onIdea, onToggle }) {
+  useUiLocale();
   const Icon = feature.icon;
   const accentClass = getAccentClasses(feature.accent);
 

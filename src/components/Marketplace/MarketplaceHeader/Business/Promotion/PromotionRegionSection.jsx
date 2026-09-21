@@ -5,6 +5,8 @@ import { getActiveCountryProfile } from "../../../../../data/globalCountryProfil
 import { normalizeRegionSelection } from "../../../../../Backend/services/regions/regionModel";
 import RegionPicker from "../../../../shared/regions/RegionPicker";
 import { regionLabel, useCountryRegions } from "../../../../shared/regions/regionHooks";
+import { t as i18nText } from "../../../../../i18n/index";
+import { uiText as translateUi } from "../../../../../i18n/index.js";
 
 /**
  * Where a UrMall boost is shown: the whole country, or only shoppers located in
@@ -31,7 +33,7 @@ export default function PromotionRegionSection({ country = "", mode = "country",
       <div className="mt-2 grid gap-2 sm:grid-cols-2">
         {options.map((item) => {
           const Icon = item.icon;
-          const selected = (mode === "regions" ? "regions" : "country") === item.id;
+          const selected = (mode === "regions" ? i18nText("ui.literals.k7ff078f264f8") : i18nText("ui.literals.k8e68b3e5af63")) === item.id;
           return (
             <button
               key={item.id}
@@ -42,8 +44,8 @@ export default function PromotionRegionSection({ country = "", mode = "country",
               className={`kt-promotion-audience min-w-0 rounded-2xl border p-3 text-left transition-all duration-200 ${selected ? "kt-promotion-audience--selected border-emerald-600 bg-white text-emerald-800 shadow-md" : "border-slate-200 bg-white/80 text-slate-700"}`}
             >
               <span className={`grid h-8 w-8 place-items-center rounded-xl ${selected ? "bg-emerald-100 text-emerald-700" : "bg-slate-100 text-slate-500"}`}><Icon size={16} /></span>
-              <span className="mt-2 block text-sm font-black">{item.title}</span>
-              <span className="mt-1 block text-[11px] font-semibold leading-4 text-slate-500">{item.detail}</span>
+              <span className="mt-2 block text-sm font-black">{translateUi(item.title)}</span>
+              <span className="mt-1 block text-[11px] font-semibold leading-4 text-slate-500">{translateUi(item.detail)}</span>
             </button>
           );
         })}

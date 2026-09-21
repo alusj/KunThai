@@ -11,6 +11,9 @@ import { fetchTransportFleets } from "../../services/transportFleetService";
 import VerificationBadge from "../verification/VerificationBadge";
 import { useI18n, t } from "../../../i18n";
 import RentalCatalogue from "../rentals/RentalCatalogue";
+import { t as i18nText } from "../../../i18n/index";
+import { uiText as translateUi, useI18n as useUiLocale } from "../../../i18n/index.js";
+import { inlineErrorMessage } from "../../../Backend/services/friendlyErrorService";
 
 function formatDistance(fleet) {
   const distance = Number(fleet.distanceKm || 0);
@@ -66,7 +69,7 @@ export default function Radar({ onOpenChange, onViewFleet }) {
       const remainingAnimation = Math.max(0, 900 - (Date.now() - startedAt));
 
       window.setTimeout(() => {
-        setError(err.message || t("urride.radar.scanError"));
+        setError(inlineErrorMessage(err, t("urride.radar.scanError")));
         setOperators([]);
         setScanning(false);
       }, remainingAnimation);
@@ -122,9 +125,9 @@ export default function Radar({ onOpenChange, onViewFleet }) {
               </header>
 
               <div className="px-4 py-5">
-                <div className="mb-4 flex gap-2" role="group" aria-label="Radar category">
-                  <button type="button" onClick={() => setCategory("operators")} className={`flex-1 rounded-xl px-3 py-2 text-sm font-bold ${category === "operators" ? "bg-emerald-700 text-white" : "bg-slate-100 text-slate-700"}`}>Live operators</button>
-                  <button type="button" onClick={() => setCategory("rentals")} className={`flex-1 rounded-xl px-3 py-2 text-sm font-bold ${category === "rentals" ? "bg-amber-600 text-white" : "bg-slate-100 text-slate-700"}`}>Rentals</button>
+                <div className="mb-4 flex gap-2" role="group" aria-label={i18nText("ui.literals.k51c3fc9b1e99")}>
+                  <button type="button" onClick={() => setCategory("operators")} className={`flex-1 rounded-xl px-3 py-2 text-sm font-bold ${category === "operators" ? "bg-emerald-700 text-white" : "bg-slate-100 text-slate-700"}`}>{i18nText("ui.literals.k886d9ce16cd6")}</button>
+                  <button type="button" onClick={() => setCategory("rentals")} className={`flex-1 rounded-xl px-3 py-2 text-sm font-bold ${category === "rentals" ? "bg-amber-600 text-white" : "bg-slate-100 text-slate-700"}`}>{i18nText("ui.literals.k05793976369d")}</button>
                 </div>
                 {category === "rentals" ? <RentalCatalogue radar onOpenRental={(rentalId) => { setOpen(false); window.dispatchEvent(new CustomEvent("kunthai-open-rental", { detail: { rentalId } })); }} /> : <>
                 <div className="relative mx-auto flex h-52 w-52 items-center justify-center rounded-full bg-green-50">
@@ -214,10 +217,11 @@ export default function Radar({ onOpenChange, onViewFleet }) {
 }
 
 function ScannerState({ title, body, danger = false }) {
+  useUiLocale();
   return (
     <div className={`rounded-2xl border p-4 text-center ${danger ? "border-red-100 bg-red-50" : "border-slate-100 bg-slate-50"}`}>
       <h3 className={`text-sm font-black ${danger ? "text-red-700" : "text-slate-950"}`}>
-        {title}
+        {translateUi(title)}
       </h3>
       <p className={`mt-1 text-sm font-semibold ${danger ? "text-red-600" : "text-slate-500"}`}>
         {body}

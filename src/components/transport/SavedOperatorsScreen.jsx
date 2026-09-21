@@ -5,6 +5,8 @@ import { showToast } from "../../Backend/services/toastService";
 import AppBackTab from "../shared/AppBackTab";
 import VerificationBadge from "./verification/VerificationBadge";
 import { useI18n, t } from "../../i18n";
+import { uiText as translateUi, useI18n as useUiLocale } from "../../i18n/index.js";
+import { inlineErrorMessage } from "../../Backend/services/friendlyErrorService";
 
 export default function SavedOperatorsScreen({ onBack, onViewFleet, onShowVerification, onOpenBooking }) {
   useI18n();
@@ -43,7 +45,7 @@ export default function SavedOperatorsScreen({ onBack, onViewFleet, onShowVerifi
       })
       .catch((err) => {
         if (alive) {
-          setError(hasExistingSavedOperators ? "" : err.message || t("urride.saved.loadError"));
+          setError(hasExistingSavedOperators ? "" : inlineErrorMessage(err, t("urride.saved.loadError")));
           if (!hasExistingSavedOperators) {
             setSavedOperators([]);
           }
@@ -167,18 +169,20 @@ export default function SavedOperatorsScreen({ onBack, onViewFleet, onShowVerifi
 }
 
 function InfoLine({ icon, text }) {
+  useUiLocale();
   return (
     <div className="flex min-w-0 items-center gap-2">
       {createElement(icon, { size: 15, className: "shrink-0 text-gray-500" })}
-      <span className="truncate">{text}</span>
+      <span className="truncate">{translateUi(text)}</span>
     </div>
   );
 }
 
 function EmptyState({ title, body }) {
+  useUiLocale();
   return (
     <div className="rounded-2xl border border-gray-100 bg-white p-6 text-center shadow-sm">
-      <h2 className="text-base font-black text-gray-950">{title}</h2>
+      <h2 className="text-base font-black text-gray-950">{translateUi(title)}</h2>
       <p className="mt-2 text-sm font-semibold text-gray-500">{body}</p>
     </div>
   );

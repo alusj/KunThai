@@ -4,10 +4,12 @@ import { LogIn, ShieldAlert, X } from "lucide-react";
 import { endGuestVisit, GUEST_GATE_EVENT } from "../../Backend/services/guestModeService";
 import AppPortal from "./AppPortal";
 import { t as i18nText } from "../../i18n/index";
+import { useI18n as useUiLocale } from "../../i18n/index.js";
 
 const AUTO_HIDE_MS = 9000;
 
 export default function GuestGateCard() {
+  useUiLocale();
   const [gate, setGate] = useState(null);
   const [leaving, setLeaving] = useState(false);
   const hideTimerRef = useRef(null);

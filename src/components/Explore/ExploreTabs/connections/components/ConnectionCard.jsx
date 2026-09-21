@@ -3,8 +3,10 @@ import { HiOutlineCheckBadge, HiOutlineEllipsisHorizontal, HiOutlineNoSymbol, Hi
 
 import Avatar from "../../../shared/Avatar";
 import { t as i18nText } from "../../../../../i18n/index";
+import { uiText as translateUi, useI18n as useUiLocale } from "../../../../../i18n/index.js";
 
 export default function ConnectionCard({ user, mode = "discover", onBlock, onFollow, onRemove, onViewProfile }) {
+  useUiLocale();
   const isFollowing = Boolean(user.isFollowing);
   const isSpace = user.identity_type === "space" || user.account_type === "space" || Boolean(user.space_id);
   const [menuOpen, setMenuOpen] = useState(false);
@@ -104,7 +106,7 @@ export default function ConnectionCard({ user, mode = "discover", onBlock, onFol
           {user.bio ? <p className="mt-2 line-clamp-2 text-base font-semibold leading-7 text-slate-600">{user.bio}</p> : null}
 
           <div className="mt-3 flex flex-wrap items-center gap-2 text-sm font-black">
-            {user.status ? <span className="rounded-full bg-sky-50 px-3.5 py-1.5 text-sky-700">{user.status}</span> : null}
+            {user.status ? <span className="rounded-full bg-sky-50 px-3.5 py-1.5 text-sky-700">{translateUi(user.status)}</span> : null}
             {isSpace && user.category_label ? <span className="rounded-full bg-slate-100 px-3.5 py-1.5 text-slate-600">{user.category_label}</span> : null}
             {user.mutual_count ? (
               <span className="inline-flex items-center gap-1.5 rounded-full bg-slate-100 px-3.5 py-1.5 text-slate-600">

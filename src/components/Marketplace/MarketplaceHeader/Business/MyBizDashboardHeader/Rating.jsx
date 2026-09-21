@@ -1,7 +1,9 @@
 
-import { t as i18nText } from "../../../../../i18n/index";// src/components/Marketplace/Business/MyBizDashboardHeader/Rating.jsx
+import { t as i18nText } from "../../../../../i18n/index";
+import { useI18n as useUiLocale } from "../../../../../i18n/index.js";// src/components/Marketplace/Business/MyBizDashboardHeader/Rating.jsx
 
 export default function Rating() {
+  useUiLocale();
   return (
     <div className="flex items-center gap-1 mt-1">
       <span className="text-yellow-500 text-sm">★</span>

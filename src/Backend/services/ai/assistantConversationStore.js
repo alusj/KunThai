@@ -2,6 +2,8 @@ import { useSyncExternalStore } from "react";
 
 import { isAiCancellation, isRetryableAiError, sendAiFeedback } from "./aiService";
 import { runAssistantExchange } from "./assistantClient";
+import { isConnectionFailure } from "../friendlyErrorService";
+import { announceConnectionTrouble } from "../networkService";
 import { snapshotAiScreen } from "./aiScreenContext";
 
 // KAI — the assistant conversation.
@@ -83,7 +85,9 @@ async function runReply({ userMessage, replyId }) {
       error: null,
     });
   } catch (error) {
-    if (signal.aborted || isAiCancellation(error)) {
+    // A lost connection ends the reply the same neutral way as a stop, with its
+    // Retry button; the global network toast says why. No red offline bubble.
+    if (signal.aborted || isAiCancellation(error) || (isConnectionFailure(error) && announceConnectionTrouble())) {
       updateMessage(replyId, { status: "stopped", error: null });
       return;
     }

@@ -1,12 +1,9 @@
 import { useCallback, useEffect, useRef, useState } from "react";
 import { createPortal } from "react-dom";
 import {
-  ArrowLeft,
   BookmarkCheck,
   CalendarDays,
   ChevronDown,
-  ChevronLeft,
-  ChevronRight,
   Heart,
   LocateFixed,
   MapPin,
@@ -35,8 +32,7 @@ import {
 } from "../../shared/AddressAreaValidation";
 import NearbyAreaScreen from "../../transport/NearbyAreaScreen";
 import useBodyScrollLock from "../../shared/useBodyScrollLock";
-import useImageViewerGestures from "../../shared/useImageViewerGestures";
-import { useBrowserBack } from "../../../Backend/hooks/useBrowserBack";
+import MediaGalleryViewer from "../../shared/MediaGalleryViewer";
 import { formatCurrency } from "../../../Backend/utils/formatCurrency";
 import { cleanAddressString } from "../../../Backend/utils/geoAddress";
 import { getProductTierPricing, getTierUnitPrice } from "../../../Backend/services/marketplace/tierPricingUtils";
@@ -57,6 +53,8 @@ import {
   readBuyerAddressPreference,
   writeBuyerAddressList,
 } from "../shared/buyerAddressPreferences";
+import { uiText as translateUi, useI18n as useUiLocale } from "../../../i18n/index.js";
+import { inlineErrorMessage } from "../../../Backend/services/friendlyErrorService";
 
 function mapSavedAddressToOrder(address = {}) {
   return {
@@ -109,185 +107,6 @@ function getProductSpecs(product = {}) {
   ].filter(([, value]) => String(value || "").trim());
 }
 
-function ImageViewer({ images, activeIndex, onChange, onClose }) {
-  const hasMultiple = images.length > 1;
-  const open = activeIndex >= 0 && images.length > 0;
-  const [closing, setClosing] = useState(false);
-  const closeTimerRef = useRef(null);
-  const requestClose = useCallback(() => {
-    if (closing) return;
-    setClosing(true);
-    window.clearTimeout(closeTimerRef.current);
-    closeTimerRef.current = window.setTimeout(() => {
-      onClose?.();
-      setClosing(false);
-    }, 220);
-  }, [closing, onClose]);
-
-  const viewerGestures = useImageViewerGestures({
-    enabled: open,
-    onClose: requestClose,
-    onSwipe: hasMultiple ? move : undefined,
-    resetKey: activeIndex,
-  });
-  useBrowserBack(open, requestClose, "urmall-product-image-viewer");
-  useBodyScrollLock(open);
-
-  useEffect(() => {
-    if (open) setClosing(false);
-    return () => window.clearTimeout(closeTimerRef.current);
-  }, [activeIndex, open]);
-
-  useEffect(() => {
-    if (activeIndex < 0) return undefined;
-
-    function handleKeyDown(event) {
-      if (event.key === "Escape") {
-        requestClose();
-        return;
-      }
-      if (!hasMultiple) return;
-      if (event.key === "ArrowLeft") move(-1);
-      if (event.key === "ArrowRight") move(1);
-    }
-
-    window.addEventListener("keydown", handleKeyDown);
-    return () => window.removeEventListener("keydown", handleKeyDown);
-    // eslint-disable-next-line react-hooks/exhaustive-deps -- keyboard movement reads the current active image index.
-  }, [activeIndex, hasMultiple, requestClose]);
-
-  if (activeIndex < 0 || !images.length) return null;
-
-  function move(direction) {
-    const nextIndex = (activeIndex + direction + images.length) % images.length;
-    onChange(nextIndex);
-  }
-
-  function changeImage(index) {
-    if (index === activeIndex) return;
-    onChange(index);
-  }
-
-  if (!open) return null;
-
-  return createPortal(
-    <div
-      className={`${closing ? "kt-media-zoom-exit" : "kt-media-zoom-enter"} kt-mobile-screen fixed inset-0 z-[1500] flex flex-col overflow-hidden bg-slate-950 text-white`}
-      role="dialog"
-      aria-modal="true"
-      aria-label={t("urmall.detail.viewerAria")}
-      data-suppress-app-swipe="true"
-      data-gesture-lock="product-image-viewer"
-    >
-      <header className="pointer-events-none fixed inset-x-0 top-0 z-30 flex items-center gap-3 px-3 pt-[max(0.75rem,env(safe-area-inset-top))]">
-        <button
-          type="button"
-          onClick={requestClose}
-          className="pointer-events-auto grid h-11 w-11 place-items-center rounded-full border border-white/15 bg-black/35 text-white shadow-xl backdrop-blur-md transition hover:bg-black/55"
-          aria-label={t("urmall.detail.backToProduct")}
-        >
-          <ArrowLeft size={22} />
-        </button>
-        <div className="rounded-full border border-white/10 bg-black/30 px-3 py-2 text-xs font-black shadow-lg backdrop-blur-md">
-          {t("urmall.detail.imageOf", { index: activeIndex + 1, total: images.length })}
-        </div>
-        <div className="ml-auto rounded-full border border-white/10 bg-black/30 px-3 py-2 text-[11px] font-bold text-white/80 shadow-lg backdrop-blur-md">
-          {viewerGestures.scale > 1 ? t("urmall.detail.zoomDragHint", { pct: Math.round(viewerGestures.scale * 100) }) : t("urmall.detail.doubleTapZoom")}
-        </div>
-      </header>
-
-      <div
-        ref={viewerGestures.viewportRef}
-        className="relative min-h-0 flex-1 overflow-hidden"
-        style={{ touchAction: "none" }}
-        {...viewerGestures.stageHandlers}
-      >
-        <div
-          className="flex h-full transition-transform duration-300 ease-out"
-          style={{ transform: `translate3d(-${activeIndex * 100}%, 0, 0)` }}
-        >
-          {images.map((image, index) => {
-            const active = index === activeIndex;
-            return (
-              <div
-                key={`${image}-${index}`}
-                className="flex h-full w-full shrink-0 items-center justify-center overflow-hidden px-2 py-4 sm:px-4"
-              >
-                <img
-                  ref={active ? viewerGestures.imageRef : undefined}
-                  src={image}
-                  alt=""
-                  draggable="false"
-                  className={`max-h-full max-w-full select-none object-contain shadow-2xl transition-[transform,opacity] duration-300 ${
-                    active ? "opacity-100" : "opacity-50"
-                  }`}
-                  style={{
-                    transform: active
-                      ? `translate3d(${viewerGestures.pan.x}px, ${viewerGestures.pan.y}px, 0) scale(${viewerGestures.scale})`
-                      : "translate3d(0, 0, 0) scale(1)",
-                    transformOrigin: "center",
-                    cursor: active && viewerGestures.scale > 1
-                      ? viewerGestures.isDragging ? "grabbing" : "grab"
-                      : "zoom-in",
-                    touchAction: "none",
-                    transitionDuration: active && viewerGestures.isDragging ? "0ms" : undefined,
-                  }}
-                />
-              </div>
-            );
-          })}
-        </div>
-
-        {hasMultiple ? (
-          <>
-            <button
-              type="button"
-              onClick={() => move(-1)}
-              onPointerDown={(event) => event.stopPropagation()}
-              onPointerUp={(event) => event.stopPropagation()}
-              className="absolute left-3 top-1/2 z-20 inline-flex h-12 w-12 -translate-y-1/2 items-center justify-center rounded-full border border-white/10 bg-black/30 text-white shadow-xl backdrop-blur-md transition hover:bg-black/55"
-              aria-label={t("urmall.detail.prevImage")}
-            >
-              <ChevronLeft size={24} />
-            </button>
-            <button
-              type="button"
-              onClick={() => move(1)}
-              onPointerDown={(event) => event.stopPropagation()}
-              onPointerUp={(event) => event.stopPropagation()}
-              className="absolute right-3 top-1/2 z-20 inline-flex h-12 w-12 -translate-y-1/2 items-center justify-center rounded-full border border-white/10 bg-black/30 text-white shadow-xl backdrop-blur-md transition hover:bg-black/55"
-              aria-label={t("urmall.detail.nextImage")}
-            >
-              <ChevronRight size={24} />
-            </button>
-          </>
-        ) : null}
-      </div>
-
-      {hasMultiple ? (
-        <div className="relative z-20 border-t border-white/10 bg-black/25 p-3 pb-[calc(env(safe-area-inset-bottom)+0.75rem)] backdrop-blur-md">
-          <div className="flex justify-center gap-2 overflow-x-auto pb-1">
-            {images.map((image, index) => (
-              <button
-                key={`${image}-${index}`}
-                type="button"
-                onClick={() => changeImage(index)}
-                className={`h-14 w-14 shrink-0 overflow-hidden rounded-xl border-2 transition ${
-                  index === activeIndex ? "border-white shadow-lg" : "border-white/20 opacity-70"
-                }`}
-                aria-label={t("urmall.detail.openImageN", { index: index + 1 })}
-              >
-                <img src={resizedImageUrl(image, { width: 160, quality: 70 })} alt="" loading="lazy" decoding="async" className="h-full w-full object-cover" />
-              </button>
-            ))}
-          </div>
-        </div>
-      ) : null}
-    </div>,
-    document.body,
-  );
-}
-
 // Solid / soft badge tones for the vertical category pills shown over the
 // detail hero image, matching the colours used on the grid cards.
 function verticalBadgeTone(type) {
@@ -306,6 +125,7 @@ function verticalBadgeToneSoft(type) {
 // Inline category pills shown inside the description card below the image, so
 // vertical listings read like the other categories without covering the photo.
 function VerticalCategoryPills({ className = "", product }) {
+  useUiLocale();
   if (!product.isVertical || !product.badgePrimary) return null;
   return (
     <div className={`flex flex-wrap gap-1.5 ${className}`}>
@@ -316,6 +136,7 @@ function VerticalCategoryPills({ className = "", product }) {
 }
 
 function Gallery({ product, onOpenImage }) {
+  useUiLocale();
   const [activeIndex, setActiveIndex] = useState(0);
   const [touchStartX, setTouchStartX] = useState(null);
   const images = product.imageUrls?.length ? product.imageUrls : [product.imageUrl].filter(Boolean);
@@ -387,6 +208,7 @@ function Gallery({ product, onOpenImage }) {
 }
 
 function StarRatingInput({ value, onChange }) {
+  useUiLocale();
   return (
     <div className="flex items-center gap-1">
       {[1, 2, 3, 4, 5].map((rating) => (
@@ -428,6 +250,7 @@ function ProductReviewDrawer({
   reviewHeading = t("urmall.detail.productReviews"),
   reviewLabel = t("urmall.detail.productReview"),
 }) {
+  useUiLocale();
   return (
     <div
       aria-hidden={!open}
@@ -488,7 +311,7 @@ function ProductReviewDrawer({
               ))}
               {!reviewEligibilityLoading && !reviewEligibility?.eligible ? (
                 <p className="rounded-2xl border border-emerald-100 bg-emerald-50 px-4 py-3 text-sm font-bold leading-6 text-emerald-900">
-                  {reviewEligibility?.reason}
+                  {translateUi(reviewEligibility?.reason)}
                 </p>
               ) : null}
             </div>
@@ -544,6 +367,7 @@ function ProductReviewDrawer({
 }
 
 function ProductActionSheet({ children, labelledBy, maxWidth = "max-w-lg", onClose, open }) {
+  useUiLocale();
   return (
     <div
       aria-hidden={!open}
@@ -867,7 +691,7 @@ export default function ProductDetailDrawer({
       });
       setReviewEligibility(nextEligibility);
     } catch (err) {
-      setReviewStatus(err.message || t("urmall.detail.reviewSubmitFailed"));
+      setReviewStatus(inlineErrorMessage(err, t("urmall.detail.reviewSubmitFailed")));
       onNotice?.(err.message || t("urmall.detail.reviewSubmitFailed"), "danger");
     } finally {
       setReviewSubmitting(false);
@@ -1142,7 +966,7 @@ export default function ProductDetailDrawer({
                   <dl className="mt-2 grid gap-1.5 sm:grid-cols-2">
                     {specs.map(([label, value]) => (
                       <div key={label} className="rounded-lg bg-gray-50 p-2.5">
-                        <dt className="text-[11px] font-black uppercase text-gray-500">{label}</dt>
+                        <dt className="text-[11px] font-black uppercase text-gray-500">{translateUi(label)}</dt>
                         <dd className="mt-0.5 text-sm font-black text-gray-950">{value}</dd>
                       </div>
                     ))}
@@ -1242,7 +1066,7 @@ export default function ProductDetailDrawer({
             className="kt-pressable inline-flex h-12 min-w-0 items-center justify-center gap-2 rounded-2xl bg-emerald-600 px-3 text-xs font-black text-white hover:bg-emerald-700 sm:text-sm"
           >
             {isBooking ? <CalendarDays size={17} /> : <PackageCheck size={17} />}
-            <span className="truncate">{actionLabel}</span>
+            <span className="truncate">{translateUi(actionLabel)}</span>
           </button> : null}
           {showReview ? <button
             type="button"
@@ -1556,11 +1380,22 @@ export default function ProductDetailDrawer({
             </form>
         </ProductActionSheet>
 
-      <ImageViewer
+      <MediaGalleryViewer
         images={images}
         activeIndex={activeImageIndex}
         onChange={setActiveImageIndex}
         onClose={() => setActiveImageIndex(-1)}
+        backKey="urmall-product-image-viewer"
+        labels={{
+          aria: t("urmall.detail.viewerAria"),
+          close: t("urmall.detail.backToProduct"),
+          counter: ({ index, total }) => t("urmall.detail.imageOf", { index, total }),
+          zoomHint: ({ pct }) => t("urmall.detail.zoomDragHint", { pct }),
+          zoomPrompt: t("urmall.detail.doubleTapZoom"),
+          previous: t("urmall.detail.prevImage"),
+          next: t("urmall.detail.nextImage"),
+          openImage: ({ index }) => t("urmall.detail.openImageN", { index }),
+        }}
       />
       <ProductReviewDrawer
         comment={comment}

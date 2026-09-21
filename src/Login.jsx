@@ -45,9 +45,11 @@ import {
 } from "./Backend/services/nativeOAuthService";
 import FindAccountModal from "./components/auth/FindAccountModal";
 import { t as i18nText } from "./i18n/index";
-import { friendlyErrorMessage } from "./Backend/services/friendlyErrorService";
+import { inlineErrorMessage } from "./Backend/services/friendlyErrorService";
+import { uiText as translateUi, useI18n as useUiLocale } from "./i18n/index.js";
 
 function AuthMessage({ tone = "info", children }) {
+  useUiLocale();
   const tones = {
     info: "border-sky-200 bg-sky-50 text-sky-700",
     success: "border-emerald-200 bg-emerald-50 text-emerald-700",
@@ -62,10 +64,11 @@ function AuthMessage({ tone = "info", children }) {
 }
 
 const AuthInput = forwardRef(function AuthInput({ label, ...props }, ref) {
+  useUiLocale();
   return (
     <label className="block">
       <span className="mb-2 block text-sm font-semibold text-slate-700">
-        {label}
+        {translateUi(label)}
       </span>
       <input
         {...props}
@@ -87,7 +90,7 @@ const AuthPasswordInput = forwardRef(function AuthPasswordInput({ label, ...prop
   return (
     <label className="block">
       <span className="mb-2 block text-sm font-semibold text-slate-700">
-        {label}
+        {translateUi(label)}
       </span>
       <div className="relative">
         <input
@@ -423,7 +426,7 @@ export default function Login() {
       setProviderLoading("");
       if (detail.status === "error") {
         clearOAuthFlow();
-        setError(detail.message || t("auth.errUnableSignIn"));
+        setError(inlineErrorMessage(detail, t("auth.errUnableSignIn")));
       } else if (detail.status === "cancelled") {
         clearOAuthFlow();
       }
@@ -493,7 +496,7 @@ export default function Login() {
       // Web redirects the page to the provider; nothing else runs here.
     } catch (err) {
       clearOAuthFlow();
-      setError(friendlyErrorMessage(err, t("auth.errContinueProvider", { provider })));
+      setError(inlineErrorMessage(err, t("auth.errContinueProvider", { provider })));
       setProviderLoading("");
     }
   }
@@ -544,7 +547,7 @@ export default function Login() {
       setForgotAvailable(false);
       setMessage(t("auth.msgWelcomeBack"));
     } catch (err) {
-      setError(friendlyErrorMessage(err, t("auth.errUnableSignIn")));
+      setError(inlineErrorMessage(err, t("auth.errUnableSignIn")));
 
       // After more than one wrong password on a phone number that really has a
       // KunThai account, offer OTP-verified password recovery. The signup
@@ -613,7 +616,7 @@ export default function Login() {
       if (guard.isSecond) setLastOtpNoticeOpen(true);
       scrollAuthToTop();
     } catch (err) {
-      setError(friendlyErrorMessage(err, t("auth.errUnableSendRecoveryOtp")));
+      setError(inlineErrorMessage(err, t("auth.errUnableSendRecoveryOtp")));
     } finally {
       setLoading(false);
     }
@@ -638,7 +641,7 @@ export default function Login() {
 
       setMessage(t("auth.msgPasswordUpdated"));
     } catch (err) {
-      setError(friendlyErrorMessage(err, t("auth.errUnableVerifyOtp")));
+      setError(inlineErrorMessage(err, t("auth.errUnableVerifyOtp")));
     } finally {
       setLoading(false);
     }
@@ -656,7 +659,7 @@ export default function Login() {
       setMessage(t("auth.msgOtpResent"));
       if (guard.isSecond) setLastOtpNoticeOpen(true);
     } catch (err) {
-      setError(friendlyErrorMessage(err, t("auth.errUnableResendOtp")));
+      setError(inlineErrorMessage(err, t("auth.errUnableResendOtp")));
     } finally {
       setLoading(false);
     }
@@ -705,7 +708,7 @@ export default function Login() {
         return;
       }
 
-      setError(friendlyErrorMessage(err, t("auth.errUnableCreate")));
+      setError(inlineErrorMessage(err, t("auth.errUnableCreate")));
     } finally {
       setLoading(false);
     }
@@ -727,7 +730,7 @@ export default function Login() {
       clearOtpRequests(pendingPhone);
       setMessage(t("auth.msgPhoneVerified"));
     } catch (err) {
-      setError(friendlyErrorMessage(err, t("auth.errUnableVerifyOtp")));
+      setError(inlineErrorMessage(err, t("auth.errUnableVerifyOtp")));
     } finally {
       setLoading(false);
     }
@@ -748,7 +751,7 @@ export default function Login() {
       setMessage(t("auth.msgOtpResent"));
       if (guard.isSecond) setLastOtpNoticeOpen(true);
     } catch (err) {
-      setError(friendlyErrorMessage(err, t("auth.errUnableResendOtp")));
+      setError(inlineErrorMessage(err, t("auth.errUnableResendOtp")));
     } finally {
       setLoading(false);
     }
@@ -1029,8 +1032,8 @@ export default function Login() {
         </div>
 
         <div className="space-y-3">
-          {message && <AuthMessage tone="success">{message}</AuthMessage>}
-          {error && <AuthMessage tone="danger">{error}</AuthMessage>}
+          {message && <AuthMessage tone="success">{translateUi(message)}</AuthMessage>}
+          {error && <AuthMessage tone="danger">{translateUi(error)}</AuthMessage>}
           {phoneConflict ? (
             <button
               type="button"
@@ -1099,7 +1102,7 @@ export default function Login() {
                   try {
                     await enterGuestMode();
                   } catch (guestError) {
-                    setError(friendlyErrorMessage(guestError, t("auth.errUnableGuest")));
+                    setError(inlineErrorMessage(guestError, t("auth.errUnableGuest")));
                     setGuestPromptOpen(false);
                   } finally {
                     setGuestEntering(false);

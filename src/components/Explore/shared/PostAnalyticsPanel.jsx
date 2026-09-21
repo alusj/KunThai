@@ -19,6 +19,8 @@ import {
 import { buildPostInsights, fetchPostAnalytics } from "../../../Backend/services/explore/postAnalyticsService";
 import { t } from "../../../i18n";
 import { t as i18nText } from "../../../i18n/index";
+import { uiText as translateUi, useI18n as useUiLocale } from "../../../i18n/index.js";
+import { inlineErrorMessage } from "../../../Backend/services/friendlyErrorService";
 
 const DONUT_COLORS = ["#0ea5e9", "#10b981", "#8b5cf6", "#f59e0b"];
 
@@ -45,6 +47,7 @@ function useCountUp(target = 0, { duration = 950, decimals = 0 } = {}) {
 }
 
 function StatTile({ icon: Icon, label, value, tone = "sky", delayMs = 0, suffix = "" }) {
+  useUiLocale();
   const display = useCountUp(value);
   const tones = {
     sky: "bg-sky-50 text-sky-700",
@@ -62,12 +65,13 @@ function StatTile({ icon: Icon, label, value, tone = "sky", delayMs = 0, suffix 
         {display}
         {suffix}
       </p>
-      <p className="mt-0.5 text-xs font-bold uppercase tracking-[0.14em] text-slate-500">{label}</p>
+      <p className="mt-0.5 text-xs font-bold uppercase tracking-[0.14em] text-slate-500">{translateUi(label)}</p>
     </div>
   );
 }
 
 function EngagementDonut({ analytics }) {
+  const { locale: memoLocale } = useUiLocale();
   const [drawn, setDrawn] = useState(false);
   const segments = useMemo(() => {
     const parts = [
@@ -84,7 +88,7 @@ function EngagementDonut({ analytics }) {
       offset += fraction;
       return segment;
     });
-  }, [analytics]);
+  }, [analytics, memoLocale]);
 
   const total = analytics.engagements;
   const radius = 15.915;
@@ -129,7 +133,7 @@ function EngagementDonut({ analytics }) {
           {segments.map((segment) => (
             <div key={segment.label} className="flex items-center gap-2 text-sm">
               <span className="h-2.5 w-2.5 flex-none rounded-full" style={{ backgroundColor: segment.color }} />
-              <span className="min-w-0 flex-1 truncate font-bold text-slate-600">{segment.label}</span>
+              <span className="min-w-0 flex-1 truncate font-bold text-slate-600">{translateUi(segment.label)}</span>
               <span className="font-black tabular-nums text-slate-950">{segment.value.toLocaleString()}</span>
             </div>
           ))}
@@ -140,6 +144,7 @@ function EngagementDonut({ analytics }) {
 }
 
 function ReachFunnel({ analytics }) {
+  const { locale: memoLocale } = useUiLocale();
   const [grown, setGrown] = useState(false);
   const steps = useMemo(() => {
     const raw = [
@@ -152,7 +157,7 @@ function ReachFunnel({ analytics }) {
     }
     const max = Math.max(1, ...raw.map((step) => step.value));
     return raw.map((step) => ({ ...step, pct: Math.max(step.value > 0 ? 6 : 2, (step.value / max) * 100) }));
-  }, [analytics]);
+  }, [analytics, memoLocale]);
 
   useEffect(() => {
     const frame = requestAnimationFrame(() => setGrown(true));
@@ -166,7 +171,7 @@ function ReachFunnel({ analytics }) {
         {steps.map((step, index) => (
           <div key={step.label}>
             <div className="flex items-center justify-between text-xs font-bold text-slate-500">
-              <span>{step.label}</span>
+              <span>{translateUi(step.label)}</span>
               <span className="font-black tabular-nums text-slate-950">{step.value.toLocaleString()}</span>
             </div>
             <div className="mt-1.5 h-3.5 overflow-hidden rounded-full bg-slate-100">
@@ -204,6 +209,7 @@ const INSIGHT_TONES = {
 };
 
 export default function PostAnalyticsPanel({ post, onClose }) {
+  useUiLocale();
   const [analytics, setAnalytics] = useState(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState("");
@@ -218,7 +224,7 @@ export default function PostAnalyticsPanel({ post, onClose }) {
         if (!result) setError(t("explore.anOwnPostsOnly"));
       })
       .catch((err) => {
-        if (alive) setError(err.message || t("explore.anUnableLoad"));
+        if (alive) setError(inlineErrorMessage(err, t("explore.anUnableLoad")));
       })
       .finally(() => {
         if (alive) setLoading(false);
@@ -346,7 +352,7 @@ export default function PostAnalyticsPanel({ post, onClose }) {
                     className={`kt-fade-up rounded-[22px] border p-4 ${INSIGHT_TONES[insight.tone] || INSIGHT_TONES.sky}`}
                     style={{ animationDelay: `${380 + index * 90}ms` }}
                   >
-                    <p className="text-sm font-black">{insight.title}</p>
+                    <p className="text-sm font-black">{translateUi(insight.title)}</p>
                     <p className="mt-1 text-sm font-semibold leading-6 opacity-90">{insight.body}</p>
                   </article>
                 ))}

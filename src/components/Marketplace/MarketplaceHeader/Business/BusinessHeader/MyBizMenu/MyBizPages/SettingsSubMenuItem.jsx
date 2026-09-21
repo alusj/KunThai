@@ -1,6 +1,8 @@
 import { ChevronRight } from "lucide-react";
+import { uiText as translateUi, useI18n as useUiLocale } from "../../../../../../../i18n/index.js";
 
 export default function SettingsSubMenuItem({ icon: Icon, title, description, onClick }) {
+  useUiLocale();
   return (
     <button
       type="button"
@@ -11,9 +13,9 @@ export default function SettingsSubMenuItem({ icon: Icon, title, description, on
         <Icon size={18} strokeWidth={2.3} />
       </span>
       <span className="min-w-0 flex-1">
-        <span className="block text-sm font-black text-gray-950">{title}</span>
+        <span className="block text-sm font-black text-gray-950">{translateUi(title)}</span>
         <span className="mt-0.5 block text-xs font-semibold leading-5 text-gray-500">
-          {description}
+          {translateUi(description)}
         </span>
       </span>
       <ChevronRight className="shrink-0 text-gray-400" size={18} />

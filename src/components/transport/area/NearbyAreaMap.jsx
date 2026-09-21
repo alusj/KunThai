@@ -25,6 +25,7 @@ import {
 import { getActiveCountryProfile } from "../../../data/globalCountryProfiles";
 import { useI18n, t } from "../../../i18n";
 import { t as i18nText } from "../../../i18n/index";
+import { inlineErrorMessage } from "../../../Backend/services/friendlyErrorService";
 
 const ROUTE_STATUS_LABEL_KEYS = {
   correct: "urride.areaMap.rsCorrectLabel",
@@ -1720,12 +1721,29 @@ export default function NearbyAreaMap({
   const [rerouteKey, setRerouteKey] = useState(0);
   const [locationWatchRevision, setLocationWatchRevision] = useState(0);
   // Base-map render state. `mapTilesLoading` covers the normal "still fetching
-  // tiles" case; `mapBlocked` is set to "offline" | "slow" when the base map
-  // cannot draw because of the connection, so the overlay can explain it and
-  // offer a retry.
+  // tiles" case, and is also the state a map waits in while offline;
+  // `mapBlocked` is "slow" when the base map cannot draw with the connection
+  // up, so the overlay can explain it and offer a retry.
   const [mapTilesLoading, setMapTilesLoading] = useState(true);
   const [mapBlocked, setMapBlocked] = useState("");
   const [mapReloadKey, setMapReloadKey] = useState(0);
+  const mapWaitingForConnectionRef = useRef(false);
+
+  // The base map cannot draw. Offline, it stays in its normal loading state —
+  // the global network toast is the offline notice — and reloads on reconnect.
+  // With the connection up, the network is too slow for the tiles, which the
+  // overlay explains with a retry. Only uses setters and refs, so the stale
+  // copies captured by map event handlers behave the same.
+  function holdBaseMapForConnection() {
+    if (getNetworkStatus().online) {
+      setMapTilesLoading(false);
+      setMapBlocked("slow");
+      return;
+    }
+    mapWaitingForConnectionRef.current = true;
+    setMapBlocked("");
+    setMapTilesLoading(true);
+  }
   const [rescueLoading, setRescueLoading] = useState(false);
   const [rescueMessage, setRescueMessage] = useState("");
 
@@ -2179,7 +2197,7 @@ export default function NearbyAreaMap({
         setRerouteKey((value) => value + 1);
       }
     } catch (error) {
-      setRescueMessage(error.message || t("urride.areaMap.saveMeFailed"));
+      setRescueMessage(inlineErrorMessage(error, t("urride.areaMap.saveMeFailed")));
     } finally {
       rescueActiveRef.current = false;
       setRescueLoading(false);
@@ -2415,8 +2433,7 @@ export default function NearbyAreaMap({
       // that has already drawn keeps its partial view (MapLibre retries tiles
       // on the next move) rather than being hidden behind a full overlay.
       if (isTileNetworkError(event) && !mapEverLoadedRef.current) {
-        setMapTilesLoading(false);
-        setMapBlocked(getNetworkStatus().online ? "slow" : "offline");
+        holdBaseMapForConnection();
       }
     };
 
@@ -2515,28 +2532,24 @@ export default function NearbyAreaMap({
     // A safety net: if tiles still have not drawn shortly after a reload, keep
     // the overlay honest about the connection instead of spinning forever.
     const timer = window.setTimeout(() => {
-      if (!map.areTilesLoaded?.()) {
-        setMapTilesLoading(false);
-        setMapBlocked(getNetworkStatus().online ? "slow" : "offline");
-      }
+      if (!map.areTilesLoaded?.()) holdBaseMapForConnection();
     }, 9000);
     return () => window.clearTimeout(timer);
   }, [mapReloadKey]);
 
-  // Keep the base-map overlay in step with the live connection: drop straight
-  // into the offline state when the device goes offline before tiles are
-  // ready, and auto-retry once it is back.
+  // Keep the base map in step with the live connection: a map that has not
+  // drawn yet waits in its loading state while offline, and reloads by itself
+  // once the connection is back (as does a map showing the slow overlay).
   useEffect(() => {
     return subscribeToNetworkStatus((status) => {
       if (!status.online) {
-        if (!mapEverLoadedRef.current) {
-          setMapTilesLoading(false);
-          setMapBlocked("offline");
-        }
+        if (!mapEverLoadedRef.current) holdBaseMapForConnection();
         return;
       }
+      const waiting = mapWaitingForConnectionRef.current;
+      mapWaitingForConnectionRef.current = false;
       setMapBlocked((current) => {
-        if (current) setMapReloadKey((value) => value + 1);
+        if (current || waiting) setMapReloadKey((value) => value + 1);
         return current;
       });
     });
@@ -3013,10 +3026,15 @@ export default function NearbyAreaMap({
         routePlan: hasOperatorRoutePlan,
       });
       setNavigationSnap("half");
-      setRouteError(error.message || t("urride.areaMap.routeErrorFallback"));
-      showToast(t("urride.areaMap.routeToastMsg"), "warning", {
-        title: t("urride.areaMap.routeToastTitle"),
-      });
+      const routeMessage = inlineErrorMessage(error, t("urride.areaMap.routeErrorFallback"));
+      setRouteError(routeMessage);
+      // An empty message means the connection was lost, which the global
+      // network toast has already announced.
+      if (routeMessage) {
+        showToast(t("urride.areaMap.routeToastMsg"), "warning", {
+          title: t("urride.areaMap.routeToastTitle"),
+        });
+      }
     });
 
     return () => {
@@ -3578,15 +3596,13 @@ export default function NearbyAreaMap({
         <div className="absolute inset-0 z-20 flex items-center justify-center bg-slate-950/45 px-6">
           <div className="w-full max-w-xs rounded-3xl bg-white p-5 text-center shadow-2xl">
             <div className="mx-auto mb-3 flex h-12 w-12 items-center justify-center rounded-2xl bg-slate-100 text-2xl">
-              {mapBlocked === "offline" ? "📴" : "🐢"}
+              🐢
             </div>
             <p className="text-base font-black text-slate-950">
-              {mapBlocked === "offline" ? t("urride.areaMap.offline") : t("urride.areaMap.weakNetwork")}
+              {t("urride.areaMap.weakNetwork")}
             </p>
             <p className="mt-1 text-sm font-semibold leading-6 text-slate-500">
-              {mapBlocked === "offline"
-                ? t("urride.areaMap.offlineBody")
-                : t("urride.areaMap.slowBody")}
+              {t("urride.areaMap.slowBody")}
             </p>
             <button
               type="button"

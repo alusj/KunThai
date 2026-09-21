@@ -1,6 +1,7 @@
 import assert from "node:assert/strict";
 import { readFileSync } from "node:fs";
 import test from "node:test";
+import { UI_TRANSLATIONS } from "../i18n/ui.js";
 
 const migration = readFileSync(
   new URL("../../supabase/migrations/20260915120000_admin_user_identity_workspace.sql", import.meta.url),
@@ -44,10 +45,12 @@ test("UrMall and UrRide workspace exposes plan usage and rental capacity", () =>
 
 test("Users UI keeps notification targeting on KunThai ID and adds service tabs", () => {
   assert.match(usersView, /filter: \{ userIds: \[user\.user_id\], kunthaiIds/);
-  assert.match(usersView, /label: "Accounts & roles"/);
+  assert.match(usersView, /id: "accounts", label: i18nText\("ui\.literals\.kfe4aa186f76a"\)/);
+  assert.equal(UI_TRANSLATIONS.en.literals.kfe4aa186f76a, "Accounts & roles");
   assert.match(usersView, /label: "UrMall"/);
   assert.match(usersView, /label: "UrRide"/);
-  assert.match(usersView, /label: "Subscriptions"/);
+  assert.match(usersView, /id: "plans", label: i18nText\("ui\.literals\.k5697fd85adbd"\)/);
+  assert.equal(UI_TRANSLATIONS.en.literals.k5697fd85adbd, "Subscriptions");
 });
 
 test("admin preview includes a business owner, company-linked operator, and platform admin", () => {

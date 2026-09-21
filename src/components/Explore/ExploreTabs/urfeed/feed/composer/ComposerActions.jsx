@@ -13,6 +13,7 @@ import {
 
 import { t } from "../../../../../../i18n";
 import { t as i18nText } from "../../../../../../i18n/index";
+import { useI18n as useUiLocale } from "../../../../../../i18n/index.js";
 
 const tools = [
   { type: "image", label: "explore.cImage", icon: HiOutlinePhoto },
@@ -39,6 +40,7 @@ export default function ComposerActions({
   privacyOnly = false,
   toolsOnly = false,
 }) {
+  useUiLocale();
   const [privacyMenuOpen, setPrivacyMenuOpen] = useState(false);
   const controlsRef = useRef(null);
 

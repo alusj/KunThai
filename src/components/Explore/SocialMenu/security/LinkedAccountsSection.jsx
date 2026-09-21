@@ -10,6 +10,8 @@ import {
   OAUTH_SETTLED_EVENT,
 } from "../../../../Backend/services/nativeOAuthService";
 import { uiText } from "../../../../i18n/index";
+import { uiText as translateUi, useI18n as useUiLocale } from "../../../../i18n/index.js";
+import { inlineErrorMessage } from "../../../../Backend/services/friendlyErrorService";
 
 // Lets a signed-in KunThai user connect a social login to their account — the
 // path for a phone-only account whose email does not match the Google/Facebook
@@ -21,6 +23,7 @@ const PROVIDERS = [
 ];
 
 export default function LinkedAccountsSection({ currentUserId = "" }) {
+  useUiLocale();
   const [identities, setIdentities] = useState(null); // null = still loading
   const [busyProvider, setBusyProvider] = useState("");
   const [error, setError] = useState("");
@@ -48,7 +51,7 @@ export default function LinkedAccountsSection({ currentUserId = "" }) {
       const detail = event.detail || {};
       setBusyProvider("");
       if (detail.status === "error") {
-        setError(detail.message || uiText("We couldn't link that account. Please try again."));
+        setError(inlineErrorMessage(detail, uiText("We couldn't link that account. Please try again.")));
       } else if (detail.status === "success") {
         setError("");
         setNotice(uiText("Social account linked to your KunThai account."));
@@ -82,7 +85,7 @@ export default function LinkedAccountsSection({ currentUserId = "" }) {
       } else if (message.includes("already")) {
         setError(uiText("This social account is already connected to another KunThai account."));
       } else {
-        setError(err?.message || uiText("We couldn't start account linking. Please try again."));
+        setError(inlineErrorMessage(err, uiText("We couldn't start account linking. Please try again.")));
       }
     }
   }
@@ -102,10 +105,10 @@ export default function LinkedAccountsSection({ currentUserId = "" }) {
           </p>
 
           {error ? (
-            <p className="mt-3 rounded-2xl bg-rose-50 px-3 py-2 text-sm font-bold text-rose-700">{error}</p>
+            <p className="mt-3 rounded-2xl bg-rose-50 px-3 py-2 text-sm font-bold text-rose-700">{translateUi(error)}</p>
           ) : null}
           {notice ? (
-            <p className="mt-3 rounded-2xl bg-emerald-50 px-3 py-2 text-sm font-bold text-emerald-700">{notice}</p>
+            <p className="mt-3 rounded-2xl bg-emerald-50 px-3 py-2 text-sm font-bold text-emerald-700">{translateUi(notice)}</p>
           ) : null}
 
           <div className="mt-4 space-y-2">
@@ -119,7 +122,7 @@ export default function LinkedAccountsSection({ currentUserId = "" }) {
                 >
                   <span className="flex min-w-0 items-center gap-3">
                     <Icon className={`shrink-0 ${iconClass}`} aria-hidden="true" />
-                    <span className="truncate text-sm font-black text-slate-900">{label}</span>
+                    <span className="truncate text-sm font-black text-slate-900">{translateUi(label)}</span>
                   </span>
 
                   {linked ? (

@@ -4,6 +4,7 @@ import { Maximize2, Minimize2, Share2 } from "lucide-react";
 
 import { postingStages } from "../ExploreTabs/urfeed/feed/composer/postReviewPipeline";
 import { t } from "../../../i18n";
+import { uiText as translateUi, useI18n as useUiLocale } from "../../../i18n/index.js";
 
 // Rendered into <body> (like PostOutboxIndicator): inside Explore, an ancestor
 // with a transform turned `position: fixed` into page-relative positioning, so
@@ -15,6 +16,7 @@ const FLOATING_TOP = { top: "calc(var(--kt-safe-area-top, 0px) + 0.75rem)" };
 const AUTO_COLLAPSE_MS = 5000;
 
 export default function PostingStatusBanner({ notice, onDismiss, onShareKunThai }) {
+  useUiLocale();
   const [collapsed, setCollapsed] = useState(false);
   const noticeId = notice?.id || "";
   const status = notice?.status || "";
@@ -113,10 +115,10 @@ export default function PostingStatusBanner({ notice, onDismiss, onShareKunThai 
             ) : null}
             <div className="min-w-0">
               <p className={`text-[11px] font-black uppercase tracking-[0.18em] ${isError ? "text-rose-600" : isComplete ? "text-emerald-700" : "text-sky-700"}`}>
-                {title}
+                {translateUi(title)}
               </p>
               <h3 className="mt-0.5 truncate text-sm font-black text-slate-950">{isError ? t("explore.postingStopped") : currentStage.label}</h3>
-              {showMessage ? <p className="mt-0.5 line-clamp-1 text-[11px] font-semibold text-slate-600">{message}</p> : null}
+              {showMessage ? <p className="mt-0.5 line-clamp-1 text-[11px] font-semibold text-slate-600">{translateUi(message)}</p> : null}
             </div>
           </div>
           <div className="flex flex-none items-center gap-1.5">
@@ -135,8 +137,8 @@ export default function PostingStatusBanner({ notice, onDismiss, onShareKunThai 
             <button
               type="button"
               onClick={onDismiss}
-              aria-label={dismissLabel}
-              title={dismissLabel}
+              aria-label={translateUi(dismissLabel)}
+              title={translateUi(dismissLabel)}
               className="kt-pressable flex h-8 w-8 items-center justify-center rounded-full border border-slate-200 bg-white text-sm font-black text-slate-500 shadow-sm transition hover:border-slate-300 hover:text-slate-900"
             >
               X

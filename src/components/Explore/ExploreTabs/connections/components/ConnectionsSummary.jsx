@@ -1,6 +1,7 @@
 import { HiOutlineSparkles, HiOutlineUserGroup, HiOutlineUsers } from "react-icons/hi2";
 
 import { useI18n } from "../../../../../i18n";
+import { uiText as translateUi } from "../../../../../i18n/index.js";
 
 export default function ConnectionsSummary({ activeTab = "mycircle", counts, loading = false, onSelect, slideDirection = "forward" }) {
   const { t } = useI18n();
@@ -36,7 +37,7 @@ export default function ConnectionsSummary({ activeTab = "mycircle", counts, loa
             ) : (
               <p className="mt-3 text-2xl font-black text-slate-950">{item.value}</p>
             )}
-            <p className={`truncate text-sm font-black ${active ? "text-sky-700" : "text-slate-500"}`}>{item.label}</p>
+            <p className={`truncate text-sm font-black ${active ? "text-sky-700" : "text-slate-500"}`}>{translateUi(item.label)}</p>
           </button>
         );
       })}

@@ -2980,7 +2980,7 @@ export const URRIDE = {
       fareHintDistance: "Les opérateurs correspondants à proximité verront votre itinéraire résolu{route} avant de répondre.",
       fareHintRoutePart: " de {distance}",
       fareHintTime: "Les opérateurs correspondants à proximité verront les {hours} heures demandées avant de répondre.",
-      fareHintTimeOne: "Les opérateurs correspondants à proximité verront votre heure demandée avant de répondre.",
+      fareHintTimeOne: "Les opérateurs correspondants à proximité verront la durée de {hours} heure demandée avant de répondre.",
       pickupPointLabel: "Point de prise en charge",
       deliveryDropoffLabel: "Point de dépose de livraison",
       dropoffPointLabel: "Point de dépose",
@@ -3101,6 +3101,7 @@ export const URRIDE = {
       emptyTitle: "Aucune notification",
       emptyBody: "Les alertes de course, de livraison et d'opérateur apparaîtront ici.",
       viewFleet: "Voir la flotte",
+      "viewTrip": "Voir le trajet",
     },
     menu: {
       passengerMenu: "Menu passager",
@@ -4667,6 +4668,20 @@ export const URRIDE = {
       roleFleetManagerDesc: "Peut examiner les flottes, les opérateurs, les réservations et l'activité de l'entreprise.",
       roleAdminLabel: "Administrateur de l'entreprise",
       roleAdminDesc: "Peut gérer les opérateurs, les responsabilités, les flottes, les réservations et l'activité.",
+      "health": {
+        "label": "Configuration de l’entreprise",
+        "nextStep": "Ajoutez les informations manquantes de l’entreprise pour renforcer la confiance et faciliter la vérification.",
+        "complete": "La configuration de votre entreprise est terminée.",
+        "name": "Nom de l’entreprise",
+        "type": "Type d’entreprise",
+        "base": "Lieu de base",
+        "areas": "Zones d’activité",
+        "policy": "Politique d’assistance",
+        "documents": "Documents de l’entreprise",
+        "fleet": "Premier véhicule ajouté",
+        "operator": "Premier opérateur ajouté",
+        "verification": "Vérification KunThai"
+      },
     },
     areaView: {
       catAll: "Tout",
@@ -5468,7 +5483,7 @@ export const URRIDE = {
       fareHintDistance: "سيرى المشغّلون المطابقون القريبون مسارك المحدّد{route} قبل الرد.",
       fareHintRoutePart: " بطول {distance}",
       fareHintTime: "سيرى المشغّلون المطابقون القريبون الساعات المطلوبة ({hours}) قبل الرد.",
-      fareHintTimeOne: "سيرى المشغّلون المطابقون القريبون الساعة المطلوبة قبل الرد.",
+      fareHintTimeOne: "سيرى المشغّلون المطابقون القريبون المدة المطلوبة وهي {hours} ساعة قبل الرد.",
       pickupPointLabel: "نقطة الانطلاق",
       deliveryDropoffLabel: "نقطة تسليم التوصيل",
       dropoffPointLabel: "نقطة النزول",
@@ -5589,6 +5604,7 @@ export const URRIDE = {
       emptyTitle: "لا توجد إشعارات",
       emptyBody: "ستظهر هنا تنبيهات الركوب والتوصيل والمشغّل.",
       viewFleet: "عرض الأسطول",
+      "viewTrip": "عرض الرحلة",
     },
     menu: {
       passengerMenu: "قائمة الراكب",
@@ -7155,6 +7171,20 @@ export const URRIDE = {
       roleFleetManagerDesc: "يمكنه مراجعة الأساطيل والمشغّلين والحجوزات ونشاط الشركة.",
       roleAdminLabel: "مسؤول الشركة",
       roleAdminDesc: "يمكنه إدارة المشغّلين والمسؤوليات والأساطيل والحجوزات والنشاط.",
+      "health": {
+        "label": "إعداد الشركة",
+        "nextStep": "أضف تفاصيل الشركة المتبقية لتعزيز الثقة وتسهيل التحقق.",
+        "complete": "اكتمل إعداد شركتك.",
+        "name": "اسم الشركة",
+        "type": "نوع الشركة",
+        "base": "موقع المقر",
+        "areas": "مناطق العمل",
+        "policy": "سياسة الدعم",
+        "documents": "مستندات الشركة",
+        "fleet": "تمت إضافة أول مركبة",
+        "operator": "تمت إضافة أول مشغّل",
+        "verification": "التحقق من KunThai"
+      },
     },
     areaView: {
       catAll: "الكل",
@@ -8077,6 +8107,8 @@ export const URRIDE = {
       emptyTitle: "Sin notificaciones",
       emptyBody: "Las alertas de viaje, entrega y operador aparecerán aquí.",
       viewFleet: "Ver flota"
+    ,
+      "viewTrip": "Ver viaje",
     },
     menu: {
       passengerMenu: "Menú Pasajero",
@@ -9681,6 +9713,21 @@ export const URRIDE = {
       roleFleetManagerDesc: "Puede revisar flotas, operadores, reservas y actividad de la empresa.",
       roleAdminLabel: "Administrador de la empresa",
       roleAdminDesc: "Puede gestionar operadores, responsabilidades, flotas, reservas y actividad."
+    ,
+      "health": {
+        "label": "Configuración de la empresa",
+        "nextStep": "Añade los datos restantes de la empresa para mejorar la confianza y facilitar la verificación.",
+        "complete": "La configuración de tu empresa está completa.",
+        "name": "Nombre de la empresa",
+        "type": "Tipo de empresa",
+        "base": "Ubicación de la base",
+        "areas": "Zonas de operación",
+        "policy": "Política de asistencia",
+        "documents": "Documentos de la empresa",
+        "fleet": "Primer vehículo añadido",
+        "operator": "Primer operador añadido",
+        "verification": "Verificación de KunThai"
+      },
     },
     areaView: {
       catAll: "Todos",
@@ -10603,6 +10650,8 @@ export const URRIDE = {
       emptyTitle: "无通知",
       emptyBody: "乘车、送货和操作员警报将显示在此处。",
       viewFleet: "查看机队"
+    ,
+      "viewTrip": "查看行程",
     },
     menu: {
       passengerMenu: "乘客菜单",
@@ -12207,6 +12256,21 @@ export const URRIDE = {
       roleFleetManagerDesc: "可以查看车队、运营商、预订和公司活动。",
       roleAdminLabel: "公司管理员",
       roleAdminDesc: "可以管理操作员、职责、车队、预订和活动。"
+    ,
+      "health": {
+        "label": "公司设置",
+        "nextStep": "补充剩余公司资料，以提升信任度并方便验证。",
+        "complete": "你的公司设置已完成。",
+        "name": "公司名称",
+        "type": "公司类型",
+        "base": "基地位置",
+        "areas": "运营区域",
+        "policy": "支持政策",
+        "documents": "公司文件",
+        "fleet": "已添加首辆车",
+        "operator": "已添加首位运营者",
+        "verification": "KunThai 验证"
+      },
     },
     areaView: {
       catAll: "全部",

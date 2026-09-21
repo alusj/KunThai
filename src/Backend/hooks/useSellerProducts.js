@@ -1,5 +1,5 @@
 import { useEffect, useState } from "react";
-import { friendlyErrorMessage } from "../services/friendlyErrorService";
+import { inlineErrorMessage } from "../services/friendlyErrorService";
 import { notifyActionDone, notifyActionFailed } from "../services/actionFeedbackService";
 import { decorateShareUrl } from "../services/visibilityCreditService";
 
@@ -146,7 +146,7 @@ export function useSellerProducts() {
         await loadProducts(() => true);
       }
     } catch (error) {
-      setActionError(friendlyErrorMessage(error, "Unable to update product."));
+      setActionError(inlineErrorMessage(error, "Unable to update product."));
       notifyActionFailed(error, "Unable to update product.", { module: "marketplace" });
     }
   }

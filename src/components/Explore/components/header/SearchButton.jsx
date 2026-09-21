@@ -5,8 +5,10 @@
 
 import { HiOutlineMagnifyingGlass } from "react-icons/hi2";
 import { t } from "../../../../i18n";
+import { useI18n as useUiLocale } from "../../../../i18n/index.js";
 
 export default function SearchButton({ onClick }) {
+  useUiLocale();
   return (
     <button
       type="button"

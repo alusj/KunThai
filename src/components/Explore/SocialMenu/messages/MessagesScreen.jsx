@@ -10,6 +10,7 @@ import ConversationRow from "./ConversationRow";
 import ConversationScreen from "./ConversationScreen";
 import MessageTabs from "./MessageTabs";
 import MessagePrivacyNotice from "../../../shared/MessagePrivacyNotice";
+import { uiText as translateUi, useI18n as useUiLocale } from "../../../../i18n/index.js";
 
 const CONVERSATION_TRANSITION_MS = 280;
 
@@ -99,7 +100,7 @@ export default function MessagesScreen({ currentProfile, hideHeader = false, ini
             onChange={setTab}
           />
 
-          {messages.error ? <ErrorState message={messages.error} onRetry={messages.reload} /> : null}
+          {messages.error ? <ErrorState message={translateUi(messages.error)} onRetry={messages.reload} /> : null}
 
           {messages.loading ? (
             <MessagesSkeleton />
@@ -146,6 +147,7 @@ export default function MessagesScreen({ currentProfile, hideHeader = false, ini
 }
 
 function MessagesSkeleton() {
+  useUiLocale();
   return (
     <div className="space-y-3">
       {[1, 2, 3].map((item) => (

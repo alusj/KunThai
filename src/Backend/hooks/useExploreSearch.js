@@ -1,5 +1,5 @@
 import { useEffect, useMemo, useState } from "react";
-import { friendlyErrorMessage } from "../services/friendlyErrorService";
+import { inlineErrorMessage } from "../services/friendlyErrorService";
 
 import {
   clearRecentSearches,
@@ -37,7 +37,7 @@ export function useExploreSearch() {
           if (active) setResults(items);
         })
         .catch((err) => {
-          if (active) setError(friendlyErrorMessage(err, "Unable to search Explore."));
+          if (active) setError(inlineErrorMessage(err, "Unable to search Explore."));
         })
         .finally(() => {
           if (active) setLoading(false);

@@ -60,6 +60,8 @@ import { submitTransportSupportTicket } from "../../services/bookingService";
 import TransportCautionCard from "../shared/TransportCautionCard";
 import { useI18n, t } from "../../../i18n";
 import { t as i18nText } from "../../../i18n/index";
+import { uiText as translateUi, useI18n as useUiLocale } from "../../../i18n/index.js";
+import { inlineErrorMessage } from "../../../Backend/services/friendlyErrorService";
 
 const TRANSPORT_PAYMENT_NOTE_KEY = "kuntai.transport.paymentNote";
 
@@ -316,7 +318,7 @@ export default function TransportMenuDrawer({ open, onClose, onViewFleet, onOpen
           zIndex={10}
         >
           <PassengerMenuPageHeader
-            title={activeTitle}
+            title={translateUi(activeTitle)}
             eyebrow="UrRide"
             onBack={() => {
               setActiveScreen(null);
@@ -343,7 +345,7 @@ function PassengerMenuHeader({ title, showBack, onBack, onClose }) {
       {backHandler ? (
         <AppBackTab
           onBack={backHandler}
-          label={backLabel}
+          label={translateUi(backLabel)}
           historyKey="transport-passenger-menu"
           className="rounded-full border border-gray-200 bg-white hover:bg-gray-50"
           useHistoryLayer={false}
@@ -353,7 +355,7 @@ function PassengerMenuHeader({ title, showBack, onBack, onClose }) {
       )}
 
       <h2 className="min-w-0 flex-1 truncate px-3 text-center text-base font-bold text-gray-950">
-        {title}
+        {translateUi(title)}
       </h2>
 
       <div className="h-10 w-10" />
@@ -377,7 +379,7 @@ function PassengerMenuPageHeader({ title, eyebrow = "UrRide", onBack }) {
           <p className="text-[10px] font-black uppercase tracking-[0.22em] text-emerald-700 sm:text-xs">
             {eyebrow}
           </p>
-          <h2 className="mt-1 text-xl font-black text-gray-950 sm:text-2xl">{title}</h2>
+          <h2 className="mt-1 text-xl font-black text-gray-950 sm:text-2xl">{translateUi(title)}</h2>
         </div>
       </div>
     </header>
@@ -422,10 +424,11 @@ function PassengerSummaryCard({ onOpenWallet }) {
 }
 
 function PassengerDrawerSection({ title, children }) {
+  useUiLocale();
   return (
     <section className="space-y-2">
       <h3 className="px-1 text-xs font-black uppercase tracking-wide text-gray-400">
-        {title}
+        {translateUi(title)}
       </h3>
       <div className="space-y-2">{children}</div>
     </section>
@@ -433,6 +436,7 @@ function PassengerDrawerSection({ title, children }) {
 }
 
 function PassengerDrawerNavItem({ icon, title, description, onClick }) {
+  useUiLocale();
   return (
     <button
       type="button"
@@ -444,9 +448,9 @@ function PassengerDrawerNavItem({ icon, title, description, onClick }) {
       </span>
 
       <span className="min-w-0 flex-1">
-        <span className="block truncate text-sm font-black text-gray-950">{title}</span>
+        <span className="block truncate text-sm font-black text-gray-950">{translateUi(title)}</span>
         <span className="mt-0.5 block line-clamp-2 text-xs font-semibold leading-5 text-gray-500">
-          {description}
+          {translateUi(description)}
         </span>
       </span>
 
@@ -475,7 +479,7 @@ function MyTripsPage({ onViewFleet, onOpenSupport }) {
       })
       .catch((err) => {
         if (alive) {
-          setError(err.message || t("urride.menu.trips.loadError"));
+          setError(inlineErrorMessage(err, t("urride.menu.trips.loadError")));
           setTrips([]);
         }
       })
@@ -629,15 +633,17 @@ function TripCard({ trip, onViewFleet, onOpenSupport }) {
 }
 
 function TripLine({ label, value }) {
+  useUiLocale();
   return (
     <div className="grid gap-1 rounded-xl bg-gray-50 px-3 py-2 sm:grid-cols-[92px_1fr] sm:items-center">
-      <span className="text-xs font-black uppercase text-gray-400">{label}</span>
+      <span className="text-xs font-black uppercase text-gray-400">{translateUi(label)}</span>
       <span className="min-w-0 break-words text-gray-700">{value}</span>
     </div>
   );
 }
 
 function SavedPlaceMenuAction({ danger = false, icon, label, onClick }) {
+  useUiLocale();
   return (
     <button
       type="button"
@@ -647,7 +653,7 @@ function SavedPlaceMenuAction({ danger = false, icon, label, onClick }) {
       }`}
     >
       {createElement(icon, { size: 17, strokeWidth: 2.3, absoluteStrokeWidth: true })}
-      <span className="min-w-0 flex-1 truncate">{label}</span>
+      <span className="min-w-0 flex-1 truncate">{translateUi(label)}</span>
     </button>
   );
 }
@@ -864,7 +870,7 @@ function SavedPlacesPage() {
 
   return (
     <div className="space-y-4">
-      {message ? <p className="rounded-xl bg-emerald-50 p-3 text-sm font-bold text-emerald-700">{message}</p> : null}
+      {message ? <p className="rounded-xl bg-emerald-50 p-3 text-sm font-bold text-emerald-700">{translateUi(message)}</p> : null}
       {actionMenuId ? (
         <button
           type="button"
@@ -1155,7 +1161,7 @@ function PaymentReadinessPage({ variant }) {
 
   return (
     <div className="space-y-4">
-      {message ? <p className="rounded-xl bg-emerald-50 p-3 text-sm font-bold text-emerald-700">{message}</p> : null}
+      {message ? <p className="rounded-xl bg-emerald-50 p-3 text-sm font-bold text-emerald-700">{translateUi(message)}</p> : null}
 
       <InfoPanel
         icon={isWallet ? CreditCard : ShieldAlert}
@@ -1208,9 +1214,10 @@ function PaymentReadinessPage({ variant }) {
 }
 
 function PaymentGuideline({ title, body }) {
+  useUiLocale();
   return (
     <article className="rounded-xl bg-gray-50 p-3">
-      <p className="text-sm font-black text-gray-950">{title}</p>
+      <p className="text-sm font-black text-gray-950">{translateUi(title)}</p>
       <p className="mt-1 text-xs font-semibold leading-5 text-gray-500">{body}</p>
     </article>
   );
@@ -1423,7 +1430,7 @@ function SupportPage({ seed }) {
       setMessage(t("urride.menu.support.sent"));
     } catch (error) {
       setMessageIsError(true);
-      setMessage(error.message || t("urride.menu.support.sendError"));
+      setMessage(inlineErrorMessage(error, t("urride.menu.support.sendError")));
     } finally {
       setSending(false);
     }
@@ -1433,7 +1440,7 @@ function SupportPage({ seed }) {
     <div className="space-y-4">
       {message ? (
         <p className={`rounded-xl p-3 text-sm font-bold ${messageIsError ? "bg-amber-50 text-amber-700" : "bg-emerald-50 text-emerald-700"}`}>
-          {message}
+          {translateUi(message)}
         </p>
       ) : null}
 
@@ -1566,7 +1573,7 @@ function TransportSettingsPage() {
 
   return (
     <div className="space-y-4">
-      {message ? <p className="rounded-xl bg-emerald-50 p-3 text-sm font-bold text-emerald-700">{message}</p> : null}
+      {message ? <p className="rounded-xl bg-emerald-50 p-3 text-sm font-bold text-emerald-700">{translateUi(message)}</p> : null}
 
       <InfoPanel
         icon={Settings}
@@ -1675,11 +1682,12 @@ function TransportSettingsPage() {
 }
 
 function SettingToggle({ label, description, checked, onChange }) {
+  useUiLocale();
   return (
     <div className="flex items-center justify-between gap-4 rounded-xl bg-gray-50 px-3 py-3">
       <div className="min-w-0">
-        <p className="text-sm font-black text-gray-950">{label}</p>
-        <p className="mt-0.5 text-xs font-semibold leading-5 text-gray-500">{description}</p>
+        <p className="text-sm font-black text-gray-950">{translateUi(label)}</p>
+        <p className="mt-0.5 text-xs font-semibold leading-5 text-gray-500">{translateUi(description)}</p>
       </div>
       <button
         type="button"
@@ -1700,6 +1708,7 @@ function SettingToggle({ label, description, checked, onChange }) {
 }
 
 function InfoPanel({ icon, tone = "emerald", title, body }) {
+  useUiLocale();
   const toneClass =
     tone === "amber"
       ? "bg-amber-50 text-amber-700"
@@ -1714,17 +1723,18 @@ function InfoPanel({ icon, tone = "emerald", title, body }) {
       <span className={`flex h-12 w-12 items-center justify-center rounded-xl ${toneClass}`}>
         {createElement(icon, { size: 24 })}
       </span>
-      <h4 className="mt-4 text-xl font-black text-gray-950">{title}</h4>
+      <h4 className="mt-4 text-xl font-black text-gray-950">{translateUi(title)}</h4>
       <p className="mt-2 text-sm font-semibold leading-7 text-gray-600">{body}</p>
     </section>
   );
 }
 
 function EmptyState({ title, body }) {
+  useUiLocale();
   return (
     <div className="rounded-2xl border border-gray-200 bg-white p-6 text-center shadow-sm">
       <HelpCircle className="mx-auto text-gray-400" size={34} />
-      <h3 className="mt-3 text-base font-black text-gray-950">{title}</h3>
+      <h3 className="mt-3 text-base font-black text-gray-950">{translateUi(title)}</h3>
       <p className="mt-2 text-sm font-semibold leading-6 text-gray-500">{body}</p>
     </div>
   );

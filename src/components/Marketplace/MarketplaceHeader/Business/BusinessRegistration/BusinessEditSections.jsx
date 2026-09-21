@@ -7,6 +7,7 @@ import BusinessIdentityStep from "./BusinessIdentityStep";
 import LocationContactStep from "./LocationContactStep";
 import OperationsStep from "./OperationsStep";
 import TrustPayoutStep from "./TrustPayoutStep";
+import { useI18n as useUiLocale } from "../../../../../i18n/index.js";
 
 function kindLabel(kindId) {
   return URMALL_BUSINESS_KIND_LABELS[kindId] || kindId || "";
@@ -81,6 +82,7 @@ const EDIT_SECTIONS = [
 ];
 
 export default function BusinessEditSections({ registration }) {
+  useUiLocale();
   const [openIndex, setOpenIndex] = useState(-1);
   const [savedIndex, setSavedIndex] = useState(-1);
 

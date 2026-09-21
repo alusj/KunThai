@@ -1,6 +1,8 @@
-// src/components/Marketplace/MessageBubble.jsx
+
+import { useI18n as useUiLocale } from "../../i18n/index.js";// src/components/Marketplace/MessageBubble.jsx
 
 export default function MessageBubble({ msg }) {
+  useUiLocale();
   const isBuyer = msg.from === "buyer";
 
   return (

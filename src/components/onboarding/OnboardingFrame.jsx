@@ -1,4 +1,5 @@
 import { useI18n, t } from "../../i18n";
+import { uiText as translateUi } from "../../i18n/index.js";
 
 export default function OnboardingFrame({ step, total, title, subtitle, children }) {
   useI18n();
@@ -10,8 +11,8 @@ export default function OnboardingFrame({ step, total, title, subtitle, children
             <p className="text-xs font-semibold uppercase tracking-[0.3em] text-sky-700">
               {t("onboarding.stepXofY", { step, total })}
             </p>
-            <h1 className="mt-2 text-3xl font-semibold text-slate-950">{title}</h1>
-            <p className="mt-2 max-w-2xl text-sm leading-6 text-slate-600">{subtitle}</p>
+            <h1 className="mt-2 text-3xl font-semibold text-slate-950">{translateUi(title)}</h1>
+            <p className="mt-2 max-w-2xl text-sm leading-6 text-slate-600">{translateUi(subtitle)}</p>
           </div>
           <div className="hidden w-40 overflow-hidden rounded-full bg-slate-200 sm:block">
             <div

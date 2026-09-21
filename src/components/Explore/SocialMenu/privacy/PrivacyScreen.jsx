@@ -24,8 +24,10 @@ import EmptyState from "../../shared/EmptyState";
 import Avatar from "../../shared/Avatar";
 import SocialScreenHeader from "../shared/SocialScreenHeader";
 import { t as i18nText } from "../../../../i18n/index";
+import { uiText as translateUi, useI18n as useUiLocale } from "../../../../i18n/index.js";
 
 function SettingRow({ children, description, icon, title }) {
+  useUiLocale();
   return (
     <div className="flex flex-col gap-4 rounded-[24px] border border-slate-200 bg-white p-4 shadow-sm sm:flex-row sm:items-center sm:justify-between">
       <div className="flex min-w-0 items-start gap-3">
@@ -33,8 +35,8 @@ function SettingRow({ children, description, icon, title }) {
           {createElement(icon, { className: "text-2xl" })}
         </span>
         <div className="min-w-0">
-          <p className="text-base font-black text-slate-950">{title}</p>
-          <p className="mt-1 text-sm font-semibold leading-6 text-slate-500">{description}</p>
+          <p className="text-base font-black text-slate-950">{translateUi(title)}</p>
+          <p className="mt-1 text-sm font-semibold leading-6 text-slate-500">{translateUi(description)}</p>
         </div>
       </div>
       <div className="flex-none">{children}</div>
@@ -43,11 +45,12 @@ function SettingRow({ children, description, icon, title }) {
 }
 
 function PrivacySection({ children, description, title }) {
+  useUiLocale();
   return (
     <section className="space-y-3">
       <div className="px-1">
-        <p className="text-xs font-black uppercase tracking-[0.2em] text-sky-700">{title}</p>
-        <p className="mt-1 text-sm font-semibold leading-6 text-slate-500">{description}</p>
+        <p className="text-xs font-black uppercase tracking-[0.2em] text-sky-700">{translateUi(title)}</p>
+        <p className="mt-1 text-sm font-semibold leading-6 text-slate-500">{translateUi(description)}</p>
       </div>
       <div className="grid gap-3 xl:grid-cols-2">{children}</div>
     </section>
@@ -135,7 +138,7 @@ export default function PrivacyScreen({ hideHeader = false, onOpenPermissions })
           <p className="text-xs font-black uppercase tracking-[0.18em] text-sky-700">{i18nText("ui.literals.k8a88f051eace")}</p>
           <h3 className="mt-1 text-2xl font-black text-slate-950">{i18nText("ui.literals.k93bfda2b33fa")}</h3>
           <p className="mt-2 max-w-3xl text-base font-semibold leading-7 text-slate-600">{i18nText("ui.literals.k5f9180c9af34")}</p>
-          {safety.feedback ? <p className="mt-3 text-sm font-black text-sky-700">{safety.feedback}</p> : null}
+          {safety.feedback ? <p className="mt-3 text-sm font-black text-sky-700">{translateUi(safety.feedback)}</p> : null}
         </div>
 
         <PrivacySection title={i18nText("ui.literals.k091d4c78276b")} description={i18nText("ui.literals.k8f05835c1467")}>
@@ -214,7 +217,7 @@ export default function PrivacyScreen({ hideHeader = false, onOpenPermissions })
             <h3 className="text-base font-black text-slate-950">{i18nText("ui.literals.k80a67a2e8dba")}</h3>
           </div>
           {safety.blockedAccountsLoading ? (
-            <div className="space-y-2" aria-label="Loading blocked accounts">
+            <div className="space-y-2" aria-label={i18nText("ui.literals.k77cf664abcc6")}>
               {[1, 2].map((item) => <div key={item} className="h-14 animate-pulse rounded-2xl bg-slate-100" />)}
             </div>
           ) : !blockedAccounts.length ? (

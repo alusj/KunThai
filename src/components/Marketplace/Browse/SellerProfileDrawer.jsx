@@ -66,8 +66,10 @@ import { haversineKm, distanceBand, resolveDistanceLabel } from "../../../Backen
 import { cleanAddressString } from "../../../Backend/utils/geoAddress";
 import { isCoordinatePlausibleForCountry } from "../../../Backend/utils/coordinatePlausibility";
 import { t as i18nText } from "../../../i18n/index";
+import { uiText as translateUi, useI18n as useUiLocale } from "../../../i18n/index.js";
 
 function StarRatingInput({ value, onChange }) {
+  useUiLocale();
   return (
     <div className="flex items-center gap-1">
       {[1, 2, 3, 4, 5].map((rating) => (
@@ -284,23 +286,26 @@ function formatDistanceLabel(km) {
 }
 
 function EmptyState({ icon, title, text }) {
+  useUiLocale();
   const IconComponent = icon;
   return (
     <div className="rounded-lg border border-dashed border-gray-200 bg-white p-6 text-center">
       <div className="mx-auto flex h-12 w-12 items-center justify-center rounded-lg bg-gray-100 text-gray-500">
         <IconComponent size={22} />
       </div>
-      <h3 className="mt-3 text-base font-black text-gray-950">{title}</h3>
-      {text ? <p className="mx-auto mt-1 max-w-sm text-sm font-semibold text-gray-500">{text}</p> : null}
+      <h3 className="mt-3 text-base font-black text-gray-950">{translateUi(title)}</h3>
+      {text ? <p className="mx-auto mt-1 max-w-sm text-sm font-semibold text-gray-500">{translateUi(text)}</p> : null}
     </div>
   );
 }
 
 function SkeletonBlock({ className = "" }) {
+  useUiLocale();
   return <div className={`animate-pulse rounded-lg bg-gray-100 ${className}`} />;
 }
 
 function InfoRow({ icon, label, value, href = "" }) {
+  useUiLocale();
   const IconComponent = icon;
   const external = /^https?:\/\//i.test(href);
   return (
@@ -309,7 +314,7 @@ function InfoRow({ icon, label, value, href = "" }) {
         <IconComponent size={17} />
       </span>
       <span className="min-w-0">
-        <span className="block text-xs font-black uppercase text-gray-400">{label}</span>
+        <span className="block text-xs font-black uppercase text-gray-400">{translateUi(label)}</span>
         {href ? (
           <a
             href={href}
@@ -328,6 +333,7 @@ function InfoRow({ icon, label, value, href = "" }) {
 }
 
 function TabButton({ icon, label, active, onClick }) {
+  useUiLocale();
   const IconComponent = icon;
   return (
     <button
@@ -338,12 +344,13 @@ function TabButton({ icon, label, active, onClick }) {
       }`}
     >
       <IconComponent size={16} />
-      {label}
+      {translateUi(label)}
     </button>
   );
 }
 
 function SellerActionIcon({ icon, label, active = false, disabled = false, href = "", onClick }) {
+  useUiLocale();
   const IconComponent = icon;
   const className = `inline-flex h-12 w-12 shrink-0 items-center justify-center rounded-xl border text-gray-800 shadow-sm transition sm:h-[52px] sm:w-[52px] ${
     active
@@ -355,7 +362,7 @@ function SellerActionIcon({ icon, label, active = false, disabled = false, href 
   const content = (
     <>
       <IconComponent size={22} fill={active && IconComponent === Heart ? "currentColor" : undefined} />
-      <span className="sr-only">{label}</span>
+      <span className="sr-only">{translateUi(label)}</span>
     </>
   );
 
@@ -365,8 +372,8 @@ function SellerActionIcon({ icon, label, active = false, disabled = false, href 
       <a
         href={href}
         className={className}
-        aria-label={label}
-        title={label}
+        aria-label={translateUi(label)}
+        title={translateUi(label)}
         target={external ? "_blank" : undefined}
         rel={external ? "noreferrer" : undefined}
       >
@@ -376,7 +383,7 @@ function SellerActionIcon({ icon, label, active = false, disabled = false, href 
   }
 
   return (
-    <button type="button" onClick={onClick} disabled={disabled} className={className} aria-label={label} title={label}>
+    <button type="button" onClick={onClick} disabled={disabled} className={className} aria-label={translateUi(label)} title={translateUi(label)}>
       {content}
     </button>
   );
@@ -394,6 +401,7 @@ function ProductCard({
   onCopy,
   onShare,
 }) {
+  useUiLocale();
   const productName = product?.name || t("urmall.seller.unnamedProduct");
   const productPrice = toSafeNumber(product?.price, 0);
   const productDiscountPrice = product?.discountPrice === null || product?.discountPrice === undefined ? null : toSafeNumber(product.discountPrice, 0);
@@ -506,6 +514,7 @@ function ProductCard({
 }
 
 function MenuAction({ icon, label, onClick }) {
+  useUiLocale();
   const IconComponent = icon;
   return (
     <button
@@ -517,7 +526,7 @@ function MenuAction({ icon, label, onClick }) {
       className="flex w-full items-center gap-2 rounded-md px-3 py-2 text-left text-sm font-bold text-gray-700 hover:bg-gray-100"
     >
       <IconComponent size={15} />
-      {label}
+      {translateUi(label)}
     </button>
   );
 }
@@ -561,6 +570,7 @@ function verticalMoneyScope(item, seller) {
 // Shared shell for a vertical listing row so meals, properties and rooms sit on
 // the same card as the retail catalog's ProductCard.
 function VerticalListingCard({ imageUrl, imageAlt, fallbackIcon, title, subtitle, price, chips, onOpen }) {
+  useUiLocale();
   const FallbackIcon = fallbackIcon;
   return (
     <article
@@ -596,6 +606,7 @@ function VerticalListingCard({ imageUrl, imageAlt, fallbackIcon, title, subtitle
 }
 
 function ListingChip({ icon, tone = "gray", children }) {
+  useUiLocale();
   const IconComponent = icon;
   const tones = {
     gray: "bg-gray-100 text-gray-600",
@@ -622,6 +633,7 @@ function mealServedLabel(meal) {
 }
 
 function MealListingCard({ meal, seller, onOpen }) {
+  useUiLocale();
   return (
     <VerticalListingCard
       imageUrl={meal.image_url || (Array.isArray(meal.image_urls) ? meal.image_urls[0] : "")}
@@ -643,6 +655,7 @@ function MealListingCard({ meal, seller, onOpen }) {
 }
 
 function PropertyListingCard({ listing, seller, onOpen }) {
+  useUiLocale();
   const isRent = String(listing.purpose || "").toLowerCase() === "rent";
   const price = formatCurrency(toSafeNumber(listing.price, 0), verticalMoneyScope(listing, seller));
   return (
@@ -672,6 +685,7 @@ function PropertyListingCard({ listing, seller, onOpen }) {
 }
 
 function HotelRoomCard({ room, seller, onOpen }) {
+  useUiLocale();
   const roomsLeft = toSafeNumber(room.rooms_available, 0);
   return (
     <VerticalListingCard
@@ -700,6 +714,7 @@ function HotelRoomCard({ room, seller, onOpen }) {
 }
 
 function MenuDaySelector({ day, today, onChange }) {
+  useUiLocale();
   return (
     <div className="flex gap-2 overflow-x-auto pb-1 [scrollbar-width:none] [&::-webkit-scrollbar]:hidden">
       {WEEKDAYS.map((index) => (
@@ -725,6 +740,7 @@ function MenuDaySelector({ day, today, onChange }) {
 }
 
 function PropertyPurposeFilter({ purpose, onChange, counts }) {
+  useUiLocale();
   // The filter only earns its space when the agent lists both sales and rentals.
   if (!counts.sale || !counts.rent) return null;
   const options = [
@@ -745,7 +761,7 @@ function PropertyPurposeFilter({ purpose, onChange, counts }) {
             purpose === option.id ? "bg-emerald-600 text-white shadow-sm" : "bg-gray-100 text-gray-700 hover:bg-gray-200"
           }`}
         >
-          {option.label}
+          {translateUi(option.label)}
           <span className={purpose === option.id ? "text-emerald-100" : "text-gray-500"}>{option.count}</span>
         </button>
       ))}
@@ -756,6 +772,7 @@ function PropertyPurposeFilter({ purpose, onChange, counts }) {
 // The catalog tab for a restaurant, property agent or hotel: the same listings
 // the buyer sees in the vertical feed, scoped to this one seller.
 function VerticalCatalogSection({ vertical, catalog, loading, sellerName, seller, menuDay, onMenuDayChange, today, propertyPurpose, onPropertyPurposeChange, onOpenListing }) {
+  useUiLocale();
   if (loading) {
     return (
       <div className="grid gap-3 md:grid-cols-2">
@@ -873,7 +890,7 @@ export default function SellerProfileDrawer({
   sellerSaved = false,
   showSaveStore = true,
 }) {
-  useI18n();
+  const { locale: memoLocale } = useI18n();
   const [activeView, setActiveView] = useState("catalog");
   const [catalog, setCatalog] = useState([]);
   const [verticalCatalog, setVerticalCatalog] = useState({ meals: [], properties: [], hotel: null });
@@ -901,7 +918,7 @@ export default function SellerProfileDrawer({
   const safeSeller = useMemo(() => asObject(seller), [seller]);
   const sellerWhatsAppUrl = useMemo(
     () => buildWhatsAppUrl(safeSeller.whatsapp, t("urmall.seller.whatsappGreeting", { name: safeSeller.name || t("urmall.seller.thereFallback") })),
-    [safeSeller.whatsapp, safeSeller.name],
+    [safeSeller.whatsapp, safeSeller.name, memoLocale],
   );
   const safeCatalog = useMemo(() => asArray(catalog).filter((item) => item && typeof item === "object"), [catalog]);
   const sellerVertical = useMemo(() => getSellerVertical(safeSeller), [safeSeller]);
@@ -1075,7 +1092,7 @@ export default function SellerProfileDrawer({
   const fullAddress = useMemo(() => getFullAddress(safeSeller), [safeSeller]);
   const cityCountry = useMemo(
     () => cleanAddressString([safeSeller.city, safeSeller.country].filter(Boolean).join(", ")) || t("urmall.seller.cityCountryNotAdded"),
-    [safeSeller],
+    [safeSeller, memoLocale],
   );
   const hasFullAddress = Boolean(String(safeSeller.address || "").trim());
   const showFullAddress =
@@ -1123,7 +1140,7 @@ export default function SellerProfileDrawer({
         isPrimary: true,
       },
     ];
-  }, [storeLocationRows, sellerDestination, safeSeller.address, safeSeller.city, safeSeller.country]);
+  }, [storeLocationRows, sellerDestination, safeSeller.address, safeSeller.city, safeSeller.country, memoLocale]);
   const nearestStoreLocation = useMemo(() => {
     const withCoordinates = storeLocations.filter(
       (location) => Number.isFinite(location.latitude) && Number.isFinite(location.longitude),
@@ -1175,7 +1192,7 @@ export default function SellerProfileDrawer({
     }
     if (!currentUserCoordinates) return "";
     return resolveDistanceLabel(currentUserCoordinates, sellerCoordinates, t);
-  }, [currentUserCoordinates, sellerCoordinates, sellerCoordinatesPlausible, safeSeller.address, safeSeller.city, safeSeller.country]);
+  }, [currentUserCoordinates, sellerCoordinates, sellerCoordinatesPlausible, safeSeller.address, safeSeller.city, safeSeller.country, memoLocale]);
 
   // Development-only diagnostics: logs the exact numbers behind the badge, but
   // only when they actually change (deduped by signature) so re-renders don't
@@ -1408,7 +1425,7 @@ export default function SellerProfileDrawer({
                 <span className="text-[11px] font-black uppercase tracking-wide text-gray-400">{t("urmall.seller.verificationStatusLabel")}</span>
                 <span className={`inline-flex max-w-[70%] items-center gap-1.5 rounded-full border px-2.5 py-1 text-[11px] font-black ${verificationStatus.className}`}>
                   <BadgeCheck size={14} />
-                  <span className="truncate">{verificationStatus.label}</span>
+                  <span className="truncate">{translateUi(verificationStatus.label)}</span>
                 </span>
               </button>
 
@@ -1474,7 +1491,7 @@ export default function SellerProfileDrawer({
                         }`}
                       >
                         <Clock size={14} />
-                        <span className="truncate">{storeStatus.label}</span>
+                        <span className="truncate">{translateUi(storeStatus.label)}</span>
                       </span>
                       {deliveryAvailable ? (
                         <span className="inline-flex max-w-full items-center gap-1.5 rounded-full bg-emerald-50 px-3 py-1.5 text-xs font-black text-emerald-700">
@@ -1556,7 +1573,7 @@ export default function SellerProfileDrawer({
             <section className="w-full max-w-full space-y-4 overflow-x-hidden">
               <div className="sticky top-0 z-10 -mx-3 border-y border-gray-100 bg-gray-50/95 px-3 py-3 backdrop-blur sm:mx-0 sm:rounded-lg sm:border">
                 <div className="flex max-w-full gap-2 overflow-x-auto pb-1">
-                  <TabButton icon={catalogTab.icon} label={catalogTab.label} active={activeView === "catalog"} onClick={() => setActiveView("catalog")} />
+                  <TabButton icon={catalogTab.icon} label={translateUi(catalogTab.label)} active={activeView === "catalog"} onClick={() => setActiveView("catalog")} />
                   <TabButton icon={Star} label={t("urmall.seller.tabReviews")} active={activeView === "reviews"} onClick={() => setActiveView("reviews")} />
                   <TabButton icon={Info} label={t("urmall.seller.tabAbout")} active={activeView === "about"} onClick={() => setActiveView("about")} />
                 </div>
@@ -1675,7 +1692,7 @@ export default function SellerProfileDrawer({
                         ))}
                         {!reviewEligibility.eligible ? (
                           <p className="rounded-lg border border-emerald-100 bg-emerald-50 px-4 py-3 text-sm font-bold leading-6 text-emerald-900">
-                            {reviewEligibility.reason}
+                            {translateUi(reviewEligibility.reason)}
                           </p>
                         ) : null}
                       </div>

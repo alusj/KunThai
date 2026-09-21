@@ -1,5 +1,6 @@
 
-import { t as i18nText } from "../../../../../i18n/index";// src/explore/notifications/list/NotificationsEmpty.jsx
+import { t as i18nText } from "../../../../../i18n/index";
+import { useI18n as useUiLocale } from "../../../../../i18n/index.js";// src/explore/notifications/list/NotificationsEmpty.jsx
 
 /*
   NotificationsEmpty.jsx
@@ -8,6 +9,7 @@ import { t as i18nText } from "../../../../../i18n/index";// src/explore/notific
 */
 
 export default function NotificationsEmpty() {
+  useUiLocale();
   return (
     <div style={{ padding: "40px", textAlign: "center", color: "#777" }}>
       <p>{i18nText("ui.literals.kd2609b6af124")}</p>

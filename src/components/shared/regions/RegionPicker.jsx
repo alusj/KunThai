@@ -12,6 +12,7 @@ import {
 } from "../../../Backend/services/regions/regionModel";
 import { detectRegionFromDevice } from "../../../Backend/services/regions/regionService";
 import { regionLabel, useCountryRegions } from "./regionHooks";
+import { uiText as translateUi } from "../../../i18n/index.js";
 
 /**
  * Choose one or several states / districts of a country.
@@ -125,7 +126,7 @@ export default function RegionPicker({
             </span>
             <span className="min-w-0 flex-1">
               <span className="block truncate text-sm font-bold text-slate-900 dark:text-zinc-100">{region.name}</span>
-              {detail ? <span className="block truncate text-[11px] font-semibold text-slate-500 dark:text-zinc-400">{detail}</span> : null}
+              {detail ? <span className="block truncate text-[11px] font-semibold text-slate-500 dark:text-zinc-400">{translateUi(detail)}</span> : null}
             </span>
             {count !== null ? (
               <span className="shrink-0 rounded-full bg-slate-100 px-2 py-0.5 text-[11px] font-black text-slate-600 dark:bg-zinc-800 dark:text-zinc-300">{count.toLocaleString()}</span>
@@ -158,8 +159,8 @@ export default function RegionPicker({
     <div className="min-w-0 space-y-3">
       {label || hint ? (
         <div>
-          {label ? <p className="text-sm font-black text-slate-900 dark:text-zinc-100">{label}</p> : null}
-          {hint ? <p className="mt-0.5 text-xs font-semibold leading-5 text-slate-500 dark:text-zinc-400">{hint}</p> : null}
+          {label ? <p className="text-sm font-black text-slate-900 dark:text-zinc-100">{translateUi(label)}</p> : null}
+          {hint ? <p className="mt-0.5 text-xs font-semibold leading-5 text-slate-500 dark:text-zinc-400">{translateUi(hint)}</p> : null}
         </div>
       ) : null}
 
@@ -239,7 +240,7 @@ export default function RegionPicker({
 
           {locate.message ? (
             <p role="status" className={`text-xs font-bold ${locate.tone === "warning" ? "text-amber-700 dark:text-amber-300" : locate.tone === "success" ? "text-emerald-700 dark:text-emerald-300" : "text-slate-500"}`}>
-              {locate.message}
+              {translateUi(locate.message)}
             </p>
           ) : null}
 

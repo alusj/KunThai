@@ -5,8 +5,10 @@
 
 import { HiOutlinePlus } from "react-icons/hi2";
 import { t } from "../../../../i18n";
+import { useI18n as useUiLocale } from "../../../../i18n/index.js";
 
 export default function CreateButton({ onClick }) {
+  useUiLocale();
   return (
     <button
       type="button"

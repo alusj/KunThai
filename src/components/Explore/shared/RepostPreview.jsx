@@ -8,8 +8,10 @@ import ExpandablePostText from "./ExpandablePostText";
 import ZoomableImage from "./ZoomableImage";
 import { t } from "../../../i18n";
 import { t as i18nText } from "../../../i18n/index";
+import { useI18n as useUiLocale } from "../../../i18n/index.js";
 
 export default function RepostPreview({ post, sourcePost = null, compact = false }) {
+  useUiLocale();
   const source = sourcePost ? buildExploreRepostSnapshot(sourcePost) : post?.media_meta?.repost || post?.mediaMeta?.repost;
   if (!source) return null;
 
@@ -90,6 +92,7 @@ const REPOST_SWIP_PREVIEW_SECONDS = 10;
 // post, which renders its own Back button; the speaker button toggles sound
 // without leaving the feed.
 function RepostSwipVideo({ compact, source }) {
+  useUiLocale();
   const videoRef = useRef(null);
   const containerRef = useRef(null);
   const [muted, setMuted] = useState(true);

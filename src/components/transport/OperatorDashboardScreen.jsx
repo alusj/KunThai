@@ -79,6 +79,8 @@ import {
   resolveFleetAvailability,
   shouldPreserveAvailabilityOverride,
 } from "./operatorAvailabilityState";
+import { uiText as translateUi, useI18n as useUiLocale } from "../../i18n/index.js";
+import { inlineErrorMessage } from "../../Backend/services/friendlyErrorService";
 
 function formatOperatorMoney(value, account = null) {
   return formatCountryMoney(value, account?.form?.currency || account?.form?.countryCode || account?.form?.country || getCountryCurrencyCode());
@@ -137,7 +139,7 @@ export default function OperatorDashboardScreen({
   readOnly = false,
   readOnlyReason,
 }) {
-  useI18n();
+  const { locale: memoLocale } = useI18n();
   useAiRoleContext("urride", "operator", { screen: "operator dashboard" });
   useCampaignSurfaceRole("transport", "operator");
   const [isActive, setIsActive] = useState(account?.activeStatus === "active");
@@ -218,7 +220,7 @@ export default function OperatorDashboardScreen({
       nextStep: score >= 100 ? t("urride.opDash.health.complete") : t("urride.opDash.health.nextStep"),
       missingItems: checklist.filter((item) => !item.complete).map((item) => item.label),
     };
-  }, [form, account?.documentsSkipped, verificationStatus]);
+  }, [form, account?.documentsSkipped, verificationStatus, memoLocale]);
   const verification =
     operatorVerificationStatuses[verificationStatus] || operatorVerificationStatuses.pending;
   const hasCompanyAccount = Boolean(companyAccount?.companyName || companyAccount?.id);
@@ -410,7 +412,7 @@ export default function OperatorDashboardScreen({
         }
       }
     } catch (error) {
-      setDashboardError(error.message || t("urride.opDash.loadError"));
+      setDashboardError(inlineErrorMessage(error, t("urride.opDash.loadError")));
     } finally {
       setDashboardLoading(false);
     }
@@ -480,7 +482,7 @@ export default function OperatorDashboardScreen({
     } catch (error) {
       availabilityOverrideRef.current = null;
       setIsActive(previousActive);
-      setDashboardError(error.message || t("urride.opDash.availabilityError"));
+      setDashboardError(inlineErrorMessage(error, t("urride.opDash.availabilityError")));
       showToast(error.message || t("urride.opDash.availabilityError"), "danger");
     } finally {
       availabilityInFlightRef.current = false;
@@ -507,7 +509,7 @@ export default function OperatorDashboardScreen({
       showToast(t("urride.opDash.controlsSaved"), "success");
       await refreshDashboard();
     } catch (error) {
-      setDashboardError(error.message || t("urride.opDash.controlsError"));
+      setDashboardError(inlineErrorMessage(error, t("urride.opDash.controlsError")));
       showToast(error.message || t("urride.opDash.controlsError"), "danger");
     } finally {
       setControlsSaving(false);
@@ -534,7 +536,7 @@ export default function OperatorDashboardScreen({
       showToast(statusCopy[status] || t("urride.opDash.tripUpdated"), "success");
       await refreshDashboard();
     } catch (error) {
-      setDashboardError(error.message || t("urride.opDash.tripUpdateError"));
+      setDashboardError(inlineErrorMessage(error, t("urride.opDash.tripUpdateError")));
       showToast(error.message || t("urride.opDash.tripUpdateError"), "danger");
     }
   }
@@ -640,7 +642,7 @@ export default function OperatorDashboardScreen({
       <main className="min-h-0 w-full flex-1 touch-pan-y overflow-y-auto overscroll-contain px-3 py-4 pb-[calc(var(--kt-safe-area-bottom)+1rem)] sm:px-5 xl:px-8 [-webkit-overflow-scrolling:touch]">
         {!dashboardReadOnly ? (
           <p className="mb-3 text-xs font-semibold leading-5 text-slate-600">
-            Making this fleet active switches your availability here and takes your other company or solo fleets offline. Complete any ongoing trip before switching.
+            {i18nText("ui.literals.kfc2c0bfc8277")}
           </p>
         ) : null}
         {dashboardError && (
@@ -722,7 +724,7 @@ export default function OperatorDashboardScreen({
               onClick={() => setVerificationOpen(true)}
               className={`rounded-full border px-3 py-1 text-xs font-black transition hover:brightness-95 ${verification.colorClass}`}
             >
-              {verification.label}
+              {translateUi(verification.label)}
             </button>
           </div>
 
@@ -930,13 +932,14 @@ export default function OperatorDashboardScreen({
 }
 
 function ProfileItem({ icon, label, value, action }) {
+  useUiLocale();
   return (
     <div className="rounded-2xl border border-gray-100 bg-gray-50/70 p-4 transition hover:border-green-100 hover:bg-green-50/40">
       <div className="flex items-start justify-between gap-3">
         {createElement(icon, { size: 18, className: "text-green-700" })}
         {action}
       </div>
-      <p className="mt-2 text-xs font-black uppercase tracking-wide text-gray-400">{label}</p>
+      <p className="mt-2 text-xs font-black uppercase tracking-wide text-gray-400">{translateUi(label)}</p>
       <p className="mt-1 break-words text-sm font-black text-gray-950">{value}</p>
     </div>
   );
@@ -978,6 +981,7 @@ function useDrawerTransition(open, duration = OPERATOR_DRAWER_TRANSITION_MS) {
 }
 
 function FleetSummaryLine({ icon, value, action }) {
+  useUiLocale();
   return (
     <div className="flex min-w-0 items-center gap-3 rounded-2xl bg-gray-50 px-4 py-3">
       {createElement(icon, { size: 19, className: "shrink-0 text-green-700" })}
@@ -988,12 +992,13 @@ function FleetSummaryLine({ icon, value, action }) {
 }
 
 function LocateAreaIconButton({ label, onClick }) {
+  useUiLocale();
   return (
     <button
       type="button"
       onClick={onClick}
-      aria-label={label}
-      title={label}
+      aria-label={translateUi(label)}
+      title={translateUi(label)}
       className="kt-touchable flex h-10 w-10 shrink-0 items-center justify-center rounded-full border border-emerald-200 bg-slate-950 text-white shadow-sm transition hover:bg-slate-900"
     >
       <FiNavigation size={17} />
@@ -1281,14 +1286,15 @@ function OperatorLiveTripMetric({ trip }) {
 
   return (
     <div className="rounded-2xl border border-emerald-100 bg-emerald-50 px-3 py-3">
-      <p className="text-[11px] font-black uppercase tracking-[0.14em] text-emerald-700">{label}</p>
+      <p className="text-[11px] font-black uppercase tracking-[0.14em] text-emerald-700">{translateUi(label)}</p>
       <p className="mt-1 text-2xl font-black text-slate-950">{value}</p>
-      <p className="mt-1 text-xs font-bold leading-5 text-emerald-700">{detail}</p>
+      <p className="mt-1 text-xs font-bold leading-5 text-emerald-700">{translateUi(detail)}</p>
     </div>
   );
 }
 
 function OperatorLiveAction({ icon, label, href = "", danger = false, disabled = false, onClick }) {
+  useUiLocale();
   const className = `kt-touchable flex h-11 items-center gap-2 rounded-2xl px-3 text-left text-xs font-black transition ${
     disabled
       ? "bg-white/5 text-slate-500"
@@ -1299,7 +1305,7 @@ function OperatorLiveAction({ icon, label, href = "", danger = false, disabled =
   const content = (
     <>
       {createElement(icon, { size: 16 })}
-      <span className="min-w-0 truncate">{label}</span>
+      <span className="min-w-0 truncate">{translateUi(label)}</span>
     </>
   );
 
@@ -1319,6 +1325,7 @@ function OperatorLiveAction({ icon, label, href = "", danger = false, disabled =
 }
 
 function DashboardContainer({ title, subtitle, icon, children, action }) {
+  useUiLocale();
   return (
     <section className="rounded-2xl border border-gray-100 bg-white p-4 shadow-sm">
       <div className="flex items-start justify-between gap-3">
@@ -1330,8 +1337,8 @@ function DashboardContainer({ title, subtitle, icon, children, action }) {
               </span>
             ) : null}
             <div className="min-w-0">
-              <h3 className="truncate font-black text-gray-950">{title}</h3>
-              {subtitle ? <p className="mt-0.5 text-xs font-semibold text-gray-500">{subtitle}</p> : null}
+              <h3 className="truncate font-black text-gray-950">{translateUi(title)}</h3>
+              {subtitle ? <p className="mt-0.5 text-xs font-semibold text-gray-500">{translateUi(subtitle)}</p> : null}
             </div>
           </div>
         </div>
@@ -1343,6 +1350,7 @@ function DashboardContainer({ title, subtitle, icon, children, action }) {
 }
 
 function TodaysDemandContainer({ waitingPassengers, today, account, isActive, loading, onRefresh, onOpenWaiting }) {
+  useUiLocale();
   return (
     <DashboardContainer
       title={t("urride.opDash.todaysDemand")}
@@ -1391,8 +1399,9 @@ function OperationsContainer({
   onToggle,
   onShowVerification,
 }) {
+  useUiLocale();
   return (
-    <DashboardContainer title={t("urride.opDash.operations")} subtitle={availabilityText} icon={FiTruck}>
+    <DashboardContainer title={t("urride.opDash.operations")} subtitle={translateUi(availabilityText)} icon={FiTruck}>
       <div className="flex items-center justify-between rounded-2xl border border-gray-100 px-3 py-3">
         <span className="text-sm font-semibold text-gray-500">{t("urride.opDash.availabilityLabel")}</span>
         <ToggleSwitch checked={isActive} onChange={onToggle} disabled={readOnly || saving} />
@@ -1410,7 +1419,7 @@ function OperationsContainer({
           className={`flex items-center justify-between rounded-2xl border px-3 py-3 text-left ${verification.colorClass}`}
         >
           <span className="text-sm font-semibold">{t("urride.opDash.verificationRow")}</span>
-          <span className="text-sm font-black">{verification.label}</span>
+          <span className="text-sm font-black">{translateUi(verification.label)}</span>
         </button>
       </div>
     </DashboardContainer>
@@ -1418,6 +1427,7 @@ function OperationsContainer({
 }
 
 function TripControlsContainer({ controls, saving, readOnly = false, onSave }) {
+  useUiLocale();
   const [draft, setDraft] = useState(() => ({
     acceptsRide: Boolean(controls.acceptsRide),
     acceptsDelivery: Boolean(controls.acceptsDelivery),
@@ -1494,15 +1504,16 @@ function TripControlsContainer({ controls, saving, readOnly = false, onSave }) {
 }
 
 function VerificationCenterContainer({ verification, center, onOpen }) {
+  useUiLocale();
   const docs = center?.documents || [];
   return (
-    <DashboardContainer title={t("urride.opDash.verificationCenter")} subtitle={verification.shortText} icon={FiShield}>
+    <DashboardContainer title={t("urride.opDash.verificationCenter")} subtitle={translateUi(verification.shortText)} icon={FiShield}>
       <div className={`rounded-2xl border p-4 ${verification.panelClass}`}>
-        <p className="text-sm font-bold">{verification.detail}</p>
+        <p className="text-sm font-bold">{translateUi(verification.detail)}</p>
       </div>
       <div className="mt-3 grid gap-2">
         {docs.length ? docs.slice(0, 3).map((doc) => (
-          <MiniRow key={doc.id} label={doc.document_type} value={doc.status || t("urride.opDash.submittedFallback")} />
+          <MiniRow key={doc.id} label={translateUi(doc.document_type)} value={doc.status || t("urride.opDash.submittedFallback")} />
         )) : (
           <p className="rounded-2xl bg-gray-50 px-4 py-3 text-sm font-bold text-gray-500">
             {t("urride.opDash.noDocRows")}
@@ -1521,6 +1532,7 @@ function VerificationCenterContainer({ verification, center, onOpen }) {
 }
 
 function EarningsContainer({ earnings, account }) {
+  useUiLocale();
   const transactions = earnings.transactions || [];
   return (
     <DashboardContainer title={t("urride.opDash.earnings")} subtitle={t("urride.opDash.earningsSub")} icon={FiCreditCard}>
@@ -1543,6 +1555,7 @@ function EarningsContainer({ earnings, account }) {
 }
 
 function ReviewsContainer({ reviews }) {
+  useUiLocale();
   const items = reviews.items || [];
   return (
     <DashboardContainer title={t("urride.opDash.reviews")} subtitle={t("urride.opDash.reviewsSub")} icon={FiStar}>
@@ -1567,12 +1580,13 @@ function ReviewsContainer({ reviews }) {
 }
 
 function OperatorAlertsContainer({ alerts }) {
+  useUiLocale();
   return (
     <DashboardContainer title={t("urride.opDash.operatorAlerts")} subtitle={t("urride.opDash.operatorAlertsSub")} icon={FiBell}>
       <div className="grid gap-2">
         {alerts.length ? alerts.slice(0, 4).map((alert) => (
           <div key={alert.id} className={`rounded-2xl border px-4 py-3 ${alert.read ? "border-gray-100 bg-white" : "border-green-100 bg-green-50/90"}`}>
-            <p className="text-sm font-black text-gray-950">{alert.title}</p>
+            <p className="text-sm font-black text-gray-950">{translateUi(alert.title)}</p>
             <p className="mt-1 text-xs font-semibold text-gray-500">{alert.body}</p>
           </div>
         )) : (
@@ -1666,7 +1680,7 @@ function OperatorAlertsDrawer({
                 onClick={() => onRead?.(alert)}
                 className={`rounded-2xl border p-4 shadow-sm transition ${alert.read ? "border-gray-100 bg-white" : "border-green-100 bg-green-50/90"}`}
               >
-                <p className="text-sm font-black text-gray-950">{alert.title}</p>
+                <p className="text-sm font-black text-gray-950">{translateUi(alert.title)}</p>
                 <p className="mt-1 text-sm font-semibold leading-6 text-gray-600">{alert.body}</p>
               </article>
             )) : (
@@ -1698,6 +1712,7 @@ function OperatorAlertsDrawer({
 }
 
 function OperatorToolsContainer({ hasWaitingPassengers, readOnly = false, onOpenHistory, onOpenWaiting }) {
+  useUiLocale();
   return (
     <DashboardContainer title={t("urride.opDash.operatorTools")} subtitle={readOnly ? t("urride.opDash.toolsReadOnly") : t("urride.opDash.toolsSub")} icon={FiCalendar}>
       <div className="grid gap-2">
@@ -1716,28 +1731,31 @@ function OperatorToolsContainer({ hasWaitingPassengers, readOnly = false, onOpen
 }
 
 function MetricCard({ label, value, detail = "" }) {
+  useUiLocale();
   return (
     <div className="rounded-2xl bg-gray-50 px-4 py-3">
-      <p className="text-xs font-black uppercase tracking-wide text-gray-400">{label}</p>
+      <p className="text-xs font-black uppercase tracking-wide text-gray-400">{translateUi(label)}</p>
       <p className="mt-1 break-words text-lg font-black text-gray-950">{value}</p>
-      {detail ? <p className="mt-0.5 text-xs font-semibold text-gray-500">{detail}</p> : null}
+      {detail ? <p className="mt-0.5 text-xs font-semibold text-gray-500">{translateUi(detail)}</p> : null}
     </div>
   );
 }
 
 function ToggleRow({ label, checked, disabled = false, onChange }) {
+  useUiLocale();
   return (
     <div className="flex items-center justify-between rounded-2xl border border-gray-100 px-3 py-3">
-      <span className="text-sm font-bold text-gray-700">{label}</span>
+      <span className="text-sm font-bold text-gray-700">{translateUi(label)}</span>
       <ToggleSwitch checked={checked} disabled={disabled} onChange={onChange} />
     </div>
   );
 }
 
 function TimeInput({ label, value, disabled = false, onChange }) {
+  useUiLocale();
   return (
     <label className="grid gap-1">
-      <span className="text-xs font-black uppercase tracking-wide text-gray-400">{label}</span>
+      <span className="text-xs font-black uppercase tracking-wide text-gray-400">{translateUi(label)}</span>
       <input
         type="time"
         value={value || ""}
@@ -1757,15 +1775,17 @@ function formatSeconds(value) {
 }
 
 function MiniRow({ label, value }) {
+  useUiLocale();
   return (
     <div className="flex items-center justify-between rounded-2xl border border-gray-100 px-3 py-3">
-      <span className="text-sm font-semibold text-gray-500">{label}</span>
+      <span className="text-sm font-semibold text-gray-500">{translateUi(label)}</span>
       <span className="text-sm font-black text-gray-950">{value}</span>
     </div>
   );
 }
 
 function ToggleSwitch({ checked, disabled = false, onChange }) {
+  useUiLocale();
   return (
     <button
       type="button"
@@ -1786,6 +1806,7 @@ function ToggleSwitch({ checked, disabled = false, onChange }) {
 }
 
 function ActionRow({ icon, label, detail, onClick }) {
+  useUiLocale();
   return (
     <button
       type="button"
@@ -1797,8 +1818,8 @@ function ActionRow({ icon, label, detail, onClick }) {
         {createElement(icon, { size: 18 })}
       </span>
       <span className="min-w-0 flex-1">
-        <span className="block text-sm font-black text-gray-950">{label}</span>
-        <span className="block truncate text-xs font-semibold text-gray-500">{detail}</span>
+        <span className="block text-sm font-black text-gray-950">{translateUi(label)}</span>
+        <span className="block truncate text-xs font-semibold text-gray-500">{translateUi(detail)}</span>
       </span>
       <FiChevronRight className="shrink-0 text-gray-400" size={17} />
     </button>
@@ -1906,7 +1927,7 @@ export function OperatorTripRequestCard({ passenger, account, isActive, readOnly
         </div>
         <div className="flex shrink-0 flex-col items-end gap-1.5">
           <span className={`rounded-full px-3 py-1 text-xs font-black ${status === "cancelled" ? "bg-red-50 text-red-700" : isWaiting ? "bg-amber-50 text-amber-700" : "bg-emerald-50 text-emerald-700"}`}>
-            {statusLabel}
+            {translateUi(statusLabel)}
           </span>
           {passenger.time ? <span className="text-[11px] font-bold text-gray-400">{passenger.time}</span> : null}
         </div>
@@ -2309,8 +2330,8 @@ function OperatorMenuDrawer({
                     ) : null}
                   </span>
                   <span className="min-w-0 flex-1">
-                    <span className="block text-sm font-black text-gray-950">{item.label}</span>
-                    <span className="block truncate text-xs font-semibold text-gray-500">{item.detail}</span>
+                    <span className="block text-sm font-black text-gray-950">{translateUi(item.label)}</span>
+                    <span className="block truncate text-xs font-semibold text-gray-500">{translateUi(item.detail)}</span>
                   </span>
                   <FiChevronRight className="shrink-0 text-gray-400" size={17} />
                 </span>
@@ -2526,7 +2547,7 @@ function OperatorVerificationModal({ open, config, fleetName, onClose }) {
           <div className="flex items-start justify-between gap-4">
             <div>
               <p className="text-xs font-black uppercase tracking-wide">{t("urride.opDash.verifyModalEyebrow")}</p>
-              <h2 className="mt-1 text-xl font-black">{config.label}</h2>
+              <h2 className="mt-1 text-xl font-black">{translateUi(config.label)}</h2>
               <p className="mt-1 text-sm font-semibold">{fleetName}</p>
             </div>
             <button
@@ -2541,7 +2562,7 @@ function OperatorVerificationModal({ open, config, fleetName, onClose }) {
         </div>
 
         <div className="space-y-4 px-5 py-5">
-          <p className="text-sm leading-6 text-gray-700">{config.detail}</p>
+          <p className="text-sm leading-6 text-gray-700">{translateUi(config.detail)}</p>
           <div className="space-y-2">
             {config.checks.map((check) => (
               <div key={check} className="flex items-center gap-2 text-sm font-semibold text-gray-700">

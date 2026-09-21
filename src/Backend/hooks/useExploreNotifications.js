@@ -1,5 +1,5 @@
 import { useEffect, useState } from "react";
-import { friendlyErrorMessage } from "../services/friendlyErrorService";
+import { inlineErrorMessage } from "../services/friendlyErrorService";
 
 import supabase from "../lib/supabaseClient";
 import {
@@ -169,7 +169,7 @@ export function useExploreNotifications(requestedUserId = "") {
         if (active) {
           // Stale-while-revalidate: cached notifications remain usable offline
           // without replacing the whole screen with an avoidable error state.
-          setError(servingCachedItems ? "" : friendlyErrorMessage(err, "Unable to load notifications."));
+          setError(servingCachedItems ? "" : inlineErrorMessage(err, "Unable to load notifications."));
         }
       } finally {
         if (active) {
@@ -316,7 +316,7 @@ export function useExploreNotifications(requestedUserId = "") {
       setNotifications(visibleNotifications(storedItems));
       setHasMore(nextItems.length >= PAGE_SIZE);
     } catch (err) {
-      setError(friendlyErrorMessage(err, "Unable to load more notifications."));
+      setError(inlineErrorMessage(err, "Unable to load more notifications."));
     } finally {
       setLoadingMore(false);
     }
@@ -339,7 +339,7 @@ export function useExploreNotifications(requestedUserId = "") {
         setNotifications(visibleNotifications(storedItems));
       }
     } catch (err) {
-      setError(friendlyErrorMessage(err, "Unable to update notification."));
+      setError(inlineErrorMessage(err, "Unable to update notification."));
     }
   }
 
@@ -352,7 +352,7 @@ export function useExploreNotifications(requestedUserId = "") {
       await markAllExploreNotificationsRead();
       return { ok: true };
     } catch (err) {
-      const message = friendlyErrorMessage(err, "Unable to update notifications.");
+      const message = inlineErrorMessage(err, "Unable to update notifications.");
       setError(message);
       return { ok: false, error: message };
     }

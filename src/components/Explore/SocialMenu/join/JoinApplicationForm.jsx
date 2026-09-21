@@ -31,6 +31,9 @@ import {
   visibleQuestions,
   visibleSections,
 } from "./questionEngine";
+import { t as i18nText } from "../../../../i18n/index";
+import { uiText as translateUi, useI18n as useUiLocale } from "../../../../i18n/index.js";
+import { inlineErrorMessage } from "../../../../Backend/services/friendlyErrorService";
 
 // Sections of the catalogue that also carry a list editor, and the ones that
 // only exist as a list. Keyed by the section_key stored in the database.
@@ -42,6 +45,7 @@ const LIST_FOR_SECTION = {
 };
 
 function ConsentGate({ applicationType, busy, error, onAccept }) {
+  useUiLocale();
   const notice = noticeFor(applicationType);
   const [checked, setChecked] = useState({});
   const allAccepted = notice.acknowledgements.every((item) => checked[item.key]);
@@ -54,7 +58,7 @@ function ConsentGate({ applicationType, busy, error, onAccept }) {
             <HiOutlineShieldCheck className="text-2xl" />
           </span>
           <div className="min-w-0">
-            <h3 className="text-xl font-black text-amber-950">{notice.title}</h3>
+            <h3 className="text-xl font-black text-amber-950">{translateUi(notice.title)}</h3>
             <p className="mt-1.5 text-sm font-semibold leading-6 text-amber-900">{notice.intro}</p>
           </div>
         </div>
@@ -78,18 +82,18 @@ function ConsentGate({ applicationType, busy, error, onAccept }) {
                 onChange={(event) => setChecked((current) => ({ ...current, [item.key]: event.target.checked }))}
                 className="mt-0.5 h-5 w-5 flex-none rounded border-slate-300 text-sky-700 focus:ring-sky-300"
               />
-              <span className="text-sm font-bold leading-6 text-slate-700">{item.label}</span>
+              <span className="text-sm font-bold leading-6 text-slate-700">{translateUi(item.label)}</span>
             </label>
           ))}
         </div>
-        {error ? <p role="alert" className="mt-4 rounded-xl bg-rose-50 px-3 py-2 text-xs font-bold text-rose-700">{error}</p> : null}
+        {error ? <p role="alert" className="mt-4 rounded-xl bg-rose-50 px-3 py-2 text-xs font-bold text-rose-700">{translateUi(error)}</p> : null}
         <button
           type="button"
           disabled={!allAccepted || busy}
           onClick={() => onAccept(Object.fromEntries(notice.acknowledgements.map((item) => [item.key, true])))}
           className="mt-5 flex h-12 w-full items-center justify-center gap-2 rounded-2xl bg-sky-700 text-sm font-black text-white transition hover:bg-sky-800 disabled:opacity-40"
         >
-          {busy ? "Opening the form…" : "Continue"} <HiOutlineArrowRight className="text-lg" />
+          {busy ? i18nText("ui.literals.k25f14a4beebf") : i18nText("ui.literals.k2e02623966f9")} <HiOutlineArrowRight className="text-lg" />
         </button>
       </section>
     </div>
@@ -97,20 +101,20 @@ function ConsentGate({ applicationType, busy, error, onAccept }) {
 }
 
 function ReviewStep({ answers, detail, sections }) {
+  useUiLocale();
   const shown = visibleSections(sections, answers);
   return (
     <div className="space-y-4">
       <section className="rounded-[24px] border border-sky-100 bg-sky-50 p-5">
-        <h3 className="text-base font-black text-sky-950">Check your answers</h3>
+        <h3 className="text-base font-black text-sky-950">{i18nText("ui.literals.k68baf600f69e")}</h3>
         <p className="mt-1 text-sm font-semibold leading-6 text-sky-900/80">
-          Once you submit, the application becomes read-only. You can still message the KunThai team about it, and you can
-          withdraw it at any time.
+          {i18nText("ui.literals.kc1fab8c9a0f4")}
         </p>
       </section>
 
       {shown.map((section) => (
         <section key={section.key} className="rounded-[24px] border border-slate-200 bg-white p-5 shadow-sm">
-          <h3 className="text-base font-black text-slate-950">{section.title}</h3>
+          <h3 className="text-base font-black text-slate-950">{translateUi(section.title)}</h3>
           <dl className="mt-3 space-y-3">
             {visibleQuestions(section, answers)
               .filter((question) => question.inputType !== "statement")
@@ -118,9 +122,9 @@ function ReviewStep({ answers, detail, sections }) {
                 const described = describeAnswer(question, answers[question.questionKey]);
                 return (
                   <div key={question.questionKey} className="border-t border-slate-100 pt-3 first:border-0 first:pt-0">
-                    <dt className="text-[11px] font-black uppercase tracking-[0.12em] text-slate-400">{question.label}</dt>
+                    <dt className="text-[11px] font-black uppercase tracking-[0.12em] text-slate-400">{translateUi(question.label)}</dt>
                     <dd className={`mt-1 whitespace-pre-wrap text-sm font-bold leading-6 ${described ? "text-slate-900" : "text-slate-400"}`}>
-                      {described || "Not answered"}
+                      {described || i18nText("ui.literals.k2fa41b180511")}
                     </dd>
                   </div>
                 );
@@ -131,12 +135,12 @@ function ReviewStep({ answers, detail, sections }) {
 
       {detail.education.length || detail.experience.length || detail.skills.length || detail.documents.length ? (
         <section className="rounded-[24px] border border-slate-200 bg-white p-5 shadow-sm">
-          <h3 className="text-base font-black text-slate-950">Attached to this application</h3>
+          <h3 className="text-base font-black text-slate-950">{i18nText("ui.literals.k2a27abe26f1c")}</h3>
           <ul className="mt-3 space-y-1.5 text-sm font-bold text-slate-600">
-            {detail.education.length ? <li>{detail.education.length} qualification{detail.education.length === 1 ? "" : "s"}</li> : null}
-            {detail.experience.length ? <li>{detail.experience.length} previous role{detail.experience.length === 1 ? "" : "s"}</li> : null}
-            {detail.skills.length ? <li>{detail.skills.length} skill{detail.skills.length === 1 ? "" : "s"}</li> : null}
-            {detail.documents.length ? <li>{detail.documents.length} document{detail.documents.length === 1 ? "" : "s"}</li> : null}
+            {detail.education.length ? <li>{detail.education.length} {i18nText("ui.literals.k006442b3906c")}{detail.education.length === 1 ? "" : "s"}</li> : null}
+            {detail.experience.length ? <li>{detail.experience.length} {i18nText("ui.literals.ka8709487a460")}{detail.experience.length === 1 ? "" : "s"}</li> : null}
+            {detail.skills.length ? <li>{detail.skills.length} {i18nText("ui.literals.k34b33e00b199")}{detail.skills.length === 1 ? "" : "s"}</li> : null}
+            {detail.documents.length ? <li>{detail.documents.length} {i18nText("ui.literals.k4f8278c89ad1")}{detail.documents.length === 1 ? "" : "s"}</li> : null}
           </ul>
         </section>
       ) : null}
@@ -145,6 +149,7 @@ function ReviewStep({ answers, detail, sections }) {
 }
 
 export default function JoinApplicationForm({ catalogue, detail, onCancel, onDetailChange, onDiscard, onSubmitted }) {
+  const { locale: memoLocale } = useUiLocale();
   const application = detail.application;
   const path = JOIN_PATH_BY_TYPE[application.applicationType];
 
@@ -165,9 +170,9 @@ export default function JoinApplicationForm({ catalogue, detail, onCancel, onDet
       section,
       list: LIST_FOR_SECTION[section.key] || "",
     }));
-    list.push({ kind: "review", key: "review", title: "Review and submit", description: "" });
+    list.push({ kind: "review", key: "review", title: i18nText("ui.literals.kd30a45fd247a"), description: "" });
     return list;
-  }, [answers, catalogue.sections]);
+  }, [answers, catalogue.sections, memoLocale]);
 
   const safeIndex = Math.min(stepIndex, steps.length - 1);
   const step = steps[safeIndex];
@@ -199,7 +204,7 @@ export default function JoinApplicationForm({ catalogue, detail, onCancel, onDet
       const sectionErrors = validateSection(step.section, answers);
       if (Object.keys(sectionErrors).length) {
         setErrors((current) => ({ ...current, ...sectionErrors }));
-        setNotice("Some answers still need attention.");
+        setNotice(i18nText("ui.literals.k60a7729d888d"));
         return;
       }
     }
@@ -209,7 +214,7 @@ export default function JoinApplicationForm({ catalogue, detail, onCancel, onDet
       await persistAnswers();
       setStepIndex((current) => Math.min(current + 1, steps.length - 1));
     } catch (saveError) {
-      setNotice(saveError.message || "Could not save your answers.");
+      setNotice(inlineErrorMessage(saveError, i18nText("ui.literals.kb8e8c55cd4dd")));
     } finally {
       setBusy(false);
     }
@@ -220,9 +225,9 @@ export default function JoinApplicationForm({ catalogue, detail, onCancel, onDet
     setBusy(true);
     try {
       await persistAnswers();
-      showToast("Draft saved.", "success");
+      showToast(i18nText("ui.literals.k7b19cc5d299b"), "success");
     } catch (saveError) {
-      setNotice(saveError.message || "Could not save your draft.");
+      setNotice(inlineErrorMessage(saveError, i18nText("ui.literals.k16cfe680012e")));
     } finally {
       setBusy(false);
     }
@@ -246,7 +251,7 @@ export default function JoinApplicationForm({ catalogue, detail, onCancel, onDet
       const submitted = await submitApplication(application.id);
       onSubmitted(submitted);
     } catch (submitError) {
-      setNotice(submitError.message || "Could not submit this application.");
+      setNotice(inlineErrorMessage(submitError, i18nText("ui.literals.k786912c3fbce")));
     } finally {
       setBusy(false);
     }
@@ -279,7 +284,7 @@ export default function JoinApplicationForm({ catalogue, detail, onCancel, onDet
             const updated = await acceptApplicationConsent(application.id, consent);
             onDetailChange({ ...detail, application: updated });
           } catch (consentError) {
-            setNotice(consentError.message || "Could not record your acknowledgement.");
+            setNotice(inlineErrorMessage(consentError, i18nText("ui.literals.kfbebcdbbedff")));
           } finally {
             setBusy(false);
           }
@@ -297,16 +302,16 @@ export default function JoinApplicationForm({ catalogue, detail, onCancel, onDet
       <section className="rounded-[24px] border border-slate-200 bg-white p-4 shadow-sm">
         <div className="flex items-center justify-between gap-3">
           <p className="text-xs font-black uppercase tracking-[0.16em] text-sky-700">
-            {path?.title || "Application"} · step {safeIndex + 1} of {steps.length}
+            {path?.title || i18nText("ui.literals.kb291beb8793f")} {i18nText("ui.literals.k53b2b2816a36")} {safeIndex + 1} {i18nText("ui.literals.kde04fa0e29f9")} {steps.length}
           </p>
           <div className="flex flex-none items-center gap-3">
             {onDiscard ? (
               <button type="button" onClick={onDiscard} className="text-xs font-black text-rose-600 hover:text-rose-700">
-                Discard draft
+                {i18nText("ui.literals.k3a09ce0de183")}
               </button>
             ) : null}
             <button type="button" onClick={onCancel} className="text-xs font-black text-slate-500 hover:text-slate-800">
-              Close
+              {i18nText("ui.literals.kbbfa773e5a63")}
             </button>
           </div>
         </div>
@@ -319,13 +324,13 @@ export default function JoinApplicationForm({ catalogue, detail, onCancel, onDet
       </section>
 
       <section className="rounded-[24px] border border-slate-200 bg-white p-5 shadow-sm sm:p-6">
-        <h2 className="text-xl font-black text-slate-950">{step.title}</h2>
+        <h2 className="text-xl font-black text-slate-950">{translateUi(step.title)}</h2>
         {step.description ? (
-          <p className="mt-1.5 text-sm font-semibold leading-6 text-slate-500">{step.description}</p>
+          <p className="mt-1.5 text-sm font-semibold leading-6 text-slate-500">{translateUi(step.description)}</p>
         ) : null}
         {progress?.requiredTotal ? (
           <p className="mt-2 text-xs font-black uppercase tracking-[0.12em] text-slate-400">
-            {progress.requiredAnswered} of {progress.requiredTotal} required answered
+            {progress.requiredAnswered} {i18nText("ui.literals.kde04fa0e29f9")} {progress.requiredTotal} {i18nText("ui.literals.k2d905a59fd07")}
           </p>
         ) : null}
 
@@ -348,8 +353,8 @@ export default function JoinApplicationForm({ catalogue, detail, onCancel, onDet
 
       {step.list === "education" ? (
         <RepeatableSection
-          title="Qualifications"
-          description="Add each qualification separately. This is one signal among several, not a filter."
+          title={i18nText("ui.literals.k56663729aef0")}
+          description={i18nText("ui.literals.k798a07cd684e")}
           addLabel="Add qualification"
           entries={detail.education}
           fields={EDUCATION_FIELDS}
@@ -361,8 +366,8 @@ export default function JoinApplicationForm({ catalogue, detail, onCancel, onDet
 
       {step.list === "experience" ? (
         <RepeatableSection
-          title="Previous roles"
-          description="Add the roles that matter for this application."
+          title={i18nText("ui.literals.kba566ee17cbc")}
+          description={i18nText("ui.literals.kc5d387d91d3b")}
           addLabel="Add role"
           entries={detail.experience}
           fields={EXPERIENCE_FIELDS}
@@ -374,8 +379,8 @@ export default function JoinApplicationForm({ catalogue, detail, onCancel, onDet
 
       {step.list === "skills" ? (
         <RepeatableSection
-          title="Skills"
-          description="Assess yourself honestly. An accurate Intermediate is worth more than an inflated Expert."
+          title={i18nText("ui.literals.ke09212c7d3ea")}
+          description={i18nText("ui.literals.ke8765c838443")}
           addLabel="Add skill"
           entries={detail.skills}
           fields={SKILL_FIELDS}
@@ -393,11 +398,11 @@ export default function JoinApplicationForm({ catalogue, detail, onCancel, onDet
         />
       ) : null}
 
-      {step.kind === "review" ? <ReviewStep answers={answers} detail={detail} sections={catalogue.sections} /> : null}
+      {step.kind === "review" ? <ReviewStep answers={answers} detail={translateUi(detail)} sections={catalogue.sections} /> : null}
 
       {notice ? (
         <p role="alert" className="flex items-start gap-2 rounded-2xl bg-rose-50 px-4 py-3 text-sm font-bold leading-6 text-rose-700">
-          <HiOutlineExclamationTriangle className="mt-0.5 flex-none text-lg" /> {notice}
+          <HiOutlineExclamationTriangle className="mt-0.5 flex-none text-lg" /> {translateUi(notice)}
         </p>
       ) : null}
 
@@ -408,7 +413,7 @@ export default function JoinApplicationForm({ catalogue, detail, onCancel, onDet
             disabled={safeIndex === 0 || busy}
             onClick={() => setStepIndex((current) => Math.max(0, current - 1))}
             className="grid h-12 w-12 flex-none place-items-center rounded-2xl bg-slate-100 text-slate-700 disabled:opacity-40"
-            aria-label="Previous step"
+            aria-label={i18nText("ui.literals.kda57050ad0b6")}
           >
             <HiOutlineArrowLeft className="text-lg" />
           </button>
@@ -418,7 +423,7 @@ export default function JoinApplicationForm({ catalogue, detail, onCancel, onDet
             onClick={saveDraft}
             className="h-12 flex-none rounded-2xl border border-slate-200 px-4 text-sm font-black text-slate-700 disabled:opacity-40"
           >
-            Save draft
+            {i18nText("ui.literals.k4f25637a5b7e")}
           </button>
           {step.kind === "review" ? (
             <button
@@ -427,7 +432,7 @@ export default function JoinApplicationForm({ catalogue, detail, onCancel, onDet
               onClick={submit}
               className="flex h-12 flex-1 items-center justify-center gap-2 rounded-2xl bg-sky-700 text-sm font-black text-white transition hover:bg-sky-800 disabled:opacity-50"
             >
-              <HiOutlinePaperAirplane className="text-lg" /> {busy ? "Submitting…" : "Submit application"}
+              <HiOutlinePaperAirplane className="text-lg" /> {busy ? i18nText("ui.literals.k25bdf9860e96") : i18nText("ui.literals.k93ff9f7165f3")}
             </button>
           ) : (
             <button
@@ -436,13 +441,13 @@ export default function JoinApplicationForm({ catalogue, detail, onCancel, onDet
               onClick={goNext}
               className="flex h-12 flex-1 items-center justify-center gap-2 rounded-2xl bg-slate-950 text-sm font-black text-white disabled:opacity-50"
             >
-              {busy ? "Saving…" : "Continue"} <HiOutlineArrowRight className="text-lg" />
+              {busy ? i18nText("ui.literals.k56a2285c5b11") : i18nText("ui.literals.k2e02623966f9")} <HiOutlineArrowRight className="text-lg" />
             </button>
           )}
         </div>
         {progress?.complete && step.kind === "section" ? (
           <p className="mt-2 flex items-center gap-1.5 text-xs font-bold text-emerald-700">
-            <HiOutlineCheckCircle className="text-base" /> This section is complete.
+            <HiOutlineCheckCircle className="text-base" /> {i18nText("ui.literals.ka95bcd19f559")}
           </p>
         ) : null}
       </div>

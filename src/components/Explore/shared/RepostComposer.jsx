@@ -7,11 +7,12 @@ import { createExploreRepost } from "../../../Backend/services/explore/repostSer
 import { guardGuestAction } from "../../../Backend/services/guestModeService";
 import { showToast } from "../../../Backend/services/toastService";
 import { haptics } from "../../../Backend/services/feedbackService";
-import { friendlyErrorMessage } from "../../../Backend/services/friendlyErrorService";
+import { inlineErrorMessage } from "../../../Backend/services/friendlyErrorService";
 import { useI18n } from "../../../i18n";
 import Avatar from "../shared/Avatar";
 import RepostPreview from "./RepostPreview";
 import { t as i18nText } from "../../../i18n/index";
+import { uiText as translateUi } from "../../../i18n/index.js";
 
 const EXIT_MS = 280;
 
@@ -52,7 +53,7 @@ export default function RepostComposer({ onClose, onSuccess, profile, sourcePost
       setClosing(true);
       closeTimerRef.current = window.setTimeout(() => onClose?.(), EXIT_MS);
     } catch (submitError) {
-      setError(friendlyErrorMessage(submitError, t("explore.unableRepost")));
+      setError(inlineErrorMessage(submitError, t("explore.unableRepost")));
       setSubmitting(false);
     }
   }
@@ -105,7 +106,7 @@ export default function RepostComposer({ onClose, onSuccess, profile, sourcePost
 
             <RepostPreview sourcePost={sourcePost} compact />
 
-            {error ? <p className="rounded-2xl border border-rose-100 bg-rose-50 px-4 py-3 text-sm font-bold text-rose-700">{error}</p> : null}
+            {error ? <p className="rounded-2xl border border-rose-100 bg-rose-50 px-4 py-3 text-sm font-bold text-rose-700">{translateUi(error)}</p> : null}
           </div>
         </div>
 
@@ -118,7 +119,7 @@ export default function RepostComposer({ onClose, onSuccess, profile, sourcePost
                 onClick={() => setPrivacy(option.value)}
                 className={`h-11 rounded-2xl px-5 text-sm font-black ${privacy === option.value ? "bg-slate-950 text-white" : "bg-slate-100 text-slate-600"}`}
               >
-                {option.label}
+                {translateUi(option.label)}
               </button>
             ))}
           </div>

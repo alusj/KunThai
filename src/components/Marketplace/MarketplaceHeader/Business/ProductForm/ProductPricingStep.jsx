@@ -14,6 +14,8 @@ import PromotionRegionSection from "../Promotion/PromotionRegionSection";
 import { getCountryCurrencyCode } from "../../../../../data/globalCountryProfiles";
 import { uiText, useI18n, t } from "../../../../../i18n";
 import { t as i18nText } from "../../../../../i18n/index";
+import { uiText as translateUi } from "../../../../../i18n/index.js";
+import { inlineErrorMessage } from "../../../../../Backend/services/friendlyErrorService";
 
 const PROMOTION_AUDIENCES = [
   { id: "countrywide", labelKey: "audCountrywide", descKey: "audCountrywideDesc" },
@@ -58,7 +60,7 @@ export default function ProductPricingStep({ productForm }) {
       await visibilityCredits.shareInvite();
       setShareFeedback(t("urmall.biz.pform.inviteReady"));
     } catch (error) {
-      setShareFeedback(error.message || t("urmall.biz.pform.inviteFailed"));
+      setShareFeedback(inlineErrorMessage(error, t("urmall.biz.pform.inviteFailed")));
     }
   }
 
@@ -147,8 +149,8 @@ export default function ProductPricingStep({ productForm }) {
                   : "border-gray-200 bg-white text-gray-700"
               }`}
             >
-              <span className="block font-black">{item.label}</span>
-              <span className="mt-1 block text-xs font-semibold text-gray-500">{item.description}</span>
+              <span className="block font-black">{translateUi(item.label)}</span>
+              <span className="mt-1 block text-xs font-semibold text-gray-500">{translateUi(item.description)}</span>
             </button>
           ))}
         </div>

@@ -41,6 +41,7 @@ import {
 } from "../../../../../../Backend/services/explore/safetyService";
 import { readExploreSettings } from "../../../../../../Backend/services/explore/preferencesService";
 import { t as i18nText } from "../../../../../../i18n/index";
+import { uiText as translateUi, useI18n as useUiLocale } from "../../../../../../i18n/index.js";
 
 // `value` is the canonical English category stored/submitted to the safety
 // backend; `key` resolves the translated label shown to the reader.
@@ -322,7 +323,7 @@ export default function FeedPost({
       ) : postTitle || post.body ? (
         isTextCanvasPost(post, postTitle) ? (
           <div className="pb-1 pt-1">
-            <TextPostCanvas post={post} title={postTitle} />
+            <TextPostCanvas post={post} title={translateUi(postTitle)} />
           </div>
         ) : (
           <div className="px-4 pb-4">
@@ -514,7 +515,7 @@ function AdvertPostCard({ post, advert, followed = false, onFollow, onViewProfil
         </span>
       </div>
 
-      <h3 className="mt-3 kuntai-break text-xl font-black leading-7 text-slate-950">{title}</h3>
+      <h3 className="mt-3 kuntai-break text-xl font-black leading-7 text-slate-950">{translateUi(title)}</h3>
       {post.body ? (
         <ExpandablePostText
           text={post.body}
@@ -552,6 +553,7 @@ function AdvertPostCard({ post, advert, followed = false, onFollow, onViewProfil
 }
 
 function PostActionOverlay({ children, label, onClose, open }) {
+  useUiLocale();
   if (!open) return null;
 
   return createPortal(
@@ -561,7 +563,7 @@ function PostActionOverlay({ children, label, onClose, open }) {
       role="presentation"
     >
       <section
-        aria-label={label}
+        aria-label={translateUi(label)}
         aria-modal="true"
         role="dialog"
         className="kt-modal-enter max-h-[min(78dvh,680px)] w-full max-w-lg transform-gpu overflow-y-auto overscroll-contain rounded-[26px] bg-white p-4 shadow-2xl ring-1 ring-slate-200/70 [backface-visibility:hidden]"

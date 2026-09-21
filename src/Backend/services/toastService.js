@@ -1,4 +1,5 @@
-import { sanitizeUserMessage } from "./friendlyErrorService";
+import { isConnectionFailure, sanitizeUserMessage } from "./friendlyErrorService";
+import { announceConnectionTrouble } from "./networkService";
 
 export const TOAST_EVENT = "kuntai-toast";
 
@@ -31,6 +32,9 @@ export function showToast(rawMessage, tone = "info", options = {}) {
   // one friendly toast rather than several cryptic ones).
   const message = sanitizeUserMessage(rawMessage);
   if (!message) return;
+  // A lost connection has one voice: the global network toast. An action that
+  // failed offline re-shows that toast rather than adding its own beside it.
+  if (typeof rawMessage === "string" && isConnectionFailure(rawMessage) && announceConnectionTrouble()) return;
   const now = Date.now();
   const dedupKey = `${options.title || ""}:${message}`;
   if (now - Number(recentToastKeys.get(dedupKey) || 0) < TOAST_DEDUP_MS) return;

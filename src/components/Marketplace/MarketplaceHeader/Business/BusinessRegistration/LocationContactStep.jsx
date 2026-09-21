@@ -22,6 +22,7 @@ import {
 } from "../../../../../data/globalCountryProfiles";
 import { useI18n, t } from "../../../../../i18n";
 import { t as i18nText } from "../../../../../i18n/index";
+import { useI18n as useUiLocale } from "../../../../../i18n/index.js";
 
 function toOptionalCoordinate(value) {
   if (value === null || value === undefined || value === "") return null;
@@ -69,7 +70,7 @@ export default function LocationContactStep({ registration }) {
     : null;
   const addressValidation = useAddressAreaValidation(form.location.address, { selectedPoint: locationPoint });
   const addressValidationResult = addressValidation.result;
-  const accuracyCaution = useAddressAccuracyCaution(form.location.address);
+  const accuracyCaution = useAddressAccuracyCaution(form.location.address, { gate: false, lockOnEdit: true });
   const addressInputRef = useRef(null);
   const locationPromptCollapse = useAutoCollapseCard({
     enabled: locationPromptOpen && !locating,
@@ -143,14 +144,15 @@ export default function LocationContactStep({ registration }) {
             <RegistrationInput
               ref={addressInputRef}
               value={form.location.address}
-              onChange={(event) => updateSection("location", { address: event.target.value })}
-              onBlur={accuracyCaution.handleAddressBlur}
+              onChange={accuracyCaution.guardChange((event) => updateSection("location", { address: event.target.value }))}
+              {...accuracyCaution.inputProps}
               placeholder={t("urmall.biz.reg.bizAddressPlaceholder")}
               autoComplete="street-address"
             />
           </RegistrationField>
 
           <AddressAccuracyCaution
+            cover
             open={accuracyCaution.open}
             onLocateMe={() => accuracyCaution.act(() => locateBusiness("main"))}
             onDropPin={() => accuracyCaution.act(() => openDropPinPicker("main"))}
@@ -360,6 +362,7 @@ export default function LocationContactStep({ registration }) {
 // a live found/searching/unknown status, the confirmation card, and the locate /
 // drop-a-pin actions — driven by its own address validation hook.
 function BranchAddressCard({ branch, index, maxBusinessLocations, updateBranch, removeBranch, locateBusiness, openDropPinPicker }) {
+  useUiLocale();
   const branchPoint = branch.coordinates
     ? {
         lat: branch.coordinates.latitude ?? branch.coordinates.lat,
@@ -369,7 +372,7 @@ function BranchAddressCard({ branch, index, maxBusinessLocations, updateBranch, 
     : null;
   const validation = useAddressAreaValidation(branch.address, { selectedPoint: branchPoint });
   const result = validation.result;
-  const accuracyCaution = useAddressAccuracyCaution(branch.address);
+  const accuracyCaution = useAddressAccuracyCaution(branch.address, { gate: false, lockOnEdit: true });
   const addressInputRef = useRef(null);
 
   useEffect(() => {
@@ -417,14 +420,15 @@ function BranchAddressCard({ branch, index, maxBusinessLocations, updateBranch, 
           <RegistrationInput
             ref={addressInputRef}
             value={branch.address}
-            onChange={(event) => updateBranch(index, { address: event.target.value })}
-            onBlur={accuracyCaution.handleAddressBlur}
+            onChange={accuracyCaution.guardChange((event) => updateBranch(index, { address: event.target.value }))}
+            {...accuracyCaution.inputProps}
             placeholder={t("urmall.biz.reg.branchAddressPlaceholder")}
             autoComplete="street-address"
           />
         </RegistrationField>
 
         <AddressAccuracyCaution
+          cover
           open={accuracyCaution.open}
           onLocateMe={() => accuracyCaution.act(() => locateBusiness(index))}
           onDropPin={() => accuracyCaution.act(() => openDropPinPicker(index))}

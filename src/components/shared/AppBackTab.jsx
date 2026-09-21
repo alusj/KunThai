@@ -3,6 +3,7 @@ import { ChevronLeft } from "lucide-react";
 
 import { useBrowserBack } from "../../Backend/hooks/useBrowserBack";
 import { useBackSwipeRegistration } from "../../Backend/hooks/useBackSwipe";
+import { uiText as translateUi, useI18n as useUiLocale } from "../../i18n/index.js";
 
 export default function AppBackTab({
   onBack,
@@ -15,6 +16,7 @@ export default function AppBackTab({
   swipeOptions,
   style,
 }) {
+  useUiLocale();
   const goBack = useBrowserBack(Boolean(onBack && useHistoryLayer), onBack, historyKey);
   const handleBack = useCallback(() => {
     if (useHistoryLayer) {
@@ -36,7 +38,7 @@ export default function AppBackTab({
       ref={swipeRegistrationRef}
       type="button"
       onClick={handleBack}
-      aria-label={label}
+      aria-label={translateUi(label)}
       data-back-swipe-control="true"
       className={`kt-touchable flex h-11 w-11 shrink-0 items-center justify-center rounded-xl border border-transparent bg-transparent text-slate-900 transition hover:bg-slate-100 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-slate-900 ${className}`}
       style={style}

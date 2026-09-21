@@ -7,15 +7,18 @@ import {
 } from "../../../../../../../../../Backend/services/marketplace/sellerRegistrationService";
 import { useI18n, t } from "../../../../../../../../../i18n";
 import SellerMenuPageHeader from "../../SellerMenuPageHeader";
+import { uiText as translateUi, useI18n as useUiLocale } from "../../../../../../../../../i18n/index.js";
+import { inlineErrorMessage } from "../../../../../../../../../Backend/services/friendlyErrorService";
 
 const inputClass =
   "mt-2 w-full rounded-xl border border-gray-200 bg-white px-4 py-3 text-sm font-semibold text-gray-950 outline-none transition focus:border-gray-950 focus:ring-4 focus:ring-gray-950/10";
 const labelClass = "text-xs font-black uppercase tracking-[0.16em] text-gray-500";
 
 function Field({ label, children }) {
+  useUiLocale();
   return (
     <label className="block">
-      <span className={labelClass}>{label}</span>
+      <span className={labelClass}>{translateUi(label)}</span>
       {children}
     </label>
   );
@@ -55,7 +58,7 @@ export default function StoreDetails({ onBack }) {
         if (mounted) setForm(buildForm(business));
       })
       .catch((nextError) => {
-        if (mounted) setError(nextError.message || t("urmall.biz.settings.storeLoadFailed"));
+        if (mounted) setError(inlineErrorMessage(nextError, t("urmall.biz.settings.storeLoadFailed")));
       })
       .finally(() => {
         if (mounted) setLoading(false);
@@ -114,7 +117,7 @@ export default function StoreDetails({ onBack }) {
       setForm(buildForm(updated));
       setStatus(t("urmall.biz.settings.storeUpdated"));
     } catch (nextError) {
-      setError(nextError.message || t("urmall.biz.settings.storeUpdateFailed"));
+      setError(inlineErrorMessage(nextError, t("urmall.biz.settings.storeUpdateFailed")));
     } finally {
       setSaving(false);
     }
@@ -276,8 +279,8 @@ export default function StoreDetails({ onBack }) {
                     className="flex items-center justify-between gap-3 rounded-xl border border-gray-200 bg-gray-50 px-4 py-3"
                   >
                     <span>
-                      <span className="block text-sm font-black text-gray-950">{title}</span>
-                      <span className="text-xs font-semibold text-gray-500">{description}</span>
+                      <span className="block text-sm font-black text-gray-950">{translateUi(title)}</span>
+                      <span className="text-xs font-semibold text-gray-500">{translateUi(description)}</span>
                     </span>
                     <input
                       type="checkbox"
@@ -293,12 +296,12 @@ export default function StoreDetails({ onBack }) {
 
           {error ? (
             <p className="rounded-xl border border-red-200 bg-red-50 px-4 py-3 text-sm font-bold text-red-700">
-              {error}
+              {translateUi(error)}
             </p>
           ) : null}
           {status ? (
             <p className="rounded-xl border border-emerald-200 bg-emerald-50 px-4 py-3 text-sm font-bold text-emerald-700">
-              {status}
+              {translateUi(status)}
             </p>
           ) : null}
 

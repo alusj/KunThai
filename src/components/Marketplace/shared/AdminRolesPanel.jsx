@@ -10,6 +10,7 @@ import {
 import { haptics, sounds } from "../../../Backend/services/feedbackService";
 import { showToast } from "../../../Backend/services/toastService";
 import { useI18n, t } from "../../../i18n";
+import { uiText as translateUi } from "../../../i18n/index.js";
 
 // Invitee side of UrMall business admins: respond to invitations, see the
 // responsibilities each owner assigned, and leave a business at any time.
@@ -132,7 +133,7 @@ export default function AdminRolesPanel() {
                     <div className="mt-2 flex flex-wrap gap-1.5">
                       {ADMIN_RESPONSIBILITIES.filter((item) => row.responsibilities[item.key]).map((item) => (
                         <span key={item.key} className="rounded-full bg-emerald-50 px-2.5 py-1 text-[10px] font-black uppercase tracking-wide text-emerald-700">
-                          {item.label}
+                          {translateUi(item.label)}
                         </span>
                       ))}
                       {!ADMIN_RESPONSIBILITIES.some((item) => row.responsibilities[item.key]) ? (

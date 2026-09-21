@@ -1,5 +1,5 @@
 import { useEffect, useState } from "react";
-import { friendlyErrorMessage } from "../services/friendlyErrorService";
+import { friendlyErrorMessage, inlineErrorMessage } from "../services/friendlyErrorService";
 
 import { fetchExploreConnections } from "../services/exploreService";
 import { getIdentityKey, normalizeIdentityTarget } from "../services/exploreService";
@@ -134,7 +134,7 @@ export function useExploreConnections(kind, currentUserId = "") {
       setItems(nextItems);
       writeConnectionsMemory(cacheKey, nextItems);
     } catch (err) {
-      setError(hasCachedItems ? "" : friendlyErrorMessage(err, "Unable to load connections."));
+      setError(hasCachedItems ? "" : inlineErrorMessage(err, "Unable to load connections."));
     } finally {
       setLoading(false);
       setRefreshing(false);
@@ -183,7 +183,7 @@ export function useExploreConnections(kind, currentUserId = "") {
         }
       } catch (err) {
         if (active) {
-          setError(hasCachedItems ? "" : friendlyErrorMessage(err, "Unable to load connections."));
+          setError(hasCachedItems ? "" : inlineErrorMessage(err, "Unable to load connections."));
         }
       } finally {
         if (active) {

@@ -1,6 +1,6 @@
-import { legalConfig } from "../../config/legalConfig";
-import { policyChangelog } from "./policyChangelog";
-import { prohibitedProductGroups } from "./prohibitedProducts";
+import { legalConfig } from "../../config/legalConfig.js";
+import { policyChangelog } from "./policyChangelog.js";
+import { prohibitedProductGroups } from "./prohibitedProducts.js";
 
 const commonDates = {
   effectiveDate: legalConfig.effectiveDate,

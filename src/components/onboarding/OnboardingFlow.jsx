@@ -9,6 +9,7 @@ import InterestsStep from "./InterestsStep";
 import ReadyStep from "./ReadyStep";
 import { StepSlideTransition } from "../shared/motion";
 import { useI18n, t } from "../../i18n";
+import { inlineErrorMessage } from "../../Backend/services/friendlyErrorService";
 
 function normalizeProfile(profile) {
   const countryProfile = getActiveCountryProfile(profile?.country || profile?.countryCode);
@@ -157,7 +158,7 @@ export default function OnboardingFlow({ profile, onComplete }) {
       await persistStep(nextStep);
       setStep(nextStep);
     } catch (nextError) {
-      setError(nextError.message || t("onboarding.saveFailed"));
+      setError(inlineErrorMessage(nextError, t("onboarding.saveFailed")));
       setErrorCode(nextError.code || "");
     } finally {
       setSaving(false);
@@ -193,7 +194,7 @@ export default function OnboardingFlow({ profile, onComplete }) {
       });
     } catch (error) {
       setSaving(false);
-      setError(error.message || t("onboarding.completeFailed"));
+      setError(inlineErrorMessage(error, t("onboarding.completeFailed")));
       setErrorCode(error.code || "");
     }
   };

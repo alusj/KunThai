@@ -9,6 +9,7 @@ import {
   sendAiScreenMessage,
   useAiScreenVersion,
 } from "../../../Backend/services/ai/aiScreenContext";
+import { uiText as translateUi } from "../../../i18n/index.js";
 
 // KAI — cards for what KAI prepared on the open screen.
 //
@@ -51,7 +52,7 @@ function FillFormCard({ action, onDone }) {
       <dl className="divide-y divide-slate-100 px-3">
         {fields.slice(0, MAX_VISIBLE_FIELDS).map((field) => (
           <div key={field.key} className="flex gap-3 py-1.5 text-xs">
-            <dt className="w-2/5 flex-none truncate font-bold text-slate-500">{field.label}</dt>
+            <dt className="w-2/5 flex-none truncate font-bold text-slate-500">{translateUi(field.label)}</dt>
             <dd className="min-w-0 flex-1 break-words font-semibold text-slate-900">{field.display}</dd>
           </div>
         ))}
@@ -64,7 +65,7 @@ function FillFormCard({ action, onDone }) {
           <p className="font-black">{t("ai.chat.screen.skippedTitle")}</p>
           <ul className="mt-0.5 space-y-0.5">
             {skipped.slice(0, 6).map((item) => (
-              <li key={`${item.key}-${item.reason}`}>{item.label}: {item.reason}</li>
+              <li key={`${item.key}-${item.reason}`}>{translateUi(item.label)}: {translateUi(item.reason)}</li>
             ))}
           </ul>
         </div>
@@ -82,7 +83,7 @@ function FillFormCard({ action, onDone }) {
           {done ? state.message : t("ai.chat.screen.fillButton")}
         </button>
         {state.status === "error" ? (
-          <p role="alert" className="mt-1.5 text-center text-[11px] font-bold text-rose-700">{state.message}</p>
+          <p role="alert" className="mt-1.5 text-center text-[11px] font-bold text-rose-700">{translateUi(state.message)}</p>
         ) : (
           <p className="mt-1.5 text-center text-[10px] font-semibold text-slate-400">{t("ai.chat.screen.fillHint")}</p>
         )}
@@ -148,7 +149,7 @@ function SendMessageCard({ action, onDone }) {
           </button>
         ) : null}
       </div>
-      {state.status === "error" ? <p role="alert" className="mt-1.5 text-[11px] font-bold text-rose-700">{state.message}</p> : null}
+      {state.status === "error" ? <p role="alert" className="mt-1.5 text-[11px] font-bold text-rose-700">{translateUi(state.message)}</p> : null}
     </div>
   );
 }

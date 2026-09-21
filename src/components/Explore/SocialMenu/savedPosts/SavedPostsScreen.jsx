@@ -12,6 +12,7 @@ import SocialScreenHeader from "../shared/SocialScreenHeader";
 import CollectionPicker from "./CollectionPicker";
 import SavedFilters from "./SavedFilters";
 import SavedToolbar from "./SavedToolbar";
+import { uiText as translateUi } from "../../../../i18n/index.js";
 
 function searchableText(post) {
   return [post.body, post.author_name, post.author_username, ...(post.hashtags || [])].filter(Boolean).join(" ").toLowerCase();
@@ -65,8 +66,8 @@ export default function SavedPostsScreen({ currentUserId, hideHeader = false }) 
       {!hideHeader ? <SocialScreenHeader title={t("screens.SavedPostsTitle")} subtitle={t("screens.SavedPostsSubtitle")} /> : null}
 
       <div className="w-full space-y-4 px-4 py-4 sm:px-5">
-        {feed.error ? <ErrorState message={feed.error} onRetry={feed.reload} /> : null}
-        {swip.error ? <ErrorState message={swip.error} onRetry={swip.reload} /> : null}
+        {feed.error ? <ErrorState message={translateUi(feed.error)} onRetry={feed.reload} /> : null}
+        {swip.error ? <ErrorState message={translateUi(swip.error)} onRetry={swip.reload} /> : null}
 
         <SavedToolbar query={query} onCreateCollection={() => setCollectionOpen(true)} onQueryChange={setQuery} />
         <SavedFilters active={filter} collections={collections.collections} onChange={setFilter} />

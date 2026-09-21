@@ -40,6 +40,8 @@ import New from "./tabs/New";
 import Discounted from "./tabs/Discounted";
 import HighDemand from "./tabs/HighDemand";
 import TopRated from "./tabs/TopRated";
+import { uiText as translateUi } from "../../../i18n/index.js";
+import { inlineErrorMessage } from "../../../Backend/services/friendlyErrorService";
 
 const DEFAULT_FILTERS = {
   search: "",
@@ -278,7 +280,7 @@ export default function Browse({ activeTab = "new", onProductModeChange, onClose
         writeBrowseCatalogSnapshot(cacheKey, products);
         if (alive) setCatalog(products);
       } catch (err) {
-        if (alive) setError(hasExistingCatalog ? "" : err.message || t("urmall.browse.loadProductsFailed"));
+        if (alive) setError(hasExistingCatalog ? "" : inlineErrorMessage(err, t("urmall.browse.loadProductsFailed")));
       } finally {
         if (alive) {
           setLoading(false);
@@ -590,7 +592,7 @@ export default function Browse({ activeTab = "new", onProductModeChange, onClose
 
       {notice && (
         <div className="rounded-lg border border-emerald-100 bg-emerald-50 px-4 py-3 text-sm font-black text-emerald-800">
-          {notice}
+          {translateUi(notice)}
         </div>
       )}
 

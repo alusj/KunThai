@@ -11,6 +11,8 @@ import {
 } from "../../../../Backend/services/marketplace/verticalMediaValidation";
 import VideoTrimmerScreen from "../../../shared/VideoTrimmerScreen";
 import { useI18n, t } from "../../../../i18n";
+import { uiText as translateUi, useI18n as useUiLocale } from "../../../../i18n/index.js";
+import { inlineErrorMessage } from "../../../../Backend/services/friendlyErrorService";
 
 const MAX_VERTICAL_VIDEO_MB = Math.round(MAX_VERTICAL_VIDEO_BYTES / (1024 * 1024));
 
@@ -46,7 +48,7 @@ export default function VerticalMediaFields({ media, setMedia, accent = "emerald
         return;
       }
       setMedia((current) => ({ ...current, videoFile: null, videoDuration: 0 }));
-      setCaution(error.message);
+      setCaution(inlineErrorMessage(error));
     }
   }
 
@@ -138,10 +140,11 @@ export default function VerticalMediaFields({ media, setMedia, accent = "emerald
 }
 
 function MediaInput({ accept, detail, disabled = false, icon: Icon, label, multiple = false, onFiles }) {
+  useUiLocale();
   return (
     <label className={`rounded-xl border border-white/80 bg-white p-3 shadow-sm ${disabled ? "cursor-not-allowed opacity-75" : "cursor-pointer"}`}>
-      <span className="flex items-center gap-2 text-xs font-black text-gray-800"><Icon size={17} /> {label}</span>
-      <span className="mt-2 block truncate text-xs font-semibold text-gray-500">{detail}</span>
+      <span className="flex items-center gap-2 text-xs font-black text-gray-800"><Icon size={17} /> {translateUi(label)}</span>
+      <span className="mt-2 block truncate text-xs font-semibold text-gray-500">{translateUi(detail)}</span>
       <input
         type="file"
         accept={accept}

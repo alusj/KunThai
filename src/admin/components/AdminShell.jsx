@@ -44,6 +44,9 @@ import {
   undoAdminActivityAction,
   updateAdminActivityNotification,
 } from "../adminService";
+import { t as i18nText } from "../../i18n/index";
+import { uiText as translateUi, useI18n as useUiLocale } from "../../i18n/index.js";
+import { inlineErrorMessage } from "../../Backend/services/friendlyErrorService";
 
 const ICONS = {
   BadgeCheck,
@@ -89,6 +92,7 @@ function activityMenuButtonClass(danger = false) {
 }
 
 export default function AdminShell({ access, user, page, setPage, children, caseCount = 0, onActivity, onSearch }) {
+  useUiLocale();
   const [menuOpen, setMenuOpen] = useState(false);
   const [profileOpen, setProfileOpen] = useState(false);
   const [activityOpen, setActivityOpen] = useState(false);
@@ -113,7 +117,7 @@ export default function AdminShell({ access, user, page, setPage, children, case
     setActivityUndoDraft(null);
     getAdminActivityNotifications(20)
       .then(setActivity)
-      .catch((error) => setActivityError(error.message || "Unable to load activity."));
+      .catch((error) => setActivityError(inlineErrorMessage(error, "Unable to load activity.")));
   }, []);
 
   useEffect(() => {
@@ -206,7 +210,7 @@ export default function AdminShell({ access, user, page, setPage, children, case
       applyUndoResult(item, reason, result);
       setActivityUndoDraft(null);
     } catch (error) {
-      setActivityError(error.message || "Unable to undo this action.");
+      setActivityError(inlineErrorMessage(error, "Unable to undo this action."));
     } finally {
       setActivityActionBusy((current) => current === busyKey ? "" : current);
     }
@@ -226,7 +230,7 @@ export default function AdminShell({ access, user, page, setPage, children, case
       try {
         await markActivityReadLocal(item);
       } catch (error) {
-        setActivityError(error.message || "Unable to mark this notification as read.");
+        setActivityError(inlineErrorMessage(error, "Unable to mark this notification as read."));
       }
     }
     navigate(item.notification_type === "admin_action" && canOpenActivityAudit(item) ? "audit" : activityQueuePage(item));
@@ -295,7 +299,7 @@ export default function AdminShell({ access, user, page, setPage, children, case
         setActivityActionOpen("");
       }
     } catch (error) {
-      setActivityError(error.message || "Unable to complete this notification action.");
+      setActivityError(inlineErrorMessage(error, "Unable to complete this notification action."));
     } finally {
       setActivityActionBusy((current) => current === busyKey ? "" : current);
     }
@@ -309,7 +313,7 @@ export default function AdminShell({ access, user, page, setPage, children, case
       const readAt = new Date().toISOString();
       setActivity((current) => current.map((item) => item.read_at ? item : { ...item, read_at: readAt }));
     } catch (error) {
-      setActivityError(error.message || "Unable to mark notifications as read.");
+      setActivityError(inlineErrorMessage(error, "Unable to mark notifications as read."));
     }
   }
 
@@ -328,11 +332,11 @@ export default function AdminShell({ access, user, page, setPage, children, case
             <ShieldCheck size={20} aria-hidden="true" />
           </span>
           <span>
-            <span className="block text-sm font-black">KunThai Admin</span>
-            <span className="block text-[11px] font-semibold text-zinc-500">Operations workspace</span>
+            <span className="block text-sm font-black">{i18nText("ui.literals.ka8c3cf3bc0b5")}</span>
+            <span className="block text-[11px] font-semibold text-zinc-500">{i18nText("ui.literals.k456ba0e57682")}</span>
           </span>
         </button>
-        <button type="button" title="Close navigation" onClick={() => setMenuOpen(false)} className="grid h-9 w-9 place-items-center rounded-md text-zinc-400 hover:bg-zinc-800 hover:text-white lg:hidden">
+        <button type="button" title={i18nText("ui.literals.k917c4cbbc58f")} onClick={() => setMenuOpen(false)} className="grid h-9 w-9 place-items-center rounded-md text-zinc-400 hover:bg-zinc-800 hover:text-white lg:hidden">
           <X size={19} />
         </button>
       </div>
@@ -340,7 +344,7 @@ export default function AdminShell({ access, user, page, setPage, children, case
       <nav className="kuntai-scrollbar-none flex-1 overflow-y-auto px-3 py-4">
         {visibleGroups.map((group) => (
           <section key={group.label} className="mb-5">
-            <p className="mb-2 px-2 text-[10px] font-black uppercase text-zinc-500">{group.label}</p>
+            <p className="mb-2 px-2 text-[10px] font-black uppercase text-zinc-500">{translateUi(group.label)}</p>
             <div className="space-y-1">
               {group.items.map((item) => {
                 const Icon = ICONS[item.icon];
@@ -353,7 +357,7 @@ export default function AdminShell({ access, user, page, setPage, children, case
                     className={`flex h-10 w-full items-center gap-3 rounded-md px-2.5 text-left text-sm font-bold transition ${active ? "bg-white text-zinc-950" : "text-zinc-400 hover:bg-zinc-900 hover:text-white"}`}
                   >
                     <Icon size={18} aria-hidden="true" />
-                    <span className="flex-1 truncate">{item.label}</span>
+                    <span className="flex-1 truncate">{translateUi(item.label)}</span>
                     {item.id === "my-work" && caseCount > 0 ? (
                       <span className={`min-w-5 rounded-full px-1.5 py-0.5 text-center text-[10px] font-black ${active ? "bg-emerald-100 text-emerald-800" : "bg-zinc-800 text-zinc-300"}`}>{caseCount}</span>
                     ) : null}
@@ -367,8 +371,8 @@ export default function AdminShell({ access, user, page, setPage, children, case
 
       <div className="border-t border-zinc-800 p-3">
         <div className="rounded-lg bg-zinc-900 p-3">
-          <p className="truncate text-xs font-black text-white">{role?.name || "Administrator"}</p>
-          <p className="mt-1 text-[11px] font-semibold text-zinc-500">Authority level {access.authorityLevel || 1}</p>
+          <p className="truncate text-xs font-black text-white">{role?.name || i18nText("ui.literals.k1eda23758be9")}</p>
+          <p className="mt-1 text-[11px] font-semibold text-zinc-500">{i18nText("ui.literals.kebe4690f3c74")} {access.authorityLevel || 1}</p>
         </div>
       </div>
     </div>
@@ -379,14 +383,14 @@ export default function AdminShell({ access, user, page, setPage, children, case
       <aside className="fixed inset-y-0 left-0 z-40 hidden w-64 lg:block">{sidebar}</aside>
       {menuOpen ? (
         <div className="fixed inset-0 z-50 lg:hidden">
-          <button type="button" aria-label="Close navigation" onClick={() => setMenuOpen(false)} className="absolute inset-0 bg-zinc-950/45" />
+          <button type="button" aria-label={i18nText("ui.literals.k917c4cbbc58f")} onClick={() => setMenuOpen(false)} className="absolute inset-0 bg-zinc-950/45" />
           <aside className="relative h-full w-[min(18rem,88vw)] shadow-xl">{sidebar}</aside>
         </div>
       ) : null}
 
       <div className="lg:pl-64">
         <header className="sticky top-0 z-30 flex h-16 items-center gap-3 border-b border-zinc-200 bg-white px-3 sm:px-5">
-          <button type="button" title="Open navigation" onClick={() => setMenuOpen(true)} className="grid h-10 w-10 shrink-0 place-items-center rounded-md text-zinc-600 hover:bg-zinc-100 lg:hidden">
+          <button type="button" title={i18nText("ui.literals.k0f53b30706b1")} onClick={() => setMenuOpen(true)} className="grid h-10 w-10 shrink-0 place-items-center rounded-md text-zinc-600 hover:bg-zinc-100 lg:hidden">
             <Menu size={21} />
           </button>
 
@@ -395,21 +399,21 @@ export default function AdminShell({ access, user, page, setPage, children, case
             <input
               value={search}
               onChange={(event) => setSearch(event.target.value)}
-              placeholder="Search cases or users"
+              placeholder={i18nText("ui.literals.k5b9a6ac6cf48")}
               className="h-10 w-full rounded-lg border border-zinc-200 bg-zinc-50 pl-10 pr-3 text-sm font-semibold text-zinc-900 outline-none focus:border-emerald-600 focus:bg-white focus:ring-2 focus:ring-emerald-100"
             />
           </form>
 
           <div className="relative">
-            <button type="button" title="Admin activity" aria-expanded={activityOpen} onClick={() => { setActivityOpen((value) => !value); setProfileOpen(false); setActivityActionOpen(""); setActivityUndoDraft(null); }} className="relative grid h-10 w-10 shrink-0 place-items-center rounded-md border border-zinc-200 bg-white text-zinc-600 hover:bg-zinc-50 hover:text-zinc-950">
+            <button type="button" title={i18nText("ui.literals.k7eb27ec88a73")} aria-expanded={activityOpen} onClick={() => { setActivityOpen((value) => !value); setProfileOpen(false); setActivityActionOpen(""); setActivityUndoDraft(null); }} className="relative grid h-10 w-10 shrink-0 place-items-center rounded-md border border-zinc-200 bg-white text-zinc-600 hover:bg-zinc-50 hover:text-zinc-950">
               <BellRing size={18} />
               {unreadActivity ? <span className="absolute -right-1.5 -top-1.5 min-w-5 rounded-full bg-red-600 px-1 py-0.5 text-center text-[9px] font-black leading-4 text-white">{unreadActivity > 99 ? "99+" : unreadActivity}</span> : null}
             </button>
             {activityOpen ? (
               <section className="absolute right-0 top-12 w-[min(23rem,calc(100vw-1.5rem))] overflow-hidden rounded-lg border border-zinc-200 bg-white shadow-xl">
                 <header className="flex items-center justify-between gap-3 border-b border-zinc-100 px-4 py-3">
-                  <div><p className="text-sm font-black text-zinc-950">Admin activity</p><p className="mt-0.5 text-[11px] font-semibold text-zinc-500">{unreadActivity ? `${unreadActivity} unread` : "You're up to date"}</p></div>
-                  {unreadActivity ? <button type="button" onClick={markAllActivityRead} className="inline-flex h-8 items-center gap-1.5 rounded-md px-2 text-xs font-black text-emerald-700 hover:bg-emerald-50"><CheckCheck size={15} /> Read all</button> : null}
+                  <div><p className="text-sm font-black text-zinc-950">{i18nText("ui.literals.k7eb27ec88a73")}</p><p className="mt-0.5 text-[11px] font-semibold text-zinc-500">{unreadActivity ? i18nText("ui.literals.kae60f0c32038", { value0: unreadActivity }) : i18nText("ui.literals.k5fc15792a3b6")}</p></div>
+                  {unreadActivity ? <button type="button" onClick={markAllActivityRead} className="inline-flex h-8 items-center gap-1.5 rounded-md px-2 text-xs font-black text-emerald-700 hover:bg-emerald-50"><CheckCheck size={15} /> {i18nText("ui.literals.kd14d593883d4")}</button> : null}
                 </header>
                 {activityUndoDraft?.item ? (
                   <section className="border-b border-amber-100 bg-amber-50 px-4 py-3">
@@ -419,25 +423,25 @@ export default function AdminShell({ access, user, page, setPage, children, case
                       </span>
                       <div className="min-w-0 flex-1">
                         <div className="flex items-start justify-between gap-2">
-                          <p className="text-xs font-black text-amber-950">Undo admin action</p>
+                          <p className="text-xs font-black text-amber-950">{i18nText("ui.literals.k3ca30fe2a169")}</p>
                           <button type="button" disabled={undoBusy} onClick={() => setActivityUndoDraft(null)} className="grid h-6 w-6 shrink-0 place-items-center rounded-md text-amber-700 hover:bg-amber-100 disabled:opacity-50">
                             <X size={14} aria-hidden="true" />
                           </button>
                         </div>
-                        <p className="mt-0.5 line-clamp-2 text-[11px] font-semibold leading-4 text-amber-800">{activityUndoDraft.item.title}</p>
-                        <p className="mt-1 text-[11px] font-semibold leading-4 text-amber-800">Case claim/status changes reverse immediately. Other action types are sent for Chief/Super Admin review.</p>
+                        <p className="mt-0.5 line-clamp-2 text-[11px] font-semibold leading-4 text-amber-800">{translateUi(activityUndoDraft.item.title)}</p>
+                        <p className="mt-1 text-[11px] font-semibold leading-4 text-amber-800">{i18nText("ui.literals.kd953bee9e171")}</p>
                         <textarea
                           value={activityUndoDraft.reason}
                           onChange={(event) => setActivityUndoDraft((current) => current ? { ...current, reason: event.target.value } : current)}
                           rows={2}
                           maxLength={240}
-                          placeholder="Reason for undo"
+                          placeholder={i18nText("ui.literals.k8f6dc1795f1a")}
                           className="mt-2 w-full resize-none rounded-md border border-amber-200 bg-white px-2.5 py-2 text-xs font-semibold text-zinc-900 outline-none focus:border-amber-500 focus:ring-2 focus:ring-amber-100"
                         />
                         <div className="mt-2 flex justify-end gap-2">
-                          <button type="button" disabled={undoBusy} onClick={() => setActivityUndoDraft(null)} className="h-8 rounded-md px-2.5 text-xs font-black text-amber-800 hover:bg-amber-100 disabled:opacity-50">Cancel</button>
+                          <button type="button" disabled={undoBusy} onClick={() => setActivityUndoDraft(null)} className="h-8 rounded-md px-2.5 text-xs font-black text-amber-800 hover:bg-amber-100 disabled:opacity-50">{i18nText("ui.literals.k77dfd2135f4d")}</button>
                           <button type="button" disabled={undoBusy} onClick={submitActivityUndo} className="inline-flex h-8 items-center gap-1.5 rounded-md bg-amber-700 px-3 text-xs font-black text-white hover:bg-amber-800 disabled:opacity-60">
-                            <RotateCcw size={14} aria-hidden="true" /> {undoBusy ? "Undoing..." : "Confirm undo"}
+                            <RotateCcw size={14} aria-hidden="true" /> {undoBusy ? i18nText("ui.literals.kea99c4155595") : i18nText("ui.literals.kb8706ecb790e")}
                           </button>
                         </div>
                       </div>
@@ -456,18 +460,18 @@ export default function AdminShell({ access, user, page, setPage, children, case
                         <button type="button" onClick={() => openActivityItem(item)} className="flex min-w-0 flex-1 items-start gap-3 px-4 py-3 text-left hover:bg-zinc-50">
                           <span className={`mt-1 h-2 w-2 shrink-0 rounded-full ${item.read_at ? "bg-zinc-200" : "bg-emerald-600"}`} />
                           <span className="min-w-0 flex-1">
-                            <span className="block text-xs font-black text-zinc-900">{item.title}</span>
+                            <span className="block text-xs font-black text-zinc-900">{translateUi(item.title)}</span>
                             <span className="mt-1 line-clamp-2 block text-[11px] font-medium leading-4 text-zinc-600">{item.body}</span>
                             <span className="mt-1.5 flex flex-wrap items-center gap-2">
                               <span className="text-[10px] font-bold text-zinc-400">{formatRelativeTime(item.created_at)}</span>
-                              {statusMeta ? <span className={`rounded-full px-2 py-0.5 text-[10px] font-black ring-1 ${statusMeta.className}`}>{statusMeta.label}</span> : null}
+                              {statusMeta ? <span className={`rounded-full px-2 py-0.5 text-[10px] font-black ring-1 ${statusMeta.className}`}>{translateUi(statusMeta.label)}</span> : null}
                             </span>
                           </span>
                         </button>
                         <div className="relative mr-2 mt-2 shrink-0">
                           <button
                             type="button"
-                            aria-label="Open notification actions"
+                            aria-label={i18nText("ui.literals.kbcc322bdbbe2")}
                             aria-expanded={activityActionOpen === item.id}
                             onClick={(event) => {
                               event.stopPropagation();
@@ -482,43 +486,43 @@ export default function AdminShell({ access, user, page, setPage, children, case
                           {activityActionOpen === item.id ? (
                             <div className="absolute right-0 top-9 z-20 w-56 rounded-lg border border-zinc-200 bg-white p-1.5 shadow-xl">
                               <button type="button" disabled={menuBusy} onClick={(event) => handleActivityAction(event, item, "open")} className={activityMenuButtonClass()}>
-                                <ExternalLink size={15} aria-hidden="true" /> Open notification
+                                <ExternalLink size={15} aria-hidden="true" /> {i18nText("ui.literals.k3bc340680e83")}
                               </button>
                               {undoAllowed ? (
                                 <button type="button" disabled={menuBusy} onClick={(event) => handleActivityAction(event, item, "undo")} className={activityMenuButtonClass(true)}>
-                                  <RotateCcw size={15} aria-hidden="true" /> Undo action
+                                  <RotateCcw size={15} aria-hidden="true" /> {i18nText("ui.literals.k2682128cca7e")}
                                 </button>
                               ) : null}
                               {auditAllowed ? (
                                 <button type="button" disabled={menuBusy} onClick={(event) => handleActivityAction(event, item, "audit")} className={activityMenuButtonClass()}>
-                                  <Shield size={15} aria-hidden="true" /> {chiefOrSuper ? "Review in audit log" : "Open audit log"}
+                                  <Shield size={15} aria-hidden="true" /> {chiefOrSuper ? i18nText("ui.literals.k2e0dd0fd4902") : i18nText("ui.literals.kf387069cc244")}
                                 </button>
                               ) : null}
                               {item.case_id ? (
                                 <button type="button" disabled={menuBusy} onClick={(event) => handleActivityAction(event, item, "case")} className={activityMenuButtonClass()}>
-                                  <ExternalLink size={15} aria-hidden="true" /> Open related case
+                                  <ExternalLink size={15} aria-hidden="true" /> {i18nText("ui.literals.kd6f5119ea87c")}
                                 </button>
                               ) : null}
                               <div className="my-1 border-t border-zinc-100" />
                               {item.read_at ? (
                                 <button type="button" disabled={menuBusy} onClick={(event) => handleActivityAction(event, item, "unread")} className={activityMenuButtonClass()}>
-                                  <EyeOff size={15} aria-hidden="true" /> Mark unread
+                                  <EyeOff size={15} aria-hidden="true" /> {i18nText("ui.literals.k623bab0e0954")}
                                 </button>
                               ) : (
                                 <button type="button" disabled={menuBusy} onClick={(event) => handleActivityAction(event, item, "read")} className={activityMenuButtonClass()}>
-                                  <CheckCircle2 size={15} aria-hidden="true" /> Mark read
+                                  <CheckCircle2 size={15} aria-hidden="true" /> {i18nText("ui.literals.k3bf98fa618b6")}
                                 </button>
                               )}
                               <button type="button" disabled={menuBusy} onClick={(event) => handleActivityAction(event, item, "copy")} className={activityMenuButtonClass()}>
-                                <Copy size={15} aria-hidden="true" /> Copy details
+                                <Copy size={15} aria-hidden="true" /> {i18nText("ui.literals.ke42bc527d8ee")}
                               </button>
                               {chiefOrSuper && item.audit_log_id ? (
                                 <button type="button" disabled={menuBusy} onClick={(event) => handleActivityAction(event, item, "copy-audit")} className={activityMenuButtonClass()}>
-                                  <ScrollText size={15} aria-hidden="true" /> Copy audit ID
+                                  <ScrollText size={15} aria-hidden="true" /> {i18nText("ui.literals.k910b022a1025")}
                                 </button>
                               ) : null}
                               <button type="button" disabled={menuBusy} onClick={(event) => handleActivityAction(event, item, "archive")} className={activityMenuButtonClass()}>
-                                <Archive size={15} aria-hidden="true" /> Dismiss
+                                <Archive size={15} aria-hidden="true" /> {i18nText("ui.literals.k70afe9eff3f2")}
                               </button>
                             </div>
                           ) : null}
@@ -526,14 +530,14 @@ export default function AdminShell({ access, user, page, setPage, children, case
                       </article>
                     );
                   })}
-                  {!activity.length ? <div className="px-5 py-10 text-center text-xs font-semibold text-zinc-500">No admin activity notifications yet.</div> : null}
+                  {!activity.length ? <div className="px-5 py-10 text-center text-xs font-semibold text-zinc-500">{i18nText("ui.literals.kdad0d8f85b9b")}</div> : null}
                 </div>
                 {activityNotice ? <p className="border-t border-emerald-100 bg-emerald-50 px-4 py-2 text-[11px] font-bold text-emerald-800">{activityNotice}</p> : null}
                 {activityError ? <p className="border-t border-red-100 bg-red-50 px-4 py-2 text-[11px] font-bold text-red-700">{activityError}</p> : null}
                 <footer className="grid grid-cols-3 gap-2 border-t border-zinc-100 p-2">
-                  <button type="button" onClick={() => navigate("actions")} className="h-9 rounded-md text-xs font-black text-emerald-800 hover:bg-emerald-50">Action history</button>
-                  {canAccess(access, "audit.view") ? <button type="button" onClick={() => navigate("audit")} className="h-9 rounded-md text-xs font-black text-zinc-700 hover:bg-zinc-100">Audit log</button> : <span />}
-                  {canAccess(access, "notifications.view") ? <button type="button" onClick={() => navigate("notifications")} className="h-9 rounded-md text-xs font-black text-zinc-700 hover:bg-zinc-100">Campaigns</button> : null}
+                  <button type="button" onClick={() => navigate("actions")} className="h-9 rounded-md text-xs font-black text-emerald-800 hover:bg-emerald-50">{i18nText("ui.literals.k6280c77e3e0e")}</button>
+                  {canAccess(access, "audit.view") ? <button type="button" onClick={() => navigate("audit")} className="h-9 rounded-md text-xs font-black text-zinc-700 hover:bg-zinc-100">{i18nText("ui.literals.k3cfc5f1cc987")}</button> : <span />}
+                  {canAccess(access, "notifications.view") ? <button type="button" onClick={() => navigate("notifications")} className="h-9 rounded-md text-xs font-black text-zinc-700 hover:bg-zinc-100">{i18nText("ui.literals.k01a23a288f60")}</button> : null}
                 </footer>
               </section>
             ) : null}
@@ -544,17 +548,17 @@ export default function AdminShell({ access, user, page, setPage, children, case
               <span className="grid h-7 w-7 shrink-0 place-items-center rounded-md bg-emerald-100 text-xs font-black text-emerald-800">
                 {(user?.email || "A").slice(0, 1).toUpperCase()}
               </span>
-              <span className="hidden max-w-32 truncate text-xs font-black text-zinc-800 sm:block">{user?.email || "Chief Admin"}</span>
+              <span className="hidden max-w-32 truncate text-xs font-black text-zinc-800 sm:block">{user?.email || i18nText("ui.literals.kdef590acaaeb")}</span>
               <ChevronDown size={14} className="hidden text-zinc-400 sm:block" />
             </button>
             {profileOpen ? (
               <div className="absolute right-0 top-12 w-64 rounded-lg border border-zinc-200 bg-white p-2 shadow-lg">
                 <div className="border-b border-zinc-100 px-2 py-2">
-                  <p className="truncate text-sm font-black text-zinc-900">{user?.email || "Chief Admin Preview"}</p>
+                  <p className="truncate text-sm font-black text-zinc-900">{user?.email || i18nText("ui.literals.ka51a9ebc609d")}</p>
                   <p className="mt-1 text-xs font-semibold text-zinc-500">{role?.name}</p>
                 </div>
                 <button type="button" onClick={() => supabase.auth.signOut({ scope: "local" })} className="mt-1 flex h-10 w-full items-center gap-2 rounded-md px-2 text-sm font-bold text-red-700 hover:bg-red-50">
-                  <LogOut size={17} /> Sign out
+                  <LogOut size={17} /> {i18nText("ui.literals.kdc1649a16c14")}
                 </button>
               </div>
             ) : null}

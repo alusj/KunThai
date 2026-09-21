@@ -13,10 +13,12 @@ import { pauseOtherExploreMedia } from "../../../../shared/singleMediaPlayback";
 import { shouldSkipBrowserVideoProcessing } from "./composerUtils";
 import { t } from "../../../../../../i18n";
 import { t as i18nText } from "../../../../../../i18n/index";
+import { uiText as translateUi, useI18n as useUiLocale } from "../../../../../../i18n/index.js";
 
 const MAX_THUMBNAIL_FRAMES = 4;
 
 function RemoveButton({ onClick }) {
+  useUiLocale();
   return (
     <button
       type="button"
@@ -127,6 +129,7 @@ export default function MediaPreview({
   onEditVideo,
   onRemoveAudio,
 }) {
+  useUiLocale();
   const pendingVideoRef = useRef(null);
   const timelineRef = useRef(null);
   const dragRef = useRef(null);
@@ -308,7 +311,7 @@ export default function MediaPreview({
     <div className="space-y-4">
       {imagePreview ? (
         <div className="relative overflow-hidden rounded-[22px] border border-slate-200 bg-slate-100">
-          <img src={imagePreview} alt="Selected post attachment" className="max-h-[360px] w-full object-cover" />
+          <img src={imagePreview} alt={i18nText("ui.literals.k2f94baf80f2c")} className="max-h-[360px] w-full object-cover" />
           <RemoveButton onClick={onRemoveImage} />
         </div>
       ) : null}
@@ -514,7 +517,7 @@ export default function MediaPreview({
                   disabled={trimmingVideo}
                   className="kt-pressable h-10 rounded-full border border-white/18 bg-white/10 text-xs font-black text-white/85 backdrop-blur disabled:opacity-50"
                 >
-                  {label}
+                  {translateUi(label)}
                 </button>
               ))}
             </div>

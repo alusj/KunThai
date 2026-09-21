@@ -7,6 +7,8 @@ import {
 } from "../../../../../../../../../Backend/services/marketplace/sellerRegistrationService";
 import { useI18n, t } from "../../../../../../../../../i18n";
 import SellerMenuPageHeader from "../../SellerMenuPageHeader";
+import { uiText as translateUi } from "../../../../../../../../../i18n/index.js";
+import { inlineErrorMessage } from "../../../../../../../../../Backend/services/friendlyErrorService";
 
 const DAYS = [
   { key: "Mon", labelKey: "urmall.biz.settings.dayMon" },
@@ -57,7 +59,7 @@ export default function OperatingHours({ onBack }) {
         if (mounted) setForm(buildForm(business));
       })
       .catch((nextError) => {
-        if (mounted) setError(nextError.message || t("urmall.biz.settings.hoursLoadFailed"));
+        if (mounted) setError(inlineErrorMessage(nextError, t("urmall.biz.settings.hoursLoadFailed")));
       })
       .finally(() => {
         if (mounted) setLoading(false);
@@ -125,7 +127,7 @@ export default function OperatingHours({ onBack }) {
       setForm(buildForm(updated));
       setStatus(t("urmall.biz.settings.hoursUpdated"));
     } catch (nextError) {
-      setError(nextError.message || t("urmall.biz.settings.hoursUpdateFailed"));
+      setError(inlineErrorMessage(nextError, t("urmall.biz.settings.hoursUpdateFailed")));
     } finally {
       setSaving(false);
     }
@@ -273,12 +275,12 @@ export default function OperatingHours({ onBack }) {
 
           {error ? (
             <p className="rounded-xl border border-red-200 bg-red-50 px-4 py-3 text-sm font-bold text-red-700">
-              {error}
+              {translateUi(error)}
             </p>
           ) : null}
           {status ? (
             <p className="rounded-xl border border-emerald-200 bg-emerald-50 px-4 py-3 text-sm font-bold text-emerald-700">
-              {status}
+              {translateUi(status)}
             </p>
           ) : null}
 

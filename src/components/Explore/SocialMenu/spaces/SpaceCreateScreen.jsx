@@ -10,6 +10,8 @@ import { showToast } from "../../../../Backend/services/toastService";
 import { scrollToFirstBlockingFieldSoon } from "../../../shared/formValidationNavigation";
 import Avatar from "../../shared/Avatar";
 import { t as i18nText } from "../../../../i18n/index";
+import { uiText as translateUi, useI18n as useUiLocale } from "../../../../i18n/index.js";
+import { inlineErrorMessage } from "../../../../Backend/services/friendlyErrorService";
 
 const INITIAL_FORM = {
   name: "",
@@ -34,6 +36,7 @@ function fileToDataUrl(file) {
 }
 
 export default function SpaceCreateScreen({ hideHeader = false, onCreated }) {
+  useUiLocale();
   const [form, setForm] = useState(INITIAL_FORM);
   const [fieldErrors, setFieldErrors] = useState({});
   const [saving, setSaving] = useState(false);
@@ -76,7 +79,7 @@ export default function SpaceCreateScreen({ hideHeader = false, onCreated }) {
     try {
       updateField(field, await fileToDataUrl(file));
     } catch (error) {
-      setFeedback(error.message || i18nText("ui.literals.k46fb4c1c6a09"));
+      setFeedback(inlineErrorMessage(error, i18nText("ui.literals.k46fb4c1c6a09")));
     } finally {
       event.target.value = "";
     }
@@ -103,7 +106,7 @@ export default function SpaceCreateScreen({ hideHeader = false, onCreated }) {
       onCreated?.(created);
       setForm(INITIAL_FORM);
     } catch (error) {
-      setFeedback(error.message || i18nText("ui.literals.kfc2284587edd"));
+      setFeedback(inlineErrorMessage(error, i18nText("ui.literals.kfc2284587edd")));
     } finally {
       setSaving(false);
     }
@@ -191,7 +194,7 @@ export default function SpaceCreateScreen({ hideHeader = false, onCreated }) {
               className="h-12 w-full rounded-2xl bg-slate-100 px-4 text-sm font-bold text-slate-900 outline-none focus:ring-2 focus:ring-sky-200"
             >
               {SPACE_CATEGORIES.map((category) => (
-                <option key={category.id} value={category.id}>{category.label}</option>
+                <option key={category.id} value={category.id}>{translateUi(category.label)}</option>
               ))}
             </select>
           </Field>
@@ -256,7 +259,7 @@ export default function SpaceCreateScreen({ hideHeader = false, onCreated }) {
           </div>
         </div>
 
-        {feedback ? <p className="mt-3 text-sm font-bold text-rose-600">{feedback}</p> : null}
+        {feedback ? <p className="mt-3 text-sm font-bold text-rose-600">{translateUi(feedback)}</p> : null}
 
         <button
           type="submit"
@@ -271,11 +274,12 @@ export default function SpaceCreateScreen({ hideHeader = false, onCreated }) {
 }
 
 function Field({ children, className = "", error, label }) {
+  useUiLocale();
   return (
     <label className={`block ${className}`} data-field-error={error ? "true" : undefined}>
-      <span className="mb-2 block text-xs font-black uppercase tracking-[0.14em] text-slate-500">{label}</span>
+      <span className="mb-2 block text-xs font-black uppercase tracking-[0.14em] text-slate-500">{translateUi(label)}</span>
       {children}
-      {error ? <span className="mt-2 block text-xs font-black text-rose-600" role="alert">{error}</span> : null}
+      {error ? <span className="mt-2 block text-xs font-black text-rose-600" role="alert">{translateUi(error)}</span> : null}
     </label>
   );
 }

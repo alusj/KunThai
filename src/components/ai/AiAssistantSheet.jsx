@@ -30,6 +30,8 @@ import {
 } from "../../Backend/services/ai/aiActionCatalog";
 import { aiSurfaceLabel } from "../../Backend/services/ai/aiSurfaceService";
 import useBodyScrollLock from "../shared/useBodyScrollLock";
+import { uiText as translateUi, useI18n as useUiLocale } from "../../i18n/index.js";
+import { inlineErrorMessage } from "../../Backend/services/friendlyErrorService";
 
 // KAI — the shared assistant sheet.
 //
@@ -47,6 +49,7 @@ import useBodyScrollLock from "../shared/useBodyScrollLock";
 //   topic        -> one suggested topic from the list the screen supplied
 
 function SheetButton({ onClick, children, tone = "ghost", disabled = false, title = "" }) {
+  useUiLocale();
   const tones = {
     ghost: "border-slate-200 bg-white text-slate-700 hover:bg-slate-50",
     primary: "border-transparent bg-slate-900 text-white hover:bg-slate-800",
@@ -57,7 +60,7 @@ function SheetButton({ onClick, children, tone = "ghost", disabled = false, titl
       type="button"
       onClick={onClick}
       disabled={disabled}
-      title={title}
+      title={translateUi(title)}
       className={`inline-flex items-center gap-1.5 rounded-full border px-3 py-1.5 text-xs font-bold transition disabled:cursor-not-allowed disabled:opacity-50 ${tones[tone] || tones.ghost}`}
     >
       {children}
@@ -66,6 +69,7 @@ function SheetButton({ onClick, children, tone = "ghost", disabled = false, titl
 }
 
 function ThinkingLines() {
+  useUiLocale();
   return (
     <div className="space-y-2" aria-hidden="true">
       {[100, 92, 70].map((width, index) => (
@@ -138,7 +142,7 @@ export default function AiAssistantSheet({ open, request, onClose }) {
       try {
         screenInput = (await request.buildInput(task)) || {};
       } catch (error) {
-        setPrepareError(error?.message || t("ai.prepareFailed"));
+        setPrepareError(inlineErrorMessage(error, t("ai.prepareFailed")));
         return;
       } finally {
         setPreparing(false);
@@ -363,7 +367,7 @@ export default function AiAssistantSheet({ open, request, onClose }) {
                       }}
                       className="inline-flex items-center gap-1 rounded-full border border-indigo-200 bg-indigo-50 px-3 py-1.5 text-xs font-bold text-indigo-800 transition hover:bg-indigo-100"
                     >
-                      {action.label}
+                      {translateUi(action.label)}
                       <CornerDownLeft size={11} className="rotate-180" />
                     </button>
                   ))}

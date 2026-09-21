@@ -13,6 +13,7 @@ import { useSellerInsights } from "../../../../../Backend/hooks/useSellerInsight
 import { useI18n, t } from "../../../../../i18n";
 import AnimatedMetricValue from "./AnimatedMetricValue";
 import AiAssistButton from "../../../../ai/AiAssistButton";
+import { uiText as translateUi, useI18n as useUiLocale } from "../../../../../i18n/index.js";
 
 const TONES = {
   sky: "bg-sky-500/15 text-sky-300 ring-sky-400/15",
@@ -22,6 +23,7 @@ const TONES = {
 };
 
 function InsightTile({ delay = 0, detail, icon: Icon, label, tone, value }) {
+  useUiLocale();
   return (
     <article
       className="kt-catalog-insight-tile group relative min-h-[172px] overflow-hidden rounded-[24px] border border-white/10 bg-white/[0.055] p-4 shadow-[0_18px_50px_rgba(2,6,23,0.18)] transition-all duration-300 hover:-translate-y-1 hover:border-white/20 hover:bg-white/[0.075]"
@@ -32,13 +34,14 @@ function InsightTile({ delay = 0, detail, icon: Icon, label, tone, value }) {
         <Icon size={20} strokeWidth={2.2} />
       </span>
       <AnimatedMetricValue value={value} className="relative mt-6 block truncate text-[1.75rem] font-black leading-none text-white" />
-      <p className="relative mt-2 text-[11px] font-black uppercase tracking-[0.18em] text-slate-400">{label}</p>
-      {detail ? <p className="relative mt-2 truncate text-xs font-semibold text-slate-500">{detail}</p> : null}
+      <p className="relative mt-2 text-[11px] font-black uppercase tracking-[0.18em] text-slate-400">{translateUi(label)}</p>
+      {detail ? <p className="relative mt-2 truncate text-xs font-semibold text-slate-500">{translateUi(detail)}</p> : null}
     </article>
   );
 }
 
 function ProductJourney({ signal }) {
+  useUiLocale();
   const views = Number(signal?.views || 0);
   const orders = Number(signal?.orders || 0);
   const max = Math.max(1, views);
@@ -63,7 +66,7 @@ function ProductJourney({ signal }) {
         {rows.map((row, index) => (
           <div key={row.label}>
             <div className="flex items-center justify-between gap-3 text-xs font-bold text-slate-400">
-              <span>{row.label}</span>
+              <span>{translateUi(row.label)}</span>
               <AnimatedMetricValue value={row.value} className="font-black text-white" />
             </div>
             <div className="mt-2 h-2.5 overflow-hidden rounded-full bg-white/[0.07]">
@@ -75,12 +78,13 @@ function ProductJourney({ signal }) {
           </div>
         ))}
       </div>
-      {signal?.reason ? <p className="mt-4 rounded-xl bg-amber-400/10 px-3 py-2.5 text-xs font-semibold leading-5 text-amber-100/80">{signal.reason}</p> : null}
+      {signal?.reason ? <p className="mt-4 rounded-xl bg-amber-400/10 px-3 py-2.5 text-xs font-semibold leading-5 text-amber-100/80">{translateUi(signal.reason)}</p> : null}
     </section>
   );
 }
 
 function DiscoveryDetails({ searchTerms, trafficSources }) {
+  useUiLocale();
   if (!trafficSources.length && !searchTerms.length) return null;
 
   return (
@@ -112,6 +116,7 @@ function DiscoveryDetails({ searchTerms, trafficSources }) {
 }
 
 function InsightsSkeleton() {
+  useUiLocale();
   return (
     <section className="rounded-[28px] bg-slate-950 p-4 sm:p-5" aria-busy="true">
       <div className="h-28 animate-pulse rounded-[22px] bg-white/[0.06]" />

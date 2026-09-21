@@ -1,7 +1,9 @@
 import { createElement } from "react";
 import { HiOutlineChevronRight } from "react-icons/hi2";
+import { uiText as translateUi, useI18n as useUiLocale } from "../../../../../i18n/index.js";
 
 export default function MenuActionButton({ description = "", icon, label, tone = "default", onClick }) {
+  useUiLocale();
   const toneClass =
     tone === "danger"
       ? "text-rose-700 hover:bg-rose-50"
@@ -20,8 +22,8 @@ export default function MenuActionButton({ description = "", icon, label, tone =
         {createElement(icon, { className: "text-xl" })}
       </span>
       <span className="min-w-0 flex-1">
-        <span className="block text-sm font-black sm:text-base">{label}</span>
-        {description ? <span className="mt-0.5 block text-xs font-semibold leading-5 text-slate-500">{description}</span> : null}
+        <span className="block text-sm font-black sm:text-base">{translateUi(label)}</span>
+        {description ? <span className="mt-0.5 block text-xs font-semibold leading-5 text-slate-500">{translateUi(description)}</span> : null}
       </span>
       <HiOutlineChevronRight className="flex-none text-lg text-slate-300 transition group-hover:translate-x-0.5 group-hover:text-sky-600" />
     </button>

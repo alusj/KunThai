@@ -1,5 +1,6 @@
 import { formatCurrency } from "../../../../../Backend/utils/formatCurrency";
 import { useI18n, t } from "../../../../../i18n";
+import { uiText as translateUi } from "../../../../../i18n/index.js";
 
 export default function ProductPreview({ preview }) {
   useI18n();
@@ -17,7 +18,7 @@ export default function ProductPreview({ preview }) {
               <p className="mt-1 text-sm font-bold text-gray-500">{preview.category}</p>
             </div>
             <span className="rounded-full bg-gray-100 px-2.5 py-1 text-xs font-black capitalize text-gray-700">
-              {preview.status}
+              {translateUi(preview.status)}
             </span>
           </div>
           <p className="mt-3 text-sm font-medium leading-5 text-gray-600">{preview.description}</p>

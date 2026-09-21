@@ -2,6 +2,7 @@ import { CheckCircle2, ChevronRight } from "lucide-react";
 import { useState } from "react";
 
 import { useI18n, t } from "../../../../../i18n";
+import { uiText as translateUi } from "../../../../../i18n/index.js";
 
 export default function HealthScoreCard({ health, onEditProfile }) {
   useI18n();
@@ -14,7 +15,7 @@ export default function HealthScoreCard({ health, onEditProfile }) {
       <div className="pointer-events-none absolute -right-16 -top-20 h-44 w-44 rounded-full bg-emerald-100/60 blur-3xl" aria-hidden="true" />
       <div className="flex items-start justify-between gap-4">
         <div className="relative">
-          <p className="text-xs font-black uppercase tracking-[0.14em] text-emerald-700">{health.label}</p>
+          <p className="text-xs font-black uppercase tracking-[0.14em] text-emerald-700">{translateUi(health.label)}</p>
           <p className="mt-1 text-3xl font-black text-gray-950">
             {health.score}%
           </p>

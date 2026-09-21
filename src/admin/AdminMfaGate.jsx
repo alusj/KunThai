@@ -1,8 +1,12 @@
 import { useEffect, useState } from "react";
 import { KeyRound, LoaderCircle, LockKeyhole, ShieldCheck } from "lucide-react";
 import supabase from "../Backend/lib/supabaseClient";
+import { t as i18nText } from "../i18n/index";
+import { uiText as translateUi, useI18n as useUiLocale } from "../i18n/index.js";
+import { inlineErrorMessage } from "../Backend/services/friendlyErrorService";
 
 export default function AdminMfaGate({ children, bypass = false }) {
+  useUiLocale();
   const [state, setState] = useState({
     loading: !bypass,
     verified: bypass,
@@ -27,7 +31,7 @@ export default function AdminMfaGate({ children, bypass = false }) {
 
       if (assurance.error) {
         setState((current) => ({ ...current, loading: false, mode: "error" }));
-        setError(assurance.error.message || "Unable to check multi-factor authentication.");
+        setError(assurance.error.message || i18nText("ui.literals.ke745804883bd"));
         return;
       }
 
@@ -47,7 +51,7 @@ export default function AdminMfaGate({ children, bypass = false }) {
 
       if (factors.error) {
         setState((current) => ({ ...current, loading: false, mode: "error" }));
-        setError(factors.error.message || "Unable to list MFA factors.");
+        setError(factors.error.message || i18nText("ui.literals.ke6ff96dd54f2"));
         return;
       }
 
@@ -112,7 +116,7 @@ export default function AdminMfaGate({ children, bypass = false }) {
       });
 
       if (result.error) {
-        setError(result.error.message || "Unable to start MFA setup.");
+        setError(result.error.message || i18nText("ui.literals.k17001bf06622"));
         return;
       }
 
@@ -125,7 +129,7 @@ export default function AdminMfaGate({ children, bypass = false }) {
         secret: result.data.totp.secret,
       }));
     } catch (e) {
-      setError(e.message || "Unable to reset MFA setup.");
+      setError(inlineErrorMessage(e, i18nText("ui.literals.k39049fc6b3a4")));
     } finally {
       setBusy(false);
     }
@@ -143,7 +147,7 @@ export default function AdminMfaGate({ children, bypass = false }) {
     });
 
     if (result.error) {
-      setError(result.error.message || "The verification code was not accepted.");
+      setError(result.error.message || i18nText("ui.literals.kf114e1754ae7"));
     } else {
       setState((current) => ({
         ...current,
@@ -165,20 +169,20 @@ export default function AdminMfaGate({ children, bypass = false }) {
         </span>
 
         <h1 className="mt-6 text-2xl font-black text-zinc-950">
-          Security verification
+          {i18nText("ui.literals.k99aa38c83a8f")}
         </h1>
 
         {state.loading ? (
           <div className="mt-6 flex items-center gap-3 text-sm font-semibold text-zinc-600">
             <LoaderCircle className="animate-spin" size={18} />
-            Checking your admin security…
+            {i18nText("ui.literals.k568f03b5277b")}
           </div>
         ) : null}
 
         {state.mode === "enroll" ? (
           <div className="mt-4">
             <p className="text-sm font-medium leading-6 text-zinc-600">
-              Admin accounts require an authenticator app before the workspace can open.
+              {i18nText("ui.literals.k268f9e52a612")}
             </p>
 
             <button
@@ -192,7 +196,7 @@ export default function AdminMfaGate({ children, bypass = false }) {
               ) : (
                 <ShieldCheck size={18} />
               )}
-              Set up authenticator
+              {i18nText("ui.literals.k4555ecd3e5d5")}
             </button>
           </div>
         ) : null}
@@ -200,13 +204,13 @@ export default function AdminMfaGate({ children, bypass = false }) {
         {state.mode === "verify-enrollment" ? (
           <div className="mt-5">
             <p className="text-sm font-medium leading-6 text-zinc-600">
-              Scan this code in your authenticator app, then enter the six-digit code.
+              {i18nText("ui.literals.kcae14cc79b3c")}
             </p>
 
             <div className="mx-auto mt-5 w-fit rounded-lg border border-zinc-200 bg-white p-3">
               <img
                 src={state.qr}
-                alt="Authenticator setup QR code"
+                alt={i18nText("ui.literals.k552a45476146")}
                 className="h-44 w-44"
               />
             </div>
@@ -221,7 +225,7 @@ export default function AdminMfaGate({ children, bypass = false }) {
           <div className="mt-6 space-y-4">
             <label className="block">
               <span className="mb-2 block text-sm font-bold text-zinc-800">
-                Authenticator code
+                {i18nText("ui.literals.k2908b4e9c428")}
               </span>
 
               <input
@@ -246,7 +250,7 @@ export default function AdminMfaGate({ children, bypass = false }) {
               ) : (
                 <KeyRound size={18} />
               )}
-              Verify and continue
+              {i18nText("ui.literals.k882666b4379f")}
             </button>
           </div>
         ) : null}
@@ -256,7 +260,7 @@ export default function AdminMfaGate({ children, bypass = false }) {
             role="alert"
             className="mt-4 rounded-lg border border-red-200 bg-red-50 px-3 py-2 text-sm font-semibold text-red-700"
           >
-            {error}
+            {translateUi(error)}
           </p>
         ) : null}
       </section>

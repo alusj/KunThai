@@ -31,6 +31,9 @@ import {
   getPersonalServiceCategoryOptions,
 } from "../../../data/globalTransportCapabilities";
 import { useI18n, t } from "../../../i18n";
+import { t as i18nText } from "../../../i18n/index";
+import { uiText as translateUi, useI18n as useUiLocale } from "../../../i18n/index.js";
+import { inlineErrorMessage } from "../../../Backend/services/friendlyErrorService";
 
 // Stored enum values stay English (saved on the account + compared); display is
 // localized via urride.fleetEdit.enum.<value>.
@@ -147,7 +150,7 @@ export default function FleetEditDrawer({ account, onBack, onSaved }) {
       return;
     }
     if (fleetImageCount < fleetImageRequirements.length) {
-      setError("Upload the required front, back, left-side, and right-side fleet images before saving.");
+      setError(i18nText("ui.literals.k26ee703afde4"));
       const mediaIndex = sections.findIndex((section) => section.key === "documents");
       if (mediaIndex >= 0) setOpenIndex(mediaIndex);
       return;
@@ -172,7 +175,7 @@ export default function FleetEditDrawer({ account, onBack, onSaved }) {
       setSavedIndex(index);
       window.setTimeout(() => setSavedIndex((current) => (current === index ? -1 : current)), 2600);
     } catch (saveError) {
-      setError(saveError.message || t("urride.fleetEdit.saveError"));
+      setError(inlineErrorMessage(saveError, t("urride.fleetEdit.saveError")));
     } finally {
       setSavingIndex(-1);
     }
@@ -394,7 +397,7 @@ export default function FleetEditDrawer({ account, onBack, onSaved }) {
         </p>
 
         {error ? (
-          <p className="rounded-xl border border-red-200 bg-red-50 px-4 py-3 text-sm font-bold text-red-700">{error}</p>
+          <p className="rounded-xl border border-red-200 bg-red-50 px-4 py-3 text-sm font-bold text-red-700">{translateUi(error)}</p>
         ) : null}
 
         {sections.map((section, index) => {
@@ -410,10 +413,10 @@ export default function FleetEditDrawer({ account, onBack, onSaved }) {
                 <div className="min-w-0">
                   <h2 className="flex items-center gap-2 text-lg font-black text-gray-950">
                     <section.icon size={17} className="text-green-700" />
-                    {section.title}
+                    {translateUi(section.title)}
                   </h2>
                   {open ? null : (
-                    <p className="mt-1 line-clamp-2 text-sm font-medium text-gray-600">{section.summary}</p>
+                    <p className="mt-1 line-clamp-2 text-sm font-medium text-gray-600">{translateUi(section.summary)}</p>
                   )}
                   {savedIndex === index ? (
                     <p className="mt-1 inline-flex items-center gap-1 text-xs font-black text-emerald-600">
@@ -467,26 +470,28 @@ export default function FleetEditDrawer({ account, onBack, onSaved }) {
 }
 
 function FormInput({ label, value, onChange, type = "text", placeholder = "", helper = "", ...props }) {
+  useUiLocale();
   return (
     <label className="block">
-      <span className="mb-2 block text-sm font-semibold text-gray-800">{label}</span>
+      <span className="mb-2 block text-sm font-semibold text-gray-800">{translateUi(label)}</span>
       <input
         {...props}
         type={type}
         value={value ?? ""}
-        placeholder={placeholder}
+        placeholder={translateUi(placeholder)}
         onChange={(event) => onChange(event.target.value)}
         className="h-12 w-full rounded-2xl border border-gray-200 bg-gray-50 px-4 text-sm font-medium outline-none transition placeholder:text-gray-400 focus:border-green-500 focus:bg-white focus:ring-4 focus:ring-green-100"
       />
-      {helper ? <span className="mt-2 block text-xs font-medium leading-5 text-gray-500">{helper}</span> : null}
+      {helper ? <span className="mt-2 block text-xs font-medium leading-5 text-gray-500">{translateUi(helper)}</span> : null}
     </label>
   );
 }
 
 function SelectField({ label, options, value, onChange, helper = "", optionLabels }) {
+  useUiLocale();
   return (
     <label className="block">
-      <span className="mb-2 block text-sm font-semibold text-gray-800">{label}</span>
+      <span className="mb-2 block text-sm font-semibold text-gray-800">{translateUi(label)}</span>
       <select
         value={value ?? ""}
         onChange={(event) => onChange(event.target.value)}
@@ -494,15 +499,16 @@ function SelectField({ label, options, value, onChange, helper = "", optionLabel
       >
         {!value ? <option value="">{t("urride.fleetEdit.selectPlaceholder", { label: String(label).toLowerCase() })}</option> : null}
         {options.map((option) => (
-          <option key={option} value={option}>{optionLabels ? optionLabels(option) : option}</option>
+          <option key={option} value={option}>{optionLabels ? optionLabels(option) : translateUi(option)}</option>
         ))}
       </select>
-      {helper ? <span className="mt-2 block text-xs font-medium leading-5 text-gray-500">{helper}</span> : null}
+      {helper ? <span className="mt-2 block text-xs font-medium leading-5 text-gray-500">{translateUi(helper)}</span> : null}
     </label>
   );
 }
 
 function UploadField({ label, value, onChange }) {
+  useUiLocale();
   const selectedName = typeof value === "string" ? value : value?.fileName || value?.name || "";
   return (
     <label className="block cursor-pointer rounded-2xl border border-dashed border-gray-300 bg-gray-50 px-4 py-4 transition hover:border-green-300 hover:bg-green-50">
@@ -512,7 +518,7 @@ function UploadField({ label, value, onChange }) {
           <FiCamera size={18} />
         </span>
         <span className="min-w-0">
-          <span className="block text-sm font-semibold text-gray-900">{label}</span>
+          <span className="block text-sm font-semibold text-gray-900">{translateUi(label)}</span>
           <span className="block truncate text-xs text-gray-500">{selectedName || t("urride.fleetEdit.uploadPhoto")}</span>
         </span>
       </span>
@@ -521,9 +527,10 @@ function UploadField({ label, value, onChange }) {
 }
 
 function ReviewRow({ label, value }) {
+  useUiLocale();
   return (
     <div className="flex flex-col gap-1 rounded-2xl border border-gray-100 px-4 py-3 sm:flex-row sm:items-center sm:justify-between">
-      <span className="text-sm text-gray-500">{label}</span>
+      <span className="text-sm text-gray-500">{translateUi(label)}</span>
       <span className="break-words text-sm font-semibold text-gray-900 sm:text-right">{value}</span>
     </div>
   );

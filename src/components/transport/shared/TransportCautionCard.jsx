@@ -3,6 +3,7 @@ import { BadgeCheck, Building2, BusFront, Clock, FileText, ShieldAlert, Truck, U
 import { useI18n, t } from "../../../i18n";
 import PlanStagesCard from "../../shared/PlanStagesCard";
 import CautionFeatureGuide from "../../shared/CautionFeatureGuide";
+import { uiText as translateUi, useI18n as useUiLocale } from "../../../i18n/index.js";
 
 const VERIFICATION_GUIDES = [
   { icon: FileText, titleKey: "urride.caution.v1Title", bodyKey: "urride.caution.v1Body" },
@@ -79,6 +80,7 @@ export default function TransportCautionCard({ showMenuNote = true }) {
 }
 
 function Guide({ body, icon: Icon, title, tone = "slate" }) {
+  useUiLocale();
   const iconClass = tone === "emerald" ? "bg-emerald-50 text-emerald-700" : "bg-slate-50 text-emerald-700";
 
   return (
@@ -86,7 +88,7 @@ function Guide({ body, icon: Icon, title, tone = "slate" }) {
       <span className={`grid h-10 w-10 place-items-center rounded-xl ${iconClass}`}>
         <Icon size={19} />
       </span>
-      <h3 className="mt-3 font-black text-slate-950">{title}</h3>
+      <h3 className="mt-3 font-black text-slate-950">{translateUi(title)}</h3>
       <p className="mt-2 text-xs font-semibold leading-5 text-slate-600">{body}</p>
     </article>
   );

@@ -69,7 +69,7 @@ export default function ProductDeliveryReviewStep({ productForm }) {
             </p>
           ) : null}
           {form.details.sellingUnit ? (
-            <p>Supply terms: minimum {form.details.minimumOrderQuantity || 1} {form.details.sellingUnit}(s){form.details.packSize ? ` · ${form.details.packSize}` : ""}{form.details.leadTimeDays !== "" ? ` · ${form.details.leadTimeDays} day lead time` : ""}</p>
+            <p>{i18nText("ui.literals.k27432572eb4b")} {form.details.minimumOrderQuantity || 1} {form.details.sellingUnit}(s){form.details.packSize ? ` · ${form.details.packSize}` : ""}{form.details.leadTimeDays !== "" ? i18nText("ui.literals.k15162c61288e", { value0: form.details.leadTimeDays }) : ""}</p>
           ) : null}
           {tierPricing.length ? (
             <p>

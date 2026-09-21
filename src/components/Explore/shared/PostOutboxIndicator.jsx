@@ -10,12 +10,15 @@ import {
   listOutboxRecords,
   retryOutboxRecord,
 } from "../../../Backend/services/explore/postOutbox";
+import { t as i18nText } from "../../../i18n/index";
+import { useI18n as useUiLocale } from "../../../i18n/index.js";
 
 // A small, self-contained status chip for posts waiting in the outbox. Shows a
 // "Posting…" state while items retry, and a "didn't send" state with Retry /
 // Discard once an item gives up. Renders nothing when the queue is empty, and
 // is a no-op entirely when the outbox is disabled.
 export default function PostOutboxIndicator() {
+  useUiLocale();
   const [records, setRecords] = useState([]);
 
   useEffect(() => {
@@ -61,10 +64,10 @@ export default function PostOutboxIndicator() {
             </span>
             <div className="min-w-0 flex-1">
               <p className="text-sm font-black text-slate-900 dark:text-white">
-                {failed.length} post{failed.length > 1 ? "s" : ""} didn’t send
+                {failed.length} {i18nText("ui.literals.k9b466094ec99")}{failed.length > 1 ? "s" : ""} {i18nText("ui.literals.k735ff7f04bc9")}
               </p>
               <p className="mt-0.5 text-xs font-semibold leading-5 text-slate-500 dark:text-slate-400">
-                Your draft is safe. Retry when your connection is better.
+                {i18nText("ui.literals.kaa8fcb15564c")}
               </p>
               <div className="mt-2 flex gap-2">
                 <button
@@ -72,14 +75,14 @@ export default function PostOutboxIndicator() {
                   onClick={() => failed.forEach((record) => retryOutboxRecord(record.id))}
                   className="inline-flex items-center gap-1.5 rounded-full bg-slate-900 px-3 py-1.5 text-xs font-black text-white transition hover:bg-slate-800 dark:bg-white dark:text-slate-900 dark:hover:bg-slate-100"
                 >
-                  <RotateCcw size={13} strokeWidth={2.5} /> Retry {failed.length > 1 ? "all" : ""}
+                  <RotateCcw size={13} strokeWidth={2.5} /> {i18nText("ui.literals.k9f5cd8a2e880")} {failed.length > 1 ? i18nText("ui.literals.kd87c448044de") : ""}
                 </button>
                 <button
                   type="button"
                   onClick={() => failed.forEach((record) => discardOutboxRecord(record.id))}
                   className="inline-flex items-center gap-1.5 rounded-full border border-slate-300 px-3 py-1.5 text-xs font-black text-slate-600 transition hover:bg-slate-50 dark:border-slate-600 dark:text-slate-300 dark:hover:bg-slate-800"
                 >
-                  <X size={13} strokeWidth={2.5} /> Discard
+                  <X size={13} strokeWidth={2.5} /> {i18nText("ui.literals.k36fff63ccbcd")}
                 </button>
               </div>
             </div>
@@ -91,10 +94,10 @@ export default function PostOutboxIndicator() {
             </span>
             <div className="min-w-0 flex-1">
               <p className="text-sm font-black text-slate-900 dark:text-white">
-                Posting{active.length > 1 ? ` ${active.length} posts` : ""}…
+                {i18nText("ui.literals.kb5bb5e2a722d")}{active.length > 1 ? i18nText("ui.literals.k33da985b97f9", { value0: active.length }) : ""}…
               </p>
               <p className="mt-0.5 text-xs font-semibold leading-5 text-slate-500 dark:text-slate-400">
-                We’ll finish automatically when your connection is ready.
+                {i18nText("ui.literals.k6f94b2dd2e19")}
               </p>
             </div>
           </div>

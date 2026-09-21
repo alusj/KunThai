@@ -20,6 +20,7 @@ import { resizedImageUrl } from "../../../../../Backend/lib/imageProxy";
 import { useI18n, t } from "../../../../../i18n";
 import AppPortal from "../../../../shared/AppPortal";
 import ProductStatusBadge from "./ProductStatusBadge";
+import { uiText as translateUi, useI18n as useUiLocale } from "../../../../../i18n/index.js";
 
 const PRODUCT_MENU_ANIMATION_MS = 180;
 const PRODUCT_MENU_WIDTH = 224;
@@ -282,15 +283,17 @@ export default function ProductManagementRow({ product, onAction, onViewProduct,
 }
 
 function Metric({ label, value }) {
+  useUiLocale();
   return (
     <div className="min-w-0 rounded-xl bg-gray-50 px-2.5 py-2">
-      <p className="truncate text-[10px] font-black uppercase tracking-wide text-gray-400">{label}</p>
+      <p className="truncate text-[10px] font-black uppercase tracking-wide text-gray-400">{translateUi(label)}</p>
       <p className="mt-0.5 truncate text-sm font-black text-gray-950">{value}</p>
     </div>
   );
 }
 
 function MenuAction({ icon: Icon, label, onClick, tone = "default", badge = null }) {
+  useUiLocale();
   return (
     <button
       type="button"
@@ -304,7 +307,7 @@ function MenuAction({ icon: Icon, label, onClick, tone = "default", badge = null
       ].join(" ")}
     >
       {createElement(Icon, { size: 17 })}
-      <span className="truncate">{label}</span>
+      <span className="truncate">{translateUi(label)}</span>
       {badge ? (
         <span className="ml-auto inline-flex items-center gap-1 rounded-full bg-emerald-100 px-1.5 py-0.5 text-[10px] font-black uppercase tracking-wide text-emerald-700">
           {createElement(Lock, { size: 10, strokeWidth: 2.6 })}

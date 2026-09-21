@@ -42,6 +42,8 @@ import { getNetworkStatus } from "../../Backend/services/networkService";
 import { showToast } from "../../Backend/services/toastService";
 import { useI18n, t } from "../../i18n";
 import { t as i18nText } from "../../i18n/index";
+import { uiText as translateUi } from "../../i18n/index.js";
+import { inlineErrorMessage } from "../../Backend/services/friendlyErrorService";
 
 // Session-lived cache of the operator/company accounts, mirroring UrMall's
 // SELLER_HEADER_MEMORY. Re-entering UrRide then paints the header from this
@@ -420,7 +422,7 @@ export default function Transport({
       setOperatorInviteStatus("");
     } catch (error) {
       if (!/sign in/i.test(error.message || "")) {
-        setOperatorInviteStatus(error.message || t("urride.transport.status.invitesLoadError"));
+        setOperatorInviteStatus(inlineErrorMessage(error, t("urride.transport.status.invitesLoadError")));
       }
     } finally {
       setOperatorInviteLoading(false);
@@ -473,7 +475,7 @@ export default function Transport({
           return;
         }
       } catch (error) {
-        setOperatorInviteStatus(error.message || "Unable to check company access. Please try again.");
+        setOperatorInviteStatus(inlineErrorMessage(error, "Unable to check company access. Please try again."));
         return;
       }
     }
@@ -503,7 +505,7 @@ export default function Transport({
       if (refreshedAccount) setOperatorAccount(refreshedAccount);
       setOperatorInviteDocumentsInvite(updatedInvite);
     } catch (error) {
-      setOperatorInviteStatus(error.message || t("urride.transport.status.acceptError"));
+      setOperatorInviteStatus(inlineErrorMessage(error, t("urride.transport.status.acceptError")));
       await recoverCompanyAccessPrompt(invite, error);
     }
   }
@@ -535,7 +537,7 @@ export default function Transport({
       await refreshOperatorCompanyInvites(operatorAccount);
       setOperatorInviteStatus(t("urride.transport.status.reuseAccepted"));
     } catch (error) {
-      setOperatorInviteStatus(error.message || t("urride.transport.status.continueDocsError"));
+      setOperatorInviteStatus(inlineErrorMessage(error, t("urride.transport.status.continueDocsError")));
       await recoverCompanyAccessPrompt(documentReuseInvite, error);
     }
   }
@@ -558,7 +560,7 @@ export default function Transport({
       });
       await refreshOperatorCompanyInvites(operatorAccount);
     } catch (error) {
-      setOperatorInviteStatus(error.message || t("urride.transport.status.declineError"));
+      setOperatorInviteStatus(inlineErrorMessage(error, t("urride.transport.status.declineError")));
     }
   }
 
@@ -574,7 +576,7 @@ export default function Transport({
       removeOperatorInvite(completedInvite);
       setOperatorInviteStatus("");
     } catch (error) {
-      setOperatorInviteStatus(error.message || t("urride.transport.status.dismissError"));
+      setOperatorInviteStatus(inlineErrorMessage(error, t("urride.transport.status.dismissError")));
     }
   }
 
@@ -632,7 +634,7 @@ export default function Transport({
         const invites = await getOperatorCompanyInvites(account).catch(() => []);
         setOperatorCompanyInvites(invites);
       } catch (error) {
-        setOperatorInviteStatus(error.message || t("urride.transport.status.registerUpdateError"));
+        setOperatorInviteStatus(inlineErrorMessage(error, t("urride.transport.status.registerUpdateError")));
       } finally {
         setRegistrationInvite(null);
       }
@@ -664,7 +666,7 @@ export default function Transport({
       setRouteDirection("forward");
       setCompanyWorkspaceStatus("");
     } catch (error) {
-      setCompanyWorkspaceStatus(error.message || t("urride.transport.status.openDashboardError"));
+      setCompanyWorkspaceStatus(inlineErrorMessage(error, t("urride.transport.status.openDashboardError")));
     }
   }
 
@@ -1653,7 +1655,7 @@ function OperatorInviteDocumentsScreen({ invite, onBack, onSkip, onSubmit }) {
       setStatus("");
       await onSubmit?.(invite, documents);
     } catch (error) {
-      setStatus(error.message || t("urride.transport.docs.submitError"));
+      setStatus(inlineErrorMessage(error, t("urride.transport.docs.submitError")));
     } finally {
       setSubmitting(false);
     }
@@ -1728,7 +1730,7 @@ function OperatorInviteDocumentsScreen({ invite, onBack, onSkip, onSubmit }) {
 
         {status ? (
           <p className="mt-4 rounded-2xl border border-amber-200 bg-amber-50 px-4 py-3 text-sm font-bold text-amber-800">
-            {status}
+            {translateUi(status)}
           </p>
         ) : null}
 
@@ -1850,7 +1852,7 @@ function CompanyOperatorInvitePanel({ invites, loading, status, onAccept, onComp
 
       {status ? (
         <div className="mt-3 rounded-2xl border border-blue-100 bg-blue-50 px-4 py-3 text-sm font-bold leading-6 text-blue-800">
-          {status}
+          {translateUi(status)}
         </div>
       ) : null}
 
@@ -1899,7 +1901,7 @@ function CompanyOperatorInviteCard({ invite, onAccept, onCompleteRegistration, o
           </p>
         </div>
         <span className={`inline-flex h-8 items-center rounded-full px-3 text-xs font-black ${statusTone}`}>
-          {statusLabel}
+          {translateUi(statusLabel)}
         </span>
       </div>
       <p className="mt-3 text-sm font-semibold leading-6 text-slate-600">

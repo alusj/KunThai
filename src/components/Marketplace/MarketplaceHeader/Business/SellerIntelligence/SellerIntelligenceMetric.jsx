@@ -1,4 +1,5 @@
 import AnimatedMetricValue from "../BusinessInsights/AnimatedMetricValue";
+import { uiText as translateUi, useI18n as useUiLocale } from "../../../../../i18n/index.js";
 
 export default function SellerIntelligenceMetric({
   icon: Icon,
@@ -9,6 +10,7 @@ export default function SellerIntelligenceMetric({
   delayMs = 0,
   onClick,
 }) {
+  useUiLocale();
   const tones = {
     gray: "bg-gray-100 text-gray-700",
     blue: "bg-blue-50 text-blue-700",
@@ -32,7 +34,7 @@ export default function SellerIntelligenceMetric({
     >
       {active ? <span className="kt-intelligence-active-glow pointer-events-none absolute inset-0 bg-gradient-to-br from-emerald-50/80 via-transparent to-sky-50/70" aria-hidden="true" /> : null}
       <div className="relative flex items-center justify-between gap-3">
-        <p className="text-sm font-bold text-gray-500">{label}</p>
+        <p className="text-sm font-bold text-gray-500">{translateUi(label)}</p>
         <span className={`kt-intelligence-icon flex h-10 w-10 items-center justify-center rounded-xl transition-transform duration-300 group-hover:scale-105 ${active ? "kt-intelligence-icon-active" : ""} ${tones[tone]}`}>
           <Icon size={18} strokeWidth={2.3} />
         </span>

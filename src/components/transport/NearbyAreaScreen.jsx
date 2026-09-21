@@ -52,7 +52,7 @@ import { getEmergencyContacts } from "../../data/emergencyContacts";
 import { isMapFleetTypeVisible } from "../../data/globalTransportCapabilities";
 import { haptics } from "../../Backend/services/feedbackService";
 import { showToast } from "../../Backend/services/toastService";
-import { getNetworkStatus, subscribeToNetworkStatus, suppressGlobalNetworkToasts } from "../../Backend/services/networkService";
+import { getNetworkStatus } from "../../Backend/services/networkService";
 import { cacheAreaViewData, readAreaViewCache } from "../../Backend/services/areaViewCacheService";
 import {
   dismissAreaViewGuide,
@@ -67,6 +67,7 @@ import EmergencySheet from "../emergency/EmergencySheet";
 import { isLateRouteHour } from "./areaViewSafety";
 import { useI18n, t } from "../../i18n";
 import { t as i18nText } from "../../i18n/index";
+import { uiText as translateUi, useI18n as useUiLocale } from "../../i18n/index.js";
 
 const DROP_PIN_CARD_REVEAL_DELAY_MS = 4_000;
 
@@ -250,12 +251,13 @@ function getFriendlyLocationError(error, fallback) {
 }
 
 function MapCardCollapseButton({ className = "", collapsed, label, onClick }) {
+  useUiLocale();
   return (
     <button
       type="button"
       onClick={onClick}
       className={`kt-pressable flex h-12 w-12 flex-none items-center justify-center rounded-full border-2 border-slate-300 bg-white/95 text-xl font-black text-slate-950 shadow-lg backdrop-blur ${className}`}
-      aria-label={label}
+      aria-label={translateUi(label)}
     >
       {collapsed ? <FiChevronUp strokeWidth={3.2} /> : <FiChevronDown strokeWidth={3.2} />}
     </button>
@@ -975,7 +977,7 @@ export default function NearbyAreaScreen({
   // place or planning a trip. It never states fares, ETAs or routes itself.
   useAiScreen(() => ({
     id: "urride-area-view",
-    title: "UrRide Area View (map)",
+    title: i18nText("ui.literals.k840fdb9f2304"),
     describe: () => [
       isBusinessLocationPicker
         ? "The person is picking an exact location on the map for a business or address (Locate me, or Drop a pin and confirm)."
@@ -1276,59 +1278,6 @@ export default function NearbyAreaScreen({
 
     return () => window.clearTimeout(timer);
   }, [liveLocations, liveOperators, liveReports, recentSearches, trafficSnapshots, weatherCache]);
-
-  // Area View leans heavily on the network (map tiles, search, routing), so it
-  // gives the traveller a clear heads-up when the connection is missing or
-  // weak, and confirms when it recovers. Only meaningful transitions toast, so
-  // the card is not spammed while the connection stays steady.
-  useEffect(() => {
-    if (!active || isSpecialMode) return undefined;
-
-    // While Area View is mounted, its contextual toasts replace the global
-    // App-shell network toast so the traveller never sees both at once.
-    const releaseGlobalSuppression = suppressGlobalNetworkToasts();
-
-    let previousOnline = getNetworkStatus().online;
-    let previousUnstable = getNetworkStatus().unstable;
-
-    function announce({ online, unstable }, initial = false) {
-      if (!online) {
-        if (initial || previousOnline) {
-          showToast(t("urride.areaView.netOffline"), "warning", {
-            title: t("urride.areaView.toastAreaView"),
-            duration: 4200,
-            origin: false,
-          });
-        }
-      } else if (previousOnline === false) {
-        showToast(t("urride.areaView.netBackOnline"), "success", {
-          title: t("urride.areaView.toastAreaView"),
-          duration: 2600,
-          origin: false,
-        });
-      } else if (unstable && (initial || !previousUnstable)) {
-        showToast(t("urride.areaView.netSlow"), "warning", {
-          title: t("urride.areaView.toastAreaView"),
-          duration: 4200,
-          origin: false,
-        });
-      }
-
-      previousOnline = online;
-      previousUnstable = unstable;
-    }
-
-    // Announce a bad starting state immediately so a traveller who opens Area
-    // View already offline is not left staring at a blank map.
-    const initialStatus = getNetworkStatus();
-    if (!initialStatus.online || initialStatus.unstable) announce(initialStatus, true);
-
-    const unsubscribe = subscribeToNetworkStatus(announce);
-    return () => {
-      unsubscribe();
-      releaseGlobalSuppression();
-    };
-  }, [active, isSpecialMode]);
 
   useEffect(() => {
     if (!isBusinessLocationPicker) return;
@@ -1703,6 +1652,13 @@ export default function NearbyAreaScreen({
 
     loadLiveAreaData();
 
+    // Reconnecting refreshes the live area — including the first load, which
+    // is skipped when Area View opens offline and would otherwise never run.
+    const reloadOnReconnect = () => {
+      if (mounted) loadLiveAreaData();
+    };
+    window.addEventListener("online", reloadOnReconnect);
+
     const unsubscribe = subscribeToAreaViewLiveData({
       onLocations: (locations) => mounted && setLiveLocations(locations),
       onOperators: (operators) => mounted && publishLiveOperators(operators),
@@ -1721,6 +1677,7 @@ export default function NearbyAreaScreen({
 
     return () => {
       mounted = false;
+      window.removeEventListener("online", reloadOnReconnect);
       unsubscribe?.();
       unsubscribeReviews?.();
     };
@@ -2601,6 +2558,7 @@ export default function NearbyAreaScreen({
 }
 
 function AreaViewFirstUseGuide({ dontShowAgain, onDontShowAgainChange, onEmergencySupport, onConfirm }) {
+  useUiLocale();
   const lateRouteWarningActive = isLateRouteHour();
 
   return (
@@ -2715,6 +2673,7 @@ function AreaViewFirstUseGuide({ dontShowAgain, onDontShowAgainChange, onEmergen
 }
 
 function OneKmPreviewChrome({ onBack, onDone, backLabel, ready, previewState }) {
+  useUiLocale();
   const { collapsed, toggle } = useAutoCollapseCard({
     resetKey: ready ? "one-km-ready" : "one-km-waiting",
   });
@@ -2732,7 +2691,7 @@ function OneKmPreviewChrome({ onBack, onDone, backLabel, ready, previewState }) 
         <div className="pointer-events-auto flex items-center gap-3 rounded-3xl bg-white/95 px-3 py-2 text-slate-950 shadow-xl backdrop-blur sm:max-w-md">
           <AppBackTab
             onBack={onBack}
-            label={backLabel}
+            label={translateUi(backLabel)}
             historyKey="transport-one-km-preview"
             useHistoryLayer={false}
             enableSwipe={false}
@@ -2800,6 +2759,7 @@ function BusinessLocationPickerChrome({
   collapseSignal = 0,
   expandSignal = 0,
 }) {
+  useUiLocale();
   const isDropPin = mode === "dropPin";
   const coordinateCode = currentLocation?.coordinateCode || formatCoordinateCode(currentLocation);
   const coordinates = coordinateCode || currentLocation?.coordinatesLabel || formatCoordinatesLabel(currentLocation);
@@ -2827,7 +2787,7 @@ function BusinessLocationPickerChrome({
         <div className="pointer-events-auto flex items-center gap-3 rounded-3xl bg-white/95 px-3 py-2 text-slate-950 shadow-xl backdrop-blur sm:max-w-lg">
           <AppBackTab
             onBack={onBack}
-            label={labels.backLabel}
+            label={translateUi(labels.backLabel)}
             historyKey={labels.historyKey}
             useHistoryLayer={false}
             enableSwipe={false}
@@ -2890,7 +2850,7 @@ function BusinessLocationPickerChrome({
             </div>
           ) : null}
           {isDropPin && status ? (
-            <p className="mt-3 rounded-2xl bg-blue-50 px-3 py-2 text-xs font-black text-blue-700">{status}</p>
+            <p className="mt-3 rounded-2xl bg-blue-50 px-3 py-2 text-xs font-black text-blue-700">{translateUi(status)}</p>
           ) : null}
           <div className="mt-4 grid gap-2 sm:grid-cols-2">
             {isDropPin ? (
@@ -2948,6 +2908,7 @@ function SearchOverlay({
   recentSearches = [],
   onDeleteRecentSearch,
 }) {
+  useUiLocale();
   return (
     <div className="fixed inset-0 z-[1400] bg-slate-950/70 backdrop-blur-sm">
       <section className="mx-auto flex h-full w-full max-w-2xl flex-col bg-white text-slate-950 shadow-2xl sm:mt-4 sm:h-[calc(100vh-2rem)] sm:rounded-3xl">
@@ -3016,7 +2977,7 @@ function SearchOverlay({
                         </span>
                         <span className="min-w-0 flex-1">
                           <span className="block truncate text-sm font-black text-slate-950">
-                            {label}
+                            {translateUi(label)}
                           </span>
                           <span className="block truncate text-xs font-bold text-slate-500">
                             {item.place_address || t("urride.areaView.recentFallback")}
@@ -3101,6 +3062,7 @@ function SearchOverlay({
 }
 
 const MapPinButton = memo(function MapPinButton({ location, active, onSelect }) {
+  useUiLocale();
   if (!location?.position) return null;
 
   const isEmergency = location.category === "Emergency";
@@ -3120,6 +3082,7 @@ const MapPinButton = memo(function MapPinButton({ location, active, onSelect }) 
   );
 });
 function LocationPanel({ activeLocation, countryCode, open, onClose, onAddLocation, onGetDirections }) {
+  useUiLocale();
   const statusKey = locationStatusStyles[activeLocation?.status] ? activeLocation.status : "community";
   const status = locationStatusStyles[statusKey];
   const statusLabel = STATUS_LABEL_KEYS[statusKey] ? t(STATUS_LABEL_KEYS[statusKey]) : status.label;
@@ -3157,7 +3120,7 @@ function LocationPanel({ activeLocation, countryCode, open, onClose, onAddLocati
 
       <div className="mt-3 flex flex-wrap items-center gap-2">
         <span className={`rounded-full border px-2.5 py-1 text-xs font-bold ${status.className}`}>
-          {statusLabel}
+          {translateUi(statusLabel)}
         </span>
       </div>
 
@@ -3190,7 +3153,7 @@ function LocationPanel({ activeLocation, countryCode, open, onClose, onAddLocati
         <div className="grid gap-2">
           {emergencyContacts.map((contact) => (
             <div key={contact.id} className="flex items-center justify-between rounded-2xl bg-slate-50 px-3 py-2">
-              <span className="text-sm font-semibold text-slate-700">{contact.label}</span>
+              <span className="text-sm font-semibold text-slate-700">{translateUi(contact.label)}</span>
               <span className="flex items-center gap-1 text-xs font-bold text-slate-500">
                 <FiPhone size={13} />
                 {contact.value}
@@ -3204,6 +3167,7 @@ function LocationPanel({ activeLocation, countryCode, open, onClose, onAddLocati
 }
 
 function AreaLocationReviewNotice({ notice, onDismiss, onView }) {
+  useUiLocale();
   if (!notice) return null;
 
   const approved = notice.status === "approved";
@@ -3226,7 +3190,7 @@ function AreaLocationReviewNotice({ notice, onDismiss, onView }) {
           <div className="flex items-start justify-between gap-3">
             <div className="min-w-0">
               <p className="text-xs font-black uppercase tracking-wide text-slate-400">{t("urride.areaView.reviewTitle")}</p>
-              <h2 className="mt-1 text-lg font-black">{title}</h2>
+              <h2 className="mt-1 text-lg font-black">{translateUi(title)}</h2>
             </div>
             <button
               type="button"
@@ -3238,7 +3202,7 @@ function AreaLocationReviewNotice({ notice, onDismiss, onView }) {
             </button>
           </div>
 
-          <p className="mt-2 text-sm font-semibold leading-5 text-slate-200">{message}</p>
+          <p className="mt-2 text-sm font-semibold leading-5 text-slate-200">{translateUi(message)}</p>
           <p className="mt-2 truncate text-sm font-black text-white">{notice.name}</p>
           {notice.reason ? (
             <p className="mt-2 rounded-2xl bg-white/10 px-3 py-2 text-xs font-bold leading-5 text-slate-200">
@@ -3284,6 +3248,7 @@ function AddLocationPanel({
   onSubmit,
   status,
 }) {
+  useUiLocale();
   const category = draft.category || addCategories[0];
   const selectedLocationLabel = formatCoordinateCode(draft) || draft.coordinatesLabel || formatCoordinatesLabel(draft);
   const hasSelectedLocation = Number.isFinite(Number(draft.lat)) && Number.isFinite(Number(draft.lng));
@@ -3353,7 +3318,7 @@ function AddLocationPanel({
           <div className={`mb-4 rounded-2xl border px-4 py-3 text-sm font-bold leading-6 ${
             hasSelectedLocation ? "border-green-100 bg-green-50 text-green-800" : "border-amber-100 bg-amber-50 text-amber-800"
           }`}>
-            {status}
+            {translateUi(status)}
           </div>
         ) : null}
 
@@ -3526,11 +3491,12 @@ function AddLocationPanel({
   );
 }
 function FormInput({ label, onChange, placeholder, value }) {
+  useUiLocale();
   return (
     <label className="block">
-      <span className="mb-2 block text-sm font-bold text-slate-700">{label}</span>
+      <span className="mb-2 block text-sm font-bold text-slate-700">{translateUi(label)}</span>
       <input
-        placeholder={placeholder}
+        placeholder={translateUi(placeholder)}
         value={value || ""}
         onChange={(event) => onChange?.(event.target.value)}
         className="h-12 w-full rounded-2xl border border-slate-200 bg-slate-50 px-3 text-sm font-semibold outline-none placeholder:text-slate-400"

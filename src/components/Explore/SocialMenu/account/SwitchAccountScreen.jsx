@@ -16,12 +16,15 @@ import {
 import { useI18n } from "../../../../i18n";
 import { t as i18nText } from "../../../../i18n/index";
 import { resizedImageUrl } from "../../../../Backend/lib/imageProxy";
+import { uiText as translateUi, useI18n as useUiLocale } from "../../../../i18n/index.js";
+import { inlineErrorMessage } from "../../../../Backend/services/friendlyErrorService";
 
 function getIdentifier(account = {}) {
   return account.identifier || account.email || account.phone || "";
 }
 
 function AccountAvatar({ account, active }) {
+  useUiLocale();
   if (account.avatarUrl) {
     return <img src={resizedImageUrl(account.avatarUrl, { width: 96, quality: 70 })} alt="" className="h-12 w-12 rounded-2xl object-cover" />;
   }
@@ -70,7 +73,7 @@ export default function SwitchAccountScreen({ currentProfile = {}, user = null }
         setStatus(t("switchAccount.sessionExpired"));
       }
     } catch (error) {
-      setStatus(error.message || i18nText("ui.literals.k435fff56c883"));
+      setStatus(inlineErrorMessage(error, i18nText("ui.literals.k435fff56c883")));
     }
   }
 
@@ -79,7 +82,7 @@ export default function SwitchAccountScreen({ currentProfile = {}, user = null }
       setStatus(i18nText("ui.literals.kb9412f771503"));
       await signOutSocialSession();
     } catch (error) {
-      setStatus(error.message || i18nText("ui.literals.k2719ccab4f15"));
+      setStatus(inlineErrorMessage(error, i18nText("ui.literals.k2719ccab4f15")));
     }
   }
 
@@ -91,7 +94,7 @@ export default function SwitchAccountScreen({ currentProfile = {}, user = null }
         <p className="mt-2 text-sm font-semibold leading-6 text-slate-600">
           {t("switchAccount.subtitle")}
         </p>
-        {status ? <p className="mt-3 rounded-2xl bg-sky-50 px-4 py-3 text-sm font-black text-sky-700">{status}</p> : null}
+        {status ? <p className="mt-3 rounded-2xl bg-sky-50 px-4 py-3 text-sm font-black text-sky-700">{translateUi(status)}</p> : null}
       </section>
 
       <section className="grid gap-3">

@@ -2,6 +2,8 @@ import { useCallback, useEffect, useState } from "react";
 
 import { t } from "../../../i18n";
 import { loadCountryRegions } from "../../../Backend/services/regions/regionService";
+import { isConnectionFailure } from "../../../Backend/services/friendlyErrorService";
+import { announceConnectionTrouble, whenOnline } from "../../../Backend/services/networkService";
 
 // Translate a database label ("District", "States"…) when a translation exists.
 export function regionLabel(label) {
@@ -22,11 +24,22 @@ export function useCountryRegions(country) {
       return undefined;
     }
     setState((current) => ({ ...current, status: "loading", error: "" }));
+    let cancelRetry = () => {};
     loadCountryRegions(country, { force: attempt > 0 })
       .then((index) => alive && setState({ status: "ready", index, error: "" }))
-      .catch((error) => alive && setState({ status: "error", index: null, error: error?.message || "error" }));
+      .catch((error) => {
+        if (!alive) return;
+        // Offline is not a broken list: stay in the loading state (the global
+        // network toast explains the wait) and load again once reconnected.
+        if (isConnectionFailure(error) && announceConnectionTrouble()) {
+          cancelRetry = whenOnline(() => setAttempt((value) => value + 1));
+          return;
+        }
+        setState({ status: "error", index: null, error: error?.message || "error" });
+      });
     return () => {
       alive = false;
+      cancelRetry();
     };
   }, [country, attempt]);
 

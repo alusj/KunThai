@@ -25,6 +25,7 @@ import {
   mapSurfacePlatformNotification,
 } from "../../Backend/services/surfaceNotificationModels";
 import { openUnifiedNotification } from "../../Backend/services/unifiedNotificationService";
+import { uiText as translateUi, useI18n as useUiLocale } from "../../i18n/index.js";
 
 const BANNER_EXIT_MS = 280;
 const BANNER_DURATION_MS = 6000;
@@ -66,6 +67,7 @@ function messagePreview(row) {
 }
 
 export default function NotificationBannerHost({ userId = "" }) {
+  useUiLocale();
   const [items, setItems] = useState([]);
   const timersRef = useRef(new Map());
   const cooldownRef = useRef(new Map());
@@ -281,7 +283,7 @@ export default function NotificationBannerHost({ userId = "" }) {
                 )}
               </span>
               <span className="min-w-0 flex-1">
-                <span className="block truncate text-sm font-black text-slate-950">{item.title}</span>
+                <span className="block truncate text-sm font-black text-slate-950">{translateUi(item.title)}</span>
                 {item.body ? <span className="kuntai-break mt-0.5 block text-sm font-semibold leading-5 text-slate-600">{item.body}</span> : null}
                 {item.onOpen ? (
                   <span className="mt-1.5 inline-block text-xs font-black uppercase tracking-wide text-sky-700">{item.openLabel}</span>

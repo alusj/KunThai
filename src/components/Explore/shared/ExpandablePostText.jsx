@@ -2,6 +2,7 @@ import { useEffect, useRef, useState } from "react";
 
 import LinkifiedText from "./LinkifiedText";
 import { t } from "../../../i18n";
+import { useI18n as useUiLocale } from "../../../i18n/index.js";
 
 export default function ExpandablePostText({
   text = "",
@@ -9,6 +10,7 @@ export default function ExpandablePostText({
   textClassName = "",
   controlClassName = "text-sky-700",
 }) {
+  useUiLocale();
   const [expanded, setExpanded] = useState(false);
   const [expandable, setExpandable] = useState(false);
   const textRef = useRef(null);

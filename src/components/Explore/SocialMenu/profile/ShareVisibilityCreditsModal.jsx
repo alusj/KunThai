@@ -12,6 +12,8 @@ import { useI18n } from "../../../../i18n";
 import CenteredModal from "../../../shared/CenteredModal";
 import KunThaiIdHelpButton from "../../../shared/KunThaiIdHelpButton";
 import Avatar from "../../shared/Avatar";
+import { uiText as translateUi } from "../../../../i18n/index.js";
+import { inlineErrorMessage } from "../../../../Backend/services/friendlyErrorService";
 
 const EMPTY_RECIPIENT = null;
 
@@ -98,7 +100,7 @@ export default function ShareVisibilityCreditsModal({
       } catch (error) {
         if (requestIdRef.current !== requestId) return;
         setLookupState("error");
-        setMessage(error.message || t("profile.unableCheckId"));
+        setMessage(inlineErrorMessage(error, t("profile.unableCheckId")));
       }
     }, 320);
 
@@ -115,7 +117,7 @@ export default function ShareVisibilityCreditsModal({
       await onTransfer?.(recipient.publicId || kunThaiId, numericAmount);
       onClose?.();
     } catch (error) {
-      setMessage(error.message || t("profile.unableShareCredits"));
+      setMessage(inlineErrorMessage(error, t("profile.unableShareCredits")));
     } finally {
       setSubmitting(false);
     }
@@ -235,7 +237,7 @@ export default function ShareVisibilityCreditsModal({
           </>
         )}
 
-        {message && lookupState !== "error" ? <p className="mt-3 rounded-2xl bg-rose-50 px-4 py-3 text-xs font-bold text-rose-700">{message}</p> : null}
+        {message && lookupState !== "error" ? <p className="mt-3 rounded-2xl bg-rose-50 px-4 py-3 text-xs font-bold text-rose-700">{translateUi(message)}</p> : null}
 
         <div className="mt-5 flex gap-2">
           <button type="button" onClick={onClose} disabled={submitting} className="h-12 flex-1 rounded-2xl border border-slate-200 bg-white px-4 text-sm font-black text-slate-700 disabled:opacity-50">

@@ -2,6 +2,7 @@ import { useSellerProducts } from "../../../../Backend/hooks/useSellerProducts";
 import { useI18n, t } from "../../../../i18n";
 
 import ProductCard from "./ProductCard";
+import { t as i18nText } from "../../../../i18n/index";
 
 function toLegacyProductShape(product) {
   return {
@@ -16,7 +17,7 @@ export default function Products() {
 
   if (loading) {
     return (
-      <div className="space-y-4" aria-label="Loading seller products" aria-busy="true">
+      <div className="space-y-4" aria-label={i18nText("ui.literals.kc59be35eaa31")} aria-busy="true">
         <div className="kt-startup-shimmer h-5 w-36 rounded-full" />
         <div className="grid grid-cols-2 gap-3 sm:grid-cols-3">
           {[0, 1, 2, 3, 4, 5].map((item) => (

@@ -6,6 +6,8 @@ import {
   fetchBusinessSubscription,
   planTierMeets,
 } from "../../Backend/services/businessSubscriptionService";
+import { t as i18nText } from "../../i18n/index";
+import { useI18n as useUiLocale } from "../../i18n/index.js";
 
 const TIER_LABEL = { pro: "Pro", premium: "Premium" };
 const TIER_ICON = { pro: Crown, premium: Gem };
@@ -28,13 +30,14 @@ export default function PlanFeatureGate({
   onOpenPlans,
   children,
 }) {
+  useUiLocale();
   const [status, setStatus] = useState("loading"); // loading | unlocked | locked
   const [planName, setPlanName] = useState("Free");
 
   useEffect(() => {
     if (!entityId) {
       // No entity resolved yet: don't gate on an unknown business.
-      setStatus("unlocked");
+      setStatus(i18nText("ui.literals.k9bb5a73dfd4d"));
       return undefined;
     }
     let alive = true;
@@ -47,13 +50,13 @@ export default function PlanFeatureGate({
           setPlanName(state?.entitlement?.planName || "Free");
           // Fail open when the plan service is not available.
           if (state?.available === false || planTierMeets(planCode, requiredTier)) {
-            setStatus("unlocked");
+            setStatus(i18nText("ui.literals.k9bb5a73dfd4d"));
           } else {
-            setStatus("locked");
+            setStatus(i18nText("ui.literals.kadec79fd87d0"));
           }
         })
         .catch(() => {
-          if (alive) setStatus("unlocked");
+          if (alive) setStatus(i18nText("ui.literals.k9bb5a73dfd4d"));
         });
     }
     evaluate();
@@ -91,11 +94,11 @@ export default function PlanFeatureGate({
         </span>
         <span className={`mt-4 inline-flex items-center gap-1.5 rounded-full px-3 py-1 text-xs font-black uppercase tracking-wide ${accent.chip}`}>
           <Icon size={13} strokeWidth={2.4} />
-          {tier} feature
+          {tier} {i18nText("ui.literals.k4b7615dce52c")}
         </span>
         <h2 className="mt-3 text-xl font-black text-slate-950">{featureName}</h2>
         <p className="mt-2 text-sm font-semibold leading-6 text-slate-600">
-          {description || `This is available on the ${tier} plan. You're currently on ${planName}.`}
+          {description || i18nText("ui.literals.k2883be068ec4", { value0: tier, value1: planName })}
         </p>
         {onOpenPlans ? (
           <button
@@ -104,7 +107,7 @@ export default function PlanFeatureGate({
             className={`mt-5 inline-flex h-12 items-center justify-center gap-2 rounded-2xl px-6 text-sm font-black text-white transition ${accent.button}`}
           >
             <Icon size={16} strokeWidth={2.4} />
-            See {tier} plan
+            {i18nText("ui.literals.kce3df4d81831")} {tier} {i18nText("ui.literals.kbed97175b06e")}
           </button>
         ) : null}
       </div>

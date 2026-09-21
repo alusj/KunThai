@@ -11,6 +11,7 @@ import {
 
 import SocialScreenHeader from "../shared/SocialScreenHeader";
 import { t as i18nText } from "../../../../i18n/index";
+import { uiText as translateUi, useI18n as useUiLocale } from "../../../../i18n/index.js";
 
 const safetyGuides = [
   ["Content and conversations", "Use post, profile, comment, and message tools to report abuse, scams, threats, or impersonation.", HiOutlineChatBubbleLeftRight],
@@ -21,6 +22,7 @@ const safetyGuides = [
 ];
 
 export default function SafetyCenterScreen({ hideHeader = false, onOpenPrivacy, onOpenReport, onOpenTerms }) {
+  useUiLocale();
   return (
     <div>
       {!hideHeader ? <SocialScreenHeader title={i18nText("ui.literals.kb6247600888a")} subtitle={i18nText("ui.literals.k75f210c87343")} /> : null}
@@ -37,8 +39,8 @@ export default function SafetyCenterScreen({ hideHeader = false, onOpenPrivacy, 
           {safetyGuides.map(([title, description, Icon]) => (
             <article key={title} className="rounded-[24px] border border-slate-200 bg-white p-5 shadow-sm">
               <span className="grid h-12 w-12 place-items-center rounded-2xl bg-sky-50 text-sky-700"><Icon className="text-2xl" /></span>
-              <h4 className="mt-3 text-base font-black text-slate-950">{title}</h4>
-              <p className="mt-1 text-sm font-semibold leading-6 text-slate-600">{description}</p>
+              <h4 className="mt-3 text-base font-black text-slate-950">{translateUi(title)}</h4>
+              <p className="mt-1 text-sm font-semibold leading-6 text-slate-600">{translateUi(description)}</p>
             </article>
           ))}
         </section>

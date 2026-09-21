@@ -7,11 +7,14 @@ import {
   verifyTwoFactorLogin,
 } from "../../Backend/services/twoFactorService";
 import { t as i18nText } from "../../i18n/index";
+import { uiText as translateUi, useI18n as useUiLocale } from "../../i18n/index.js";
+import { inlineErrorMessage } from "../../Backend/services/friendlyErrorService";
 
 // Blocks the workspace after password sign-in until the authenticator code is
 // verified, for accounts with two-step verification turned on. Accounts
 // without 2FA pass straight through.
 export default function TwoFactorGate({ user, children, onResolved }) {
+  useUiLocale();
   const [required, setRequired] = useState(null);
   const [code, setCode] = useState("");
   const [verifying, setVerifying] = useState(false);
@@ -68,7 +71,7 @@ export default function TwoFactorGate({ user, children, onResolved }) {
       setRequired(false);
       onResolved?.(false);
     } catch (nextError) {
-      setError(nextError.message || i18nText("ui.literals.kd1d9d6ac014b"));
+      setError(inlineErrorMessage(nextError, i18nText("ui.literals.kd1d9d6ac014b")));
     } finally {
       setVerifying(false);
     }
@@ -96,7 +99,7 @@ export default function TwoFactorGate({ user, children, onResolved }) {
             className="w-full rounded-xl border border-slate-300 bg-white px-4 py-3 text-center text-lg font-black tracking-[0.4em] text-slate-900 outline-none transition placeholder:text-sm placeholder:font-semibold placeholder:tracking-normal placeholder:text-slate-400 focus:border-emerald-500 focus:ring-2 focus:ring-emerald-500/20"
           />
           {error ? (
-            <p className="rounded-xl border border-rose-200 bg-rose-50 px-4 py-3 text-sm font-bold text-rose-700">{error}</p>
+            <p className="rounded-xl border border-rose-200 bg-rose-50 px-4 py-3 text-sm font-bold text-rose-700">{translateUi(error)}</p>
           ) : null}
           <button
             type="submit"

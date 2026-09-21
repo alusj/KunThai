@@ -1,4 +1,5 @@
 import { ChevronRight } from "lucide-react";
+import { uiText as translateUi, useI18n as useUiLocale } from "../../../../../../i18n/index.js";
 
 export default function SellerDrawerNavItem({
   icon: Icon,
@@ -7,6 +8,7 @@ export default function SellerDrawerNavItem({
   badge,
   onClick,
 }) {
+  useUiLocale();
   return (
     <button
       type="button"
@@ -19,10 +21,10 @@ export default function SellerDrawerNavItem({
 
       <span className="min-w-0 flex-1">
         <span className="block truncate text-sm font-black text-gray-950">
-          {title}
+          {translateUi(title)}
         </span>
         <span className="mt-0.5 block line-clamp-2 text-xs font-semibold leading-5 text-gray-500">
-          {description}
+          {translateUi(description)}
         </span>
       </span>
 

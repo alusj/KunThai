@@ -4,6 +4,7 @@ import { incrementVerticalListingView } from "../../Backend/services/marketplace
 import { showToast } from "../../Backend/services/toastService";
 import { t } from "../../i18n";
 import ProductDetailDrawer from "./Browse/ProductDetailDrawer";
+import { useI18n as useUiLocale } from "../../i18n/index.js";
 
 // The buyer-facing detail for a meal, hotel or property listing. Shared by the
 // vertical discovery feed and a vertical seller's profile so a listing opens
@@ -14,6 +15,7 @@ import ProductDetailDrawer from "./Browse/ProductDetailDrawer";
 const STAY_TYPES = ["hotel", "room"];
 
 export default function VerticalBuyerDetail({ onClose, onMessage, onOpenSeller, onOrder, onRelatedProductSelect, product, relatedProducts, type }) {
+  useUiLocale();
   const isRestaurant = type === "restaurant";
   const isStay = STAY_TYPES.includes(type);
 

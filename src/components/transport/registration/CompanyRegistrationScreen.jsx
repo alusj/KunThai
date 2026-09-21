@@ -59,6 +59,8 @@ import { useI18n, t } from "../../../i18n";
 import { t as i18nText } from "../../../i18n/index";
 import { useAiScreen } from "../../../Backend/services/ai/aiScreenContext";
 import { buildCompanyRegistrationAiContext } from "./companyRegistrationAi";
+import { uiText as translateUi, useI18n as useUiLocale } from "../../../i18n/index.js";
+import { inlineErrorMessage } from "../../../Backend/services/friendlyErrorService";
 
 const steps = [
   { labelKey: "urride.companyReg.stepCompany", icon: FiBriefcase },
@@ -931,10 +933,10 @@ export default function CompanyRegistrationScreen({ existingCompany = null, mode
           />
           <div className="min-w-0 flex-1">
             <p className="text-xs font-black uppercase tracking-wide text-blue-700">Fleet HQ</p>
-            <h1 className="truncate text-lg font-black text-slate-950">{rentalSubmission ? "Add rental vehicle" : addOperatorMode ? t("urride.companyReg.addOperatorTitle") : editing ? t("urride.companyReg.editTitle") : t("urride.companyReg.regTitle")}</h1>
+            <h1 className="truncate text-lg font-black text-slate-950">{rentalSubmission ? i18nText("ui.literals.kb883f465c09a") : addOperatorMode ? t("urride.companyReg.addOperatorTitle") : editing ? t("urride.companyReg.editTitle") : t("urride.companyReg.regTitle")}</h1>
           </div>
           <span className="rounded-full border border-blue-100 bg-blue-50 px-3 py-1 text-xs font-black text-blue-700">
-            {rentalSubmission ? "Rental fleet" : addOperatorMode ? t("urride.companyReg.fleetStage") : t("urride.companyReg.readyCount", { count: completion })}
+            {rentalSubmission ? i18nText("ui.literals.k81e22e383e11") : addOperatorMode ? t("urride.companyReg.fleetStage") : t("urride.companyReg.readyCount", { count: completion })}
           </span>
         </div>
       </header>
@@ -972,7 +974,7 @@ export default function CompanyRegistrationScreen({ existingCompany = null, mode
         <section aria-busy={initializing ? "true" : undefined} className="min-w-0 rounded-3xl border border-slate-100 bg-white p-4 shadow-sm sm:p-6">
           {status ? (
             <div className={`mb-4 rounded-2xl border px-4 py-3 text-sm font-bold leading-6 ${statusClassName}`}>
-              {status}
+              {translateUi(status)}
             </div>
           ) : null}
 
@@ -1093,7 +1095,7 @@ export default function CompanyRegistrationScreen({ existingCompany = null, mode
           <div className="mt-6 border-t border-slate-100 pt-4">
             {status && statusTone === "error" ? (
               <div className={`mb-4 rounded-2xl border px-4 py-3 text-sm font-bold leading-6 ${statusClassName}`}>
-                {status}
+                {translateUi(status)}
               </div>
             ) : null}
             <div className="flex flex-col-reverse gap-3 sm:flex-row sm:items-center sm:justify-between">
@@ -1121,7 +1123,7 @@ export default function CompanyRegistrationScreen({ existingCompany = null, mode
                     disabled={submitting}
                     className={`h-11 rounded-2xl px-5 text-sm font-black text-white disabled:opacity-60 ${rentalSubmission ? "bg-emerald-700 hover:bg-emerald-800" : "bg-blue-600 hover:bg-blue-700"}`}
                   >
-                    {submitting ? (rentalSubmission ? "Adding rental fleet…" : t("urride.companyReg.sendingRequest")) : rentalSubmission ? "Add rental fleet" : t("urride.companyReg.sendOperatorRequest")}
+                    {submitting ? (rentalSubmission ? i18nText("ui.literals.k1ac16ae4b71a") : t("urride.companyReg.sendingRequest")) : rentalSubmission ? i18nText("ui.literals.k7af252cec249") : t("urride.companyReg.sendOperatorRequest")}
                   </button>
                 ) : step < steps.length - 1 ? (
                   <button
@@ -1220,6 +1222,7 @@ export default function CompanyRegistrationScreen({ existingCompany = null, mode
 }
 
 function CompanyEditSections({ sections = [], openSection, onToggle, onSave, saving }) {
+  useUiLocale();
   const [savedSection, setSavedSection] = useState(-1);
 
   async function handleSave(index) {
@@ -1249,9 +1252,9 @@ function CompanyEditSections({ sections = [], openSection, onToggle, onSave, sav
               aria-expanded={open}
             >
               <div className="min-w-0">
-                <h2 className="text-base font-black text-slate-950 sm:text-lg">{section.title}</h2>
+                <h2 className="text-base font-black text-slate-950 sm:text-lg">{translateUi(section.title)}</h2>
                 {open ? null : (
-                  <p className="mt-1 line-clamp-2 text-sm font-medium text-slate-600">{section.summary}</p>
+                  <p className="mt-1 line-clamp-2 text-sm font-medium text-slate-600">{translateUi(section.summary)}</p>
                 )}
                 {savedSection === index ? (
                   <p className="mt-1 inline-flex items-center gap-1 text-xs font-black text-emerald-600">
@@ -1302,6 +1305,7 @@ function CompanyEditSections({ sections = [], openSection, onToggle, onSave, sav
 }
 
 function CompanyIdentityStep({ documentRequirements = [], errors = {}, form, onChange, onDocument }) {
+  useUiLocale();
   const countryProfile = getActiveCountryProfile(form.country);
   const phoneValidation = validateCountryPhone(form.phone, countryProfile);
   return (
@@ -1338,6 +1342,7 @@ function CompanyIdentityStep({ documentRequirements = [], errors = {}, form, onC
 }
 
 function LocationOperationsStep({ areaText, errors = {}, form, hasLocation, onAreaText, onChange, onDropPin, onLocateMe }) {
+  useUiLocale();
   const countryProfile = getActiveCountryProfile(form.country);
   const selectedPoint = hasLocation
     ? {
@@ -1409,6 +1414,7 @@ function LocationOperationsStep({ areaText, errors = {}, form, hasLocation, onAr
 }
 
 function CompanyAreaViewStatus({ validation }) {
+  useUiLocale();
   const status = validation?.status || "idle";
   if (status === "idle") return null;
 
@@ -1432,12 +1438,13 @@ function CompanyAreaViewStatus({ validation }) {
   return (
     <div className={`mt-3 flex items-start gap-2 rounded-2xl border px-3 py-2 text-xs font-bold leading-5 ${copy.tone}`}>
       <AddressAreaStatusIcon status={status} className="mt-0.5 shrink-0" />
-      <span>{copy.text}</span>
+      <span>{translateUi(copy.text)}</span>
     </div>
   );
 }
 
 function FleetBuilderStep({ acceptedOperators = [], allowMultiple = true, errors = {}, fleets, form, lockRentalCategory = false, onAddFleet, onInvite, onRemoveFleet, onUpdateFleet, onUploadFleetDocument, onViewOneKmPreview }) {
+  useUiLocale();
   const acceptedPublicIds = acceptedOperators.map((operator) => compactPublicId(operator.publicId)).filter(Boolean);
   return (
     <div className="space-y-5">
@@ -1474,6 +1481,7 @@ function FleetBuilderStep({ acceptedOperators = [], allowMultiple = true, errors
 }
 
 function FleetCard({ acceptedPublicIds = [], errors = {}, fleet, form, index, lockRentalCategory = false, onInvite, onRemove, onUpdate, onUploadDocument, onViewOneKmPreview, removable }) {
+  useUiLocale();
   const [operatorId, setOperatorId] = useState("");
   const [lookupStatus, setLookupStatus] = useState("");
   const [operatorMatch, setOperatorMatch] = useState(null);
@@ -1528,7 +1536,7 @@ function FleetCard({ acceptedPublicIds = [], errors = {}, fleet, form, index, lo
         const match = await lookupTransportOperatorByKunThaiId(target);
         if (alive) applyLookupResult(match);
       } catch (error) {
-        if (alive) setLookupStatus(error.message || t("urride.companyReg.lookupCheckError"));
+        if (alive) setLookupStatus(inlineErrorMessage(error, t("urride.companyReg.lookupCheckError")));
       } finally {
         if (alive) setLookingUp(false);
       }
@@ -1590,40 +1598,40 @@ function FleetCard({ acceptedPublicIds = [], errors = {}, fleet, form, index, lo
           <p className="mt-1 font-black text-slate-950">{fleet.fleetCode}</p>
         </div>
         <SelectField label={t("urride.companyReg.fleetTypeLabel")} value={fleet.fleetType} options={fleetTypeOptions} onChange={(value) => onUpdate(fleet.localId, { fleetType: value, safetyAnswers: { ...createSafetyAnswers(value, fleet.serviceCategory), ...(fleet.serviceCategory === "Rental" ? { rentalDistanceNegotiable, rentalTimeNegotiable } : {}) } })} />
-        {lockRentalCategory ? <div className="rounded-2xl border border-emerald-200 bg-emerald-50 px-4 py-3"><p className="text-xs font-black uppercase tracking-wide text-emerald-700">Service category</p><p className="mt-1 font-black text-slate-950">Rental · self-drive</p></div> : <SelectField label={t("urride.companyReg.serviceCategoryLabel")} value={fleet.serviceCategory} options={serviceCategoryOptions} onChange={updateServiceCategory} />}
-        <FormInput label={fleet.serviceCategory === "Rental" ? "Rental vehicle name" : t("urride.companyReg.fleetNameLabel")} value={fleet.fleetName} onChange={(value) => onUpdate(fleet.localId, { fleetName: value })} placeholder={fleet.serviceCategory === "Rental" ? "Example: Family SUV" : t("urride.companyReg.fleetNameLabel")} error={errors[`${fleet.localId}-fleetName`]} />
+        {lockRentalCategory ? <div className="rounded-2xl border border-emerald-200 bg-emerald-50 px-4 py-3"><p className="text-xs font-black uppercase tracking-wide text-emerald-700">{i18nText("ui.literals.k9c995cd13e56")}</p><p className="mt-1 font-black text-slate-950">{i18nText("ui.literals.k9f86f85e4649")}</p></div> : <SelectField label={t("urride.companyReg.serviceCategoryLabel")} value={fleet.serviceCategory} options={serviceCategoryOptions} onChange={updateServiceCategory} />}
+        <FormInput label={fleet.serviceCategory === "Rental" ? i18nText("ui.literals.k03b8a85b895f") : t("urride.companyReg.fleetNameLabel")} value={fleet.fleetName} onChange={(value) => onUpdate(fleet.localId, { fleetName: value })} placeholder={fleet.serviceCategory === "Rental" ? i18nText("ui.literals.k73ff0b898afd") : t("urride.companyReg.fleetNameLabel")} error={errors[`${fleet.localId}-fleetName`]} />
         <FormInput label={t("urride.companyReg.plateLabel")} value={fleet.plateNumber} onChange={(value) => onUpdate(fleet.localId, { plateNumber: value.toUpperCase() })} placeholder={t("urride.companyReg.plateLabel")} error={errors[`${fleet.localId}-plateNumber`]} />
         <FormInput label={t("urride.companyReg.makeLabel")} value={fleet.make} onChange={(value) => onUpdate(fleet.localId, { make: value })} placeholder={t("urride.companyReg.makePlaceholder")} error={errors[`${fleet.localId}-make`]} />
         <FormInput label={t("urride.companyReg.modelLabel")} value={fleet.model} onChange={(value) => onUpdate(fleet.localId, { model: value })} placeholder={t("urride.companyReg.modelLabel")} error={errors[`${fleet.localId}-model`]} />
         <FormInput label={t("urride.companyReg.yearLabel")} type="number" value={fleet.year} onChange={(value) => onUpdate(fleet.localId, { year: value })} placeholder={t("urride.companyReg.yearLabel")} error={errors[`${fleet.localId}-year`]} />
         <FormInput label={t("urride.companyReg.colorLabel")} value={fleet.color} onChange={(value) => onUpdate(fleet.localId, { color: value })} placeholder={t("urride.companyReg.colorLabel")} error={errors[`${fleet.localId}-color`]} />
-        <FormInput label={fleet.serviceCategory === "Rental" ? "Rental service area" : t("urride.companyReg.opAreaLabel")} value={fleet.operatingArea} onChange={(value) => onUpdate(fleet.localId, { operatingArea: value })} placeholder={fleet.serviceCategory === "Rental" ? "Where renters can collect this vehicle" : t("urride.companyReg.opAreaPlaceholder")} error={errors[`${fleet.localId}-operatingArea`]} />
-        <FormInput label={fleet.serviceCategory === "Rental" ? "Primary pickup base" : t("urride.companyReg.homeBaseLabel")} value={fleet.homeBase} onChange={(value) => onUpdate(fleet.localId, { homeBase: value })} placeholder={fleet.serviceCategory === "Rental" ? "Pickup office or vehicle base" : t("urride.companyReg.homeBasePlaceholder")} error={errors[`${fleet.localId}-homeBase`]} />
+        <FormInput label={fleet.serviceCategory === "Rental" ? i18nText("ui.literals.k2bc54a825bae") : t("urride.companyReg.opAreaLabel")} value={fleet.operatingArea} onChange={(value) => onUpdate(fleet.localId, { operatingArea: value })} placeholder={fleet.serviceCategory === "Rental" ? i18nText("ui.literals.k999dc2be1d27") : t("urride.companyReg.opAreaPlaceholder")} error={errors[`${fleet.localId}-operatingArea`]} />
+        <FormInput label={fleet.serviceCategory === "Rental" ? i18nText("ui.literals.k6a857d271eec") : t("urride.companyReg.homeBaseLabel")} value={fleet.homeBase} onChange={(value) => onUpdate(fleet.localId, { homeBase: value })} placeholder={fleet.serviceCategory === "Rental" ? i18nText("ui.literals.k57a9fdad7a67") : t("urride.companyReg.homeBasePlaceholder")} error={errors[`${fleet.localId}-homeBase`]} />
       </div>
       {fleet.serviceCategory === "Rental" ? <>
         <section className="mt-5 rounded-3xl border border-emerald-200 bg-white p-4">
-          <p className="text-xs font-black uppercase tracking-[0.18em] text-emerald-700">Rental pricing</p>
-          <h4 className="mt-1 text-lg font-black text-slate-950">Set distance and time pricing</h4>
-          <p className="mt-1 text-sm font-semibold leading-6 text-slate-600">Enter a clear price or mark that pricing method as negotiable. Save this vehicle once, then control its availability from Rentals.</p>
+          <p className="text-xs font-black uppercase tracking-[0.18em] text-emerald-700">{i18nText("ui.literals.kb56ccdb6dbd7")}</p>
+          <h4 className="mt-1 text-lg font-black text-slate-950">{i18nText("ui.literals.k8de8e8730c67")}</h4>
+          <p className="mt-1 text-sm font-semibold leading-6 text-slate-600">{i18nText("ui.literals.ka3969e84ffc4")}</p>
           <div className="mt-4 grid gap-4 md:grid-cols-2">
             <div className="rounded-2xl border border-slate-200 bg-slate-50 p-4">
-              <FormInput disabled={rentalDistanceNegotiable} label={`Price per kilometre (${form.currency || "SLE"})`} type="number" value={fleet.pricePerKm} onChange={(value) => onUpdate(fleet.localId, { pricePerKm: value })} placeholder="0" helper="The distance charge that may be added based on kilometres used." error={errors[`${fleet.localId}-pricePerKm`]} />
-              <label className="mt-3 flex items-start gap-3 text-sm font-bold text-slate-700"><input type="checkbox" checked={rentalDistanceNegotiable} onChange={(event) => updateRentalNegotiation("rentalDistanceNegotiable", "pricePerKm", event.target.checked)} className="mt-0.5 h-5 w-5 accent-emerald-700" /><span>Distance price is negotiable</span></label>
+              <FormInput disabled={rentalDistanceNegotiable} label={i18nText("ui.literals.kf932837b05d1", { value0: form.currency || "SLE" })} type="number" value={fleet.pricePerKm} onChange={(value) => onUpdate(fleet.localId, { pricePerKm: value })} placeholder="0" helper={i18nText("ui.literals.kda9a3169454d")} error={errors[`${fleet.localId}-pricePerKm`]} />
+              <label className="mt-3 flex items-start gap-3 text-sm font-bold text-slate-700"><input type="checkbox" checked={rentalDistanceNegotiable} onChange={(event) => updateRentalNegotiation("rentalDistanceNegotiable", "pricePerKm", event.target.checked)} className="mt-0.5 h-5 w-5 accent-emerald-700" /><span>{i18nText("ui.literals.k3bbb577489a7")}</span></label>
             </div>
             <div className="rounded-2xl border border-slate-200 bg-slate-50 p-4">
-              <FormInput disabled={rentalTimeNegotiable} label={`Price per hour (${form.currency || "SLE"})`} type="number" value={fleet.pricePerHour} onChange={(value) => onUpdate(fleet.localId, { pricePerHour: value })} placeholder="0" helper="You can add daily and weekly prices from the Rentals dashboard." error={errors[`${fleet.localId}-pricePerHour`]} />
-              <label className="mt-3 flex items-start gap-3 text-sm font-bold text-slate-700"><input type="checkbox" checked={rentalTimeNegotiable} onChange={(event) => updateRentalNegotiation("rentalTimeNegotiable", "pricePerHour", event.target.checked)} className="mt-0.5 h-5 w-5 accent-emerald-700" /><span>Time price is negotiable</span></label>
+              <FormInput disabled={rentalTimeNegotiable} label={i18nText("ui.literals.k53389a5d2871", { value0: form.currency || "SLE" })} type="number" value={fleet.pricePerHour} onChange={(value) => onUpdate(fleet.localId, { pricePerHour: value })} placeholder="0" helper={i18nText("ui.literals.k245ed823d4bd")} error={errors[`${fleet.localId}-pricePerHour`]} />
+              <label className="mt-3 flex items-start gap-3 text-sm font-bold text-slate-700"><input type="checkbox" checked={rentalTimeNegotiable} onChange={(event) => updateRentalNegotiation("rentalTimeNegotiable", "pricePerHour", event.target.checked)} className="mt-0.5 h-5 w-5 accent-emerald-700" /><span>{i18nText("ui.literals.kb3e010f98913")}</span></label>
             </div>
           </div>
         </section>
         <section className="mt-5 space-y-4 rounded-2xl border border-slate-200 bg-white p-4">
-          <h4 className="font-black text-slate-950">Rental conditions and pickup</h4>
-          <FormInput label="Deposit" type="number" value={fleet.safetyAnswers?.rentalDeposit || "0"} onChange={(value) => onUpdate(fleet.localId, { safetyAnswers: { ...fleet.safetyAnswers, rentalDeposit: value } })} />
-          <label className="block text-sm font-bold text-slate-800">Rental conditions<textarea className="kt-registration-input mt-2 w-full rounded-xl border p-3" rows={4} value={fleet.safetyAnswers?.rentalTerms || ""} onChange={(event) => onUpdate(fleet.localId, { safetyAnswers: { ...fleet.safetyAnswers, rentalTerms: event.target.value } })} placeholder="Licence, age, fuel, mileage, deposit, cancellation and return conditions" /></label>
-          {errors[`${fleet.localId}-rentalTerms`] && <p role="alert" className="text-sm text-rose-700">{errors[`${fleet.localId}-rentalTerms`]}</p>}
+          <h4 className="font-black text-slate-950">{i18nText("ui.literals.k79fa00a8dc59")}</h4>
+          <FormInput label={i18nText("ui.literals.ke7b0b317a6e8")} type="number" value={fleet.safetyAnswers?.rentalDeposit || "0"} onChange={(value) => onUpdate(fleet.localId, { safetyAnswers: { ...fleet.safetyAnswers, rentalDeposit: value } })} />
+          <label className="block text-sm font-bold text-slate-800">{i18nText("ui.literals.ke3392650036e")}<textarea className="kt-registration-input mt-2 w-full rounded-xl border p-3" rows={4} value={fleet.safetyAnswers?.rentalTerms || ""} onChange={(event) => onUpdate(fleet.localId, { safetyAnswers: { ...fleet.safetyAnswers, rentalTerms: event.target.value } })} placeholder={i18nText("ui.literals.ka67bf67527b3")} /></label>
+          {errors[i18nText("ui.literals.kef76401cd583", { value0: fleet.localId })] && <p role="alert" className="text-sm text-rose-700">{errors[i18nText("ui.literals.kef76401cd583", { value0: fleet.localId })]}</p>}
           <AddressLocationField value={fleet.safetyAnswers?.rentalPickup || { address: "", latitude: null, longitude: null }} onChange={(patch) => onUpdate(fleet.localId, { safetyAnswers: { ...fleet.safetyAnswers, rentalPickup: { ...fleet.safetyAnswers?.rentalPickup, ...patch } } })} />
-          {errors[`${fleet.localId}-rentalPickup`] && <p role="alert" className="text-sm text-rose-700">{errors[`${fleet.localId}-rentalPickup`]}</p>}
-          <p className="text-sm text-slate-600">Your fleet is saved once with availability off. Turn on Available when you are ready to receive requests.</p>
+          {errors[i18nText("ui.literals.k7074b163bc25", { value0: fleet.localId })] && <p role="alert" className="text-sm text-rose-700">{errors[i18nText("ui.literals.k7074b163bc25", { value0: fleet.localId })]}</p>}
+          <p className="text-sm text-slate-600">{i18nText("ui.literals.kceaed1266814")}</p>
         </section>
       </> : <section className="mt-5 rounded-3xl border border-blue-100 bg-white p-4">
         <p className="text-xs font-black uppercase tracking-[0.18em] text-blue-700">{t("urride.companyReg.pricingEyebrow")}</p>
@@ -1717,6 +1725,7 @@ function FleetCard({ acceptedPublicIds = [], errors = {}, fleet, form, index, lo
 }
 
 function FleetImagesSection({ errors = {}, fleet, form, onUploadDocument }) {
+  useUiLocale();
   const imageRequirements = getFleetImageRequirements(form, fleet);
   const imageCount = imageRequirements.filter((requirement) => fleet.documents?.[fleetImageDocumentKey(documentStorageKey(requirement))]).length;
   return (
@@ -1742,6 +1751,7 @@ function FleetImagesSection({ errors = {}, fleet, form, onUploadDocument }) {
 }
 
 function FleetSafetySection({ errors = {}, fleet, onUpdate }) {
+  useUiLocale();
   const rental = fleet.serviceCategory === "Rental";
   const questions = getFleetQuestions(fleet);
   const answers = fleet.safetyAnswers || {};
@@ -1753,8 +1763,8 @@ function FleetSafetySection({ errors = {}, fleet, onUpdate }) {
       <div className="flex items-start gap-3">
         <FiShield className="mt-1 shrink-0 text-amber-700" />
         <div>
-          <h4 className="font-black text-slate-950">{rental ? "Rental readiness and handover" : t("urride.companyReg.safetyTitle")}</h4>
-          <p className="mt-1 text-xs font-semibold leading-5 text-slate-600">{rental ? "Confirm the vehicle can be rented safely and that the company will verify the renter and document the handover." : t("urride.companyReg.safetyNote")}</p>
+          <h4 className="font-black text-slate-950">{rental ? i18nText("ui.literals.k0065d03c1068") : t("urride.companyReg.safetyTitle")}</h4>
+          <p className="mt-1 text-xs font-semibold leading-5 text-slate-600">{rental ? i18nText("ui.literals.k16198bf42a8d") : t("urride.companyReg.safetyNote")}</p>
         </div>
       </div>
       <div className="mt-4 grid gap-3 md:grid-cols-2 xl:grid-cols-3">
@@ -1767,11 +1777,11 @@ function FleetSafetySection({ errors = {}, fleet, onUpdate }) {
               <input type="number" min="0" value={answers[question.key] || ""} onChange={(event) => updateAnswer(question.key, event.target.value)} placeholder="0" aria-invalid={error ? "true" : undefined} className={`mt-3 h-11 w-full rounded-xl border px-3 text-sm outline-none focus:border-blue-500 ${error ? "border-rose-300" : "border-slate-200"}`} />
             ) : (
               <select value={answers[question.key] || (question.requireChoice ? "" : "Yes")} onChange={(event) => updateAnswer(question.key, event.target.value)} className="mt-3 h-11 w-full rounded-xl border border-slate-200 px-3 text-sm outline-none focus:border-blue-500">
-                {question.requireChoice ? <option value="" disabled>Select an answer</option> : null}
+                {question.requireChoice ? <option value="" disabled>{i18nText("ui.literals.k8d61f7a27537")}</option> : null}
                 <option value="Yes">{t("urride.fleetEdit.answerYes")}</option><option value="No">{t("urride.fleetEdit.answerNo")}</option><option value="Needs admin check">{t("urride.fleetEdit.answerAdmin")}</option>
               </select>
             )}
-            {error ? <span className="mt-2 block text-xs font-bold text-rose-700" role="alert">{error}</span> : null}
+            {error ? <span className="mt-2 block text-xs font-bold text-rose-700" role="alert">{translateUi(error)}</span> : null}
           </label>
           );
         })}
@@ -1819,6 +1829,7 @@ function getOperatorRequestStatus(status = "pending", documents = {}) {
 }
 
 function OperatorRequestCard({ operator }) {
+  useUiLocale();
   const status = getOperatorRequestStatus(operator.status, operator.documents);
 
   return (
@@ -1830,7 +1841,7 @@ function OperatorRequestCard({ operator }) {
           <p className="mt-1 text-xs font-bold text-slate-500">{operator.publicId}</p>
         </div>
         <span className={`inline-flex h-9 items-center rounded-full px-3 text-xs font-black ${status.badge}`}>
-          {status.label}
+          {translateUi(status.label)}
         </span>
       </div>
       <p className="mt-3 text-sm font-semibold leading-6 text-slate-600">{status.body}</p>
@@ -1849,6 +1860,7 @@ function OperatorRequestCard({ operator }) {
 }
 
 function CompanyReviewStep({ fleets, form }) {
+  useUiLocale();
   const operatorCount = fleets.reduce((sum, fleet) => sum + (fleet.operators || []).length, 0);
   return (
     <div className="space-y-5">
@@ -1884,6 +1896,7 @@ function CompanyReviewStep({ fleets, form }) {
 }
 
 function DocumentGrid({ compact = false, documents, errors = {}, onUpload, uploads = {} }) {
+  useUiLocale();
   return (
     <div className={`mt-4 grid gap-3 ${compact ? "sm:grid-cols-3" : "md:grid-cols-2 xl:grid-cols-4"}`}>
       {documents.map((document) => {
@@ -1892,7 +1905,7 @@ function DocumentGrid({ compact = false, documents, errors = {}, onUpload, uploa
         return (
           <UploadField
             key={key}
-            label={label}
+            label={translateUi(label)}
             value={uploads?.[key]}
             error={errors[key]}
             onChange={(file) => onUpload(key, file)}
@@ -1904,6 +1917,7 @@ function DocumentGrid({ compact = false, documents, errors = {}, onUpload, uploa
 }
 
 function UploadField({ error = "", label, onChange, value }) {
+  useUiLocale();
   const displayLabel = String(label || "").replace(/^Fleet image - /, "");
   const selectedName = typeof value === "string" ? value : value?.fileName || value?.name || "";
   return (
@@ -1911,12 +1925,13 @@ function UploadField({ error = "", label, onChange, value }) {
       <span className="flex items-center gap-2 text-sm font-black text-slate-800"><FiFileText /> {displayLabel}</span>
       <input type="file" className="mt-3 block w-full text-xs font-semibold text-slate-500 file:mr-3 file:rounded-full file:border-0 file:bg-slate-950 file:px-3 file:py-2 file:text-xs file:font-black file:text-white" onChange={(event) => onChange(event.target.files?.[0])} />
       {selectedName ? <span className="mt-2 block truncate text-xs font-black text-emerald-700">{selectedName}</span> : null}
-      {error ? <span className="mt-2 block text-xs font-bold text-rose-700" role="alert">{error}</span> : null}
+      {error ? <span className="mt-2 block text-xs font-bold text-rose-700" role="alert">{translateUi(error)}</span> : null}
     </label>
   );
 }
 
 function PricingGuide({ type, open, onToggle, onViewOneKm }) {
+  useUiLocale();
   const isDistance = type === "km";
   const audience = isDistance ? t("urride.companyReg.audienceDistance") : t("urride.companyReg.audienceTime");
 
@@ -1954,46 +1969,49 @@ function PricingGuide({ type, open, onToggle, onViewOneKm }) {
 }
 
 function FormInput({ disabled = false, error = "", helper = "", label, onChange, placeholder = "", type = "text", value }) {
+  useUiLocale();
   return (
     <label className="block" data-field-error={error ? "true" : undefined}>
-      <span className="mb-2 block text-sm font-bold text-slate-700">{label}</span>
+      <span className="mb-2 block text-sm font-bold text-slate-700">{translateUi(label)}</span>
       <input
         type={type}
         min={type === "number" ? "0" : undefined}
         disabled={disabled}
         value={value || ""}
         onChange={(event) => onChange(event.target.value)}
-        placeholder={placeholder}
+        placeholder={translateUi(placeholder)}
         aria-invalid={error ? "true" : undefined}
         className={`h-12 w-full rounded-2xl border bg-slate-50 px-4 text-sm font-semibold outline-none placeholder:text-slate-400 focus:border-blue-500 focus:bg-white focus:ring-4 focus:ring-blue-100 disabled:cursor-not-allowed disabled:bg-slate-200 disabled:text-slate-500 ${error ? "border-rose-300" : "border-slate-200"}`}
       />
-      {error ? <span className="mt-2 block text-xs font-bold leading-5 text-rose-700" role="alert">{error}</span> : null}
-      {helper ? <span className="mt-2 block text-xs font-semibold leading-5 text-slate-500">{helper}</span> : null}
+      {error ? <span className="mt-2 block text-xs font-bold leading-5 text-rose-700" role="alert">{translateUi(error)}</span> : null}
+      {helper ? <span className="mt-2 block text-xs font-semibold leading-5 text-slate-500">{translateUi(helper)}</span> : null}
     </label>
   );
 }
 
 function SelectField({ error = "", label, onChange, options, value, optionLabels }) {
+  useUiLocale();
   return (
     <label className="block" data-field-error={error ? "true" : undefined}>
-      <span className="mb-2 block text-sm font-bold text-slate-700">{label}</span>
+      <span className="mb-2 block text-sm font-bold text-slate-700">{translateUi(label)}</span>
       <select
         value={value}
         onChange={(event) => onChange(event.target.value)}
         aria-invalid={error ? "true" : undefined}
         className={`h-12 w-full rounded-2xl border bg-slate-50 px-4 text-sm font-black text-slate-700 outline-none focus:border-blue-500 focus:bg-white focus:ring-4 focus:ring-blue-100 ${error ? "border-rose-300" : "border-slate-200"}`}
       >
-        {options.map((option) => <option key={option} value={option}>{optionLabels ? optionLabels(option) : option}</option>)}
+        {options.map((option) => <option key={option} value={option}>{optionLabels ? optionLabels(option) : translateUi(option)}</option>)}
       </select>
-      {error ? <span className="mt-2 block text-xs font-bold leading-5 text-rose-700" role="alert">{error}</span> : null}
+      {error ? <span className="mt-2 block text-xs font-bold leading-5 text-rose-700" role="alert">{translateUi(error)}</span> : null}
     </label>
   );
 }
 
 function ReviewTile({ label, value }) {
+  useUiLocale();
   return (
     <div className="rounded-2xl border border-slate-100 bg-slate-50 p-4">
-      <p className="text-xs font-black uppercase tracking-wide text-slate-400">{label}</p>
+      <p className="text-xs font-black uppercase tracking-wide text-slate-400">{translateUi(label)}</p>
       <p className="mt-1 truncate text-lg font-black text-slate-950">{value}</p>
     </div>
   );

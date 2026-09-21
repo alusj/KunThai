@@ -9,6 +9,8 @@ import {
   startTotpEnrollment,
 } from "../../../../Backend/services/twoFactorService";
 import { t as i18nText } from "../../../../i18n/index";
+import { uiText as translateUi, useI18n as useUiLocale } from "../../../../i18n/index.js";
+import { inlineErrorMessage } from "../../../../Backend/services/friendlyErrorService";
 
 function qrImageSource(qrCode = "") {
   if (!qrCode) return "";
@@ -19,6 +21,7 @@ function qrImageSource(qrCode = "") {
 // Two-step verification management: enroll an authenticator app (TOTP),
 // confirm with a first code, or turn the protection off again.
 export default function TwoFactorSection() {
+  useUiLocale();
   const [state, setState] = useState({ enabled: false, factorId: "" });
   const [loading, setLoading] = useState(true);
   const [enrollment, setEnrollment] = useState(null);
@@ -33,7 +36,7 @@ export default function TwoFactorSection() {
       setState(await getTwoFactorState());
       setError("");
     } catch (nextError) {
-      setError(nextError.message || i18nText("ui.literals.kfd2b3dcbf810"));
+      setError(inlineErrorMessage(nextError, i18nText("ui.literals.kfd2b3dcbf810")));
     } finally {
       setLoading(false);
     }
@@ -52,7 +55,7 @@ export default function TwoFactorSection() {
       setEnrollment(await startTotpEnrollment());
       setConfirmCode("");
     } catch (nextError) {
-      setError(nextError.message || i18nText("ui.literals.kc7a08bbb154f"));
+      setError(inlineErrorMessage(nextError, i18nText("ui.literals.kc7a08bbb154f")));
     } finally {
       setBusy(false);
     }
@@ -71,7 +74,7 @@ export default function TwoFactorSection() {
         title: i18nText("ui.literals.k913949913e4f"),
       });
     } catch (nextError) {
-      setError(nextError.message || i18nText("ui.literals.k45ada43c3cbd"));
+      setError(inlineErrorMessage(nextError, i18nText("ui.literals.k45ada43c3cbd")));
     } finally {
       setBusy(false);
     }
@@ -88,7 +91,7 @@ export default function TwoFactorSection() {
         title: i18nText("ui.literals.k9aa7b67861a3"),
       });
     } catch (nextError) {
-      setError(nextError.message || i18nText("ui.literals.k5e3bbec6b0cf"));
+      setError(inlineErrorMessage(nextError, i18nText("ui.literals.k5e3bbec6b0cf")));
     } finally {
       setBusy(false);
     }
@@ -119,7 +122,7 @@ export default function TwoFactorSection() {
       </div>
 
       {error ? (
-        <p className="mt-3 rounded-2xl border border-rose-200 bg-rose-50 px-4 py-3 text-sm font-bold text-rose-700">{error}</p>
+        <p className="mt-3 rounded-2xl border border-rose-200 bg-rose-50 px-4 py-3 text-sm font-bold text-rose-700">{translateUi(error)}</p>
       ) : null}
 
       {!loading && !state.enabled && !enrollment ? (
@@ -139,7 +142,7 @@ export default function TwoFactorSection() {
           {enrollment.qrCode ? (
             <img
               src={qrImageSource(enrollment.qrCode)}
-              alt="Two-step verification QR code"
+              alt={i18nText("ui.literals.kf80e43b359d1")}
               className="mx-auto mt-3 h-44 w-44 rounded-2xl border border-emerald-200 bg-white p-2"
             />
           ) : null}

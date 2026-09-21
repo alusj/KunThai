@@ -15,6 +15,7 @@ import { getProductMinimumOrderQuantity } from "../../../../Backend/services/mar
 import { useI18n, t } from "../../../../i18n";
 import CartButton from "./CartButton";
 import CartDrawer from "./CartDrawer";
+import { inlineErrorMessage } from "../../../../Backend/services/friendlyErrorService";
 
 export default function Cart({ onOpenChange }) {
   useI18n();
@@ -32,7 +33,7 @@ export default function Cart({ onOpenChange }) {
       setCartItems(items);
     } catch (err) {
       setCartItems([]);
-      setError(err.message || t("urmall.cart.loadFailed"));
+      setError(inlineErrorMessage(err, t("urmall.cart.loadFailed")));
     } finally {
       setLoading(false);
     }
@@ -59,7 +60,7 @@ export default function Cart({ onOpenChange }) {
       await loadCart();
       showToast(quantity <= 0 ? t("urmall.cart.removedFromCart") : t("urmall.cart.cartUpdated"), "success");
     } catch (err) {
-      setError(err.message || t("urmall.cart.updateFailed"));
+      setError(inlineErrorMessage(err, t("urmall.cart.updateFailed")));
       showToast(err.message || t("urmall.cart.updateFailed"), "danger");
     }
   }
@@ -70,7 +71,7 @@ export default function Cart({ onOpenChange }) {
       await loadCart();
       showToast(t("urmall.cart.removedFromCart"), "success");
     } catch (err) {
-      setError(err.message || t("urmall.cart.removeFailed"));
+      setError(inlineErrorMessage(err, t("urmall.cart.removeFailed")));
       showToast(err.message || t("urmall.cart.removeFailed"), "danger");
     }
   }

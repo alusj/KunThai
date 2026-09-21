@@ -1,6 +1,9 @@
 import { useCallback, useEffect, useRef, useState } from "react";
 import { createPortal } from "react-dom";
 import { Download, Loader2, X } from "lucide-react";
+import { t as i18nText } from "../../i18n/index";
+import { isOnline, whenOnline } from "../../Backend/services/networkService";
+import { useI18n as useUiLocale } from "../../i18n/index.js";
 
 // A premium full-screen image viewer (lightbox). Tap to open from a message
 // bubble; pinch or double-tap to zoom, drag to pan when zoomed, swipe down or
@@ -10,8 +13,27 @@ const MAX_SCALE = 4;
 const DOUBLE_TAP_SCALE = 2.5;
 
 export default function ImageViewer({ src, alt = "", onClose }) {
+  useUiLocale();
   const [loaded, setLoaded] = useState(false);
   const [failed, setFailed] = useState(false);
+  const [reloadKey, setReloadKey] = useState(0);
+  const cancelReloadRef = useRef(null);
+  useEffect(() => () => cancelReloadRef.current?.(), []);
+
+  // Offline, a failed image is not a broken image: keep the spinner (the
+  // global network toast says why) and load it again once reconnected. With
+  // the connection up, the failure is real and is shown.
+  function handleImageError() {
+    if (!isOnline()) {
+      cancelReloadRef.current?.();
+      cancelReloadRef.current = whenOnline(() => {
+        cancelReloadRef.current = null;
+        setReloadKey((key) => key + 1);
+      });
+      return;
+    }
+    setFailed(true);
+  }
   const [downloading, setDownloading] = useState(false);
   const [scale, setScale] = useState(1);
   const [offset, setOffset] = useState({ x: 0, y: 0 });
@@ -152,7 +174,7 @@ export default function ImageViewer({ src, alt = "", onClose }) {
       className="fixed inset-0 z-[2000] flex items-center justify-center bg-black/92 backdrop-blur-sm"
       role="dialog"
       aria-modal="true"
-      aria-label={alt || "Image"}
+      aria-label={alt || i18nText("ui.literals.k50e19fda0d5b")}
       onClick={() => onClose?.()}
     >
       <div className="absolute right-3 top-[calc(env(safe-area-inset-top)+0.75rem)] flex gap-2">
@@ -160,7 +182,7 @@ export default function ImageViewer({ src, alt = "", onClose }) {
           type="button"
           onClick={download}
           disabled={downloading || failed}
-          aria-label="Save image"
+          aria-label={i18nText("ui.literals.k2c1469f758d5")}
           className="grid h-11 w-11 place-items-center rounded-full bg-white/12 text-white backdrop-blur transition hover:bg-white/25 disabled:opacity-50"
         >
           {downloading ? <Loader2 size={20} className="animate-spin" /> : <Download size={20} />}
@@ -168,7 +190,7 @@ export default function ImageViewer({ src, alt = "", onClose }) {
         <button
           type="button"
           onClick={() => onClose?.()}
-          aria-label="Close"
+          aria-label={i18nText("ui.literals.kbbfa773e5a63")}
           className="grid h-11 w-11 place-items-center rounded-full bg-white/12 text-white backdrop-blur transition hover:bg-white/25"
         >
           <X size={22} />
@@ -176,20 +198,21 @@ export default function ImageViewer({ src, alt = "", onClose }) {
       </div>
 
       {!loaded && !failed ? (
-        <Loader2 size={34} className="absolute animate-spin text-white/80" aria-label="Loading image" />
+        <Loader2 size={34} className="absolute animate-spin text-white/80" aria-label={i18nText("ui.literals.k3c49868826b0")} />
       ) : null}
 
       {failed ? (
         <div className="px-8 text-center text-sm font-semibold text-white/80">
-          This image couldn’t be loaded. Check your connection and try again.
+          {i18nText("ui.literals.k148949e9b8eb")}
         </div>
       ) : (
         <img
+          key={reloadKey}
           ref={imgRef}
           src={src}
           alt={alt}
           onLoad={() => setLoaded(true)}
-          onError={() => setFailed(true)}
+          onError={handleImageError}
           onClick={handleImageTap}
           onPointerDown={handlePointerDown}
           onPointerMove={handlePointerMove}

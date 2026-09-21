@@ -1,4 +1,5 @@
 import { useI18n } from "../../../../i18n";
+import { uiText as translateUi } from "../../../../i18n/index.js";
 
 export default function ProfileTabs({ active, editable, onChange }) {
   const { t } = useI18n();
@@ -24,7 +25,7 @@ export default function ProfileTabs({ active, editable, onChange }) {
             active === tab.id ? "bg-slate-950 text-white" : "text-slate-600 hover:bg-slate-100"
           }`}
         >
-          {tab.label}
+          {translateUi(tab.label)}
         </button>
       ))}
     </div>

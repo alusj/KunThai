@@ -1,8 +1,10 @@
 import { createPortal } from "react-dom";
 import { X } from "lucide-react";
 import { t as i18nText } from "../../../i18n/index";
+import { uiText as translateUi, useI18n as useUiLocale } from "../../../i18n/index.js";
 
 export default function ExploreActionDrawer({ children, closing = false, onClose, title = "Actions" }) {
+  useUiLocale();
   return createPortal(
     <div
       className="fixed inset-0 z-[105] h-dvh w-full overflow-hidden overscroll-none [contain:strict]"
@@ -20,7 +22,7 @@ export default function ExploreActionDrawer({ children, closing = false, onClose
       <aside
         role="dialog"
         aria-modal="true"
-        aria-label={title}
+        aria-label={translateUi(title)}
         className={`${closing ? "kt-toast-collapse-out" : "kt-toast-expand-in"} absolute right-3 top-16 max-h-[calc(100dvh-5rem)] w-fit max-w-[90vw] transform-gpu overflow-y-auto overscroll-contain [backface-visibility:hidden] [will-change:transform,opacity] sm:right-5`}
         onClick={(event) => event.stopPropagation()}
       >

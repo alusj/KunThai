@@ -17,6 +17,8 @@ import {
 import { uiText, useI18n, t } from "../../../../../i18n";
 import { estimatePromotionDays, normalizePromotionSettings, PROMOTION_AUDIENCES, promotionRegionsReady } from "./promotionSetup";
 import PromotionRegionSection from "./PromotionRegionSection";
+import { uiText as translateUi, useI18n as useUiLocale } from "../../../../../i18n/index.js";
+import { inlineErrorMessage } from "../../../../../Backend/services/friendlyErrorService";
 
 export default function PromotionSetupPanel({
   confirmLabel = "",
@@ -50,7 +52,7 @@ export default function PromotionSetupPanel({
       await wallet.shareInvite();
       setShareFeedback(t("urmall.biz.pform.inviteReady"));
     } catch (nextError) {
-      setShareFeedback(nextError.message || t("urmall.biz.pform.inviteFailed"));
+      setShareFeedback(inlineErrorMessage(nextError, t("urmall.biz.pform.inviteFailed")));
     }
   }
 
@@ -168,7 +170,7 @@ export default function PromotionSetupPanel({
           </div>
           <p className="mt-2 text-[11px] font-semibold leading-5 text-slate-500">{t("urmall.biz.promo.creditDisclosure")}</p>
           {!wallet.loading && !hasEnoughCredits ? <p className="mt-2 text-xs font-black text-amber-800">{t("urmall.biz.pform.needCredits", { n: selectedCredits })}</p> : null}
-          {wallet.error ? <p className="mt-2 text-xs font-black text-amber-800">{wallet.error}</p> : null}
+          {wallet.error ? <p className="mt-2 text-xs font-black text-amber-800">{translateUi(wallet.error)}</p> : null}
         </div>
 
         {!hasEnoughCredits && !wallet.loading ? (
@@ -178,7 +180,7 @@ export default function PromotionSetupPanel({
           </div>
         ) : null}
         {shareFeedback ? <p className="text-xs font-black text-emerald-700">{shareFeedback}</p> : null}
-        {error ? <p className="rounded-xl border border-red-200 bg-red-50 p-3 text-sm font-bold text-red-700">{error}</p> : null}
+        {error ? <p className="rounded-xl border border-red-200 bg-red-50 p-3 text-sm font-bold text-red-700">{translateUi(error)}</p> : null}
 
         {onConfirm ? (
           <button
@@ -196,11 +198,12 @@ export default function PromotionSetupPanel({
 }
 
 function CreditMetric({ icon: Icon, label, loading = false, tone = "slate", value }) {
+  useUiLocale();
   return (
     <div className={`kt-promotion-credit-metric min-w-0 rounded-2xl border p-3 ${tone === "emerald" ? "kt-promotion-credit-metric--selected border-emerald-200 bg-emerald-50" : "border-slate-200 bg-white/80"}`}>
       <span className={`grid h-7 w-7 place-items-center rounded-lg ${tone === "emerald" ? "bg-emerald-600 text-white" : "bg-slate-100 text-slate-600"}`}><Icon size={14} /></span>
       <p className="mt-2 truncate text-xl font-black text-slate-950">{loading ? "…" : value}</p>
-      <p className="mt-0.5 truncate text-[9px] font-black uppercase tracking-wide text-slate-400">{label}</p>
+      <p className="mt-0.5 truncate text-[9px] font-black uppercase tracking-wide text-slate-400">{translateUi(label)}</p>
     </div>
   );
 }

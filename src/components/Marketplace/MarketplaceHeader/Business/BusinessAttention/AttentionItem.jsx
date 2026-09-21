@@ -1,6 +1,7 @@
 import { useI18n, t } from "../../../../../i18n";
 import AttentionIcon from "./AttentionIcon";
 import AttentionPriorityBadge from "./AttentionPriorityBadge";
+import { uiText as translateUi } from "../../../../../i18n/index.js";
 
 export default function AttentionItem({ item, onAction }) {
   useI18n();
@@ -12,9 +13,9 @@ export default function AttentionItem({ item, onAction }) {
         <div className="min-w-0 flex-1">
           <div className="flex flex-wrap items-start justify-between gap-2">
             <div>
-              <h4 className="font-black text-gray-950">{item.title}</h4>
+              <h4 className="font-black text-gray-950">{translateUi(item.title)}</h4>
               <p className="mt-1 text-sm font-medium leading-5 text-gray-500">
-                {item.description}
+                {translateUi(item.description)}
               </p>
             </div>
             <AttentionPriorityBadge priority={item.priority} />
@@ -32,7 +33,7 @@ export default function AttentionItem({ item, onAction }) {
               className="rounded-lg border border-gray-200 px-3 py-2 text-sm font-black text-gray-800 transition hover:bg-gray-50"
               onClick={() => onAction?.(item)}
             >
-              {item.actionLabel}
+              {translateUi(item.actionLabel)}
             </button>
           </div>
         </div>

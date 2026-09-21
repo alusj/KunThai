@@ -3,12 +3,14 @@ import ErrorState from "../../../shared/ErrorState";
 import DiscoverList from "./DiscoverList";
 import ImportContactsPanel from "./ImportContactsPanel";
 import { t as i18nText } from "../../../../../i18n/index";
+import { uiText as translateUi, useI18n as useUiLocale } from "../../../../../i18n/index.js";
 
 export default function Discover({ connectionState, onViewProfile }) {
+  useUiLocale();
   const { items = [], loading = false, error = "", blockUser, followUser, removeUser, reload } = connectionState || {};
 
   if (error) {
-    return <ErrorState message={error} onRetry={reload} />;
+    return <ErrorState message={translateUi(error)} onRetry={reload} />;
   }
 
   if (loading && !items.length) {
@@ -39,6 +41,7 @@ export default function Discover({ connectionState, onViewProfile }) {
 }
 
 function ConnectionListSkeleton() {
+  useUiLocale();
   return (
     <div className="space-y-3">
       {[1, 2, 3].map((item) => (

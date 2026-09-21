@@ -22,6 +22,7 @@ import {
   consumePendingMarketplaceScreen,
   OPEN_MARKETPLACE_SCREEN_EVENT,
 } from "../../Backend/services/notificationBannerService";
+import { uiText as translateUi } from "../../i18n/index.js";
 
 const MARKETPLACE_TAB_ORDER = ["new", "discounted", "high-demand", "top-rated"];
 
@@ -457,8 +458,8 @@ function UtilityScreen({ children, hideHeader = false, open, onClose, subtitle, 
             <AppBackTab onBack={onClose} label={t("urmall.shell.backToUrMall")} historyKey={`urmall-${title}`} />
             <div className="min-w-0">
               <p className="text-xs font-black uppercase text-emerald-700">UrMall</p>
-              <h2 className="truncate text-lg font-black text-gray-950">{title}</h2>
-              {subtitle ? <p className="truncate text-xs font-bold text-gray-500">{subtitle}</p> : null}
+              <h2 className="truncate text-lg font-black text-gray-950">{translateUi(title)}</h2>
+              {subtitle ? <p className="truncate text-xs font-bold text-gray-500">{translateUi(subtitle)}</p> : null}
             </div>
           </header>
         ) : null}

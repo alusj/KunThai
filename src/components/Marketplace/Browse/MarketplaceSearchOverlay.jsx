@@ -21,6 +21,7 @@ import { useI18n } from "../../../i18n";
 import { useAiAvailability } from "../../../Backend/hooks/useAiTask";
 import { openAiChat } from "../../../Backend/services/ai/aiSurfaceService";
 import { isNaturalLanguageQuery } from "../../../Backend/services/ai/exploreAiModels";
+import { uiText as translateUi, useI18n as useUiLocale } from "../../../i18n/index.js";
 
 const EMPTY_VERTICAL = { restaurants: [], hotels: [], properties: [] };
 
@@ -55,7 +56,7 @@ export default function MarketplaceSearchOverlay({
   activeCategory = "all",
   onBrowseCategory,
 }) {
-  const { t } = useI18n();
+  const { t , locale: memoLocale } = useI18n();
   const inputRef = useRef(null);
   const [query, setQuery] = useState("");
   const [filterOpen, setFilterOpen] = useState(false);
@@ -184,7 +185,7 @@ export default function MarketplaceSearchOverlay({
     if ((vertical.properties || []).length) options.push({ id: "property", label: t("urmall.search.filterProperty") });
     if ((vertical.hotels || []).length) options.push({ id: "hotel", label: t("urmall.search.filterHotel") });
     return options;
-  }, [allProducts, vertical, t]);
+  }, [allProducts, vertical, t, memoLocale]);
   const activeFilterLabel = filterOptions.find((option) => option.id === activeCategory)?.label || t("urmall.search.filterAll");
 
   const showCode = Boolean(detectPublicCodeKind(trimmed)) && codeLookup.kind;
@@ -293,7 +294,7 @@ export default function MarketplaceSearchOverlay({
                     }`}
                   >
                     <Tag size={14} className="flex-none text-gray-400" />
-                    <span className="truncate">{option.label}</span>
+                    <span className="truncate">{translateUi(option.label)}</span>
                   </button>
                 ))}
               </div>
@@ -434,6 +435,7 @@ export default function MarketplaceSearchOverlay({
 }
 
 function ResultRow({ row, onClick }) {
+  useUiLocale();
   const Icon = row.kind === "vertical" ? UtensilsCrossed : Package;
   return (
     <button
@@ -448,12 +450,13 @@ function ResultRow({ row, onClick }) {
         <span className="block truncate text-sm font-black text-gray-950">{row.name}</span>
         <span className="block truncate text-xs font-bold text-gray-500">{row.address || "—"}</span>
       </span>
-      <TypeTag icon={Icon} label={row.tag} />
+      <TypeTag icon={Icon} label={translateUi(row.tag)} />
     </button>
   );
 }
 
 function EmptyState({ t, recent, options, activeCategory, onPickRecent, onClearRecent, onPickCategory }) {
+  useUiLocale();
   const categories = options.filter((option) => option.id !== "all");
   return (
     <div className="space-y-4">
@@ -501,7 +504,7 @@ function EmptyState({ t, recent, options, activeCategory, onPickRecent, onClearR
                   activeCategory === category.id ? "bg-emerald-600 text-white" : "bg-emerald-50 text-emerald-700"
                 }`}
               >
-                <Tag size={14} /> {category.label}
+                <Tag size={14} /> {translateUi(category.label)}
               </button>
             ))}
           </div>
@@ -512,18 +515,20 @@ function EmptyState({ t, recent, options, activeCategory, onPickRecent, onClearR
 }
 
 function ResultSection({ title, children }) {
+  useUiLocale();
   return (
     <section className="space-y-2">
-      <p className="text-xs font-black uppercase tracking-[0.14em] text-gray-400">{title}</p>
+      <p className="text-xs font-black uppercase tracking-[0.14em] text-gray-400">{translateUi(title)}</p>
       {children}
     </section>
   );
 }
 
 function TypeTag({ icon: Icon, label }) {
+  useUiLocale();
   return (
     <span className="flex flex-none items-center gap-1 rounded-full bg-gray-200 px-2 py-0.5 text-[10px] font-black uppercase tracking-wide text-gray-500">
-      <Icon size={11} /> {label}
+      <Icon size={11} /> {translateUi(label)}
     </span>
   );
 }

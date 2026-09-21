@@ -19,15 +19,13 @@ import { legalConfig, isResolvedLegalValue } from "../../../../config/legalConfi
 import { useBrowserBack } from "../../../../Backend/hooks/useBrowserBack";
 import {
   frequentPolicyIds,
-  policyCategories,
-  policyChangelog,
-  policyDocuments,
-  policiesById,
   resolvePolicy,
 } from "../../../../data/policies";
+import { buildPolicySearchResults, getLocalizedPolicies } from "../../../../data/policies/localizedPolicies";
+import { policyDate, policyText } from "../../../../i18n/policyText";
 import SocialScreenHeader from "../shared/SocialScreenHeader";
 import PublicPrivacyRequestDialog from "../../../public/PublicPrivacyRequestDialog";
-import { t as i18nText } from "../../../../i18n/index";
+import { t as i18nText, useI18n } from "../../../../i18n/index";
 
 const iconMap = {
   banknotes: HiOutlineBanknotes,
@@ -53,59 +51,6 @@ const unresolvedLegalFields = [
 
 function normalizeSearchText(value) {
   return String(value || "").toLowerCase();
-}
-
-function getPolicySearchText(policy) {
-  return [
-    policy.title,
-    policy.shortTitle,
-    policy.summary,
-    policy.category,
-    policy.audience,
-    policy.appliesWhen,
-    ...(policy.keywords || []),
-    ...(policy.sections || []).flatMap((section) => [
-      section.title,
-      section.introduction,
-      ...(section.paragraphs || []),
-      ...(section.bullets || []),
-      ...(section.allowed || []),
-      ...(section.prohibited || []),
-      ...(section.examples || []),
-      ...(section.callouts || []),
-    ]),
-  ].join(" ");
-}
-
-function buildSearchResults(query) {
-  const needle = normalizeSearchText(query).trim();
-  if (needle.length < 2) return [];
-
-  return policyDocuments
-    .map((policy) => {
-      const policyText = normalizeSearchText(getPolicySearchText(policy));
-      if (!policyText.includes(needle)) return null;
-
-      const sectionMatches = (policy.sections || []).filter((section) =>
-        normalizeSearchText([
-          section.title,
-          section.introduction,
-          ...(section.paragraphs || []),
-          ...(section.bullets || []),
-          ...(section.allowed || []),
-          ...(section.prohibited || []),
-          ...(section.examples || []),
-          ...(section.callouts || []),
-        ].join(" ")).includes(needle),
-      );
-
-      return {
-        policy,
-        sectionMatches: sectionMatches.slice(0, 3),
-        titleMatch: normalizeSearchText(policy.title).includes(needle) || normalizeSearchText(policy.shortTitle).includes(needle),
-      };
-    })
-    .filter(Boolean);
 }
 
 function getInitialSlug(initialPolicyId) {
@@ -175,6 +120,7 @@ function PolicyListItem({ policy, onOpen, sectionId = "" }) {
 }
 
 function SearchResults({ query, results, onOpen }) {
+  const { locale } = useI18n();
   if (!query.trim()) return null;
 
   if (!results.length) {
@@ -193,7 +139,7 @@ function SearchResults({ query, results, onOpen }) {
       <div className="mb-3 flex items-center justify-between gap-3">
         <div>
           <p className="text-xs font-black uppercase tracking-[0.18em] text-sky-700">{i18nText("ui.literals.k0144dae8fb18")}</p>
-          <h3 className="mt-1 text-lg font-black text-slate-950">{results.length} {i18nText("ui.literals.kbdd1a2bdf3c2")}{results.length === 1 ? "y" : i18nText("ui.literals.kbac544f46726")}</h3>
+          <h3 className="mt-1 text-lg font-black text-slate-950">{policyText(results.length === 1 ? "1 policy found" : "{count} policies found", locale, { count: new Intl.NumberFormat(locale).format(results.length) })}</h3>
         </div>
       </div>
       <div className="grid gap-3">
@@ -224,6 +170,8 @@ function SearchResults({ query, results, onOpen }) {
 }
 
 function PolicyCategoryCard({ category, onOpen }) {
+  const { locale } = useI18n();
+  const { policiesById } = getLocalizedPolicies(locale);
   const policies = category.policyIds.map((id) => policiesById.get(id)).filter(Boolean);
 
   return (
@@ -258,8 +206,10 @@ function PolicyCategoryCard({ category, onOpen }) {
 }
 
 function PolicyCenterHome({ onOpen }) {
+  const { locale } = useI18n();
+  const { policiesById, policyCategories, policyChangelog } = getLocalizedPolicies(locale);
   const [query, setQuery] = useState("");
-  const searchResults = useMemo(() => buildSearchResults(query), [query]);
+  const searchResults = useMemo(() => buildPolicySearchResults(query, locale), [query, locale]);
   const frequentPolicies = frequentPolicyIds.map((id) => policiesById.get(id)).filter(Boolean);
 
   return (
@@ -275,8 +225,8 @@ function PolicyCenterHome({ onOpen }) {
           </div>
           <div className="flex flex-wrap gap-2">
             <MetadataPill label={i18nText("ui.literals.k2da600bf9404")} value={legalConfig.policyVersion} />
-            <MetadataPill label={i18nText("ui.literals.kb034605d102e")} value={legalConfig.effectiveDate} />
-            <MetadataPill label={i18nText("ui.literals.k583c9e23574a")} value={legalConfig.lastUpdated} />
+            <MetadataPill label={i18nText("ui.literals.kb034605d102e")} value={policyDate(legalConfig.effectiveDate, locale)} />
+            <MetadataPill label={i18nText("ui.literals.k583c9e23574a")} value={policyDate(legalConfig.lastUpdated, locale)} />
           </div>
         </div>
         <div className="mt-5">
@@ -308,7 +258,7 @@ function PolicyCenterHome({ onOpen }) {
                 <div className="mt-4 rounded-2xl border border-amber-200 bg-white/70 p-3">
                   <p className="text-xs font-black uppercase tracking-[0.16em] text-amber-700">{i18nText("ui.literals.kf2f12daa22fb")}</p>
                   <p className="mt-1 text-sm font-bold leading-6">
-                    {unresolvedLegalFields.map(([label]) => label).join(", ")}.
+                    {unresolvedLegalFields.map(([label]) => policyText(label, locale)).join(", ")}.
                   </p>
                 </div>
               ) : null}
@@ -328,7 +278,7 @@ function PolicyCenterHome({ onOpen }) {
                 <div key={entry.id} className="mt-4 rounded-2xl bg-slate-50 p-4">
                   <div className="flex flex-wrap items-center gap-2">
                     <span className="rounded-full bg-slate-950 px-3 py-1 text-xs font-black text-white">v{entry.version}</span>
-                    <span className="text-xs font-black text-slate-500">{entry.date}</span>
+                    <span className="text-xs font-black text-slate-500">{policyDate(entry.date, locale)}</span>
                   </div>
                   <p className="mt-3 text-sm font-bold leading-6 text-slate-600">{entry.summary}</p>
                 </div>
@@ -355,19 +305,20 @@ function PolicyCenterHome({ onOpen }) {
       ) : null}
 
       <footer className="rounded-[24px] border border-slate-200 bg-white px-5 py-4 text-sm font-semibold leading-6 text-slate-500 shadow-sm">
-        {i18nText("ui.literals.kbb4366479387")} {legalConfig.policyVersion}{i18nText("ui.literals.k6cd7f0b32975")} {legalConfig.effectiveDate}{i18nText("ui.literals.ke51e9310fdf6")} {legalConfig.lastUpdated}.
+        {policyText("Policy version {version}. Effective {effectiveDate}. Last updated {lastUpdated}.", locale, { version: legalConfig.policyVersion, effectiveDate: policyDate(legalConfig.effectiveDate, locale), lastUpdated: policyDate(legalConfig.lastUpdated, locale) })}
       </footer>
     </main>
   );
 }
 
 function PolicyMetadata({ policy }) {
+  const { locale } = useI18n();
   return (
     <div className="mt-4 flex flex-wrap gap-2">
       <MetadataPill label={i18nText("ui.literals.k2da600bf9404")} value={policy.version} />
-      <MetadataPill label={i18nText("ui.literals.kb034605d102e")} value={policy.effectiveDate} />
-      <MetadataPill label={i18nText("ui.literals.k583c9e23574a")} value={policy.lastUpdated} />
-      <MetadataPill label={i18nText("ui.literals.kbae7d5be7082")} value={policy.status === "conditional" ? "Conditional" : "Current"} />
+      <MetadataPill label={i18nText("ui.literals.kb034605d102e")} value={policyDate(policy.effectiveDate, locale)} />
+      <MetadataPill label={i18nText("ui.literals.k583c9e23574a")} value={policyDate(policy.lastUpdated, locale)} />
+      <MetadataPill label={i18nText("ui.literals.kbae7d5be7082")} value={policyText(policy.status === "conditional" ? "Conditional" : "Current", locale)} />
     </div>
   );
 }
@@ -439,10 +390,11 @@ function PolicySection({ section }) {
 }
 
 function PolicyActions({ actions = [], onOpenHelp, onOpenPrivacy, onOpenReport, onRequestPrivacy }) {
+  const { locale } = useI18n();
   if (!actions.length) return null;
 
   function email(address, action) {
-    const subject = encodeURIComponent(`KunThai: ${action}`);
+    const subject = encodeURIComponent(`KunThai: ${policyText(action, locale)}`);
     window.location.href = `mailto:${address}?subject=${subject}`;
   }
 
@@ -481,7 +433,7 @@ function PolicyActions({ actions = [], onOpenHelp, onOpenPrivacy, onOpenReport, 
             onClick={() => runAction(action)}
             className="h-11 rounded-2xl border border-slate-200 px-3 text-sm font-black text-slate-700 transition hover:border-sky-200 hover:bg-sky-50 hover:text-sky-700"
           >
-            {action}
+            {policyText(action, locale)}
           </button>
         ))}
       </div>
@@ -490,6 +442,8 @@ function PolicyActions({ actions = [], onOpenHelp, onOpenPrivacy, onOpenReport, 
 }
 
 function RelatedPolicies({ ids = [], onOpen }) {
+  const { locale } = useI18n();
+  const { policiesById } = getLocalizedPolicies(locale);
   const policies = ids.map((id) => policiesById.get(id)).filter(Boolean);
   if (!policies.length) return null;
 
@@ -620,10 +574,11 @@ export default function TermsPoliciesScreen({
   onOpenPrivacy,
   onOpenReport,
 }) {
+  const { locale } = useI18n();
   const [activeSlug, setActiveSlug] = useState(() => getInitialSlug(initialPolicyId));
   const [sectionTarget, setSectionTarget] = useState("");
   const [publicPrivacyRequest, setPublicPrivacyRequest] = useState("");
-  const activePolicy = resolvePolicy(activeSlug);
+  const activePolicy = getLocalizedPolicies(locale).resolvePolicy(activeSlug);
   const browserBack = useBrowserBack(Boolean(activePolicy), () => {
     setActiveSlug("");
     setSectionTarget("");

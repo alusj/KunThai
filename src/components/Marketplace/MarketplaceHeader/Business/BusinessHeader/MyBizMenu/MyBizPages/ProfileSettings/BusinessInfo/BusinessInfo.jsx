@@ -8,15 +8,18 @@ import {
 } from "../../../../../../../../../Backend/services/marketplace/sellerRegistrationService";
 import { useI18n, t } from "../../../../../../../../../i18n";
 import SellerMenuPageHeader from "../../SellerMenuPageHeader";
+import { uiText as translateUi, useI18n as useUiLocale } from "../../../../../../../../../i18n/index.js";
+import { inlineErrorMessage } from "../../../../../../../../../Backend/services/friendlyErrorService";
 
 const inputClass =
   "mt-2 w-full rounded-xl border border-gray-200 bg-white px-4 py-3 text-sm font-semibold text-gray-950 outline-none transition focus:border-gray-950 focus:ring-4 focus:ring-gray-950/10";
 const labelClass = "text-xs font-black uppercase tracking-[0.16em] text-gray-500";
 
 function Field({ label, children }) {
+  useUiLocale();
   return (
     <label className="block">
-      <span className={labelClass}>{label}</span>
+      <span className={labelClass}>{translateUi(label)}</span>
       {children}
     </label>
   );
@@ -39,13 +42,14 @@ function buildForm(business) {
 }
 
 function SummaryCard({ icon: Icon, label, value }) {
+  useUiLocale();
   return (
     <div className="rounded-2xl border border-gray-200 bg-white p-4 shadow-sm">
       <span className="flex h-10 w-10 items-center justify-center rounded-xl bg-gray-100 text-gray-800">
         <Icon size={18} />
       </span>
       <p className="mt-4 text-xs font-black uppercase tracking-[0.16em] text-gray-500">
-        {label}
+        {translateUi(label)}
       </p>
       <p className="mt-1 text-base font-black text-gray-950">{value || t("urmall.biz.profile.notAdded")}</p>
     </div>
@@ -71,7 +75,7 @@ export default function BusinessInfo({ onBack }) {
         setForm(buildForm(nextBusiness));
       })
       .catch((nextError) => {
-        if (mounted) setError(nextError.message || t("urmall.biz.profile.bizInfoLoadFailed"));
+        if (mounted) setError(inlineErrorMessage(nextError, t("urmall.biz.profile.bizInfoLoadFailed")));
       })
       .finally(() => {
         if (mounted) setLoading(false);
@@ -170,7 +174,7 @@ export default function BusinessInfo({ onBack }) {
       setForm(buildForm(updated));
       setStatus(t("urmall.biz.profile.bizInfoUpdated"));
     } catch (nextError) {
-      setError(nextError.message || t("urmall.biz.profile.bizInfoUpdateFailed"));
+      setError(inlineErrorMessage(nextError, t("urmall.biz.profile.bizInfoUpdateFailed")));
     } finally {
       setSaving(false);
     }
@@ -375,12 +379,12 @@ export default function BusinessInfo({ onBack }) {
 
           {error ? (
             <p className="rounded-xl border border-red-200 bg-red-50 px-4 py-3 text-sm font-bold text-red-700">
-              {error}
+              {translateUi(error)}
             </p>
           ) : null}
           {status ? (
             <p className="rounded-xl border border-emerald-200 bg-emerald-50 px-4 py-3 text-sm font-bold text-emerald-700">
-              {status}
+              {translateUi(status)}
             </p>
           ) : null}
 

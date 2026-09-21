@@ -15,6 +15,7 @@ import { formatCurrency } from "../../../../../Backend/utils/formatCurrency";
 import { useI18n, t } from "../../../../../i18n";
 import SellerIntelligenceMetric from "./SellerIntelligenceMetric";
 import SellerIntelligencePanel from "./SellerIntelligencePanel";
+import { uiText as translateUi } from "../../../../../i18n/index.js";
 
 function metricRows(metrics = {}) {
   return Object.entries(metrics).map(([key, metric]) => ({
@@ -234,7 +235,7 @@ export default function SellerIntelligence() {
           <SellerIntelligenceMetric
             key={item.key}
             icon={item.icon}
-            label={item.label}
+            label={translateUi(item.label)}
             value={item.value}
             tone={item.tone}
             active={activeItem.key === item.key}

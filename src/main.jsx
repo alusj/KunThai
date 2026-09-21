@@ -12,6 +12,7 @@ import { initCountryConfig } from "./Backend/services/countryConfigService.js";
 import { t as i18nText } from "./i18n/index";
 import { installMobileViewportVariables } from "./Backend/services/mobileViewportService";
 import { lazyWithRetry } from "./Backend/utils/lazyWithRetry";
+import { useI18n as useUiLocale } from "./i18n/index.js";
 
 registerKunThaiServiceWorker();
 initCountryConfig();
@@ -21,6 +22,7 @@ const AdminApp = lazyWithRetry(() => import("./admin/AdminApp.jsx"));
 const PublicPolicyPage = lazyWithRetry(() => import("./components/public/PublicPolicyPage.jsx"));
 
 function RootApplication() {
+  useUiLocale();
   const pathname = window.location.pathname;
   const isAdminPath = pathname === "/admin" || pathname.startsWith("/admin/");
   const isPolicyCenterPath = pathname === "/policy-center" || pathname.startsWith("/policy-center/");

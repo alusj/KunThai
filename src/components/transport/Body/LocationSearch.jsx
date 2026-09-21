@@ -2,6 +2,7 @@ import { FiMap, FiMapPin, FiNavigation, FiSearch, FiSend, FiSliders } from "reac
 
 import { getPassengerFleetFilterOptions } from "../../../data/globalTransportCapabilities";
 import { useI18n, t } from "../../../i18n";
+import { uiText as translateUi, useI18n as useUiLocale } from "../../../i18n/index.js";
 
 function getPlaceLabel(place) {
   return place.category === "Other" ? place.customCategory || t("urride.locationSearch.otherCategory") : place.category || t("urride.locationSearch.savedCategory");
@@ -169,7 +170,7 @@ export default function LocationSearch({
               className="h-11 w-full rounded-xl border border-gray-200 bg-white px-3 text-sm font-black text-gray-900 outline-none focus:border-green-500"
             >
               {fleetTypes.map((type) => (
-                <option key={type.value || "all"} value={type.value}>{type.label}</option>
+                <option key={type.value || "all"} value={type.value}>{translateUi(type.label)}</option>
               ))}
             </select>
           </label>
@@ -191,6 +192,7 @@ export default function LocationSearch({
 }
 
 function ToggleFilter({ label, checked, onClick }) {
+  useUiLocale();
   return (
     <button
       type="button"
@@ -199,7 +201,7 @@ function ToggleFilter({ label, checked, onClick }) {
         checked ? "border-green-200 bg-green-50 text-green-700" : "border-gray-200 bg-white text-gray-600"
       }`}
     >
-      {label}
+      {translateUi(label)}
       <span className={`h-5 w-5 rounded-full border ${checked ? "border-green-600 bg-green-600" : "border-gray-300 bg-white"}`} />
     </button>
   );

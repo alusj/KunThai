@@ -2,8 +2,10 @@ import { HiOutlineCheck, HiOutlineFolder } from "react-icons/hi2";
 
 import { itemIsInCollection } from "../../../../Backend/services/explore/savedService";
 import { t as i18nText } from "../../../../i18n/index";
+import { useI18n as useUiLocale } from "../../../../i18n/index.js";
 
 export default function CollectionPicker({ collections, onToggle, postId }) {
+  useUiLocale();
   if (!collections.length) {
     return null;
   }

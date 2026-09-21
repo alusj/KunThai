@@ -913,7 +913,7 @@ export function formatCountryMoney(amount, countryOrCurrency = "", options = {})
     : "";
   const profile = directCurrency ? COUNTRY_BY_CURRENCY.get(directCurrency) : getActiveCountryProfile(countryOrCurrency);
   const currency = directCurrency || profile.currency.code;
-  const locale = options.locale || profile.locale || undefined;
+  const locale = options.locale || (typeof document !== "undefined" && document.documentElement.lang) || profile.locale || undefined;
 
   try {
     return new Intl.NumberFormat(locale, {

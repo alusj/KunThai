@@ -6,6 +6,7 @@ import PullToRefresh from "../../../shared/PullToRefresh";
 import FeedComposer from "./feed/components/FeedComposer";
 import FeedList from "./feed/FeedList";
 import { t } from "../../../../i18n";
+import { useI18n as useUiLocale } from "../../../../i18n/index.js";
 
 function feedActions(feed) {
   return {
@@ -25,6 +26,7 @@ function feedActions(feed) {
 }
 
 export default function UrFeed({ active = true, focusRequest = null, profile, onViewProfile }) {
+  const { locale: memoLocale } = useUiLocale();
   const feed = useExploreFeed("feed");
   const circleFeed = useExploreFeed("connections");
   const handledFocusKeyRef = useRef("");
@@ -68,7 +70,7 @@ export default function UrFeed({ active = true, focusRequest = null, profile, on
       });
       return paceExploreAdvertPosts(ranked, "feed", profile?.userId || "");
     },
-    [feed.posts, circleFeed.posts, profile?.userId],
+    [feed.posts, circleFeed.posts, profile?.userId, memoLocale],
   );
 
   useEffect(() => {

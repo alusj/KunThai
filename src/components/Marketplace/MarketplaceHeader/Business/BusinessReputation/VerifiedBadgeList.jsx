@@ -1,6 +1,7 @@
 import { BadgeCheck, Lock } from "lucide-react";
 
 import { useI18n, t } from "../../../../../i18n";
+import { uiText as translateUi } from "../../../../../i18n/index.js";
 
 export default function VerifiedBadgeList({ badges }) {
   useI18n();
@@ -21,7 +22,7 @@ export default function VerifiedBadgeList({ badges }) {
               ].join(" ")}
             >
               <Icon size={14} strokeWidth={2.3} />
-              {badge.label}
+              {translateUi(badge.label)}
             </span>
           );
         })}

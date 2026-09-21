@@ -1,5 +1,5 @@
 import { useEffect, useMemo, useState } from "react";
-import { friendlyErrorMessage } from "../services/friendlyErrorService";
+import { inlineErrorMessage } from "../services/friendlyErrorService";
 
 import supabase from "../lib/supabaseClient";
 import { fetchExploreProfileStats, normalizeIdentityTarget } from "../services/exploreService";
@@ -81,7 +81,7 @@ export function useExploreFollowStats(userId) {
           writeCachedStats(statsKey, nextStats);
         }
       } catch (err) {
-        if (active) setError(friendlyErrorMessage(err, "Unable to load profile stats."));
+        if (active) setError(inlineErrorMessage(err, "Unable to load profile stats."));
       } finally {
         if (active) setLoading(false);
       }

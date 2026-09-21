@@ -1,7 +1,9 @@
 import { getActiveCountryProfile } from "../../../../../data/globalCountryProfiles";
 import { t as i18nText } from "../../../../../i18n/index";
+import { useI18n as useUiLocale } from "../../../../../i18n/index.js";
 
 export default function BusinessName() {
+  useUiLocale();
   const countryProfile = getActiveCountryProfile();
 
   return (

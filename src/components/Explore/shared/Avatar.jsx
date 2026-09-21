@@ -1,7 +1,9 @@
 import { useState } from "react";
 import { resizedImageUrl } from "../../../Backend/lib/imageProxy";
+import { useI18n as useUiLocale } from "../../../i18n/index.js";
 
 export default function Avatar({ name = "KunThai", src = "", size = "md" }) {
+  useUiLocale();
   const [failed, setFailed] = useState(false);
   const sizes = {
     xs: "h-6 w-6 text-[11px]",

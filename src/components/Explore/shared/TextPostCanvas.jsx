@@ -1,4 +1,5 @@
-/* eslint-disable react-refresh/only-export-components -- the eligibility predicate belongs with the canvas it gates. */
+
+import { uiText as translateUi, useI18n as useUiLocale } from "../../../i18n/index.js";/* eslint-disable react-refresh/only-export-components -- the eligibility predicate belongs with the canvas it gates. */
 // Short text-only posts render as a full-width "status canvas": a vivid
 // gradient background with large centered white text, instead of plain body
 // copy. The background is picked deterministically from the post id so a post
@@ -44,6 +45,7 @@ export function isTextCanvasPost(post, title = "") {
 }
 
 export default function TextPostCanvas({ post, title = "" }) {
+  useUiLocale();
   const body = String(post?.body || "").trim();
   const heading = String(title || "").trim();
   const palette = CANVAS_BACKGROUNDS[hashString(post?.id || body) % CANVAS_BACKGROUNDS.length];
@@ -60,7 +62,7 @@ export default function TextPostCanvas({ post, title = "" }) {
           className="kuntai-break max-w-[28rem] text-center text-sm font-black uppercase tracking-[0.18em] text-white/85"
           style={{ textShadow: "0 2px 12px rgba(0,0,0,0.22)" }}
         >
-          {heading}
+          {translateUi(heading)}
         </p>
       ) : null}
       <p

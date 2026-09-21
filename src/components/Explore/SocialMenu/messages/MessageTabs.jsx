@@ -1,4 +1,5 @@
 import { useI18n } from "../../../../i18n";
+import { uiText as translateUi } from "../../../../i18n/index.js";
 
 export default function MessageTabs({ active, onChange, requestCount = 0 }) {
   const { t } = useI18n();
@@ -18,7 +19,7 @@ export default function MessageTabs({ active, onChange, requestCount = 0 }) {
             active === tab.id ? "bg-slate-950 text-white" : "text-slate-600 hover:bg-slate-100"
           }`}
         >
-          {tab.label}
+          {translateUi(tab.label)}
           {tab.count ? <span className="ml-2 rounded-full bg-white/20 px-2 text-xs">{tab.count}</span> : null}
         </button>
       ))}

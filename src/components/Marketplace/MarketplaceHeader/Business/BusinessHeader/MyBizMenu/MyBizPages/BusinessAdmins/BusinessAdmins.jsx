@@ -19,6 +19,7 @@ import KunThaiIdHelpButton from "../../../../../../../shared/KunThaiIdHelpButton
 import { t as i18nText } from "../../../../../../../../i18n/index";
 import { fetchBusinessSubscription, getCapacityStatus } from "../../../../../../../../Backend/services/businessSubscriptionService";
 import { hasBusinessPlans } from "../../../../../../../../Backend/services/marketplace/marketplaceBusinessKinds";
+import { uiText as translateUi } from "../../../../../../../../i18n/index.js";
 
 const STATUS_STYLES = {
   pending: "bg-amber-50 text-amber-700 border-amber-100",
@@ -226,12 +227,12 @@ export default function BusinessAdmins({ onBack, onOpenPlans }) {
             return (
               <div className={`mt-4 flex items-center justify-between gap-3 rounded-2xl border p-3 ${capacity.allowed ? "border-emerald-100 bg-emerald-50" : "border-amber-200 bg-amber-50"}`}>
                 <div className="min-w-0">
-                  <p className={`text-xs font-black uppercase tracking-wide ${capacity.allowed ? "text-emerald-700" : "text-amber-800"}`}>{planState.entitlement.planName} capacity</p>
-                  <p className="mt-1 text-sm font-bold text-slate-700">{capacity.current} of {capacity.limit ?? "unlimited"} admin spaces in use</p>
+                  <p className={`text-xs font-black uppercase tracking-wide ${capacity.allowed ? "text-emerald-700" : "text-amber-800"}`}>{planState.entitlement.planName} {i18nText("ui.literals.k7cb1f56d3fbe")}</p>
+                  <p className="mt-1 text-sm font-bold text-slate-700">{capacity.current} {i18nText("ui.literals.kde04fa0e29f9")} {capacity.limit ?? i18nText("ui.literals.ke1a6f0b6f73a")} {i18nText("ui.literals.kab64ef652dea")}</p>
                 </div>
                 {!capacity.allowed && onOpenPlans ? (
                   <button type="button" onClick={onOpenPlans} className="inline-flex h-10 shrink-0 items-center gap-2 rounded-xl bg-slate-950 px-3 text-xs font-black text-white">
-                    <Crown size={15} /> Upgrade
+                    <Crown size={15} /> {i18nText("ui.literals.ka6f47e00e036")}
                   </button>
                 ) : null}
               </div>
@@ -263,9 +264,9 @@ export default function BusinessAdmins({ onBack, onOpenPlans }) {
               <p className="min-w-0 truncate text-sm font-black text-emerald-800">{lookup.name}</p>
             </div>
           ) : lookup.status === "checking" ? (
-            <p aria-live="polite" className="kt-modal-enter mt-3 flex items-center gap-2 text-xs font-bold text-gray-500"><LoaderCircle size={14} className="animate-spin" /> {lookup.message}</p>
+            <p aria-live="polite" className="kt-modal-enter mt-3 flex items-center gap-2 text-xs font-bold text-gray-500"><LoaderCircle size={14} className="animate-spin" /> {translateUi(lookup.message)}</p>
           ) : lookup.message ? (
-            <p aria-live="polite" className="kt-modal-enter mt-3 text-xs font-bold text-rose-600">{lookup.message}</p>
+            <p aria-live="polite" className="kt-modal-enter mt-3 text-xs font-bold text-rose-600">{translateUi(lookup.message)}</p>
           ) : null}
         </section>
 
@@ -287,7 +288,7 @@ export default function BusinessAdmins({ onBack, onOpenPlans }) {
                       <p className="truncate text-sm font-black text-gray-950">{admin.adminName}</p>
                       <p className="mt-0.5 truncate text-xs font-bold text-gray-500">{admin.adminCode}</p>
                       <span className={`mt-2 inline-block rounded-full border px-2.5 py-1 text-[10px] font-black uppercase tracking-wide ${STATUS_STYLES[admin.status] || STATUS_STYLES.pending}`}>
-                        {admin.status}
+                        {translateUi(admin.status)}
                       </span>
                     </div>
                     <button
@@ -303,7 +304,7 @@ export default function BusinessAdmins({ onBack, onOpenPlans }) {
                     <div className="mt-3 flex flex-wrap gap-1.5 border-t border-gray-100 pt-3">
                       {availableResponsibilities.filter((item) => admin.responsibilities[item.key]).map((item) => (
                         <span key={item.key} className="rounded-full bg-emerald-50 px-2.5 py-1 text-[10px] font-black uppercase tracking-wide text-emerald-700">
-                          {item.label}
+                          {translateUi(item.label)}
                         </span>
                       ))}
                       {!availableResponsibilities.some((item) => admin.responsibilities[item.key]) ? (
@@ -374,7 +375,7 @@ export default function BusinessAdmins({ onBack, onOpenPlans }) {
             <div className="grid shrink-0 grid-cols-2 gap-2 border-t border-gray-100 bg-white px-5 py-4">
               <button type="button" onClick={() => setResponsibilityAdmin(null)} className="h-12 rounded-2xl bg-gray-100 text-sm font-black text-gray-700">{t("urmall.biz.admins.cancel")}</button>
               <button type="button" disabled={savingResponsibilities} onClick={saveResponsibilities} className="h-12 rounded-2xl bg-emerald-600 text-sm font-black text-white disabled:opacity-60">
-                {savingResponsibilities ? t("urmall.biz.saving") : "OK"}
+                {savingResponsibilities ? t("urmall.biz.saving") : i18nText("ui.literals.k9ce3bd4224c8")}
               </button>
             </div>
           </section>

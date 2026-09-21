@@ -7,6 +7,7 @@ import { useBrowserBack } from "../../../Backend/hooks/useBrowserBack";
 import { useI18n } from "../../../i18n";
 import useImageViewerGestures from "../../shared/useImageViewerGestures";
 import { t as i18nText } from "../../../i18n/index";
+import { uiText as translateUi, useI18n as useUiLocale } from "../../../i18n/index.js";
 
 // Keep the portal mounted slightly longer than the CSS shared-image transition.
 // Unmounting at 340ms while the 360ms zoom-back is still running cuts the final
@@ -191,7 +192,7 @@ export default function ZoomableImage({
               loading={eager ? "eager" : "lazy"}
               fetchpriority={eager ? "high" : "auto"}
               src={resizedImageUrl(src, { width: 720, quality: 72 })}
-              alt={alt}
+              alt={translateUi(alt)}
               onLoad={() => setImageStatus("loaded")}
               onError={() => setImageStatus("error")}
               className={`${imgClassName} transition-opacity duration-200 ${
@@ -250,7 +251,7 @@ export default function ZoomableImage({
               <img
                 ref={viewerGestures.imageRef}
                 src={src}
-                alt={alt}
+                alt={translateUi(alt)}
                 draggable="false"
                 onError={() => {
                   setImageStatus("error");
@@ -283,6 +284,7 @@ export default function ZoomableImage({
 }
 
 function MediaSkeleton({ dark = false }) {
+  useUiLocale();
   return (
     <div className={`absolute inset-0 flex items-center justify-center overflow-hidden ${dark ? "bg-slate-900" : "bg-slate-100"}`}>
       <div className={`absolute inset-0 animate-pulse ${dark ? "bg-slate-800" : "bg-slate-200"}`} />
@@ -294,12 +296,13 @@ function MediaSkeleton({ dark = false }) {
 }
 
 function MediaFallback({ label, onRetry }) {
+  useUiLocale();
   return (
     <div className="flex aspect-[4/3] w-full flex-col items-center justify-center rounded-[20px] border border-slate-200 bg-slate-50 px-4 text-center">
       <span className="grid h-12 w-12 place-items-center rounded-2xl bg-white text-slate-400 shadow-sm">
         <HiOutlinePhoto className="text-2xl" />
       </span>
-      <p className="mt-3 text-sm font-black text-slate-900">{label}</p>
+      <p className="mt-3 text-sm font-black text-slate-900">{translateUi(label)}</p>
       <button
         type="button"
         onClick={onRetry}

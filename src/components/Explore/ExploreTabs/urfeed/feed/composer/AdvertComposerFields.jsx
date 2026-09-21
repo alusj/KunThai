@@ -36,6 +36,8 @@ import { getActiveCountryProfile } from "../../../../../../data/globalCountryPro
 import { describeRegionSelection, normalizeRegionSelection } from "../../../../../../Backend/services/regions/regionModel";
 import RegionPicker from "../../../../../shared/regions/RegionPicker";
 import { regionLabel, useCountryRegions } from "../../../../../shared/regions/regionHooks";
+import { uiText as translateUi, useI18n as useUiLocale } from "../../../../../../i18n/index.js";
+import { inlineErrorMessage } from "../../../../../../Backend/services/friendlyErrorService";
 
 const ADVERT_TYPES = [
   { value: "offer", label: "Offer" },
@@ -120,6 +122,7 @@ export default function AdvertComposerFields({
   pendingVideoFile,
   videoPreview,
 }) {
+  useUiLocale();
   const [step, setStep] = useState(advert.setupComplete ? 6 : 1);
   const rootRef = useRef(null);
   const hasVideo = Boolean(videoPreview || pendingVideoFile);
@@ -184,7 +187,7 @@ export default function AdvertComposerFields({
       await credits.shareInvite();
       setCreditFeedback(i18nText("ui.literals.k77a6a6948969"));
     } catch (error) {
-      setCreditFeedback(error.message || i18nText("ui.literals.kf27c08df5f80"));
+      setCreditFeedback(inlineErrorMessage(error, i18nText("ui.literals.kf27c08df5f80")));
     }
   }
 
@@ -363,6 +366,7 @@ function CreativeFields({
   onSelectMedia,
   selectedCredits,
 }) {
+  useUiLocale();
   const hasLocation = hasAdvertCoordinates(advert);
   const objectiveRequirement = getAdvertObjectiveRequirement(advert, { hasVideo });
   const enteredAddress = String(advert.address || "").trim();
@@ -534,6 +538,7 @@ function VisibilityCreditSelector({
   selectedCredits,
   durationDays,
 }) {
+  useUiLocale();
   const minimumCredits = getMinimumExploreAdvertCredits(advert.placement);
   const selectedPackage = advert.creditPackage || (
     EXPLORE_AD_VISIBILITY_BOOST_PACKAGES.find((item) => item.id !== "custom" && item.credits === selectedCredits)?.id || "custom"
@@ -669,6 +674,7 @@ function CampaignBudgetStrip({
   hasEnoughCredits,
   selectedCredits,
 }) {
+  useUiLocale();
   const metrics = [
     { label: uiText("Available now"), value: creditLoading ? "…" : availableCredits, tone: "text-sky-700" },
     { label: uiText("Campaign spend"), value: selectedCredits, tone: "text-slate-950" },
@@ -684,7 +690,7 @@ function CampaignBudgetStrip({
       <div className="grid grid-cols-3 divide-x divide-slate-200">
         {metrics.map((metric) => (
           <div key={metric.label} className="min-w-0 px-2 first:pl-0 last:pr-0">
-            <p className="text-[9px] font-black uppercase leading-4 tracking-[0.08em] text-slate-500 sm:text-[10px]">{metric.label}</p>
+            <p className="text-[9px] font-black uppercase leading-4 tracking-[0.08em] text-slate-500 sm:text-[10px]">{translateUi(metric.label)}</p>
             <p className={`mt-1 text-xl font-black ${metric.tone}`}>{metric.value}</p>
           </div>
         ))}
@@ -702,9 +708,10 @@ function CampaignBudgetStrip({
 }
 
 function CampaignDetail({ label, value }) {
+  useUiLocale();
   return (
     <div className="min-w-0 rounded-2xl bg-slate-50 px-3 py-2.5">
-      <p className="text-[9px] font-black uppercase tracking-[0.1em] text-slate-400">{label}</p>
+      <p className="text-[9px] font-black uppercase tracking-[0.1em] text-slate-400">{translateUi(label)}</p>
       <p className="mt-1 truncate text-xs font-black text-slate-800">{value}</p>
     </div>
   );
@@ -712,6 +719,7 @@ function CampaignDetail({ label, value }) {
 
 // Limit an advert to people located in chosen states / districts.
 function AdvertRegionTargeting({ advert, onChange }) {
+  useUiLocale();
   const country = getActiveCountryProfile()?.iso2 || "";
   const { index } = useCountryRegions(country);
   const plural = regionLabel(index?.labelPlural || "Regions");
@@ -739,6 +747,7 @@ function AdvertRegionTargeting({ advert, onChange }) {
 }
 
 function ChoiceGrid({ options, value, onChange }) {
+  useUiLocale();
   return <div className="grid grid-cols-1 gap-2 sm:grid-cols-2">{options.map((option) => {
     const Icon = option.icon || Sparkles;
     const active = value === option.value;
@@ -747,32 +756,39 @@ function ChoiceGrid({ options, value, onChange }) {
 }
 
 function SelectField({ label, value, onChange, options }) {
-  return <label className="block"><span className="text-xs font-black uppercase tracking-[0.14em] text-slate-500">{label}</span><select value={value} onChange={(event) => onChange(event.target.value)} className="mt-2 h-12 w-full rounded-2xl border border-slate-200 bg-white px-4 text-sm font-black text-slate-900 outline-none">{options.map((option) => <option key={option.value} value={option.value}>{uiText(option.label)}</option>)}</select></label>;
+  useUiLocale();
+  return <label className="block"><span className="text-xs font-black uppercase tracking-[0.14em] text-slate-500">{translateUi(label)}</span><select value={value} onChange={(event) => onChange(event.target.value)} className="mt-2 h-12 w-full rounded-2xl border border-slate-200 bg-white px-4 text-sm font-black text-slate-900 outline-none">{options.map((option) => <option key={option.value} value={option.value}>{uiText(option.label)}</option>)}</select></label>;
 }
 
 function NumberField({ label, value, onChange, ...props }) {
-  return <label className="block"><span className="text-xs font-black uppercase tracking-[0.14em] text-slate-500">{label}</span><input {...props} type="number" value={value} onChange={(event) => onChange(event.target.value)} className="mt-2 h-12 w-full rounded-2xl border border-slate-200 bg-white px-4 text-sm font-black text-slate-900 outline-none focus:border-sky-300" /></label>;
+  useUiLocale();
+  return <label className="block"><span className="text-xs font-black uppercase tracking-[0.14em] text-slate-500">{translateUi(label)}</span><input {...props} type="number" value={value} onChange={(event) => onChange(event.target.value)} className="mt-2 h-12 w-full rounded-2xl border border-slate-200 bg-white px-4 text-sm font-black text-slate-900 outline-none focus:border-sky-300" /></label>;
 }
 
 function DateField({ label, value, onChange, min }) {
-  return <label className="block"><span className="flex items-center gap-2 text-xs font-black uppercase tracking-[0.14em] text-slate-500"><CalendarClock size={14} /> {label}</span><input type="date" min={min} value={value} onChange={(event) => onChange(event.target.value)} className="mt-2 h-12 w-full rounded-2xl border border-slate-200 bg-white px-4 text-sm font-bold text-slate-900 outline-none" /></label>;
+  useUiLocale();
+  return <label className="block"><span className="flex items-center gap-2 text-xs font-black uppercase tracking-[0.14em] text-slate-500"><CalendarClock size={14} /> {translateUi(label)}</span><input type="date" min={min} value={value} onChange={(event) => onChange(event.target.value)} className="mt-2 h-12 w-full rounded-2xl border border-slate-200 bg-white px-4 text-sm font-bold text-slate-900 outline-none" /></label>;
 }
 
 function MediaButton({ active, accent = "emerald", icon: Icon, label, onClick }) {
+  useUiLocale();
   const activeClass = accent === "sky" ? "border-sky-200 bg-sky-50 text-sky-700" : "border-emerald-200 bg-emerald-50 text-emerald-700";
-  return <button type="button" onClick={onClick} className={`kt-pressable flex h-12 items-center justify-center gap-2 rounded-2xl border text-sm font-black ${active ? activeClass : "border-slate-200 bg-white text-slate-700"}`}><Icon size={17} />{label}</button>;
+  return <button type="button" onClick={onClick} className={`kt-pressable flex h-12 items-center justify-center gap-2 rounded-2xl border text-sm font-black ${active ? activeClass : "border-slate-200 bg-white text-slate-700"}`}><Icon size={17} />{translateUi(label)}</button>;
 }
 
 function PrivacyNote() {
+  useUiLocale();
   return <div className="flex items-start gap-3 rounded-[22px] border border-sky-100 bg-sky-50/70 p-3"><ShieldCheck size={19} className="mt-0.5 flex-none text-sky-700" /><p className="text-xs font-bold leading-5 text-slate-600">{i18nText("ui.literals.k928af3dfc2c0")}</p></div>;
 }
 
 function RequirementNote({ text }) {
-  return <p className="rounded-2xl border border-amber-200 bg-amber-50 px-3 py-2 text-xs font-black text-amber-800">{text}</p>;
+  useUiLocale();
+  return <p className="rounded-2xl border border-amber-200 bg-amber-50 px-3 py-2 text-xs font-black text-amber-800">{translateUi(text)}</p>;
 }
 
 function MediaHint({ text }) {
-  return <p className="rounded-2xl border border-slate-200 bg-white/70 px-3 py-2 text-xs font-bold leading-5 text-slate-500">{text}</p>;
+  useUiLocale();
+  return <p className="rounded-2xl border border-slate-200 bg-white/70 px-3 py-2 text-xs font-bold leading-5 text-slate-500">{translateUi(text)}</p>;
 }
 
 function formatPlacement(value) {

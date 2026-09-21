@@ -12,6 +12,7 @@ import { useExploreAiSearch } from "../../../../../Backend/hooks/useExploreAiSea
 import { isNaturalLanguageQuery } from "../../../../../Backend/services/ai/exploreAiModels";
 import SearchFilters from "./SearchFilters";
 import SearchResultItem from "./SearchResultItem";
+import { uiText as translateUi } from "../../../../../i18n/index.js";
 
 export default function SearchOverlay({ initialQuery = "", onClose, onOpenResult, open }) {
   const { t } = useI18n();
@@ -204,7 +205,7 @@ export default function SearchOverlay({ initialQuery = "", onClose, onOpenResult
 
                     {aiSearch.status === "error" ? (
                       <div className="flex items-center justify-between gap-2 rounded-2xl bg-rose-50 px-4 py-3 text-sm font-bold text-rose-700" role="alert">
-                        <span className="min-w-0">{aiSearch.error?.message}</span>
+                        <span className="min-w-0">{translateUi(aiSearch.error?.message)}</span>
                         {aiSearch.error?.retryable ? (
                           <button type="button" onClick={() => aiSearch.run(search.query)} className="inline-flex flex-none items-center gap-1 text-xs font-black">
                             <RefreshCw size={12} />
@@ -244,7 +245,7 @@ export default function SearchOverlay({ initialQuery = "", onClose, onOpenResult
                 ) : null}
 
                 {aiActive ? null : search.loading ? <p className="rounded-2xl bg-slate-50 px-4 py-3 text-sm font-bold text-slate-500">{t("explore.searching")}</p> : null}
-                {!aiActive && search.error ? <p className="rounded-2xl bg-rose-50 px-4 py-3 text-sm font-bold text-rose-600">{search.error}</p> : null}
+                {!aiActive && search.error ? <p className="rounded-2xl bg-rose-50 px-4 py-3 text-sm font-bold text-rose-600">{translateUi(search.error)}</p> : null}
                 {!aiActive && !search.loading && !search.results.length ? (
                   <p className="rounded-2xl bg-slate-50 px-4 py-3 text-sm font-bold text-slate-500">{t("explore.noResultsYet")}</p>
                 ) : null}

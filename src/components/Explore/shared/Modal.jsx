@@ -1,5 +1,7 @@
 
-import { t as i18nText } from "../../../i18n/index";export default function Modal({ open, title, children, onClose }) {
+import { t as i18nText } from "../../../i18n/index";
+import { uiText as translateUi, useI18n as useUiLocale } from "../../../i18n/index.js";export default function Modal({ open, title, children, onClose }) {
+  useUiLocale();
   if (!open) {
     return null;
   }
@@ -9,7 +11,7 @@ import { t as i18nText } from "../../../i18n/index";export default function Moda
       <div className="fixed inset-0 z-40 bg-slate-950/45" onClick={onClose} />
       <div className="fixed inset-x-4 top-20 z-50 mx-auto max-w-lg rounded-[28px] border border-slate-200 bg-white p-5 shadow-2xl">
         <div className="flex items-center justify-between gap-3">
-          <h3 className="text-lg font-semibold text-slate-900">{title}</h3>
+          <h3 className="text-lg font-semibold text-slate-900">{translateUi(title)}</h3>
           <button
             type="button"
             onClick={onClose}

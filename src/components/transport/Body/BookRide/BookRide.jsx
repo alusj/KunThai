@@ -4,6 +4,7 @@ import { MdElectricRickshaw } from "react-icons/md";
 import FleetOptionButton from "../FleetOptionButton";
 import { getRideFleetOptions } from "../../../../data/globalTransportCapabilities";
 import { useI18n, t } from "../../../../i18n";
+import { uiText as translateUi } from "../../../../i18n/index.js";
 
 export default function BookRide({ onSelectFleetType }) {
   useI18n();
@@ -30,7 +31,7 @@ export default function BookRide({ onSelectFleetType }) {
             <FleetOptionButton
               key={option.value}
               icon={icons[option.value] || <FaCarSide />}
-              label={option.label}
+              label={translateUi(option.label)}
               onClick={() => onSelectFleetType("ride", option.value, option.displayName || option.label)}
             />
           ))}

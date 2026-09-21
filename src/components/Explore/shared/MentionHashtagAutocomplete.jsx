@@ -3,10 +3,12 @@ import { HiOutlineAtSymbol, HiOutlineHashtag } from "react-icons/hi2";
 import { normalizeHashtag } from "../../../Backend/services/explore/hashtagService";
 import Avatar from "./Avatar";
 import { t } from "../../../i18n";
+import { useI18n as useUiLocale } from "../../../i18n/index.js";
 
 // Popup panel; render inside a `relative` wrapper around the input. Pair with
 // useMentionHashtagAutocomplete from Backend/hooks.
 export function MentionHashtagSuggestions({ trigger, results, loading, onSelect, placement = "top" }) {
+  useUiLocale();
   if (!trigger) return null;
   if (!loading && !results.length && !trigger.query) return null;
 

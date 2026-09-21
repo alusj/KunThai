@@ -1,5 +1,6 @@
 import AppBackTab from "../../../../../../shared/AppBackTab.jsx";
 import { useI18n } from "../../../../../../../i18n";
+import { uiText as translateUi } from "../../../../../../../i18n/index.js";
 
 export default function SellerMenuPageHeader({ title, eyebrow = "UrMall", onBack }) {
   const { t } = useI18n();
@@ -17,7 +18,7 @@ export default function SellerMenuPageHeader({ title, eyebrow = "UrMall", onBack
           <p className="text-[10px] font-black uppercase tracking-[0.22em] text-emerald-700 sm:text-xs">
             {eyebrow}
           </p>
-          <h2 className="mt-1 text-xl font-black text-gray-950 sm:text-2xl">{title}</h2>
+          <h2 className="mt-1 text-xl font-black text-gray-950 sm:text-2xl">{translateUi(title)}</h2>
         </div>
       </div>
     </header>

@@ -1,5 +1,6 @@
 import { useEffect, useRef, useState } from "react";
-import { friendlyErrorMessage } from "../services/friendlyErrorService";
+import { friendlyErrorMessage, inlineErrorMessage, isConnectionFailure } from "../services/friendlyErrorService";
+import { announceConnectionTrouble } from "../services/networkService";
 
 import supabase from "../lib/supabaseClient";
 import {
@@ -265,19 +266,12 @@ function isNetworkUnavailable(error) {
   ].some((fragment) => message.includes(fragment));
 }
 
-function showFeedRefreshToast(error, showingSavedPosts) {
+// Only for a refresh that failed with the connection up; a lost connection is
+// announced by the global network toast instead.
+function showFeedRefreshToast(showingSavedPosts) {
   const now = Date.now();
   if (now - lastFeedFailureToastAt < NETWORK_TOAST_DEDUP_MS) return;
   lastFeedFailureToastAt = now;
-
-  if (isNetworkUnavailable(error)) {
-    showToast("Network unavailable.", "warning", {
-      title: "Network update",
-      duration: 2800,
-      origin: false,
-    });
-    return;
-  }
 
   showToast(
     showingSavedPosts ? "Showing your saved feed." : "Feed refresh delayed.",
@@ -451,6 +445,7 @@ export function useExploreFeed(scope = "feed") {
       setRefreshing(false);
     }
 
+    let keepLoading = false;
     try {
       setError("");
       const [rawPosts, reactions, currentProfile, ownRecentPosts] = await Promise.all([
@@ -501,7 +496,8 @@ export function useExploreFeed(scope = "feed") {
         return mergedPosts;
       });
     } catch (err) {
-      const currentProfile = isNetworkUnavailable(err)
+      const connectionLost = isNetworkUnavailable(err) || isConnectionFailure(err);
+      const currentProfile = connectionLost
         ? null
         : await getCurrentUserProfile().catch(() => null);
       if (loadId !== loadIdRef.current) {
@@ -512,15 +508,24 @@ export function useExploreFeed(scope = "feed") {
       const visibleFallbackPosts = (cachedPosts.length ? cachedPosts : postsRef.current)
         .filter((post) => postBelongsInScope(post, scope))
         .filter(isExplorePostVisibleInFeed);
-      showFeedRefreshToast(err, visibleFallbackPosts.length > 0);
+      if (connectionLost) {
+        announceConnectionTrouble();
+      } else {
+        showFeedRefreshToast(visibleFallbackPosts.length > 0);
+      }
       if (visibleFallbackPosts.length) {
         setPosts(visibleFallbackPosts);
         setError("");
+      } else if (connectionLost) {
+        // Nothing saved to show yet: stay in the loading skeleton rather than
+        // an error. The `online` listener below loads the feed on reconnect.
+        setError("");
+        keepLoading = true;
       } else {
-        setError(isNetworkUnavailable(err) ? "network-unavailable" : "feed-refresh-delayed");
+        setError("feed-refresh-delayed");
       }
     } finally {
-      setLoading(false);
+      setLoading(keepLoading);
       setRefreshing(false);
     }
   }
@@ -624,20 +629,15 @@ export function useExploreFeed(scope = "feed") {
       refreshSilently();
     }
 
-    function handleOffline() {
-      showFeedRefreshToast(new TypeError("offline"), postsRef.current.length > 0);
-    }
-
+    // Going offline is announced by the global network toast, not the feed.
     const refreshTimer = window.setInterval(refreshSilently, FEED_BACKGROUND_REFRESH_MS);
     window.addEventListener("online", handleOnline);
-    window.addEventListener("offline", handleOffline);
     window.addEventListener("focus", refreshSilently);
     document.addEventListener("visibilitychange", handleVisibilityChange);
 
     return () => {
       window.clearInterval(refreshTimer);
       window.removeEventListener("online", handleOnline);
-      window.removeEventListener("offline", handleOffline);
       window.removeEventListener("focus", refreshSilently);
       document.removeEventListener("visibilitychange", handleVisibilityChange);
     };
@@ -956,7 +956,9 @@ export function useExploreFeed(scope = "feed") {
       const hasMediaUpload = Boolean(postInput?.image_url || postInput?.audio_url || postInput?.video_url);
       const isAdvertInput = isAdvertDraft(postInput);
 
-      setError(message);
+      // Offline, the outbox below finishes the post on reconnect, so the feed
+      // keeps showing it instead of an error; the global toast says why.
+      setError(inlineErrorMessage(err, "Unable to sync post to backend right now."));
 
       // Durable retry: hand the post to the outbox to finish automatically when
       // the connection returns, and KEEP the optimistic post instead of
@@ -1102,7 +1104,7 @@ export function useExploreFeed(scope = "feed") {
       }
 
       refreshPostCounts([postId]);
-      setError(err.message || `Unable to update ${type}.`);
+      setError(inlineErrorMessage(err, `Unable to update ${type}.`));
       showToast(err.message || `Unable to update ${type}.`, "danger");
     }
   }
@@ -1152,7 +1154,7 @@ export function useExploreFeed(scope = "feed") {
         });
       }
     } catch (err) {
-      setError(friendlyErrorMessage(err, "Unable to add comment."));
+      setError(inlineErrorMessage(err, "Unable to add comment."));
     }
   }
 
@@ -1194,7 +1196,7 @@ export function useExploreFeed(scope = "feed") {
         setPosts((current) => current.map((item) => (item.id === postId ? { ...item, ...updated } : item)));
       }
     } catch (err) {
-      setError(friendlyErrorMessage(err, "Unable to edit post."));
+      setError(inlineErrorMessage(err, "Unable to edit post."));
     }
   }
 
@@ -1214,7 +1216,7 @@ export function useExploreFeed(scope = "feed") {
       return true;
     } catch (err) {
       setPosts(previousPosts);
-      setError(friendlyErrorMessage(err, "Unable to delete post."));
+      setError(inlineErrorMessage(err, "Unable to delete post."));
       return false;
     }
   }
@@ -1298,7 +1300,7 @@ export function useExploreFeed(scope = "feed") {
       showToast(isAdvertDraft(post) ? "Report received. The advertisement was hidden." : "Report received. The post was hidden.", "success");
       haptics.medium("explore");
     } catch (err) {
-      setError(friendlyErrorMessage(err, "Unable to report post."));
+      setError(inlineErrorMessage(err, "Unable to report post."));
       showToast(friendlyErrorMessage(err, "Unable to report post."), "danger");
     }
   }

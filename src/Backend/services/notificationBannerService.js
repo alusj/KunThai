@@ -7,7 +7,7 @@
 // screen.
 
 import { readExploreSettings } from "./explore/preferencesService";
-import { isOnline } from "./networkService";
+import { announceConnectionTrouble, isOnline } from "./networkService";
 import { showToast } from "./toastService";
 
 export const BANNER_EVENT = "kuntai-notification-banner";
@@ -20,9 +20,12 @@ let pendingMarketplaceRequest = null;
 
 export function runNotificationAction(action) {
   if (!isOnline()) {
-    showToast("You are offline. Reconnect to open this update.", "warning", {
-      title: "No network",
-    });
+    // The global network toast is the offline notice.
+    if (!announceConnectionTrouble()) {
+      showToast("You are offline. Reconnect to open this update.", "warning", {
+        title: "No network",
+      });
+    }
     return false;
   }
 

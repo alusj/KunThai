@@ -49,6 +49,9 @@ import {
 import CampaignAnalyticsPanel from "./CampaignAnalyticsPanel";
 import CampaignBuilder from "./CampaignBuilder";
 import { Modal, Notice, StatusChip } from "./campaignUi";
+import { t as i18nText } from "../../i18n/index";
+import { uiText as translateUi, useI18n as useUiLocale } from "../../i18n/index.js";
+import { inlineErrorMessage } from "../../Backend/services/friendlyErrorService";
 
 const TABS = [
   ["all", "All"],
@@ -84,6 +87,7 @@ function presentationLabel(campaign) {
 }
 
 export default function NotificationCampaignCenter({ access }) {
+  useUiLocale();
   const permissions = useMemo(() => {
     const has = (key) => access.permissions.includes(key);
     return {
@@ -116,7 +120,7 @@ export default function NotificationCampaignCenter({ access }) {
       if (releaseDue) await runDueNotificationCampaigns().catch(() => 0);
       setCampaigns(await getNotificationCampaigns());
     } catch (nextError) {
-      setError(nextError.message || "Campaigns could not be loaded.");
+      setError(inlineErrorMessage(nextError, i18nText("ui.literals.k324276bb2498")));
     } finally {
       setLoading(false);
     }
@@ -153,7 +157,7 @@ export default function NotificationCampaignCenter({ access }) {
     if (mode === "save" || mode === "submit") {
       setBuilder(null);
       setTab("drafts");
-      setNotice(mode === "submit" ? "Campaign saved for approval." : "Draft saved.");
+      setNotice(mode === "submit" ? i18nText("ui.literals.k296ef4b97441") : i18nText("ui.literals.k7b19cc5d299b"));
       return;
     }
     let approved;
@@ -163,20 +167,20 @@ export default function NotificationCampaignCenter({ access }) {
     } catch (approvalError) {
       setBuilder(null);
       setTab("drafts");
-      setNotice(`Campaign saved. ${approvalError.message || "It still needs approval."}`);
+      setNotice(i18nText("ui.literals.k376c47524a6f", { value0: approvalError.message || "It still needs approval." }));
       return;
     }
     if (approved.status === "scheduled") {
       setBuilder(null);
       setTab("scheduled");
-      setNotice(`Scheduled for ${formatDateTime(approved.scheduled_at)}.`);
+      setNotice(i18nText("ui.literals.kc51ec57c2d70", { value0: formatDateTime(approved.scheduled_at) }));
       return;
     }
     const published = await publishNotificationCampaign(saved.id, { expectedAudience: saved.estimated_audience, confirmWorldwide });
     replaceCampaign(published);
     setBuilder(null);
     setTab("active");
-    setNotice(`Sent to ${Number(published.delivery_count || 0).toLocaleString()} ${Number(published.delivery_count) === 1 ? "person" : "people"}.`);
+    setNotice(i18nText("ui.literals.k080cc503631a", { value0: Number(published.delivery_count || 0).toLocaleString(), value1: Number(published.delivery_count) === 1 ? "person" : "people" }));
   }
 
   async function runAction(campaignId, action, successMessage) {
@@ -189,7 +193,7 @@ export default function NotificationCampaignCenter({ access }) {
       if (successMessage) setNotice(typeof successMessage === "function" ? successMessage(updated) : successMessage);
       return updated;
     } catch (nextError) {
-      setError(nextError.message || "That action could not be completed.");
+      setError(inlineErrorMessage(nextError, i18nText("ui.literals.k961cb08f9102")));
       return null;
     } finally {
       setBusyId("");
@@ -201,32 +205,32 @@ export default function NotificationCampaignCenter({ access }) {
       <header className="rounded-[24px] border border-zinc-200 bg-white shadow-sm dark:border-zinc-800 dark:bg-zinc-950">
         <div className="flex flex-col gap-4 p-4 sm:p-6 lg:flex-row lg:items-end lg:justify-between">
           <div className="min-w-0 max-w-3xl">
-            <p className="flex items-center gap-2 text-xs font-black uppercase tracking-[0.16em] text-emerald-700 dark:text-emerald-400"><Sparkles size={15} /> Communications</p>
-            <h1 className="mt-1 text-2xl font-black tracking-tight sm:text-3xl">Notification campaigns</h1>
-            <p className="mt-1 text-sm font-semibold leading-6 text-zinc-500">Target real KunThai audiences, choose the exact interface, test on a real account and measure real delivery.</p>
+            <p className="flex items-center gap-2 text-xs font-black uppercase tracking-[0.16em] text-emerald-700 dark:text-emerald-400"><Sparkles size={15} /> {i18nText("ui.literals.k690476370b42")}</p>
+            <h1 className="mt-1 text-2xl font-black tracking-tight sm:text-3xl">{i18nText("ui.literals.k515786952f18")}</h1>
+            <p className="mt-1 text-sm font-semibold leading-6 text-zinc-500">{i18nText("ui.literals.k915688637d44")}</p>
           </div>
           <div className="flex flex-wrap gap-2">
-            <button type="button" onClick={() => load({ releaseDue: true })} disabled={loading} className="campaign-action"><RefreshCw size={16} className={loading ? "animate-spin" : ""} /> Refresh</button>
+            <button type="button" onClick={() => load({ releaseDue: true })} disabled={loading} className="campaign-action"><RefreshCw size={16} className={loading ? "animate-spin" : ""} /> {i18nText("ui.literals.k56e3badc4e6c")}</button>
             {permissions.canManage ? (
               <button type="button" onClick={() => { setNotice(""); setBuilder({ id: "", form: createEmptyCampaignForm() }); }} className="campaign-action border-emerald-700 bg-emerald-700 text-white hover:bg-emerald-800">
-                <Plus size={16} /> New campaign
+                <Plus size={16} /> {i18nText("ui.literals.kaaf9a8a4e76d")}
               </button>
             ) : null}
           </div>
         </div>
         <div className="border-t border-zinc-100 p-3 dark:border-zinc-800">
           <div className="flex flex-col gap-3 lg:flex-row lg:items-center">
-            <div role="tablist" aria-label="Campaign status" className="flex flex-wrap gap-1.5">
+            <div role="tablist" aria-label={i18nText("ui.literals.k4d4a04dc95e4")} className="flex flex-wrap gap-1.5">
               {TABS.map(([key, label]) => (
                 <button key={key} type="button" role="tab" aria-selected={tab === key} onClick={() => setTab(key)} className={`campaign-chip ${tab === key ? "campaign-chip-selected" : ""}`}>
-                  {label} <span className="ml-1.5 opacity-70">{counts[key]}</span>
+                  {translateUi(label)} <span className="ml-1.5 opacity-70">{counts[key]}</span>
                 </button>
               ))}
             </div>
             <label className="relative min-w-0 lg:ml-auto lg:w-72">
-              <span className="sr-only">Search campaigns</span>
+              <span className="sr-only">{i18nText("ui.literals.k33614da27464")}</span>
               <Search size={16} className="pointer-events-none absolute left-3 top-1/2 -translate-y-1/2 text-zinc-400" />
-              <input value={query} onChange={(event) => setQuery(event.target.value)} placeholder="Search name, title or tag" className="campaign-input pl-9" />
+              <input value={query} onChange={(event) => setQuery(event.target.value)} placeholder={i18nText("ui.literals.kabaa86cc711f")} className="campaign-input pl-9" />
             </label>
           </div>
         </div>
@@ -235,15 +239,15 @@ export default function NotificationCampaignCenter({ access }) {
       {error ? (
         <div role="alert" className="flex items-start gap-3 rounded-2xl border border-rose-200 bg-rose-50 p-4 text-sm font-bold text-rose-800">
           <AlertTriangle className="mt-0.5 shrink-0" size={18} />
-          <span className="min-w-0 flex-1 break-words">{error}</span>
-          <button type="button" aria-label="Dismiss error" onClick={() => setError("")}><X size={17} /></button>
+          <span className="min-w-0 flex-1 break-words">{translateUi(error)}</span>
+          <button type="button" aria-label={i18nText("ui.literals.k347aaa77ff82")} onClick={() => setError("")}><X size={17} /></button>
         </div>
       ) : null}
       {notice ? (
         <div role="status" className="flex items-start gap-3 rounded-2xl border border-emerald-200 bg-emerald-50 p-4 text-sm font-bold text-emerald-900">
           <CheckCircle2 className="mt-0.5 shrink-0" size={18} />
-          <span className="min-w-0 flex-1 break-words">{notice}</span>
-          <button type="button" aria-label="Dismiss message" onClick={() => setNotice("")}><X size={17} /></button>
+          <span className="min-w-0 flex-1 break-words">{translateUi(notice)}</span>
+          <button type="button" aria-label={i18nText("ui.literals.k98f3b0e0cc0c")} onClick={() => setNotice("")}><X size={17} /></button>
         </div>
       ) : null}
 
@@ -253,8 +257,8 @@ export default function NotificationCampaignCenter({ access }) {
       {!loading && !visible.length ? (
         <div className="rounded-[24px] border border-dashed border-zinc-300 bg-white px-6 py-14 text-center dark:border-zinc-700 dark:bg-zinc-950">
           <Inbox className="mx-auto text-zinc-300" size={34} />
-          <h2 className="mt-3 text-lg font-black">{campaigns.length ? "No campaigns match" : "No campaigns yet"}</h2>
-          <p className="mt-1 text-sm font-semibold text-zinc-500">{campaigns.length ? "Try another tab or search." : "Create a campaign to reach KunThai users."}</p>
+          <h2 className="mt-3 text-lg font-black">{campaigns.length ? i18nText("ui.literals.ka0aa751d46f6") : i18nText("ui.literals.k926409b39be5")}</h2>
+          <p className="mt-1 text-sm font-semibold text-zinc-500">{campaigns.length ? i18nText("ui.literals.k068d7d82aae1") : i18nText("ui.literals.k127a78ec4a7a")}</p>
         </div>
       ) : null}
 
@@ -274,36 +278,36 @@ export default function NotificationCampaignCenter({ access }) {
                   <p className="mt-1 break-words text-sm font-bold text-zinc-700 dark:text-zinc-300">{campaign.title}</p>
                   <p className="mt-0.5 line-clamp-2 break-words text-xs font-semibold leading-5 text-zinc-500">{campaign.body}</p>
                   <dl className="mt-3 grid gap-x-4 gap-y-1 text-xs font-semibold text-zinc-600 sm:grid-cols-2 dark:text-zinc-400">
-                    <div className="min-w-0"><dt className="inline font-black">Audience: </dt><dd className="inline break-words">{audienceLabel(campaign)}</dd></div>
-                    <div className="min-w-0"><dt className="inline font-black">Shown as: </dt><dd className="inline">{presentationLabel(campaign)}</dd></div>
-                    <div><dt className="inline font-black">Recipients: </dt><dd className="inline">{Number(campaign.delivery_count || campaign.estimated_audience || 0).toLocaleString()}{campaign.sent_at ? " delivered" : " estimated"}</dd></div>
-                    <div><dt className="inline font-black">{campaign.sent_at ? "Sent: " : "Starts: "}</dt><dd className="inline">{campaign.sent_at ? formatDateTime(campaign.sent_at) : campaign.scheduled_at ? formatDateTime(campaign.scheduled_at) : "When published"}{campaign.expires_at ? ` · ends ${formatDateTime(campaign.expires_at)}` : ""}</dd></div>
+                    <div className="min-w-0"><dt className="inline font-black">{i18nText("ui.literals.k43acb87285d4")} </dt><dd className="inline break-words">{audienceLabel(campaign)}</dd></div>
+                    <div className="min-w-0"><dt className="inline font-black">{i18nText("ui.literals.ka005b93a9336")} </dt><dd className="inline">{presentationLabel(campaign)}</dd></div>
+                    <div><dt className="inline font-black">{i18nText("ui.literals.kb28ad85ae7ff")} </dt><dd className="inline">{Number(campaign.delivery_count || campaign.estimated_audience || 0).toLocaleString()}{campaign.sent_at ? i18nText("ui.literals.kf818910a3e18") : i18nText("ui.literals.k781012cf77dd")}</dd></div>
+                    <div><dt className="inline font-black">{campaign.sent_at ? i18nText("ui.literals.k150d33d88d32") : i18nText("ui.literals.k83eef1d6fbcf")}</dt><dd className="inline">{campaign.sent_at ? formatDateTime(campaign.sent_at) : campaign.scheduled_at ? formatDateTime(campaign.scheduled_at) : i18nText("ui.literals.kdea0bee3d264")}{campaign.expires_at ? i18nText("ui.literals.k4f54e7fe5890", { value0: formatDateTime(campaign.expires_at) }) : ""}</dd></div>
                   </dl>
-                  {status === "failed" && campaign.last_error ? <p className="mt-2 rounded-xl bg-rose-50 p-2 text-xs font-bold text-rose-700">Failed: {campaign.last_error}</p> : null}
+                  {status === "failed" && campaign.last_error ? <p className="mt-2 rounded-xl bg-rose-50 p-2 text-xs font-bold text-rose-700">{i18nText("ui.literals.kf14f2bef77df")} {campaign.last_error}</p> : null}
                 </div>
                 <div className="flex flex-wrap gap-2 xl:max-w-sm xl:justify-end">
                   {permissions.canManage && editable ? (
-                    <button type="button" disabled={busy} onClick={() => { setNotice(""); setBuilder({ id: campaign.id, form: campaignToEditorForm(campaign) }); }} className="campaign-action"><Pencil size={15} /> Edit</button>
+                    <button type="button" disabled={busy} onClick={() => { setNotice(""); setBuilder({ id: campaign.id, form: campaignToEditorForm(campaign) }); }} className="campaign-action"><Pencil size={15} /> {i18nText("ui.literals.k5301648dcf6b")}</button>
                   ) : null}
                   {permissions.canTest && editable ? (
-                    <button type="button" disabled={busy} onClick={() => setTesting(campaign)} className="campaign-action text-sky-700"><FlaskConical size={15} /> Test</button>
+                    <button type="button" disabled={busy} onClick={() => setTesting(campaign)} className="campaign-action text-sky-700"><FlaskConical size={15} /> {i18nText("ui.literals.k640ab2bae07b")}</button>
                   ) : null}
                   {permissions.canApprove && ["draft", "awaiting_approval", "failed"].includes(status) ? (
                     <button type="button" disabled={busy} onClick={() => runAction(campaign.id, () => approveNotificationCampaign(campaign.id), (updated) => (updated.status === "scheduled" ? `Approved and scheduled for ${formatDateTime(updated.scheduled_at)}.` : "Approved. It is ready to send."))} className="campaign-action text-emerald-700">
-                      {busy ? <LoaderCircle className="animate-spin" size={15} /> : <Check size={15} />} Approve
+                      {busy ? <LoaderCircle className="animate-spin" size={15} /> : <Check size={15} />} {i18nText("ui.literals.k7b2c7f146aba")}
                     </button>
                   ) : null}
                   {permissions.canPublish && status === "ready" ? (
-                    <button type="button" disabled={busy} onClick={() => setPublishing(campaign)} className="campaign-action border-emerald-700 bg-emerald-700 text-white hover:bg-emerald-800"><Send size={15} /> Send</button>
+                    <button type="button" disabled={busy} onClick={() => setPublishing(campaign)} className="campaign-action border-emerald-700 bg-emerald-700 text-white hover:bg-emerald-800"><Send size={15} /> {i18nText("ui.literals.k9bc2575c3930")}</button>
                   ) : null}
                   {permissions.canAnalytics && (campaign.sent_at || ["active", "completed", "sending"].includes(status)) ? (
-                    <button type="button" onClick={() => setAnalytics(campaign)} className="campaign-action"><BarChart3 size={15} /> Analytics</button>
+                    <button type="button" onClick={() => setAnalytics(campaign)} className="campaign-action"><BarChart3 size={15} /> {i18nText("ui.literals.k25bc96295797")}</button>
                   ) : null}
                   {(permissions.canManage || permissions.canPublish) && status === "active" ? (
-                    <button type="button" disabled={busy} onClick={() => setStopping({ campaign, kind: "end" })} className="campaign-action text-amber-700"><Square size={15} /> End</button>
+                    <button type="button" disabled={busy} onClick={() => setStopping({ campaign, kind: "end" })} className="campaign-action text-amber-700"><Square size={15} /> {i18nText("ui.literals.ka2bb9d34b8a1")}</button>
                   ) : null}
                   {permissions.canManage && editable ? (
-                    <button type="button" disabled={busy} onClick={() => setStopping({ campaign, kind: "cancel" })} className="campaign-action text-rose-700"><X size={15} /> Cancel</button>
+                    <button type="button" disabled={busy} onClick={() => setStopping({ campaign, kind: "cancel" })} className="campaign-action text-rose-700"><X size={15} /> {i18nText("ui.literals.k77dfd2135f4d")}</button>
                   ) : null}
                 </div>
               </div>
@@ -360,6 +364,7 @@ export default function NotificationCampaignCenter({ access }) {
 }
 
 function TestSendModal({ campaign, onClose }) {
+  useUiLocale();
   const [query, setQuery] = useState("");
   const [user, setUser] = useState(null);
   const [state, setState] = useState({ status: "idle", message: "", match: null });
@@ -392,13 +397,13 @@ function TestSendModal({ campaign, onClose }) {
   }
 
   return (
-    <Modal title="Send a real test" description={campaign.campaign_name || campaign.title} onClose={onClose}>
+    <Modal title={i18nText("ui.literals.k76fec41460fd")} description={campaign.campaign_name || campaign.title} onClose={onClose}>
       <div className="space-y-4">
-        <p className="text-sm font-semibold leading-6 text-zinc-500">Delivers this campaign, exactly as configured, to one KunThai account. It is marked [TEST], removed after 24 hours and not counted in analytics.</p>
+        <p className="text-sm font-semibold leading-6 text-zinc-500">{i18nText("ui.literals.kc286a2e9d51d")}</p>
         <div className="flex flex-col gap-2 sm:flex-row">
-          <input value={query} onChange={(event) => { setQuery(event.target.value); setUser(null); }} placeholder="KTU-XXXX-XXXX-XXXX" aria-label="Test account KunThai ID" className="campaign-input min-w-0 flex-1" />
+          <input value={query} onChange={(event) => { setQuery(event.target.value); setUser(null); }} placeholder="KTU-XXXX-XXXX-XXXX" aria-label={i18nText("ui.literals.kb95ed9524c4f")} className="campaign-input min-w-0 flex-1" />
           <button type="button" onClick={find} disabled={!query.trim() || state.status === "looking"} className="campaign-action shrink-0">
-            {state.status === "looking" ? <LoaderCircle className="animate-spin" size={16} /> : <Search size={16} />} Find
+            {state.status === "looking" ? <LoaderCircle className="animate-spin" size={16} /> : <Search size={16} />} {i18nText("ui.literals.kdf251b06eefd")}
           </button>
         </div>
         {user ? (
@@ -407,15 +412,15 @@ function TestSendModal({ campaign, onClose }) {
             <p className="text-xs font-bold text-zinc-500">{user.public_id}{user.city || user.country ? ` · ${[user.city, user.country].filter(Boolean).join(", ")}` : ""}</p>
           </div>
         ) : null}
-        {state.status === "error" ? <Notice tone="danger" icon={AlertTriangle}>{state.message}</Notice> : null}
+        {state.status === "error" ? <Notice tone="danger" icon={AlertTriangle}>{translateUi(state.message)}</Notice> : null}
         {state.status === "sent" ? (
           <Notice tone="success" icon={CheckCircle2}>
-            Delivered to {user.public_id}. Open KunThai as that account{screen ? ` on the ${CAMPAIGN_SCREENS[screen]?.label}` : " and check its notification inbox"}.
-            {state.match && (!state.match.matchesAudience || !state.match.matchesLocation) ? " This account is outside the real audience, so it may not have that screen." : ""}
+            {i18nText("ui.literals.k53d6b6543936")} {user.public_id}{i18nText("ui.literals.k3f45dc15575a")}{screen ? i18nText("ui.literals.k45c35135f052", { value0: CAMPAIGN_SCREENS[screen]?.label }) : i18nText("ui.literals.k6ad26b57a63f")}.
+            {state.match && (!state.match.matchesAudience || !state.match.matchesLocation) ? i18nText("ui.literals.kb3ce9a916d46") : ""}
           </Notice>
         ) : null}
         <button type="button" onClick={send} disabled={!user || state.status === "sending"} className="inline-flex min-h-11 w-full items-center justify-center gap-2 rounded-xl bg-sky-700 font-black text-white hover:bg-sky-800 disabled:opacity-40">
-          {state.status === "sending" ? <LoaderCircle className="animate-spin" size={17} /> : <FlaskConical size={17} />} Send test
+          {state.status === "sending" ? <LoaderCircle className="animate-spin" size={17} /> : <FlaskConical size={17} />} {i18nText("ui.literals.k1aba33d6c2ec")}
         </button>
       </div>
     </Modal>
@@ -423,6 +428,7 @@ function TestSendModal({ campaign, onClose }) {
 }
 
 function PublishModal({ campaign, busy, onClose, onConfirm }) {
+  useUiLocale();
   const [estimate, setEstimate] = useState(null);
   const [error, setError] = useState("");
   const [acknowledged, setAcknowledged] = useState(false);
@@ -431,22 +437,22 @@ function PublishModal({ campaign, busy, onClose, onConfirm }) {
   useEffect(() => {
     estimateNotificationCampaignAudience({ sector: campaign.sector, audience: campaign.audience_type, filter: campaign.audience_filter })
       .then((value) => setEstimate(Number(value || 0)))
-      .catch((nextError) => setError(nextError.message || "The audience could not be counted."));
+      .catch((nextError) => setError(inlineErrorMessage(nextError, i18nText("ui.literals.k9d12efada086"))));
   }, [campaign]);
 
   return (
-    <Modal title="Send campaign" description={campaign.campaign_name || campaign.title} onClose={onClose} closeDisabled={busy}>
+    <Modal title={i18nText("ui.literals.kf15219f73e07")} description={campaign.campaign_name || campaign.title} onClose={onClose} closeDisabled={busy}>
       <div className="space-y-4">
         <div className="rounded-2xl bg-zinc-950 p-5 text-white">
-          <p className="text-xs font-black uppercase tracking-wide text-zinc-400">Current audience</p>
-          <p className="mt-1 text-3xl font-black">{estimate === null ? "Counting…" : `${estimate.toLocaleString()} ${estimate === 1 ? "person" : "people"}`}</p>
+          <p className="text-xs font-black uppercase tracking-wide text-zinc-400">{i18nText("ui.literals.k728834bfff0a")}</p>
+          <p className="mt-1 text-3xl font-black">{estimate === null ? i18nText("ui.literals.kc92a5b8a0d9b") : `${estimate.toLocaleString()} ${estimate === 1 ? "person" : "people"}`}</p>
           <p className="mt-1 text-xs font-semibold text-zinc-400">{audienceLabel(campaign)} · {presentationLabel(campaign)}</p>
         </div>
-        {error ? <Notice tone="danger" icon={AlertTriangle}>{error}</Notice> : null}
-        {estimate === 0 ? <Notice tone="warning" icon={AlertTriangle}>Nobody matches this audience right now.</Notice> : null}
+        {error ? <Notice tone="danger" icon={AlertTriangle}>{translateUi(error)}</Notice> : null}
+        {estimate === 0 ? <Notice tone="warning" icon={AlertTriangle}>{i18nText("ui.literals.k1c55d3fb0666")}</Notice> : null}
         <label className="flex items-start gap-3 rounded-2xl border border-amber-300 bg-amber-50 p-4 text-sm font-bold text-amber-900">
           <input type="checkbox" checked={acknowledged} onChange={(event) => setAcknowledged(event.target.checked)} className="mt-0.5 h-5 w-5 shrink-0 accent-amber-700" />
-          <span>{worldwide ? "This campaign has no location limit. " : ""}I confirm sending it to {estimate === null ? "this audience" : `${estimate.toLocaleString()} people`}.</span>
+          <span>{worldwide ? i18nText("ui.literals.kc1116c5041e5") : ""}{i18nText("ui.literals.k10e54121c521")} {estimate === null ? i18nText("ui.literals.ka247c462cf5b") : i18nText("ui.literals.kf851200480e6", { value0: estimate.toLocaleString() })}.</span>
         </label>
         <button
           type="button"
@@ -454,7 +460,7 @@ function PublishModal({ campaign, busy, onClose, onConfirm }) {
           onClick={() => onConfirm({ expectedAudience: estimate, confirmWorldwide: true })}
           className="inline-flex min-h-12 w-full items-center justify-center gap-2 rounded-xl bg-emerald-700 font-black text-white hover:bg-emerald-800 disabled:opacity-40"
         >
-          {busy ? <LoaderCircle className="animate-spin" size={18} /> : <Send size={18} />} Send now
+          {busy ? <LoaderCircle className="animate-spin" size={18} /> : <Send size={18} />} {i18nText("ui.literals.kdae3301014d0")}
         </button>
       </div>
     </Modal>
@@ -462,20 +468,21 @@ function PublishModal({ campaign, busy, onClose, onConfirm }) {
 }
 
 function ReasonModal({ kind, campaign, busy, onClose, onConfirm }) {
+  useUiLocale();
   const [reason, setReason] = useState("");
   const ending = kind === "end";
   return (
-    <Modal title={ending ? "End campaign" : "Cancel campaign"} description={campaign.campaign_name || campaign.title} onClose={onClose} closeDisabled={busy}>
+    <Modal title={ending ? i18nText("ui.literals.k90b0709c56da") : i18nText("ui.literals.k5005c62b10c2")} description={campaign.campaign_name || campaign.title} onClose={onClose} closeDisabled={busy}>
       <form className="space-y-4" onSubmit={(event) => { event.preventDefault(); if (reason.trim().length >= 5) onConfirm(reason.trim()); }}>
         <p className="text-sm font-semibold leading-6 text-zinc-500">
-          {ending ? "On-screen cards stop showing and inbox copies expire now. Delivery analytics are kept." : "The campaign will never be sent. This cannot be undone."}
+          {ending ? i18nText("ui.literals.k094879a2b7e8") : i18nText("ui.literals.kf6cdda98ac88")}
         </p>
         <label className="block">
-          <span className="mb-1.5 block text-sm font-black">Reason (recorded in the audit log)</span>
+          <span className="mb-1.5 block text-sm font-black">{i18nText("ui.literals.ke15e3925de95")}</span>
           <textarea rows={3} value={reason} onChange={(event) => setReason(event.target.value)} className="campaign-input min-h-24 py-3" />
         </label>
         <button type="submit" disabled={busy || reason.trim().length < 5} className={`inline-flex min-h-11 w-full items-center justify-center gap-2 rounded-xl font-black text-white disabled:opacity-40 ${ending ? "bg-amber-700 hover:bg-amber-800" : "bg-rose-700 hover:bg-rose-800"}`}>
-          {busy ? <LoaderCircle className="animate-spin" size={17} /> : ending ? <Square size={17} /> : <X size={17} />} {ending ? "End campaign" : "Cancel campaign"}
+          {busy ? <LoaderCircle className="animate-spin" size={17} /> : ending ? <Square size={17} /> : <X size={17} />} {ending ? i18nText("ui.literals.k90b0709c56da") : i18nText("ui.literals.k5005c62b10c2")}
         </button>
       </form>
     </Modal>

@@ -6,8 +6,10 @@ import {
 } from "react-icons/hi2";
 
 import { useI18n } from "../../../../../../i18n";
+import { uiText as translateUi, useI18n as useUiLocale } from "../../../../../../i18n/index.js";
 
 function ActionButton({ active, icon, label, meta, onClick }) {
+  useUiLocale();
   function handleClick(event) {
     event.preventDefault();
     event.stopPropagation();
@@ -24,7 +26,7 @@ function ActionButton({ active, icon, label, meta, onClick }) {
       }`}
     >
       {createElement(icon, { className: "text-lg" })}
-      <span className="truncate">{label}</span>
+      <span className="truncate">{translateUi(label)}</span>
       {meta !== undefined ? <span className="text-[11px] text-slate-400">{meta}</span> : null}
     </button>
   );

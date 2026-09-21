@@ -1,6 +1,8 @@
 import { HiOutlineInformationCircle } from "react-icons/hi2";
 
 import { GLOBAL_COUNTRY_CODES } from "../../../../data/globalCountryCodes";
+import { t as i18nText } from "../../../../i18n/index";
+import { uiText as translateUi, useI18n as useUiLocale } from "../../../../i18n/index.js";
 
 // Renders one question from the database-driven Join KunThai catalogue. Every
 // input type the catalogue can declare is handled here; an unknown type falls
@@ -19,6 +21,7 @@ function toggleValue(current, value) {
 }
 
 export default function QuestionField({ question, value, error = "", disabled = false, onChange }) {
+  useUiLocale();
   const { inputType, label, helper, placeholder, maxLength, required } = question;
 
   if (inputType === "statement") {
@@ -27,8 +30,8 @@ export default function QuestionField({ question, value, error = "", disabled = 
         <div className="flex items-start gap-3">
           <HiOutlineInformationCircle className="mt-0.5 flex-none text-xl text-sky-700" />
           <div className="min-w-0">
-            <p className="text-sm font-black text-sky-900">{label}</p>
-            {helper ? <p className="mt-1 text-sm font-semibold leading-6 text-sky-900/80">{helper}</p> : null}
+            <p className="text-sm font-black text-sky-900">{translateUi(label)}</p>
+            {helper ? <p className="mt-1 text-sm font-semibold leading-6 text-sky-900/80">{translateUi(helper)}</p> : null}
           </div>
         </div>
       </div>
@@ -47,7 +50,7 @@ export default function QuestionField({ question, value, error = "", disabled = 
             maxLength={maxLength || undefined}
             disabled={disabled}
             value={value ?? ""}
-            placeholder={placeholder}
+            placeholder={translateUi(placeholder)}
             aria-describedby={describedBy}
             onChange={(event) => onChange(event.target.value)}
             className={TEXTAREA_CLASS}
@@ -64,9 +67,9 @@ export default function QuestionField({ question, value, error = "", disabled = 
             onChange={(event) => onChange(event.target.value || null)}
             className={SELECT_CLASS}
           >
-            <option value="">Choose one</option>
+            <option value="">{i18nText("ui.literals.k4238dc412264")}</option>
             {question.options.map((option) => (
-              <option key={option.value} value={option.value}>{option.label}</option>
+              <option key={option.value} value={option.value}>{translateUi(option.label)}</option>
             ))}
           </select>
         );
@@ -81,7 +84,7 @@ export default function QuestionField({ question, value, error = "", disabled = 
             onChange={(event) => onChange(event.target.value || null)}
             className={SELECT_CLASS}
           >
-            <option value="">Choose a country</option>
+            <option value="">{i18nText("ui.literals.k7843c8c20cac")}</option>
             {GLOBAL_COUNTRY_CODES.map((country) => (
               <option key={country.iso2} value={country.name}>{country.name}</option>
             ))}
@@ -104,7 +107,7 @@ export default function QuestionField({ question, value, error = "", disabled = 
                     selected ? "bg-sky-700 text-white" : "bg-slate-100 text-slate-700 hover:bg-slate-200"
                   } disabled:opacity-50`}
                 >
-                  {option.label}
+                  {translateUi(option.label)}
                 </button>
               );
             })}
@@ -145,7 +148,7 @@ export default function QuestionField({ question, value, error = "", disabled = 
             max={question.maxValue ?? undefined}
             disabled={disabled}
             value={value ?? ""}
-            placeholder={placeholder}
+            placeholder={translateUi(placeholder)}
             aria-describedby={describedBy}
             onChange={(event) => onChange(event.target.value === "" ? null : Number(event.target.value))}
             className={INPUT_CLASS}
@@ -192,14 +195,14 @@ export default function QuestionField({ question, value, error = "", disabled = 
   return (
     <Wrapper className="block" htmlFor={useLabelElement ? question.questionKey : undefined}>
       <span className="mb-2 flex items-baseline gap-1.5 text-xs font-black uppercase tracking-[0.14em] text-slate-500">
-        {label}
-        {required ? <span className="text-rose-500">*</span> : <span className="text-[10px] font-bold normal-case tracking-normal text-slate-400">optional</span>}
+        {translateUi(label)}
+        {required ? <span className="text-rose-500">*</span> : <span className="text-[10px] font-bold normal-case tracking-normal text-slate-400">{i18nText("ui.literals.k48a7b8889e15")}</span>}
       </span>
-      {helper ? <span className="mb-2 block text-xs font-semibold leading-5 text-slate-500">{helper}</span> : null}
+      {helper ? <span className="mb-2 block text-xs font-semibold leading-5 text-slate-500">{translateUi(helper)}</span> : null}
       {control()}
       {error ? (
         <span id={`${question.questionKey}-error`} role="alert" className="mt-1.5 block text-xs font-bold text-rose-600">
-          {error}
+          {translateUi(error)}
         </span>
       ) : null}
     </Wrapper>

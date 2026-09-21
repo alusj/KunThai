@@ -1,4 +1,5 @@
 import { useI18n, t } from "../../../../../i18n";
+import { uiText as translateUi } from "../../../../../i18n/index.js";
 
 export default function SellerIntelligencePanel({ item }) {
   useI18n();
@@ -8,8 +9,8 @@ export default function SellerIntelligencePanel({ item }) {
     <div className="rounded-xl border border-gray-200 bg-gray-50 p-4">
       <div className="flex flex-col gap-1 sm:flex-row sm:items-center sm:justify-between">
         <div>
-          <h4 className="text-sm font-black text-gray-950">{item.title}</h4>
-          <p className="text-sm font-semibold text-gray-500">{item.description}</p>
+          <h4 className="text-sm font-black text-gray-950">{translateUi(item.title)}</h4>
+          <p className="text-sm font-semibold text-gray-500">{translateUi(item.description)}</p>
         </div>
         <p className="text-2xl font-black text-gray-950">{item.value}</p>
       </div>
@@ -25,10 +26,10 @@ export default function SellerIntelligencePanel({ item }) {
               <div className="flex items-start justify-between gap-3">
                 <div className="min-w-0">
                   <p className="truncate text-sm font-black text-gray-950">
-                    {row.label}
+                    {translateUi(row.label)}
                   </p>
                   <p className="mt-1 text-xs font-semibold leading-5 text-gray-500">
-                    {row.detail}
+                    {translateUi(row.detail)}
                   </p>
                 </div>
                 <p className="shrink-0 text-sm font-black text-gray-900">

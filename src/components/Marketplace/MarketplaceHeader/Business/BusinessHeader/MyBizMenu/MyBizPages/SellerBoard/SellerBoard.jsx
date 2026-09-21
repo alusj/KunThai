@@ -25,6 +25,7 @@ import SettingsSubMenuItem from "../SettingsSubMenuItem";
 import DeliverySettings from "./pages/DeliverySettings";
 import DisputesReports from "./pages/DisputesReports";
 import VerificationCenter from "./pages/VerificationCenter";
+import { uiText as translateUi, useI18n as useUiLocale } from "../../../../../../../../i18n/index.js";
 
 const BOARD_ITEMS = [
   { key: "verification", icon: BadgeCheck, titleKey: "verificationT", descKey: "verificationD" },
@@ -39,15 +40,17 @@ const BOARD_ITEMS = [
 ];
 
 function BoardShell({ title, eyebrow = t("urmall.biz.board.eyebrow"), onBack, children }) {
+  useUiLocale();
   return (
     <>
-      <SellerMenuPageHeader title={title} eyebrow={eyebrow} onBack={onBack} />
+      <SellerMenuPageHeader title={translateUi(title)} eyebrow={eyebrow} onBack={onBack} />
       <main className="w-full px-4 py-5 sm:px-6 lg:px-8">{children}</main>
     </>
   );
 }
 
 function SellerPolicyCenter({ onBack }) {
+  useUiLocale();
   const b = "urmall.biz.board.policy";
   return (
     <SellerArticlePage

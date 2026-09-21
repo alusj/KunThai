@@ -6,6 +6,8 @@ import { readRegisteredBusiness } from "../../../../../../../../../Backend/servi
 import { useI18n, t } from "../../../../../../../../../i18n";
 import SellerMenuPageHeader from "../../SellerMenuPageHeader";
 import { t as i18nText } from "../../../../../../../../../i18n/index";
+import { uiText as translateUi } from "../../../../../../../../../i18n/index.js";
+import { inlineErrorMessage } from "../../../../../../../../../Backend/services/friendlyErrorService";
 
 export default function VerificationCenter({ onBack }) {
   useI18n();
@@ -33,7 +35,7 @@ export default function VerificationCenter({ onBack }) {
       setNote("");
       setStatus(t("urmall.biz.board.verify.sent"));
     } catch (error) {
-      setStatus(error.message || t("urmall.biz.board.verify.sendFailed"));
+      setStatus(inlineErrorMessage(error, t("urmall.biz.board.verify.sendFailed")));
     } finally {
       setSubmitting(false);
     }
@@ -75,7 +77,7 @@ export default function VerificationCenter({ onBack }) {
           />
           {status ? (
             <p className="mt-3 rounded-xl border border-gray-200 bg-gray-50 px-4 py-3 text-sm font-bold text-gray-700">
-              {status}
+              {translateUi(status)}
             </p>
           ) : null}
           <button

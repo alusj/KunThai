@@ -3,6 +3,7 @@ import { AnimatePresence, motion } from "framer-motion";
 import { createPortal } from "react-dom";
 import { ShieldCheck, Sparkles, Store, Truck } from "lucide-react";
 import { t as i18nText } from "../../i18n/index";
+import { uiText as translateUi, useI18n as useUiLocale } from "../../i18n/index.js";
 
 // Full-screen "we are setting up your account" experience shown while a UrMall
 // or UrRide registration is saving and the dashboard is being prepared. It
@@ -39,6 +40,7 @@ const SECTORS = {
 };
 
 export default function AccountSetupLoader({ open, sector = "urmall" }) {
+  useUiLocale();
   const config = SECTORS[sector] || SECTORS.urmall;
   const [stepIndex, setStepIndex] = useState(0);
 
@@ -102,7 +104,7 @@ export default function AccountSetupLoader({ open, sector = "urmall" }) {
               </span>
             </div>
 
-            <p className="mt-7 text-xs font-black uppercase tracking-[0.28em] text-white/60">{config.label}</p>
+            <p className="mt-7 text-xs font-black uppercase tracking-[0.28em] text-white/60">{translateUi(config.label)}</p>
             <h2 className="mt-1 text-2xl font-black text-white">{i18nText("ui.literals.k005287e2bca1")}</h2>
 
             <div className="mt-5 h-8 w-full overflow-hidden">

@@ -1,5 +1,5 @@
 import { useEffect, useState } from "react";
-import { friendlyErrorMessage } from "../services/friendlyErrorService";
+import { inlineErrorMessage } from "../services/friendlyErrorService";
 
 import {
   clearExploreLocalCache,
@@ -56,7 +56,7 @@ export function useExplorePreferences() {
       setFeedback("Settings updated.");
       showToast("Settings updated.", "success");
     } catch (error) {
-      setFeedback(friendlyErrorMessage(error, "Settings saved on this device."));
+      setFeedback(inlineErrorMessage(error, "Settings saved on this device."));
     }
   }
 

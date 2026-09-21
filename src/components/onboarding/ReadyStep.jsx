@@ -4,6 +4,7 @@ import OnboardingFrame from "./OnboardingFrame";
 import { findExploreTopic } from "../../data/exploreTopics";
 import { useI18n, t } from "../../i18n";
 import { t as i18nText } from "../../i18n/index";
+import { uiText as translateUi } from "../../i18n/index.js";
 
 const surfaceMap = {
   explore: { labelKey: "onboarding.welcome.exploreT", icon: Compass },
@@ -95,7 +96,7 @@ export default function ReadyStep({ values, saving, error, onBack, onFinish }) {
 
       {error ? (
         <p className="mt-5 rounded-xl border border-rose-200 bg-rose-50 px-4 py-3 text-sm text-rose-700" role="alert">
-          {error}
+          {translateUi(error)}
         </p>
       ) : null}
 

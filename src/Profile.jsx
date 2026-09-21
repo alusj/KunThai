@@ -1,6 +1,8 @@
 
-import { t as i18nText } from "./i18n/index";// src/Profile.jsx
+import { t as i18nText } from "./i18n/index";
+import { useI18n as useUiLocale } from "./i18n/index.js";// src/Profile.jsx
 export default function Profile() {
+  useUiLocale();
   return (
     <div className="max-w-2xl mx-auto">
 

@@ -2,6 +2,9 @@ import { useState } from "react";
 import { HiOutlinePlus, HiOutlineTrash } from "react-icons/hi2";
 
 import { GLOBAL_COUNTRY_CODES } from "../../../../data/globalCountryCodes";
+import { t as i18nText } from "../../../../i18n/index";
+import { uiText as translateUi, useI18n as useUiLocale } from "../../../../i18n/index.js";
+import { inlineErrorMessage } from "../../../../Backend/services/friendlyErrorService";
 
 // The parts of an application that are lists rather than single answers:
 // qualifications, previous roles, and skills. Each entry is saved on its own so
@@ -19,6 +22,7 @@ const WIDTHS = {
 };
 
 function EntryField({ field, value, disabled, onChange }) {
+  useUiLocale();
   if (field.type === "boolean") {
     return (
       <label className={`flex items-center gap-3 ${WIDTHS[field.width] || WIDTHS.full}`}>
@@ -29,14 +33,14 @@ function EntryField({ field, value, disabled, onChange }) {
           onChange={(event) => onChange(event.target.checked)}
           className="h-5 w-5 rounded border-slate-300 text-sky-700 focus:ring-sky-300"
         />
-        <span className="text-sm font-bold text-slate-700">{field.label}</span>
+        <span className="text-sm font-bold text-slate-700">{translateUi(field.label)}</span>
       </label>
     );
   }
 
   return (
     <label className={`block ${WIDTHS[field.width] || WIDTHS.full}`}>
-      <span className="mb-1.5 block text-[11px] font-black uppercase tracking-[0.12em] text-slate-500">{field.label}</span>
+      <span className="mb-1.5 block text-[11px] font-black uppercase tracking-[0.12em] text-slate-500">{translateUi(field.label)}</span>
       {field.type === "textarea" ? (
         <textarea
           rows={3}
@@ -52,7 +56,7 @@ function EntryField({ field, value, disabled, onChange }) {
           onChange={(event) => onChange(event.target.value)}
           className={`${INPUT_CLASS} font-black`}
         >
-          <option value="">Choose one</option>
+          <option value="">{i18nText("ui.literals.k4238dc412264")}</option>
           {field.options.map(([optionValue, optionLabel]) => (
             <option key={optionValue} value={optionValue}>{optionLabel}</option>
           ))}
@@ -64,7 +68,7 @@ function EntryField({ field, value, disabled, onChange }) {
           onChange={(event) => onChange(event.target.value)}
           className={`${INPUT_CLASS} font-black`}
         >
-          <option value="">Choose a country</option>
+          <option value="">{i18nText("ui.literals.k7843c8c20cac")}</option>
           {GLOBAL_COUNTRY_CODES.map((country) => (
             <option key={country.iso2} value={country.name}>{country.name}</option>
           ))}
@@ -95,6 +99,7 @@ export default function RepeatableSection({
   onSave,
   onRemove,
 }) {
+  useUiLocale();
   const [drafts, setDrafts] = useState({});
   const [busyId, setBusyId] = useState("");
   const [error, setError] = useState("");
@@ -118,7 +123,7 @@ export default function RepeatableSection({
         return next;
       });
     } catch (saveError) {
-      setError(saveError.message || "Could not save this entry.");
+      setError(inlineErrorMessage(saveError, i18nText("ui.literals.kdb8bbe6e24ab")));
     } finally {
       setBusyId("");
     }
@@ -138,7 +143,7 @@ export default function RepeatableSection({
     try {
       await onRemove(entry);
     } catch (removeError) {
-      setError(removeError.message || "Could not remove this entry.");
+      setError(inlineErrorMessage(removeError, i18nText("ui.literals.k840a8b2e2e98")));
     } finally {
       setBusyId("");
     }
@@ -148,8 +153,8 @@ export default function RepeatableSection({
     <section className="rounded-[24px] border border-slate-200 bg-white p-5 shadow-sm">
       <div className="flex items-start justify-between gap-3">
         <div className="min-w-0">
-          <h3 className="text-base font-black text-slate-950">{title}</h3>
-          {description ? <p className="mt-1 text-sm font-semibold leading-6 text-slate-500">{description}</p> : null}
+          <h3 className="text-base font-black text-slate-950">{translateUi(title)}</h3>
+          {description ? <p className="mt-1 text-sm font-semibold leading-6 text-slate-500">{translateUi(description)}</p> : null}
         </div>
         {!readOnly ? (
           <button
@@ -162,11 +167,11 @@ export default function RepeatableSection({
         ) : null}
       </div>
 
-      {error ? <p role="alert" className="mt-3 rounded-xl bg-rose-50 px-3 py-2 text-xs font-bold text-rose-700">{error}</p> : null}
+      {error ? <p role="alert" className="mt-3 rounded-xl bg-rose-50 px-3 py-2 text-xs font-bold text-rose-700">{translateUi(error)}</p> : null}
 
       {!rows.length && !pending.length ? (
         <p className="mt-4 rounded-xl border border-dashed border-slate-300 px-4 py-5 text-center text-sm font-bold text-slate-400">
-          Nothing added yet.
+          {i18nText("ui.literals.k7d7f6e68a2f2")}
         </p>
       ) : null}
 
@@ -194,14 +199,14 @@ export default function RepeatableSection({
                     onClick={() => save(entry)}
                     className="h-10 rounded-xl bg-sky-700 px-4 text-xs font-black text-white disabled:opacity-40"
                   >
-                    {busyId === entry.id ? "Saving…" : entry.id === "__new" ? "Add entry" : dirty ? "Save changes" : "Saved"}
+                    {busyId === entry.id ? i18nText("ui.literals.k56a2285c5b11") : entry.id === "__new" ? i18nText("ui.literals.k8c6a8ea29829") : dirty ? i18nText("ui.literals.k179359b39edb") : i18nText("ui.literals.kc0ae8f6ea841")}
                   </button>
                   <button
                     type="button"
                     disabled={busyId === entry.id}
                     onClick={() => remove(entry)}
                     className="grid h-10 w-10 place-items-center rounded-xl bg-white text-rose-600 shadow-sm disabled:opacity-40"
-                    aria-label="Remove entry"
+                    aria-label={i18nText("ui.literals.k18ffc873a160")}
                   >
                     <HiOutlineTrash />
                   </button>

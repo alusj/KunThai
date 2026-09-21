@@ -43,6 +43,8 @@ import { useI18n, t } from "../../i18n";
 import SaveOperatorButton from "./SaveOperatorButton";
 import AiAssistButton from "../ai/AiAssistButton";
 import { tripFactsForAi } from "../../Backend/services/ai/urrideAiModels";
+import { uiText as translateUi, useI18n as useUiLocale } from "../../i18n/index.js";
+import { inlineErrorMessage } from "../../Backend/services/friendlyErrorService";
 
 const tripSteps = [
   { key: "requested", labelKey: "urride.activeTrips.stepRequested" },
@@ -95,7 +97,7 @@ export default function ActiveTripsScreen({ onBack, onViewFleet, onShowVerificat
         : await fetchActiveTrips();
       setTrips(remoteTrips);
     } catch (err) {
-      setError(hasExistingTrips ? "" : err.message || t("urride.activeTrips.loadError"));
+      setError(hasExistingTrips ? "" : inlineErrorMessage(err, t("urride.activeTrips.loadError")));
       if (!hasExistingTrips) {
         setTrips([]);
       }
@@ -263,6 +265,7 @@ function ScreenHeader({ refreshing, onRefresh, onBack }) {
 }
 
 function TripTabs({ activeTab, onChange }) {
+  useUiLocale();
   return (
     <div className="mb-4 flex w-full gap-2 overflow-x-auto rounded-2xl border border-slate-200 bg-white p-1.5 shadow-sm" role="tablist" aria-label={t("urride.activeTrips.tripsTitle")}>
       {[
@@ -277,7 +280,7 @@ function TripTabs({ activeTab, onChange }) {
           onClick={() => onChange(key)}
           className={`h-11 min-w-[148px] flex-1 whitespace-nowrap rounded-xl px-4 text-sm font-black transition ${activeTab === key ? "bg-slate-950 text-white shadow-sm" : "text-slate-600 hover:bg-slate-50"}`}
         >
-          {label}
+          {translateUi(label)}
         </button>
       ))}
     </div>
@@ -395,7 +398,7 @@ function TripActionScreen({ screen, onBack, onOpen, onRun, onSubmitSupport, onSu
           <AppBackTab onBack={onBack} label={t("urride.activeTrips.backToTrip")} historyKey={`transport-trip-${screen.type}`} className="rounded-full border border-gray-200 bg-white" />
           <div>
             <p className="text-xs font-black uppercase tracking-[0.16em] text-emerald-700">{t("urride.activeTrips.liveTrip")}</p>
-            <h1 className="text-lg font-black text-gray-950">{title}</h1>
+            <h1 className="text-lg font-black text-gray-950">{translateUi(title)}</h1>
           </div>
         </div>
       </header>
@@ -498,7 +501,7 @@ function ConfirmPanel({ icon, title, body, actionLabel, onConfirm, danger = fals
   return (
     <section className="rounded-2xl border border-gray-100 bg-white p-5 shadow-sm">
       <span className={`flex h-12 w-12 items-center justify-center rounded-2xl ${danger ? "bg-red-50 text-red-700" : "bg-emerald-50 text-emerald-700"}`}>{createElement(icon, { size: 22 })}</span>
-      <h2 className="mt-4 text-xl font-black text-slate-950">{title}</h2>
+      <h2 className="mt-4 text-xl font-black text-slate-950">{translateUi(title)}</h2>
       <p className="mt-2 text-sm font-semibold leading-6 text-slate-600">{body}</p>
       <button type="button" disabled={busy} onClick={async () => { setBusy(true); await onConfirm(); setBusy(false); }} className={`mt-5 h-12 w-full rounded-2xl text-sm font-black text-white ${danger ? "bg-red-600" : "bg-emerald-600"} disabled:opacity-50`}>
         {busy ? t("urride.activeTrips.updating") : actionLabel}
@@ -538,7 +541,7 @@ function ShareLocationScreen() {
     <section className="rounded-2xl border border-gray-100 bg-white p-5 shadow-sm">
       <FiShare2 className="text-emerald-700" size={24} />
       <h2 className="mt-3 text-xl font-black text-slate-950">{t("urride.activeTrips.shareHeading")}</h2>
-      <p className="mt-2 text-sm font-semibold leading-6 text-slate-600">{status}</p>
+      <p className="mt-2 text-sm font-semibold leading-6 text-slate-600">{translateUi(status)}</p>
       {shareUrl ? <a href={shareUrl} target="_blank" rel="noreferrer" className="mt-3 block break-all rounded-xl bg-slate-50 p-3 text-xs font-bold text-emerald-700">{shareUrl}</a> : null}
       <button type="button" onClick={shareLocation} disabled={busy || !navigator.geolocation} className="mt-5 h-12 w-full rounded-2xl bg-emerald-600 text-sm font-black text-white disabled:bg-gray-300">
         {busy ? t("urride.activeTrips.locating") : t("urride.activeTrips.shareLive")}
@@ -670,17 +673,21 @@ function TripProgress({ step }) {
 }
 
 function InfoLine({ icon, label, text }) {
-  return <div className="flex min-w-0 items-center gap-2 rounded-xl bg-gray-50 px-3 py-2">{createElement(icon, { size: 15, className: "shrink-0 text-gray-500" })}<span className="min-w-0"><span className="mr-1 text-xs font-black uppercase text-gray-400">{label}:</span><span className="break-words font-semibold text-gray-700">{text}</span></span></div>;
+  useUiLocale();
+  return <div className="flex min-w-0 items-center gap-2 rounded-xl bg-gray-50 px-3 py-2">{createElement(icon, { size: 15, className: "shrink-0 text-gray-500" })}<span className="min-w-0"><span className="mr-1 text-xs font-black uppercase text-gray-400">{translateUi(label)}:</span><span className="break-words font-semibold text-gray-700">{translateUi(text)}</span></span></div>;
 }
 
 function ActionButton({ label, icon, primary, danger, onClick }) {
-  return <button type="button" onClick={onClick} className={`h-10 rounded-2xl px-3 text-sm font-bold ${primary ? "bg-green-600 text-white" : danger ? "border border-red-100 bg-red-50 text-red-700" : "border border-gray-200 text-gray-700"}`}><span className="flex items-center justify-center gap-2">{icon ? createElement(icon, { size: 16 }) : null}{label}</span></button>;
+  useUiLocale();
+  return <button type="button" onClick={onClick} className={`h-10 rounded-2xl px-3 text-sm font-bold ${primary ? "bg-green-600 text-white" : danger ? "border border-red-100 bg-red-50 text-red-700" : "border border-gray-200 text-gray-700"}`}><span className="flex items-center justify-center gap-2">{icon ? createElement(icon, { size: 16 }) : null}{translateUi(label)}</span></button>;
 }
 
 function ActionRow({ icon, label, detail, onClick, danger = false }) {
-  return <button type="button" onClick={onClick} className={`kt-touchable flex items-center gap-3 rounded-2xl border p-3 text-left ${danger ? "border-red-100 bg-red-50" : "border-gray-100 bg-gray-50 hover:border-emerald-200 hover:bg-emerald-50"}`}><span className={`flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-white ${danger ? "text-red-700" : "text-emerald-700"}`}>{createElement(icon, { size: 18 })}</span><span><span className="block text-sm font-black text-slate-950">{label}</span><span className="mt-0.5 block text-xs font-semibold text-slate-500">{detail}</span></span></button>;
+  useUiLocale();
+  return <button type="button" onClick={onClick} className={`kt-touchable flex items-center gap-3 rounded-2xl border p-3 text-left ${danger ? "border-red-100 bg-red-50" : "border-gray-100 bg-gray-50 hover:border-emerald-200 hover:bg-emerald-50"}`}><span className={`flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-white ${danger ? "text-red-700" : "text-emerald-700"}`}>{createElement(icon, { size: 18 })}</span><span><span className="block text-sm font-black text-slate-950">{translateUi(label)}</span><span className="mt-0.5 block text-xs font-semibold text-slate-500">{translateUi(detail)}</span></span></button>;
 }
 
 function EmptyState({ title, body }) {
-  return <div className="rounded-2xl border border-gray-100 bg-white p-6 text-center shadow-sm"><FiCheckCircle className="mx-auto text-gray-400" size={34} /><h2 className="mt-3 text-base font-black text-gray-950">{title}</h2><p className="mt-2 text-sm font-semibold text-gray-500">{body}</p></div>;
+  useUiLocale();
+  return <div className="rounded-2xl border border-gray-100 bg-white p-6 text-center shadow-sm"><FiCheckCircle className="mx-auto text-gray-400" size={34} /><h2 className="mt-3 text-base font-black text-gray-950">{translateUi(title)}</h2><p className="mt-2 text-sm font-semibold text-gray-500">{body}</p></div>;
 }

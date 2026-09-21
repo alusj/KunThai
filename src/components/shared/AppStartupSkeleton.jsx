@@ -21,12 +21,16 @@ import {
 
 import { t } from "../../i18n";
 import PremiumHeader from "./PremiumHeader";
+import { t as i18nText } from "../../i18n/index";
+import { uiText as translateUi, useI18n as useUiLocale } from "../../i18n/index.js";
 
 function SkeletonBlock({ className = "" }) {
+  useUiLocale();
   return <div className={`kt-startup-shimmer ${className}`} aria-hidden="true" />;
 }
 
 function StaticHeaderButton({ accent = "slate", icon: Icon }) {
+  useUiLocale();
   const activeClass = accent === "sky"
     ? "border-sky-600 bg-sky-600 text-white shadow-sky-700/20"
     : accent === "emerald"
@@ -44,12 +48,14 @@ function StaticHeaderButton({ accent = "slate", icon: Icon }) {
 }
 
 function AccountIconSkeleton() {
+  useUiLocale();
   return (
     <SkeletonBlock className="kt-premium-icon-button kt-premium-icon-button-square rounded-2xl border-slate-200 bg-slate-200/70" />
   );
 }
 
 function ExploreHeaderShell() {
+  useUiLocale();
   return (
     <div data-static-shell="explore-header">
       <PremiumHeader
@@ -74,6 +80,7 @@ function ExploreHeaderShell() {
 }
 
 function MarketplaceHeaderShell() {
+  useUiLocale();
   return (
     <div data-static-shell="marketplace-header">
       <PremiumHeader
@@ -95,6 +102,7 @@ function MarketplaceHeaderShell() {
 }
 
 function SellerHeaderShell() {
+  useUiLocale();
   return (
     <header className="sticky top-0 z-30 border-b border-gray-200 bg-white" data-static-shell="seller-header">
       <div className="flex h-16 w-full items-center justify-between gap-2 px-4 sm:px-6 lg:px-8">
@@ -122,6 +130,7 @@ function SellerHeaderShell() {
 }
 
 function FeedCardSkeleton({ mediaHeight = "h-44" }) {
+  useUiLocale();
   return (
     <article className="rounded-[24px] border border-slate-200 bg-white p-4 shadow-sm dark:border-slate-800 dark:bg-slate-900">
       <div className="flex items-center gap-3">
@@ -141,6 +150,7 @@ function FeedCardSkeleton({ mediaHeight = "h-44" }) {
 }
 
 function ExploreTabsShell() {
+  useUiLocale();
   const tabs = [
     { label: "UrFeed", icon: Sparkles },
     { label: "Swip", icon: Video },
@@ -158,7 +168,7 @@ function ExploreTabsShell() {
             }`}
           >
             <Icon size={15} strokeWidth={2.25} />
-            <span className="whitespace-nowrap">{label}</span>
+            <span className="whitespace-nowrap">{translateUi(label)}</span>
           </span>
         ))}
       </div>
@@ -167,6 +177,7 @@ function ExploreTabsShell() {
 }
 
 function ExploreComposerShell() {
+  useUiLocale();
   return (
     <div className="mt-4 w-full min-w-0 px-3 sm:px-5 lg:px-8" data-static-shell="explore-composer">
       <div className="flex w-full min-w-0 items-center gap-2 rounded-[20px] border border-slate-200 bg-white p-2.5 shadow-sm sm:p-3 dark:border-slate-800 dark:bg-slate-900">
@@ -186,6 +197,7 @@ function ExploreComposerShell() {
 }
 
 function ExploreSkeleton() {
+  useUiLocale();
   return (
     <>
       <ExploreHeaderShell />
@@ -201,6 +213,7 @@ function ExploreSkeleton() {
 }
 
 function ProductCardSkeleton() {
+  useUiLocale();
   return (
     <article className="overflow-hidden rounded-[20px] border border-slate-200 bg-white shadow-sm dark:border-slate-800 dark:bg-slate-900">
       <SkeletonBlock className="aspect-[4/3] w-full rounded-none" />
@@ -214,6 +227,7 @@ function ProductCardSkeleton() {
 }
 
 function MarketplaceTabsShell() {
+  useUiLocale();
   const tabs = [
     t("urmall.tabs.new"),
     t("urmall.tabs.discounted"),
@@ -225,7 +239,7 @@ function MarketplaceTabsShell() {
       <div className="grid grid-cols-4 gap-1 rounded-[24px] border border-white/80 bg-white/55 p-1 ring-1 ring-slate-950/5">
         {tabs.map((label, index) => (
           <span key={label} className={`grid min-h-10 place-items-center rounded-[18px] px-1 text-center text-[11px] font-black leading-tight ${index === 0 ? "bg-emerald-600 text-white" : "text-gray-600"}`}>
-            {label}
+            {translateUi(label)}
           </span>
         ))}
       </div>
@@ -234,6 +248,7 @@ function MarketplaceTabsShell() {
 }
 
 function MarketplaceBuyerSkeleton() {
+  useUiLocale();
   return (
     <>
       <MarketplaceHeaderShell />
@@ -246,6 +261,7 @@ function MarketplaceBuyerSkeleton() {
 }
 
 function SellerTabsShell() {
+  useUiLocale();
   return (
     <nav className="grid grid-cols-3 gap-1.5 rounded-2xl border border-gray-200 bg-white p-1.5 shadow-sm" data-static-shell="seller-tabs">
       {[
@@ -254,7 +270,7 @@ function SellerTabsShell() {
         t("urmall.biz.cat.titleDraft"),
       ].map((label, index) => (
         <span key={label} className={`grid min-h-10 place-items-center rounded-xl px-2 text-xs font-black ${index === 0 ? "bg-slate-950 text-white" : "text-gray-500"}`}>
-          {label}
+          {translateUi(label)}
         </span>
       ))}
     </nav>
@@ -262,6 +278,7 @@ function SellerTabsShell() {
 }
 
 function MarketplaceSellerSkeleton() {
+  useUiLocale();
   return (
     <>
       <SellerHeaderShell />
@@ -276,6 +293,7 @@ function MarketplaceSellerSkeleton() {
 }
 
 function BottomShell({ activePage }) {
+  useUiLocale();
   const tabs = [
     { id: "explore", label: "Explore", icon: Compass },
     { id: "marketplace", label: "UrMall", icon: ShoppingBag },
@@ -288,7 +306,7 @@ function BottomShell({ activePage }) {
         {tabs.map(({ id, icon: Icon, label }) => (
           <span key={id} className={`relative z-10 flex min-h-[48px] flex-col items-center justify-center gap-0.5 rounded-[20px] px-1.5 py-1.5 text-[11px] font-black ${id === activePage ? "bg-slate-950/90 text-white dark:bg-white dark:text-slate-950" : "text-slate-500 dark:text-slate-400"}`}>
             <Icon size={18} strokeWidth={2.25} />
-            <span>{label}</span>
+            <span>{translateUi(label)}</span>
           </span>
         ))}
       </div>
@@ -297,6 +315,7 @@ function BottomShell({ activePage }) {
 }
 
 export default function AppStartupSkeleton({ page = "explore", marketplaceSub = "", notice = null }) {
+  useUiLocale();
   // UrRide intentionally has no startup representation. Showing even a static
   // imitation of its actions created a visible pre-screen before the real
   // dashboard mounted, so transport now waits silently for the actual screen.
@@ -307,9 +326,9 @@ export default function AppStartupSkeleton({ page = "explore", marketplaceSub = 
       className="kt-mobile-viewport relative overflow-x-hidden bg-slate-100 text-slate-950 dark:bg-slate-950 dark:text-white"
       data-startup-skeleton={page}
       aria-busy="true"
-      aria-label={`${page} loading`}
+      aria-label={i18nText("ui.literals.k4360a33c8dc2", { value0: page })}
     >
-      {notice ? <div className="relative z-40 px-4 pt-3">{notice}</div> : null}
+      {notice ? <div className="relative z-40 px-4 pt-3">{translateUi(notice)}</div> : null}
       {page === "marketplace"
         ? marketplaceSub === "business"
           ? <MarketplaceSellerSkeleton />

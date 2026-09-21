@@ -129,6 +129,28 @@ export function areGlobalNetworkToastsSuppressed() {
 // or inline card. Screens with their own contextual messaging (Area View)
 // suppress it while they are mounted.
 let stopGlobalNetworkToasts = null;
+let announceOfflineToast = null;
+let lastTroubleAnnouncedAt = 0;
+const TROUBLE_ANNOUNCE_GAP_MS = 6000;
+
+// Called when a request or action fails because the connection is gone. It
+// re-shows the global offline toast instead of letting the caller put its own
+// "no internet" message in a card, banner or second toast. Throttled so a burst
+// of failing requests shows the toast once.
+//
+// Returns false only when there is no global announcer to defer to (a shell
+// that never started one, such as the admin console); the caller then keeps
+// its own message so the failure is never silent.
+export function announceConnectionTrouble() {
+  if (!announceOfflineToast) return false;
+  if (areGlobalNetworkToastsSuppressed()) return true;
+  const now = Date.now();
+  if (now - lastTroubleAnnouncedAt >= TROUBLE_ANNOUNCE_GAP_MS) {
+    lastTroubleAnnouncedAt = now;
+    announceOfflineToast();
+  }
+  return true;
+}
 
 /**
  * @param {object} options
@@ -142,6 +164,11 @@ export function startGlobalNetworkToasts({ showToast, messages }) {
   let previous = getNetworkStatus();
   const text = (key) => messages()[key] || "";
   const title = () => text("title");
+  const showOffline = () => {
+    lastTroubleAnnouncedAt = Date.now();
+    showToast(text("offline"), "warning", { title: title(), duration: 5000, origin: false });
+  };
+  announceOfflineToast = showOffline;
 
   function announce(status, { initial = false } = {}) {
     if (areGlobalNetworkToastsSuppressed()) {
@@ -150,9 +177,7 @@ export function startGlobalNetworkToasts({ showToast, messages }) {
     }
     if (!status.online) {
       // Offline is worth repeating on entry, because nothing else will work.
-      if (initial || previous.online) {
-        showToast(text("offline"), "warning", { title: title(), duration: 5000, origin: false });
-      }
+      if (initial || previous.online) showOffline();
     } else if (!previous.online) {
       showToast(text("backOnline"), "success", { title: title(), duration: 2600, origin: false });
     } else if (status.unstable && (initial || !previous.unstable)) {
@@ -168,8 +193,119 @@ export function startGlobalNetworkToasts({ showToast, messages }) {
   stopGlobalNetworkToasts = () => {
     unsubscribe();
     stopGlobalNetworkToasts = null;
+    announceOfflineToast = null;
   };
   return stopGlobalNetworkToasts;
+}
+
+// Runs `callback` once, the next time the browser reports the connection is
+// back. For a screen whose request failed offline and should simply try again
+// then, rather than showing an error. Returns a cancel function for cleanup.
+export function whenOnline(callback) {
+  if (typeof window === "undefined" || typeof callback !== "function") return () => {};
+  const run = () => {
+    window.removeEventListener("online", run);
+    callback();
+  };
+  window.addEventListener("online", run);
+  return () => window.removeEventListener("online", run);
+}
+
+// ── Reads that wait out a lost connection ──────────────────────────────────
+//
+// A read that fails because the connection dropped is not an error the screen
+// should show: nothing is wrong with the data, the device just cannot reach it
+// yet. `createReadRetryingFetch` wraps a fetch so such reads wait for the
+// connection and then run again. The caller's promise simply stays pending, so
+// a loaded screen keeps its data, an unloaded one stays in its normal loading
+// state, and everything refreshes by itself when the connection returns.
+//
+// Writes are never held: replaying a user's action minutes later, after they
+// may have left or pressed again, would be worse than failing it now. The
+// global offline toast explains why it failed.
+
+const CONNECTION_FAULT_PATTERN = /failed to fetch|networkerror|network error|network request failed|load failed|fetch failed|internet connection appears to be offline|err_internet_disconnected|err_network_changed|err_connection|err_name_not_resolved/;
+
+// True only when fetch rejected because the request could not travel. A
+// TypeError on its own is not enough — fetch also throws one for a malformed
+// URL or header, and retrying that would loop forever.
+export function isFetchConnectionFault(error) {
+  if (!error || error.name === "AbortError") return false;
+  if (!isOnline()) return true;
+  return CONNECTION_FAULT_PATTERN.test(`${error.name || ""} ${error.message || ""}`.toLowerCase());
+}
+
+function abortReason(signal) {
+  return signal?.reason instanceof Error
+    ? signal.reason
+    : new DOMException("The request was aborted.", "AbortError");
+}
+
+// Resolves when it is worth trying again: at once on the browser's `online`
+// event, otherwise after a pause. While the device reports itself offline only
+// the event can help, so the pause is long; while it reports itself online but
+// requests still fail (captive portal, dead Wi-Fi) the pause grows from 2s to
+// 30s. Rejects with an AbortError if the caller aborts.
+export function waitForConnection({ signal, attempt = 0 } = {}) {
+  return new Promise((resolve, reject) => {
+    if (signal?.aborted) {
+      reject(abortReason(signal));
+      return;
+    }
+    const delay = isOnline() ? Math.min(30_000, 2000 * 2 ** attempt) : 30_000;
+    let timer = 0;
+    const cleanup = () => {
+      window.clearTimeout(timer);
+      window.removeEventListener("online", done);
+      signal?.removeEventListener("abort", onAbort);
+    };
+    function done() {
+      cleanup();
+      resolve();
+    }
+    function onAbort() {
+      cleanup();
+      reject(abortReason(signal));
+    }
+    window.addEventListener("online", done);
+    signal?.addEventListener("abort", onAbort, { once: true });
+    timer = window.setTimeout(done, delay);
+  });
+}
+
+// A device that reports itself offline already got the global toast on the
+// transition. One that reports itself online while requests cannot get through
+// (captive portal, dead Wi-Fi) got nothing, so that case is announced.
+function announceHeldRead() {
+  if (isOnline()) announceConnectionTrouble();
+}
+
+/**
+ * @param {typeof fetch} baseFetch
+ * @param {object} options
+ * @param {(url: string, method: string) => boolean} options.isRead  which requests may wait and retry
+ * @param {() => void} [options.onHold]  called once when a read starts waiting
+ * @param {typeof waitForConnection} [options.wait]
+ */
+export function createReadRetryingFetch(baseFetch, { isRead, onHold = announceHeldRead, wait = waitForConnection }) {
+  return async function readRetryingFetch(input, init = {}) {
+    const method = String(init?.method || input?.method || "GET").toUpperCase();
+    const url = typeof input === "string" ? input : input?.url || String(input);
+    const holdable = isRead(url, method);
+
+    for (let attempt = 0; ; attempt += 1) {
+      try {
+        return await baseFetch(input, init);
+      } catch (error) {
+        // A caller that gave up gets its own AbortError, not the network fault.
+        if (init?.signal?.aborted) throw abortReason(init.signal);
+        if (!holdable || !isFetchConnectionFault(error)) throw error;
+        devLog(`read held until the connection returns (attempt ${attempt + 1})`);
+        if (attempt === 0) onHold?.();
+        await wait({ signal: init?.signal, attempt });
+      }
+    }
+  };
 }
 
 export function getNetworkStatus() {

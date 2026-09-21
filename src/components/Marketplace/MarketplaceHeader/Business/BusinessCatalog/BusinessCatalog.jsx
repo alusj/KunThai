@@ -4,6 +4,7 @@ import EmptyCatalogState from "./EmptyCatalogState";
 import ProductManagementList from "./ProductManagementList";
 import ProductSummaryGrid from "./ProductSummaryGrid";
 import TopSellingProducts from "./TopSellingProducts";
+import { uiText as translateUi, useI18n as useUiLocale } from "../../../../../i18n/index.js";
 
 export default function BusinessCatalog({ mode = "store", onEditProduct, onPromoteProduct, onViewInsights, onViewProduct, insightsLocked = false }) {
   useI18n();
@@ -49,9 +50,9 @@ export default function BusinessCatalog({ mode = "store", onEditProduct, onPromo
   return (
     <section className="space-y-4">
       <div>
-        <h3 className="text-xl font-black text-gray-950">{title}</h3>
+        <h3 className="text-xl font-black text-gray-950">{translateUi(title)}</h3>
         <p className="mt-1 text-sm font-medium text-gray-500">
-          {description}
+          {translateUi(description)}
         </p>
       </div>
 
@@ -73,7 +74,7 @@ export default function BusinessCatalog({ mode = "store", onEditProduct, onPromo
       ) : null}
 
       {visibleProducts.length === 0 ? (
-        <EmptyCatalogState title={emptyState.title} description={emptyState.description} />
+        <EmptyCatalogState title={translateUi(emptyState.title)} description={translateUi(emptyState.description)} />
       ) : (
         <ProductManagementList
           mode={mode}
@@ -108,9 +109,10 @@ export default function BusinessCatalog({ mode = "store", onEditProduct, onPromo
 }
 
 function SectionSkeleton({ title }) {
+  useUiLocale();
   return (
     <section className="rounded-xl border border-gray-200 bg-white p-5 shadow-sm" aria-busy="true">
-      <p className="text-sm font-black text-gray-500">{title}</p>
+      <p className="text-sm font-black text-gray-500">{translateUi(title)}</p>
       <div className="mt-4 grid gap-3 sm:grid-cols-2 lg:grid-cols-3">
         {[0, 1, 2].map((item) => (
           <div key={item} className="h-28 animate-pulse rounded-lg bg-gray-100" />

@@ -22,6 +22,7 @@ import {
   orderVerticalMeal,
 } from "./verticalListingModel";
 import { t as i18nText } from "../../i18n/index";
+import { uiText as translateUi, useI18n as useUiLocale } from "../../i18n/index.js";
 
 const EMPTY = { restaurants: [], hotels: [], properties: [] };
 const VERTICAL_CATALOG_STORAGE_KEY = "kunthai.marketplace.verticalCatalog.v1";
@@ -240,7 +241,7 @@ export default function VerticalMarketplace({ mode = "all", onDetailChange, prio
       : baseItems;
     return (
       <>
-        {error ? <div className="rounded-lg border border-amber-200 bg-amber-50 p-3 text-xs font-bold text-amber-800">{error}</div> : null}
+        {error ? <div className="rounded-lg border border-amber-200 bg-amber-50 p-3 text-xs font-bold text-amber-800">{translateUi(error)}</div> : null}
         {mixedItems.map(({ type, item }) => type === "restaurant"
           ? <RestaurantCard key={`restaurant-${item.id}`} item={item} onClick={() => setSelected({ type, item })} />
           : type === "hotel"
@@ -254,7 +255,7 @@ export default function VerticalMarketplace({ mode = "all", onDetailChange, prio
 
   return (
     <div className="space-y-8">
-      {error ? <p className="rounded-2xl border border-amber-200 bg-amber-50 p-4 text-sm font-bold text-amber-800">{error}</p> : null}
+      {error ? <p className="rounded-2xl border border-amber-200 bg-amber-50 p-4 text-sm font-bold text-amber-800">{translateUi(error)}</p> : null}
       {sections.includes("restaurants") ? (
         <VerticalSection eyebrow={t("urmall.vertical.foodEyebrow")} title={t("urmall.vertical.foodTitle")} subtitle={t("urmall.vertical.foodSubtitle")}>
           <CardLayout compact={mode === "all"} empty={t("urmall.vertical.foodEmpty")}>
@@ -284,10 +285,12 @@ export default function VerticalMarketplace({ mode = "all", onDetailChange, prio
 }
 
 function VerticalSection({ children, eyebrow, subtitle, title }) {
-  return <section><p className="text-xs font-black uppercase tracking-[0.18em] text-emerald-700">{eyebrow}</p><h2 className="mt-1 text-2xl font-black text-gray-950">{title}</h2><p className="mt-1 text-sm font-semibold text-gray-500">{subtitle}</p><div className="mt-4">{children}</div></section>;
+  useUiLocale();
+  return <section><p className="text-xs font-black uppercase tracking-[0.18em] text-emerald-700">{eyebrow}</p><h2 className="mt-1 text-2xl font-black text-gray-950">{translateUi(title)}</h2><p className="mt-1 text-sm font-semibold text-gray-500">{translateUi(subtitle)}</p><div className="mt-4">{children}</div></section>;
 }
 
 function CardLayout({ children, compact, empty }) {
+  useUiLocale();
   const items = Array.isArray(children) ? children : [children].filter(Boolean);
   if (!items.length) return <div className="rounded-2xl border border-dashed border-gray-300 bg-white p-6 text-sm font-bold text-gray-500">{empty}</div>;
   return compact
@@ -300,6 +303,7 @@ function CardLayout({ children, compact, empty }) {
 // so restaurant, hotel, and property cards line up as the same size beside retail
 // cards in the mixed UrMall grid. Content differs per vertical; the shell does not.
 function VerticalCardShell({ badges, children, image, imageAlt, onClick }) {
+  useUiLocale();
   return (
     <article
       role="button"
@@ -351,6 +355,7 @@ function verticalCardLocation(item, buyerLocation) {
 }
 
 function CardInfoRow({ children, icon: Icon }) {
+  useUiLocale();
   return (
     <span className="flex min-w-0 items-center gap-1.5 leading-5">
       <Icon size={13} className="shrink-0 text-emerald-600" />
@@ -360,6 +365,7 @@ function CardInfoRow({ children, icon: Icon }) {
 }
 
 function RestaurantCard({ item, onClick }) {
+  useUiLocale();
   const buyerLocation = useBuyerLocation();
   return (
     <VerticalCardShell
@@ -384,6 +390,7 @@ function RestaurantCard({ item, onClick }) {
 }
 
 function HotelCard({ item, onClick }) {
+  useUiLocale();
   const buyerLocation = useBuyerLocation();
   return (
     <VerticalCardShell
@@ -411,6 +418,7 @@ function HotelCard({ item, onClick }) {
 }
 
 function PropertyCard({ item, onClick }) {
+  useUiLocale();
   const buyerLocation = useBuyerLocation();
   return (
     <VerticalCardShell
@@ -443,9 +451,11 @@ function PropertyCard({ item, onClick }) {
 
 
 function VerticalSellerProfile({ onClose, seller }) {
+  useUiLocale();
   return <SellerProfileDrawer seller={seller} open={Boolean(seller)} onClose={onClose} onNotice={(message, tone = "success") => showToast(message, tone)} showSaveStore={false} />;
 }
 
 function VerticalSkeleton({ mode }) {
+  useUiLocale();
   return <div className="space-y-4" aria-label={t("urmall.vertical.loadingBusinesses", { mode })}><div className="h-8 w-48 animate-pulse rounded-xl bg-gray-200" /><div className="flex gap-3 overflow-hidden">{[1, 2, 3].map((item) => <div key={item} className="h-72 min-w-[78%] animate-pulse rounded-[24px] bg-gray-200 sm:min-w-[340px]" />)}</div></div>;
 }

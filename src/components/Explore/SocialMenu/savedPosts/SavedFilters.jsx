@@ -5,6 +5,7 @@ const FILTERS = [
 ];
 
 export default function SavedFilters({ active, collections, onChange }) {
+  useUiLocale();
   return (
     <div className="flex gap-2 overflow-x-auto [scrollbar-width:none] [&::-webkit-scrollbar]:hidden">
       {FILTERS.map((item) => (
@@ -35,3 +36,4 @@ export default function SavedFilters({ active, collections, onChange }) {
   );
 }
 import { uiText } from "../../../../i18n";
+import { useI18n as useUiLocale } from "../../../../i18n/index.js";

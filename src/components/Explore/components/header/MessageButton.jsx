@@ -5,8 +5,10 @@
 
 import { HiOutlineChatBubbleLeftRight } from "react-icons/hi2";
 import { t } from "../../../../i18n";
+import { uiText as translateUi, useI18n as useUiLocale } from "../../../../i18n/index.js";
 
 export default function MessageButton({ active = false, activity = "", count = 0, onClick }) {
+  useUiLocale();
   const title = activity
     ? activity === "recording"
       ? t("explore.someoneRecording")
@@ -21,7 +23,7 @@ export default function MessageButton({ active = false, activity = "", count = 0
       onClick={onClick}
       className="relative inline-flex h-10 w-10 items-center justify-center rounded-xl bg-slate-50 text-xl text-slate-700 transition hover:bg-slate-100 hover:text-slate-950"
       aria-label={t("explore.messages")}
-      title={title}
+      title={translateUi(title)}
     >
       <HiOutlineChatBubbleLeftRight />
       {active ? <span className="absolute bottom-1.5 right-1.5 h-2.5 w-2.5 rounded-full border-2 border-white bg-emerald-500" /> : null}

@@ -12,6 +12,7 @@ import {
   openMarketplaceSeller,
   openMarketplaceVertical,
 } from "../../../Backend/services/ai/aiEntityNavigation";
+import { useI18n as useUiLocale } from "../../../i18n/index.js";
 
 // KAI — result cards.
 //
@@ -20,6 +21,7 @@ import {
 // card opens it through KunThai's normal screens.
 
 function Thumb({ src, icon: Icon }) {
+  useUiLocale();
   return (
     <span className="grid h-14 w-14 flex-none place-items-center overflow-hidden rounded-xl bg-slate-100 text-slate-400">
       {src ? (
@@ -112,6 +114,7 @@ function VerticalCard({ type, item, onOpened }) {
 }
 
 function StoreCard({ store, onOpened }) {
+  useUiLocale();
   return (
     <button
       type="button"
@@ -167,6 +170,7 @@ function PlaceCard({ place, onOpened }) {
 const EXPLORE_ICONS = { feed: Newspaper, swip: Clapperboard, people: UserRound, hashtag: Hash };
 
 function ExploreResultCard({ item, onOpened }) {
+  useUiLocale();
   const Icon = EXPLORE_ICONS[item.type] || Newspaper;
   return (
     <button
@@ -193,6 +197,7 @@ function ExploreResultCard({ item, onOpened }) {
 }
 
 export default function AiEntityCards({ entities, selection = [], onToggleSelect, onOpened }) {
+  useUiLocale();
   if (!entities) return null;
   const products = entities.products || [];
   const verticals = entities.verticals || [];

@@ -89,7 +89,6 @@ export default function MyBizMenu({
   const [rendered, setRendered] = useState(isOpen);
   const [panelOpen, setPanelOpen] = useState(isOpen);
   const [businessToDelete, setBusinessToDelete] = useState(null);
-  const [deletionReason, setDeletionReason] = useState("");
   const [requestingDeletion, setRequestingDeletion] = useState(false);
   const menuTimerRef = useRef(null);
   const screenTimerRef = useRef(null);
@@ -389,23 +388,12 @@ export default function MyBizMenu({
             <p className="mt-2 text-sm font-semibold leading-6 text-slate-600">
               {t("urmall.biz.menu.deleteWarning", { kind: String(businessToDelete.businessKind || i18nText("ui.literals.k6a577a7743f4")).replaceAll("_", " ") })}
             </p>
-            <label className="mt-4 block">
-              <span className="text-xs font-black uppercase text-slate-500">{t("urmall.biz.menu.reason")}</span>
-              <textarea
-                value={deletionReason}
-                onChange={(event) => setDeletionReason(event.target.value)}
-                rows={4}
-                placeholder={t("urmall.biz.menu.reasonPlaceholder")}
-                className="mt-2 w-full resize-none rounded-2xl border border-slate-200 bg-slate-50 p-3 text-sm font-semibold text-slate-900 outline-none focus:border-rose-400"
-              />
-            </label>
             <div className="mt-5 grid grid-cols-2 gap-2">
               <button
                 type="button"
                 disabled={requestingDeletion}
                 onClick={() => {
                   setBusinessToDelete(null);
-                  setDeletionReason("");
                 }}
                 className="h-12 rounded-2xl bg-slate-100 text-sm font-black text-slate-700 disabled:opacity-50"
               >
@@ -420,8 +408,10 @@ export default function MyBizMenu({
                     await deleteRegisteredBusiness(businessToDelete.id);
                     showToast(t("urmall.biz.menu.deletionSent"), "success", { title: t("urmall.biz.menu.deletionSentTitle") });
                     setBusinessToDelete(null);
-                    setDeletionReason("");
                     closeDrawer();
+                    // Match UrRide: refresh the removed account and its seller
+                    // state automatically after showing the success message.
+                    window.setTimeout(() => window.location.reload(), 1600);
                   } catch (error) {
                     showToast(error.message || t("urmall.biz.menu.deletionFailed"), "danger");
                   } finally {
@@ -430,7 +420,7 @@ export default function MyBizMenu({
                 }}
                 className="h-12 rounded-2xl bg-rose-600 text-sm font-black text-white disabled:opacity-60"
               >
-                {requestingDeletion ? t("urmall.detail.sending") : t("urmall.biz.menu.sendRequest")}
+                {requestingDeletion ? t("urmall.biz.menu.deleting") : t("urmall.biz.menu.sendRequest")}
               </button>
             </div>
           </section>

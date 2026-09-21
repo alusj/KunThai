@@ -1,3 +1,5 @@
+import { uiText as translateUi } from "../../../../../i18n/index.js";
+import { BUSINESS_CATEGORIES } from "../../../../../Backend/services/marketplace/sellerRegistrationService";
 import { useI18n, t } from "../../../../../i18n";
 import { t as i18nText } from "../../../../../i18n/index";
 
@@ -29,20 +31,20 @@ export default function LiveBusinessPreview({ form, readinessScore }) {
           <div className="mt-4 flex flex-wrap gap-2">
             {form.identity.businessKind === "vendor" ? (
               <span className="rounded-full bg-emerald-600 px-3 py-1 text-xs font-black text-white">
-                Vendor / Supplier
+                {i18nText("ui.literals.k383e28286b6a")}
               </span>
             ) : null}
             {categories.slice(0, 3).map((category) => (
               <span key={category} className="rounded-full bg-white px-3 py-1 text-xs font-black text-gray-700">
-                {category}
+                {BUSINESS_CATEGORIES.includes(category) ? translateUi(category) : category}
               </span>
             ))}
           </div>
           {form.identity.businessKind === "vendor" ? (
             <div className="mt-4 grid grid-cols-2 gap-2 rounded-xl border border-emerald-100 bg-emerald-50 p-3 text-xs font-bold text-emerald-900">
-              <span>MOQ {form.operations.defaultMinOrderQuantity || 1} {form.operations.defaultSellingUnit || "item"}(s)</span>
-              <span>{form.operations.leadTimeDays || 0} day lead time</span>
-              <span className="col-span-2 capitalize">{String(form.operations.vendorType || "wholesaler").replaceAll("_", " ")} · {String(form.operations.salesModel || "wholesale").replaceAll("_", " ")}</span>
+              <span>{i18nText("ui.literals.ke3d6af36dc82")} {form.operations.defaultMinOrderQuantity || 1} {form.operations.defaultSellingUnit || i18nText("ui.literals.k3a7d9767b123")}(s)</span>
+              <span>{form.operations.leadTimeDays || 0} {i18nText("ui.literals.kc05f4e0eb5e9")}</span>
+              <span className="col-span-2 capitalize">{String(form.operations.vendorType || i18nText("ui.literals.k8ca6b68c2345")).replaceAll("_", " ")} · {String(form.operations.salesModel || i18nText("ui.literals.k8c941ab6f6d3")).replaceAll("_", " ")}</span>
             </div>
           ) : null}
           {(form.location.email || website) ? (

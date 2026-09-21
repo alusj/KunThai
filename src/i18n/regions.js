@@ -16,6 +16,9 @@ export const REGIONS = {
       Municipality: "Municipality", Municipalities: "Municipalities", Parish: "Parish", Parishes: "Parishes",
       Emirate: "Emirate", Emirates: "Emirates", Territory: "Territory", Territories: "Territories",
       Division: "Division", Divisions: "Divisions", "Local authority": "Local authority", "Local authorities": "Local authorities",
+      Area: "Area", Areas: "Areas", Commune: "Commune", Communes: "Communes", Village: "Village", Villages: "Villages",
+      Island: "Island", Islands: "Islands", Atoll: "Atoll", Atolls: "Atolls", Settlement: "Settlement", Settlements: "Settlements",
+      Quarter: "Quarter", Quarters: "Quarters", "Parish or town": "Parish or town", "Parishes and towns": "Parishes and towns",
     },
     picker: {
       search: "Search {plural}",
@@ -68,6 +71,9 @@ export const REGIONS = {
       Municipality: "Municipalité", Municipalities: "Municipalités", Parish: "Paroisse", Parishes: "Paroisses",
       Emirate: "Émirat", Emirates: "Émirats", Territory: "Territoire", Territories: "Territoires",
       Division: "Division", Divisions: "Divisions", "Local authority": "Collectivité locale", "Local authorities": "Collectivités locales",
+      Area: "Zone", Areas: "Zones", Commune: "Commune", Communes: "Communes", Village: "Village", Villages: "Villages",
+      Island: "Île", Islands: "Îles", Atoll: "Atoll", Atolls: "Atolls", Settlement: "Localité", Settlements: "Localités",
+      Quarter: "Quartier", Quarters: "Quartiers", "Parish or town": "Paroisse ou ville", "Parishes and towns": "Paroisses et villes",
     },
     picker: {
       search: "Rechercher : {plural}",
@@ -120,6 +126,9 @@ export const REGIONS = {
       Municipality: "Municipio", Municipalities: "Municipios", Parish: "Parroquia", Parishes: "Parroquias",
       Emirate: "Emirato", Emirates: "Emiratos", Territory: "Territorio", Territories: "Territorios",
       Division: "División", Divisions: "Divisiones", "Local authority": "Autoridad local", "Local authorities": "Autoridades locales",
+      Area: "Zona", Areas: "Zonas", Commune: "Comuna", Communes: "Comunas", Village: "Aldea", Villages: "Aldeas",
+      Island: "Isla", Islands: "Islas", Atoll: "Atolón", Atolls: "Atolones", Settlement: "Localidad", Settlements: "Localidades",
+      Quarter: "Barrio", Quarters: "Barrios", "Parish or town": "Parroquia o pueblo", "Parishes and towns": "Parroquias y pueblos",
     },
     picker: {
       search: "Buscar {plural}",
@@ -160,7 +169,7 @@ export const REGIONS = {
       specificDesc: "Solo personas ubicadas en los {plural} que elijas. Añade los que necesites.",
       needOne: "Elige al menos un(a) {singular} o quita el límite de ubicación.",
       summary: "Solo en {places}",
-      reachNote: "Llega a quienes tienen uno de estos {plural} en su perfil o cuya ciudad está dentro. No llega a personas sin ubicación conocida.",
+      reachNote: "Llega a personas cuyo perfil indica una de estas divisiones de tipo {singular}, o cuya ciudad se encuentra dentro de una de ellas. No llega a personas sin ubicación conocida.",
     },
   },
   zh: {
@@ -172,6 +181,9 @@ export const REGIONS = {
       Municipality: "市", Municipalities: "市", Parish: "教区", Parishes: "教区",
       Emirate: "酋长国", Emirates: "酋长国", Territory: "领地", Territories: "领地",
       Division: "分区", Divisions: "分区", "Local authority": "地方行政区", "Local authorities": "地方行政区",
+      Area: "地区", Areas: "地区", Commune: "市镇", Communes: "市镇", Village: "村", Villages: "村",
+      Island: "岛", Islands: "岛", Atoll: "环礁", Atolls: "环礁", Settlement: "聚落", Settlements: "聚落",
+      Quarter: "街区", Quarters: "街区", "Parish or town": "教区或城镇", "Parishes and towns": "教区和城镇",
     },
     picker: {
       search: "搜索{plural}",
@@ -224,6 +236,9 @@ export const REGIONS = {
       Municipality: "بلدية", Municipalities: "بلديات", Parish: "أبرشية", Parishes: "أبرشيات",
       Emirate: "إمارة", Emirates: "إمارات", Territory: "إقليم", Territories: "أقاليم",
       Division: "قسم", Divisions: "أقسام", "Local authority": "سلطة محلية", "Local authorities": "سلطات محلية",
+      Area: "منطقة", Areas: "مناطق", Commune: "بلدية", Communes: "بلديات", Village: "قرية", Villages: "قرى",
+      Island: "جزيرة", Islands: "جزر", Atoll: "جزيرة مرجانية", Atolls: "جزر مرجانية", Settlement: "مستوطنة", Settlements: "مستوطنات",
+      Quarter: "حي", Quarters: "أحياء", "Parish or town": "أبرشية أو بلدة", "Parishes and towns": "أبرشيات وبلدات",
     },
     picker: {
       search: "ابحث في {plural}",

@@ -27,10 +27,12 @@ import {
   updateUnifiedNotificationReceipt,
 } from "../../Backend/services/unifiedNotificationService";
 import { disablePushNotifications, enablePushNotifications } from "../../Backend/services/pushService";
-import { friendlyErrorMessage } from "../../Backend/services/friendlyErrorService";
+import { inlineErrorMessage } from "../../Backend/services/friendlyErrorService";
 import AppBackTab from "./AppBackTab";
 import AppPortal from "./AppPortal";
 import useBodyScrollLock from "./useBodyScrollLock";
+import { t as i18nText } from "../../i18n/index";
+import { uiText as translateUi, useI18n as useUiLocale } from "../../i18n/index.js";
 
 const REFRESH_MS = 30_000;
 const TABS = [
@@ -70,16 +72,17 @@ function toneClasses(item) {
 
 function preferenceRows() {
   return [
-    { key: "floating_enabled", label: "Floating cards", detail: "Show important updates while you use another KunThai service." },
-    { key: "push_enabled", label: "Device notifications", detail: "Receive important updates while KunThai is in the background." },
-    { key: "social_enabled", label: "Explore activity", detail: "Reactions, comments, mentions, follows, and social updates." },
-    { key: "commerce_enabled", label: "UrMall activity", detail: "Orders, buyer and seller messages, disputes, and store updates." },
-    { key: "transport_enabled", label: "UrRide activity", detail: "Trips, bookings, operator alerts, and company activity." },
-    { key: "marketing_enabled", label: "Offers and announcements", detail: "Optional campaigns, promotions, and product news." },
+    { key: "floating_enabled", label: i18nText("ui.literals.ke0ceab8e8e66"), detail: i18nText("ui.literals.k372ceadbfaa7") },
+    { key: "push_enabled", label: i18nText("ui.literals.kc2980d4ab0a3"), detail: i18nText("ui.literals.k6ef0573f768f") },
+    { key: "social_enabled", label: i18nText("ui.literals.k3d7f7c2bc3d1"), detail: i18nText("ui.literals.kc7051bb552ad") },
+    { key: "commerce_enabled", label: i18nText("ui.literals.kc68a9a0d51ff"), detail: i18nText("ui.literals.k72031de60614") },
+    { key: "transport_enabled", label: i18nText("ui.literals.k84b196d91543"), detail: i18nText("ui.literals.kbd7e2fe89726") },
+    { key: "marketing_enabled", label: i18nText("ui.literals.kcfaf378f96ff"), detail: i18nText("ui.literals.k66a394272326") },
   ];
 }
 
 export default function UnifiedNotificationCenter({ onCountChange, onOpenChange, open, userId = "" }) {
+  useUiLocale();
   const [items, setItems] = useState([]);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState("");
@@ -117,7 +120,7 @@ export default function UnifiedNotificationCenter({ onCountChange, onOpenChange,
       const nextItems = await fetchUnifiedNotifications(userId);
       setItems(nextItems);
     } catch (nextError) {
-      if (!quiet) setError(friendlyErrorMessage(nextError, "Unable to load your notifications."));
+      if (!quiet) setError(inlineErrorMessage(nextError, "Unable to load your notifications."));
     } finally {
       busyRef.current = false;
       if (!quiet) setLoading(false);
@@ -237,7 +240,7 @@ export default function UnifiedNotificationCenter({ onCountChange, onOpenChange,
       const next = await saveUnifiedNotificationPreferences(userId, { ...preferences, [key]: nextValue });
       setPreferences(next);
     } catch (nextError) {
-      setError(friendlyErrorMessage(nextError, "Unable to update notification preferences."));
+      setError(inlineErrorMessage(nextError, "Unable to update notification preferences."));
     } finally {
       setSavingPreference("");
     }
@@ -252,7 +255,7 @@ export default function UnifiedNotificationCenter({ onCountChange, onOpenChange,
       >
         <button
           type="button"
-          aria-label="Close notifications"
+          aria-label={i18nText("ui.literals.kf0252bf7d604")}
           onClick={() => onOpenChange?.(false)}
           tabIndex={open ? 0 : -1}
           className={`absolute inset-0 border-0 bg-slate-950/50 p-0 backdrop-blur-sm transition-opacity duration-300 ${open ? "opacity-100" : "opacity-0"}`}
@@ -261,23 +264,23 @@ export default function UnifiedNotificationCenter({ onCountChange, onOpenChange,
         <section
           role="dialog"
           aria-modal="true"
-          aria-label="KunThai Notification Centre"
+          aria-label={i18nText("ui.literals.ke87b717dc39b")}
           className={`absolute right-0 top-0 flex h-full w-full max-w-xl transform flex-col overflow-hidden bg-slate-50 shadow-2xl transition-transform duration-300 ${open ? "translate-x-0" : "translate-x-full"}`}
         >
           <header className="kt-header-glass shrink-0 border-b border-slate-200 px-4 py-4">
             <div className="flex items-start gap-3">
               <AppBackTab
                 onBack={() => onOpenChange?.(false)}
-                label="Back to KunThai"
+                label={i18nText("ui.literals.kda048102eef1")}
                 historyKey="unified-notification-center"
                 useHistoryLayer={false}
               />
               <div className="min-w-0 flex-1">
                 <p className="text-xs font-black uppercase tracking-[0.18em] text-sky-700">KunThai</p>
-                <h2 className="mt-1 text-xl font-black text-slate-950">Notification Centre</h2>
-                <p className="mt-1 text-sm font-semibold text-slate-500">Explore, UrMall, UrRide, and account updates in one place.</p>
+                <h2 className="mt-1 text-xl font-black text-slate-950">{i18nText("ui.literals.k7d2c63d3bbad")}</h2>
+                <p className="mt-1 text-sm font-semibold text-slate-500">{i18nText("ui.literals.kf08e01604ec0")}</p>
               </div>
-              <button type="button" onClick={() => setSettingsOpen((value) => !value)} className="grid h-10 w-10 place-items-center rounded-2xl bg-slate-100 text-slate-600" aria-label="Notification settings">
+              <button type="button" onClick={() => setSettingsOpen((value) => !value)} className="grid h-10 w-10 place-items-center rounded-2xl bg-slate-100 text-slate-600" aria-label={i18nText("ui.literals.kf512a17e0a63")}>
                 {settingsOpen ? <X size={19} /> : <Settings2 size={19} />}
               </button>
             </div>
@@ -290,7 +293,7 @@ export default function UnifiedNotificationCenter({ onCountChange, onOpenChange,
                     : items.filter((item) => tab.id === "system" ? item.source === "system" : item.source === tab.id).length;
                   return (
                     <button key={tab.id} type="button" onClick={() => setActiveTab(tab.id)} className={`h-9 shrink-0 rounded-full px-3 text-xs font-black ${activeTab === tab.id ? "bg-slate-950 text-white" : "bg-white text-slate-600 ring-1 ring-slate-200"}`}>
-                      {tab.label}{count ? ` ${count}` : ""}
+                      {translateUi(tab.label)}{count ? ` ${count}` : ""}
                     </button>
                   );
                 })}
@@ -302,15 +305,15 @@ export default function UnifiedNotificationCenter({ onCountChange, onOpenChange,
             {settingsOpen ? (
               <section className="space-y-3">
                 <div className="rounded-3xl border border-slate-200 bg-white p-4">
-                  <h3 className="font-black text-slate-950">Delivery preferences</h3>
-                  <p className="mt-1 text-sm font-semibold leading-5 text-slate-500">Payment, account security, and urgent safety notices always remain available in your inbox.</p>
+                  <h3 className="font-black text-slate-950">{i18nText("ui.literals.k1c8773110c35")}</h3>
+                  <p className="mt-1 text-sm font-semibold leading-5 text-slate-500">{i18nText("ui.literals.kdd1cf3cc31f8")}</p>
                 </div>
                 {preferenceRows().map((row) => (
                   <button key={row.key} type="button" onClick={() => togglePreference(row.key)} disabled={!preferences || Boolean(savingPreference)} className="flex w-full items-center gap-3 rounded-3xl border border-slate-200 bg-white p-4 text-left disabled:opacity-60">
                     <span className={`relative h-7 w-12 shrink-0 rounded-full transition ${preferences?.[row.key] !== false ? "bg-sky-600" : "bg-slate-300"}`}>
                       <span className={`absolute top-1 h-5 w-5 rounded-full bg-white shadow transition ${preferences?.[row.key] !== false ? "left-6" : "left-1"}`} />
                     </span>
-                    <span className="min-w-0 flex-1"><span className="block text-sm font-black text-slate-950">{row.label}</span><span className="mt-1 block text-xs font-semibold leading-5 text-slate-500">{row.detail}</span></span>
+                    <span className="min-w-0 flex-1"><span className="block text-sm font-black text-slate-950">{translateUi(row.label)}</span><span className="mt-1 block text-xs font-semibold leading-5 text-slate-500">{translateUi(row.detail)}</span></span>
                     {savingPreference === row.key ? <LoaderCircle className="animate-spin text-sky-600" size={18} /> : null}
                   </button>
                 ))}
@@ -318,14 +321,14 @@ export default function UnifiedNotificationCenter({ onCountChange, onOpenChange,
             ) : (
               <>
                 <div className="mb-4 flex items-center justify-between gap-3">
-                  <div><p className="text-sm font-black text-slate-950">{unreadCount ? `${unreadCount} unread` : "You are caught up"}</p><p className="mt-0.5 text-xs font-semibold text-slate-500">Read state follows your account across devices.</p></div>
-                  {unreadCount ? <button type="button" onClick={markAllRead} className="inline-flex h-9 items-center gap-2 rounded-xl bg-white px-3 text-xs font-black text-sky-700 ring-1 ring-slate-200"><CheckCheck size={16} /> Mark all read</button> : null}
+                  <div><p className="text-sm font-black text-slate-950">{unreadCount ? i18nText("ui.literals.kae60f0c32038", { value0: unreadCount }) : i18nText("ui.literals.k6ba3be5eae5a")}</p><p className="mt-0.5 text-xs font-semibold text-slate-500">{i18nText("ui.literals.k83b2ec41dc15")}</p></div>
+                  {unreadCount ? <button type="button" onClick={markAllRead} className="inline-flex h-9 items-center gap-2 rounded-xl bg-white px-3 text-xs font-black text-sky-700 ring-1 ring-slate-200"><CheckCheck size={16} /> {i18nText("ui.literals.k8958e22c23d1")}</button> : null}
                 </div>
 
-                {error ? <div role="alert" className="mb-3 rounded-2xl border border-rose-200 bg-rose-50 p-3 text-sm font-bold text-rose-700">{error}</div> : null}
+                {error ? <div role="alert" className="mb-3 rounded-2xl border border-rose-200 bg-rose-50 p-3 text-sm font-bold text-rose-700">{translateUi(error)}</div> : null}
                 {loading && !items.length ? <div className="grid min-h-48 place-items-center"><LoaderCircle className="animate-spin text-sky-600" size={26} /></div> : null}
                 {!loading && !visibleItems.length ? (
-                  <div className="rounded-3xl border border-dashed border-slate-300 bg-white p-8 text-center"><Bell className="mx-auto text-slate-300" size={32} /><h3 className="mt-3 font-black text-slate-950">No notifications here</h3><p className="mt-1 text-sm font-semibold text-slate-500">New updates from this service will appear here.</p></div>
+                  <div className="rounded-3xl border border-dashed border-slate-300 bg-white p-8 text-center"><Bell className="mx-auto text-slate-300" size={32} /><h3 className="mt-3 font-black text-slate-950">{i18nText("ui.literals.k1f2b39278ede")}</h3><p className="mt-1 text-sm font-semibold text-slate-500">{i18nText("ui.literals.kd0303c90012d")}</p></div>
                 ) : null}
 
                 <div className="space-y-3">
@@ -338,13 +341,13 @@ export default function UnifiedNotificationCenter({ onCountChange, onOpenChange,
                             {item.avatarUrl ? <img src={item.avatarUrl} alt="" className="h-full w-full object-cover" /> : <Icon size={19} />}
                           </span>
                           <div className="min-w-0 flex-1">
-                            <div className="flex items-start gap-2"><h3 className="min-w-0 flex-1 text-sm font-black leading-5 text-slate-950">{item.title}</h3>{!item.read ? <span className="mt-1.5 h-2.5 w-2.5 shrink-0 rounded-full bg-rose-500" /> : null}</div>
+                            <div className="flex items-start gap-2"><h3 className="min-w-0 flex-1 text-sm font-black leading-5 text-slate-950">{item.campaignId || item.type === "admin_message" ? item.title : translateUi(item.title)}</h3>{!item.read ? <span className="mt-1.5 h-2.5 w-2.5 shrink-0 rounded-full bg-rose-500" /> : null}</div>
                             {item.media?.url ? <img src={item.media.url} alt="" className="mt-3 max-h-44 w-full rounded-2xl object-cover" /> : null}
-                            <p className="mt-1 text-sm font-semibold leading-5 text-slate-600">{item.body}</p>
-                            <div className="mt-2 flex flex-wrap items-center gap-2 text-[11px] font-black uppercase tracking-wide text-slate-400"><span>{notificationSourceLabel(item.source)}</span><span>•</span><span>{relativeTime(item.createdAt)}</span>{["urgent", "critical"].includes(item.priority) ? <span className="rounded-full bg-rose-100 px-2 py-0.5 text-rose-700">Urgent</span> : null}</div>
-                            <button type="button" onClick={(event) => { event.stopPropagation(); openItem(item); }} className="mt-3 inline-flex items-center gap-1 text-xs font-black text-sky-700">{item.actionLabel || "Open"} <ChevronRight size={15} /></button>
+                            <p className="mt-1 text-sm font-semibold leading-5 text-slate-600">{item.campaignId || item.type === "admin_message" ? item.body : translateUi(item.body)}</p>
+                            <div className="mt-2 flex flex-wrap items-center gap-2 text-[11px] font-black uppercase tracking-wide text-slate-400"><span>{notificationSourceLabel(item.source)}</span><span>•</span><span>{relativeTime(item.createdAt)}</span>{["urgent", "critical"].includes(item.priority) ? <span className="rounded-full bg-rose-100 px-2 py-0.5 text-rose-700">{i18nText("ui.literals.kecb26f46e394")}</span> : null}</div>
+                            <button type="button" onClick={(event) => { event.stopPropagation(); openItem(item); }} className="mt-3 inline-flex items-center gap-1 text-xs font-black text-sky-700">{item.actionLabel || i18nText("ui.literals.kcf9b77061f7b")} <ChevronRight size={15} /></button>
                           </div>
-                          {item.canDismiss !== false ? <button type="button" onClick={(event) => { event.stopPropagation(); dismissItem(item); }} className="grid h-9 w-9 shrink-0 place-items-center rounded-xl text-slate-300 opacity-70 transition hover:bg-slate-100 hover:text-slate-600 group-hover:opacity-100" aria-label="Dismiss notification"><Trash2 size={16} /></button> : null}
+                          {item.canDismiss !== false ? <button type="button" onClick={(event) => { event.stopPropagation(); dismissItem(item); }} className="grid h-9 w-9 shrink-0 place-items-center rounded-xl text-slate-300 opacity-70 transition hover:bg-slate-100 hover:text-slate-600 group-hover:opacity-100" aria-label={i18nText("ui.literals.kdc83cd803134")}><Trash2 size={16} /></button> : null}
                         </div>
                       </article>
                     );

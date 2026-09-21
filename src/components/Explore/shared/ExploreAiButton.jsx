@@ -3,6 +3,7 @@ import { HiOutlineSparkles } from "react-icons/hi2";
 import { useAiAvailability } from "../../../Backend/hooks/useAiTask";
 import { openAiAssistant } from "../../../Backend/services/ai/aiSurfaceService";
 import { useI18n } from "../../../i18n";
+import { uiText as translateUi } from "../../../i18n/index.js";
 
 // KAI — the one AI entry point Explore screens use.
 //
@@ -34,8 +35,8 @@ export default function ExploreAiButton({ variant = "tool", getRequest, label = 
         type="button"
         onClick={open}
         disabled={disabled}
-        aria-label={text}
-        title={text}
+        aria-label={translateUi(text)}
+        title={translateUi(text)}
         className={`kt-pressable flex h-11 w-11 flex-none items-center justify-center rounded-2xl bg-indigo-50 text-lg text-indigo-700 transition hover:bg-indigo-100 disabled:opacity-50 ${className}`}
       >
         <HiOutlineSparkles />
@@ -50,7 +51,7 @@ export default function ExploreAiButton({ variant = "tool", getRequest, label = 
       disabled={disabled}
       className={`inline-flex h-9 items-center gap-1.5 rounded-xl bg-white px-3 text-xs font-black text-indigo-700 shadow-sm ring-1 ring-indigo-100 transition hover:bg-indigo-50 disabled:opacity-50 ${className}`}
     >
-      <HiOutlineSparkles className="text-base" /> {text}
+      <HiOutlineSparkles className="text-base" /> {translateUi(text)}
     </button>
   );
 }

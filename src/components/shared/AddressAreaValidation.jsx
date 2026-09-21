@@ -3,6 +3,7 @@ import { CheckCircle2, ChevronDown, ChevronUp, LocateFixed, Loader2, MapPin, Shi
 import { searchLocations } from "../../Backend/services/locationSearchService";
 import { t as i18nText } from "../../i18n/index";
 import { shouldOpenAddressAccuracyCaution } from "./addressAccuracyCautionState";
+import { uiText as translateUi, useI18n as useUiLocale } from "../../i18n/index.js";
 
 function coordinateValue(point, keys) {
   for (const key of keys) {
@@ -188,15 +189,31 @@ export function useAddressAreaValidation(address, options = {}) {
   return state;
 }
 
-// Opens on the first real edit rather than waiting for address search to finish.
-// "Continue writing" and either precise-location action suppress it for the
-// current entry session; clearing the field starts a fresh session.
-export function useAddressAccuracyCaution(address) {
+// The address field starts locked: touching it raises the caution over the
+// field and typing does nothing until the person picks one of the three ways
+// to set the address — Locate me, Drop a pin, or Enter manually. A written
+// address is the least accurate of the three, so it is a deliberate choice
+// rather than the path of least resistance.
+//
+// `gate: false` keeps the old behaviour (caution on the first real edit) for
+// forms where the address is not the primary input.
+//
+// `lockOnEdit` moves the gate from the tap to the first character: the field
+// opens writable, and the moment the person starts typing an address the
+// caution covers the field and takes it back. They see the caution next to
+// their own words rather than before they have written anything, and the same
+// three buttons are still the only way back in.
+export function useAddressAccuracyCaution(address, { gate = true, lockOnEdit = false } = {}) {
   const [open, setOpen] = useState(false);
+  const [blocked, setBlocked] = useState(gate);
+  // Mirrors `blocked` synchronously, so a change arriving in the same frame as
+  // the lock is already refused by `guardChange` before React re-renders.
+  const blockedRef = useRef(gate);
   const dismissedRef = useRef(false);
   const editedRef = useRef(false);
   const value = String(address || "").trim();
   const previousValueRef = useRef(value);
+  const fieldRef = useRef(null);
 
   useEffect(() => {
     const previousValue = previousValueRef.current;
@@ -206,6 +223,12 @@ export function useAddressAccuracyCaution(address) {
       dismissedRef.current = false;
       editedRef.current = false;
       setOpen(false);
+      // A cleared field is never left locked, so the next attempt starts from
+      // the same writable state as the first one.
+      if (lockOnEdit) {
+        blockedRef.current = false;
+        setBlocked(false);
+      }
       return;
     }
 
@@ -219,8 +242,15 @@ export function useAddressAccuracyCaution(address) {
       dismissed: dismissedRef.current,
     })) {
       setOpen(true);
+      // The first character is what closes the field on a `lockOnEdit` form.
+      // Dropping focus puts the phone keyboard away so it cannot hide the card.
+      if (lockOnEdit) {
+        blockedRef.current = true;
+        setBlocked(true);
+        fieldRef.current?.blur();
+      }
     }
-  }, [value]);
+  }, [lockOnEdit, value]);
 
   function handleAddressBlur() {
     if (editedRef.current && value && !dismissedRef.current) {
@@ -228,8 +258,11 @@ export function useAddressAccuracyCaution(address) {
     }
   }
 
+  // "Enter manually": unlock the field and stop the caution re-appearing.
   function dismiss() {
     dismissedRef.current = true;
+    blockedRef.current = false;
+    setBlocked(false);
     setOpen(false);
   }
 
@@ -237,15 +270,65 @@ export function useAddressAccuracyCaution(address) {
   // from re-appearing for this address.
   function act(action) {
     dismissedRef.current = true;
+    blockedRef.current = false;
+    setBlocked(false);
     setOpen(false);
     action?.();
   }
 
-  return { open, handleAddressBlur, dismiss, act };
+  // Wrap the field's onChange with this. Refusing keydown is not enough on its
+  // own: Android keyboards (keyCode 229), autocomplete, dictation and inserted
+  // text change the value without a cancellable key. Dropping the change at
+  // the model lets the controlled input snap back, whatever produced it.
+  function guardChange(onChange) {
+    return (event) => {
+      if (blockedRef.current) return;
+      onChange(event);
+    };
+  }
+
+  // Called when the person taps or focuses a locked address field: show the
+  // caution and tell the caller to keep the keyboard closed.
+  function requestEntry() {
+    if (!blocked) return false;
+    setOpen(true);
+    return true;
+  }
+
+  // Spread onto the address input. While locked, tapping it raises the caution
+  // instead of the keyboard and nothing can be typed, pasted or dropped in.
+  // The input stays writable in the DOM (not `readOnly`) so a `required`
+  // address is still validated by the browser when the form is submitted.
+  function blockInput(event) {
+    if (!blocked) return;
+    event.preventDefault();
+    requestEntry();
+  }
+
+  const inputProps = {
+    "aria-readonly": blocked || undefined,
+    onFocus: (event) => {
+      fieldRef.current = event.currentTarget;
+      if (requestEntry()) event.currentTarget.blur();
+    },
+    onPointerDown: blockInput,
+    // Keys, paste and drop are all refused while locked (React's onBeforeInput
+    // is synthesised and cannot cancel the native edit, so it is not used).
+    onKeyDown: blockInput,
+    onPaste: blockInput,
+    onDrop: blockInput,
+    onBlur: handleAddressBlur,
+  };
+
+  return { open, blocked, handleAddressBlur, requestEntry, inputProps, guardChange, dismiss, act };
 }
 
 export function AddressAccuracyCaution({
   open,
+  // `cover` lays the caution over the address field it belongs to, so the
+  // field cannot be read or reached around it. Without it the caution floats
+  // just above the field, which suits forms where the field is one of many.
+  cover = false,
   onLocateMe,
   onDropPin,
   onContinueWriting,
@@ -254,10 +337,11 @@ export function AddressAccuracyCaution({
   details = "Some streets, businesses, communities, and landmarks share the same or similar names. Spelling differences, incomplete addresses, new roads, and limited map coverage may also place a written address at the wrong point. Confirm the map pin before continuing.",
   locateLabel = "Locate me",
   dropPinLabel = "Drop a pin",
-  continueLabel = "Continue writing",
+  continueLabel = "Enter manually",
   readMoreLabel = "Read more",
   readLessLabel = "Show less",
 }) {
+  useUiLocale();
   const [expanded, setExpanded] = useState(false);
   const cardRef = useRef(null);
 
@@ -277,20 +361,26 @@ export function AddressAccuracyCaution({
 
   if (!open) return null;
 
+  // Covering starts at the top of the field's wrapper and is at least as tall
+  // as the wrapper, so the label and the input are both behind the card.
+  const placement = cover
+    ? "absolute inset-x-0 top-0 min-h-full w-full"
+    : "absolute bottom-[calc(100%+0.75rem)] left-1/2 w-[calc(100vw-2rem)] max-w-md -translate-x-1/2";
+
   return (
     <div
       ref={cardRef}
-      className="kt-address-accuracy-caution absolute bottom-[calc(100%+0.75rem)] left-1/2 z-[1600] max-h-[min(70dvh,34rem)] w-[calc(100vw-2rem)] max-w-md -translate-x-1/2 overflow-y-auto overscroll-contain rounded-[1.75rem] border border-amber-300 bg-white p-4 text-slate-950 shadow-2xl shadow-slate-950/25 dark:shadow-black/70"
+      className={`kt-address-accuracy-caution ${placement} z-[1600] max-h-[min(70dvh,34rem)] overflow-y-auto overscroll-contain rounded-[1.75rem] border border-amber-300 bg-white p-4 text-slate-950 shadow-2xl shadow-slate-950/25 dark:shadow-black/70`}
       role="alertdialog"
-      aria-label={title}
+      aria-label={translateUi(title)}
     >
       <div className="flex items-start gap-3">
         <span className="grid h-11 w-11 shrink-0 place-items-center rounded-2xl bg-amber-100 text-amber-800">
           <ShieldCheck size={20} />
         </span>
         <div className="min-w-0 flex-1">
-          <p className="text-base font-black leading-5">{title}</p>
-          <p className="kt-address-caution-copy mt-1.5 text-sm font-semibold leading-5 text-slate-700">{message}</p>
+          <p className="text-base font-black leading-5">{translateUi(title)}</p>
+          <p className="kt-address-caution-copy mt-1.5 text-sm font-semibold leading-5 text-slate-700">{translateUi(message)}</p>
 
           <button
             type="button"
@@ -341,6 +431,7 @@ export function AddressAccuracyCaution({
 }
 
 export function AddressAreaStatusIcon({ status, className = "" }) {
+  useUiLocale();
   if (status === "searching") {
     return <Loader2 className={`animate-spin text-slate-400 ${className}`} size={18} aria-label={i18nText("ui.literals.k94ed9d492785")} />;
   }
@@ -364,6 +455,7 @@ export function AddressAreaResolutionCard({
   locateLabel = "Locate me",
   dropPinLabel = "Drop a pin",
 }) {
+  useUiLocale();
   const status = validation?.status || "idle";
   if (status === "idle") return null;
 

@@ -11,6 +11,7 @@ import { useI18n, t as translate } from "../../../../../i18n";
 import { stopAllExploreMedia } from "../../../shared/singleMediaPlayback";
 import VideoCard from "../videos/VideoCard";
 import { getSwipContext, getVideoCategoryLabel, getSwipVideos, isRenderableSwipPost } from "../videos/swipUtils";
+import { uiText as translateUi, useI18n as useUiLocale } from "../../../../../i18n/index.js";
 
 const WHEEL_THRESHOLD_PX = 70;
 const WHEEL_LOCK_MS = 720;
@@ -198,7 +199,7 @@ export default function All({ active = true, currentUserId = "", focusPostId = "
   if (feed.error) {
     return (
       <div className="p-4">
-        <ErrorState message={feed.error} onRetry={feed.reload} />
+        <ErrorState message={translateUi(feed.error)} onRetry={feed.reload} />
       </div>
     );
   }
@@ -318,6 +319,7 @@ export default function All({ active = true, currentUserId = "", focusPostId = "
 }
 
 function SwipSkeleton() {
+  useUiLocale();
   return (
     <div className="relative h-full min-h-0 w-full overflow-hidden bg-slate-950">
       <div className="absolute inset-0 animate-pulse bg-gradient-to-b from-slate-900 via-slate-800 to-slate-950" />

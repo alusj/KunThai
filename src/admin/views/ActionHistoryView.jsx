@@ -7,6 +7,9 @@ import {
   getAdminActivityNotifications,
   undoAdminActivityAction,
 } from "../adminService";
+import { t as i18nText } from "../../i18n/index";
+import { uiText as translateUi, useI18n as useUiLocale } from "../../i18n/index.js";
+import { inlineErrorMessage } from "../../Backend/services/friendlyErrorService";
 
 const STATUS_META = {
   active: { label: "Completed", className: "bg-emerald-50 text-emerald-800 ring-emerald-200" },
@@ -35,6 +38,7 @@ function canUndo(item, userId) {
 }
 
 function ActionRow({ item, userId, busy, onUndo }) {
+  useUiLocale();
   const [reasonOpen, setReasonOpen] = useState(false);
   const [reason, setReason] = useState("");
   const status = getStatus(item);
@@ -46,22 +50,22 @@ function ActionRow({ item, userId, busy, onUndo }) {
       <div className="flex flex-wrap items-start justify-between gap-3">
         <div className="min-w-0 flex-1">
           <div className="flex flex-wrap items-center gap-2">
-            <p className="text-sm font-black text-zinc-950">{item.title || titleCase(item.action_key || "Admin action")}</p>
-            <span className={`rounded-full px-2 py-0.5 text-[10px] font-black uppercase ring-1 ${meta.className}`}>{meta.label}</span>
+            <p className="text-sm font-black text-zinc-950">{item.title || titleCase(item.action_key || i18nText("ui.literals.k53acd6e7e3c3"))}</p>
+            <span className={`rounded-full px-2 py-0.5 text-[10px] font-black uppercase ring-1 ${meta.className}`}>{translateUi(meta.label)}</span>
             {item.sector ? (
               <span className="rounded-full bg-zinc-100 px-2 py-0.5 text-[10px] font-black uppercase text-zinc-600">{titleCase(item.sector)}</span>
             ) : null}
           </div>
           {item.body ? <p className="mt-1 text-sm font-medium leading-6 text-zinc-600">{item.body}</p> : null}
           <p className="mt-2 text-xs font-semibold text-zinc-400">
-            {item.metadata?.actorName || (isSelfAction(item, userId) ? "You" : "Another admin")}
+            {item.metadata?.actorName || (isSelfAction(item, userId) ? i18nText("ui.literals.k905cb326c779") : i18nText("ui.literals.k7d2b4bfbd7c0"))}
             {" · "}
             <span title={formatDateTime(item.created_at)}>{formatRelativeTime(item.created_at)}</span>
-            {item.audit_log_id ? ` · Audit ${String(item.audit_log_id).slice(0, 8)}` : ""}
+            {item.audit_log_id ? i18nText("ui.literals.kbf2853dc973b", { value0: String(item.audit_log_id).slice(0, 8) }) : ""}
           </p>
           {item.metadata?.undoReason ? (
             <p className="mt-2 rounded-md bg-zinc-50 px-3 py-2 text-xs font-semibold text-zinc-600">
-              Undo reason: {item.metadata.undoReason}
+              {i18nText("ui.literals.k7678eac4f1d0")} {item.metadata.undoReason}
             </p>
           ) : null}
         </div>
@@ -70,10 +74,10 @@ function ActionRow({ item, userId, busy, onUndo }) {
             <button
               type="button"
               onClick={() => navigator.clipboard?.writeText(String(item.audit_log_id))}
-              title="Copy full audit ID"
+              title={i18nText("ui.literals.kccd093456bb3")}
               className="inline-flex h-9 items-center gap-1.5 rounded-lg border border-zinc-200 px-3 text-xs font-black text-zinc-600 hover:bg-zinc-50"
             >
-              <ScrollText size={14} /> Audit ID
+              <ScrollText size={14} /> {i18nText("ui.literals.kdc8d69b20dda")}
             </button>
           ) : null}
           {undoable ? (
@@ -83,7 +87,7 @@ function ActionRow({ item, userId, busy, onUndo }) {
               disabled={busy}
               className="inline-flex h-9 items-center gap-1.5 rounded-lg bg-zinc-950 px-3 text-xs font-black text-white hover:bg-zinc-800 disabled:opacity-60"
             >
-              <RotateCcw size={14} /> Undo
+              <RotateCcw size={14} /> {i18nText("ui.literals.k39fc72124884")}
             </button>
           ) : null}
         </div>
@@ -91,15 +95,15 @@ function ActionRow({ item, userId, busy, onUndo }) {
 
       {reasonOpen && undoable ? (
         <div className="mt-3 rounded-lg border border-amber-200 bg-amber-50 p-3">
-          <p className="text-xs font-black uppercase tracking-wide text-amber-800">Undo this action</p>
+          <p className="text-xs font-black uppercase tracking-wide text-amber-800">{i18nText("ui.literals.k59c549a55dde")}</p>
           <p className="mt-1 text-xs font-semibold leading-5 text-amber-900">
-            The reversal is written to the audit log with your name and reason. Only the admin who performed an action can undo it; Chief and Super Admins review every undo.
+            {i18nText("ui.literals.kf4238bfdc878")}
           </p>
           <textarea
             value={reason}
             onChange={(event) => setReason(event.target.value)}
             rows={2}
-            placeholder="Why is this action being reversed?"
+            placeholder={i18nText("ui.literals.k5f8abba15649")}
             className="mt-2 w-full rounded-lg border border-amber-200 bg-white px-3 py-2 text-sm font-semibold text-zinc-800 outline-none focus:border-amber-500"
           />
           <div className="mt-2 flex justify-end gap-2">
@@ -108,7 +112,7 @@ function ActionRow({ item, userId, busy, onUndo }) {
               onClick={() => setReasonOpen(false)}
               className="h-9 rounded-lg border border-zinc-300 bg-white px-3 text-xs font-black text-zinc-700 hover:bg-zinc-50"
             >
-              Keep action
+              {i18nText("ui.literals.ka5ba75467cd8")}
             </button>
             <button
               type="button"
@@ -120,7 +124,7 @@ function ActionRow({ item, userId, busy, onUndo }) {
               }}
               className="inline-flex h-9 items-center gap-1.5 rounded-lg bg-amber-600 px-3 text-xs font-black text-white hover:bg-amber-700 disabled:opacity-50"
             >
-              {busy ? <LoaderCircle size={14} className="animate-spin" /> : <RotateCcw size={14} />} Confirm undo
+              {busy ? <LoaderCircle size={14} className="animate-spin" /> : <RotateCcw size={14} />} {i18nText("ui.literals.kb8706ecb790e")}
             </button>
           </div>
         </div>
@@ -130,6 +134,7 @@ function ActionRow({ item, userId, busy, onUndo }) {
 }
 
 export default function ActionHistoryView({ user }) {
+  useUiLocale();
   const [items, setItems] = useState([]);
   const [loading, setLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
@@ -146,7 +151,7 @@ export default function ActionHistoryView({ user }) {
     try {
       setItems(await getAdminActivityNotifications(100));
     } catch (nextError) {
-      setError(nextError.message || "Unable to load admin action history.");
+      setError(inlineErrorMessage(nextError, i18nText("ui.literals.kbed5bac0de65")));
     } finally {
       setLoading(false);
       setRefreshing(false);
@@ -168,10 +173,10 @@ export default function ActionHistoryView({ user }) {
     setNotice("");
     try {
       const result = await undoAdminActivityAction(item.id, reason);
-      setNotice(result?.message || "Undo recorded. The action is reversed and logged for oversight review.");
+      setNotice(result?.message || i18nText("ui.literals.ke1a598640eee"));
       await load(true);
     } catch (nextError) {
-      setError(nextError.message || "Unable to undo this action.");
+      setError(inlineErrorMessage(nextError, i18nText("ui.literals.k17aa131364e3")));
     } finally {
       setBusyId("");
     }
@@ -196,10 +201,10 @@ export default function ActionHistoryView({ user }) {
     <>
       <div className="flex flex-wrap items-end justify-between gap-3">
         <div>
-          <p className="text-xs font-black uppercase tracking-wide text-emerald-700">Governance</p>
-          <h1 className="mt-1 text-2xl font-black text-zinc-950">Action history</h1>
+          <p className="text-xs font-black uppercase tracking-wide text-emerald-700">{i18nText("ui.literals.k823619e079c3")}</p>
+          <h1 className="mt-1 text-2xl font-black text-zinc-950">{i18nText("ui.literals.k6280c77e3e0e")}</h1>
           <p className="mt-1 max-w-2xl text-sm font-medium leading-6 text-zinc-600">
-            Every recent administrative action in one place. Actions you performed can be reversed here with a documented reason; the original and the undo both stay in the audit log.
+            {i18nText("ui.literals.k34a610eec742")}
           </p>
         </div>
         <button
@@ -207,7 +212,7 @@ export default function ActionHistoryView({ user }) {
           onClick={() => load(true)}
           className="inline-flex h-10 items-center gap-2 rounded-lg border border-zinc-200 bg-white px-3 text-xs font-black text-zinc-700 hover:bg-zinc-50"
         >
-          <RefreshCcw size={14} className={refreshing ? "animate-spin" : ""} /> Refresh
+          <RefreshCcw size={14} className={refreshing ? "animate-spin" : ""} /> {i18nText("ui.literals.k56e3badc4e6c")}
         </button>
       </div>
 
@@ -222,7 +227,7 @@ export default function ActionHistoryView({ user }) {
                 filter === option.key ? "bg-white text-zinc-950 shadow-sm" : "text-zinc-500 hover:text-zinc-800"
               }`}
             >
-              {option.label}
+              {translateUi(option.label)}
               {option.key === "reversible" && undoableCount ? ` (${undoableCount})` : ""}
             </button>
           ))}
@@ -232,7 +237,7 @@ export default function ActionHistoryView({ user }) {
           <input
             value={search}
             onChange={(event) => setSearch(event.target.value)}
-            placeholder="Search actions"
+            placeholder={i18nText("ui.literals.k9313854ae5d2")}
             className="h-10 w-full rounded-lg border border-zinc-200 bg-white pl-9 pr-3 text-sm font-semibold text-zinc-800 outline-none focus:border-emerald-600"
           />
         </label>
@@ -240,15 +245,15 @@ export default function ActionHistoryView({ user }) {
 
       {notice ? (
         <p className="mt-4 flex items-center gap-2 rounded-lg border border-emerald-200 bg-emerald-50 px-4 py-3 text-sm font-semibold text-emerald-800">
-          <CheckCircle2 size={16} /> {notice}
+          <CheckCircle2 size={16} /> {translateUi(notice)}
         </p>
       ) : null}
-      {error ? <p className="mt-4 rounded-lg border border-red-200 bg-red-50 px-4 py-3 text-sm font-semibold text-red-700">{error}</p> : null}
+      {error ? <p className="mt-4 rounded-lg border border-red-200 bg-red-50 px-4 py-3 text-sm font-semibold text-red-700">{translateUi(error)}</p> : null}
 
       <div className="mt-4 grid gap-3">
         {loading ? (
           <p className="flex items-center gap-2 py-10 text-sm font-bold text-zinc-500">
-            <LoaderCircle size={16} className="animate-spin text-emerald-700" /> Loading admin actions…
+            <LoaderCircle size={16} className="animate-spin text-emerald-700" /> {i18nText("ui.literals.kc8af17692ecb")}
           </p>
         ) : visible.length ? (
           visible.map((item) => (
@@ -257,8 +262,8 @@ export default function ActionHistoryView({ user }) {
         ) : (
           <div className="rounded-lg border border-dashed border-zinc-300 bg-white p-10 text-center">
             <History size={22} className="mx-auto text-zinc-400" />
-            <p className="mt-3 text-sm font-black text-zinc-950">No actions in this view</p>
-            <p className="mt-1 text-sm font-medium text-zinc-500">Administrative actions appear here as the team works.</p>
+            <p className="mt-3 text-sm font-black text-zinc-950">{i18nText("ui.literals.k1f74e9104684")}</p>
+            <p className="mt-1 text-sm font-medium text-zinc-500">{i18nText("ui.literals.k42c5f8c05420")}</p>
           </div>
         )}
       </div>

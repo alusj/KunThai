@@ -3,6 +3,8 @@ import { FiAlertTriangle, FiCheckCircle, FiX } from "react-icons/fi";
 import AppPortal from "../../shared/AppPortal";
 import { verificationStatuses } from "./verificationStatus";
 import { useI18n, t } from "../../../i18n";
+import { uiText as translateUi } from "../../../i18n/index.js";
+import { inlineErrorMessage } from "../../../Backend/services/friendlyErrorService";
 
 // Stable reason values (kept in English so the reported payload is consistent
 // for support) paired with the translation key used only for display.
@@ -119,7 +121,7 @@ export default function VerificationDetailsModal({
           : t("urride.verification.modal.feedbackSent"),
       );
     } catch (error) {
-      setReportError(error.message || t("urride.verification.modal.errorSend"));
+      setReportError(inlineErrorMessage(error, t("urride.verification.modal.errorSend")));
     } finally {
       setBusyAction("");
     }
@@ -140,7 +142,7 @@ export default function VerificationDetailsModal({
           <div className="flex items-start justify-between gap-4">
             <div>
               <p className="text-xs font-semibold uppercase tracking-wide">{t("urride.verification.modal.statusLabel")}</p>
-              <h2 className="mt-1 text-xl font-bold">{config.label}</h2>
+              <h2 className="mt-1 text-xl font-bold">{translateUi(config.label)}</h2>
               <p className="mt-1 text-sm">{operatorName}</p>
             </div>
             <button
@@ -155,7 +157,7 @@ export default function VerificationDetailsModal({
         </div>
 
         <div className="min-h-0 space-y-4 overflow-y-auto px-5 py-5">
-          <p className="text-sm leading-6 text-gray-700">{config.detail}</p>
+          <p className="text-sm leading-6 text-gray-700">{translateUi(config.detail)}</p>
 
           <div className="space-y-2">
             {config.checks.map((check) => (

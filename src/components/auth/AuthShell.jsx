@@ -1,5 +1,6 @@
 import { Compass, ShoppingBag, CarFront, ShieldCheck } from "lucide-react";
 import { t as i18nText, uiText } from "../../i18n/index";
+import { uiText as translateUi, useI18n as useUiLocale } from "../../i18n/index.js";
 
 const defaultPanels = [
   {
@@ -27,6 +28,7 @@ export default function AuthShell({
   footer,
   panels = defaultPanels,
 }) {
+  useUiLocale();
   return (
     <div className="relative min-h-screen overflow-hidden bg-[#06101c] px-4 py-6 text-white sm:px-6 lg:px-8">
       <div className="pointer-events-none absolute inset-0">
@@ -77,8 +79,8 @@ export default function AuthShell({
               </p>
             )}
 
-            <h1 className="text-3xl font-semibold tracking-[-0.03em] text-white sm:text-[2.25rem]">{title}</h1>
-            {subtitle && <p className="mt-3 text-sm leading-6 text-slate-300">{subtitle}</p>}
+            <h1 className="text-3xl font-semibold tracking-[-0.03em] text-white sm:text-[2.25rem]">{translateUi(title)}</h1>
+            {subtitle && <p className="mt-3 text-sm leading-6 text-slate-300">{translateUi(subtitle)}</p>}
 
             <div className="mt-6">{children}</div>
           </div>

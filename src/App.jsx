@@ -36,7 +36,7 @@ import { ensureExploreProfile } from "./Backend/services/explore/profileService"
 import { preloadMainDashboardData } from "./Backend/services/dashboardPreloadService";
 import { haptics } from "./Backend/services/feedbackService";
 import { canStartNavigationGesture, navigationGesturesLocked } from "./Backend/services/gestureArbitration";
-import { runConnectivityChecks, startGlobalNetworkToasts } from "./Backend/services/networkService";
+import { startGlobalNetworkToasts } from "./Backend/services/networkService";
 import {
   markReturningUserActivity,
   readReturningUserActivity,
@@ -53,6 +53,7 @@ import LazyRouteBoundary from "./components/shared/LazyRouteBoundary";
 import AppStartupSkeleton from "./components/shared/AppStartupSkeleton";
 import supabase from "./Backend/lib/supabaseClient";
 import { t as i18nText } from "./i18n/index";
+import { useI18n as useUiLocale } from "./i18n/index.js";
 
 const PAGE_ORDER = ["explore", "marketplace", "transport"];
 const LAST_PAGE_KEY = "kuntai-last-page";
@@ -172,69 +173,25 @@ function readStoredMarketplaceNav() {
 }
 
 function AppLoading({ page = "explore", marketplaceSub = "" }) {
+  useUiLocale();
   const [showPatienceNotice, setShowPatienceNotice] = useState(false);
-  const [offline, setOffline] = useState(() => typeof navigator !== "undefined" && navigator.onLine === false);
-  // Distinguishes a genuine connectivity fault from a page that is merely slow
-  // to render. Only a confirmed fault (browser offline, or multiple same-origin
-  // probes failing) turns the notice into a network warning; otherwise the copy
-  // stays neutral so a slow chunk load is never mislabelled "Network unstable".
-  const [connectivityFault, setConnectivityFault] = useState(false);
 
   useEffect(() => {
     const timer = window.setTimeout(() => setShowPatienceNotice(true), 6000);
     return () => window.clearTimeout(timer);
   }, []);
 
-  // Once we have waited long enough to surface a notice, actually check the
-  // network rather than assuming a stalled render means it is down.
-  useEffect(() => {
-    if (!showPatienceNotice) return undefined;
-
-    let cancelled = false;
-    if (import.meta.env?.DEV) {
-      console.debug("[AppLoading] patience notice shown; verifying connectivity");
-    }
-    runConnectivityChecks().then((reachable) => {
-      if (!cancelled) setConnectivityFault(!reachable);
-    });
-
-    return () => {
-      cancelled = true;
-    };
-  }, [showPatienceNotice]);
-
-  useEffect(() => {
-    function syncNetworkState() {
-      const isOffline = typeof navigator !== "undefined" && navigator.onLine === false;
-      setOffline(isOffline);
-      // A confirmed online transition clears any stale fault immediately.
-      if (!isOffline) setConnectivityFault(false);
-    }
-
-    window.addEventListener("online", syncNetworkState);
-    window.addEventListener("offline", syncNetworkState);
-    return () => {
-      window.removeEventListener("online", syncNetworkState);
-      window.removeEventListener("offline", syncNetworkState);
-    };
-  }, []);
-
-  const networkFault = offline || connectivityFault;
-
+  // A long wait gets the same neutral notice whatever the cause. A lost
+  // connection is announced by the global network toast, so the loading
+  // screen never adds a second offline message of its own.
   const notice = showPatienceNotice ? (
     <div className="kt-route-transition rounded-2xl border border-sky-200 bg-sky-50 px-4 py-4 text-center shadow-sm">
       <p className="text-sm font-black text-slate-950">
-        {offline ? i18nText("ui.literals.k78bc44dac752") : networkFault ? i18nText("ui.literals.k5668eeef0e08") : i18nText("ui.literals.k28f19756579e")}
+        {i18nText("ui.literals.k28f19756579e")}
       </p>
       <p className="mt-1 text-sm font-semibold leading-6 text-slate-600">
-        {networkFault
-          ? i18nText("ui.literals.k4955eabca5a9")
-          : i18nText("ui.literals.ke92c26e43495")}
+        {i18nText("ui.literals.ke92c26e43495")}
       </p>
-    </div>
-  ) : offline ? (
-    <div className="rounded-2xl border border-amber-200 bg-amber-50 px-4 py-3 text-sm font-bold text-amber-800">
-      {i18nText("ui.literals.kd1d9af29fa05")} {page} {i18nText("ui.literals.k0ba189b0877f")}
     </div>
   ) : null;
 
@@ -255,6 +212,7 @@ function TwoFactorPassed({ onPassed }) {
 }
 
 export default function App() {
+  useUiLocale();
   const { user, loading } = useAuth();
   const {
     profile: onboardingProfile,
@@ -373,9 +331,9 @@ export default function App() {
 
       window.dispatchEvent(new CustomEvent("kuntai-visibility-credits-updated"));
       showToast(
-        `${Number(result.credits || 0)} Visibility Credits added.`,
+        i18nText("ui.literals.k2d68fd682d8f", { value0: Number(result.credits || 0) }),
         "success",
-        { title: "Mobile money" },
+        { title: i18nText("ui.literals.kff0075d7f19c") },
       );
     }
 
@@ -965,6 +923,7 @@ export default function App() {
 }
 
 function ScreenshotVoicePrompt({ page }) {
+  useUiLocale();
   const [prompt, setPrompt] = useState({ open: false, closing: false, capturedAt: 0 });
   const [voiceCardOpen, setVoiceCardOpen] = useState(false);
   const [capturedScreenshot, setCapturedScreenshot] = useState(null);

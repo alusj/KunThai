@@ -37,6 +37,7 @@ import useBodyScrollLock from "../../shared/useBodyScrollLock";
 import AiEntityCards from "./AiEntityCards";
 import AiChatActionButtons from "./AiChatActionButtons";
 import AiScreenActionCards from "./AiScreenActionCards";
+import { uiText as translateUi, useI18n as useUiLocale } from "../../../i18n/index.js";
 
 // KAI — the conversational assistant.
 //
@@ -51,13 +52,14 @@ const HEIGHT_STEPS = [25, 50, 75];
 const DEFAULT_HEIGHT = 75;
 
 function IconButton({ onClick, label, children, disabled = false, active = "" }) {
+  useUiLocale();
   return (
     <button
       type="button"
       onClick={onClick}
       disabled={disabled}
-      aria-label={label}
-      title={label}
+      aria-label={translateUi(label)}
+      title={translateUi(label)}
       className={`grid h-7 w-7 place-items-center rounded-full border transition disabled:opacity-40 ${
         active || "border-slate-200 bg-white text-slate-500 hover:text-slate-800"
       }`}
@@ -68,7 +70,7 @@ function IconButton({ onClick, label, children, disabled = false, active = "" })
 }
 
 export default function AiChatPanel({ open, request, onClose }) {
-  const { t } = useI18n();
+  const { t , locale: memoLocale } = useI18n();
   const conversation = useAssistantConversation();
   const [draft, setDraft] = useState("");
   const [selection, setSelection] = useState([]);
@@ -98,7 +100,7 @@ export default function AiChatPanel({ open, request, onClose }) {
     return [...screenPrompts, ...assistantPromptsFor(surface, role)].slice(0, 6);
     // screenVersion re-runs this when the screen underneath changes.
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [surface, role, open, screenVersion, t]);
+  }, [surface, role, open, screenVersion, t, memoLocale]);
   const roleLabel = assistantRoleLabel(role);
 
   useBodyScrollLock(open);
@@ -325,7 +327,7 @@ export default function AiChatPanel({ open, request, onClose }) {
                       <div className="rounded-2xl border border-rose-200 bg-rose-50 px-3.5 py-3" role="alert">
                         <p className="flex items-start gap-2 text-sm font-bold text-rose-900">
                           <AlertTriangle size={15} className="mt-0.5 flex-none text-rose-600" />
-                          {message.error?.message}
+                          {translateUi(message.error?.message)}
                         </p>
                         {message.error?.retryable ? (
                           <button

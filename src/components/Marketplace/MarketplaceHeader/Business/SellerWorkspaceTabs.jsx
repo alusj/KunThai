@@ -1,4 +1,5 @@
 import { useI18n, t } from "../../../../i18n";
+import { uiText as translateUi } from "../../../../i18n/index.js";
 
 export default function SellerWorkspaceTabs({ activeTab, onTabChange, allowedTabs = null }) {
   useI18n();
@@ -24,7 +25,7 @@ export default function SellerWorkspaceTabs({ activeTab, onTabChange, allowedTab
                 : "text-gray-500 hover:bg-gray-50 hover:text-gray-950"
             }`}
           >
-            {tab.label}
+            {translateUi(tab.label)}
           </button>
         ))}
       </div>

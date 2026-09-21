@@ -1,4 +1,5 @@
 import { t } from "../../../../../i18n";
+import { useI18n as useUiLocale } from "../../../../../i18n/index.js";
 
 function formatTime(seconds) {
   if (!Number.isFinite(seconds) || seconds < 0) return "0:00";
@@ -11,6 +12,7 @@ function formatTime(seconds) {
 }
 
 export default function VideoProgress({ currentTime = 0, duration = 15, onSeek }) {
+  useUiLocale();
   const safeDuration = Number.isFinite(duration) && duration > 0 ? Math.min(duration, 15) : 15;
   const safeCurrent = Math.min(Math.max(currentTime, 0), safeDuration);
   const progress = safeDuration > 0 ? Math.min(Math.max((safeCurrent / safeDuration) * 100, 0), 100) : 0;

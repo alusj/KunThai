@@ -15,6 +15,7 @@ import {
 } from "react-icons/hi2";
 import ExploreActionDrawer from "../../../../shared/ExploreActionDrawer";
 import { useI18n } from "../../../../../../i18n";
+import { uiText as translateUi } from "../../../../../../i18n/index.js";
 
 export default function PostOptionsMenu({
   closing,
@@ -94,7 +95,7 @@ export default function PostOptionsMenu({
                 <Icon className="text-lg" />
               </span>
 
-              <span className="truncate">{item.label}</span>
+              <span className="truncate">{translateUi(item.label)}</span>
             </button>
           );
         })}

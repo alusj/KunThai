@@ -6,6 +6,7 @@ import { pauseOtherExploreMedia, stopAllExploreMedia } from "../../../../shared/
 import { isAdvertPost } from "../../../../shared/advertUtils";
 import ZoomableImage from "../../../../shared/ZoomableImage";
 import { t as i18nText } from "../../../../../../i18n/index";
+import { uiText as translateUi, useI18n as useUiLocale } from "../../../../../../i18n/index.js";
 
 export default function PostMedia({ post, imageOnly = false }) {
   const { t } = useI18n();
@@ -89,6 +90,7 @@ export default function PostMedia({ post, imageOnly = false }) {
 }
 
 function MediaSkeleton({ dark = false }) {
+  useUiLocale();
   return (
     <div className={`absolute inset-0 flex items-center justify-center overflow-hidden ${dark ? "bg-slate-900" : "bg-slate-100"}`}>
       <div className={`absolute inset-0 animate-pulse ${dark ? "bg-slate-800" : "bg-slate-200"}`} />
@@ -100,12 +102,13 @@ function MediaSkeleton({ dark = false }) {
 }
 
 function MediaFallback({ label, onRetry }) {
+  useUiLocale();
   return (
     <div className="flex aspect-[4/3] w-full flex-col items-center justify-center rounded-[20px] border border-slate-200 bg-slate-50 px-4 text-center">
       <span className="grid h-12 w-12 place-items-center rounded-2xl bg-white text-slate-400 shadow-sm">
         <HiOutlinePhoto className="text-2xl" />
       </span>
-      <p className="mt-3 text-sm font-black text-slate-900">{label}</p>
+      <p className="mt-3 text-sm font-black text-slate-900">{translateUi(label)}</p>
       <button
         type="button"
         onClick={onRetry}

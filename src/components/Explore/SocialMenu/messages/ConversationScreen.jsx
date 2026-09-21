@@ -14,6 +14,7 @@ import MessageBubble from "./MessageBubble";
 import MessageComposer from "./MessageComposer";
 import { t as i18nText } from "../../../../i18n/index";
 import MessagePrivacyNotice from "../../../shared/MessagePrivacyNotice";
+import { uiText as translateUi, useI18n as useUiLocale } from "../../../../i18n/index.js";
 
 const TYPING_FRESH_MS = 12000;
 const PRESENCE_FRESH_MS = 45000;
@@ -166,7 +167,7 @@ export default function ConversationScreen({ conversation, currentUserId, loadin
         {messages.map((message) => (
           <MessageBubble
             key={message.id}
-            message={message}
+            message={translateUi(message)}
             mine={message.senderId === currentUserId}
             seen={message.id === lastSeenOwnMessageId}
             otherUserName={user.displayName || user.username || "This user"}
@@ -192,8 +193,9 @@ export default function ConversationScreen({ conversation, currentUserId, loadin
 }
 
 function ConversationMessagesSkeleton() {
+  useUiLocale();
   return (
-    <div className="space-y-3" aria-label="Loading conversation" aria-busy="true">
+    <div className="space-y-3" aria-label={i18nText("ui.literals.k22707c5d4fdd")} aria-busy="true">
       {["w-3/4", "ml-auto w-2/3", "w-4/5", "ml-auto w-1/2"].map((width, index) => (
         <div key={`${width}-${index}`} className={`${width} rounded-[20px] border border-slate-200 bg-white p-3`}>
           <div className="kt-startup-shimmer h-3 w-4/5 rounded-full" />
