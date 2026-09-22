@@ -80,7 +80,8 @@ import {
   shouldPreserveAvailabilityOverride,
 } from "./operatorAvailabilityState";
 import { uiText as translateUi, useI18n as useUiLocale } from "../../i18n/index.js";
-import { inlineErrorMessage, shortErrorToast } from "../../Backend/services/friendlyErrorService";
+import { inlineErrorMessage, shortErrorToast } from "../../Backend/services/friendlyErrorService";
+import AppPortal from "../shared/AppPortal";
 
 function formatOperatorMoney(value, account = null) {
   return formatCountryMoney(value, account?.form?.currency || account?.form?.countryCode || account?.form?.country || getCountryCurrencyCode());
@@ -1632,7 +1633,7 @@ function OperatorAlertsDrawer({
   if (!rendered) return null;
 
   return (
-    <div className={`kt-mobile-screen fixed inset-0 z-[1200] overflow-hidden ${panelOpen ? "pointer-events-auto" : "pointer-events-none"}`}>
+    <AppPortal><div className={`kt-mobile-screen fixed inset-0 z-[1200] overflow-hidden ${panelOpen ? "pointer-events-auto" : "pointer-events-none"}`}>
       <button
         type="button"
         aria-label={t("urride.opDash.alertsCloseOverlay")}
@@ -1708,7 +1709,7 @@ function OperatorAlertsDrawer({
           </div>
         </div>
       </section>
-    </div>
+    </div></AppPortal>
   );
 }
 
@@ -2239,7 +2240,7 @@ function OperatorMenuDrawer({
   ].filter(Boolean);
 
   return (
-    <div className={`kt-mobile-screen fixed inset-0 z-[1200] overflow-hidden ${panelOpen ? "pointer-events-auto" : "pointer-events-none"}`}>
+    <AppPortal><div className={`kt-mobile-screen fixed inset-0 z-[1200] overflow-hidden ${panelOpen ? "pointer-events-auto" : "pointer-events-none"}`}>
       <button
         type="button"
         aria-label={t("urride.opDash.menuCloseOverlay")}
@@ -2341,7 +2342,7 @@ function OperatorMenuDrawer({
           </section>
         </div>
       </aside>
-    </div>
+    </div></AppPortal>
   );
 }
 
@@ -2378,7 +2379,7 @@ function OperatorAccountDeletionDrawer({ open, fleetName, operatorName, onClose 
   if (!rendered) return null;
 
   return (
-    <div className={`kt-mobile-screen fixed inset-0 z-[1250] overflow-hidden ${panelOpen ? "pointer-events-auto" : "pointer-events-none"}`}>
+    <AppPortal><div className={`kt-mobile-screen fixed inset-0 z-[1250] overflow-hidden ${panelOpen ? "pointer-events-auto" : "pointer-events-none"}`}>
       <button
         type="button"
         aria-label={t("urride.opDash.deletionCloseOverlay")}
@@ -2415,7 +2416,7 @@ function OperatorAccountDeletionDrawer({ open, fleetName, operatorName, onClose 
           <RequestAccountDeletionPage />
         </div>
       </aside>
-    </div>
+    </div></AppPortal>
   );
 }
 
@@ -2440,7 +2441,7 @@ function OperatorSafetyDrawer({ open, fleetName, operatorName, onClose }) {
   if (!rendered) return null;
 
   return (
-    <div className={`kt-mobile-screen fixed inset-0 z-[1250] overflow-hidden ${panelOpen ? "pointer-events-auto" : "pointer-events-none"}`}>
+    <AppPortal><div className={`kt-mobile-screen fixed inset-0 z-[1250] overflow-hidden ${panelOpen ? "pointer-events-auto" : "pointer-events-none"}`}>
       <button
         type="button"
         aria-label={t("urride.opDash.safetyCloseOverlay")}
@@ -2509,7 +2510,7 @@ function OperatorSafetyDrawer({ open, fleetName, operatorName, onClose }) {
           </section>
         </div>
       </aside>
-    </div>
+    </div></AppPortal>
   );
 }
 

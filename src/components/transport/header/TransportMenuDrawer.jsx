@@ -1133,7 +1133,7 @@ function SavedPlacesPage() {
       ) : null}
 
       {areaPicker ? (
-        <div className="fixed inset-0 z-[1300] bg-slate-950">
+        <AppPortal><div className="fixed inset-0 z-[1300] bg-slate-950">
           <NearbyAreaScreen
             mode="businessLocationPicker"
             pickerStart={areaPicker.start}
@@ -1142,7 +1142,7 @@ function SavedPlacesPage() {
             onBack={() => setAreaPicker(null)}
             onLocationPicked={acceptAreaLocation}
           />
-        </div>
+        </div></AppPortal>
       ) : null}
     </div>
   );

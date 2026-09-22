@@ -1,7 +1,8 @@
 import { AnimatePresence, motion } from "framer-motion";
 import { Bike, Truck } from "lucide-react";
 
-import { useI18n, t } from "../../../i18n";
+import { useI18n, t } from "../../../i18n";
+import AppPortal from "../../shared/AppPortal";
 
 export default function TransportEntryAnimation({ show }) {
   useI18n();
@@ -14,7 +15,7 @@ export default function TransportEntryAnimation({ show }) {
   return (
     <AnimatePresence>
       {show && (
-        <motion.div
+        <AppPortal><motion.div
           className="fixed inset-0 z-[9999] flex h-dvh items-center justify-center bg-slate-50 px-5"
           initial={{ opacity: 0 }}
           animate={{ opacity: 1 }}
@@ -95,7 +96,7 @@ export default function TransportEntryAnimation({ show }) {
               </motion.p>
             </div>
           </motion.div>
-        </motion.div>
+        </motion.div></AppPortal>
       )}
     </AnimatePresence>
   );

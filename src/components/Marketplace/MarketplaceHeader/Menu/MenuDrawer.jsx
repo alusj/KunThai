@@ -690,7 +690,7 @@ export default function MenuDrawer({ open, onClose, onRequestedScreenHandled, re
             ) : null}
 
             {activeActionAddress ? (
-              <div
+              <AppPortal><div
                 className="fixed inset-0 z-[1300] flex items-end justify-center bg-slate-950/20 px-3 py-4 backdrop-blur-[1px] sm:items-center sm:p-6"
                 role="presentation"
                 onClick={() => setAddressActionMenuId("")}
@@ -721,7 +721,7 @@ export default function MenuDrawer({ open, onClose, onRequestedScreenHandled, re
                     />
                   </div>
                 </section>
-              </div>
+              </div></AppPortal>
             ) : null}
 
             {!addressFormOpen ? (

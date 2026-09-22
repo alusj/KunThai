@@ -30,7 +30,8 @@ import {
 } from "../../Backend/services/businessSubscriptionService";
 import { showToast } from "../../Backend/services/toastService";
 import { t as i18nText } from "../../i18n/index";
-import { uiText as translateUi, useI18n as useUiLocale } from "../../i18n/index.js";
+import { uiText as translateUi, useI18n as useUiLocale } from "../../i18n/index.js";
+import AppPortal from "./AppPortal";
 
 const PLAN_ICONS = { free: Sparkles, pro: Crown, premium: Gem };
 const PLAN_STYLES = {
@@ -509,7 +510,7 @@ export default function BusinessPlanScreen({ surface, entityId, entityName = "Yo
       ) : null}
 
       {selectedPlan ? (
-        <div className="fixed inset-0 z-[1600] flex items-center justify-center bg-slate-950/55 p-4 backdrop-blur-sm" role="presentation">
+        <AppPortal><div className="fixed inset-0 z-[1600] flex items-center justify-center bg-slate-950/55 p-4 backdrop-blur-sm" role="presentation">
           <section role="dialog" aria-modal="true" aria-label={i18nText("ui.literals.k7495d4fe4c84")} className="kt-modal-enter w-full max-w-md rounded-[28px] bg-white p-6 shadow-2xl">
             <div className="flex items-start justify-between gap-4">
               <span className={`grid h-12 w-12 place-items-center rounded-2xl ${PLAN_ICON_STYLES[selectedPlan.planCode]}`}>
@@ -540,7 +541,7 @@ export default function BusinessPlanScreen({ surface, entityId, entityName = "Yo
               </button>
             </div>
           </section>
-        </div>
+        </div></AppPortal>
       ) : null}
     </div>
   );

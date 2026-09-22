@@ -2,12 +2,13 @@
 // Full screen Edit Profile page
 
 import { useI18n, t } from "../../../../../../../../../i18n";
-import BackTab from "./BackTab";
+import BackTab from "./BackTab";
+import AppPortal from "../../../../../../../../shared/AppPortal";
 
 export default function ChangePassword({ onBack }) {
   useI18n();
   return (
-    <div className="fixed inset-0 bg-white z-[999] flex flex-col">
+    <AppPortal><div className="fixed inset-0 bg-white z-[999] flex flex-col">
 
       {/* HEADER */}
       <div className="relative h-14 flex items-center border-b px-4">
@@ -31,6 +32,6 @@ export default function ChangePassword({ onBack }) {
         {/* Form fields go here */}
       </div>
 
-    </div>
+    </div></AppPortal>
   );
 }

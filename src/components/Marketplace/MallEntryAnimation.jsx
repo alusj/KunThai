@@ -1,7 +1,8 @@
 import { AnimatePresence, motion } from "framer-motion";
 import { PackageCheck, ShoppingBag, ShoppingCart } from "lucide-react";
 
-import { useI18n } from "../../i18n";
+import { useI18n } from "../../i18n";
+import AppPortal from "../shared/AppPortal";
 
 export default function MallEntryAnimation({ show }) {
   const { t } = useI18n();
@@ -14,7 +15,7 @@ export default function MallEntryAnimation({ show }) {
   return (
     <AnimatePresence>
       {show && (
-        <motion.div
+        <AppPortal><motion.div
           className="fixed inset-0 z-[9999] flex items-center justify-center bg-white px-5 pb-28"
           initial={{ opacity: 0 }}
           animate={{ opacity: 1 }}
@@ -73,7 +74,7 @@ export default function MallEntryAnimation({ show }) {
               </motion.p>
             </div>
           </motion.div>
-        </motion.div>
+        </motion.div></AppPortal>
       )}
     </AnimatePresence>
   );

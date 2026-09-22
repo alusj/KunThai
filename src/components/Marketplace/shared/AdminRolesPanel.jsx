@@ -11,7 +11,8 @@ import { haptics, sounds } from "../../../Backend/services/feedbackService";
 import { showToast } from "../../../Backend/services/toastService";
 import { useI18n, t } from "../../../i18n";
 import { uiText as translateUi } from "../../../i18n/index.js";
-import { shortErrorToast } from "../../../Backend/services/friendlyErrorService";
+import { shortErrorToast } from "../../../Backend/services/friendlyErrorService";
+import AppPortal from "../../shared/AppPortal";
 
 // Invitee side of UrMall business admins: respond to invitations, see the
 // responsibilities each owner assigned, and leave a business at any time.
@@ -157,7 +158,7 @@ export default function AdminRolesPanel() {
       ) : null}
 
       {leavingRow ? (
-        <div className="fixed inset-0 z-[1400] flex items-center justify-center bg-slate-950/40 px-4" role="presentation">
+        <AppPortal><div className="fixed inset-0 z-[1400] flex items-center justify-center bg-slate-950/40 px-4" role="presentation">
           <section role="alertdialog" aria-modal="true" aria-label={t("urmall.admin.leaveBusinessAria")} className="kt-toast-expand-in w-full max-w-sm rounded-[26px] bg-white p-5 shadow-2xl">
             <h3 className="text-lg font-black text-gray-950">{t("urmall.admin.leaveConfirm", { name: leavingRow.businessName })}</h3>
             <p className="mt-2 text-sm font-semibold leading-6 text-gray-600">
@@ -175,7 +176,7 @@ export default function AdminRolesPanel() {
               </button>
             </div>
           </section>
-        </div>
+        </div></AppPortal>
       ) : null}
     </div>
   );

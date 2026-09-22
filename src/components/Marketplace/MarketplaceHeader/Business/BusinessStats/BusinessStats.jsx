@@ -27,6 +27,7 @@ import RevenueMetrics from "./RevenueMetrics";
 import SalesMetricCard from "./SalesMetricCard";
 import { uiText as translateUi, useI18n as useUiLocale } from "../../../../../i18n/index.js";
 import { inlineErrorMessage } from "../../../../../Backend/services/friendlyErrorService";
+import AppPortal from "../../../../shared/AppPortal";
 
 function orderStatusTone(status) {
   if (status === "completed") return "bg-emerald-50 text-emerald-700";
@@ -259,7 +260,7 @@ function SellerOrderDetailSheet({ order, onClose, onStatusChange, onDelete, onLo
   const canUpdate = order.status === "pending" || order.status === "shipped";
 
   return (
-    <div className="fixed inset-0 z-[1250] flex items-end justify-center sm:items-center">
+    <AppPortal><div className="fixed inset-0 z-[1250] flex items-end justify-center sm:items-center">
       <button
         type="button"
         aria-label={t("urmall.biz.stats.closeOrderDetails")}
@@ -363,7 +364,7 @@ function SellerOrderDetailSheet({ order, onClose, onStatusChange, onDelete, onLo
           </button>
         </div>
       </section>
-    </div>
+    </div></AppPortal>
   );
 }
 

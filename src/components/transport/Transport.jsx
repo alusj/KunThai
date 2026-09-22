@@ -43,7 +43,8 @@ import { showToast } from "../../Backend/services/toastService";
 import { useI18n, t } from "../../i18n";
 import { t as i18nText } from "../../i18n/index";
 import { uiText as translateUi } from "../../i18n/index.js";
-import { inlineErrorMessage, shortErrorToast } from "../../Backend/services/friendlyErrorService";
+import { inlineErrorMessage, shortErrorToast } from "../../Backend/services/friendlyErrorService";
+import AppPortal from "../shared/AppPortal";
 
 // Session-lived cache of the operator/company accounts, mirroring UrMall's
 // SELLER_HEADER_MEMORY. Re-entering UrRide then paints the header from this
@@ -1957,7 +1958,7 @@ function DocumentReuseDecisionModal({ invite, onClose, onContinue, onDeny }) {
   if (!invite) return null;
 
   return (
-    <div className="fixed inset-0 z-[1300] flex items-end justify-center bg-slate-950/45 px-4 py-5 backdrop-blur-sm sm:items-center">
+    <AppPortal><div className="fixed inset-0 z-[1300] flex items-end justify-center bg-slate-950/45 px-4 py-5 backdrop-blur-sm sm:items-center">
       <section className="kt-modal-enter relative w-full max-w-lg rounded-[28px] bg-white p-5 shadow-2xl">
         <button
           type="button"
@@ -1992,6 +1993,6 @@ function DocumentReuseDecisionModal({ invite, onClose, onContinue, onDeny }) {
           </button>
         </div>
       </section>
-    </div>
+    </div></AppPortal>
   );
 }

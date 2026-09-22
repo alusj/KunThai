@@ -54,7 +54,8 @@ import {
   writeBuyerAddressList,
 } from "../shared/buyerAddressPreferences";
 import { uiText as translateUi, useI18n as useUiLocale } from "../../../i18n/index.js";
-import { inlineErrorMessage, shortErrorToast } from "../../../Backend/services/friendlyErrorService";
+import { inlineErrorMessage, shortErrorToast } from "../../../Backend/services/friendlyErrorService";
+import AppPortal from "../../shared/AppPortal";
 
 function mapSavedAddressToOrder(address = {}) {
   return {
@@ -252,7 +253,7 @@ function ProductReviewDrawer({
 }) {
   useUiLocale();
   return (
-    <div
+    <AppPortal><div
       aria-hidden={!open}
       inert={open ? undefined : "true"}
       className={`fixed inset-0 z-[1200] overflow-hidden ${open ? "pointer-events-auto" : "pointer-events-none"}`}
@@ -362,14 +363,14 @@ function ProductReviewDrawer({
           </form>
         ) : null}
       </section>
-    </div>
+    </div></AppPortal>
   );
 }
 
 function ProductActionSheet({ children, labelledBy, maxWidth = "max-w-lg", onClose, open }) {
   useUiLocale();
   return (
-    <div
+    <AppPortal><div
       aria-hidden={!open}
       inert={open ? undefined : "true"}
       className={`fixed inset-0 z-[1200] overflow-hidden ${open ? "pointer-events-auto" : "pointer-events-none"}`}
@@ -394,7 +395,7 @@ function ProductActionSheet({ children, labelledBy, maxWidth = "max-w-lg", onClo
       >
         {children}
       </section>
-    </div>
+    </div></AppPortal>
   );
 }
 

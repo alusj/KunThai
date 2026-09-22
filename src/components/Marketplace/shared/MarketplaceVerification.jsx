@@ -2,6 +2,7 @@ import { AlertTriangle, BadgeCheck, Clock, Info, ShieldCheck, X } from "lucide-r
 
 import { useI18n, t } from "../../../i18n";
 import { useI18n as useUiLocale } from "../../../i18n/index.js";
+import AppPortal from "../../shared/AppPortal";
 
 // Text fields are i18n keys resolved via t() at render time; the icon and
 // colour classes stay literal. The status objects are consumed only through the
@@ -124,7 +125,7 @@ export function MarketplaceVerificationModal({
     : undefined;
 
   return (
-    <div
+    <AppPortal><div
       className={[
         "fixed inset-0 z-[1200] p-3",
         anchored ? "bg-gray-950/25" : "flex items-end bg-gray-950/45 sm:items-center sm:justify-center",
@@ -185,7 +186,7 @@ export function MarketplaceVerificationModal({
           </div>
         </div>
       </section>
-    </div>
+    </div></AppPortal>
   );
 }
 

@@ -19,7 +19,8 @@ import { t as i18nText } from "../../../../../../../../i18n/index";
 import { fetchBusinessSubscription, getCapacityStatus } from "../../../../../../../../Backend/services/businessSubscriptionService";
 import { hasBusinessPlans } from "../../../../../../../../Backend/services/marketplace/marketplaceBusinessKinds";
 import { uiText as translateUi } from "../../../../../../../../i18n/index.js";
-import { shortErrorToast } from "../../../../../../../../Backend/services/friendlyErrorService";
+import { shortErrorToast } from "../../../../../../../../Backend/services/friendlyErrorService";
+import AppPortal from "../../../../../../../shared/AppPortal";
 
 const STATUS_STYLES = {
   pending: "bg-amber-50 text-amber-700 border-amber-100",
@@ -316,7 +317,7 @@ export default function BusinessAdmins({ onBack, onOpenPlans }) {
       </main>
 
       {actionAdmin ? (
-        <div className="fixed inset-0 z-[1400]" role="presentation">
+        <AppPortal><div className="fixed inset-0 z-[1400]" role="presentation">
           <button type="button" aria-label={t("urmall.biz.admins.closeActionsOverlay")} onClick={() => setActionAdmin(null)} className="absolute inset-0 bg-slate-950/40" />
           <section role="dialog" aria-modal="true" aria-label={t("urmall.biz.admins.actionsFor", { name: actionAdmin.adminName })} className="kt-toast-expand-in absolute inset-x-4 bottom-[max(1rem,var(--kt-safe-area-bottom))] mx-auto max-w-sm rounded-[24px] bg-white p-3 shadow-2xl">
             <div className="flex items-center justify-between gap-3 px-2 py-1">
@@ -332,11 +333,11 @@ export default function BusinessAdmins({ onBack, onOpenPlans }) {
               <Trash2 size={17} /> {actionAdmin.status === "pending" ? t("urmall.biz.admins.cancelInvite") : t("urmall.biz.admins.removeAdmin")}
             </button>
           </section>
-        </div>
+        </div></AppPortal>
       ) : null}
 
       {responsibilityAdmin ? (
-        <div className="fixed inset-0 z-[1400] flex items-center justify-center px-4 py-[max(1rem,var(--kt-safe-area-top))]" role="presentation">
+        <AppPortal><div className="fixed inset-0 z-[1400] flex items-center justify-center px-4 py-[max(1rem,var(--kt-safe-area-top))]" role="presentation">
           <button type="button" aria-label={t("urmall.biz.admins.closeResp")} onClick={() => setResponsibilityAdmin(null)} className="absolute inset-0 bg-slate-950/40" />
           <section role="dialog" aria-modal="true" aria-label={t("urmall.biz.admins.respFor", { name: responsibilityAdmin.adminName })} className="kt-toast-expand-in relative flex max-h-[min(78dvh,680px)] w-full max-w-md flex-col overflow-hidden rounded-[26px] bg-white shadow-2xl">
             <div className="shrink-0 border-b border-gray-100 px-5 pb-4 pt-5">
@@ -375,7 +376,7 @@ export default function BusinessAdmins({ onBack, onOpenPlans }) {
               </button>
             </div>
           </section>
-        </div>
+        </div></AppPortal>
       ) : null}
     </div>
   );

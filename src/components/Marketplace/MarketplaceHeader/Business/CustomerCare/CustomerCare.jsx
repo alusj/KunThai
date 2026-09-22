@@ -20,6 +20,7 @@ import MessagePrivacyNotice from "../../../../shared/MessagePrivacyNotice";
 import { useKeyboardAwareConversation } from "../../../../../Backend/hooks/useKeyboardAwareConversation";
 import { useAiScreen } from "../../../../../Backend/services/ai/aiScreenContext";
 import { t as i18nText } from "../../../../../i18n/index";
+import AppPortal from "../../../../shared/AppPortal";
 
 const CONVERSATION_TRANSITION_MS = 360;
 
@@ -430,7 +431,7 @@ export default function CustomerCare({ onBack } = {}) {
   }
 
   return (
-    <section className={`relative overflow-hidden overscroll-none bg-gray-50 ${
+    <AppPortal><section className={`relative overflow-hidden overscroll-none bg-gray-50 ${
       visibleConversation && !standalone
         ? "kt-mobile-screen kt-safe-screen fixed inset-0 z-[1300]"
         : standalone
@@ -449,6 +450,6 @@ export default function CustomerCare({ onBack } = {}) {
         </div>
       </section>
       {renderConversation(visibleConversation)}
-    </section>
+    </section></AppPortal>
   );
 }

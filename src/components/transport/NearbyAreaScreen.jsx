@@ -67,7 +67,8 @@ import EmergencySheet from "../emergency/EmergencySheet";
 import { isLateRouteHour } from "./areaViewSafety";
 import { useI18n, t } from "../../i18n";
 import { t as i18nText } from "../../i18n/index";
-import { uiText as translateUi, useI18n as useUiLocale } from "../../i18n/index.js";
+import { uiText as translateUi, useI18n as useUiLocale } from "../../i18n/index.js";
+import AppPortal from "../shared/AppPortal";
 
 const DROP_PIN_CARD_REVEAL_DELAY_MS = 4_000;
 
@@ -2910,7 +2911,7 @@ function SearchOverlay({
 }) {
   useUiLocale();
   return (
-    <div className="fixed inset-0 z-[1400] bg-slate-950/70 backdrop-blur-sm">
+    <AppPortal><div className="fixed inset-0 z-[1400] bg-slate-950/70 backdrop-blur-sm">
       <section className="mx-auto flex h-full w-full max-w-2xl flex-col bg-white text-slate-950 shadow-2xl sm:mt-4 sm:h-[calc(100vh-2rem)] sm:rounded-3xl">
         <div className="border-b border-slate-100 px-4 pb-3 pt-4">
           <div className="mx-auto mb-3 h-1.5 w-20 rounded-full bg-slate-300 sm:hidden" />
@@ -3057,7 +3058,7 @@ function SearchOverlay({
           )}
         </div>
       </section>
-    </div>
+    </div></AppPortal>
   );
 }
 
