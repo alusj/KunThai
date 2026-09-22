@@ -420,16 +420,17 @@
     transform-origin: center top;
   }
 
+  /* No will-change here: it outlives the 260ms animation and turns the page
+     into a containing block for every position:fixed child, which pins a
+     full-screen overlay to the page instead of the screen. */
   .kt-main-slide-forward {
     animation: kt-page-slide-forward 260ms var(--kt-ease-standard) backwards;
     backface-visibility: hidden;
-    will-change: opacity, transform;
   }
 
   .kt-main-slide-backward {
     animation: kt-page-slide-backward 260ms var(--kt-ease-standard) backwards;
     backface-visibility: hidden;
-    will-change: opacity, transform;
   }
 
   .kt-form-step-slide-forward {

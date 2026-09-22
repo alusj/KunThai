@@ -1,5 +1,6 @@
 // src/Explore/Explore.jsx
 import { useEffect, useLayoutEffect, useRef, useState } from "react";
+import { createPortal } from "react-dom";
 //import { useAuth } from "../../Backend/hooks/useAuth";
 import { useBackSwipe } from "../../Backend/hooks/useBackSwipe";
 import { useBrowserBack } from "../../Backend/hooks/useBrowserBack";
@@ -1613,7 +1614,7 @@ export default function Explore({ active = true, onNavigateMain, onScreenModeCha
       </div>
 
     </div>
-    {leftDrawerOpen || drawerDragging || drawerClosing ? (
+    {leftDrawerOpen || drawerDragging || drawerClosing ? createPortal(
       <div className="fixed inset-0 z-[75] flex h-dvh w-full overflow-hidden overscroll-none [contain:layout_paint]">
         <button
           type="button"
@@ -1657,9 +1658,15 @@ export default function Explore({ active = true, onNavigateMain, onScreenModeCha
             onSelectIdentity={switchExploreIdentity}
           />
         </aside>
-      </div>
+      </div>,
+      document.body,
     ) : null}
-    {menuOverlayVisible ? (
+    {/* Portalled to <body>: the page-transition wrapper around Explore is a
+        containing block for position:fixed children (it animates a transform),
+        so an overlay rendered in place would be pinned to the top of the
+        scrolled page instead of the screen — the profile opened invisibly
+        above the viewport. */}
+    {menuOverlayVisible ? createPortal(
       <div
         ref={fullScreenSwipeRef}
         data-local-back-swipe="true"
@@ -1668,7 +1675,8 @@ export default function Explore({ active = true, onNavigateMain, onScreenModeCha
         }`}
       >
         {renderMenuStack()}
-      </div>
+      </div>,
+      document.body,
     ) : null}
     </>
   );
