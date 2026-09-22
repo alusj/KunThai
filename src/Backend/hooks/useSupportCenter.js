@@ -37,7 +37,7 @@ export function useSupportCenter() {
       const ticket = await createSupportTicket({ ...input, subject, message });
       setTickets((current) => [ticket, ...current.filter((item) => item.id !== ticket.id)].slice(0, 20));
       setFeedback("Support request submitted.");
-      showToast("Support request submitted.", "success");
+      showToast("Support request sent", "success");
       return ticket;
     } catch (error) {
       setFeedback(inlineErrorMessage(error, "Unable to submit support request."));

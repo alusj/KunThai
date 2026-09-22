@@ -17,6 +17,7 @@ import ErrorState from "../../shared/ErrorState";
 import NotificationSettings from "./components/NotificationSettings";
 import NotificationsList from "./list/NotificationsList";
 import { uiText as translateUi, useI18n as useUiLocale } from "../../../../i18n/index.js";
+import { shortErrorToast } from "../../../../Backend/services/friendlyErrorService";
 
 export default function Notifications({ currentUserId, onOpenNotification }) {
   const { t , locale: memoLocale } = useI18n();
@@ -86,11 +87,11 @@ export default function Notifications({ currentUserId, onOpenNotification }) {
     setMarkingAllRead(false);
 
     if (result?.ok === false) {
-      showToast(result.error || t("notifications.toastMarkAllError"), "danger");
+      showToast(shortErrorToast(result.error, "Couldn't mark as read"), "danger");
       return;
     }
 
-    showToast(t("notifications.toastMarkedAll"), "success");
+    showToast("All marked as read", "success");
   }
 
   return (

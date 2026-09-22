@@ -22,7 +22,7 @@ export function runNotificationAction(action) {
   if (!isOnline()) {
     // The global network toast is the offline notice.
     if (!announceConnectionTrouble()) {
-      showToast("You are offline. Reconnect to open this update.", "warning", {
+      showToast("You're offline now", "warning", {
         title: "No network",
       });
     }

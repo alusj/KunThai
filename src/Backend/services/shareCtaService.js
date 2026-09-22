@@ -59,7 +59,7 @@ export async function shareKunThaiLink() {
     title: "KunThai",
     text: "Join me on KunThai for Explore, Spaces, UrMall, and everyday community tools.",
     url: getKunThaiShareUrl(),
-    fallbackMessage: "KunThai link copied for sharing.",
+    fallbackMessage: "KunThai link copied",
   });
 }
 
@@ -69,7 +69,7 @@ export async function shareUrMallLink() {
     title: "UrMall on KunThai",
     text: "Discover products, sellers, and local business tools on UrMall by KunThai.",
     url: getUrMallShareUrl(),
-    fallbackMessage: "UrMall link copied for sharing.",
+    fallbackMessage: "UrMall link copied",
   });
 }
 

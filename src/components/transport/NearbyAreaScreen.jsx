@@ -1119,7 +1119,7 @@ export default function NearbyAreaScreen({
 
     if (category === "Fleets") {
       if (!liveOperators.length) {
-        showToast(t("urride.areaView.noNearbyFleet"), "warning", {
+        showToast("No nearby fleet found", "warning", {
           title: t("urride.areaView.toastAreaView"),
           duration: 5200,
         });
@@ -1134,7 +1134,7 @@ export default function NearbyAreaScreen({
 
     if (!nearest) {
       const label = getAreaCategoryLabel(category);
-      showToast(t("urride.areaView.noNearbyCategory", { label }), "warning", {
+      showToast("None available nearby", "warning", {
         title: t("urride.areaView.toastAreaView"),
         actionLabel: t("urride.areaView.addCategoryAction", { label }),
         duration: 6500,
@@ -1494,7 +1494,7 @@ export default function NearbyAreaScreen({
           setSearchQuery(searchText);
           setSearchResults([]);
           setSearchOverlayOpen(true);
-          showToast(t("urride.areaView.toastRouteFailed"), "warning", {
+          showToast("Route not found", "warning", {
             title: t("urride.areaView.toastRoutingPaused"),
           });
         })
@@ -2164,7 +2164,7 @@ export default function NearbyAreaScreen({
 
   const handleGetDirections = useCallback((location = activeLocation) => {
     if (!Number.isFinite(Number(location?.lat)) || !Number.isFinite(Number(location?.lng))) {
-      showToast(t("urride.areaView.toastNoPoint"), "warning", {
+      showToast("No exact map point yet", "warning", {
         title: t("urride.areaView.toastAreaView"),
       });
       return;

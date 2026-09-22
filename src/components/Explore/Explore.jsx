@@ -737,7 +737,7 @@ export default function Explore({ active = true, onNavigateMain, onScreenModeCha
 
       if (!post) {
         setPostFocusRequest(null);
-        showToast(t("notifications.postUnavailable"), "warning");
+        showToast("Post is unavailable", "warning");
         return;
       }
 
@@ -758,7 +758,7 @@ export default function Explore({ active = true, onNavigateMain, onScreenModeCha
         // Offline, the global network toast is the notice; this one is for a
         // post that could not be opened with the connection up.
         if (!(isConnectionFailure(error) && announceConnectionTrouble())) {
-          showToast(t("notifications.postOpenError"), "warning");
+          showToast("Couldn't open the post", "warning");
         }
       }
     }

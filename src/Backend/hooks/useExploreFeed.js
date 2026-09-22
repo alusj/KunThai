@@ -1,5 +1,5 @@
 import { useEffect, useRef, useState } from "react";
-import { friendlyErrorMessage, inlineErrorMessage, isConnectionFailure } from "../services/friendlyErrorService";
+import { friendlyErrorMessage, inlineErrorMessage, isConnectionFailure, shortErrorToast } from "../services/friendlyErrorService";
 import { announceConnectionTrouble } from "../services/networkService";
 
 import supabase from "../lib/supabaseClient";
@@ -55,6 +55,11 @@ import {
   syncExploreReaction,
   updateExplorePost,
 } from "../services/exploreService";
+
+// 1234 -> "1.2K". Keeps counts short enough for a toast.
+function compactCount(value) {
+  return new Intl.NumberFormat("en", { notation: "compact", maximumFractionDigits: 1 }).format(Number(value) || 0);
+}
 
 function isLocalPost(post) {
   return String(post?.id || "").startsWith("local-");
@@ -1105,7 +1110,7 @@ export function useExploreFeed(scope = "feed") {
 
       refreshPostCounts([postId]);
       setError(inlineErrorMessage(err, `Unable to update ${type}.`));
-      showToast(err.message || `Unable to update ${type}.`, "danger");
+      showToast(shortErrorToast(err, "Couldn't update post"), "danger");
     }
   }
 
@@ -1211,7 +1216,7 @@ export function useExploreFeed(scope = "feed") {
     try {
       await deleteExplorePost(postId);
       removePostFromAllCaches(postId);
-      showToast("Post deleted.", "success");
+      showToast("Post has been deleted", "success");
       haptics.medium("explore");
       return true;
     } catch (err) {
@@ -1235,7 +1240,7 @@ export function useExploreFeed(scope = "feed") {
       const next = new Set(current);
       next.add(postId);
       writeStoredSet(HIDE_STORAGE_KEY, next);
-      showToast(isAdvertDraft(targetPost) ? "Advertisement hidden." : "Post hidden.", "info");
+      showToast(isAdvertDraft(targetPost) ? "Advertisement hidden." : "Post has been hidden", "info");
       return next;
     });
   }
@@ -1248,7 +1253,7 @@ export function useExploreFeed(scope = "feed") {
     recordExploreAdvertEvent(targetPost, "mute", { surface: scope === "swip" ? "swip" : "urfeed" }).catch(() => false);
     const nextMuted = storeMutedExploreAdvertiser(targetPost.user_id);
     setMutedAdvertisers(nextMuted);
-    showToast("Advertisements from this account are muted.", "info");
+    showToast("Ads from account muted", "info");
   }
 
   function dismissPostLocally(postId) {
@@ -1297,11 +1302,11 @@ export function useExploreFeed(scope = "feed") {
         recordExploreAdvertEvent(post, "report", { surface: scope === "swip" ? "swip" : "urfeed" }).catch(() => false);
       }
       hidePost(postId);
-      showToast(isAdvertDraft(post) ? "Report received. The advertisement was hidden." : "Report received. The post was hidden.", "success");
+      showToast(isAdvertDraft(post) ? "Reported, ad hidden" : "Reported, post hidden", "success");
       haptics.medium("explore");
     } catch (err) {
       setError(inlineErrorMessage(err, "Unable to report post."));
-      showToast(friendlyErrorMessage(err, "Unable to report post."), "danger");
+      showToast(shortErrorToast(err, "Unable to report post."), "danger");
     }
   }
 
@@ -1315,15 +1320,14 @@ export function useExploreFeed(scope = "feed") {
     if (isAdvertDraft(post)) {
       const analytics = await fetchExploreAdvertAnalytics(post).catch(() => null);
       if (analytics) {
-        showToast(
-          `Advert activity: ${analytics.impressions ?? 0} impressions, ${analytics.reach ?? 0} reach, ${analytics.clicks ?? 0} clicks, ${analytics.ctr ?? 0}% CTR.`,
-          "info",
-        );
+        // Toasts are 25 characters at most, so this carries the two figures
+        // that matter most; compact numbers keep it inside even at millions.
+        showToast(`${compactCount(analytics.impressions)} views, ${compactCount(analytics.clicks)} clicks`, "info");
         return;
       }
     }
 
-    showToast(`Activity: ${post.likes_count ?? 0} likes, ${post.comments_count ?? 0} comments, ${post.saves_count ?? 0} saves.`, "info");
+    showToast(`${compactCount(post.likes_count)} likes, ${compactCount(post.comments_count)} comments`, "info");
   }
 
   return {

@@ -21,6 +21,7 @@ import SocialScreenHeader from "../shared/SocialScreenHeader";
 import LinkedAccountsSection from "./LinkedAccountsSection";
 import { t as i18nText, uiText } from "../../../../i18n/index";
 import { uiText as translateUi, useI18n as useUiLocale } from "../../../../i18n/index.js";
+import { shortErrorToast } from "../../../../Backend/services/friendlyErrorService";
 
 const securityItems = [
   {
@@ -85,9 +86,9 @@ export default function SecurityScreen({ currentProfile, hideHeader = false, onO
         userId: currentUserId,
       });
       setBiometricPreference(next);
-      showToast(i18nText("ui.literals.k8812a7a93a8a"), "success");
+      showToast("Biometric unlock is on", "success");
     } catch (error) {
-      showToast(error.message || i18nText("ui.literals.ke58e7c9e74e0"), "danger");
+      showToast(shortErrorToast(error, "Biometrics not enabled"), "danger");
     } finally {
       setBiometricBusy(false);
     }
@@ -95,7 +96,7 @@ export default function SecurityScreen({ currentProfile, hideHeader = false, onO
 
   function disableBiometrics() {
     setBiometricPreference(disableBiometricUnlock(currentUserId));
-    showToast(i18nText("ui.literals.k89e7589c9e0b"), "info");
+    showToast("Biometric unlock is off", "info");
   }
 
   async function testBiometrics() {
@@ -104,9 +105,9 @@ export default function SecurityScreen({ currentProfile, hideHeader = false, onO
     try {
       const next = await verifyBiometricUnlock(currentUserId);
       setBiometricPreference(next);
-      showToast(i18nText("ui.literals.kd3b572e43456"), "success");
+      showToast("Biometric check passed", "success");
     } catch (error) {
-      showToast(error.message || i18nText("ui.literals.k2ccdd51c06a7"), "danger");
+      showToast(shortErrorToast(error, "Biometric check failed"), "danger");
     } finally {
       setBiometricBusy(false);
     }

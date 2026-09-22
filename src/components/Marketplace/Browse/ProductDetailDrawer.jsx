@@ -54,7 +54,7 @@ import {
   writeBuyerAddressList,
 } from "../shared/buyerAddressPreferences";
 import { uiText as translateUi, useI18n as useUiLocale } from "../../../i18n/index.js";
-import { inlineErrorMessage } from "../../../Backend/services/friendlyErrorService";
+import { inlineErrorMessage, shortErrorToast } from "../../../Backend/services/friendlyErrorService";
 
 function mapSavedAddressToOrder(address = {}) {
   return {
@@ -692,7 +692,7 @@ export default function ProductDetailDrawer({
       setReviewEligibility(nextEligibility);
     } catch (err) {
       setReviewStatus(inlineErrorMessage(err, t("urmall.detail.reviewSubmitFailed")));
-      onNotice?.(err.message || t("urmall.detail.reviewSubmitFailed"), "danger");
+      onNotice?.(shortErrorToast(err, t("urmall.detail.reviewSubmitFailed")), "danger");
     } finally {
       setReviewSubmitting(false);
     }
@@ -719,35 +719,35 @@ export default function ProductDetailDrawer({
     event.preventDefault();
     const quantity = Math.max(1, Number(orderForm.quantity || 1));
     if (!isBooking && quantity < minimumOrderQuantity) {
-      onNotice?.(`This supplier requires a minimum order of ${minimumOrderQuantity}.`, "danger");
+      onNotice?.("Below minimum order", "danger");
       return;
     }
     if (!String(orderForm.buyerName || "").trim()) {
-      onNotice?.(t(isBooking ? "urmall.detail.addNameBooking" : "urmall.detail.addNameOrder"), "danger");
+      onNotice?.("Add your name first", "danger");
       return;
     }
     if (!String(orderForm.phone || "").trim()) {
-      onNotice?.(t(isBooking ? "urmall.detail.addPhoneBooking" : "urmall.detail.addPhoneOrder"), "danger");
+      onNotice?.("Add a phone number", "danger");
       return;
     }
     if (isBooking && !orderForm.startDate) {
-      onNotice?.(t("urmall.detail.addStartBeforeBooking", { label: bookingStartLabel }), "danger");
+      onNotice?.("Add booking details", "danger");
       return;
     }
     if (isBooking && bookingUsesEndDate && !orderForm.endDate) {
-      onNotice?.(t("urmall.detail.addEndBeforeBooking", { label: bookingEndLabel }), "danger");
+      onNotice?.("Add booking details", "danger");
       return;
     }
     if (isBooking && bookingUsesEndDate && orderForm.endDate < orderForm.startDate) {
-      onNotice?.(t("urmall.detail.endBeforeStart", { end: bookingEndLabel, start: bookingStartLabel }), "danger");
+      onNotice?.("End is before start", "danger");
       return;
     }
     if (!isBooking && quantity > Number(product.stock || 0)) {
-      onNotice?.(t(product.stock === 1 ? "urmall.detail.onlyNAvailableOne" : "urmall.detail.onlyNAvailableOther", { count: product.stock }), "danger");
+      onNotice?.(`Only ${Number(product.stock || 0)} in stock`, "danger");
       return;
     }
     if (!isBooking && orderForm.fulfillment !== "pickup" && !orderForm.address.trim()) {
-      onNotice?.(t("urmall.detail.addAddressBeforeOrder"), "danger");
+      onNotice?.("Add a delivery address", "danger");
       return;
     }
 

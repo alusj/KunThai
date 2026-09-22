@@ -39,7 +39,7 @@ import { useI18n, t } from "../../../../i18n";
 import PromotionSetupPanel from "./Promotion/PromotionSetupPanel";
 import { normalizePromotionSettings } from "./Promotion/promotionSetup";
 import { uiText as translateUi, useI18n as useUiLocale } from "../../../../i18n/index.js";
-import { inlineErrorMessage } from "../../../../Backend/services/friendlyErrorService";
+import { inlineErrorMessage, shortErrorToast } from "../../../../Backend/services/friendlyErrorService";
 
 const DAYS = ["Sunday", "Monday", "Tuesday", "Wednesday", "Thursday", "Friday", "Saturday"];
 const dayLong = (index) => t(`urmall.biz.vert.dayLong${index}`);
@@ -185,7 +185,7 @@ function RestaurantDashboard({ business, canManage = true, initialWorkspace = nu
       const nextItems = await fetchRestaurantMenu(business.id, day);
       setItems(rememberSellerVerticalData(menuCacheKey, nextItems));
     } catch (error) {
-      showToast(error.message, "danger");
+      showToast(shortErrorToast(error, "Couldn't load menu"), "danger");
     } finally {
       setLoading(false);
     }
@@ -221,7 +221,7 @@ function RestaurantDashboard({ business, canManage = true, initialWorkspace = nu
     event.preventDefault();
     if (submissionLock.current) return;
     if (!form.available_everyday && !(form.available_days || []).length) {
-      showToast(t("urmall.biz.vert.errPickDay"), "danger");
+      showToast("Pick at least one day", "danger");
       return;
     }
     submissionLock.current = true;
@@ -244,7 +244,7 @@ function RestaurantDashboard({ business, canManage = true, initialWorkspace = nu
             regions: promotionSettings.promotionRegions,
           });
         } catch (promoError) {
-          showToast(promoError.message || t("urmall.biz.vert.promoteFailed"), "danger");
+          showToast(shortErrorToast(promoError, "Boost couldn't start"), "danger");
         }
       }
       setForm({ name: "", description: "", price: "", meal_period: "all_day", preparation_minutes: 20, available_everyday: true, available_days: [], ...createEmptyVerticalMedia() });
@@ -253,8 +253,8 @@ function RestaurantDashboard({ business, canManage = true, initialWorkspace = nu
       notifyVerticalListingUpdated(business.id);
       haptics.medium("marketplace");
       sounds.success("marketplace");
-      showToast(wasEditing ? t("urmall.biz.vert.updatedShare") : t("urmall.biz.vert.addedShare"), "success", urMallShareToastOptions());
-    } catch (error) { showToast(error.message, "danger"); } finally { submissionLock.current = false; setSubmitting(false); setUploadStage(""); }
+      showToast(wasEditing ? "Updated successfully" : "Added successfully", "success", urMallShareToastOptions());
+    } catch (error) { showToast(shortErrorToast(error, "Couldn't save meal"), "danger"); } finally { submissionLock.current = false; setSubmitting(false); setUploadStage(""); }
   }
 
   return (
@@ -263,7 +263,7 @@ function RestaurantDashboard({ business, canManage = true, initialWorkspace = nu
       <VerticalActivityStrip activity={activity} commerceLabel={t("urmall.biz.vert.orders")} commerceValue={activity.orders} />
       <section className="rounded-[26px] border border-gray-200 bg-white p-5 shadow-sm">
         <SectionHeading eyebrow={t("urmall.biz.vert.dayMenu", { day: dayLong(day) })} title={t("urmall.biz.vert.mealsTitle")}>{canManage ? <PrimaryButton onClick={openNewMeal} label={t("urmall.biz.vert.addMeal")} className="bg-orange-600" /> : null}</SectionHeading>
-        <div className="mt-5 grid gap-3 md:grid-cols-2" aria-busy={loading || undefined}>{loading ? <VerticalListingsSkeleton variant="meal" /> : items.map((item) => <MealCard key={item.id} item={item} business={business} canManage={canManage} onEdit={() => editMeal(item)} onInsights={() => setInsightsItem(item)} onPromote={() => setPromoteItem(item)} onDelete={async () => { await deleteRestaurantMenuItem(item); await load(); notifyVerticalListingUpdated(business.id); showToast(t("urmall.biz.vert.mealDeleted"), "success"); }} onToggle={async () => { await toggleRestaurantMenuItem(item, !item.available); await load(); notifyVerticalListingUpdated(business.id); }} />)}</div>
+        <div className="mt-5 grid gap-3 md:grid-cols-2" aria-busy={loading || undefined}>{loading ? <VerticalListingsSkeleton variant="meal" /> : items.map((item) => <MealCard key={item.id} item={item} business={business} canManage={canManage} onEdit={() => editMeal(item)} onInsights={() => setInsightsItem(item)} onPromote={() => setPromoteItem(item)} onDelete={async () => { await deleteRestaurantMenuItem(item); await load(); notifyVerticalListingUpdated(business.id); showToast("Meal has been deleted", "success"); }} onToggle={async () => { await toggleRestaurantMenuItem(item, !item.available); await load(); notifyVerticalListingUpdated(business.id); }} />)}</div>
         {!loading && !items.length ? <EmptyState text={t("urmall.biz.vert.noMeals", { day: dayLong(day) })} /> : null}
       </section>
       <VerticalEditorSheet open={formOpen} onClose={() => setFormOpen(false)} title={editingMeal ? t("urmall.biz.vert.editMeal") : t("urmall.biz.vert.addMeal")} subtitle={t("urmall.biz.vert.dayMenu", { day: dayLong(day) })} formId="restaurant-meal-form" actionLabel={editingMeal ? t("urmall.biz.vert.saveChanges") : form.promote ? t("urmall.biz.pform.pubPromote") : t("urmall.biz.vert.addMeal")} processingLabel={editingMeal ? t("urmall.biz.vert.saving") : t("urmall.biz.vert.adding")} processing={submitting} accentClass="bg-orange-600" uploadStage={uploadStage} uploadTitle={t("urmall.biz.vert.addingMeal")}>
@@ -409,7 +409,7 @@ function HotelDashboard({ business, canManage = true, initialWorkspace = null })
     setWorkspace(rememberSellerVerticalData(hotelCacheKey, nextWorkspace));
     return nextWorkspace;
   }, [business.id, emptyWorkspace, hotelCacheKey]);
-  useEffect(() => { load().catch((error) => showToast(error.message, "danger")); }, [load]);
+  useEffect(() => { load().catch((error) => showToast(shortErrorToast(error, "Couldn't load hotel"), "danger")); }, [load]);
   useOpenVerticalEditor(() => setFormOpen(true), canManage);
 
   async function save(event) {
@@ -425,8 +425,8 @@ function HotelDashboard({ business, canManage = true, initialWorkspace = null })
       notifyVerticalListingUpdated(business.id);
       haptics.medium("marketplace");
       sounds.success("marketplace");
-      showToast(t("urmall.biz.vert.addedShare"), "success", urMallShareToastOptions());
-    } catch (error) { showToast(error.message, "danger"); } finally { submissionLock.current = false; setSubmitting(false); setUploadStage(""); }
+      showToast("Added successfully", "success", urMallShareToastOptions());
+    } catch (error) { showToast(shortErrorToast(error, "Couldn't add media"), "danger"); } finally { submissionLock.current = false; setSubmitting(false); setUploadStage(""); }
   }
 
   return (
@@ -477,7 +477,7 @@ function PropertyDashboard({ business, canManage = true, initialWorkspace = null
       setLoading(false);
     }
   }, [business.id, propertyCacheKey]);
-  useEffect(() => { load().catch((error) => showToast(error.message, "danger")); }, [load]);
+  useEffect(() => { load().catch((error) => showToast(shortErrorToast(error, "Couldn't load property"), "danger")); }, [load]);
   const openNewProperty = useCallback(() => {
     setForm({ title: "", description: "", purpose: "rent", property_type: "house", price: "", rent_period: "month", bedrooms: 0, bathrooms: 0, furnished: false, parking_spaces: 0, land_size: "", land_size_unit: "plots", floor_area: "", floor_area_unit: "sqm", rooms: 0, star_rating: "", address: "", city: business.location || "", latitude: "", longitude: "", amenitiesText: "", published: true, ...createEmptyVerticalMedia() });
     setFormOpen(true);
@@ -519,7 +519,7 @@ function PropertyDashboard({ business, canManage = true, initialWorkspace = null
             regions: promotionSettings.promotionRegions,
           });
         } catch (promoError) {
-          showToast(promoError.message || t("urmall.biz.vert.promoteFailed"), "danger");
+          showToast(shortErrorToast(promoError, "Boost couldn't start"), "danger");
         }
       }
       setForm({ title: "", description: "", purpose: "rent", property_type: "house", price: "", rent_period: "month", bedrooms: 0, bathrooms: 0, furnished: false, parking_spaces: 0, land_size: "", land_size_unit: "plots", floor_area: "", floor_area_unit: "sqm", rooms: 0, star_rating: "", address: "", city: business.location || "", latitude: "", longitude: "", amenitiesText: "", published: true, ...createEmptyVerticalMedia() });
@@ -528,8 +528,8 @@ function PropertyDashboard({ business, canManage = true, initialWorkspace = null
       notifyVerticalListingUpdated(business.id);
       haptics.medium("marketplace");
       sounds.success("marketplace");
-      showToast(wasEditing ? t("urmall.biz.vert.updatedShare") : t("urmall.biz.vert.addedShare"), "success", urMallShareToastOptions());
-    } catch (error) { showToast(error.message, "danger"); } finally { submissionLock.current = false; setSubmitting(false); setUploadStage(""); }
+      showToast(wasEditing ? "Updated successfully" : "Added successfully", "success", urMallShareToastOptions());
+    } catch (error) { showToast(shortErrorToast(error, "Couldn't save property"), "danger"); } finally { submissionLock.current = false; setSubmitting(false); setUploadStage(""); }
   }
 
   return (
@@ -757,7 +757,7 @@ function SellerItemActions({ label, canManage = true, onDelete, onEdit, onInsigh
   const [deleting, setDeleting] = useState(false);
 
   async function copyLink() {
-    try { await navigator.clipboard.writeText(await decorateShareUrl(shareUrl)); showToast(t("urmall.biz.vert.linkCopied"), "success"); } catch { showToast(t("urmall.biz.vert.copyFailed"), "danger"); }
+    try { await navigator.clipboard.writeText(await decorateShareUrl(shareUrl)); showToast("Link has been copied", "success"); } catch { showToast(t("urmall.biz.vert.copyFailed"), "danger"); }
     setOpen(false);
   }
 
@@ -767,13 +767,13 @@ function SellerItemActions({ label, canManage = true, onDelete, onEdit, onInsigh
       if (navigator.share) await navigator.share({ title: label, text: t("urmall.biz.vert.shareText", { label }), url: decoratedUrl });
       else await navigator.clipboard.writeText(decoratedUrl);
       showToast(navigator.share ? t("urmall.biz.vert.shared") : t("urmall.biz.vert.linkCopiedShare"), "success");
-    } catch (error) { if (error?.name !== "AbortError") showToast(t("urmall.biz.vert.shareFailed"), "danger"); }
+    } catch (error) { if (error?.name !== "AbortError") showToast("Couldn't share item", "danger"); }
     setOpen(false);
   }
 
   async function remove() {
     setDeleting(true);
-    try { await onDelete?.(); setOpen(false); setConfirmDelete(false); } catch (error) { showToast(error.message || t("urmall.biz.vert.deleteFailed"), "danger"); } finally { setDeleting(false); }
+    try { await onDelete?.(); setOpen(false); setConfirmDelete(false); } catch (error) { showToast(shortErrorToast(error, "Couldn't delete item"), "danger"); } finally { setDeleting(false); }
   }
 
   return <><button type="button" onClick={() => setOpen(true)} className="grid h-10 w-10 place-items-center rounded-full border border-white/70 bg-slate-950/80 text-white shadow-lg backdrop-blur-md transition hover:bg-slate-950" aria-label={t("urmall.biz.vert.actionsFor", { label })}><MoreVertical size={19} /></button>{open ? createPortal(<div className="fixed inset-0 z-[1350]" role="presentation"><button type="button" aria-label={t("urmall.biz.vert.closeItemActions")} onClick={() => { setOpen(false); setConfirmDelete(false); }} className="absolute inset-0 bg-slate-950/35 backdrop-blur-[1px]" /><section role="dialog" aria-modal="true" aria-label={t("urmall.biz.vert.actionsFor", { label })} className="kt-detail-zoom-enter absolute bottom-[max(0.75rem,env(safe-area-inset-bottom))] right-3 left-auto w-56 max-w-[calc(100vw-1.5rem)] rounded-2xl border border-white/70 bg-white p-1.5 shadow-2xl sm:right-4 sm:w-60"><div className="mb-0.5 flex items-center justify-between gap-2 px-2 py-1"><p className="truncate text-sm font-black text-gray-950">{translateUi(label)}</p><button type="button" onClick={() => setOpen(false)} className="grid h-7 w-7 shrink-0 place-items-center rounded-full bg-gray-100 text-gray-600" aria-label={t("urmall.biz.vert.closeActions")}><X size={15} /></button></div>{canManage && onInsights ? <button type="button" onClick={() => { setOpen(false); onInsights(); }} className="flex w-full items-center gap-3 rounded-xl px-3 py-2.5 text-left text-sm font-black text-gray-700 hover:bg-gray-50"><BarChart3 size={17} /> {t("urmall.biz.intel.insightsTab")}</button> : null}{canManage && onEdit ? <button type="button" onClick={() => { setOpen(false); onEdit(); }} className="flex w-full items-center gap-3 rounded-xl px-3 py-2.5 text-left text-sm font-black text-gray-700 hover:bg-gray-50"><Pencil size={17} /> {t("urmall.biz.reg.edit")}</button> : null}<button type="button" onClick={copyLink} className="flex w-full items-center gap-3 rounded-xl px-3 py-2.5 text-left text-sm font-black text-gray-700 hover:bg-gray-50"><Copy size={17} /> {t("urmall.biz.vert.copyLink")}</button><button type="button" onClick={share} className="flex w-full items-center gap-3 rounded-xl px-3 py-2.5 text-left text-sm font-black text-gray-700 hover:bg-gray-50"><Share2 size={17} /> {t("urmall.biz.vert.share")}</button>{canManage && onPromote ? <button type="button" onClick={() => { setOpen(false); onPromote(); }} className="flex w-full items-center gap-3 rounded-xl px-3 py-2.5 text-left text-sm font-black text-emerald-700 hover:bg-emerald-50"><Rocket size={17} /> {t("urmall.biz.vert.promote")}</button> : null}{canManage ? (confirmDelete ? <div className="mt-1 rounded-xl bg-red-50 p-3"><p className="text-xs font-bold text-red-700">{t("urmall.biz.vert.deletePermanently")}</p><div className="mt-2 grid grid-cols-2 gap-2"><button type="button" onClick={() => setConfirmDelete(false)} className="rounded-lg bg-white px-2 py-2 text-xs font-black text-gray-700">{t("urmall.biz.vert.cancel")}</button><button type="button" disabled={deleting} onClick={remove} className="rounded-lg bg-red-600 px-2 py-2 text-xs font-black text-white disabled:opacity-60">{deleting ? t("urmall.biz.vert.deleting") : t("urmall.biz.vert.delete")}</button></div></div> : <button type="button" onClick={() => setConfirmDelete(true)} className="flex w-full items-center gap-3 rounded-xl px-3 py-2.5 text-left text-sm font-black text-red-600 hover:bg-red-50"><Trash2 size={17} /> {t("urmall.biz.vert.delete")}</button>) : null}</section></div>, document.body) : null}</>;
@@ -801,7 +801,7 @@ function VerticalPromoteSheet({ listingType, listing, onClose, onPromoted }) {
       });
       haptics.medium("marketplace");
       sounds.success("marketplace");
-      showToast(t("urmall.biz.vert.promoteLive", { name }), "success", urMallShareToastOptions());
+      showToast("Product is now boosted", "success", urMallShareToastOptions());
       onPromoted?.();
       onClose?.();
     } catch (err) {

@@ -28,6 +28,7 @@ import SocialScreenHeader from "../shared/SocialScreenHeader";
 import TwoFactorSection from "./TwoFactorSection";
 import { t as i18nText } from "../../../../i18n/index";
 import { uiText as translateUi, useI18n as useUiLocale } from "../../../../i18n/index.js";
+import { shortErrorToast } from "../../../../Backend/services/friendlyErrorService";
 
 function Toggle({ active, label, onChange }) {
   useUiLocale();
@@ -105,10 +106,10 @@ export default function SettingsScreen({ hideHeader = false, onOpenDataMobile, o
     try {
       await signOutSocialSession({ allDevices });
       if (allDevices) {
-        showToast(i18n.t("settings.toastSignedOutAll"), "success");
+        showToast("Signed out everywhere", "success");
       }
     } catch (error) {
-      showToast(error.message || i18n.t("settings.toastSignOutError"), "danger");
+      showToast(shortErrorToast(error, i18n.t("settings.toastSignOutError")), "danger");
     }
   }
 
@@ -128,9 +129,9 @@ export default function SettingsScreen({ hideHeader = false, onOpenDataMobile, o
     try {
       const next = pushStatus === "enabled" ? await disablePushNotifications() : await enablePushNotifications();
       setPushStatus(next);
-      showToast(next === "enabled" ? i18n.t("settings.toastPushOn") : i18n.t("settings.toastPushOff"), "success");
+      showToast(next === "enabled" ? "Push alerts are on" : "Push alerts are off", "success");
     } catch (error) {
-      showToast(error.message || i18n.t("settings.toastPushError"), "danger");
+      showToast(shortErrorToast(error, "Push alerts not updated"), "danger");
       setPushStatus(await getPushStatus());
     } finally {
       setPushBusy(false);

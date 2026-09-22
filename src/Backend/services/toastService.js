@@ -1,5 +1,20 @@
-import { isConnectionFailure, sanitizeUserMessage } from "./friendlyErrorService";
+import { isConnectionFailure, sanitizeUserMessage, TOAST_MAX_LENGTH, TOAST_MIN_LENGTH } from "./friendlyErrorService";
 import { announceConnectionTrouble } from "./networkService";
+import { t } from "../../i18n/index";
+
+// Every toast is 15–25 characters, spaces included. The copy is written to
+// fit; this flags a new toast that does not, while developing. Interpolated
+// values (names, counts) are measured as shown.
+function warnIfToastLength(message) {
+  try {
+    if (!import.meta.env.DEV || typeof message !== "string") return;
+  } catch {
+    return;
+  }
+  if (message.length < TOAST_MIN_LENGTH || message.length > TOAST_MAX_LENGTH) {
+    console.warn(`[toast] ${message.length} characters (keep toasts ${TOAST_MIN_LENGTH}–${TOAST_MAX_LENGTH}): "${message}"`);
+  }
+}
 
 export const TOAST_EVENT = "kuntai-toast";
 
@@ -27,14 +42,22 @@ function readToastOrigin() {
 
 export function showToast(rawMessage, tone = "info", options = {}) {
   if (!rawMessage) return;
+  // A lost connection has one voice: the global network toast. An action that
+  // failed offline re-shows that toast rather than adding its own beside it.
+  // Without a global announcer (the admin console) it shows the same short line.
+  if (typeof rawMessage === "string" && isConnectionFailure(rawMessage)) {
+    if (announceConnectionTrouble()) return;
+    rawMessage = t("common.offlineBanner");
+  }
   // Never surface raw network/technical errors — rewrite them to plain language
   // before anything else (including dedup, so a burst of the same fault shows
   // one friendly toast rather than several cryptic ones).
   const message = sanitizeUserMessage(rawMessage);
   if (!message) return;
-  // A lost connection has one voice: the global network toast. An action that
-  // failed offline re-shows that toast rather than adding its own beside it.
-  if (typeof rawMessage === "string" && isConnectionFailure(rawMessage) && announceConnectionTrouble()) return;
+  // Raw runtime noise becomes the long inline "something went wrong" line;
+  // a toast gets the short one.
+  if (message === t("common.tryAgain")) return showToast("Something went wrong", tone, options);
+  warnIfToastLength(message);
   const now = Date.now();
   const dedupKey = `${options.title || ""}:${message}`;
   if (now - Number(recentToastKeys.get(dedupKey) || 0) < TOAST_DEDUP_MS) return;

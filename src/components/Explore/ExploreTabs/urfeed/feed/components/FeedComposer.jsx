@@ -1,5 +1,5 @@
 import { useEffect, useLayoutEffect, useRef, useState } from "react";
-import { inlineErrorMessage, sanitizeUserMessage } from "../../../../../../Backend/services/friendlyErrorService";
+import { inlineErrorMessage, sanitizeUserMessage, shortErrorToast } from "../../../../../../Backend/services/friendlyErrorService";
 import { createPortal } from "react-dom";
 import {
   HiOutlineArrowsUpDown,
@@ -61,7 +61,7 @@ import {
 import { runPostReviewPipeline } from "../composer/postReviewPipeline";
 import { CONTENT_MODERATION_ENABLED } from "../../../../../../config/contentModeration";
 import { getCountryCurrencyCode } from "../../../../../../data/globalCountryProfiles";
-import { getUnavailableFeatureMessage, isFeatureAvailable } from "../../../../../../data/globalFeatureAvailability";
+import { isFeatureAvailable } from "../../../../../../data/globalFeatureAvailability";
 import { findExploreTopic } from "../../../../../../data/exploreTopics";
 import {
   getMinimumExploreAdvertCredits,
@@ -300,13 +300,6 @@ function formatLocationLabel(lat, lng) {
   const safeLng = Number(lng);
   if (!Number.isFinite(safeLat) || !Number.isFinite(safeLng)) return "";
   return `${safeLat.toFixed(6)}, ${safeLng.toFixed(6)}`;
-}
-
-function formatVideoFileSize(bytes = 0) {
-  const megabytes = Number(bytes || 0) / (1024 * 1024);
-  if (!Number.isFinite(megabytes) || megabytes <= 0) return "0 MB";
-  if (megabytes < 10) return `${megabytes.toFixed(1)} MB`;
-  return `${Math.ceil(megabytes)} MB`;
 }
 
 async function uploadVideoWithProgress(file, onProgress) {
@@ -871,7 +864,7 @@ export default function FeedComposer({ profile, creating, onSubmit }) {
     if (guardGuestAction("create", "post")) return;
 
     if (type === "advert" && !isFeatureAvailable("adverts", profile?.countryCode || profile?.country || {})) {
-      showToast(getUnavailableFeatureMessage("adverts", profile?.countryCode || profile?.country || {}), "info", {
+      showToast("Ads not available here", "info", {
         title: i18nText("ui.literals.k6e9c5f193c1f"),
       });
       return;
@@ -1066,7 +1059,7 @@ export default function FeedComposer({ profile, creating, onSubmit }) {
       if (videoSpecError) {
         setVideoNotice({ title: i18nText("ui.literals.k9243985fcda8"), message });
       } else {
-        showToast(message, "danger", {
+        showToast(shortErrorToast(error, "Couldn't attach media"), "danger", {
           title: i18nText("ui.literals.ke248170a3849"),
           duration: 6200,
         });
@@ -2125,7 +2118,7 @@ if (!isMobileVideoDevice) {
             // The trimmer knows the clip length; a MediaRecorder WebM often
             // reports Infinity when measured, so it is not re-checked.
             if (trimmedFile.size > MAX_EXPLORE_VIDEO_BYTES) {
-              showToast(i18nText("ui.literals.k053042183f66", { value0: formatVideoFileSize(trimmedFile.size), value1: MAX_EXPLORE_VIDEO_MB }), "danger", { title: i18nText("ui.literals.ke248170a3849") });
+              showToast("Video is too large", "danger", { title: i18nText("ui.literals.ke248170a3849") });
               return;
             }
             trimRequestRef.current += 1;

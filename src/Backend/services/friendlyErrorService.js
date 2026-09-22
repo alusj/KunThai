@@ -94,6 +94,21 @@ export function isConnectionFailure(errorOrMessage) {
   return isNetworkError(errorOrMessage);
 }
 
+// Every toast is 15–25 characters, spaces included (user rule, 2026-09-22).
+export const TOAST_MIN_LENGTH = 15;
+export const TOAST_MAX_LENGTH = 25;
+
+// The message for a toast about a failed action. A server's own message is
+// shown only when it is plain language and already fits a toast; otherwise the
+// short, specific fallback for that action is ("Couldn't remove admin"). A lost
+// connection still returns the network line, so showToast hands it to the one
+// global offline toast.
+export function shortErrorToast(error, fallback) {
+  if (isConnectionFailure(error)) return t("common.networkLost");
+  const message = friendlyErrorMessage(error, fallback);
+  return message.length >= TOAST_MIN_LENGTH && message.length <= TOAST_MAX_LENGTH ? message : fallback;
+}
+
 // For a message shown inside a card, form, sheet or banner. A lost connection
 // yields "" — the component keeps its normal state — and the global network
 // toast says why instead. Everything else is the usual friendly message, so

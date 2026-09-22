@@ -25,6 +25,7 @@ import {
 import LiveTripMetric from "./LiveTripMetric";
 import { useI18n, t } from "../../../i18n";
 import { uiText as translateUi, useI18n as useUiLocale } from "../../../i18n/index.js";
+import { shortErrorToast } from "../../../Backend/services/friendlyErrorService";
 
 function isHeaderTrip(trip) {
   return ["start_requested", "in_progress", "paused"].includes(trip.rawStatus);
@@ -119,14 +120,14 @@ export default function PassengerLiveTripHeaderCard({ onOpenTrips }) {
     };
   }, [closeMenu, menuOpen]);
 
-  async function run(action, successMessage) {
+  async function run(action, outcome) {
     try {
       setBusy(true);
       await action(trip.id);
-      showToast(successMessage, "success");
+      showToast(outcome === "start" ? "Your trip has started" : "Trip start cancelled", "success");
       await refresh();
     } catch (error) {
-      showToast(error.message || t("urride.liveTrip.updateError"), "danger");
+      showToast(shortErrorToast(error, "Couldn't update trip"), "danger");
     } finally {
       setBusy(false);
     }
@@ -157,7 +158,7 @@ export default function PassengerLiveTripHeaderCard({ onOpenTrips }) {
           <div className="grid grid-cols-2 gap-2">
             <button
               type="button"
-              onClick={() => run(confirmTransportTripStart, t("urride.liveTrip.startedToast"))}
+              onClick={() => run(confirmTransportTripStart, "start")}
               disabled={busy}
               className="kt-touchable flex h-11 items-center justify-center gap-2 rounded-xl bg-emerald-600 px-4 text-sm font-black text-white disabled:opacity-50"
             >
@@ -166,7 +167,7 @@ export default function PassengerLiveTripHeaderCard({ onOpenTrips }) {
             </button>
             <button
               type="button"
-              onClick={() => run(declineTransportTripStart, t("urride.liveTrip.startCancelledToast"))}
+              onClick={() => run(declineTransportTripStart, "decline")}
               disabled={busy}
               className="kt-touchable flex h-11 items-center justify-center gap-2 rounded-xl border border-red-100 bg-red-50 px-4 text-sm font-black text-red-700 disabled:opacity-50"
             >

@@ -44,7 +44,7 @@ import SaveOperatorButton from "./SaveOperatorButton";
 import AiAssistButton from "../ai/AiAssistButton";
 import { tripFactsForAi } from "../../Backend/services/ai/urrideAiModels";
 import { uiText as translateUi, useI18n as useUiLocale } from "../../i18n/index.js";
-import { inlineErrorMessage } from "../../Backend/services/friendlyErrorService";
+import { inlineErrorMessage, shortErrorToast } from "../../Backend/services/friendlyErrorService";
 
 const tripSteps = [
   { key: "requested", labelKey: "urride.activeTrips.stepRequested" },
@@ -137,7 +137,8 @@ export default function ActiveTripsScreen({ onBack, onViewFleet, onShowVerificat
       await action();
       if (successMessage) {
         setActionMessage(successMessage);
-        showToast(successMessage, "success");
+        // The toast gets its own short text; the full message stays inline.
+        showToast(options.toast || successMessage, "success");
       }
       if (options.completeTrip) setCompletedTrip(options.completeTrip);
       setActionScreen(null);
@@ -145,7 +146,7 @@ export default function ActiveTripsScreen({ onBack, onViewFleet, onShowVerificat
     } catch (err) {
       const message = err.message || t("urride.activeTrips.updateError");
       setActionMessage(message);
-      showToast(message, "danger");
+      showToast(shortErrorToast(err, "Couldn't update trip"), "danger");
     }
   }
 
@@ -161,7 +162,7 @@ export default function ActiveTripsScreen({ onBack, onViewFleet, onShowVerificat
     await submitTransportTripReview(payload);
     const message = t("urride.activeTrips.reviewThanks");
     setActionMessage(message);
-    showToast(message, "success");
+    showToast("Thanks for your review", "success");
     setCompletedTrip(null);
     setActionScreen(null);
     await loadTrips({ quiet: true });
@@ -223,10 +224,12 @@ export default function ActiveTripsScreen({ onBack, onViewFleet, onShowVerificat
                 onConfirmStart={() => runTripAction(
                   () => confirmTransportTripStart(trip.id),
                   t("urride.activeTrips.tripStarted"),
+                  { toast: "Your trip has started" },
                 )}
                 onDeclineStart={() => runTripAction(
                   () => declineTransportTripStart(trip.id),
                   t("urride.activeTrips.startCancelled"),
+                  { toast: "Trip start cancelled" },
                 )}
                 onViewFleet={() => trip.fleetId && onViewFleet(trip.fleetId)}
                 onShowVerification={() => trip.fleet && onShowVerification(trip.fleet)}
@@ -459,6 +462,7 @@ function PauseScreen({ trip, onRun }) {
       onConfirm={() => onRun(
         () => paused ? continueTransportTrip(trip) : pauseTransportTrip(trip),
         paused ? t("urride.activeTrips.tripContinued") : t("urride.activeTrips.tripPaused"),
+        { toast: paused ? "Trip has resumed" : "Trip has been paused" },
       )}
     />
   );

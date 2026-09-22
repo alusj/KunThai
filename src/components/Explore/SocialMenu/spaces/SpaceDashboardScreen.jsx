@@ -1,5 +1,5 @@
 import { useEffect, useRef, useState } from "react";
-import { inlineErrorMessage } from "../../../../Backend/services/friendlyErrorService";
+import { inlineErrorMessage, shortErrorToast } from "../../../../Backend/services/friendlyErrorService";
 
 import { decorateShareUrl } from "../../../../Backend/services/visibilityCreditService";
 import {
@@ -151,9 +151,8 @@ export default function SpaceDashboardScreen({
       await action();
     } catch (error) {
       if (error?.name === "AbortError") return;
-      const message = inlineErrorMessage(error, "Unable to complete this Space action.");
-      setFeedback(message);
-      showToast(message, "danger");
+      setFeedback(inlineErrorMessage(error, "Unable to complete this Space action."));
+      showToast(shortErrorToast(error, "Space action failed"), "danger");
     } finally {
       setBusyAction("");
     }
@@ -190,7 +189,7 @@ export default function SpaceDashboardScreen({
     const nextStatus = space.status === "paused" ? "active" : "paused";
     const updated = await updateExploreSpaceStatus(space.spaceId, nextStatus);
     onSpaceUpdated?.(updated);
-    showToast(nextStatus === "paused" ? i18nText("ui.literals.k453afb3387cc") : i18nText("ui.literals.kfff27083fbb3"), "success");
+    showToast(nextStatus === "paused" ? "Space has been paused" : i18nText("ui.literals.kfff27083fbb3"), "success");
   }
 
   async function leaveSpace() {
@@ -206,7 +205,7 @@ export default function SpaceDashboardScreen({
     if (!confirmed) return;
     await deleteExploreSpace(space.spaceId);
     onSpaceRemoved?.(space);
-    showToast(i18nText("ui.literals.k44e1941bbb1d"), "success");
+    showToast("Space has been deleted", "success");
   }
 
   function setInviteRole(role) {
@@ -271,10 +270,10 @@ export default function SpaceDashboardScreen({
       setMembers((current) => [created, ...current.filter((member) => member.id !== created.id)]);
       setInvite(INVITE_INITIAL);
       setInviteOpen(false);
-      showToast(i18nText("ui.literals.k8891f9f7e891"), "success");
+      showToast("Team invitation sent", "success");
     } catch (error) {
       setFeedback(inlineErrorMessage(error, i18nText("ui.literals.k077d6829745d")));
-      showToast(error.message || i18nText("ui.literals.k077d6829745d"), "danger");
+      showToast(shortErrorToast(error, "Couldn't invite member"), "danger");
     } finally {
       setSavingInvite(false);
     }
@@ -289,7 +288,7 @@ export default function SpaceDashboardScreen({
       setMembers((current) => current.map((item) => (item.id === updated.id ? updated : item)));
       showToast(i18nText("ui.literals.k07fed9d9b325"), "success");
     } catch (error) {
-      showToast(error.message || i18nText("ui.literals.ke599ffc2a9ed"), "danger");
+      showToast(shortErrorToast(error, "Couldn't update member"), "danger");
     }
   }
 
@@ -299,7 +298,7 @@ export default function SpaceDashboardScreen({
       setMembers((current) => current.filter((item) => item.id !== removed.id));
       showToast(i18nText("ui.literals.k58c478a9139e"), "success");
     } catch (error) {
-      showToast(error.message || i18nText("ui.literals.k91824074dedf"), "danger");
+      showToast(shortErrorToast(error, "Couldn't remove member"), "danger");
     }
   }
 

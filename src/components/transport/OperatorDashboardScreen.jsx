@@ -80,7 +80,7 @@ import {
   shouldPreserveAvailabilityOverride,
 } from "./operatorAvailabilityState";
 import { uiText as translateUi, useI18n as useUiLocale } from "../../i18n/index.js";
-import { inlineErrorMessage } from "../../Backend/services/friendlyErrorService";
+import { inlineErrorMessage, shortErrorToast } from "../../Backend/services/friendlyErrorService";
 
 function formatOperatorMoney(value, account = null) {
   return formatCountryMoney(value, account?.form?.currency || account?.form?.countryCode || account?.form?.country || getCountryCurrencyCode());
@@ -457,7 +457,7 @@ export default function OperatorDashboardScreen({
         expiresAt: Date.now() + AVAILABILITY_REFRESH_GRACE_MS,
       };
       setIsActive(updatedActive);
-      showToast(updatedActive ? t("urride.opDash.fleetLive") : t("urride.opDash.fleetOffline"), "success");
+      showToast(updatedActive ? "Fleet is now live" : t("urride.opDash.fleetOffline"), "success");
       onAccountUpdate?.((current) => {
         if (!current) return current;
 
@@ -483,7 +483,7 @@ export default function OperatorDashboardScreen({
       availabilityOverrideRef.current = null;
       setIsActive(previousActive);
       setDashboardError(inlineErrorMessage(error, t("urride.opDash.availabilityError")));
-      showToast(error.message || t("urride.opDash.availabilityError"), "danger");
+      showToast(shortErrorToast(error, "Availability not updated"), "danger");
     } finally {
       availabilityInFlightRef.current = false;
       setAvailabilitySaving(false);
@@ -499,7 +499,7 @@ export default function OperatorDashboardScreen({
     if (!account?.fleetId && account?.companyFleetId) {
       const message = t("urride.opDash.goOnlineFirst");
       setDashboardError(message);
-      showToast(message, "warning");
+      showToast("Go online first", "warning");
       return;
     }
 
@@ -510,7 +510,7 @@ export default function OperatorDashboardScreen({
       await refreshDashboard();
     } catch (error) {
       setDashboardError(inlineErrorMessage(error, t("urride.opDash.controlsError")));
-      showToast(error.message || t("urride.opDash.controlsError"), "danger");
+      showToast(shortErrorToast(error, "Trip controls not saved"), "danger");
     } finally {
       setControlsSaving(false);
     }
@@ -526,18 +526,19 @@ export default function OperatorDashboardScreen({
       setDashboardError("");
       if (status === "start_requested") await requestTransportTripStart(trip.id);
       else await updateTransportTripStatus(trip.id, status, status === "cancelled" ? { ...patch, endedBy: "operator" } : patch);
-      const statusCopy = {
-        accepted: t("urride.opDash.tripAccepted"),
-        arrived: t("urride.opDash.tripArrived"),
-        start_requested: t("urride.opDash.tripStartRequested"),
-        completed: t("urride.opDash.tripCompleted"),
-        cancelled: t("urride.opDash.tripCancelled"),
-      };
-      showToast(statusCopy[status] || t("urride.opDash.tripUpdated"), "success");
+      showToast(
+        status === "accepted" ? "Trip has been accepted"
+          : status === "arrived" ? "Marked as arrived"
+            : status === "start_requested" ? "Trip start requested"
+              : status === "completed" ? "Trip marked completed"
+                : status === "cancelled" ? "Trip has been cancelled"
+                  : "Trip has been updated",
+        "success",
+      );
       await refreshDashboard();
     } catch (error) {
       setDashboardError(inlineErrorMessage(error, t("urride.opDash.tripUpdateError")));
-      showToast(error.message || t("urride.opDash.tripUpdateError"), "danger");
+      showToast(shortErrorToast(error, t("urride.opDash.tripUpdateError")), "danger");
     }
   }
 
@@ -836,7 +837,7 @@ export default function OperatorDashboardScreen({
           markNotificationsSeen(alertReadScope, alertNotificationItems);
           Promise.all(alertNotificationItems.filter((alert) => alert.unread).map((alert) => markOperatorAlertRead(alert.alertId))).catch(() => {});
           setSeenVersion((version) => version + 1);
-          showToast(t("urride.opDash.allReadToast"), "success");
+          showToast("All alerts marked read", "success");
         }}
         onRead={(alert) => {
           markNotificationsSeen(alertReadScope, [alert]);
@@ -1107,7 +1108,7 @@ export function OperatorLiveTripHeaderCard({ trip, fleetName, onViewRoute }) {
       showToast(t("urride.opDash.routeCopied"), "success");
     } catch (error) {
       if (error?.name === "AbortError") return;
-      showToast(error.message || t("urride.opDash.shareRouteError"), "danger");
+      showToast(shortErrorToast(error, "Couldn't share route"), "danger");
     }
   }
 
@@ -1128,9 +1129,9 @@ export function OperatorLiveTripHeaderCard({ trip, fleetName, onViewRoute }) {
         ].join("\n"),
       });
       closeMenu(true);
-      showToast(t("urride.opDash.concernSent"), "success");
+      showToast("Concern sent to support", "success");
     } catch (error) {
-      showToast(error.message || t("urride.opDash.concernError"), "danger");
+      showToast(shortErrorToast(error, "Concern not sent"), "danger");
     }
   }
 

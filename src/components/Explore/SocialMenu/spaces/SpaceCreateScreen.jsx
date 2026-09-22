@@ -102,7 +102,7 @@ export default function SpaceCreateScreen({ hideHeader = false, onCreated }) {
         ...form,
         slug: suggestedSlug,
       });
-      showToast(i18nText("ui.literals.k451e8fbf008a", { value0: created.displayName }), "success");
+      showToast("New Space created", "success");
       onCreated?.(created);
       setForm(INITIAL_FORM);
     } catch (error) {

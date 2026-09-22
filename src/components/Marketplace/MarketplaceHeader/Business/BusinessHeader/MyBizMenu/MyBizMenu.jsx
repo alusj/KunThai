@@ -32,6 +32,7 @@ import ProfileSettings from "./MyBizPages/ProfileSettings/ProfileSettings";
 import SellerBoard from "./MyBizPages/SellerBoard/SellerBoard";
 import SubscriptionPlans from "./MyBizPages/SubscriptionPlans/SubscriptionPlans";
 import { t as i18nText } from "../../../../../../i18n/index";
+import { shortErrorToast } from "../../../../../../Backend/services/friendlyErrorService";
 
 const SELLER_MENU_ANIMATION_MS = 360;
 
@@ -253,7 +254,7 @@ export default function MyBizMenu({
               <SellerDrawerProfile
                 onOpenProfile={() => {
                   if (canEditBusiness) openActiveScreen("profile");
-                  else showToast("The business owner has not assigned you responsibility for editing business information.", "info");
+                  else showToast("No edit permission", "info");
                 }}
               />
 
@@ -413,7 +414,7 @@ export default function MyBizMenu({
                     // state automatically after showing the success message.
                     window.setTimeout(() => window.location.reload(), 1600);
                   } catch (error) {
-                    showToast(error.message || t("urmall.biz.menu.deletionFailed"), "danger");
+                    showToast(shortErrorToast(error, t("urmall.biz.menu.deletionFailed")), "danger");
                   } finally {
                     setRequestingDeletion(false);
                   }

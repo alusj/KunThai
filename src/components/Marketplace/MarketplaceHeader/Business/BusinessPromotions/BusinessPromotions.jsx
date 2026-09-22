@@ -32,7 +32,7 @@ export default function BusinessPromotions() {
 
   function handleCreatePromotion() {
     showToast(
-      t("urmall.biz.promo.createHint"),
+      "Use Promote on a product",
       "info",
       { title: t("urmall.biz.promo.setupTitle") },
     );

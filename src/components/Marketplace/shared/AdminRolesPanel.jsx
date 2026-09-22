@@ -11,6 +11,7 @@ import { haptics, sounds } from "../../../Backend/services/feedbackService";
 import { showToast } from "../../../Backend/services/toastService";
 import { useI18n, t } from "../../../i18n";
 import { uiText as translateUi } from "../../../i18n/index.js";
+import { shortErrorToast } from "../../../Backend/services/friendlyErrorService";
 
 // Invitee side of UrMall business admins: respond to invitations, see the
 // responsibilities each owner assigned, and leave a business at any time.
@@ -25,7 +26,7 @@ export default function AdminRolesPanel() {
     try {
       setRows(await fetchMyAdminRows());
     } catch (error) {
-      showToast(error.message || t("urmall.admin.loadFailed"), "danger");
+      showToast(shortErrorToast(error, "Couldn't load admins"), "danger");
     } finally {
       setLoading(false);
     }
@@ -43,10 +44,10 @@ export default function AdminRolesPanel() {
         haptics.medium("marketplace");
         sounds.success("marketplace");
       }
-      showToast(accept ? t("urmall.admin.nowAdmin", { name: row.businessName }) : t("urmall.admin.declined"), accept ? "success" : "info");
+      showToast(accept ? "You're now an admin" : t("urmall.admin.declined"), accept ? "success" : "info");
       await load();
     } catch (error) {
-      showToast(error.message || t("urmall.admin.respondFailed"), "danger");
+      showToast(shortErrorToast(error, "Couldn't reply to invite"), "danger");
     } finally {
       setBusyId("");
     }
@@ -56,11 +57,11 @@ export default function AdminRolesPanel() {
     setBusyId(row.id);
     try {
       await leaveBusinessAdmin(row);
-      showToast(t("urmall.admin.left", { name: row.businessName }), "success");
+      showToast("You left the business", "success");
       setLeavingRow(null);
       await load();
     } catch (error) {
-      showToast(error.message || t("urmall.admin.leaveFailed"), "danger");
+      showToast(shortErrorToast(error, "Couldn't leave business"), "danger");
     } finally {
       setBusyId("");
     }

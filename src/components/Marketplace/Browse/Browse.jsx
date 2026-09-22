@@ -41,7 +41,7 @@ import Discounted from "./tabs/Discounted";
 import HighDemand from "./tabs/HighDemand";
 import TopRated from "./tabs/TopRated";
 import { uiText as translateUi } from "../../../i18n/index.js";
-import { inlineErrorMessage } from "../../../Backend/services/friendlyErrorService";
+import { inlineErrorMessage, shortErrorToast } from "../../../Backend/services/friendlyErrorService";
 
 const DEFAULT_FILTERS = {
   search: "",
@@ -215,7 +215,7 @@ export default function Browse({ activeTab = "new", onProductModeChange, onClose
       setSelectedProduct(detail);
       rememberRecentProduct(detail);
     } catch (err) {
-      showNotice(err.message || t("urmall.browse.openDetailFailed"), "danger");
+      showNotice(shortErrorToast(err, "Couldn't open product"), "danger");
     }
   }, [showNotice, t]);
 
@@ -415,7 +415,7 @@ export default function Browse({ activeTab = "new", onProductModeChange, onClose
         setDetailOpen(true);
         rememberRecentProduct(detail);
       } catch (err) {
-        showNotice(err.message || t("urmall.browse.openDetailFailed"), "danger");
+        showNotice(shortErrorToast(err, "Couldn't open product"), "danger");
       }
     }
 
@@ -431,9 +431,9 @@ export default function Browse({ activeTab = "new", onProductModeChange, onClose
     if (guardGuestAction("add", "product to the cart")) return;
     try {
       const result = await addBuyerCartItem(product);
-      showNotice(result?.status === "alreadyInCart" ? t("urmall.browse.alreadyInCart") : t("urmall.browse.addedToCart"));
+      showNotice(result?.status === "alreadyInCart" ? "Already in your cart" : t("urmall.browse.addedToCart"));
     } catch (err) {
-      showNotice(err.message || t("urmall.browse.addToCartFailed"), "danger");
+      showNotice(shortErrorToast(err, "Couldn't add to cart"), "danger");
     }
   }
 
@@ -441,9 +441,9 @@ export default function Browse({ activeTab = "new", onProductModeChange, onClose
     if (guardGuestAction("order", "product")) return;
     try {
       await createBuyerProductOrder(product, orderInput);
-      showNotice(t("urmall.browse.orderSent"));
+      showNotice("Order sent to seller");
     } catch (err) {
-      showNotice(err.message || t("urmall.browse.orderFailed"), "danger");
+      showNotice(shortErrorToast(err, t("urmall.browse.orderFailed")), "danger");
       throw err;
     }
   }
@@ -460,7 +460,7 @@ export default function Browse({ activeTab = "new", onProductModeChange, onClose
 
     try {
       await toggleSavedBuyerProduct(product.id, currentlySaved);
-      showNotice(currentlySaved ? t("urmall.browse.productUnsaved") : t("urmall.browse.productSaved"));
+      showNotice(currentlySaved ? "Removed from saved" : "Product saved for later");
     } catch (err) {
       setSavedIds((current) => {
         const next = new Set(current);
@@ -468,14 +468,14 @@ export default function Browse({ activeTab = "new", onProductModeChange, onClose
         else next.delete(product.id);
         return next;
       });
-      showNotice(err.message || t("urmall.browse.updateSavedFailed"), "danger");
+      showNotice(shortErrorToast(err, "Saved list not updated"), "danger");
     }
   }
 
   async function toggleSavedSeller(seller) {
     if (guardGuestAction("save", "store")) return;
     if (!seller?.id) {
-      showNotice(t("urmall.browse.storeCannotSave"), "danger");
+      showNotice("Store can't be saved yet", "danger");
       return;
     }
     const currentlySaved = savedSellerIds.has(seller.id);
@@ -488,7 +488,7 @@ export default function Browse({ activeTab = "new", onProductModeChange, onClose
 
     try {
       await toggleSavedBuyerSeller(seller.id, currentlySaved);
-      showNotice(currentlySaved ? t("urmall.browse.storeUnfavorited") : t("urmall.browse.storeFavorited"));
+      showNotice(currentlySaved ? "Removed from favorites" : t("urmall.browse.storeFavorited"));
     } catch (err) {
       setSavedSellerIds((current) => {
         const next = new Set(current);
@@ -496,7 +496,7 @@ export default function Browse({ activeTab = "new", onProductModeChange, onClose
         else next.delete(seller.id);
         return next;
       });
-      showNotice(err.message || t("urmall.browse.updateFavoriteFailed"), "danger");
+      showNotice(shortErrorToast(err, "Favorites not updated"), "danger");
     }
   }
 
@@ -510,9 +510,9 @@ export default function Browse({ activeTab = "new", onProductModeChange, onClose
         message: options.message || t("urmall.browse.messageGreeting", { name: product.name }),
         messageType: options.messageType || (product.allowNegotiation ? "negotiation" : "question"),
       });
-      showNotice(t("urmall.browse.messageSent"));
+      showNotice("Message sent to seller");
     } catch (err) {
-      showNotice(err.message || t("urmall.browse.messageFailed"), "danger");
+      showNotice(shortErrorToast(err, t("urmall.browse.messageFailed")), "danger");
       throw err;
     }
   }

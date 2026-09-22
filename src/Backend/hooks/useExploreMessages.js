@@ -22,7 +22,8 @@ import { setBannerContext } from "../services/notificationBannerService";
 import { readExploreSettings } from "../services/explore/preferencesService";
 import { blockExploreUser } from "../services/explore/safetyService";
 import { haptics, sounds } from "../services/feedbackService";
-import { showToast } from "../services/toastService";
+import { showToast } from "../services/toastService";
+import { shortErrorToast } from "../services/friendlyErrorService";
 
 const MESSAGES_MEMORY = new Map();
 const MESSAGES_MEMORY_TTL = 120_000;
@@ -528,7 +529,7 @@ export function useExploreMessages(currentProfile, initialRecipient) {
     } catch (err) {
       const message = friendlyMessageError(err);
       setError(message);
-      showToast(message, "danger");
+      showToast(shortErrorToast(err, "Couldn't update request"), "danger");
       return { ok: false, error: message };
     }
   }
@@ -620,7 +621,7 @@ export function useExploreMessages(currentProfile, initialRecipient) {
       await deleteExploreMessage(message, currentUserId, {
         forEveryone: message.senderId === currentUserId,
       });
-      showToast(message.senderId === currentUserId ? "Message deleted." : "Message hidden from this chat.", "info", {
+      showToast(message.senderId === currentUserId ? "Message deleted." : "Message hidden for you", "info", {
         title: "Message action",
       });
       setConversationList(await fetchExploreConversations(currentUserId));
@@ -686,7 +687,7 @@ export function useExploreMessages(currentProfile, initialRecipient) {
     const lat = Number(metadata.lat ?? metadata.latitude ?? parsedBodyLocation?.lat);
     const lng = Number(metadata.lng ?? metadata.longitude ?? parsedBodyLocation?.lng);
     if (!Number.isFinite(lat) || !Number.isFinite(lng)) {
-      showToast("This shared location does not include a map point yet.", "warning");
+      showToast("No map point shared", "warning");
       return { ok: false };
     }
 
@@ -715,7 +716,6 @@ export function useExploreMessages(currentProfile, initialRecipient) {
     if (!activeConversation?.id) return { ok: false, error: "Open a conversation first." };
     const otherUser = getOtherParticipant(activeConversation, currentUserId);
     const myName = currentProfile?.displayName || currentProfile?.name || currentProfile?.username || "This user";
-    const otherName = otherUser.displayName || otherUser.username || "this contact";
 
     if (action === "shareLocation") {
       openMessageAreaView("shareLocation", (location) =>
@@ -754,7 +754,7 @@ export function useExploreMessages(currentProfile, initialRecipient) {
       const targetUserId = payload.userId || otherUser.userId;
       if (!targetUserId) return { ok: false, error: "Unable to identify this account." };
       await blockExploreUser(targetUserId, "blocked from Explore messages");
-      showToast(`${otherName} has been blocked from Explore messages.`, "success");
+      showToast("Contact has been blocked", "success");
       return { ok: true };
     }
 

@@ -6,7 +6,7 @@ import AppBackTab from "../shared/AppBackTab";
 import VerificationBadge from "./verification/VerificationBadge";
 import { useI18n, t } from "../../i18n";
 import { uiText as translateUi, useI18n as useUiLocale } from "../../i18n/index.js";
-import { inlineErrorMessage } from "../../Backend/services/friendlyErrorService";
+import { inlineErrorMessage, shortErrorToast } from "../../Backend/services/friendlyErrorService";
 
 export default function SavedOperatorsScreen({ onBack, onViewFleet, onShowVerification, onOpenBooking }) {
   useI18n();
@@ -68,7 +68,7 @@ export default function SavedOperatorsScreen({ onBack, onViewFleet, onShowVerifi
       setSavedOperators(next);
       showToast(t("urride.saved.operatorRemoved"), "success");
     } catch (removeError) {
-      showToast(removeError.message || t("urride.saved.removeError"), "danger");
+      showToast(shortErrorToast(removeError, "Couldn't remove operator"), "danger");
     }
   }
 

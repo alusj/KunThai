@@ -1,5 +1,5 @@
 import { useEffect, useMemo, useRef, useState } from "react";
-import { friendlyErrorMessage, inlineErrorMessage } from "../services/friendlyErrorService";
+import { inlineErrorMessage, shortErrorToast } from "../services/friendlyErrorService";
 
 import supabase from "../lib/supabaseClient";
 import { subscribeToCurrentUserCommentLikes, subscribeToExploreComments } from "../services/explore/realtimeService";
@@ -320,7 +320,7 @@ export function useExploreComments(postId, currentUserId = "", post = null, enab
         return next;
       });
       setError("Comment failed. Try again.");
-      showToast("Comment failed. Try again.", "danger");
+      showToast("Comment wasn't posted", "danger");
       return { ok: false, error: inlineErrorMessage(err, "Comment failed. Try again.") };
     } finally {
       setPendingKeys((current) => {
@@ -346,7 +346,7 @@ export function useExploreComments(postId, currentUserId = "", post = null, enab
       setComments(previous);
       writeCommentMemory(postId, { comments: previous });
       setError(inlineErrorMessage(err, "Unable to delete comment."));
-      showToast(friendlyErrorMessage(err, "Unable to delete comment."), "danger");
+      showToast(shortErrorToast(err, "Unable to delete comment."), "danger");
     }
   }
 
@@ -403,7 +403,7 @@ export function useExploreComments(postId, currentUserId = "", post = null, enab
         applyCommentLikeState(commentId, entry.synced);
       }
       setError(inlineErrorMessage(err, "Unable to update comment like."));
-      showToast(friendlyErrorMessage(err, "Unable to update comment like."), "danger");
+      showToast(shortErrorToast(err, "Like couldn't update"), "danger");
     }
   }
 
@@ -411,10 +411,10 @@ export function useExploreComments(postId, currentUserId = "", post = null, enab
     if (guardGuestAction("report", "comment")) return;
     try {
       await reportExploreComment(commentId, reason);
-      notifyActionDone("Thanks — your report was sent. Our team will review it.");
+      notifyActionDone("Thanks, report sent");
     } catch (err) {
       setError(inlineErrorMessage(err, "Unable to report comment."));
-      showToast(friendlyErrorMessage(err, "Unable to report comment."), "danger");
+      showToast(shortErrorToast(err, "Unable to report comment."), "danger");
     }
   }
 

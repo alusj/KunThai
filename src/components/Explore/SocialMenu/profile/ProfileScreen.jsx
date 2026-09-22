@@ -17,7 +17,7 @@ import {
 } from "../../../../Backend/services/exploreService";
 import { blockExploreIdentity, reportExploreProfile, reportExploreSpace } from "../../../../Backend/services/explore/safetyService";
 import { showToast } from "../../../../Backend/services/toastService";
-import { inlineErrorMessage } from "../../../../Backend/services/friendlyErrorService";
+import { inlineErrorMessage, shortErrorToast } from "../../../../Backend/services/friendlyErrorService";
 import { useI18n } from "../../../../i18n";
 import FeedPost from "../../ExploreTabs/urfeed/feed/components/FeedPost";
 import VideoCard from "../../ExploreTabs/swip/videos/VideoCard";
@@ -165,7 +165,7 @@ export default function ProfileScreen({
       onProfileUpdate?.(updated);
       setEditing(false);
       setFeedback(updated.avatarWarning || (isSpace ? t("profile.spaceUpdated") : t("profile.profileUpdated")));
-      showToast(isSpace ? t("profile.spaceUpdated") : t("profile.profileUpdated"), "success");
+      showToast(isSpace ? "Space has been updated" : t("profile.profileUpdated"), "success");
     } catch (error) {
       setFeedback(inlineErrorMessage(error, t("profile.unableUpdateProfile")));
     } finally {
@@ -204,7 +204,7 @@ export default function ProfileScreen({
     } catch (error) {
       const message = inlineErrorMessage(error, t("profile.unableShareInvite"));
       setFeedback(message);
-      showToast(message, "danger");
+      showToast(shortErrorToast(error, "Couldn't share invite"), "danger");
     }
   }
 
@@ -214,12 +214,12 @@ export default function ProfileScreen({
       const recipientName = result?.recipientName || t("profile.recipientFallback");
       const message = t("profile.creditsSharedWith", { amount: Number(result?.amount || amount), name: recipientName });
       setFeedback(message);
-      showToast(message, "success", { title: t("profile.creditsShared") });
+      showToast(`${Number(result?.amount || amount)} credits shared`, "success", { title: t("profile.creditsShared") });
       return result;
     } catch (error) {
       const message = inlineErrorMessage(error, t("profile.unableShareCredits"));
       setFeedback(message);
-      showToast(message, "danger");
+      showToast(shortErrorToast(error, "Credits weren't shared"), "danger");
       throw error;
     }
   }
@@ -230,11 +230,11 @@ export default function ProfileScreen({
       try {
         await blockExploreIdentity(profileIdentity, "blocked from Space profile");
         setFeedback(t("profile.spaceBlocked"));
-        showToast(t("profile.spaceBlocked"), "success");
+        showToast("Space has been blocked", "success");
       } catch (error) {
         const message = error.message || t("profile.unableBlockSpace");
         setFeedback(message);
-        showToast(message, "danger");
+        showToast(shortErrorToast(error, "Couldn't block Space"), "danger");
       }
       return;
     }
@@ -248,11 +248,11 @@ export default function ProfileScreen({
         const result = await reportExploreSpace(values.spaceId || profileIdentity.id);
         const message = result.alreadyReported ? t("profile.spaceAlreadyReported") : t("profile.spaceReportSent");
         setFeedback(message);
-        showToast(message, "success");
+        showToast(result.alreadyReported ? "Space already reported" : "Space has been reported", "success");
       } catch (error) {
         const message = error.message || t("profile.unableReportSpace");
         setFeedback(message);
-        showToast(message, "danger");
+        showToast(shortErrorToast(error, "Couldn't report Space"), "danger");
       }
       return;
     }
@@ -260,11 +260,11 @@ export default function ProfileScreen({
       const result = await reportExploreProfile(values.userId);
       const message = result.alreadyReported ? t("profile.profileAlreadyReported") : t("profile.profileReportSent");
       setFeedback(message);
-      showToast(message, "success");
+      showToast(result.alreadyReported ? "Profile already reported" : "Profile has been reported", "success");
     } catch (error) {
       const message = error.message || t("profile.unableReportProfile");
       setFeedback(message);
-      showToast(message, "danger");
+      showToast(shortErrorToast(error, "Couldn't report profile"), "danger");
     }
   }
 
@@ -274,11 +274,11 @@ export default function ProfileScreen({
       onSpaceInviteResponse?.(space, result, accept);
       const message = accept ? t("profile.spaceInviteAccepted") : t("profile.spaceInviteDeclined");
       setFeedback(message);
-      showToast(message, "success");
+      showToast(accept ? "Space invite accepted" : "Space invite declined", "success");
     } catch (error) {
       const message = error.message || t("profile.unableRespondSpaceInvite");
       setFeedback(message);
-      showToast(message, "danger");
+      showToast(shortErrorToast(error, "Couldn't answer invite"), "danger");
     }
   }
 

@@ -47,7 +47,7 @@ export default function RepostComposer({ onClose, onSuccess, profile, sourcePost
 
     try {
       const created = await createExploreRepost(sourcePost, { commentary, privacy });
-      showToast(i18nText("ui.literals.k55c8a595e72e"), "success", { title: i18nText("ui.literals.k0c3053e49f81") });
+      showToast("Reposted to UrFeed", "success", { title: i18nText("ui.literals.k0c3053e49f81") });
       haptics.medium("explore");
       onSuccess?.(created);
       setClosing(true);

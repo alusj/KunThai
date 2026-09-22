@@ -63,6 +63,7 @@ import CampaignInboxSection from "../../../shared/campaigns/CampaignInboxSection
 import { hasBusinessPlans, isProductBusinessKind } from "../../../../Backend/services/marketplace/marketplaceBusinessKinds";
 import { t as i18nText } from "../../../../i18n/index";
 import { uiText as translateUi, useI18n as useUiLocale } from "../../../../i18n/index.js";
+import { shortErrorToast } from "../../../../Backend/services/friendlyErrorService";
 
 const SELLER_SCREEN_ANIMATION_MS = 360;
 
@@ -326,10 +327,10 @@ export default function Business({ initialScreen = "", onBack, onInitialScreenHa
       } else if (capacity.requiredPlan && capacity.upgradeBusinessId) {
         openSellerScreen("businessTypePlans");
       } else {
-        showToast(i18nText("ui.literals.kf0c5a81330d1"), "info");
+        showToast("All business types used", "info");
       }
     } catch (error) {
-      showToast(error.message || i18nText("ui.literals.k964e6ea332bc"), "danger");
+      showToast(shortErrorToast(error, "Couldn't check your plan"), "danger");
     }
   }
 
@@ -756,7 +757,7 @@ export default function Business({ initialScreen = "", onBack, onInitialScreenHa
           onBack={onBack}
           onAddProduct={() => {
             if (!permissions.canAddProducts) {
-              showToast(t("urmall.biz.dash.noAddPerm"), "info");
+              showToast("No listing permission", "info");
               return;
             }
             if (!isProductBusinessKind(businessKind)) {
@@ -768,14 +769,14 @@ export default function Business({ initialScreen = "", onBack, onInitialScreenHa
           }}
           onOrders={() => {
             if (!permissions.canAccessDashboard) {
-              showToast(t("urmall.biz.dash.noDashPerm"), "info");
+              showToast("No dashboard permission", "info");
               return;
             }
             openSellerScreen("orders");
           }}
           onMessages={() => {
             if (!permissions.canReplyMessages) {
-              showToast(t("urmall.biz.dash.noMsgPerm"), "info");
+              showToast("No messaging permission", "info");
               return;
             }
             openSellerScreen("messages");
@@ -800,7 +801,7 @@ export default function Business({ initialScreen = "", onBack, onInitialScreenHa
               setSelectedBusinessId(previousBusinessId);
               setSwitchingBusiness(false);
               pendingSwitchToastRef.current = false;
-              showToast(error.message || i18nText("ui.literals.ka31183561f0f"), "danger");
+              showToast(shortErrorToast(error, "Couldn't switch business"), "danger");
             }
             // The "switched" toast is announced once the switch overlay closes
             // (see the switchingBusiness effect), so it never sits behind the
@@ -858,7 +859,7 @@ export default function Business({ initialScreen = "", onBack, onInitialScreenHa
               <MyBizDashboardHeader
                 onEditProfile={() => {
                   if (!permissions.canEditBusiness) {
-                    showToast(i18nText("ui.literals.kf4360f16101b"), "info");
+                    showToast("No edit permission", "info");
                     return;
                   }
                   if (permissions.isAdmin) openDelegatedProfileEditor();

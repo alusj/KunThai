@@ -25,6 +25,7 @@ import Avatar from "../../shared/Avatar";
 import SocialScreenHeader from "../shared/SocialScreenHeader";
 import { t as i18nText } from "../../../../i18n/index";
 import { uiText as translateUi, useI18n as useUiLocale } from "../../../../i18n/index.js";
+import { shortErrorToast } from "../../../../Backend/services/friendlyErrorService";
 
 function SettingRow({ children, description, icon, title }) {
   useUiLocale();
@@ -88,15 +89,15 @@ export default function PrivacyScreen({ hideHeader = false, onOpenPermissions })
       if (deactivatedAt) {
         await setAccountDeactivated(false);
         setDeactivatedAt(null);
-        showToast(i18nText("ui.literals.k2bcda242c49f"), "success");
+        showToast("Account active again", "success");
       } else {
         await setAccountDeactivated(true);
         setDeactivatedAt(new Date().toISOString());
-        showToast(i18nText("ui.literals.kacb70498f4c0"), "success");
+        showToast("Account deactivated", "success");
       }
       setConfirmAction(null);
     } catch (error) {
-      showToast(error.message || i18nText("ui.literals.k078af38fd646"), "danger");
+      showToast(shortErrorToast(error, "Couldn't update status"), "danger");
     } finally {
       setAccountActionBusy(false);
     }
@@ -110,10 +111,10 @@ export default function PrivacyScreen({ hideHeader = false, onOpenPermissions })
       const payload = await collectKunThaiDataExport((step) => setExportState({ busy: true, step }));
       downloadDataExport(payload);
       setExportState({ busy: false, step: "" });
-      showToast(t("privacy.exportDone"), "success");
+      showToast("Data export downloaded", "success");
     } catch (error) {
       setExportState({ busy: false, step: "" });
-      showToast(error.message || t("privacy.exportFailed"), "danger");
+      showToast(shortErrorToast(error, "Couldn't export data"), "danger");
     }
   }
 
@@ -124,7 +125,7 @@ export default function PrivacyScreen({ hideHeader = false, onOpenPermissions })
       await deleteKunThaiAccount();
       window.location.replace("/");
     } catch (error) {
-      showToast(error.message || i18nText("ui.literals.k49c6cc37553d"), "danger");
+      showToast(shortErrorToast(error, "Couldn't delete account"), "danger");
       setAccountActionBusy(false);
     }
   }

@@ -225,7 +225,7 @@ export default function JoinApplicationForm({ catalogue, detail, onCancel, onDet
     setBusy(true);
     try {
       await persistAnswers();
-      showToast(i18nText("ui.literals.k7b19cc5d299b"), "success");
+      showToast("Draft has been saved", "success");
     } catch (saveError) {
       setNotice(inlineErrorMessage(saveError, i18nText("ui.literals.k16cfe680012e")));
     } finally {

@@ -234,7 +234,7 @@ export default function YourVoiceScreen({ hideHeader = false, initialDraft = nul
       setCurrentScreen("Explore / Your Voice");
       if (screenshotInputRef.current) screenshotInputRef.current.value = "";
       setFeedback(i18nText("ui.literals.ke9c05bfc7aef"));
-      showToast(i18nText("ui.literals.ke9c05bfc7aef"), "success");
+      showToast("Thanks, feedback sent", "success");
     } catch (error) {
       setFeedback(inlineErrorMessage(error, i18nText("ui.literals.kefa4fc61bfff")));
     } finally {

@@ -139,7 +139,7 @@ export default function ToastProvider({ children }) {
                   <Icon className="text-xl" />
                 </span>
                 <div className="min-w-0 flex-1">
-                  <p className="text-[11px] font-black uppercase tracking-[0.18em] text-slate-400">{item.title || t(TONE_TITLE_KEYS[item.tone] || TONE_TITLE_KEYS.info)}</p>
+                  <p className="truncate text-[11px] font-black uppercase tracking-[0.18em] text-slate-400">{item.title || t(TONE_TITLE_KEYS[item.tone] || TONE_TITLE_KEYS.info)}</p>
                   <p className={`kuntai-break mt-1 text-sm font-black leading-5 text-slate-950 ${item.allowLongMessage ? "" : "line-clamp-2"}`}>
                     {translateUi(item.message)}
                   </p>

@@ -212,10 +212,10 @@ export default function FutureFeaturesScreen({ hideHeader = false, onOpenYourVoi
       const next = new Set(current);
       if (next.has(feature.id)) {
         next.delete(feature.id);
-        showToast(i18nText("ui.literals.k49f54a297249", { value0: uiText(feature.title) }), "info");
+        showToast("Removed from interests", "info");
       } else {
         next.add(feature.id);
-        showToast(i18nText("ui.literals.k3c409abcde01", { value0: uiText(feature.title) }), "success");
+        showToast("Added to your interests", "success");
       }
       return next;
     });

@@ -34,7 +34,7 @@ export default function CartItem({ item, onUpdateQty, onRemoveItem, onViewProduc
       window.setTimeout(() => setCopied(false), 1400);
       showToast(t("urmall.seller.productLinkCopied"), "success");
     } catch {
-      showToast(link, "info");
+      showToast("Couldn't copy the link", "info");
     }
   }
 
@@ -56,7 +56,7 @@ export default function CartItem({ item, onUpdateQty, onRemoveItem, onViewProduc
     }
 
     await copyProduct();
-    showToast(t("urmall.seller.shareUnavailable"), "info");
+    showToast("Product link copied", "info");
   }
 
   function runAction(event, action) {

@@ -285,7 +285,7 @@ export default function AiAssistantSheet({ open, request, onClose }) {
       {open ? (
         <motion.div
           key="kt-ai-backdrop"
-          className="fixed inset-0 z-[2147483100] flex items-end justify-center bg-slate-950/60 backdrop-blur-sm sm:items-center sm:p-4"
+          className="fixed inset-0 z-[2147483100] flex items-end justify-center bg-slate-950/60 sm:items-center sm:p-4"
           initial={{ opacity: 0 }}
           animate={{ opacity: 1 }}
           exit={{ opacity: 0 }}

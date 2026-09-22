@@ -198,7 +198,9 @@ test("offline notices of their own are gone from Area View, the feed, the loader
   assert.equal((feed.match(/showFeedRefreshToast\(/g) || []).length, 2, "defined once, called once from the load path");
   assert.doesNotMatch(app, /k78bc44dac752|k5668eeef0e08|kd1d9af29fa05/);
   // Action toasts that fail offline re-show the global toast instead of their own.
-  assert.match(toast, /isConnectionFailure\(rawMessage\) && announceConnectionTrouble\(\)\) return;/);
+  assert.match(toast, /if \(typeof rawMessage === "string" && isConnectionFailure\(rawMessage\)\) \{\s*if \(announceConnectionTrouble\(\)\) return;/);
+  // With no global announcer (admin console) it is the same short offline line.
+  assert.match(toast, /if \(announceConnectionTrouble\(\)\) return;\s*rawMessage = t\("common\.offlineBanner"\);/);
   for (const file of ["../../components/Explore/SocialMenu/userCare/YourVoiceScreen.jsx", "../../components/shared/ScreenshotVoiceCard.jsx"]) {
     assert.match(read(file), /if \(!announceConnectionTrouble\(\)\) setFeedback/);
   }

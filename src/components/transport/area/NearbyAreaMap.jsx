@@ -2302,7 +2302,7 @@ export default function NearbyAreaMap({
     } catch {
       if (alternativeRouteRequestRef.current !== requestId) return;
       setAlternativeError(t("urride.areaMap.altUnavailable"));
-      showToast(t("urride.areaMap.altToast"), "warning", {
+      showToast("No alternative route", "warning", {
         title: t("urride.areaMap.altToastTitle"),
       });
       clearAlternativeRouteLayer(mapRef.current);
@@ -3031,7 +3031,7 @@ export default function NearbyAreaMap({
       // An empty message means the connection was lost, which the global
       // network toast has already announced.
       if (routeMessage) {
-        showToast(t("urride.areaMap.routeToastMsg"), "warning", {
+        showToast("Route couldn't be drawn", "warning", {
           title: t("urride.areaMap.routeToastTitle"),
         });
       }

@@ -18,11 +18,14 @@ const userFacingObjectKeys = new Set([
   "label", "title", "description", "subtitle", "helper", "placeholder",
   "emptyText", "emptyTitle", "message", "body", "summary",
   "actionLabel", "detail",
+  // Short toast copy passed through options (runTripAction) or share helpers.
+  "toast", "fallbackMessage",
 ]);
 const userFacingArrayKeys = new Set(["bullets", "details", "paragraphs", "tips", "warnings"]);
 const userFacingArrayVariables = new Set(["CTA_OPTIONS", "INTERESTS", "STEP_LABELS"]);
 const userFacingCalls = new Set([
-  "showToast", "setFeedback", "setNotice", "setMessage", "setError",
+  "showToast", "showNotice", "onNotice", "notifyActionDone", "notifyActionFailed",
+  "setFeedback", "setNotice", "setMessage", "setError",
   "setWarning", "setSuccess", "setLocationStatus",
   "setAddLocationStatus", "setCreditFeedback", "setMediaError",
   "publishGpsUi", "alert", "confirm",
@@ -168,15 +171,17 @@ async function collect() {
         if (attribute && !userFacingAttributes.has(attribute)) return;
         addTemplate(p.node, "template");
       },
-      CallExpression(p) {
+      // Optional calls too: toasts also arrive as onNotice?.("…").
+      "CallExpression|OptionalCallExpression"(p) {
         const callee = p.node.callee;
         const name = callee.type === "Identifier"
           ? callee.name
-          : callee.type === "MemberExpression" && !callee.computed && callee.property.type === "Identifier"
+          : (callee.type === "MemberExpression" || callee.type === "OptionalMemberExpression") && !callee.computed && callee.property.type === "Identifier"
             ? callee.property.name
             : "";
         if (!userFacingCalls.has(name)) return;
-        const argument = p.get("arguments.0");
+        // notifyActionFailed(error, "fallback") shows its second argument.
+        const argument = p.get(name === "notifyActionFailed" ? "arguments.1" : "arguments.0");
         if (!argument?.node) return;
         const visitMessage = (messagePath) => {
           if (messagePath.isStringLiteral()) {
@@ -189,6 +194,10 @@ async function collect() {
           } else if (messagePath.isLogicalExpression()) {
             visitMessage(messagePath.get("left"));
             visitMessage(messagePath.get("right"));
+          } else if (messagePath.isCallExpression() && messagePath.node.callee?.name === "shortErrorToast") {
+            // showToast(shortErrorToast(error, "Couldn't save product")): the
+            // fallback is what the toast shows, so it needs translating too.
+            visitMessage(messagePath.get("arguments.1"));
           }
         };
         visitMessage(argument);

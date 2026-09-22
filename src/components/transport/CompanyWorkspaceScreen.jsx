@@ -88,7 +88,7 @@ import {
   getCapacityStatus,
 } from "../../Backend/services/businessSubscriptionService";
 import { uiText as translateUi, useI18n as useUiLocale } from "../../i18n/index.js";
-import { inlineErrorMessage } from "../../Backend/services/friendlyErrorService";
+import { inlineErrorMessage, shortErrorToast } from "../../Backend/services/friendlyErrorService";
 
 const tabs = ["Overview", "Fleets", "Rentals", "Operators", "Requests", "Activity"];
 const DRAWER_TRANSITION_MS = 300;
@@ -399,9 +399,9 @@ export default function CompanyWorkspaceScreen({ company, initialTab = "Overview
     setCompanyNotificationPreferences(next);
     try {
       await updateCompanyNotificationPreferences(company?.id, notificationPreferenceUserId, next);
-      showToast(t("urride.companyWs.prefsUpdated"), "success");
+      showToast("Alert settings updated", "success");
     } catch (error) {
-      showToast(error.message || t("urride.companyWs.prefsError"), "danger");
+      showToast(shortErrorToast(error, "Alert settings not saved"), "danger");
     }
   }
 
@@ -535,10 +535,10 @@ export default function CompanyWorkspaceScreen({ company, initialTab = "Overview
           transportFleetId: updatedFleet?.id || fleet.transportFleetId,
         } : fleet),
       });
-      showToast(activeNow ? t("urride.companyWs.fleetVisible") : t("urride.companyWs.fleetOffline"), "success");
+      showToast(activeNow ? "Fleet is now visible" : "Fleet is now hidden", "success");
     } catch (error) {
       setOperatorAvailable(!nextActive);
-      showToast(error.message || t("urride.companyWs.discoverError"), "danger");
+      showToast(shortErrorToast(error, "Visibility not updated"), "danger");
     } finally {
       setAvailabilitySaving(false);
     }
@@ -564,16 +564,17 @@ export default function CompanyWorkspaceScreen({ company, initialTab = "Overview
     try {
       if (status === "start_requested") await requestTransportTripStart(trip.id);
       else await updateTransportTripStatus(trip.id, status, status === "cancelled" ? { ...patch, endedBy: "operator" } : patch);
-      const statusCopy = {
-        accepted: t("urride.companyWs.tripAccepted"),
-        arrived: t("urride.companyWs.tripArrived"),
-        start_requested: t("urride.companyWs.tripStartRequested"),
-        cancelled: t("urride.companyWs.tripCancelled"),
-      };
-      showToast(statusCopy[status] || t("urride.companyWs.tripUpdated"), "success");
+      showToast(
+        status === "accepted" ? "Booking has been accepted"
+          : status === "arrived" ? "Marked as arrived"
+            : status === "start_requested" ? "Trip start requested"
+              : status === "cancelled" ? "Booking was cancelled"
+                : "Trip has been updated",
+        "success",
+      );
       await refreshCompanyTripData();
     } catch (error) {
-      showToast(error.message || t("urride.companyWs.tripUpdateError"), "danger");
+      showToast(shortErrorToast(error, "Couldn't update trip"), "danger");
       throw error;
     }
   }
@@ -627,10 +628,10 @@ export default function CompanyWorkspaceScreen({ company, initialTab = "Overview
       setLeaveCompanyOpen(false);
       setOperatorMenuOpen(false);
       onCompanyUpdate?.(null);
-      showToast(t("urride.companyWs.leftCompany"), "success");
+      showToast("You left the company", "success");
       onCompanyLeft?.();
     } catch (error) {
-      showToast(error.message || t("urride.companyWs.leaveError"), "danger");
+      showToast(shortErrorToast(error, "Couldn't leave company"), "danger");
     } finally {
       setManagementBusy(false);
     }
@@ -652,9 +653,15 @@ export default function CompanyWorkspaceScreen({ company, initialTab = "Overview
       setOperatorAction(null);
       setResponsibilityOperator(null);
       setRemoveOperator(null);
-      showToast(copy, "success");
+      showToast(
+        action === "responsibility" ? "Operator duties updated"
+          : action === "suspend" ? "Operator suspended"
+            : action === "restore" ? "Operator restored"
+              : "Operator removed",
+        "success",
+      );
     } catch (error) {
-      showToast(error.message || t("urride.companyWs.opUpdateError"), "danger");
+      showToast(shortErrorToast(error, "Couldn't update operator"), "danger");
     } finally {
       setManagementBusy(false);
     }
@@ -671,9 +678,9 @@ export default function CompanyWorkspaceScreen({ company, initialTab = "Overview
       onCompanyUpdate?.(updatedCompany);
       setFleetAction(null);
       setFleetConfirm(null);
-      showToast(copy, "success");
+      showToast(action === "delete" ? "Fleet has been deleted" : "Operator left the fleet", "success");
     } catch (error) {
-      showToast(error.message || t("urride.companyWs.fleetUpdateError"), "danger");
+      showToast(shortErrorToast(error, "Couldn't update fleet"), "danger");
     } finally {
       setManagementBusy(false);
     }
@@ -700,7 +707,7 @@ export default function CompanyWorkspaceScreen({ company, initialTab = "Overview
     if (planState?.available) {
       const capacity = getCapacityStatus(planState, "operators", 1);
       if (!capacity.allowed) {
-        showToast(i18nText("ui.literals.kff8043be52b4", { value0: planState.entitlement.planName, value1: capacity.limit }), "danger");
+        showToast("All operator spaces used", "danger");
         if (canManagePlans) openMenuScreen("plans");
         return;
       }
@@ -969,7 +976,7 @@ export default function CompanyWorkspaceScreen({ company, initialTab = "Overview
             onMarkAllRead={() => {
               markNotificationsSeen(notificationReadScope, companyNotificationItems);
               setSeenVersion((version) => version + 1);
-              showToast(t("urride.companyWs.allMarkedRead"), "success");
+              showToast("All alerts marked read", "success");
             }}
             onRead={(activity) => {
               markNotificationsSeen(notificationReadScope, [activity]);
@@ -982,7 +989,7 @@ export default function CompanyWorkspaceScreen({ company, initialTab = "Overview
             onDeleteAll={() => {
               markNotificationsSeen(notificationDismissedScope, companyNotificationItems);
               setSeenVersion((version) => version + 1);
-              showToast(t("urride.companyWs.allDeleted"), "success");
+              showToast("All alerts deleted", "success");
             }}
           />
           <CompanyBookingQueueDrawer
@@ -1104,7 +1111,7 @@ export default function CompanyWorkspaceScreen({ company, initialTab = "Overview
                 } : fleet),
               });
               setInvitationFleet(null);
-              showToast(invite.status === "accepted" ? i18nText("ui.literals.k746cb1d0f577") : i18nText("ui.literals.k7c2c61be4a68"), "success");
+              showToast(invite.status === "accepted" ? "Operator already assigned" : "Invitation sent", "success");
             }}
           /> : null}
           <FleetConfirmDrawer

@@ -317,7 +317,7 @@ export default function ProfileHeaderCard({
     pollMonimePaymentStatus(purchaseId)
       .then((result) => {
         window.dispatchEvent(new CustomEvent("kuntai-visibility-credits-updated"));
-        showToast(i18nText("ui.literals.k2d68fd682d8f", { value0: Number(result.credits || 0) }), "success", {
+        showToast(`+${Number(result.credits || 0)} credits added`, "success", {
           title: result.walletName || momoWalletName,
         });
         setMomoStage("select");

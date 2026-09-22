@@ -86,7 +86,7 @@ export default function ProfileEditScreen({
       setValues(updated);
       onProfileUpdate?.(updated);
       setFeedback(updated.avatarWarning || (isSpace ? t("profile.spaceUpdated") : t("profile.profileUpdated")));
-      showToast(isSpace ? t("profile.spaceUpdated") : t("profile.profileUpdated"), "success");
+      showToast(isSpace ? "Space has been updated" : t("profile.profileUpdated"), "success");
       haptics.light("explore");
     } catch (error) {
       setFeedback(inlineErrorMessage(error, t("profile.unableUpdateProfile")));

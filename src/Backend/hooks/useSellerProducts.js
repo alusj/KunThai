@@ -95,14 +95,14 @@ export function useSellerProducts() {
           stock: nextStock,
           status: nextStock > 0 ? "active" : "out-of-stock",
         });
-        notifyActionDone("Stock updated.", { module: "marketplace" });
+        notifyActionDone("Stock has been updated", { module: "marketplace" });
       }
 
       if (action === "edit-price") {
         const nextPrice = Number(window.prompt("Enter new price", String(product.price)));
         if (Number.isNaN(nextPrice) || nextPrice <= 0) return;
         await updateSellerProduct(product.id, { price: nextPrice });
-        notifyActionDone("Price updated.", { module: "marketplace" });
+        notifyActionDone("Price has been updated", { module: "marketplace" });
       }
 
       if (action === "pause") {
@@ -112,7 +112,7 @@ export function useSellerProducts() {
 
       if (action === "promote") {
         await promoteSellerProduct(product);
-        notifyActionDone("Small Boost started with 5 Visibility Credits.", { module: "marketplace" });
+        notifyActionDone("Small Boost started", { module: "marketplace" });
       }
 
       if (action === "publish") {

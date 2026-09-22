@@ -63,7 +63,7 @@ export function useExplorePreferences() {
   function clearCache() {
     clearExploreLocalCache();
     setFeedback("Local Explore cache cleared.");
-    showToast("Local Explore cache cleared.", "success");
+    showToast("Explore cache cleared", "success");
   }
 
   return {

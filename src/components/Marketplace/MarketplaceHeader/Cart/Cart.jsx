@@ -15,7 +15,7 @@ import { getProductMinimumOrderQuantity } from "../../../../Backend/services/mar
 import { useI18n, t } from "../../../../i18n";
 import CartButton from "./CartButton";
 import CartDrawer from "./CartDrawer";
-import { inlineErrorMessage } from "../../../../Backend/services/friendlyErrorService";
+import { inlineErrorMessage, shortErrorToast } from "../../../../Backend/services/friendlyErrorService";
 
 export default function Cart({ onOpenChange }) {
   useI18n();
@@ -58,10 +58,10 @@ export default function Cart({ onOpenChange }) {
       const minimumQuantity = getProductMinimumOrderQuantity(item.product);
       await updateBuyerCartItem(item.id, quantity, minimumQuantity);
       await loadCart();
-      showToast(quantity <= 0 ? t("urmall.cart.removedFromCart") : t("urmall.cart.cartUpdated"), "success");
+      showToast(quantity <= 0 ? t("urmall.cart.removedFromCart") : "Your cart is updated", "success");
     } catch (err) {
       setError(inlineErrorMessage(err, t("urmall.cart.updateFailed")));
-      showToast(err.message || t("urmall.cart.updateFailed"), "danger");
+      showToast(shortErrorToast(err, t("urmall.cart.updateFailed")), "danger");
     }
   }
 
@@ -72,7 +72,7 @@ export default function Cart({ onOpenChange }) {
       showToast(t("urmall.cart.removedFromCart"), "success");
     } catch (err) {
       setError(inlineErrorMessage(err, t("urmall.cart.removeFailed")));
-      showToast(err.message || t("urmall.cart.removeFailed"), "danger");
+      showToast(shortErrorToast(err, t("urmall.cart.removeFailed")), "danger");
     }
   }
 
@@ -81,7 +81,7 @@ export default function Cart({ onOpenChange }) {
     await loadCart();
     haptics.medium("marketplace");
     sounds.success("marketplace");
-    showToast(t("urmall.cart.checkoutSuccess"), "success", urMallShareToastOptions());
+    showToast("Checkout created", "success", urMallShareToastOptions());
     return orders;
   }
 

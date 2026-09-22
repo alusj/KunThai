@@ -1,5 +1,5 @@
 import { useEffect, useState } from "react";
-import { friendlyErrorMessage, inlineErrorMessage } from "../services/friendlyErrorService";
+import { inlineErrorMessage, shortErrorToast } from "../services/friendlyErrorService";
 
 import { fetchExploreConnections } from "../services/exploreService";
 import { getIdentityKey, normalizeIdentityTarget } from "../services/exploreService";
@@ -230,7 +230,7 @@ export function useExploreConnections(kind, currentUserId = "") {
     const targetIdentity = getConnectionIdentity(typeof target === "object" ? target : { user_id: target });
     const targetItem = items.find((item) => getConnectionIdentity(item).key === targetIdentity.key);
     const active = await toggleFollow(targetIdentity);
-    showToast(active ? "Connected." : "Connection removed.", "success", {
+    showToast(active ? "You're now connected" : "Connection removed.", "success", {
       actionLabel: "Undo",
       onAction: async () => {
         await toggleFollow(targetIdentity);
@@ -267,7 +267,7 @@ export function useExploreConnections(kind, currentUserId = "") {
       const synced = await blockExploreIdentity(targetIdentity, "blocked from Explore connections");
       setBlockedUsers(new Set(synced));
     } catch (error) {
-      showToast(friendlyErrorMessage(error, "Account blocked on this device."), "danger");
+      showToast(shortErrorToast(error, "Blocked on this device"), "danger");
     }
 
     showToast("Account blocked.", "danger", {
@@ -297,7 +297,7 @@ export function useExploreConnections(kind, currentUserId = "") {
     }
 
     setItems((current) => current.filter((item) => getConnectionIdentity(item).key !== targetIdentity.key));
-    showToast("Connection removed from this list.", "info", {
+    showToast("Removed from this list", "info", {
       actionLabel: "Undo",
       onAction: async () => {
         if (removedItem) {

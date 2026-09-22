@@ -63,6 +63,7 @@ function menuDeletionHandler(error = null) {
       if (error) throw error;
     },
     setRequestingDeletion() {},
+    shortErrorToast: (_error, fallback) => fallback,
     setBusinessToDelete() {},
     closeDrawer: () => { effects.closed = true; },
     showToast: (_message, type) => effects.toasts.push(type),

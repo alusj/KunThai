@@ -118,7 +118,8 @@ function announceCreditTransfer(notification) {
 
   haptics.light("explore");
   sounds.notification("explore");
-  showToast(message, "success", { title });
+  // The banner below carries the full message; the toast stays short.
+  showToast("You received credits", "success", { title });
   showNotificationBanner({
     title,
     body: message,

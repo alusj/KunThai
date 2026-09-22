@@ -70,7 +70,7 @@ export default function TwoFactorSection() {
       setEnrollment(null);
       setConfirmCode("");
       await refresh();
-      showToast(i18nText("ui.literals.k18a3c5fcf9db"), "success", {
+      showToast("Two-step login is on", "success", {
         title: i18nText("ui.literals.k913949913e4f"),
       });
     } catch (nextError) {
@@ -87,7 +87,7 @@ export default function TwoFactorSection() {
       await disableTwoFactor(state.factorId);
       setDisableConfirmOpen(false);
       await refresh();
-      showToast(i18nText("ui.literals.k327b72c9d85f"), "warning", {
+      showToast("Two-step login is off", "warning", {
         title: i18nText("ui.literals.k9aa7b67861a3"),
       });
     } catch (nextError) {
@@ -99,7 +99,7 @@ export default function TwoFactorSection() {
 
   function copySecret() {
     navigator.clipboard?.writeText(enrollment?.secret || "");
-    showToast(i18nText("ui.literals.k6a9687895105"), "success");
+    showToast("Setup key copied", "success");
   }
 
   return (

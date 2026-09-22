@@ -1,5 +1,5 @@
 import { useEffect, useMemo, useState } from "react";
-import { inlineErrorMessage } from "../services/friendlyErrorService";
+import { inlineErrorMessage, shortErrorToast } from "../services/friendlyErrorService";
 
 import {
   INITIAL_PRODUCT_FORM,
@@ -259,15 +259,15 @@ export function useSellerProductForm({ onComplete, mode = "create", product = nu
       // exact, traceable reason as a persistent toast so it survives the form
       // closing and the seller knows the product is saved but not promoted.
       if (savedProduct.promotionWarning) {
-        showToast(savedProduct.promotionWarning, "danger", {
-          title: "Sponsored boost didn't start",
+        showToast(shortErrorToast(savedProduct.promotionWarning, "Saved but not boosted"), "danger", {
+          title: "Boost didn't start",
           duration: 9000,
         });
       }
       setSaveStatus("");
       clearProductDraft();
       setDraftRestored(false);
-      showToast(product ? "Product updated." : "Product added.", "success");
+      showToast(product ? "Product updated." : "Product has been added", "success");
       haptics.medium("marketplace");
       sounds.success("marketplace");
       onComplete?.(savedProduct);

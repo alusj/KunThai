@@ -177,7 +177,7 @@ export default function AiChatPanel({ open, request, onClose }) {
       {open ? (
         <motion.div
           key="kt-ai-chat"
-          className="fixed inset-0 z-[2147483050] flex items-end justify-end bg-slate-950/40 backdrop-blur-[2px]"
+          className="fixed inset-0 z-[2147483050] flex items-end justify-end bg-slate-950/40"
           initial={{ opacity: 0 }}
           animate={{ opacity: 1 }}
           exit={{ opacity: 0 }}

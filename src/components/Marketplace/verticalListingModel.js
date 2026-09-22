@@ -5,6 +5,7 @@ import { createBuyerProductOrder, sendBuyerMarketplaceMessage } from "../../Back
 import { urMallShareToastOptions } from "../../Backend/services/shareCtaService";
 import { showToast } from "../../Backend/services/toastService";
 import { t } from "../../i18n";
+import { shortErrorToast } from "../../Backend/services/friendlyErrorService";
 
 // Shared vertical-listing model + buyer actions. The discovery feed
 // (VerticalMarketplace) and a vertical seller's own profile
@@ -192,9 +193,9 @@ export async function messageVerticalSeller(product, options = {}) {
       message: options.message || t("urmall.vertical.messageGreeting", { name: product.name }),
       messageType: options.messageType || "question",
     });
-    showToast(t("urmall.vertical.messageSent"), "success");
+    showToast("Message sent to seller", "success");
   } catch (error) {
-    showToast(error.message || t("urmall.vertical.messageFailed"), "danger");
+    showToast(shortErrorToast(error, "Message not sent"), "danger");
     throw error;
   }
 }
@@ -202,9 +203,9 @@ export async function messageVerticalSeller(product, options = {}) {
 export async function orderVerticalMeal(product, orderInput) {
   try {
     await createBuyerProductOrder(product, orderInput);
-    showToast(t("urmall.vertical.orderSent"), "success", urMallShareToastOptions());
+    showToast("Restaurant order sent", "success", urMallShareToastOptions());
   } catch (error) {
-    showToast(error.message || t("urmall.vertical.orderFailed"), "danger");
+    showToast(shortErrorToast(error, "Order couldn't be sent"), "danger");
     throw error;
   }
 }
@@ -212,9 +213,9 @@ export async function orderVerticalMeal(product, orderInput) {
 export async function bookVerticalListing(product, bookingInput) {
   try {
     await createVerticalBooking(product, bookingInput);
-    showToast(t("urmall.vertical.bookingSent"), "success", urMallShareToastOptions());
+    showToast("Booking request sent", "success", urMallShareToastOptions());
   } catch (error) {
-    showToast(error.message || t("urmall.vertical.bookingFailed"), "danger");
+    showToast(shortErrorToast(error, "Booking not sent"), "danger");
     throw error;
   }
 }

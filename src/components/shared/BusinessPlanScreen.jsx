@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
-import { friendlyErrorMessage, inlineErrorMessage } from "../../Backend/services/friendlyErrorService";
+import { inlineErrorMessage, shortErrorToast } from "../../Backend/services/friendlyErrorService";
 import {
   AlertTriangle,
   ArrowRight,
@@ -253,11 +253,10 @@ export default function BusinessPlanScreen({ surface, entityId, entityName = "Yo
         selectedPlan.planCode,
         selectedInterval,
       );
-      const cadence = selectedPlan.planCode !== "free" && selectedInterval === "yearly" ? " (yearly)" : "";
-      showToast(scheduled ? i18nText("ui.literals.kdbc34ee5d013", { value0: selectedPlan.displayName }) : i18nText("ui.literals.ke2754335f5b0", { value0: selectedPlan.displayName, value1: cadence }), "success");
+      showToast(scheduled ? "Plan set for next renewal" : "Your plan is now active", "success");
       setSelectedPlan(null);
     } catch (changeError) {
-      showToast(friendlyErrorMessage(changeError, "Unable to change this plan."), "danger");
+      showToast(shortErrorToast(changeError, "Couldn't change plan"), "danger");
     } finally {
       setBusy("");
     }
@@ -282,7 +281,7 @@ export default function BusinessPlanScreen({ surface, entityId, entityName = "Yo
       setState(await setBusinessPlanAutoRenew(surface, entityId, next));
       showToast(next ? i18nText("ui.literals.k7ba71d9d2e26") : i18nText("ui.literals.k2c90ca26876f"), "success");
     } catch (renewError) {
-      showToast(friendlyErrorMessage(renewError, "Unable to change automatic renewal."), "danger");
+      showToast(shortErrorToast(renewError, "Auto-renew not changed"), "danger");
     } finally {
       setBusy("");
     }
@@ -293,9 +292,9 @@ export default function BusinessPlanScreen({ surface, entityId, entityName = "Yo
     setBusy("operator-pack");
     try {
       setState(await buyOperatorCapacityPack(entityId));
-      showToast(i18nText("ui.literals.k539f5e59ee29", { value0: OPERATOR_CAPACITY_PACK_SIZE }), "success");
+      showToast("Operator spaces added", "success");
     } catch (packError) {
-      showToast(friendlyErrorMessage(packError, "Unable to add operator capacity."), "danger");
+      showToast(shortErrorToast(packError, "Couldn't add spaces"), "danger");
     } finally {
       setBusy("");
     }

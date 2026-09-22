@@ -110,7 +110,7 @@ function UserActionsMenu({ user, access, onOpen, onNotify }) {
       await navigator.clipboard.writeText(user.user_id);
       showToast(i18nText("ui.literals.k4ade027fc571"), "success", { title: i18nText("ui.literals.k57f2b181d0a5") });
     } catch {
-      showToast(user.user_id, "info", { title: i18nText("ui.literals.kddd25d1456c0") });
+      showToast("Couldn't copy user ID", "info", { title: i18nText("ui.literals.kddd25d1456c0") });
     }
     setOpen(false);
   }
@@ -333,7 +333,7 @@ function UserWorkspaceDrawer({ user, initialTab, access, onClose, onUserUpdated 
       const patch = { account_status: updated.status, status_reason: updated.reason, restricted_sectors: updated.restricted_sectors, status_expires_at: updated.expires_at };
       setWorkspace((current) => ({ ...current, user: { ...(current.user || user), ...patch } }));
       onUserUpdated(patch);
-      showToast(i18nText("ui.literals.k6cc1cd043d22"), "success", { title: currentUser.display_name || "User" });
+      showToast(i18nText("ui.literals.k6cc1cd043d22"), "success", { title: "User" });
     } catch (nextError) { setError(inlineErrorMessage(nextError, i18nText("ui.literals.k4f10a895bd7c"))); }
     finally { setBusy(false); }
   }
@@ -343,7 +343,7 @@ function UserWorkspaceDrawer({ user, initialTab, access, onClose, onUserUpdated 
     try {
       const result = await grantAdminVisibilityCredits({ userId: user.user_id, amount, reason });
       await loadWorkspace(true);
-      showToast(i18nText("ui.literals.k8710a49a1ad8", { value0: result.amount || amount }), "success", { title: currentUser.display_name || "User" });
+      showToast(`${result.amount || amount} credits granted`, "success", { title: "User" });
       return true;
     } catch (nextError) { setError(inlineErrorMessage(nextError, i18nText("ui.literals.k7467d3e88c60"))); return false; }
     finally { setBusy(false); }
@@ -385,7 +385,7 @@ function TargetedNotificationDialog({ user, onClose }) {
     event.preventDefault(); setBusy(true); setError("");
     try {
       await createNotificationCampaign({ ...form, audience: "specific_users", filter: { userIds: [user.user_id], kunthaiIds: [user.public_id].filter(Boolean) }, schedule: "" });
-      showToast(i18nText("ui.literals.k0a34728297a0"), "success", { title: user.display_name || user.email });
+      showToast("Campaign created", "success", { title: "User" });
       onClose();
     } catch (nextError) { setError(inlineErrorMessage(nextError, i18nText("ui.literals.k4c853733cb02"))); }
     finally { setBusy(false); }

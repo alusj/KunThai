@@ -43,7 +43,7 @@ import { showToast } from "../../Backend/services/toastService";
 import { useI18n, t } from "../../i18n";
 import { t as i18nText } from "../../i18n/index";
 import { uiText as translateUi } from "../../i18n/index.js";
-import { inlineErrorMessage } from "../../Backend/services/friendlyErrorService";
+import { inlineErrorMessage, shortErrorToast } from "../../Backend/services/friendlyErrorService";
 
 // Session-lived cache of the operator/company accounts, mirroring UrMall's
 // SELLER_HEADER_MEMORY. Re-entering UrRide then paints the header from this
@@ -516,7 +516,7 @@ export default function Transport({
     setOperatorInviteStatus(
       t("urride.transport.status.skipDocs", { company: invite?.companyName || t("urride.transport.status.companyFallback") }),
     );
-    showToast(t("urride.transport.toast.docsLater"), "success", {
+    showToast("Request accepted", "success", {
       title: t("urride.transport.toast.companyInvitation"),
     });
   }
@@ -554,7 +554,7 @@ export default function Transport({
       });
       removeOperatorInvite(rejectedInvite);
       setDocumentReuseInvite(null);
-      showToast(t("urride.transport.toast.rejected"), "warning", {
+      showToast("Request rejected", "warning", {
         title: t("urride.transport.toast.requestRejected"),
         anchor: "notification",
       });
@@ -685,7 +685,7 @@ export default function Transport({
       } catch (error) {
         if (!alive) return;
         if (getNetworkStatus().online) {
-          showToast(error.message || t("urride.transport.operatorError"), "warning", {
+          showToast(shortErrorToast(error, "Fleet account not loaded"), "warning", {
             title: t("urride.transport.title"),
             duration: 5000,
             origin: false,
@@ -788,7 +788,7 @@ export default function Transport({
         if (message) {
           setCompanyWorkspaceStatus(message);
           if (activeRef.current) {
-            showToast(message, inviteStatus === "rejected" ? "warning" : "success", {
+            showToast(inviteStatus === "rejected" ? "Invite was declined" : "Operator accepted invite", inviteStatus === "rejected" ? "warning" : "success", {
               title: inviteStatus === "rejected" ? t("urride.transport.toast.invitationDeclined") : t("urride.transport.toast.invitationAccepted"),
             });
           }
@@ -1301,7 +1301,7 @@ export default function Transport({
             await setActiveTransportCompanyId(company.id);
             setCompanyAccount(company);
             setCompanyOperationBadgeCount(0);
-            showToast(t("urride.transport.toast.groupSwitched", { company: company.companyName }), "success");
+            showToast("Transport group switched", "success");
           }}
           onRegisterCompany={() => openCompanyRegistration("operator-dashboard")}
           onEditRegistration={() => {

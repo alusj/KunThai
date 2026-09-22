@@ -4,6 +4,7 @@ import { FiCheck, FiHeart } from "react-icons/fi";
 import { showToast } from "../../Backend/services/toastService";
 import { saveTransportOperator } from "../services/passengerTransportService";
 import { useI18n, t } from "../../i18n";
+import { shortErrorToast } from "../../Backend/services/friendlyErrorService";
 
 export default function SaveOperatorButton({ className = "", fleet, label = "", onSaved }) {
   useI18n();
@@ -18,10 +19,10 @@ export default function SaveOperatorButton({ className = "", fleet, label = "", 
     try {
       const record = await saveTransportOperator(fleet);
       setSaved(true);
-      showToast(t("urride.saved.operatorSaved"), "success");
+      showToast("Operator saved to list", "success");
       onSaved?.(record);
     } catch (error) {
-      showToast(error.message || t("urride.saved.saveError"), "danger");
+      showToast(shortErrorToast(error, "Couldn't save operator"), "danger");
     } finally {
       setSaving(false);
     }

@@ -94,7 +94,7 @@ export default function ProductMediaStep({ productForm }) {
             // Stop the picker from even opening once six are chosen.
             if (extraImagesFull) {
               event.preventDefault();
-              showToast(t("urmall.biz.pform.maxImagesToast", { max: MAX_EXTRA_IMAGES }), "danger", { title: "UrMall" });
+              showToast("Image limit reached", "danger", { title: "UrMall" });
             }
           }}
           onChange={(event) => {
@@ -107,7 +107,7 @@ export default function ProductMediaStep({ productForm }) {
             // told with a toast, whether they were already full or just went over.
             if (incoming.length > room) {
               setExtraImagesNote(t("urmall.biz.pform.onlyNImages", { max: MAX_EXTRA_IMAGES }));
-              showToast(t("urmall.biz.pform.onlyNImages", { max: MAX_EXTRA_IMAGES }), "danger", { title: "UrMall" });
+              showToast("Too many images added", "danger", { title: "UrMall" });
             } else {
               setExtraImagesNote("");
             }

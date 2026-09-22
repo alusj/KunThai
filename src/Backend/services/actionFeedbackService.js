@@ -1,6 +1,6 @@
 import { showToast } from "./toastService";
 import { haptics } from "./feedbackService";
-import { friendlyErrorMessage } from "./friendlyErrorService";
+import { shortErrorToast } from "./friendlyErrorService";
 
 // One call to acknowledge a completed user action so nothing ever finishes
 // silently: a plain-language toast plus a short haptic tick. `module` maps to
@@ -12,9 +12,9 @@ export function notifyActionDone(message, { module = "explore", tone = "success"
   if (haptic && typeof haptics[haptic] === "function") haptics[haptic](module);
 }
 
-// The failure counterpart: a friendly (network/technical-sanitized) toast plus a
+// The failure counterpart: a short (network/technical-sanitized) toast plus a
 // firmer haptic, so a failed action is just as clearly acknowledged.
 export function notifyActionFailed(error, fallback = "", { module = "explore" } = {}) {
-  showToast(friendlyErrorMessage(error, fallback), "danger");
+  showToast(shortErrorToast(error, fallback), "danger");
   if (typeof haptics.heavy === "function") haptics.heavy(module);
 }

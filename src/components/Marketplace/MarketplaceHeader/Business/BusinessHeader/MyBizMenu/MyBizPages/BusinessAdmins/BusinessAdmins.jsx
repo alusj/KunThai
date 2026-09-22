@@ -4,7 +4,6 @@ import { Check, Crown, LoaderCircle, MoreVertical, ShieldCheck, Trash2, UserPlus
 import {
   ADMIN_RESPONSIBILITIES,
   fetchBusinessAdmins,
-  getAdminCapacityFailureMessage,
   inviteBusinessAdmin,
   removeBusinessAdmin,
   updateAdminResponsibilities,
@@ -20,6 +19,7 @@ import { t as i18nText } from "../../../../../../../../i18n/index";
 import { fetchBusinessSubscription, getCapacityStatus } from "../../../../../../../../Backend/services/businessSubscriptionService";
 import { hasBusinessPlans } from "../../../../../../../../Backend/services/marketplace/marketplaceBusinessKinds";
 import { uiText as translateUi } from "../../../../../../../../i18n/index.js";
+import { shortErrorToast } from "../../../../../../../../Backend/services/friendlyErrorService";
 
 const STATUS_STYLES = {
   pending: "bg-amber-50 text-amber-700 border-amber-100",
@@ -63,7 +63,7 @@ export default function BusinessAdmins({ onBack, onOpenPlans }) {
           }
         }
       } catch (error) {
-        showToast(error.message || t("urmall.biz.admins.loadFailed"), "danger");
+        showToast(shortErrorToast(error, "Couldn't load admins"), "danger");
       } finally {
         if (alive) setLoading(false);
       }
@@ -130,11 +130,10 @@ export default function BusinessAdmins({ onBack, onOpenPlans }) {
     event.preventDefault();
     if (!inviteCode.trim() || inviting) return;
 
-    const adminName = lookup.name || t("urmall.biz.admins.memberFallback");
     if (hasBusinessPlans(business?.businessKind) && planState?.available) {
       const capacity = getCapacityStatus(planState, "admins", 1);
       if (!capacity.allowed) {
-        showToast(getAdminCapacityFailureMessage(adminName, planState), "warning");
+        showToast("Admin spaces are full", "warning");
         return;
       }
     }
@@ -149,13 +148,10 @@ export default function BusinessAdmins({ onBack, onOpenPlans }) {
       setLookup({ status: i18nText("ui.literals.k1adbcc344b31"), name: "", message: "" });
       haptics.medium("marketplace");
       sounds.success("marketplace");
-      showToast(t("urmall.biz.admins.inviteSent"), "success");
+      showToast("Invitation sent", "success");
       await reloadAdmins();
     } catch (error) {
-      const message = error?.code === "KUNTHAI_PLAN_LIMIT"
-        ? getAdminCapacityFailureMessage(adminName, error.state || planState)
-        : error.message || t("urmall.biz.admins.inviteFailed");
-      showToast(message, "danger");
+      showToast(error?.code === "KUNTHAI_PLAN_LIMIT" ? "Admin spaces are full" : shortErrorToast(error, "Invite wasn't sent"), "danger");
     } finally {
       setInviting(false);
     }
@@ -176,7 +172,7 @@ export default function BusinessAdmins({ onBack, onOpenPlans }) {
       setResponsibilityAdmin(null);
       await reloadAdmins();
     } catch (error) {
-      showToast(error.message || t("urmall.biz.admins.respUpdateFailed"), "danger");
+      showToast(shortErrorToast(error, "Couldn't update roles"), "danger");
     } finally {
       setSavingResponsibilities(false);
     }
@@ -187,10 +183,10 @@ export default function BusinessAdmins({ onBack, onOpenPlans }) {
     try {
       await removeBusinessAdmin(admin);
       haptics.medium("marketplace");
-      showToast(t("urmall.biz.admins.removed", { name: admin.adminName }), "success");
+      showToast("Admin has been removed", "success");
       await reloadAdmins();
     } catch (error) {
-      showToast(error.message || t("urmall.biz.admins.removeFailed"), "danger");
+      showToast(shortErrorToast(error, "Couldn't remove admin"), "danger");
     }
   }
 

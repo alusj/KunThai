@@ -38,7 +38,7 @@ test("passengers can save and remove operators from persistent storage", () => {
   assert.match(savedOperatorService, /export async function saveTransportOperator/);
   assert.match(savedOperatorService, /onConflict: "passenger_id,fleet_id"/);
   assert.match(savedOperatorService, /export async function removeSavedTransportOperator/);
-  assert.match(savedOperatorButton, /urride\.saved\.operatorSaved/);
+  assert.match(savedOperatorButton, /showToast\("Operator saved to list", "success"\)/);
   assert.match(migration, /create table if not exists public\.transport_saved_operators/);
 });
 

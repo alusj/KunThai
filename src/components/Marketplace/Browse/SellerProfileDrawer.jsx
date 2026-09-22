@@ -67,6 +67,7 @@ import { cleanAddressString } from "../../../Backend/utils/geoAddress";
 import { isCoordinatePlausibleForCountry } from "../../../Backend/utils/coordinatePlausibility";
 import { t as i18nText } from "../../../i18n/index";
 import { uiText as translateUi, useI18n as useUiLocale } from "../../../i18n/index.js";
+import { shortErrorToast } from "../../../Backend/services/friendlyErrorService";
 
 function StarRatingInput({ value, onChange }) {
   useUiLocale();
@@ -1250,7 +1251,7 @@ export default function SellerProfileDrawer({
         reviewType: "marketplace",
       }));
     } catch (err) {
-      onNotice?.(err.message || t("urmall.seller.reviewSubmitFailed"), "danger");
+      onNotice?.(shortErrorToast(err, "Review wasn't sent"), "danger");
     }
   }
 
@@ -1268,7 +1269,7 @@ export default function SellerProfileDrawer({
       setMessagePanelOpen(false);
       onNotice?.(t("urmall.seller.messageSent"));
     } catch (err) {
-      onNotice?.(err.message || t("urmall.browse.messageFailed"), "danger");
+      onNotice?.(shortErrorToast(err, t("urmall.browse.messageFailed")), "danger");
     }
   }
 
@@ -1281,7 +1282,7 @@ export default function SellerProfileDrawer({
       window.setTimeout(() => setCopiedProductId(null), 1500);
       onNotice?.(t("urmall.seller.productLinkCopied"));
     } catch {
-      onNotice?.(link, "info");
+      onNotice?.("Couldn't copy the link", "info");
     }
   }
 
@@ -1304,7 +1305,7 @@ export default function SellerProfileDrawer({
     }
 
     await copyProduct(product);
-    onNotice?.(t("urmall.seller.shareUnavailable"), "info");
+    onNotice?.("Product link copied", "info");
   }
 
   async function shareSeller() {
@@ -1329,7 +1330,7 @@ export default function SellerProfileDrawer({
       await navigator.clipboard.writeText(link);
       onNotice?.(t("urmall.seller.storeLinkCopied"));
     } catch {
-      onNotice?.(link, "info");
+      onNotice?.("Couldn't copy the link", "info");
     }
   }
 
@@ -1342,7 +1343,7 @@ export default function SellerProfileDrawer({
     if ((lat === null || lng === null) && !locationAddress) {
       const message = t("urmall.seller.mapUnavailable");
       setLocationWarning(message);
-      onNotice?.(message, "danger");
+      onNotice?.("Map location unavailable", "danger");
       return;
     }
 
@@ -1383,7 +1384,7 @@ export default function SellerProfileDrawer({
     if (!nearestStoreLocation) {
       const message = t("urmall.seller.locationUnavailable");
       setLocationWarning(message);
-      onNotice?.(message, "danger");
+      onNotice?.("Store location unknown", "danger");
       return;
     }
 
@@ -1396,7 +1397,7 @@ export default function SellerProfileDrawer({
 
   function handleSaveStore() {
     if (!safeSeller.id) {
-      onNotice?.(t("urmall.browse.storeCannotSave"), "danger");
+      onNotice?.("Store can't be saved yet", "danger");
       return;
     }
     onToggleSavedSeller?.({ ...safeSeller, name: sellerName });

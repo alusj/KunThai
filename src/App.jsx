@@ -331,7 +331,7 @@ export default function App() {
 
       window.dispatchEvent(new CustomEvent("kuntai-visibility-credits-updated"));
       showToast(
-        i18nText("ui.literals.k2d68fd682d8f", { value0: Number(result.credits || 0) }),
+        `+${Number(result.credits || 0)} credits added`,
         "success",
         { title: i18nText("ui.literals.kff0075d7f19c") },
       );
@@ -380,7 +380,7 @@ export default function App() {
     finalizeStoredVisibilityInvite(userId)
       .then((result) => {
         if (result?.status === "credited" && Number(result.creditsAwarded || 0) > 0) {
-          showToast(i18nText("ui.literals.k91f1a63c2e7b", { value0: result.inviterName || i18nText("ui.literals.k8df5482fdfac") }), "success", {
+          showToast("Invite reward granted", "success", {
             title: i18nText("ui.literals.kc4f06bac9541"),
           });
         }
