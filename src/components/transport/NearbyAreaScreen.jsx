@@ -2819,8 +2819,19 @@ function BusinessLocationPickerChrome({
   const coordinateCode = currentLocation?.coordinateCode || formatCoordinateCode(currentLocation);
   const coordinates = coordinateCode || currentLocation?.coordinatesLabel || formatCoordinatesLabel(currentLocation);
   const displayAddress = currentLocation ? getDisplayAddress(currentLocation) : "";
+  // A real street address for the dropped pin, if geocoding found one. Some
+  // previews keep it in suggestedAddress while address holds the coordinates.
+  const pinCoordinates = coordinateCode || currentLocation?.coordinatesLabel || formatCoordinatesLabel(currentLocation);
+  const pinAddress = (() => {
+    const raw = String(currentLocation?.suggestedAddress || currentLocation?.address || currentLocation?.label || "").trim();
+    const coordinateForms = [coordinateCode, currentLocation?.coordinatesLabel, formatCoordinatesLabel(currentLocation)].filter(Boolean);
+    if (!raw || coordinateForms.includes(raw) || /^(pinned location|selected map (location|point))$/i.test(raw)) return "";
+    return raw;
+  })();
   const { collapse, collapsed, expand, toggle } = useAutoCollapseCard({
-    enabled: isDropPin,
+    // The drop-pin card is static now (never auto-collapses); the locate-me
+    // card never auto-collapsed.
+    enabled: false,
     // Geocoding updates busy/status/location immediately after the drag ends.
     // Resetting on those values would reopen the card before the requested
     // four-second reveal timer. Only an actual picker-mode change resets it.
@@ -2870,7 +2881,48 @@ function BusinessLocationPickerChrome({
         </div>
       ) : null}
 
-      {cardMotion.renderCollapsed ? (
+      {isDropPin ? (
+        // Drop a pin: one small, static card — the address with its
+        // coordinates, or (no address found) the EXACT COORDINATE — and the
+        // two actions. Shared by every drop-pin screen.
+        <section className="absolute bottom-4 left-3 right-3 z-30 rounded-2xl bg-white/95 p-3 text-slate-950 shadow-2xl backdrop-blur sm:bottom-5 sm:left-auto sm:right-5 sm:w-[380px]">
+          {currentLocation ? (
+            pinAddress ? (
+              <div className="min-w-0">
+                <p className="text-[10px] font-black uppercase tracking-[0.16em] text-blue-700">{labels.cardEyebrow}</p>
+                <p className="mt-0.5 line-clamp-2 text-sm font-black leading-5 text-slate-950">{pinAddress}</p>
+                {pinCoordinates ? <p className="mt-1 text-xs font-bold tabular-nums text-slate-500">{pinCoordinates}</p> : null}
+              </div>
+            ) : (
+              <div className="min-w-0">
+                <p className="text-[11px] font-black uppercase tracking-[0.2em] text-blue-700">{t("urride.areaView.exactCoordinate")}</p>
+                <p className="mt-1 text-base font-black tabular-nums leading-6 text-slate-950">{pinCoordinates}</p>
+              </div>
+            )
+          ) : (
+            <p className="text-sm font-semibold leading-5 text-slate-600">{labels.dropInstruction}</p>
+          )}
+          {busy && status ? <p className="mt-2 text-xs font-bold text-blue-700">{translateUi(status)}</p> : null}
+          <div className="mt-3 grid grid-cols-2 gap-2">
+            <button
+              type="button"
+              onClick={onBack}
+              className="h-10 rounded-xl border border-slate-200 text-sm font-black text-slate-700 hover:bg-slate-50"
+            >
+              {t("urride.areaView.back")}
+            </button>
+            <button
+              type="button"
+              onClick={onAddDroppedPin}
+              disabled={busy}
+              className="h-10 rounded-xl bg-blue-600 text-sm font-black text-white hover:bg-blue-700 disabled:opacity-60"
+            >
+              {busy ? t("urride.areaView.adding") : t("urride.areaView.addLocationBtn")}
+            </button>
+          </div>
+        </section>
+      ) : null}
+      {!isDropPin && cardMotion.renderCollapsed ? (
         <div className={`absolute bottom-5 right-4 z-30 sm:right-5 ${cardMotion.collapsedButtonClass}`}>
           <MapCardCollapseButton
             collapsed
@@ -2879,7 +2931,7 @@ function BusinessLocationPickerChrome({
           />
         </div>
       ) : null}
-      {cardMotion.renderExpanded ? (
+      {!isDropPin && cardMotion.renderExpanded ? (
         <section className={`absolute bottom-4 left-3 right-3 z-30 rounded-3xl bg-white/95 p-4 text-slate-950 shadow-2xl backdrop-blur sm:bottom-5 sm:left-auto sm:right-5 sm:w-[420px] ${cardMotion.expandedCardClass}`}>
           <div className="flex items-start gap-3">
             <div className="min-w-0 flex-1">

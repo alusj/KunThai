@@ -430,14 +430,8 @@ export default function CustomerCare({ onBack } = {}) {
     );
   }
 
-  return (
-    <AppPortal><section className={`relative overflow-hidden overscroll-none bg-gray-50 ${
-      visibleConversation && !standalone
-        ? "kt-mobile-screen kt-safe-screen fixed inset-0 z-[1300]"
-        : standalone
-          ? "h-full"
-          : "min-h-[calc(100dvh-9rem)]"
-    }`}>
+  const content = (
+    <>
       <section
         aria-hidden={Boolean(visibleConversation)}
         inert={visibleConversation ? "true" : undefined}
@@ -450,6 +444,25 @@ export default function CustomerCare({ onBack } = {}) {
         </div>
       </section>
       {renderConversation(visibleConversation)}
-    </section></AppPortal>
+    </>
+  );
+
+  // Only the full-screen conversation (dashboard card, not the Messages
+  // screen) is portaled. Portaling the whole screen moved it out of the
+  // seller's Messages panel and left that panel blank.
+  if (visibleConversation && !standalone) {
+    return (
+      <AppPortal>
+        <section className="kt-mobile-screen kt-safe-screen fixed inset-0 z-[1300] overflow-hidden overscroll-none bg-gray-50">
+          {content}
+        </section>
+      </AppPortal>
+    );
+  }
+
+  return (
+    <section className={`relative overflow-hidden overscroll-none bg-gray-50 ${standalone ? "h-full" : "min-h-[calc(100dvh-9rem)]"}`}>
+      {content}
+    </section>
   );
 }
