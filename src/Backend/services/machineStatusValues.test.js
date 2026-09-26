@@ -38,3 +38,13 @@ test("re-inviting an operator reopens their old invite instead of inserting a du
   assert.match(fn, /status: "pending"/);
   assert.ok(fn.indexOf("closedFleetInvite") < fn.indexOf(".insert("), "reopen is tried before insert");
 });
+
+test("an accepted company fleet carries the company's fleet photos", () => {
+  const sql = readFileSync(new URL("../../../supabase/migrations/20260926160000_urride_company_runtime_fleet_photos.sql", import.meta.url), "utf8");
+  assert.match(sql, /coalesce\(company_fleet\.public_fleet_photos, '\[\]'::jsonb\)/);
+  assert.match(sql, /public_fleet_photos = coalesce\(company_fleet\.public_fleet_photos, public_fleet_photos\)/);
+  // The runtime-copy exemption must be a nested IF (company-fleet rows have no company_fleet_id).
+  assert.match(sql, /if tg_table_name = 'transport_fleets' then\s+if new\.company_fleet_id is not null then\s+return new;/);
+  assert.match(sql, /^begin;$/m);
+  assert.match(sql.trimEnd(), /commit;$/);
+});

@@ -480,36 +480,46 @@ export default function Transport({
       }
     }
     invite = { ...invite, companyAccessFeeConfirmed: feeConfirmed };
-    if (hasSubmittedOperatorDocuments(operatorAccount)) {
-      setCompanyAccessDecision(null);
-      setDocumentReuseInvite(invite);
-      return;
-    }
+    // Already a registered operator: accepting is one tap (plus the one-time
+    // access fee for solo operators). Existing documents are reused and no
+    // documents screen follows. A new operator is asked for a licence next.
+    const alreadyOperator = Boolean(operatorAccount?.id);
+    const reuseDocuments = hasSubmittedOperatorDocuments(operatorAccount);
 
     let profileError = null;
     try {
-      // Linking the operator record on accept lets the backend provision the
-      // company fleet right away; identity documents remain an optional later step.
-      const operatorRecord = await ensureInvitedOperatorProfile(invite).catch((error) => {
-        profileError = error;
-        return null;
-      });
+      // A new operator's record is created on accept so the company fleet can
+      // be provisioned right away; an existing record is left untouched.
+      const operatorRecord = alreadyOperator
+        ? null
+        : await ensureInvitedOperatorProfile(invite).catch((error) => {
+          profileError = error;
+          return null;
+        });
+      const now = new Date().toISOString();
       const updatedInvite = await respondToOperatorInvite(invite, {
         status: "accepted",
         operatorId: operatorRecord?.id || operatorAccount?.id || invite.operatorId,
         userId: operatorRecord?.user_id || operatorAccount?.userId || invite.userId,
-        documents: {
-          operatorDocumentsRequired: false,
-          operatorDocumentsOptional: true,
-          operatorDocumentsRequestedAt: new Date().toISOString(),
-          registrationRequired: false,
-        },
+        documents: reuseDocuments
+          ? { reuseNotice: t("urride.transport.status.reuseNotice"), reusedExistingDocuments: true, reusedAt: now }
+          : {
+            operatorDocumentsRequired: false,
+            operatorDocumentsOptional: true,
+            operatorDocumentsRequestedAt: now,
+            registrationRequired: false,
+          },
       });
       // The fee dialog (if any) closes only once the request is really accepted.
       setCompanyAccessDecision(null);
       const refreshedAccount = await getOperatorAccount().catch(() => null);
       if (refreshedAccount) setOperatorAccount(refreshedAccount);
-      setOperatorInviteDocumentsInvite(updatedInvite);
+      if (alreadyOperator) {
+        await refreshOperatorCompanyInvites(refreshedAccount || operatorAccount).catch(() => {});
+        showToast("Request accepted", "success", { title: t("urride.transport.toast.companyInvitation") });
+      } else {
+        setOperatorInviteDocumentsInvite(updatedInvite);
+      }
     } catch (error) {
       // A failed operator-profile step explains a later "complete your
       // operator profile" refusal better than the refusal itself.
@@ -1643,11 +1653,10 @@ function hasSubmittedOperatorDocuments(account) {
   return documents.length > 0 || uploads.length > 0 || ["verified", "recommended"].includes(status);
 }
 
+// A new operator joining a company only adds their driving licence: the
+// fleet, its photos and documents come from the company.
 const operatorInviteDocumentFields = [
-  { key: "nationalId", labelKey: "urride.transport.docs.nationalIdLabel", detailKey: "urride.transport.docs.nationalIdDetail" },
   { key: "license", labelKey: "urride.transport.docs.licenseLabel", detailKey: "urride.transport.docs.licenseDetail" },
-  { key: "operatorPhoto", labelKey: "urride.transport.docs.photoLabel", detailKey: "urride.transport.docs.photoDetail" },
-  { key: "supportingDocument", labelKey: "urride.transport.docs.supportingLabel", detailKey: "urride.transport.docs.supportingDetail", optional: true },
 ];
 
 function OperatorInviteDocumentsScreen({ invite, onBack, onSkip, onSubmit }) {
