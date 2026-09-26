@@ -645,11 +645,6 @@ export default function OperatorDashboardScreen({
       </header>
 
       <main className="min-h-0 w-full flex-1 touch-pan-y overflow-y-auto overscroll-contain px-3 py-4 pb-[calc(var(--kt-safe-area-bottom)+1rem)] sm:px-5 xl:px-8 [-webkit-overflow-scrolling:touch]">
-        {!dashboardReadOnly ? (
-          <p className="mb-3 text-xs font-semibold leading-5 text-slate-600">
-            {i18nText("ui.literals.kfc2c0bfc8277")}
-          </p>
-        ) : null}
         {dashboardError && (
           <div className="mb-4 rounded-2xl border border-amber-200 bg-amber-50 px-4 py-3 text-sm font-bold text-amber-800">
             {dashboardError}
@@ -682,52 +677,6 @@ export default function OperatorDashboardScreen({
           />
         ) : (
           <>
-        {/* Solo + company operator: choose which fleet takes rides (like
-            UrMall's business switcher). Company-only operator: start a solo
-            fleet too, then switch back and forth here. */}
-        {!dashboardReadOnly && account?.hasSoloFleet && account?.hasCompanyFleet && onSwitchWorkMode ? (
-          <section className="mb-4 rounded-2xl border border-slate-200 bg-white p-3 shadow-sm">
-            <p className="text-xs font-black uppercase tracking-wide text-slate-500">{t("urride.opDash.workModeTitle")}</p>
-            <div className="mt-2 grid grid-cols-2 gap-2" role="radiogroup" aria-label={t("urride.opDash.workModeTitle")}>
-              {[["solo", t("urride.opDash.workSolo")], ["company", t("urride.opDash.workCompany")]].map(([mode, label]) => {
-                const selected = (account.workMode || "solo") === mode;
-                return (
-                  <button
-                    key={mode}
-                    type="button"
-                    role="radio"
-                    aria-checked={selected}
-                    onClick={() => {
-                      if (selected) return;
-                      if (isActive) {
-                        showToast(t("urride.opDash.goOfflineToSwitch"), "warning");
-                        return;
-                      }
-                      onSwitchWorkMode(mode);
-                    }}
-                    className={`kt-pressable h-11 rounded-xl px-3 text-sm font-black transition ${
-                      selected ? "bg-slate-950 text-white" : "border border-slate-200 bg-slate-50 text-slate-700"
-                    }`}
-                  >
-                    {label}
-                  </button>
-                );
-              })}
-            </div>
-            <p className="mt-2 text-xs font-semibold leading-5 text-slate-500">{t("urride.opDash.workModeHint")}</p>
-          </section>
-        ) : !dashboardReadOnly && account?.hasCompanyFleet && !account?.hasSoloFleet && onStartSoloFleet ? (
-          <section className="mb-4 flex items-center justify-between gap-3 rounded-2xl border border-slate-200 bg-white p-3 shadow-sm">
-            <p className="min-w-0 text-xs font-semibold leading-5 text-slate-500">{t("urride.opDash.startSoloHint")}</p>
-            <button
-              type="button"
-              onClick={onStartSoloFleet}
-              className="kt-pressable h-10 flex-none rounded-xl bg-slate-950 px-3 text-sm font-black text-white"
-            >
-              {t("urride.opDash.startSolo")}
-            </button>
-          </section>
-        ) : null}
         <div className="mb-4 flex sm:hidden">
           {dashboardReadOnly ? (
             <div className="flex h-11 w-full items-center justify-center gap-2 rounded-2xl border border-blue-100 bg-blue-50 text-sm font-black text-blue-700">
@@ -956,6 +905,19 @@ export default function OperatorDashboardScreen({
           setOperatorMenuOpen(false);
           onRegisterCompany?.();
         }}
+        onSwitchWorkMode={onSwitchWorkMode && account?.hasSoloFleet && account?.hasCompanyFleet && !dashboardReadOnly ? (mode) => {
+          // Only one fleet takes rides at a time.
+          if (isActive) {
+            showToast(t("urride.opDash.goOfflineToSwitch"), "warning");
+            return;
+          }
+          setOperatorMenuOpen(false);
+          onSwitchWorkMode(mode);
+        } : undefined}
+        onStartSoloFleet={onStartSoloFleet && account?.hasCompanyFleet && !account?.hasSoloFleet && !dashboardReadOnly ? () => {
+          setOperatorMenuOpen(false);
+          onStartSoloFleet();
+        } : undefined}
         onLocateArea={(areaText, kind) => {
           setOperatorMenuOpen(false);
           openOperatorArea(areaText, kind);
@@ -2167,6 +2129,8 @@ function OperatorMenuDrawer({
   onOpenWaiting,
   onOpenCompany,
   onRegisterCompany,
+  onSwitchWorkMode,
+  onStartSoloFleet,
   onOpenSafety,
   onShowVerification,
   onEditProfile,
@@ -2237,6 +2201,24 @@ function OperatorMenuDrawer({
       onClick: onOpenDashboard,
     },
     companyAction,
+    // Solo and company fleets: switch which one takes rides.
+    onSwitchWorkMode
+      ? {
+          icon: FiRefreshCw,
+          label: account?.workMode === "company" ? t("urride.opDash.switchToSolo") : t("urride.opDash.switchToCompany"),
+          detail: t("urride.opDash.workModeHint"),
+          onClick: () => onSwitchWorkMode(account?.workMode === "company" ? "solo" : "company"),
+        }
+      : null,
+    // Company-only operator: register a personal (solo) fleet as well.
+    onStartSoloFleet
+      ? {
+          icon: FiUser,
+          label: t("urride.opDash.startSolo"),
+          detail: t("urride.opDash.startSoloHint"),
+          onClick: onStartSoloFleet,
+        }
+      : null,
     {
       icon: FiLifeBuoy,
       label: t("urride.opDash.safetyEmergency"),
