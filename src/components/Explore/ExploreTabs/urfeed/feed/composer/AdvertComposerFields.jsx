@@ -28,7 +28,9 @@ import {
   getMinimumExploreAdvertCredits,
   MINIMUM_EXPLORE_DUAL_MEDIA_VISIBILITY_CREDITS,
   normalizeVisibilityCreditSpend,
+  fetchSpaceCreditWallet,
 } from "../../../../../../Backend/services/visibilityCreditService";
+import { readActiveExploreIdentity } from "../../../../../../Backend/services/explore/spaceService";
 import { getAdvertObjectiveRequirement, hasAdvertCoordinates } from "../../../../shared/advertUtils";
 import { useAddressAreaValidation } from "../../../../../shared/AddressAreaValidation";
 import { t as i18nText, uiText } from "../../../../../../i18n/index";
@@ -134,7 +136,28 @@ export default function AdvertComposerFields({
     getMinimumExploreAdvertCredits(advert.placement),
   );
   const minimumCredits = getMinimumExploreAdvertCredits(advert.placement);
-  const availableCredits = Number(credits.balance || 0);
+  // Posting as a Space you own or administer: the Space's credits pay for the
+  // boost when they cover it (the server applies the same rule), otherwise
+  // your personal credits do.
+  const [composeSpaceId] = useState(() => {
+    const identity = readActiveExploreIdentity();
+    return identity.type === "space" ? identity.id : "";
+  });
+  const [spaceWallet, setSpaceWallet] = useState(null);
+  useEffect(() => {
+    if (!composeSpaceId) return undefined;
+    let alive = true;
+    fetchSpaceCreditWallet(composeSpaceId)
+      .then((wallet) => {
+        if (alive) setSpaceWallet(wallet);
+      })
+      .catch(() => {});
+    return () => {
+      alive = false;
+    };
+  }, [composeSpaceId]);
+  const spacePays = Boolean(spaceWallet?.canSpend) && Number(spaceWallet?.balance || 0) >= selectedCredits;
+  const availableCredits = spacePays ? Number(spaceWallet.balance || 0) : Number(credits.balance || 0);
   const hasEnoughCredits = availableCredits >= selectedCredits;
   const balanceAfterSpend = Math.max(0, availableCredits - selectedCredits);
   const campaignDurationDays = getAdvertDurationDays(advert);

@@ -312,6 +312,30 @@ export function writeActiveExploreIdentity(identity = {}) {
   }
 }
 
+// The person's Spaces, remembered per account on this device so the active
+// Space (its name and avatar) paints instantly on reload instead of flashing
+// the personal profile until the network answers. Always refreshed after.
+const MY_SPACES_CACHE_PREFIX = "kunthai.explore.mySpaces.v1:";
+
+export function readCachedExploreSpaces(userId = "") {
+  if (!userId) return [];
+  try {
+    const value = JSON.parse(localStorage.getItem(`${MY_SPACES_CACHE_PREFIX}${userId}`) || "[]");
+    return Array.isArray(value) ? value.filter((space) => space?.spaceId) : [];
+  } catch {
+    return [];
+  }
+}
+
+export function writeCachedExploreSpaces(userId = "", spaces = []) {
+  if (!userId) return;
+  try {
+    localStorage.setItem(`${MY_SPACES_CACHE_PREFIX}${userId}`, JSON.stringify(Array.isArray(spaces) ? spaces.slice(0, 20) : []));
+  } catch {
+    // A full or blocked storage only costs the instant paint.
+  }
+}
+
 export async function createExploreSpace(input = {}) {
   const user = await getAuthUser();
   if (!user?.id) {
@@ -342,11 +366,23 @@ export async function createExploreSpace(input = {}) {
     settings: input.settings && typeof input.settings === "object" ? input.settings : {},
   };
 
-  const { data, error } = await supabase
+  let { data, error } = await supabase
     .from("explore_spaces")
     .insert(payload)
     .select("*")
     .single();
+
+  // The availability check can only see Spaces the person may read, so an
+  // inactive Space elsewhere can still hold the handle. Retry with a suffix
+  // instead of failing the whole creation.
+  for (let attempt = 0; error?.code === "23505" && attempt < 3; attempt += 1) {
+    payload.slug = `${slug}-${Math.random().toString(36).slice(2, 6)}`;
+    ({ data, error } = await supabase
+      .from("explore_spaces")
+      .insert(payload)
+      .select("*")
+      .single());
+  }
 
   if (error) {
     if (isMissingTable(error)) {

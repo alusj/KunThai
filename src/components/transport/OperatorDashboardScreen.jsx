@@ -137,6 +137,8 @@ export default function OperatorDashboardScreen({
   onSwitchCompany,
   onRegisterCompany,
   onEditRegistration,
+  onSwitchWorkMode,
+  onStartSoloFleet,
   readOnly = false,
   readOnlyReason,
 }) {
@@ -362,7 +364,7 @@ export default function OperatorDashboardScreen({
         id: `operator-trip-route-${passenger.id}`,
         type: "operator-trip-route",
         category: "Passenger destination",
-        status: i18nText("ui.literals.k418b03c91215"),
+        status: "community",
         description: i18nText("ui.literals.k2311b2d73068", { value0: passenger.name }),
         routePlan: {
           id: passenger.id,
@@ -680,6 +682,52 @@ export default function OperatorDashboardScreen({
           />
         ) : (
           <>
+        {/* Solo + company operator: choose which fleet takes rides (like
+            UrMall's business switcher). Company-only operator: start a solo
+            fleet too, then switch back and forth here. */}
+        {!dashboardReadOnly && account?.hasSoloFleet && account?.hasCompanyFleet && onSwitchWorkMode ? (
+          <section className="mb-4 rounded-2xl border border-slate-200 bg-white p-3 shadow-sm">
+            <p className="text-xs font-black uppercase tracking-wide text-slate-500">{t("urride.opDash.workModeTitle")}</p>
+            <div className="mt-2 grid grid-cols-2 gap-2" role="radiogroup" aria-label={t("urride.opDash.workModeTitle")}>
+              {[["solo", t("urride.opDash.workSolo")], ["company", t("urride.opDash.workCompany")]].map(([mode, label]) => {
+                const selected = (account.workMode || "solo") === mode;
+                return (
+                  <button
+                    key={mode}
+                    type="button"
+                    role="radio"
+                    aria-checked={selected}
+                    onClick={() => {
+                      if (selected) return;
+                      if (isActive) {
+                        showToast(t("urride.opDash.goOfflineToSwitch"), "warning");
+                        return;
+                      }
+                      onSwitchWorkMode(mode);
+                    }}
+                    className={`kt-pressable h-11 rounded-xl px-3 text-sm font-black transition ${
+                      selected ? "bg-slate-950 text-white" : "border border-slate-200 bg-slate-50 text-slate-700"
+                    }`}
+                  >
+                    {label}
+                  </button>
+                );
+              })}
+            </div>
+            <p className="mt-2 text-xs font-semibold leading-5 text-slate-500">{t("urride.opDash.workModeHint")}</p>
+          </section>
+        ) : !dashboardReadOnly && account?.hasCompanyFleet && !account?.hasSoloFleet && onStartSoloFleet ? (
+          <section className="mb-4 flex items-center justify-between gap-3 rounded-2xl border border-slate-200 bg-white p-3 shadow-sm">
+            <p className="min-w-0 text-xs font-semibold leading-5 text-slate-500">{t("urride.opDash.startSoloHint")}</p>
+            <button
+              type="button"
+              onClick={onStartSoloFleet}
+              className="kt-pressable h-10 flex-none rounded-xl bg-slate-950 px-3 text-sm font-black text-white"
+            >
+              {t("urride.opDash.startSolo")}
+            </button>
+          </section>
+        ) : null}
         <div className="mb-4 flex sm:hidden">
           {dashboardReadOnly ? (
             <div className="flex h-11 w-full items-center justify-center gap-2 rounded-2xl border border-blue-100 bg-blue-50 text-sm font-black text-blue-700">

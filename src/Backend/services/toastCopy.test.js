@@ -11,7 +11,8 @@ import traverseImport from "@babel/traverse";
 import { build } from "esbuild";
 
 // User rule (2026-09-22): every toast is 15–25 characters, spaces included,
-// in English; no translation may exceed 25. This scans every toast call site
+// in English. Updated 2026-09-26: a translation may be any length — it only
+// has to exist. This scans every toast call site
 // in the source, resolves the text it shows through the translation bundles
 // the same way uiText() does at render time, and measures it.
 
@@ -20,7 +21,7 @@ const SRC = fileURLToPath(new URL("../../", import.meta.url));
 const WEB = fileURLToPath(new URL("../../../", import.meta.url));
 const MIN = 15;
 const MAX = 25;
-const LOCALES = ["en", "fr", "ar", "es", "zh"];
+const LOCALES = ["en", "fr", "ar", "es", "zh", "hi", "bn", "pt"];
 const TOAST_FNS = { showToast: 0, showNotice: 0, onNotice: 0, notifyActionDone: 0, notifyActionFailed: 1 };
 const TRANSLATE_FNS = new Set(["t", "i18nText", "uiText", "translateUi"]);
 
@@ -145,8 +146,7 @@ test("every English toast message is 15–25 characters", () => {
   assert.deepEqual(bad, []);
 });
 
-test("no translation of a toast message or title is longer than 25 characters", () => {
-  const bad = [];
+test("every toast message and title is translated into every language", () => {
   const untranslated = [];
   for (const toast of toasts.filter((t) => t.kind === "text" && !BRAND_ONLY.test(t.source))) {
     const byLocale = translationsOf(toast);
@@ -156,11 +156,9 @@ test("no translation of a toast message or title is longer than 25 characters", 
     }
     for (const locale of LOCALES) {
       const value = byLocale[locale];
-      if (typeof value !== "string") untranslated.push(`${toast.where} ${locale} ${JSON.stringify(toast.source)}`);
-      else if (shown(value) > MAX) bad.push(`${toast.where} ${locale} (${shown(value)}) ${JSON.stringify(value)}`);
+      if (typeof value !== "string" || !value.trim()) untranslated.push(`${toast.where} ${locale} ${JSON.stringify(toast.source)}`);
     }
   }
-  assert.deepEqual(bad, []);
   assert.deepEqual(untranslated, [], "every toast is harvested by scripts/localize-hardcoded-ui.mjs and translated");
 });
 

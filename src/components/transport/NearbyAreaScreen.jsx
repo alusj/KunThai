@@ -2028,7 +2028,7 @@ export default function NearbyAreaScreen({
         name: submitted.name || addLocationDraft.name,
         category: submitted.category || category,
         type: submitted.type || category,
-        status: i18nText("ui.literals.k418b03c91215"),
+        status: "community",
         visibility: "pending",
         description: submitted.description || addLocationDraft.description || "Submitted for KunThai review.",
         distance: submitted.address || addLocationDraft.address || "Submitted for review",

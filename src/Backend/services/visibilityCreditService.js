@@ -17,6 +17,9 @@ const CREDIT_SHARE_PARAM = "kt_ref";
 // decorated with it synchronously (no per-share RPC). Primed by
 // fetchVisibilityCreditWallet and by primeVisibilityInviteCode on login.
 let cachedInviteCode = "";
+// While the person acts as one of their Spaces in Explore, shares carry the
+// Space's invite code so a successful join credits the Space.
+let activeSpaceInviteCode = "";
 
 export const VERIFIED_INVITE_CREDIT_REWARD = 5;
 export const MINIMUM_VISIBILITY_CREDITS = 5;
@@ -164,7 +167,12 @@ export function primeVisibilityInviteCode(code = "") {
   }
 }
 
+export function setActiveSpaceInviteCode(code = "") {
+  activeSpaceInviteCode = normalizeInviteCode(code);
+}
+
 export function getCachedVisibilityInviteCode() {
+  if (activeSpaceInviteCode) return activeSpaceInviteCode;
   if (cachedInviteCode) return cachedInviteCode;
   try {
     const stored = normalizeInviteCode(localStorage.getItem(MY_INVITE_CODE_KEY) || "");
@@ -178,6 +186,7 @@ export function getCachedVisibilityInviteCode() {
 // Ensures the invite code is known, fetching the wallet once if needed. Safe to
 // await before a share; resolves to "" (no decoration) if unavailable.
 export async function ensureVisibilityInviteCode() {
+  if (activeSpaceInviteCode) return activeSpaceInviteCode;
   const cached = getCachedVisibilityInviteCode();
   if (cached) return cached;
   try {
@@ -381,11 +390,13 @@ export function monimeWalletName(walletId) {
 // number restricts who can redeem the Payment Code; Monime's Payment Code API
 // does not promise an unsolicited handset push. The customer starts payment by
 // dialing the returned USSD code, and credits arrive after server confirmation.
-export async function startMonimeMobileMoneyPurchase({ packageId, credits, phoneNumber, wallet } = {}) {
+export async function startMonimeMobileMoneyPurchase({ packageId, credits, phoneNumber, wallet, spaceId = "" } = {}) {
   const body = {
     ...(packageId ? { packageId } : { credits: Math.round(Number(credits) || 0) }),
     phoneNumber,
     wallet,
+    // Buying for one of your Spaces: the paid credits go to the Space.
+    ...(spaceId ? { spaceId } : {}),
   };
   return authenticatedPaymentRequest(
     "/api/monime-create-payment",
@@ -462,6 +473,23 @@ export async function transferVisibilityCredits(kunThaiId, amount) {
   return data || null;
 }
 
+/** Send a Space's credits to a KunThai user (Space owner/administrator). */
+export async function transferSpaceVisibilityCredits(spaceId, kunThaiId, amount) {
+  const transferAmount = Math.floor(Number(amount || 0));
+  if (!Number.isFinite(transferAmount) || transferAmount < 1) {
+    throw new Error("Enter at least 1 credit to share.");
+  }
+  const { data, error } = await supabase.rpc("transfer_space_visibility_credits", {
+    p_space_id: spaceId,
+    p_recipient_public_id: String(kunThaiId || "").trim(),
+    p_amount: transferAmount,
+  });
+  if (error) {
+    throw new Error(error.message || "Unable to share Visibility Credits.");
+  }
+  return data || null;
+}
+
 export async function assertVisibilityCreditsAvailable(amount) {
   const requiredCredits = normalizeVisibilityCreditSpend(amount);
   if (requiredCredits < MINIMUM_VISIBILITY_CREDITS) {
@@ -516,6 +544,51 @@ export async function inviteContactsFromDevice() {
     window.prompt("Copy your KunThai invite link", wallet.inviteUrl);
   }
   return { method: "prompt", count: 0 };
+}
+
+/**
+ * A Space's own Visibility Credits wallet and invite code. Resolves to null
+ * when Space credits are not deployed yet, so callers can simply hide them.
+ */
+export async function fetchSpaceCreditWallet(spaceId = "") {
+  if (!spaceId) return null;
+  const { data, error } = await supabase.rpc("get_explore_space_credit_wallet", { p_space_id: spaceId });
+  if (error) {
+    if (isUnavailableVisibilityFeature(error)) return null;
+    throw new Error(error.message || "Unable to load Visibility Credits.");
+  }
+  const row = (Array.isArray(data) ? data[0] : data) || {};
+  const inviteCode = normalizeInviteCode(row.inviteCode || "");
+  return {
+    spaceId,
+    balance: Number(row.balance || 0),
+    lifetimeEarned: Number(row.lifetimeEarned || 0),
+    lifetimeSpent: Number(row.lifetimeSpent || 0),
+    inviteCode,
+    inviteUrl: buildVisibilityInviteUrl(inviteCode),
+    rewardPerVerifiedInvite: Number(row.rewardPerVerifiedInvite || VERIFIED_INVITE_CREDIT_REWARD),
+    canSpend: Boolean(row.canSpend),
+  };
+}
+
+/** Share a Space's invite link: a join through it credits the Space. */
+export async function shareSpaceInviteLink(spaceId = "", spaceName = "") {
+  const wallet = await fetchSpaceCreditWallet(spaceId);
+  if (!wallet?.inviteUrl) throw new Error("Unable to create the Space invite link.");
+  const name = String(spaceName || "").trim() || "KunThai";
+  const shareData = {
+    title: `Join ${name} on KunThai`,
+    text: [`Join ${name} on KunThai.`, wallet.inviteUrl].join("\n"),
+    url: wallet.inviteUrl,
+  };
+  if (typeof navigator !== "undefined" && navigator.share) {
+    await navigator.share(shareData);
+  } else if (typeof navigator !== "undefined" && navigator.clipboard?.writeText) {
+    await navigator.clipboard.writeText(wallet.inviteUrl);
+  } else if (typeof window !== "undefined") {
+    window.prompt("Copy the invite link", wallet.inviteUrl);
+  }
+  return wallet;
 }
 
 export async function shareVisibilityInviteLink() {

@@ -147,7 +147,7 @@ export function SocialMenuContent({ compact = false, currentProfile = null, onCl
                     onClick={() => {
                       if (space.membershipStatus === "pending") return;
                       onClose?.();
-                      onSelectIdentity?.(space, { openDashboard: true });
+                      onSelectIdentity?.(space, { openProfile: true });
                     }}
                   />
                 );

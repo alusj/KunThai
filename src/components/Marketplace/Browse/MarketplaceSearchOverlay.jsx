@@ -1,6 +1,6 @@
 import { useEffect, useMemo, useRef, useState } from "react";
 import { createPortal } from "react-dom";
-import { ChevronDown, Clock, Package, Search, Sparkles, Store, Tag, UtensilsCrossed, X } from "lucide-react";
+import { Camera, ChevronDown, Clock, Package, Search, Sparkles, Store, Tag, UtensilsCrossed, X } from "lucide-react";
 
 import {
   fetchBuyerDiscoveryOptions,
@@ -17,6 +17,7 @@ import {
 import { detectPublicCodeKind, openPublicCodeResult } from "../../../Backend/services/publicCodeService";
 import { usePublicCodeLookup } from "../../../Backend/hooks/usePublicCodeLookup";
 import PublicCodeResultCard from "../../shared/PublicCodeResultCard";
+import PhotoSearchPanel from "./PhotoSearchPanel";
 import { useI18n } from "../../../i18n";
 import { useAiAvailability } from "../../../Backend/hooks/useAiTask";
 import { openAiChat } from "../../../Backend/services/ai/aiSurfaceService";
@@ -58,6 +59,10 @@ export default function MarketplaceSearchOverlay({
 }) {
   const { t , locale: memoLocale } = useI18n();
   const inputRef = useRef(null);
+  const photoInputRef = useRef(null);
+  // A photo the shopper took or picked; while set, KAI's photo search replaces
+  // the typed results.
+  const [photoFile, setPhotoFile] = useState(null);
   const [query, setQuery] = useState("");
   const [filterOpen, setFilterOpen] = useState(false);
   const [allProducts, setAllProducts] = useState([]);
@@ -196,7 +201,16 @@ export default function MarketplaceSearchOverlay({
   function close() {
     setQuery("");
     setFilterOpen(false);
+    setPhotoFile(null);
     onClose?.();
+  }
+  function pickPhoto() {
+    setFilterOpen(false);
+    photoInputRef.current?.click();
+  }
+  function openPhotoResult(product) {
+    onOpenProduct?.(product);
+    close();
   }
   function remember(term) {
     if (term && term.trim()) setRecent(addRecentMarketplaceSearch(term));
@@ -256,7 +270,10 @@ export default function MarketplaceSearchOverlay({
               ref={inputRef}
               type="text"
               value={query}
-              onChange={(event) => setQuery(event.target.value)}
+              onChange={(event) => {
+                setPhotoFile(null);
+                setQuery(event.target.value);
+              }}
               onKeyDown={(event) => {
                 if (event.key === "Enter") {
                   if (rows[0]) pickResult(rows[0]);
@@ -300,6 +317,35 @@ export default function MarketplaceSearchOverlay({
               </div>
             ) : null}
           </div>
+          {aiAvailability.available ? (
+            <>
+              <button
+                type="button"
+                onClick={pickPhoto}
+                className="relative flex h-11 w-11 flex-none items-center justify-center rounded-2xl bg-gradient-to-br from-slate-900 via-slate-800 to-sky-800 text-white shadow-md shadow-slate-950/20 ring-1 ring-white/15"
+                aria-label={t("ai.urmall.photoSearch")}
+                title={t("ai.urmall.photoSearch")}
+              >
+                <Camera size={19} strokeWidth={2.25} />
+                {/* Same KAI tag as the floating KAI button: this camera is KAI. */}
+                <span className="pointer-events-none absolute -bottom-1 rounded-full bg-white px-1.5 text-[9px] font-black leading-4 text-slate-900 shadow">
+                  KAI
+                </span>
+              </button>
+              {/* No "capture" attribute: phones offer camera OR gallery. */}
+              <input
+                ref={photoInputRef}
+                type="file"
+                accept="image/*"
+                className="hidden"
+                onChange={(event) => {
+                  const file = event.target.files?.[0];
+                  event.target.value = "";
+                  if (file) setPhotoFile(file);
+                }}
+              />
+            </>
+          ) : null}
           <button
             type="button"
             onClick={close}
@@ -311,7 +357,20 @@ export default function MarketplaceSearchOverlay({
         </div>
 
         <div className="max-h-[min(70vh,540px)] overflow-y-auto rounded-b-[24px] border-t border-gray-100 p-3">
-          {!hasQuery ? (
+          {photoFile ? (
+            <PhotoSearchPanel
+              file={photoFile}
+              products={allProducts}
+              catalogLoading={catalogLoading}
+              onOpenProduct={openPhotoResult}
+              onSearchTerm={(term) => {
+                setPhotoFile(null);
+                setQuery(term);
+              }}
+              onRetake={pickPhoto}
+              onClear={() => setPhotoFile(null)}
+            />
+          ) : !hasQuery ? (
             <EmptyState
               t={t}
               recent={recent}

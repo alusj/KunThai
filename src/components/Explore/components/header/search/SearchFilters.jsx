@@ -6,6 +6,8 @@ const FILTERS = [
   { id: "feed", labelKey: "explore.filterFeed" },
   { id: "swip", label: "Swip" },
   { id: "people", labelKey: "explore.filterPeople" },
+  // Spaces is brand vocabulary too.
+  { id: "space", label: "Spaces" },
   { id: "hashtag", labelKey: "explore.filterHashtags" },
 ];
 

@@ -79,9 +79,10 @@ export function MarketplaceVerificationInline({ status, verified, audience = "bu
   useI18n();
   const key = normalizeMarketplaceVerificationStatus(status, verified);
   const config = marketplaceVerificationStatuses[key];
-  const note = audience === "seller"
-    ? t("urmall.verification.inlineSeller", { status: t(config.labelKey) })
-    : t("urmall.verification.inlineBuyer", { status: t(config.labelKey) });
+  // One natural sentence per status ("This seller is not verified"), rather
+  // than a status label dropped into a template, which read awkwardly.
+  const statusSuffix = key.charAt(0).toUpperCase() + key.slice(1);
+  const note = t(`urmall.verification.${audience === "seller" ? "seller" : "buyer"}${statusSuffix}`);
 
   return (
     <div className={`flex min-w-0 flex-wrap items-center gap-2 rounded-full border px-3 py-1.5 text-xs font-bold ${config.panelClass}`}>

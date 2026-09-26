@@ -141,4 +141,7 @@ export const AI_TRANSLATE_LANGUAGES = [
   { code: "ar", labelKey: "ai.languages.ar" },
   { code: "es", labelKey: "ai.languages.es" },
   { code: "zh", labelKey: "ai.languages.zh" },
+  { code: "hi", labelKey: "ai.languages.hi" },
+  { code: "bn", labelKey: "ai.languages.bn" },
+  { code: "pt", labelKey: "ai.languages.pt" },
 ];

@@ -100,7 +100,7 @@ const sorted = [...sources].sort();
 const catalog = {};
 const catalogPath = path.join(root, "src/i18n/policies.js");
 try { Object.assign(catalog, (await import(`${new URL("../src/i18n/policies.js", import.meta.url)}?v=${Date.now()}`)).POLICY_TRANSLATIONS); } catch { /* first generation */ }
-for (const locale of process.argv.includes("--source-only") ? ["en"] : ["en", "fr", "ar", "es", "zh"]) {
+for (const locale of process.argv.includes("--source-only") ? ["en"] : ["en", "fr", "ar", "es", "zh", "hi", "bn", "pt"]) {
   const previous = catalog[locale] || {};
   const missing = sorted.filter((source) => !previous[source]);
   const additions = locale === "en" ? Object.fromEntries(missing.map((source) => [source, source])) : await translate(missing, locale);

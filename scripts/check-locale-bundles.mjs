@@ -5,8 +5,8 @@ import parser from "@babel/parser";
 
 // Read the declared bundles directly so a runtime English fallback cannot hide
 // a missing translation. Array indices are included for the caution cards.
-const locales = ["fr", "ar", "es", "zh"];
-const bundles = ["translations", "urride", "regions", "cautionFeatures", "ui"];
+const locales = ["fr", "ar", "es", "zh", "hi", "bn", "pt"];
+const bundles = ["translations", "urride", "regions", "cautionFeatures", "ui", "addressBook", "directionCards"];
 const placeholders = (text) => (text.match(/\{[A-Za-z0-9_]+\}/g) || []).sort();
 
 function flatten(node, prefix = "", result = {}) {
@@ -52,6 +52,6 @@ for (const bundle of bundles) {
       }
     }
   }
-  console.log(`${bundle}: ${english.length} English keys present in all 4 selectable translations`);
+  console.log(`${bundle}: ${english.length} English keys present in all ${locales.length} selectable translations`);
 }
 console.log(`Passed: ${checked} localized values and their interpolation placeholders.`);

@@ -54,7 +54,7 @@ function pointKey(point) {
 
 export function useAddressAreaValidation(address, options = {}) {
   const { center = null, enabled = true, selectedPoint = null, minLength = 3 } = options;
-  const [state, setState] = useState({ status: i18nText("ui.literals.k1adbcc344b31"), result: null, message: "" });
+  const [state, setState] = useState({ status: "idle", result: null, message: "" });
 
   const centerKey = useMemo(() => pointKey(center), [center]);
   const selectedLocation = useMemo(
@@ -77,7 +77,7 @@ export function useAddressAreaValidation(address, options = {}) {
         }
 
         return {
-          status: i18nText("ui.literals.k2739bb260ce4"),
+          status: "found",
           result: selectedLocation,
           message: i18nText("ui.literals.k2833807d52ee"),
         };
@@ -94,7 +94,7 @@ export function useAddressAreaValidation(address, options = {}) {
           return current;
         }
 
-        return { status: i18nText("ui.literals.k1adbcc344b31"), result: null, message: "" };
+        return { status: "idle", result: null, message: "" };
       });
 
       return undefined;
@@ -104,12 +104,12 @@ export function useAddressAreaValidation(address, options = {}) {
 
     const timer = window.setTimeout(async () => {
       setState((current) => {
-        if (current.status === "searching" && current.message === "Checking Area View...") {
+        if (current.status === "searching" && current.message === i18nText("ui.literals.kb68b07a479c7")) {
           return current;
         }
 
         return {
-          status: i18nText("ui.literals.kde94f8210cfd"),
+          status: "searching",
           result: null,
           message: i18nText("ui.literals.kb68b07a479c7"),
         };
@@ -135,7 +135,7 @@ export function useAddressAreaValidation(address, options = {}) {
             }
 
             return {
-              status: i18nText("ui.literals.k2739bb260ce4"),
+              status: "found",
               result: match,
               message: i18nText("ui.literals.k2833807d52ee"),
             };

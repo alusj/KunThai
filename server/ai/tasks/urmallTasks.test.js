@@ -46,3 +46,43 @@ test("review summaries need written reviews and never pass reviewer names", () =
   // fields it was given, and must not invent a rating in its instruction.
   assert.match(task.instruction, /Do not invent a rating/);
 });
+
+const PNG_1PX =
+  "iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR42mP8z8BQDwAEhQGAhKmMIQAAAABJRU5ErkJggg==";
+
+test("photo search sends the shopper's photo and refuses anything that is not an image", () => {
+  const task = getTask("urmall.image_identify");
+  assert.equal(taskAllowsSurface(task, "urmall"), true);
+  const built = task.build({ image: `data:image/png;base64,${PNG_1PX}`, language: "fr" });
+  assert.equal(built.media.length, 1);
+  assert.equal(built.media[0].mimeType, "image/png");
+  assert.match(built.prompt, /Keep searchTerms in English/);
+  assert.throws(() => task.build({}), (error) => error.code === AI_ERROR_CODES.invalidRequest);
+  const fake = Buffer.from("not an image").toString("base64");
+  assert.throws(() => task.build({ image: `data:image/png;base64,${fake}` }), (error) => error.code === AI_ERROR_CODES.invalidRequest);
+});
+
+test("photo identification keeps only clean search words", () => {
+  const result = getTask("urmall.image_identify").parse({
+    found: true,
+    name: "Tecno Spark 20",
+    explanation: "A budget Android smartphone.",
+    searchTerms: ["Tecno Spark 20", "", "smartphone", "phone", "a", "b", "c", "d"],
+  });
+  assert.equal(result.kind, "json");
+  assert.equal(result.text, "A budget Android smartphone.");
+  assert.deepEqual(result.searchTerms.slice(0, 3), ["Tecno Spark 20", "smartphone", "phone"]);
+  assert.ok(result.searchTerms.length <= 6);
+  assert.equal(getTask("urmall.image_identify").parse({ found: false, name: "", explanation: "A selfie.", searchTerms: [] }).found, false);
+});
+
+test("photo matching is grounded in real listings and needs candidates", () => {
+  const task = getTask("urmall.image_match");
+  assert.match(task.instruction, /Use ONLY the KunThai data provided/);
+  assert.throws(() => task.build({ product: { name: "Phone" }, listings: [] }), (error) => error.code === AI_ERROR_CODES.invalidRequest);
+  const built = task.build({ product: { name: "Tecno Spark 20", explanation: "Phone" }, listings: [LISTING] });
+  assert.match(built.prompt, /Listings \(KunThai data\):\n---\n/);
+  assert.ok(built.prompt.includes("Le 1,850.00"));
+  const parsed = task.parse({ matches: [{ id: "p1", level: "exact", reason: "Same model." }, { id: "", level: "exact", reason: "x" }, { id: "p2", level: "weird", reason: "Close." }] });
+  assert.deepEqual(parsed.matches.map((m) => [m.id, m.level]), [["p1", "exact"], ["p2", "similar"]]);
+});

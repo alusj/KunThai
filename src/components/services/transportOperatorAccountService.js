@@ -569,6 +569,33 @@ async function selectCompanyFleetAssignment(operatorId, userId) {
   }
 }
 
+// An operator can work their own (solo) fleet and a company fleet. Like
+// UrMall's business switcher, they choose which one the dashboard runs; the
+// choice is remembered per account on this device. With no choice made the
+// solo fleet wins, exactly as before.
+const OPERATOR_WORK_MODE_PREFIX = "kunthai.urride.operatorWorkMode.v1:";
+
+export function readOperatorWorkMode(userId = "") {
+  if (!userId) return "";
+  try {
+    const value = localStorage.getItem(`${OPERATOR_WORK_MODE_PREFIX}${userId}`) || "";
+    return value === "company" || value === "solo" ? value : "";
+  } catch {
+    return "";
+  }
+}
+
+export function writeOperatorWorkMode(userId = "", mode = "") {
+  if (!userId) return;
+  try {
+    if (mode === "company" || mode === "solo") localStorage.setItem(`${OPERATOR_WORK_MODE_PREFIX}${userId}`, mode);
+    else localStorage.removeItem(`${OPERATOR_WORK_MODE_PREFIX}${userId}`);
+  } catch {
+    // Only a convenience: without it the solo fleet shows first.
+  }
+  invalidateCache("operator-dashboard");
+}
+
 export async function getOperatorAccount() {
   const userId = await getCurrentUserId();
   const { data: operator, error } = await supabase
@@ -586,11 +613,18 @@ export async function getOperatorAccount() {
   const { data: fleets, error: fleetError } = await selectLatestPersonalFleet(operator.id);
   if (fleetError) throw new Error(fleetError.message);
 
-  let fleet = fleets?.[0] || null;
+  const personalFleet = fleets?.[0] || null;
+  let fleet = personalFleet;
   let companyAssignment = null;
+  // Always know whether a company fleet exists, so the dashboard can offer
+  // the Solo / Company switch; only use it when chosen (or when there is no
+  // solo fleet at all).
+  const availableAssignment = await selectCompanyFleetAssignment(operator.id, userId).catch(() => null);
+  const useCompany = Boolean(availableAssignment) && (!personalFleet || readOperatorWorkMode(userId) === "company");
 
-  if (!fleet) {
-    companyAssignment = await selectCompanyFleetAssignment(operator.id, userId);
+  if (useCompany) {
+    companyAssignment = availableAssignment;
+    fleet = null;
     if (companyAssignment?.transport_fleet_id) {
       const { data: runtimeFleets } = await supabase
         .from("transport_fleets")
@@ -606,6 +640,9 @@ export async function getOperatorAccount() {
   });
 
   const account = mapOperatorAccount(operator, fleet, { dashboard });
+  account.hasSoloFleet = Boolean(personalFleet);
+  account.hasCompanyFleet = Boolean(availableAssignment);
+  account.workMode = companyAssignment ? "company" : "solo";
   if (companyAssignment) {
     account.companyFleetId = companyAssignment.id;
     account.companyId = companyAssignment.company_id || "";

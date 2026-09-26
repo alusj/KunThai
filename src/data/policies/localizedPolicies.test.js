@@ -7,7 +7,7 @@ import { policyDate, policyText } from "../../i18n/policyText.js";
 import { buildPolicySearchResults, getLocalizedPolicies } from "./localizedPolicies.js";
 import { policyDocuments } from "./policyDocuments.js";
 
-const locales = ["en", "fr", "ar", "es", "zh"];
+const locales = ["en", "fr", "ar", "es", "zh", "hi", "bn", "pt"];
 const displayFields = new Set(["title", "shortTitle", "description", "summary", "audience", "appliesWhen", "introduction", "paragraphs", "bullets", "allowed", "prohibited", "examples", "callouts", "keywords", "policiesAffected"]);
 
 function compareValues(source, translated, locale, field = "") {
@@ -26,7 +26,7 @@ function compareValues(source, translated, locale, field = "") {
   } else assert.equal(translated, source);
 }
 
-test("every policy catalog entry has all five languages and preserves placeholders", () => {
+test("every policy catalog entry has every language and preserves placeholders", () => {
   const englishKeys = Object.keys(POLICY_TRANSLATIONS.en).sort();
   assert.ok(englishKeys.length > 700);
   for (const locale of locales) {

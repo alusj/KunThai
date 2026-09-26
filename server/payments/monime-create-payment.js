@@ -14,6 +14,31 @@ import {
 
 const UUID_RE = /^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i;
 
+// A purchase may be made for one of the buyer's Spaces (Space credits are
+// Explore-only). Only the Space owner or an active administrator may buy for
+// it; the grant re-checks this when the payment is confirmed.
+async function resolveCreditSpace(adminClient, rawSpaceId, userId) {
+  const spaceId = String(rawSpaceId || "").trim();
+  if (!spaceId) return { spaceId: null };
+  if (!UUID_RE.test(spaceId)) return { error: "Choose one of your Spaces." };
+  const { data: space } = await adminClient
+    .from("explore_spaces")
+    .select("id, owner_user_id, status")
+    .eq("id", spaceId)
+    .maybeSingle();
+  if (!space || space.status === "deleted") return { error: "That Space is no longer available." };
+  if (space.owner_user_id === userId) return { spaceId };
+  const { data: member } = await adminClient
+    .from("explore_space_members")
+    .select("id")
+    .eq("space_id", spaceId)
+    .eq("user_id", userId)
+    .eq("status", "active")
+    .in("role", ["owner", "administrator"])
+    .maybeSingle();
+  return member ? { spaceId } : { error: "Only the Space owner or an administrator can buy credits for it." };
+}
+
 function clean(value, maxLength = 120) {
   return Array.from(String(value || ""))
     .filter((character) => character.charCodeAt(0) > 31 && character.charCodeAt(0) !== 127)
@@ -37,6 +62,9 @@ export default async function handler(req, res) {
     const adminClient = createAdminClient(config);
     const user = await authenticatePaymentRequest(req, adminClient);
     if (!user) return json(res, 401, { ok: false, message: "Sign in to buy Visibility Credits." });
+
+    const creditSpace = await resolveCreditSpace(adminClient, req.body?.spaceId, user.id);
+    if (creditSpace.error) return json(res, 403, { ok: false, message: creditSpace.error });
 
     const packageId = String(req.body?.packageId || "").trim();
 
@@ -108,6 +136,9 @@ export default async function handler(req, res) {
         provider_reference: purchaseId,
         status: "pending",
         metadata: { checkout: "payment_code", phone: phoneNumber, packageLabel: label, wallet: wallet.id },
+        // Only sent for a Space purchase, so personal purchases never depend
+        // on the Space credits migration.
+        ...(creditSpace.spaceId ? { space_id: creditSpace.spaceId } : {}),
       });
 
     if (purchaseError) {

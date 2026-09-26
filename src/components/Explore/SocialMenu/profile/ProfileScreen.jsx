@@ -1,6 +1,6 @@
 import { useEffect, useRef, useState } from "react";
 
-import { decorateShareUrl } from "../../../../Backend/services/visibilityCreditService";
+import { decorateShareUrl, fetchSpaceCreditWallet, shareSpaceInviteLink, transferSpaceVisibilityCredits } from "../../../../Backend/services/visibilityCreditService";
 
 import { useExploreFeed } from "../../../../Backend/hooks/useExploreFeed";
 import { useExploreFollows } from "../../../../Backend/hooks/useExploreFollows";
@@ -20,7 +20,7 @@ import { showToast } from "../../../../Backend/services/toastService";
 import { inlineErrorMessage, shortErrorToast } from "../../../../Backend/services/friendlyErrorService";
 import { useI18n } from "../../../../i18n";
 import FeedPost from "../../ExploreTabs/urfeed/feed/components/FeedPost";
-import VideoCard from "../../ExploreTabs/swip/videos/VideoCard";
+import ProfileSwipGrid from "./ProfileSwipGrid";
 import Avatar from "../../shared/Avatar";
 import EmptyState from "../../shared/EmptyState";
 import ActivityScreen from "../activity/ActivityScreen";
@@ -61,6 +61,9 @@ async function shareProfile(values, t) {
   return navigator.clipboard?.writeText(data.url);
 }
 
+// Shown while a Space's balance loads, so the card never blinks out.
+const SPACE_WALLET_PLACEHOLDER = { balance: 0, canSpend: false, inviteCode: "", inviteUrl: "" };
+
 export default function ProfileScreen({
   currentUserId = "",
   editable = false,
@@ -71,10 +74,12 @@ export default function ProfileScreen({
   onEditProfile,
   onCreateSpace,
   onOpenNotification,
+  onOpenSpaceDashboard,
   onProfileUpdate,
   onSpaceInviteResponse,
   onSwitchIdentity,
   onStartChat,
+  personalProfile = null,
   profile,
   profileFetched = true,
   spaces = [],
@@ -98,6 +103,44 @@ export default function ProfileScreen({
   const profileFeedPosts = feed.posts.filter((post) => postMatchesIdentity(post, profileIdentity));
   const profileSwipPosts = swipFeed.posts.filter((post) => postMatchesIdentity(post, profileIdentity) && post.video_url);
   const credits = useVisibilityCredits({ enabled: editable && !isSpace && Boolean(currentUserId) });
+  // A Space has its own Visibility Credits (members only). The card stays on
+  // screen while the balance loads; it is hidden only when Space credits are
+  // not deployed at all (the wallet call answers "unavailable").
+  const spaceCreditId = editable && isSpace ? profileIdentity.id : "";
+  const [spaceWallet, setSpaceWallet] = useState(null);
+  const [spaceWalletLoading, setSpaceWalletLoading] = useState(Boolean(spaceCreditId));
+  const [spaceWalletUnavailable, setSpaceWalletUnavailable] = useState(false);
+  const [spaceWalletVersion, setSpaceWalletVersion] = useState(0);
+  useEffect(() => {
+    // A purchase or boost elsewhere changed a balance: reload it.
+    const reload = () => setSpaceWalletVersion((value) => value + 1);
+    window.addEventListener("kuntai-visibility-credits-updated", reload);
+    return () => window.removeEventListener("kuntai-visibility-credits-updated", reload);
+  }, []);
+  useEffect(() => {
+    if (!spaceCreditId) {
+      setSpaceWallet(null);
+      setSpaceWalletLoading(false);
+      return undefined;
+    }
+    let alive = true;
+    setSpaceWalletLoading(true);
+    fetchSpaceCreditWallet(spaceCreditId)
+      .then((wallet) => {
+        if (!alive) return;
+        setSpaceWallet(wallet);
+        setSpaceWalletUnavailable(!wallet);
+      })
+      .catch(() => {
+        // A failed load keeps the card (and the last balance) on screen.
+      })
+      .finally(() => {
+        if (alive) setSpaceWalletLoading(false);
+      });
+    return () => {
+      alive = false;
+    };
+  }, [spaceCreditId, spaceWalletVersion]);
   // Locally loaded posts win once present, but until the feed hooks resolve the
   // remote stat keeps the tile from flashing 0.
   const displayedStats = {
@@ -198,7 +241,13 @@ export default function ProfileScreen({
 
   async function handleShareCredits() {
     try {
-      await credits.shareInvite();
+      if (isSpace) {
+        // The Space's own invite link: a successful join credits the Space.
+        const wallet = await shareSpaceInviteLink(profileIdentity.id, values.displayName || values.name);
+        if (wallet) setSpaceWallet(wallet);
+      } else {
+        await credits.shareInvite();
+      }
       setFeedback(t("profile.inviteLinkReady"));
       showToast(t("profile.inviteLinkReady"), "success", { title: "Visibility Credits" });
     } catch (error) {
@@ -210,7 +259,12 @@ export default function ProfileScreen({
 
   async function handleTransferCredits(kunThaiId, amount) {
     try {
-      const result = await credits.transfer(kunThaiId, amount);
+      const result = isSpace
+        ? await transferSpaceVisibilityCredits(profileIdentity.id, kunThaiId, amount)
+        : await credits.transfer(kunThaiId, amount);
+      if (isSpace && result) {
+        setSpaceWallet((current) => (current ? { ...current, balance: Number(result.senderBalance ?? current.balance) } : current));
+      }
       const recipientName = result?.recipientName || t("profile.recipientFallback");
       const message = t("profile.creditsSharedWith", { amount: Number(result?.amount || amount), name: recipientName });
       setFeedback(message);
@@ -310,22 +364,8 @@ export default function ProfileScreen({
       return <EmptyState title={t("profile.noSwipTitle")} message={t("profile.noSwipMsg")} />;
     }
 
-    return profileSwipPosts.map((post) => (
-      <div key={post.id} className="h-[520px] overflow-hidden rounded-[28px] bg-slate-950 sm:h-[640px]">
-        <VideoCard
-          post={post}
-          active={postTab === "swip"}
-          currentUserId={currentUserId}
-          isOwner={editable}
-          liked={swipFeed.likedPosts.has(post.id)}
-          saved={swipFeed.savedPosts.has(post.id)}
-          onLike={() => swipFeed.toggleLike(post.id)}
-          onSave={() => swipFeed.toggleSave(post.id)}
-          onComment={(body) => swipFeed.addComment(post.id, body)}
-          onDelete={() => swipFeed.deletePost(post.id, { confirm: false })}
-        />
-      </div>
-    ));
+    // TikTok-style: a grid of tiles; a tap opens the full-screen player.
+    return <ProfileSwipGrid posts={profileSwipPosts} feed={swipFeed} currentUserId={currentUserId} isOwner={editable} />;
   }
 
   function renderTabContent() {
@@ -366,6 +406,26 @@ export default function ProfileScreen({
 
         {!loadError && !accountUnavailable && (profile || editing) ? (
           <>
+        {/* Acting as a Space: one tap back to the personal profile, the same
+            card the Space dashboard shows. */}
+        {editable && isSpace && typeof onSwitchIdentity === "function" ? (
+          <section className="flex items-center justify-between gap-3 rounded-[24px] border border-slate-200 bg-white p-3 shadow-sm">
+            <div className="flex min-w-0 items-center gap-3">
+              <Avatar name={personalProfile?.displayName} src={personalProfile?.avatarUrl} size="sm" />
+              <div className="min-w-0">
+                <p className="truncate text-sm font-black text-slate-950">{personalProfile?.displayName || translateUi("Your profile")}</p>
+                <p className="truncate text-xs font-bold text-slate-500">{translateUi("Personal profile minimized while this Space is active")}</p>
+              </div>
+            </div>
+            <button
+              type="button"
+              onClick={() => onSwitchIdentity(null, { openProfile: true })}
+              className="kt-pressable h-10 flex-none rounded-2xl bg-slate-950 px-4 text-sm font-black text-white"
+            >
+              {translateUi("Switch back")}
+            </button>
+          </section>
+        ) : null}
         {editable && !isSpace && spaces.length ? (
           <section className="rounded-[24px] border border-slate-200 bg-white p-4 shadow-sm">
             <p className="text-xs font-black uppercase tracking-[0.18em] text-sky-700">{t("profile.yourSpaces")}</p>
@@ -375,7 +435,7 @@ export default function ProfileScreen({
                   key={space.spaceId}
                   className="flex min-w-[112px] flex-col items-center gap-2 rounded-2xl bg-slate-50 px-3 py-3 text-center"
                 >
-                  <button type="button" disabled={space.membershipStatus === "pending"} onClick={() => onSwitchIdentity?.(space, { openDashboard: true })} className="kt-pressable flex flex-col items-center gap-2 disabled:cursor-default">
+                  <button type="button" disabled={space.membershipStatus === "pending"} onClick={() => onSwitchIdentity?.(space, { openProfile: true })} className="kt-pressable flex flex-col items-center gap-2 disabled:cursor-default">
                     <Avatar name={space.displayName} src={space.avatarUrl} size="md" />
                     <span className="line-clamp-2 text-xs font-black leading-4 text-slate-700">{space.displayName}</span>
                   </button>
@@ -409,6 +469,7 @@ export default function ProfileScreen({
           onCoverChange={handleCoverChange}
           onCoverPreset={(preset) => updateField("coverUrl", `preset:${preset}`)}
           onCreateSpace={editable && !isSpace ? onCreateSpace : undefined}
+          onOpenDashboard={editable && isSpace ? onOpenSpaceDashboard : undefined}
           onEdit={() => {
             if (!editing && onEditProfile) {
               onEditProfile();
@@ -425,8 +486,9 @@ export default function ProfileScreen({
           onShareCredits={handleShareCredits}
           onTransferCredits={handleTransferCredits}
           saving={saving}
-          creditLoading={credits.loading}
-          creditWallet={editable && !isSpace ? credits.wallet : null}
+          creditLoading={isSpace ? spaceWalletLoading || !spaceWallet : credits.loading}
+          creditWallet={editable ? (isSpace ? (spaceWalletUnavailable ? null : spaceWallet || SPACE_WALLET_PLACEHOLDER) : credits.wallet) : null}
+          creditSpaceId={isSpace ? profileIdentity.id : ""}
           loadingStats={followStats.loading && !followStats.stats}
           stats={displayedStats}
           values={values}

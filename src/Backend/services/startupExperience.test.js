@@ -72,6 +72,11 @@ test("seller loading is limited to changing inventory for every business type", 
 test("UrRide has no startup pre-screen or header placeholders", () => {
   assert.match(skeletonSource, /if \(page === "transport"\) return null/);
   assert.doesNotMatch(skeletonSource, /function TransportShell|function TransportHeaderShell|transport-actions/);
-  assert.doesNotMatch(transportHeaderSource, /animate-pulse|kt-startup-shimmer/);
+  // One exception (user request 2026-09-26): the operator entry shimmers,
+  // like UrMall's seller entry, until the operator/company accounts are known,
+  // instead of showing a guessed icon. Nothing else in the header may.
+  assert.doesNotMatch(transportHeaderSource, /animate-pulse/);
+  assert.equal((transportHeaderSource.match(/kt-startup-shimmer/g) || []).length, 1);
+  assert.match(transportHeaderSource, /kt-startup-shimmer[^"]*"\s+data-loading-region="operator-entry"/);
   assert.match(appSource, /<Suspense[\s\S]*<BottomTabs[\s\S]*<\/Suspense>/);
 });

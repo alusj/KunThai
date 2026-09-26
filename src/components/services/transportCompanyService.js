@@ -1695,13 +1695,47 @@ export async function inviteOperatorToCompanyFleet(company, fleet, publicId) {
   if (fleet.serviceCategory === "Rental") throw new Error("Rental fleets do not use operator invitations.");
   const operator = await lookupTransportOperatorByKunThaiId(publicId.trim());
   if (!operator?.userId) throw new Error("No account found. Check the KunThai ID and try again.");
-  const { data: existing, error: lookupError } = await supabase.from("transport_company_operator_invites")
-    .select("*").eq("company_id", company.id)
-    .eq("operator_user_id", operator.userId).in("status", ["pending", "accepted"]);
+  // Every earlier invite this company sent the same person, in any state. One
+  // (company, operator ID, fleet) row may exist, so a previously rejected,
+  // revoked or cancelled invite for this fleet is reopened instead of
+  // inserting a duplicate (which the database rejects).
+  const { data: companyInvites, error: lookupError } = await supabase.from("transport_company_operator_invites")
+    .select("*").eq("company_id", company.id);
   if (lookupError) throw lookupError;
-  const fleetInvite = existing?.find((invite) => invite.company_fleet_id === fleet.id);
-  if (fleetInvite) return normalizeInvite(fleetInvite);
-  if (!existing?.length) await assertBusinessCapacity("urride", company.id, "operators", 1);
+  const samePerson = (invite) => invite.operator_user_id === operator.userId
+    || (operator.publicId && invite.operator_public_id === operator.publicId);
+  const existing = (companyInvites || []).filter(samePerson);
+  const activeInvites = existing.filter((invite) => ["pending", "accepted"].includes(invite.status));
+  const sameFleet = (invite) => invite.company_fleet_id === fleet.id || (fleet.fleetCode && invite.fleet_code === fleet.fleetCode);
+  const activeFleetInvite = activeInvites.find(sameFleet);
+  if (activeFleetInvite) return normalizeInvite(activeFleetInvite);
+  if (!activeInvites.length) await assertBusinessCapacity("urride", company.id, "operators", 1);
+
+  const closedFleetInvite = existing.find(sameFleet);
+  if (closedFleetInvite) {
+    const { data: reopened, error: reopenError } = await supabase.from("transport_company_operator_invites")
+      .update({
+        company_fleet_id: fleet.id,
+        fleet_code: fleet.fleetCode,
+        request_id: `${fleet.fleetCode}-${crypto.randomUUID()}`,
+        operator_id: operator.id || closedFleetInvite.operator_id || null,
+        operator_user_id: operator.userId,
+        operator_name: operator.name,
+        operator_city: operator.city || "",
+        verification_status: operator.verificationStatus || "pending",
+        status: "pending",
+        documents: {},
+        responded_at: null,
+        updated_at: new Date().toISOString(),
+      })
+      .eq("id", closedFleetInvite.id)
+      .eq("company_id", company.id)
+      .select("*")
+      .single();
+    if (reopenError) throw reopenError;
+    return normalizeInvite(reopened);
+  }
+
   const { data, error } = await supabase.from("transport_company_operator_invites").insert({
     company_id: company.id,
     company_fleet_id: fleet.id,

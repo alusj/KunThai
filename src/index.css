@@ -2120,3 +2120,27 @@
 @media (prefers-reduced-motion: reduce) {
   .kt-double-shake { animation: none; }
 }
+
+/* Visibility Credits balance while it loads: a sky shimmer sweeping a
+   number-shaped pill with three bouncing dots (ProfileHeaderCard). */
+@keyframes kt-credit-sweep {
+  from { transform: translateX(-100%); }
+  to { transform: translateX(100%); }
+}
+@keyframes kt-credit-dot {
+  0%, 80%, 100% { transform: translateY(0); opacity: 0.45; }
+  40% { transform: translateY(-4px); opacity: 1; }
+}
+.kt-credit-balance-loading { background: rgba(14, 165, 233, 0.12); }
+.kt-credit-balance-sweep {
+  background: linear-gradient(90deg, transparent, rgba(255, 255, 255, 0.85), transparent);
+  animation: kt-credit-sweep 1.2s ease-in-out infinite;
+}
+.kt-credit-balance-dot {
+  background: rgb(2, 132, 199);
+  animation: kt-credit-dot 1s ease-in-out infinite;
+}
+@media (prefers-reduced-motion: reduce) {
+  .kt-credit-balance-sweep,
+  .kt-credit-balance-dot { animation: none; }
+}

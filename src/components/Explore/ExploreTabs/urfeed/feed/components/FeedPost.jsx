@@ -243,7 +243,7 @@ export default function FeedPost({
           lat: postLocation.lat,
           lng: postLocation.lng,
           type: "post-location",
-          status: i18nText("ui.literals.k61c9b2b17db7"),
+          status: "public",
         },
         // Transport's area-view back handler matches "explore-" prefixed
         // returnTo values; this is what routes the user back to the feed.

@@ -12,6 +12,7 @@ import Avatar from "../../shared/Avatar";
 import { t as i18nText } from "../../../../i18n/index";
 import { uiText as translateUi, useI18n as useUiLocale } from "../../../../i18n/index.js";
 import { inlineErrorMessage } from "../../../../Backend/services/friendlyErrorService";
+import { optimizeImageFile } from "../../../../Backend/services/marketplace/imageOptimization";
 
 const INITIAL_FORM = {
   name: "",
@@ -25,6 +26,14 @@ const INITIAL_FORM = {
   avatarUrl: "",
   coverUrl: "preset:gradient",
 };
+
+// "kunthai.app" or "www.kunthai.app" is a website too: add the scheme instead
+// of rejecting it.
+function normalizeWebsite(value) {
+  const text = String(value || "").trim();
+  if (!text) return "";
+  return /^[a-z][a-z0-9+.-]*:\/\//i.test(text) ? text : `https://${text}`;
+}
 
 function fileToDataUrl(file) {
   return new Promise((resolve, reject) => {
@@ -65,7 +74,8 @@ export default function SpaceCreateScreen({ hideHeader = false, onCreated }) {
     }
     if (form.websiteUrl.trim()) {
       try {
-        new URL(form.websiteUrl.trim());
+        const url = new URL(normalizeWebsite(form.websiteUrl));
+        if (!url.hostname.includes(".")) throw new Error("no domain");
       } catch {
         nextErrors.websiteUrl = "Enter a valid website link.";
       }
@@ -77,7 +87,9 @@ export default function SpaceCreateScreen({ hideHeader = false, onCreated }) {
     const file = event.target.files?.[0];
     if (!file) return;
     try {
-      updateField(field, await fileToDataUrl(file));
+      // Phone photos are several MB: shrink before they become a data URL and
+      // an upload, so a big photo never stalls or fails Space creation.
+      updateField(field, await fileToDataUrl(await optimizeImageFile(file)));
     } catch (error) {
       setFeedback(inlineErrorMessage(error, i18nText("ui.literals.k46fb4c1c6a09")));
     } finally {
@@ -100,6 +112,7 @@ export default function SpaceCreateScreen({ hideHeader = false, onCreated }) {
       setSaving(true);
       const created = await createExploreSpace({
         ...form,
+        websiteUrl: normalizeWebsite(form.websiteUrl),
         slug: suggestedSlug,
       });
       showToast("New Space created", "success");

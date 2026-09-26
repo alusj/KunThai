@@ -15,8 +15,11 @@ import {
   fetchExploreSpace,
   fetchMyExploreSpaces,
   readActiveExploreIdentity,
+  readCachedExploreSpaces,
+  writeCachedExploreSpaces,
   writeActiveExploreIdentity,
 } from "../../Backend/services/exploreService";
+import { fetchSpaceCreditWallet, setActiveSpaceInviteCode } from "../../Backend/services/visibilityCreditService";
 import { guardGuestAction } from "../../Backend/services/guestModeService";
 import { consumePendingExploreScreen, OPEN_EXPLORE_SCREEN_EVENT } from "../../Backend/services/notificationBannerService";
 import { mapSurfacePlatformNotification, markSurfacePlatformNotificationRead } from "../../Backend/services/surfaceNotificationService";
@@ -179,6 +182,35 @@ export default function Explore({ active = true, onNavigateMain, onScreenModeCha
   const profile = activeSpaceProfile || personalProfile;
   const currentUserId = user?.id || personalProfile?.userId || "";
   const profileExists = !authLoading && Boolean(user?.id && profile);
+
+  // Acting as a Space on Explore: share links carry the Space's invite code,
+  // so a friend who joins through them earns the Space its credits. Leaving
+  // Explore or switching back restores the personal code immediately.
+  const activeSpaceId = active && activeIdentity?.type === "space" ? activeIdentity.id : "";
+  useEffect(() => {
+    if (!activeSpaceId) {
+      setActiveSpaceInviteCode("");
+      return undefined;
+    }
+    let alive = true;
+    fetchSpaceCreditWallet(activeSpaceId)
+      .then((wallet) => {
+        if (alive) setActiveSpaceInviteCode(wallet?.inviteCode || "");
+      })
+      .catch(() => {
+        if (alive) setActiveSpaceInviteCode("");
+      });
+    return () => {
+      alive = false;
+      setActiveSpaceInviteCode("");
+    };
+  }, [activeSpaceId]);
+
+  // Keep the device copy of "my Spaces" in step with creates, edits and
+  // removals, so the next reload paints the right Space immediately.
+  useEffect(() => {
+    if (profileFetched && user?.id) writeCachedExploreSpaces(user.id, spaceProfiles);
+  }, [profileFetched, spaceProfiles, user?.id]);
 
   const goBackFullScreen = useBrowserBack(exploreNav.isFullScreen, exploreNav.goBackMenuScreen, `explore-${activeMenuScreen || "screen"}`);
   useBrowserBack(Boolean(swipPreviewTarget && activeTab === "Swip"), returnFromRepostedSwip, "explore-reposted-swip");
@@ -404,7 +436,8 @@ export default function Explore({ active = true, onNavigateMain, onScreenModeCha
 
     let alive = true;
     setProfileOverride((current) => (current?.userId === authenticatedUser.id ? current : null));
-    setSpaceProfiles([]);
+    // Paint the remembered Spaces straight away; the fetch below replaces them.
+    setSpaceProfiles(readCachedExploreSpaces(authenticatedUser.id));
     setViewedProfile(null);
     setMessageRecipient(null);
     setMessageRecipientOwnerId("");
@@ -421,6 +454,7 @@ export default function Explore({ active = true, onNavigateMain, onScreenModeCha
         if (alive) {
           setProfileOverride(profileData);
           setSpaceProfiles(spaces || []);
+          writeCachedExploreSpaces(authenticatedUser.id, spaces || []);
           const savedIdentity = readActiveExploreIdentity();
           if (savedIdentity.type === "space" && !(spaces || []).some((space) => space.spaceId === savedIdentity.id && space.membershipStatus !== "pending")) {
             writeActiveExploreIdentity({ type: "profile" });
@@ -580,6 +614,14 @@ export default function Explore({ active = true, onNavigateMain, onScreenModeCha
         exploreNav.openMenuScreen("SpaceDashboard");
         return;
       }
+      // Switching to a Space from the account list lands on its profile; the
+      // dashboard is one tap away in the profile's actions.
+      if (options.openProfile) {
+        // The wrapper skips the push when Profile is already on top (tapping a
+        // Space from the Profile screen just re-renders it as that Space).
+        openMenuScreen("Profile");
+        return;
+      }
       exploreNav.closeMenuScreens();
       window.dispatchEvent(new CustomEvent("explore-open-tab", { detail: { tab: "UrFeed" } }));
       return;
@@ -589,7 +631,8 @@ export default function Explore({ active = true, onNavigateMain, onScreenModeCha
     setActiveIdentity(identity);
     writeActiveExploreIdentity(identity);
     if (options.openProfile) {
-      exploreNav.openMenuScreen("Profile");
+      // Wrapper: no duplicate push when "Switch back" is pressed on Profile.
+      openMenuScreen("Profile");
     }
   }
 
@@ -777,6 +820,23 @@ export default function Explore({ active = true, onNavigateMain, onScreenModeCha
         username: result.username || "",
         avatarUrl: result.avatarUrl || "",
         accountType: result.accountType || "personal",
+      });
+      return;
+    }
+
+    if (result.type === "space") {
+      openViewedProfile({
+        userId: result.ownerUserId || result.userId || "",
+        ownerUserId: result.ownerUserId || result.userId || "",
+        identityType: "space",
+        identityId: result.spaceId,
+        actorType: "space",
+        actorId: result.spaceId,
+        spaceId: result.spaceId,
+        displayName: result.title || t("explore.spaceFallback"),
+        username: result.username || "",
+        avatarUrl: result.avatarUrl || "",
+        accountType: "space",
       });
       return;
     }
@@ -1270,6 +1330,8 @@ export default function Explore({ active = true, onNavigateMain, onScreenModeCha
           onSpaceInviteResponse={handleSpaceInviteResponse}
           onSwitchIdentity={switchExploreIdentity}
           onStartChat={startChat}
+          onOpenSpaceDashboard={() => openMenuScreen("SpaceDashboard")}
+          personalProfile={personalProfile}
           spaces={spaceProfiles}
         />
       );

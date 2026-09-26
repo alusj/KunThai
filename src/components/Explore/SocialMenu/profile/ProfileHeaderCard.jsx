@@ -14,6 +14,7 @@ import {
   HiOutlineMegaphone,
   HiOutlineNoSymbol,
   HiOutlinePencilSquare,
+  HiOutlineSquares2X2,
   HiOutlinePhoto,
   HiOutlineShare,
   HiOutlineShoppingBag,
@@ -22,7 +23,7 @@ import {
   HiOutlineUserMinus,
 } from "react-icons/hi2";
 import { useEffect, useLayoutEffect, useRef, useState } from "react";
-import { AnimatePresence, motion } from "framer-motion";
+import { AnimatePresence, animate, motion } from "framer-motion";
 import { FaFacebookF, FaInstagram, FaTiktok, FaTwitter, FaWhatsapp, FaYoutube } from "react-icons/fa";
 
 import { normalizeSocialLinks } from "../../../../Backend/services/explore/socialLinks";
@@ -60,6 +61,7 @@ export default function ProfileHeaderCard({
   coverInputRef,
   creditLoading = false,
   creditWallet = null,
+  creditSpaceId = "",
   currentUserId = "",
   editable,
   editing,
@@ -74,6 +76,7 @@ export default function ProfileHeaderCard({
   onEdit,
   onFollow,
   onMessage,
+  onOpenDashboard,
   onLookupCreditRecipient,
   onReport,
   onShare,
@@ -120,7 +123,8 @@ export default function ProfileHeaderCard({
   const coverStyle = getCoverStyle(values.coverUrl);
   const publicUserId = getKunThaiPublicUserId(values);
   const isSpace = values.identityType === "space" || values.accountType === "space" || values.isSpace;
-  const showVisibilityCredits = editable && !isSpace && creditWallet;
+  // Spaces have their own wallet too; sending and buying stay personal-only.
+  const showVisibilityCredits = editable && creditWallet;
 
   useEffect(() => {
     if (!menuOpen) return undefined;
@@ -368,8 +372,8 @@ export default function ProfileHeaderCard({
       setMomoError("");
       const result = await startMonimeMobileMoneyPurchase(
         packageId
-          ? { packageId, phoneNumber, wallet: momoProvider }
-          : { credits, phoneNumber, wallet: momoProvider },
+          ? { packageId, phoneNumber, wallet: momoProvider, spaceId: creditSpaceId }
+          : { credits, phoneNumber, wallet: momoProvider, spaceId: creditSpaceId },
       );
       setMomoPending({
         purchaseId: result.purchaseId,
@@ -470,6 +474,16 @@ export default function ProfileHeaderCard({
             ) : null}
 
             <div className="flex flex-wrap justify-end gap-2">
+              {editable && typeof onOpenDashboard === "function" ? (
+                <button
+                  type="button"
+                  onClick={onOpenDashboard}
+                  className="inline-flex h-10 items-center gap-2 rounded-2xl bg-sky-700 px-4 text-sm font-semibold text-white"
+                >
+                  <HiOutlineSquares2X2 />
+                  {t("screens.SpaceDashboardTitle")}
+                </button>
+              ) : null}
               {editable ? (
                 <button
                   type="button"
@@ -641,9 +655,7 @@ export default function ProfileHeaderCard({
                 <div className="min-w-0">
                   <p className="text-xs font-black uppercase tracking-[0.16em] text-sky-700">Visibility Credits</p>
                   <p className="mt-1 flex items-baseline gap-1.5">
-                    <span className="text-3xl font-black leading-none text-slate-950">
-                      {creditLoading ? "…" : Number(creditWallet.balance || 0)}
-                    </span>
+                    <CreditBalanceValue loading={creditLoading} value={Number(creditWallet.balance || 0)} />
                     <span className="text-xs font-bold text-slate-500">{t("profile.available")}</span>
                   </p>
                 </div>
@@ -684,24 +696,29 @@ export default function ProfileHeaderCard({
                             onShareCredits?.();
                           }}
                         />
-                        <CreditMenuAction
-                          icon={HiOutlineGift}
-                          label={t("profile.shareCredit")}
-                          helper={t("profile.sendCreditsById")}
-                          onClick={() => {
-                            setCreditMenuOpen(false);
-                            setShareCreditOpen(true);
-                          }}
-                        />
-                        <CreditMenuAction
-                          icon={HiOutlineUserPlus}
-                          label={t("buyCredits.button")}
-                          helper={t("profile.addToBalance")}
-                          onClick={() => {
-                            setCreditMenuOpen(false);
-                            openBuyCredits();
-                          }}
-                        />
+                        {/* A Space's owner/administrators can send and buy for it. */}
+                        {!isSpace || creditWallet?.canSpend ? (
+                          <>
+                            <CreditMenuAction
+                              icon={HiOutlineGift}
+                              label={t("profile.shareCredit")}
+                              helper={t("profile.sendCreditsById")}
+                              onClick={() => {
+                                setCreditMenuOpen(false);
+                                setShareCreditOpen(true);
+                              }}
+                            />
+                            <CreditMenuAction
+                              icon={HiOutlineUserPlus}
+                              label={t("buyCredits.button")}
+                              helper={t("profile.addToBalance")}
+                              onClick={() => {
+                                setCreditMenuOpen(false);
+                                openBuyCredits();
+                              }}
+                            />
+                          </>
+                        ) : null}
                         <div className="my-1 border-t border-slate-100" />
                         <CreditMenuAction
                           icon={HiOutlineInformationCircle}
@@ -1216,4 +1233,53 @@ function getCoverStyle(coverUrl) {
     backgroundSize: "cover",
     backgroundPosition: "center",
   };
+}
+
+// The balance on a Visibility Credits card. While it loads, a soft shimmer
+// sweeps a number-shaped pill (never "…"); once known, the number counts up
+// to the exact balance with a small pop. Reduced motion shows it directly.
+export function CreditBalanceValue({ loading, value }) {
+  const [shown, setShown] = useState(loading ? 0 : value);
+  const shownRef = useRef(shown);
+  shownRef.current = shown;
+
+  useEffect(() => {
+    if (loading) return undefined;
+    const reduce = typeof window !== "undefined" && window.matchMedia?.("(prefers-reduced-motion: reduce)")?.matches;
+    if (reduce) {
+      setShown(value);
+      return undefined;
+    }
+    const controls = animate(shownRef.current, value, {
+      duration: Math.min(1.1, 0.35 + Math.abs(value - shownRef.current) / 400),
+      ease: [0.16, 1, 0.3, 1],
+      onUpdate: (latest) => setShown(Math.round(latest)),
+    });
+    return () => controls.stop();
+  }, [loading, value]);
+
+  if (loading) {
+    return (
+      <span className="kt-credit-balance-loading relative inline-flex h-[1.875rem] w-16 items-center overflow-hidden rounded-xl" role="status" aria-label="Loading balance">
+        <span className="kt-credit-balance-sweep absolute inset-0" />
+        <span className="relative ml-2 flex gap-1">
+          <span className="kt-credit-balance-dot h-1.5 w-1.5 rounded-full" />
+          <span className="kt-credit-balance-dot h-1.5 w-1.5 rounded-full" style={{ animationDelay: "0.15s" }} />
+          <span className="kt-credit-balance-dot h-1.5 w-1.5 rounded-full" style={{ animationDelay: "0.3s" }} />
+        </span>
+      </span>
+    );
+  }
+
+  return (
+    <motion.span
+      key="credit-balance"
+      initial={{ scale: 0.85, opacity: 0.4 }}
+      animate={{ scale: 1, opacity: 1 }}
+      transition={{ type: "spring", stiffness: 380, damping: 22 }}
+      className="inline-block text-3xl font-black leading-none text-slate-950 tabular-nums"
+    >
+      {shown}
+    </motion.span>
+  );
 }

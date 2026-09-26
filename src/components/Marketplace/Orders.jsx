@@ -149,7 +149,7 @@ export default function Orders({ compact = false, onBack, onProductOpen }) {
   async function cancelOrder(order) {
     try {
       await cancelBuyerOrder(order.id);
-      setOrders((current) => current.map((item) => (item.id === order.id ? { ...item, status: i18nText("ui.literals.k8761d26fb8d6") } : item)));
+      setOrders((current) => current.map((item) => (item.id === order.id ? { ...item, status: "cancelled" } : item)));
       setNotice(t("urmall.orders.cancelled"));
     } catch (err) {
       setNotice(inlineErrorMessage(err, t("urmall.orders.cancelFailed")));

@@ -6,7 +6,7 @@
 // never the source of a price, stock level, rating, delivery time or location.
 
 import { AI_ERROR_CODES, aiError } from "../aiErrors.js";
-import { cleanLanguage, cleanLine, cleanText } from "../aiInput.js";
+import { cleanImageDataUrl, cleanLanguage, cleanLine, cleanText } from "../aiInput.js";
 import { joinPrompt, jsonResult, labelledInput, languageLine, stripWrappingQuotes } from "../taskHelpers.js";
 
 const LISTING_MAX_CHARS = 3_500;
@@ -126,6 +126,141 @@ export const URMALL_BUYER_TASKS = {
       jsonResult({
         text: String(parsed?.summary || "").trim(),
         points: Array.isArray(parsed?.points) ? parsed.points.map((point) => String(point).trim()).filter(Boolean).slice(0, 4) : [],
+      }),
+  },
+  // Photo search, step 1: work out what product the shopper photographed.
+  // The result is only a description plus search words; the app then searches
+  // real UrMall listings with those words (step 2 ranks them). The model never
+  // names a price, seller or stock level.
+  "urmall.image_identify": {
+    id: "urmall.image_identify",
+    tier: "fast",
+    surfaces: ["urmall", "global"],
+    label: "Search with a photo",
+    cacheable: true,
+    output: "json",
+    maxOutputTokens: 420,
+    temperature: 0.2,
+    schema: {
+      type: "object",
+      properties: {
+        found: { type: "boolean" },
+        name: { type: "string" },
+        category: { type: "string" },
+        brand: { type: "string" },
+        explanation: { type: "string" },
+        searchTerms: { type: "array", items: { type: "string" } },
+      },
+      required: ["found", "name", "explanation", "searchTerms"],
+    },
+    instruction: [
+      "A shopper photographed something they want to buy on UrMall, KunThai's marketplace. Identify the main product in the photo.",
+      "name: the most specific product name you can honestly tell from the photo (brand and model only when clearly visible, e.g. printed on it); otherwise a plain generic name like 'men's leather sandals'.",
+      "explanation: two or three plain sentences for the shopper: what the product is, its visible features (colour, material, size, style) and what it is typically used for. Never state or estimate a price, and never claim where it is sold.",
+      "searchTerms: 3 to 6 short shopping keywords a seller would use in a listing, most specific first, then more general (e.g. 'iPhone 13', 'iPhone', 'smartphone', 'phone'). Always write searchTerms in English.",
+      "If the photo shows no product (a person, a blank or dark image, a document), set found to false and use the explanation to say briefly what is in the photo.",
+    ].join(" "),
+    build(input) {
+      const image = cleanImageDataUrl(input.image);
+      if (!image) {
+        throw aiError(AI_ERROR_CODES.invalidRequest, {
+          message: "KAI could not read that photo. Try another one.",
+          details: "bad-image",
+        });
+      }
+      const language = cleanLanguage(input.language);
+      return {
+        prompt: joinPrompt([
+          "The attached photo was taken by the shopper.",
+          language ? `Write name and explanation in this language: ${language}. Keep searchTerms in English.` : "",
+          "Return JSON only.",
+        ]),
+        media: [image],
+        cacheKey: ["image-identify", language, image.data],
+      };
+    },
+    parse: (parsed) =>
+      jsonResult({
+        found: parsed?.found !== false,
+        name: cleanLine(parsed?.name, 120),
+        category: cleanLine(parsed?.category, 80),
+        brand: cleanLine(parsed?.brand, 80),
+        text: cleanText(parsed?.explanation, 700),
+        searchTerms: (Array.isArray(parsed?.searchTerms) ? parsed.searchTerms : [])
+          .map((term) => cleanLine(term, 60))
+          .filter(Boolean)
+          .slice(0, 6),
+      }),
+  },
+
+  // Photo search, step 2: rank real listings (found with step 1's words)
+  // against what was photographed. Only ids from the given list may come back.
+  "urmall.image_match": {
+    id: "urmall.image_match",
+    tier: "fast",
+    surfaces: ["urmall", "global"],
+    label: "Match a photo to listings",
+    cacheable: true,
+    output: "json",
+    maxOutputTokens: 700,
+    temperature: 0.1,
+    schema: {
+      type: "object",
+      properties: {
+        matches: {
+          type: "array",
+          items: {
+            type: "object",
+            properties: {
+              id: { type: "string" },
+              level: { type: "string", enum: ["exact", "similar"] },
+              reason: { type: "string" },
+            },
+            required: ["id", "level", "reason"],
+          },
+        },
+      },
+      required: ["matches"],
+    },
+    instruction: [
+      "A shopper photographed a product. You get what was identified in the photo and a list of real UrMall listings.",
+      "Pick the listings that match, best first, at most 8. level 'exact' means the same product (same kind, and the same brand/model when those are known); 'similar' means the same kind of product or a close alternative. Leave out listings that are not a reasonable match.",
+      "reason: one short sentence for the shopper saying why it matches or how it differs.",
+      GROUNDING_RULE,
+      "Use only ids from the listings given.",
+    ].join(" "),
+    build(input) {
+      const product = input.product && typeof input.product === "object" ? input.product : null;
+      const listings = (Array.isArray(input.listings) ? input.listings : []).slice(0, 24);
+      if (!product?.name || !listings.length) {
+        throw aiError(AI_ERROR_CODES.invalidRequest, { message: "There are no listings to compare yet.", details: "no-candidates" });
+      }
+      const language = cleanLanguage(input.language);
+      return {
+        prompt: joinPrompt([
+          recordBlock("Identified in the photo", {
+            name: cleanLine(product.name, 120),
+            category: cleanLine(product.category, 80),
+            brand: cleanLine(product.brand, 80),
+            description: cleanText(product.explanation, 500),
+          }, 800),
+          recordBlock("Listings (KunThai data)", listings, 7_000),
+          language ? `Write each reason in this language: ${language}.` : "",
+          "Return JSON only.",
+        ]),
+        cacheKey: ["image-match", language, JSON.stringify(product), JSON.stringify(listings)],
+      };
+    },
+    parse: (parsed) =>
+      jsonResult({
+        matches: (Array.isArray(parsed?.matches) ? parsed.matches : [])
+          .map((match) => ({
+            id: cleanLine(match?.id, 80),
+            level: match?.level === "exact" ? "exact" : "similar",
+            reason: cleanLine(match?.reason, 240),
+          }))
+          .filter((match) => match.id)
+          .slice(0, 8),
       }),
   },
 };

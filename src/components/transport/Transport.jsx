@@ -23,7 +23,7 @@ import TransportRegistrationTypeScreen from "./registration/TransportRegistratio
 import VerificationDetailsModal from "./verification/VerificationDetailsModal";
 import PassengerLiveTripHeaderCard from "./live/PassengerLiveTripHeaderCard";
 import AppBackTab from "../shared/AppBackTab";
-import { fetchOperatorDashboard, getLegacyOperatorAccount, getOperatorAccount } from "../services/transportOperatorAccountService";
+import { fetchOperatorDashboard, getLegacyOperatorAccount, getOperatorAccount, writeOperatorWorkMode } from "../services/transportOperatorAccountService";
 import {
   ensureInvitedOperatorProfile,
   getOperatorCompanyInvites,
@@ -41,9 +41,8 @@ import { subscribeNotificationSeen } from "../../Backend/services/notificationSe
 import { getNetworkStatus } from "../../Backend/services/networkService";
 import { showToast } from "../../Backend/services/toastService";
 import { useI18n, t } from "../../i18n";
-import { t as i18nText } from "../../i18n/index";
 import { uiText as translateUi } from "../../i18n/index.js";
-import { inlineErrorMessage, shortErrorToast } from "../../Backend/services/friendlyErrorService";
+import { inlineErrorMessage, shortErrorToast } from "../../Backend/services/friendlyErrorService";
 import AppPortal from "../shared/AppPortal";
 
 // Session-lived cache of the operator/company accounts, mirroring UrMall's
@@ -481,16 +480,20 @@ export default function Transport({
       }
     }
     invite = { ...invite, companyAccessFeeConfirmed: feeConfirmed };
-    setCompanyAccessDecision(null);
     if (hasSubmittedOperatorDocuments(operatorAccount)) {
+      setCompanyAccessDecision(null);
       setDocumentReuseInvite(invite);
       return;
     }
 
+    let profileError = null;
     try {
       // Linking the operator record on accept lets the backend provision the
       // company fleet right away; identity documents remain an optional later step.
-      const operatorRecord = await ensureInvitedOperatorProfile(invite).catch(() => null);
+      const operatorRecord = await ensureInvitedOperatorProfile(invite).catch((error) => {
+        profileError = error;
+        return null;
+      });
       const updatedInvite = await respondToOperatorInvite(invite, {
         status: "accepted",
         operatorId: operatorRecord?.id || operatorAccount?.id || invite.operatorId,
@@ -502,12 +505,20 @@ export default function Transport({
           registrationRequired: false,
         },
       });
+      // The fee dialog (if any) closes only once the request is really accepted.
+      setCompanyAccessDecision(null);
       const refreshedAccount = await getOperatorAccount().catch(() => null);
       if (refreshedAccount) setOperatorAccount(refreshedAccount);
       setOperatorInviteDocumentsInvite(updatedInvite);
     } catch (error) {
-      setOperatorInviteStatus(inlineErrorMessage(error, t("urride.transport.status.acceptError")));
+      // A failed operator-profile step explains a later "complete your
+      // operator profile" refusal better than the refusal itself.
+      const reason = profileError && /operator profile/i.test(error?.message || "") ? profileError : error;
+      setOperatorInviteStatus(inlineErrorMessage(reason, t("urride.transport.status.acceptError")));
+      showToast(shortErrorToast(reason, t("urride.transport.status.acceptToast")), "danger");
       await recoverCompanyAccessPrompt(invite, error);
+      // From the fee dialog: keep it open and show the reason there too.
+      if (feeConfirmed) throw reason;
     }
   }
 
@@ -548,7 +559,8 @@ export default function Transport({
     try {
       setOperatorInviteStatus("");
       const rejectedInvite = await respondToOperatorInvite(invite, {
-        status: i18nText("ui.literals.k1f087a5954f6"),
+        // Database status value; never translate it.
+        status: "rejected",
         documents: {
           rejectedAt: new Date().toISOString(),
         },
@@ -569,7 +581,7 @@ export default function Transport({
     if (!invite) return;
     try {
       const completedInvite = await respondToOperatorInvite(invite, {
-        status: i18nText("ui.literals.k51c817ab85e3"),
+        status: "accepted",
         documents: {
           operatorAcknowledgedAt: new Date().toISOString(),
         },
@@ -593,7 +605,7 @@ export default function Transport({
       if (refreshedAccount) setOperatorAccount(refreshedAccount);
 
       const updatedInvite = await respondToOperatorInvite(invite, {
-        status: i18nText("ui.literals.k51c817ab85e3"),
+        status: "accepted",
         operatorId: savedSubmission.operator?.id || refreshedAccount?.id || operatorAccount?.id || invite.operatorId,
         userId: savedSubmission.operator?.user_id || refreshedAccount?.userId || operatorAccount?.userId || invite.userId,
         verificationStatus: refreshedAccount?.verificationStatus || savedSubmission.operator?.verification_status || operatorAccount?.verificationStatus || "pending",
@@ -622,7 +634,7 @@ export default function Transport({
     if (registrationInvite) {
       try {
         await updateOperatorCompanyInvite(registrationInvite, {
-          status: i18nText("ui.literals.k51c817ab85e3"),
+          status: "accepted",
           operatorId: account?.id,
           userId: account?.userId,
           verificationStatus: account?.verificationStatus || "pending",
@@ -1305,6 +1317,20 @@ export default function Transport({
             showToast("Transport group switched", "success");
           }}
           onRegisterCompany={() => openCompanyRegistration("operator-dashboard")}
+          onSwitchWorkMode={async (mode) => {
+            writeOperatorWorkMode(userId, mode);
+            try {
+              const nextAccount = await getOperatorAccount();
+              if (nextAccount) setOperatorAccount(nextAccount);
+              showToast(mode === "company" ? t("urride.opDash.switchedCompany") : t("urride.opDash.switchedSolo"), "success");
+            } catch (error) {
+              showToast(shortErrorToast(error, "Fleet account not loaded"), "warning");
+            }
+          }}
+          onStartSoloFleet={() => {
+            setOperatorDashboardOpen(false);
+            openSoloRegistration("operator-dashboard");
+          }}
           onEditRegistration={() => {
             setRouteDirection("forward");
             setOperatorDashboardOpen(false);

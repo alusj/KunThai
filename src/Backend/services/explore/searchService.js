@@ -103,6 +103,56 @@ async function searchPeople(query) {
   }));
 }
 
+// Spaces (business, community, school… accounts) by name, handle or bio.
+// Only active Spaces are readable (RLS), and Spaces the person blocked are
+// left out, the same as Space discovery.
+async function searchSpaces(query) {
+  const safeQuery = escapeSearchValue(query.replace(/^@/, ""));
+  const { data, error } = await supabase
+    .from("explore_spaces")
+    .select("id, owner_user_id, name, slug, bio, avatar_url, category, verified")
+    .eq("status", "active")
+    .or(`name.ilike.%${safeQuery}%,slug.ilike.%${safeQuery}%,bio.ilike.%${safeQuery}%`)
+    .limit(8);
+
+  if (error) {
+    if (isMissingTable(error)) return [];
+    throw error;
+  }
+  if (!data?.length) return [];
+
+  let blocked = new Set();
+  const { data: authData } = await supabase.auth.getUser().catch(() => ({ data: { user: null } }));
+  if (authData?.user?.id) {
+    const { data: blocks } = await supabase
+      .from("explore_identity_blocks")
+      .select("target_space_id")
+      .eq("blocker_user_id", authData.user.id)
+      .eq("target_type", "space");
+    blocked = new Set((blocks || []).map((row) => row.target_space_id).filter(Boolean));
+  }
+
+  return data
+    .filter((space) => !blocked.has(space.id))
+    .map((space) => ({
+      id: `space:${space.id}`,
+      type: "space",
+      title: space.name || "Space",
+      subtitle: space.bio || (space.slug ? `@${space.slug}` : "Space"),
+      username: space.slug || "",
+      avatarUrl: space.avatar_url || "",
+      userId: space.owner_user_id || "",
+      ownerUserId: space.owner_user_id || "",
+      spaceId: space.id,
+      identityType: "space",
+      identityId: space.id,
+      actorType: "space",
+      actorId: space.id,
+      accountType: "space",
+      verified: Boolean(space.verified),
+    }));
+}
+
 // People suggestions for @mention autocomplete. An empty query returns the
 // people the user follows (fallback: recently active profiles) so suggestions
 // appear as soon as "@" is typed.
@@ -212,8 +262,10 @@ export async function searchExplore(query, filter = "all") {
   const mentionResults = value.startsWith("@") ? await searchPeople(normalizedValue) : [];
   const peopleResults = filter === "feed" || filter === "swip" || filter === "hashtag" ? [] : await searchPeople(normalizedValue);
   const mergedPeople = Array.from(new Map([...mentionResults, ...peopleResults].map((item) => [item.id, item])).values());
+  // A failed Space lookup must never hide the other results.
+  const spaceResults = filter === "all" || filter === "space" ? await searchSpaces(normalizedValue).catch(() => []) : [];
 
-  return [...postResults, ...mergedPeople, ...hashtagResults].filter((item) => {
+  return [...spaceResults, ...mergedPeople, ...postResults, ...hashtagResults].filter((item) => {
     if (filter === "all") return true;
     return item.type === filter;
   });

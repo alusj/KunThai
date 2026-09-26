@@ -158,3 +158,17 @@ export function buildPostInsights(analytics, post = {}) {
 
   return insights.slice(0, 4);
 }
+
+/**
+ * Public view totals for a batch of Swip videos (profile grid tiles).
+ * Resolves to a Map of postId → views, or null when the totals are not
+ * available (e.g. the database function is not deployed yet), so a tile can
+ * simply leave the number out.
+ */
+export async function fetchVideoViewCounts(postIds = []) {
+  const ids = [...new Set((postIds || []).filter(Boolean))].slice(0, 60);
+  if (!ids.length) return new Map();
+  const { data, error } = await supabase.rpc("get_explore_video_view_counts", { p_post_ids: ids });
+  if (error) return null;
+  return new Map((data || []).map((row) => [row.post_id, toNumber(row.views)]));
+}

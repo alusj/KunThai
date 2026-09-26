@@ -125,7 +125,7 @@ export async function notifyVisibilityCreditPurchase({ adminClient, purchase, me
       sector: "platform",
       notification_type: "visibility_credit_purchase",
       title: `${credits} Visibility Credits added`,
-      body: `Your ${methodName} payment of ${currency} ${amount} was successful and ${credits} Visibility Credits have been credited to your balance.`,
+      body: `Your ${methodName} payment of ${currency} ${amount} was successful and ${credits} Visibility Credits have been credited to ${purchase.space_id ? "your Space's balance" : "your balance"}.`,
       priority: "normal",
       status: "unread",
       action_target: actionTarget,

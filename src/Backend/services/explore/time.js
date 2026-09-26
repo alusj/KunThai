@@ -8,7 +8,7 @@ const MINUTE_MS = 60_000;
 
 export function formatRelativeTime(value, locale = typeof document === "undefined" ? "en" : document.documentElement.lang || "en") {
   const language = locale.split("-")[0];
-  const justNow = { en: "Just now", fr: "À l’instant", ar: "الآن", es: "Ahora mismo", zh: "刚刚" }[language] || "Just now";
+  const justNow = { en: "Just now", fr: "À l’instant", ar: "الآن", es: "Ahora mismo", zh: "刚刚", hi: "अभी", bn: "এইমাত্র", pt: "Agora mesmo" }[language] || "Just now";
   if (!value) {
     return justNow;
   }

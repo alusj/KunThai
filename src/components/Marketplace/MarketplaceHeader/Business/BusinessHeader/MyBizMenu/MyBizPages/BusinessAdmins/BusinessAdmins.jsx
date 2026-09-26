@@ -35,7 +35,7 @@ export default function BusinessAdmins({ onBack, onOpenPlans }) {
   const [loading, setLoading] = useState(true);
   const [inviteCode, setInviteCode] = useState("");
   const [inviting, setInviting] = useState(false);
-  const [lookup, setLookup] = useState({ status: i18nText("ui.literals.k1adbcc344b31"), name: "", message: "" });
+  const [lookup, setLookup] = useState({ status: "idle", name: "", message: "" });
   const [actionAdmin, setActionAdmin] = useState(null);
   const [responsibilityAdmin, setResponsibilityAdmin] = useState(null);
   const [responsibilityDraft, setResponsibilityDraft] = useState({});
@@ -81,22 +81,22 @@ export default function BusinessAdmins({ onBack, onOpenPlans }) {
   useEffect(() => {
     const code = inviteCode.trim();
     if (!code) {
-      setLookup({ status: i18nText("ui.literals.k1adbcc344b31"), name: "", message: "" });
+      setLookup({ status: "idle", name: "", message: "" });
       return undefined;
     }
     if (detectPublicCodeKind(code) !== "kunthai") {
-      setLookup({ status: i18nText("ui.literals.k81f344a7686a"), name: "", message: t("urmall.biz.admins.invalidId") });
+      setLookup({ status: "invalid", name: "", message: t("urmall.biz.admins.invalidId") });
       return undefined;
     }
 
     let alive = true;
-    setLookup({ status: i18nText("ui.literals.k28cfb479fbfa"), name: "", message: t("urmall.biz.admins.checking") });
+    setLookup({ status: "checking", name: "", message: t("urmall.biz.admins.checking") });
     const timer = window.setTimeout(async () => {
       try {
         const result = await resolvePublicCode(code);
         if (!alive) return;
         if (result?.userId) {
-          setLookup({ status: i18nText("ui.literals.k2739bb260ce4"), name: result.title || t("urmall.biz.admins.memberFallback"), message: "" });
+          setLookup({ status: "found", name: result.title || t("urmall.biz.admins.memberFallback"), message: "" });
         } else {
           setLookup({ status: "notFound", name: "", message: t("urmall.biz.admins.notFound") });
         }
@@ -146,7 +146,7 @@ export default function BusinessAdmins({ onBack, onOpenPlans }) {
         inviteCode,
       );
       setInviteCode("");
-      setLookup({ status: i18nText("ui.literals.k1adbcc344b31"), name: "", message: "" });
+      setLookup({ status: "idle", name: "", message: "" });
       haptics.medium("marketplace");
       sounds.success("marketplace");
       showToast("Invitation sent", "success");

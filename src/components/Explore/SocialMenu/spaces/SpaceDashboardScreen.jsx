@@ -72,7 +72,7 @@ export default function SpaceDashboardScreen({
   const [inviteOpen, setInviteOpen] = useState(false);
   const [invite, setInvite] = useState(INVITE_INITIAL);
   const [savingInvite, setSavingInvite] = useState(false);
-  const [inviteLookup, setInviteLookup] = useState({ status: i18nText("ui.literals.k1adbcc344b31"), name: "", message: "" });
+  const [inviteLookup, setInviteLookup] = useState({ status: "idle", name: "", message: "" });
   const [busyAction, setBusyAction] = useState("");
   const menuRef = useRef(null);
   const manageTeam = canManageTeam(space);
@@ -230,22 +230,22 @@ export default function SpaceDashboardScreen({
   useEffect(() => {
     const code = String(invite.kunthaiId || "").trim();
     if (!code) {
-      setInviteLookup({ status: i18nText("ui.literals.k1adbcc344b31"), name: "", message: "" });
+      setInviteLookup({ status: "idle", name: "", message: "" });
       return undefined;
     }
     if (detectPublicCodeKind(code) !== "kunthai") {
-      setInviteLookup({ status: i18nText("ui.literals.k81f344a7686a"), name: "", message: i18nText("ui.literals.kf9f1334b2e12") });
+      setInviteLookup({ status: "invalid", name: "", message: i18nText("ui.literals.kf9f1334b2e12") });
       return undefined;
     }
 
     let alive = true;
-    setInviteLookup({ status: i18nText("ui.literals.k28cfb479fbfa"), name: "", message: i18nText("ui.literals.kbb7beca612f9") });
+    setInviteLookup({ status: "checking", name: "", message: i18nText("ui.literals.kbb7beca612f9") });
     const timer = window.setTimeout(async () => {
       try {
         const result = await resolvePublicCode(code);
         if (!alive) return;
         if (result?.userId) {
-          setInviteLookup({ status: i18nText("ui.literals.k2739bb260ce4"), name: result.title || "KunThai member", message: "" });
+          setInviteLookup({ status: "found", name: result.title || "KunThai member", message: "" });
         } else {
           setInviteLookup({ status: "notFound", name: "", message: i18nText("ui.literals.k5cbfe2afa764") });
         }

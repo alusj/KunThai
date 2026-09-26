@@ -250,7 +250,7 @@ function createFleetDraft(index = 0, context = {}, requestedServiceCategory = ""
     documents: {},
     safetyAnswers: createSafetyAnswers(fleetType, serviceCategory),
     operators: [],
-    status: i18nText("ui.literals.kc183a023083e"),
+    status: "pending_review",
   };
 }
 
@@ -580,7 +580,7 @@ export default function CompanyRegistrationScreen({ existingCompany = null, mode
       city: operator.city,
       phone: operator.phone || "",
       verificationStatus: operator.verificationStatus,
-      status: i18nText("ui.literals.ke22586930a5b"),
+      status: "pending",
       documents: {},
       createdAt: new Date().toISOString(),
     };

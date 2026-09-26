@@ -81,4 +81,169 @@ export const DIRECTION_CARDS = {
       "kai-assistant": ["认识你的助手 KAI", "让 KAI 帮你找商品、找车或填写表单。可拖动到任意位置。"],
     },
   },
+
+  pt: {
+    "ui": {
+      "gotIt": "Entendi",
+      "hideAll": "Ocultar todas as dicas",
+      "close": "Fechar dica",
+      "tip": "Dica"
+    },
+    "cards": {
+      "explore-create": [
+        "Compartilhe sua primeira postagem",
+        "Toque em + para postar texto, fotos, notas de voz ou vídeos em Explore."
+      ],
+      "urmall-register": [
+        "Cadastre sua empresa gratuitamente",
+        "Abra sua loja UrMall, liste o que você vende e alcance compradores perto de você."
+      ],
+      "urride-register": [
+        "Cadastre sua viagem gratuitamente",
+        "Adicione o seu veículo ou empresa de transporte e comece a receber reservas."
+      ],
+      "urmall-seller-add": [
+        "Adicione sua primeira listagem",
+        "Os produtos, itens de menu ou propriedades que você adiciona aqui aparecem para os compradores."
+      ],
+      "urmall-seller-orders": [
+        "Novos pedidos chegam aqui",
+        "Verifique cada pedido e atualize seu status para que os compradores fiquem informados."
+      ],
+      "urmall-seller-messages": [
+        "Responder aos compradores",
+        "As perguntas do comprador chegam aqui. Respostas rápidas geram mais vendas."
+      ],
+      "urride-availability": [
+        "Torne-se ativo para obter reservas",
+        "Os passageiros só poderão encontrar e reservar você enquanto você estiver ativo."
+      ],
+      "area-sos": [
+        "Ajuda de emergência com um toque",
+        "Toque em SOS para obter números de polícia, ambulância e bombeiros e ajuda nas proximidades."
+      ],
+      "area-lock": [
+        "Bloqueie o mapa enquanto você se move",
+        "Interrompe toques e saídas acidentais. A tela permanece ligada até você desbloquear."
+      ],
+      "area-focus": [
+        "Concentre-se no mapa",
+        "Oculta os botões para que você veja mais mapas. A tela permanece ligada."
+      ],
+      "kai-assistant": [
+        "Conheça KAI, seu assistente",
+        "Peça a KAI para encontrar produtos, passeios ou ajuda com um formulário. Arraste-o para qualquer lugar."
+      ]
+    }
+  },
+
+  hi: {
+    "ui": {
+      "gotIt": "समझ गया",
+      "hideAll": "सभी युक्तियाँ छिपाएँ",
+      "close": "टिप बंद करें",
+      "tip": "युक्ति"
+    },
+    "cards": {
+      "explore-create": [
+        "अपनी पहली पोस्ट साझा करें",
+        "Explore पर टेक्स्ट, फ़ोटो, वॉयस नोट्स या वीडियो पोस्ट करने के लिए + टैप करें।"
+      ],
+      "urmall-register": [
+        "अपना व्यवसाय निःशुल्क पंजीकृत करें",
+        "अपनी UrMall दुकान खोलें, आप जो बेचते हैं उसे सूचीबद्ध करें और अपने आस-पास के खरीदारों तक पहुंचें।"
+      ],
+      "urride-register": [
+        "अपनी सवारी निःशुल्क पंजीकृत करें",
+        "अपना वाहन या परिवहन कंपनी जोड़ें और बुकिंग प्राप्त करना शुरू करें।"
+      ],
+      "urmall-seller-add": [
+        "अपनी पहली सूची जोड़ें",
+        "आपके द्वारा यहां जोड़े गए उत्पाद, मेनू आइटम या गुण खरीदारों को दिखाई देते हैं।"
+      ],
+      "urmall-seller-orders": [
+        "नए ऑर्डर यहां आते हैं",
+        "प्रत्येक ऑर्डर की जांच करें और उसकी स्थिति अपडेट करें ताकि खरीदार सूचित रहें।"
+      ],
+      "urmall-seller-messages": [
+        "खरीदारों को उत्तर दें",
+        "खरीदार यहां जमीन पर सवाल उठाता है। त्वरित उत्तरों से अधिक बिक्री होती है।"
+      ],
+      "urride-availability": [
+        "बुकिंग प्राप्त करने के लिए सक्रिय रहें",
+        "यात्री आपको केवल तभी ढूंढ और बुक कर सकते हैं जब आप सक्रिय हों।"
+      ],
+      "area-sos": [
+        "एक टैप में आपातकालीन सहायता",
+        "पुलिस, एम्बुलेंस और अग्निशमन नंबरों और आस-पास की सहायता के लिए SOS पर टैप करें।"
+      ],
+      "area-lock": [
+        "चलते समय मानचित्र को लॉक करें",
+        "आकस्मिक नल बंद कर देता है और बाहर निकल जाता है। जब तक आप अनलॉक नहीं करते तब तक स्क्रीन चालू रहती है।"
+      ],
+      "area-focus": [
+        "मानचित्र पर ध्यान दें",
+        "बटन छुपाता है ताकि आप अधिक मानचित्र देख सकें। स्क्रीन चालू रहती है."
+      ],
+      "kai-assistant": [
+        "अपने सहायक KAI से मिलें",
+        "उत्पादों, सवारी या फॉर्म में मदद ढूंढने के लिए KAI से पूछें। इसे कहीं भी खींचें."
+      ]
+    }
+  },
+
+  bn: {
+    "ui": {
+      "gotIt": "বুঝেছি",
+      "hideAll": "সমস্ত টিপস লুকান",
+      "close": "বন্ধ টিপ",
+      "tip": "টিপ"
+    },
+    "cards": {
+      "explore-create": [
+        "আপনার প্রথম পোস্ট শেয়ার করুন",
+        "Explore এ পাঠ্য, ফটো, ভয়েস নোট বা ভিডিও পোস্ট করতে + আলতো চাপুন।"
+      ],
+      "urmall-register": [
+        "বিনামূল্যে আপনার ব্যবসা নিবন্ধন",
+        "আপনার UrMall দোকান খুলুন, আপনি যা বিক্রি করেন তা তালিকাভুক্ত করুন এবং আপনার কাছাকাছি ক্রেতাদের কাছে পৌঁছান।"
+      ],
+      "urride-register": [
+        "বিনামূল্যে আপনার রাইড নিবন্ধন",
+        "আপনার গাড়ি বা পরিবহন কোম্পানি যোগ করুন এবং বুকিং পেতে শুরু করুন।"
+      ],
+      "urmall-seller-add": [
+        "আপনার প্রথম তালিকা যোগ করুন",
+        "পণ্য, মেনু আইটেম বা বৈশিষ্ট্য আপনি এখানে যোগ ক্রেতাদের প্রদর্শিত হবে."
+      ],
+      "urmall-seller-orders": [
+        "নতুন অর্ডার এখানে আসে",
+        "প্রতিটি অর্ডার চেক করুন এবং এর স্থিতি আপডেট করুন যাতে ক্রেতারা অবগত থাকেন।"
+      ],
+      "urmall-seller-messages": [
+        "ক্রেতাদের উত্তর",
+        "ক্রেতা প্রশ্ন জমি এখানে. দ্রুত উত্তর আরো বিক্রয় জয়."
+      ],
+      "urride-availability": [
+        "বুকিং পেতে সক্রিয় যান",
+        "আপনি সক্রিয় থাকাকালীনই যাত্রীরা আপনাকে খুঁজে পেতে এবং বুক করতে পারবেন।"
+      ],
+      "area-sos": [
+        "এক ট্যাপে জরুরী সাহায্য",
+        "পুলিশ, অ্যাম্বুলেন্স এবং ফায়ার নম্বর এবং কাছাকাছি সাহায্যের জন্য SOS এ আলতো চাপুন।"
+      ],
+      "area-lock": [
+        "আপনি সরানোর সময় মানচিত্র লক করুন",
+        "দুর্ঘটনাজনিত ট্যাপ এবং প্রস্থান বন্ধ করে। আপনি আনলক না করা পর্যন্ত স্ক্রীন চালু থাকে।"
+      ],
+      "area-focus": [
+        "মানচিত্রে ফোকাস করুন",
+        "বোতামগুলি লুকিয়ে রাখে যাতে আপনি আরও মানচিত্র দেখতে পান৷ স্ক্রিন অন থাকে।"
+      ],
+      "kai-assistant": [
+        "আপনার সহকারী KAI এর সাথে দেখা করুন",
+        "পণ্য, রাইড বা একটি ফর্মের সাহায্যের জন্য KAI কে জিজ্ঞাসা করুন। যে কোন জায়গায় টেনে আনুন।"
+      ]
+    }
+  },
 };

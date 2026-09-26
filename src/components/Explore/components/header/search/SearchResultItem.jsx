@@ -5,7 +5,7 @@ import { useI18n as useUiLocale } from "../../../../../i18n/index.js";
 
 function ResultIcon({ item }) {
   useUiLocale();
-  if (item.type === "people") return <Avatar name={item.title} src={item.avatarUrl} size="sm" />;
+  if (item.type === "people" || item.type === "space") return <Avatar name={item.title} src={item.avatarUrl} size="sm" />;
   if (item.type === "swip") return <HiOutlinePlayCircle className="text-xl text-sky-700" />;
   if (item.type === "hashtag") return <HiOutlineHashtag className="text-xl text-sky-700" />;
   return <HiOutlineUserCircle className="text-xl text-sky-700" />;

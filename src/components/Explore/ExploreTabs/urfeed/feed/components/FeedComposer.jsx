@@ -1551,7 +1551,7 @@ export default function FeedComposer({ profile, creating, onSubmit }) {
             label: advertForm.title || "Advert location",
             address: advertForm.address || "Use Locate Me or Drop Pin to choose the advert location.",
             type: "advert-location",
-            status: i18nText("ui.literals.ke80721793c24"),
+            status: "private",
           },
           mode: "businessLocationPicker",
           onLocationPicked: (location = {}) => {
@@ -1613,7 +1613,7 @@ export default function FeedComposer({ profile, creating, onSubmit }) {
             label: mediaMeta.location?.label || "Post location",
             address: mediaMeta.location?.address || "Use Locate Me or Drop Pin to tag this post.",
             type: "post-location",
-            status: i18nText("ui.literals.ke80721793c24"),
+            status: "private",
           },
           mode: "businessLocationPicker",
           onLocationPicked: (location = {}) => {

@@ -59,12 +59,14 @@ export {
   normalizeSpaceResponsibilities,
   normalizeSpaceSlug,
   readActiveExploreIdentity,
+  readCachedExploreSpaces,
   removeExploreSpaceMember,
   respondExploreSpaceInvite,
   updateExploreSpaceMember,
   updateExploreSpace,
   updateExploreSpaceStatus,
   writeActiveExploreIdentity,
+  writeCachedExploreSpaces,
 } from "./explore/spaceService";
 export {
   PROFILE_IDENTITY_TYPE,

@@ -122,13 +122,23 @@ export default function Header({
         title="UrRide"
         left={(
           <>
-            <OperatorButton
-              badge={operatorBadgeCount}
-              disabled={accountLoading}
-              hasCompanyAccount={hasCompanyAccount}
-              hasOperatorAccount={hasOperatorAccount}
-              onClick={handleOperatorOpen}
-            />
+            {accountLoading ? (
+              // Same placeholder UrMall's seller entry uses: until the operator
+              // and company accounts are known, never show a guessed icon
+              // (the "register" + flashing before "my fleet").
+              <div
+                className="kt-premium-icon-button kt-premium-icon-button-square kt-startup-shimmer rounded-2xl border-slate-200 bg-slate-200/70"
+                data-loading-region="operator-entry"
+                aria-hidden="true"
+              />
+            ) : (
+              <OperatorButton
+                badge={operatorBadgeCount}
+                hasCompanyAccount={hasCompanyAccount}
+                hasOperatorAccount={hasOperatorAccount}
+                onClick={handleOperatorOpen}
+              />
+            )}
             <Radar onOpenChange={setRadarOpen} onViewFleet={onViewFleet} />
           </>
         )}
