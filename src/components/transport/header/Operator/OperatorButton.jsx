@@ -16,5 +16,5 @@ export default function OperatorButton({ badge = 0, disabled = false, hasCompany
     return <PremiumHeaderButton active accent="emerald" badge={badge} disabled={disabled} icon={Building2} iconSize={18} label={t("urride.header.openFleetHq")} onClick={onClick} />;
   }
 
-  return <PremiumHeaderButton active accent="emerald" disabled={disabled} icon={Plus} iconSize={18} label={t("urride.header.registerFleet")} onClick={onClick} />;
+  return <PremiumHeaderButton active accent="emerald" direction="urride-register" disabled={disabled} icon={Plus} iconSize={18} label={t("urride.header.registerFleet")} onClick={onClick} />;
 }

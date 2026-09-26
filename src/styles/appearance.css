@@ -644,8 +644,22 @@ html.dark .kt-address-entry-input:focus {
 
 html.dark .kt-address-accuracy-caution {
   background: linear-gradient(145deg, #172033, #0f172a) !important;
-  border-color: #fbbf24 !important;
   color: #f8fafc !important;
+}
+
+html.dark .kt-address-caution-actions > button:nth-child(1) {
+  background: #f8fafc !important;
+  color: #0f172a !important;
+}
+
+html.dark .kt-address-caution-actions > button:nth-child(2) {
+  background: rgb(251 191 36 / 0.18) !important;
+  color: #fde68a !important;
+}
+
+html.dark .kt-address-caution-actions > button:nth-child(3) {
+  background: rgb(148 163 184 / 0.16) !important;
+  color: #e2e8f0 !important;
 }
 
 html.dark .kt-address-accuracy-caution .kt-address-caution-copy,

@@ -1,4 +1,4 @@
-import { createElement, useEffect, useMemo, useState } from "react";
+import { createElement, useEffect, useMemo, useRef, useState } from "react";
 import {
   FiAlertTriangle,
   FiBox,
@@ -17,9 +17,11 @@ import {
 import AppPortal from "../../shared/AppPortal";
 import useBodyScrollLock from "../../shared/useBodyScrollLock";
 import {
+  AddressAccuracyCaution,
   AddressAreaResolutionCard,
   AddressAreaStatusIcon,
   normalizeAreaLocation,
+  useAddressAccuracyCaution,
   useAddressAreaValidation,
 } from "../../shared/AddressAreaValidation";
 import NearbyAreaScreen from "../NearbyAreaScreen";
@@ -31,7 +33,12 @@ import {
   validateCountryPhone,
 } from "../../../data/globalCountryProfiles";
 import { createTransportBooking } from "../../services/bookingService";
-import { getNextTransportPlace } from "../../services/passengerTransportService";
+import {
+  getNextTransportPlace,
+  getTransportSavedPlaces,
+  TRANSPORT_SAVED_PLACES_EVENT,
+} from "../../services/passengerTransportService";
+import SavedAddressSuggestions from "../../shared/savedAddresses/SavedAddressSuggestions";
 import { haptics, sounds } from "../../../Backend/services/feedbackService";
 import { fetchTransportFleets } from "../../services/transportFleetService";
 import {
@@ -148,6 +155,10 @@ export default function TransportBookingDrawer({ open, target, onClose, onCreate
   // translated strings never need pattern matching for styling.
   const [statusSuccess, setStatusSuccess] = useState(false);
   const [searchCenter, setSearchCenter] = useState(null);
+  const [savedPlaces, setSavedPlaces] = useState(getTransportSavedPlaces);
+  // Remounts the pickup / drop-off fields each time the drawer opens, so the
+  // addresses it opens with do not count as the passenger starting to type.
+  const [locationSession, setLocationSession] = useState(0);
   const [areaPicker, setAreaPicker] = useState(null);
   const [showPassengerCaution, setShowPassengerCaution] = useState(false);
   const [dontShowPassengerCaution, setDontShowPassengerCaution] = useState(false);
@@ -255,6 +266,8 @@ export default function TransportBookingDrawer({ open, target, onClose, onCreate
       preferredDropoffPlace,
     });
     setSelection(nextSelection);
+    setSavedPlaces(getTransportSavedPlaces());
+    setLocationSession((current) => current + 1);
     setStatus("");
     setRouteEstimate(null);
     setRouteMessage("");
@@ -267,6 +280,13 @@ export default function TransportBookingDrawer({ open, target, onClose, onCreate
       note: draftForm?.note || "",
     }));
   }, [open, target]);
+
+  useEffect(() => {
+    if (!open) return undefined;
+    const refreshSavedPlaces = () => setSavedPlaces(getTransportSavedPlaces());
+    window.addEventListener(TRANSPORT_SAVED_PLACES_EVENT, refreshSavedPlaces);
+    return () => window.removeEventListener(TRANSPORT_SAVED_PLACES_EVENT, refreshSavedPlaces);
+  }, [open]);
 
   useEffect(() => {
     if (!open || !navigator.geolocation) return undefined;
@@ -694,7 +714,9 @@ export default function TransportBookingDrawer({ open, target, onClose, onCreate
             <section className="mt-4 grid gap-3 rounded-2xl border border-gray-200 bg-white p-4 shadow-sm">
               <div className="grid gap-3 md:grid-cols-2">
                 <AddressSuggestionInput
+                  key={`pickup-${locationSession}`}
                   icon={FiMapPin}
+                  savedPlaces={savedPlaces}
                   label={t("urride.booking.pickupPointLabel")}
                   value={form.pickup}
                   selectedPoint={form.pickupPoint}
@@ -710,7 +732,9 @@ export default function TransportBookingDrawer({ open, target, onClose, onCreate
                 />
 
                 <AddressSuggestionInput
+                  key={`dropoff-${locationSession}`}
                   icon={FiNavigation}
+                  savedPlaces={savedPlaces}
                   label={bookingMode === "delivery" ? t("urride.booking.deliveryDropoffLabel") : t("urride.booking.dropoffPointLabel")}
                   value={form.dropoff}
                   selectedPoint={form.dropoffPoint}
@@ -986,12 +1010,20 @@ function InfoLine({ icon, label, value }) {
   );
 }
 
-function AddressSuggestionInput({ icon, label, value, selectedPoint, center, onChange, onSelect, onLocateMe, onDropPin, placeholder }) {
+// Pickup / drop-off field. Reaching it pops the passenger's saved places
+// (about two at a time, the rest scroll); typing raises the same accuracy
+// caution as every address field, and after "Enter manually" the map search
+// suggestions take over.
+function AddressSuggestionInput({ icon, label, value, selectedPoint, center, savedPlaces = [], onChange, onSelect, onLocateMe, onDropPin, placeholder }) {
   useUiLocale();
   const [focused, setFocused] = useState(false);
   const [searching, setSearching] = useState(false);
   const [suggestions, setSuggestions] = useState([]);
+  const inputRef = useRef(null);
   const validation = useAddressAreaValidation(value, { center, selectedPoint });
+  const caution = useAddressAccuracyCaution(value, { gate: false, lockOnEdit: true });
+  const locateMe = () => caution.act(onLocateMe);
+  const dropPin = () => caution.act(onDropPin);
 
   useEffect(() => {
     if (!focused) return undefined;
@@ -1022,29 +1054,79 @@ function AddressSuggestionInput({ icon, label, value, selectedPoint, center, onC
     };
   }, [center, focused, value]);
 
-  const showSuggestions = focused && (searching || suggestions.length > 0 || String(value || "").trim().length >= 2);
+  const typed = String(value || "").trim();
+  const showingSavedPlace = savedPlaces.some((place) => getBookingLocationInputValue(place) === typed);
+  const showSuggestions = focused && !caution.open && !showingSavedPlace && (searching || suggestions.length > 0 || typed.length >= 2);
+
+  function pickSavedPlace(place) {
+    caution.act(() => onSelect(place));
+    setFocused(false);
+    setSuggestions([]);
+    inputRef.current?.blur();
+  }
 
   return (
-    <label className="min-w-0 space-y-1">
-      <span className="inline-flex items-center gap-2 text-xs font-black uppercase text-gray-500">
-        {translateUi(label)}
-        <AddressAreaStatusIcon status={validation.status} />
-      </span>
-      <span className="relative block min-w-0">
-        {createElement(icon, {
-          size: 17,
-          className: "absolute left-3 top-1/2 -translate-y-1/2 text-gray-400",
-        })}
-        <input
-          value={value}
-          onFocus={() => setFocused(true)}
-          onBlur={() => window.setTimeout(() => setFocused(false), 140)}
-          onChange={(event) => onChange(event.target.value)}
-          placeholder={translateUi(placeholder)}
-          className="h-12 w-full min-w-0 rounded-xl border border-gray-200 bg-gray-50 pl-10 pr-9 text-sm font-semibold outline-none focus:border-emerald-500"
+    <div className="min-w-0 space-y-1">
+      <div className="relative">
+        <label className="block min-w-0 space-y-1">
+          <span className="inline-flex items-center gap-2 text-xs font-black uppercase text-gray-500">
+            {translateUi(label)}
+            <AddressAreaStatusIcon status={validation.status} />
+          </span>
+          <span className="relative block min-w-0">
+            {createElement(icon, {
+              size: 17,
+              className: "absolute left-3 top-1/2 -translate-y-1/2 text-gray-400",
+            })}
+            <input
+              ref={inputRef}
+              value={value}
+              onChange={caution.guardChange((event) => onChange(event.target.value))}
+              {...caution.inputProps}
+              onFocus={(event) => {
+                caution.inputProps.onFocus(event);
+                setFocused(true);
+              }}
+              onBlur={(event) => {
+                caution.inputProps.onBlur(event);
+                window.setTimeout(() => setFocused(false), 150);
+              }}
+              placeholder={translateUi(placeholder)}
+              autoComplete="street-address"
+              className="kt-address-entry-input h-12 w-full min-w-0 rounded-xl border border-gray-200 bg-gray-50 pl-10 pr-9 text-sm font-semibold outline-none focus:border-emerald-500"
+            />
+            <AddressAreaStatusIcon status={validation.status} className="absolute right-3 top-1/2 -translate-y-1/2" />
+          </span>
+        </label>
+
+        <SavedAddressSuggestions
+          open={focused && !caution.open}
+          addresses={savedPlaces}
+          query={value}
+          icon={icon}
+          onPick={pickSavedPlace}
+          className="absolute inset-x-0 top-full z-30 mt-1"
         />
-        <AddressAreaStatusIcon status={validation.status} className="absolute right-3 top-1/2 -translate-y-1/2" />
-      </span>
+
+        <AddressAccuracyCaution
+          cover
+          open={caution.open}
+          onLocateMe={locateMe}
+          onDropPin={dropPin}
+          onContinueWriting={() => {
+            caution.dismiss();
+            window.requestAnimationFrame(() => inputRef.current?.focus());
+          }}
+          title={t("addressBook.cautionTitle")}
+          message={t("addressBook.cautionMessage")}
+          details={t("urmall.biz.reg.accuracyDetails")}
+          locateLabel={t("urride.booking.locateMe")}
+          dropPinLabel={t("urride.booking.dropPin")}
+          continueLabel={t("urmall.biz.reg.accuracyContinueWriting")}
+          readMoreLabel={t("urmall.biz.reg.accuracyReadMore")}
+          readLessLabel={t("urmall.biz.reg.accuracyReadLess")}
+        />
+      </div>
 
       {selectedPoint?.lat && selectedPoint?.lng ? (
         <p className="rounded-xl bg-emerald-50 px-3 py-2 text-xs font-bold text-emerald-700">
@@ -1052,19 +1134,19 @@ function AddressSuggestionInput({ icon, label, value, selectedPoint, center, onC
         </p>
       ) : null}
 
-      <div className="grid gap-2 sm:grid-cols-2">
+      <div className="grid grid-cols-1 gap-2">
         <button
           type="button"
-          onClick={onLocateMe}
-          className="kt-touchable inline-flex h-10 items-center justify-center gap-2 rounded-lg bg-slate-950 px-3 text-xs font-black text-white hover:bg-slate-800"
+          onClick={locateMe}
+          className="kt-touchable inline-flex h-10 w-full items-center justify-center gap-2 rounded-lg bg-slate-950 px-3 text-xs font-black text-white hover:bg-slate-800"
         >
           <FiNavigation size={15} />
           {t("urride.booking.locateMe")}
         </button>
         <button
           type="button"
-          onClick={onDropPin}
-          className="kt-touchable inline-flex h-10 items-center justify-center gap-2 rounded-lg border border-gray-200 bg-white px-3 text-xs font-black text-gray-700 hover:bg-gray-50"
+          onClick={dropPin}
+          className="kt-touchable inline-flex h-10 w-full items-center justify-center gap-2 rounded-lg border border-gray-200 bg-white px-3 text-xs font-black text-gray-700 hover:bg-gray-50"
         >
           <FiMapPin size={15} />
           {t("urride.booking.dropPin")}
@@ -1073,8 +1155,8 @@ function AddressSuggestionInput({ icon, label, value, selectedPoint, center, onC
 
       <AddressAreaResolutionCard
         validation={validation}
-        onLocateMe={onLocateMe}
-        onDropPin={onDropPin}
+        onLocateMe={locateMe}
+        onDropPin={dropPin}
       />
 
       {showSuggestions ? (
@@ -1088,7 +1170,7 @@ function AddressSuggestionInput({ icon, label, value, selectedPoint, center, onC
                 type="button"
                 onMouseDown={(event) => {
                   event.preventDefault();
-                  onSelect(place);
+                  caution.act(() => onSelect(place));
                   setFocused(false);
                   setSuggestions([]);
                 }}
@@ -1112,7 +1194,7 @@ function AddressSuggestionInput({ icon, label, value, selectedPoint, center, onC
           )}
         </div>
       ) : null}
-    </label>
+    </div>
   );
 }
 

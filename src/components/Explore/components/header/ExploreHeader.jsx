@@ -182,6 +182,7 @@ export default function ExploreHeader({ currentProfile, onAlertsClick, onNavigat
               <PremiumHeaderButton
                 active
                 accent="sky"
+                direction="explore-create"
                 icon={createVisible ? X : Plus}
                 label={createVisible ? t("explore.closeCreateMenu") : t("explore.create")}
                 onClick={toggleCreateMenu}

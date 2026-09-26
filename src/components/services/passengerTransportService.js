@@ -24,9 +24,16 @@ function readLocalJson(key, fallback) {
   }
 }
 
+// Returns false instead of throwing when the browser refuses the write (full
+// quota, private mode), so a save never dies half-way through.
 function writeLocalJson(key, value) {
-  if (typeof window === "undefined") return;
-  window.localStorage.setItem(key, JSON.stringify(value));
+  if (typeof window === "undefined") return false;
+  try {
+    window.localStorage.setItem(key, JSON.stringify(value));
+    return true;
+  } catch {
+    return false;
+  }
 }
 
 export function getActiveTrips() {
@@ -54,6 +61,24 @@ export function getNextTransportPlace(kind = "pickup") {
   return readLocalJson(kind === "dropoff" ? TRANSPORT_NEXT_DROPOFF_KEY : TRANSPORT_NEXT_PICKUP_KEY, null);
 }
 
+export const TRANSPORT_SAVED_PLACES_EVENT = "transport-saved-places-updated";
+
+function notifySavedPlacesChanged(places) {
+  if (typeof window === "undefined") return;
+  window.dispatchEvent(new CustomEvent(TRANSPORT_SAVED_PLACES_EVENT, { detail: { places } }));
+}
+
+// A full-size photo of the front of a place used to overflow the storage quota:
+// the write threw and nothing was saved. A refused write is now retried without
+// pictures so the address itself is always kept.
+function writeSavedPlacesLocal(places) {
+  if (writeLocalJson(TRANSPORT_SAVED_PLACES_KEY, places)) return true;
+  return writeLocalJson(
+    TRANSPORT_SAVED_PLACES_KEY,
+    places.map((place) => ({ ...place, frontPictureUrl: "" })),
+  );
+}
+
 export function saveTransportSavedPlace(place) {
   const id = place.id || `local-place-${Date.now()}`;
   const savedPlace = {
@@ -63,16 +88,20 @@ export function saveTransportSavedPlace(place) {
   };
   const places = getTransportSavedPlaces();
   const nextPlaces = [savedPlace, ...places.filter((item) => item.id !== id)];
-  writeLocalJson(TRANSPORT_SAVED_PLACES_KEY, nextPlaces);
-  writeLocalJson(TRANSPORT_ACTIVE_PLACE_KEY, savedPlace);
-  if (getNextTransportPlace("pickup")?.id === id) writeLocalJson(TRANSPORT_NEXT_PICKUP_KEY, savedPlace);
-  if (getNextTransportPlace("dropoff")?.id === id) writeLocalJson(TRANSPORT_NEXT_DROPOFF_KEY, savedPlace);
-  return savedPlace;
+  if (!writeSavedPlacesLocal(nextPlaces)) {
+    throw new Error("This device could not save the place.");
+  }
+  const storedPlace = getTransportSavedPlaces().find((item) => item.id === id) || savedPlace;
+  writeLocalJson(TRANSPORT_ACTIVE_PLACE_KEY, storedPlace);
+  if (getNextTransportPlace("pickup")?.id === id) writeLocalJson(TRANSPORT_NEXT_PICKUP_KEY, storedPlace);
+  if (getNextTransportPlace("dropoff")?.id === id) writeLocalJson(TRANSPORT_NEXT_DROPOFF_KEY, storedPlace);
+  notifySavedPlacesChanged(getTransportSavedPlaces());
+  return storedPlace;
 }
 
 export function removeTransportSavedPlace(placeId) {
   const nextPlaces = getTransportSavedPlaces().filter((place) => place.id !== placeId);
-  writeLocalJson(TRANSPORT_SAVED_PLACES_KEY, nextPlaces);
+  writeSavedPlacesLocal(nextPlaces);
 
   const activePlace = getActiveTransportPlace();
   if (activePlace?.id === placeId) {
@@ -80,6 +109,7 @@ export function removeTransportSavedPlace(placeId) {
   }
   if (getNextTransportPlace("pickup")?.id === placeId) writeLocalJson(TRANSPORT_NEXT_PICKUP_KEY, null);
   if (getNextTransportPlace("dropoff")?.id === placeId) writeLocalJson(TRANSPORT_NEXT_DROPOFF_KEY, null);
+  notifySavedPlacesChanged(nextPlaces);
 
   return nextPlaces;
 }

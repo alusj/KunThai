@@ -167,6 +167,7 @@ export default function MarketplaceHeader({
             active={!hasBusiness}
             accent="emerald"
             badge={sellerNotificationCount}
+            direction={hasBusiness ? undefined : "urmall-register"}
             icon={hasBusiness ? Store : Plus}
             label={translateUi(businessLabel)}
             onClick={() => {

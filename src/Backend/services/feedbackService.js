@@ -51,6 +51,10 @@ export const haptics = {
   heavy(module) {
     vibrate([35, 60, 35, 60, 45], module, "heavy");
   },
+  // Two distinct buzzes: "you can't do that yet" (e.g. leaving a locked screen).
+  doubleShake(module) {
+    vibrate([90, 80, 90], module, "doubleShake");
+  },
 };
 
 let audioContext = null;

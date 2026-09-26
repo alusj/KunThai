@@ -14,9 +14,22 @@ function readJson(key, fallback) {
   }
 }
 
+// A refused write (full quota, private mode) must never abort a save. An
+// address list is retried without pictures, which are what fill the quota.
 function writeJson(key, value) {
-  if (typeof window === "undefined") return;
-  window.localStorage.setItem(key, JSON.stringify(value));
+  if (typeof window === "undefined") return false;
+  try {
+    window.localStorage.setItem(key, JSON.stringify(value));
+    return true;
+  } catch {
+    if (!Array.isArray(value)) return false;
+    try {
+      window.localStorage.setItem(key, JSON.stringify(value.map((item) => ({ ...item, frontPictureUrl: "" }))));
+      return true;
+    } catch {
+      return false;
+    }
+  }
 }
 
 export function getBuyerAddressKey(address = {}) {

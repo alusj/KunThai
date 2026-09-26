@@ -1,5 +1,5 @@
 import { useEffect, useMemo, useRef, useState } from "react";
-import { CheckCircle2, ChevronDown, ChevronUp, LocateFixed, Loader2, MapPin, ShieldCheck, XCircle } from "lucide-react";
+import { CheckCircle2, ChevronDown, ChevronUp, LocateFixed, Loader2, MapPin, PencilLine, ShieldCheck, XCircle } from "lucide-react";
 import { searchLocations } from "../../Backend/services/locationSearchService";
 import { t as i18nText } from "../../i18n/index";
 import { shouldOpenAddressAccuracyCaution } from "./addressAccuracyCautionState";
@@ -370,7 +370,7 @@ export function AddressAccuracyCaution({
   return (
     <div
       ref={cardRef}
-      className={`kt-address-accuracy-caution ${placement} z-[1600] max-h-[min(70dvh,34rem)] overflow-y-auto overscroll-contain rounded-[1.75rem] border border-amber-300 bg-white p-4 text-slate-950 shadow-2xl shadow-slate-950/25 dark:shadow-black/70`}
+      className={`kt-address-accuracy-caution ${placement} z-[1600] max-h-[min(70dvh,34rem)] overflow-y-auto overscroll-contain rounded-[1.75rem] bg-white p-4 text-slate-950 shadow-2xl shadow-slate-950/25 dark:shadow-black/70`}
       role="alertdialog"
       aria-label={translateUi(title)}
     >
@@ -393,38 +393,41 @@ export function AddressAccuracyCaution({
           </button>
 
           {expanded ? (
-            <p className="kt-address-caution-details mt-2 rounded-xl border border-amber-200 bg-amber-50 p-3 text-xs font-semibold leading-5 text-slate-700">
+            <p className="kt-address-caution-details mt-2 rounded-xl bg-amber-50 p-3 text-xs font-semibold leading-5 text-slate-700">
               {details}
             </p>
           ) : null}
 
-          <div className="mt-3 grid grid-cols-2 gap-2">
-            <button
-              type="button"
-              onClick={onLocateMe}
-              className="kt-touchable inline-flex h-11 items-center justify-center gap-2 rounded-xl bg-slate-950 px-3 text-xs font-black text-white hover:bg-slate-800"
-            >
-              <LocateFixed size={15} />
-              {locateLabel}
-            </button>
-            <button
-              type="button"
-              onClick={onDropPin}
-              className="kt-touchable inline-flex h-11 items-center justify-center gap-2 rounded-xl border border-amber-300 bg-amber-50 px-3 text-xs font-black text-amber-900 hover:bg-amber-100"
-            >
-              <MapPin size={15} />
-              {dropPinLabel}
-            </button>
-          </div>
-
-          <button
-            type="button"
-            onClick={onContinueWriting}
-            className="kt-touchable mt-2 inline-flex h-11 w-full items-center justify-center rounded-xl border border-slate-300 bg-white px-3 text-xs font-black text-slate-700 hover:bg-slate-50"
-          >
-            {continueLabel}
-          </button>
         </div>
+      </div>
+
+      {/* One full-width button per line, in order of accuracy: Locate me,
+          Drop a pin, then Enter manually. */}
+      <div className="kt-address-caution-actions mt-4 grid grid-cols-1 gap-2">
+        <button
+          type="button"
+          onClick={onLocateMe}
+          className="kt-touchable inline-flex h-12 w-full items-center justify-center gap-2 rounded-xl bg-slate-950 px-4 text-sm font-black text-white hover:bg-slate-800"
+        >
+          <LocateFixed size={16} />
+          {locateLabel}
+        </button>
+        <button
+          type="button"
+          onClick={onDropPin}
+          className="kt-touchable inline-flex h-12 w-full items-center justify-center gap-2 rounded-xl bg-amber-100 px-4 text-sm font-black text-amber-900 hover:bg-amber-200"
+        >
+          <MapPin size={16} />
+          {dropPinLabel}
+        </button>
+        <button
+          type="button"
+          onClick={onContinueWriting}
+          className="kt-touchable inline-flex h-12 w-full items-center justify-center gap-2 rounded-xl bg-slate-100 px-4 text-sm font-black text-slate-700 hover:bg-slate-200"
+        >
+          <PencilLine size={16} />
+          {continueLabel}
+        </button>
       </div>
     </div>
   );

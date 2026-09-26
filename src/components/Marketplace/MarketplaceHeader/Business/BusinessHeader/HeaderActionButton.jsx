@@ -3,6 +3,7 @@ import { uiText as translateUi, useI18n as useUiLocale } from "../../../../../i1
   icon: Icon,
   label,
   badge,
+  direction,
   primary = false,
   onClick,
 }) {
@@ -11,6 +12,7 @@ import { uiText as translateUi, useI18n as useUiLocale } from "../../../../../i1
     <button
       type="button"
       onClick={onClick}
+      data-direction={direction || undefined}
       className={[
         "relative flex h-10 items-center justify-center gap-2 rounded-lg px-3 text-sm font-semibold transition",
         primary

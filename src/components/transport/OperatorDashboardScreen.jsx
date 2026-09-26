@@ -578,6 +578,7 @@ export default function OperatorDashboardScreen({
               type="button"
               onClick={handleAvailabilityToggle}
               disabled={availabilitySaving}
+              data-direction="urride-availability"
               aria-busy={availabilitySaving || undefined}
               className={`hidden h-10 items-center gap-2 rounded-full border px-3 text-sm font-black transition sm:flex ${
                 isActive
@@ -690,6 +691,7 @@ export default function OperatorDashboardScreen({
               type="button"
               onClick={handleAvailabilityToggle}
               disabled={availabilitySaving}
+              data-direction="urride-availability"
               aria-busy={availabilitySaving || undefined}
               className={`kt-touchable h-11 w-full touch-manipulation rounded-2xl border text-sm font-black transition ${
                 isActive

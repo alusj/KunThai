@@ -1,44 +1,32 @@
-import { createElement, useEffect, useMemo, useRef, useState } from "react";
+import { createElement, useEffect, useMemo, useState } from "react";
 import {
-  Camera,
   CheckCircle2,
   ChevronRight,
   CreditCard,
   HelpCircle,
   History,
   LifeBuoy,
-  LocateFixed,
   LockKeyhole,
   MapPin,
-  MoreHorizontal,
   Navigation,
-  Pencil,
-  Plus,
   ReceiptText,
   Settings,
-  Share2,
   ShieldAlert,
   Siren,
   BookOpenCheck,
-  Trash2,
   UserRound,
-  X,
 } from "lucide-react";
 
 import AppBackTab from "../../shared/AppBackTab.jsx";
 import AppPortal from "../../shared/AppPortal";
 import { SlidePanel, useSlidePanel } from "../../shared/SlideTransition";
 import useBodyScrollLock from "../../shared/useBodyScrollLock";
-import {
-  AddressAreaResolutionCard,
-  AddressAreaStatusIcon,
-  normalizeAreaLocation,
-  useAddressAreaValidation,
-} from "../../shared/AddressAreaValidation";
+import SavedAddressBook from "../../shared/savedAddresses/SavedAddressBook";
+import { showToast } from "../../../Backend/services/toastService";
 import EmergencySheet from "../../emergency/EmergencySheet";
-import NearbyAreaScreen from "../NearbyAreaScreen";
 import {
   fetchPassengerTrips,
+  getActiveTransportPlace,
   getPassengerTrips,
   getTransportPassengerSettings,
   getTransportSavedPlaces,
@@ -55,7 +43,6 @@ import {
 } from "../../../Backend/services/countryResolution/countryResolutionService";
 import { getRideFleetOptions } from "../../../data/globalTransportCapabilities";
 import { getOnboardingProfile } from "../../../Backend/services/onboardingService";
-import { resizedImageUrl } from "../../../Backend/lib/imageProxy";
 import { submitTransportSupportTicket } from "../../services/bookingService";
 import TransportCautionCard from "../shared/TransportCautionCard";
 import { useI18n, t } from "../../../i18n";
@@ -66,16 +53,8 @@ import { inlineErrorMessage } from "../../../Backend/services/friendlyErrorServi
 const TRANSPORT_PAYMENT_NOTE_KEY = "kuntai.transport.paymentNote";
 
 // Stable category values (stored on the place and compared against "Other");
-// display labels resolve through this map so translation never changes storage.
+// the shared address book shows them through addressBook.categories.*.
 const placeTypes = ["Home", "Work", "School", "Market", "Bus stop", "Other"];
-const PLACE_TYPE_LABEL_KEYS = {
-  Home: "urride.menu.placeHome",
-  Work: "urride.menu.placeWork",
-  School: "urride.menu.placeSchool",
-  Market: "urride.menu.placeMarket",
-  "Bus stop": "urride.menu.placeBusStop",
-  Other: "urride.menu.placeOther",
-};
 
 // `id` is the stable screen identifier used by control flow; title/description
 // are translation keys resolved at render so the menu follows the locale.
@@ -133,19 +112,6 @@ function createEmptyPlace(profile = {}) {
     detectedAddress: "",
     coordinates: null,
   };
-}
-
-function getPlaceLabel(place) {
-  if (place.category === "Other") return place.customCategory || t("urride.menu.placeOther");
-  const key = PLACE_TYPE_LABEL_KEYS[place.category];
-  return key ? t(key) : place.category || t("urride.menu.placeHome");
-}
-
-function getPlaceShareText(place) {
-  const label = getPlaceLabel(place);
-  const address = place.street || place.detectedAddress || t("urride.menu.places.addressPending");
-  const note = place.note ? `\n${t("urride.menu.places.shareNoteLine", { note: place.note })}` : "";
-  return `${t("urride.menu.places.shareText", { label })}\n${address}${note}`;
 }
 
 function formatDate(value) {
@@ -642,42 +608,29 @@ function TripLine({ label, value }) {
   );
 }
 
-function SavedPlaceMenuAction({ danger = false, icon, label, onClick }) {
-  useUiLocale();
-  return (
-    <button
-      type="button"
-      onClick={onClick}
-      className={`kt-touchable flex h-11 w-full items-center gap-3 rounded-xl px-3 text-left text-sm font-black ${
-        danger ? "text-rose-600 hover:bg-rose-50" : "text-gray-700 hover:bg-gray-50 hover:text-gray-950"
-      }`}
-    >
-      {createElement(icon, { size: 17, strokeWidth: 2.3, absoluteStrokeWidth: true })}
-      <span className="min-w-0 flex-1 truncate">{translateUi(label)}</span>
-    </button>
-  );
+// UrRide stores the contact as `contactName`; the shared address book calls it
+// `fullName`. Both are kept on the stored place so older readers still work.
+function toBookAddress(place = {}) {
+  return { ...place, fullName: place.fullName ?? place.contactName ?? "" };
+}
+
+function toTransportPlace(address = {}) {
+  return { ...address, contactName: address.fullName || "" };
+}
+
+function readBookPlaces() {
+  return getTransportSavedPlaces().map(toBookAddress);
+}
+
+function getSavedPlaceKey(place = {}) {
+  return place.id || `${place.category}:${place.street || place.detectedAddress || ""}`;
 }
 
 function SavedPlacesPage() {
   const { locale } = useI18n();
-  const [places, setPlaces] = useState(() => getTransportSavedPlaces());
-  const [place, setPlace] = useState(createEmptyPlace);
-  const [locationCandidate, setLocationCandidate] = useState(null);
-  const [locationStatus, setLocationStatus] = useState("");
-  const [message, setMessage] = useState("");
-  const [formOpen, setFormOpen] = useState(false);
-  const [actionMenuId, setActionMenuId] = useState("");
-  const [areaPicker, setAreaPicker] = useState(null);
+  const [places, setPlaces] = useState(readBookPlaces);
+  const [selectedKey, setSelectedKey] = useState(() => getSavedPlaceKey(getActiveTransportPlace() || {}));
   const [accountContact, setAccountContact] = useState({});
-  const formRef = useRef(null);
-  const placePoint = place.coordinates
-    ? {
-        lat: place.coordinates.latitude ?? place.coordinates.lat,
-        lng: place.coordinates.longitude ?? place.coordinates.lng,
-        address: place.detectedAddress || place.street,
-      }
-    : null;
-  const placeValidation = useAddressAreaValidation(place.street, { selectedPoint: placePoint });
   const savedPlacePickerLabels = useMemo(
     () => ({
       historyKey: "transport-saved-place-picker",
@@ -694,6 +647,8 @@ function SavedPlacesPage() {
       currentName: t("urride.menu.places.pickerCurrentName"),
       droppedName: t("urride.menu.places.pickerDroppedName"),
     }),
+    // locale drives re-translation of these labels on language change.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
     [locale],
   );
 
@@ -701,13 +656,7 @@ function SavedPlacesPage() {
     let alive = true;
     getOnboardingProfile()
       .then((profile) => {
-        if (!alive || !profile) return;
-        setAccountContact(profile);
-        setPlace((current) => ({
-          ...current,
-          contactName: current.contactName || String(profile.displayName || profile.fullName || profile.full_name || "").trim(),
-          phone: current.phone || String(profile.phone || profile.phoneNumber || profile.phone_number || "").trim(),
-        }));
+        if (alive && profile) setAccountContact(profile);
       })
       .catch(() => null);
     return () => {
@@ -715,436 +664,45 @@ function SavedPlacesPage() {
     };
   }, []);
 
-  useEffect(() => {
-    if (!formOpen) return undefined;
-    const timer = window.setTimeout(() => {
-      formRef.current?.scrollIntoView({ behavior: "smooth", block: "start" });
-    }, 80);
-    return () => window.clearTimeout(timer);
-  }, [formOpen, place.id]);
-
-  function updatePlace(patch) {
-    setPlace((current) => ({ ...current, ...patch }));
-  }
-
-  function editPlace(nextPlace) {
-    setActionMenuId("");
-    setPlace({ ...createEmptyPlace(), ...nextPlace });
-    setLocationCandidate(null);
-    setLocationStatus("");
-    setMessage("");
-    setFormOpen(true);
-  }
-
-  function openAddPlace() {
-    setActionMenuId("");
-    setPlace(createEmptyPlace(accountContact));
-    setLocationCandidate(null);
-    setLocationStatus("");
-    setMessage("");
-    setFormOpen(true);
-  }
-
-  function closeForm() {
-    setActionMenuId("");
-    setPlace(createEmptyPlace(accountContact));
-    setLocationCandidate(null);
-    setLocationStatus("");
-    setAreaPicker(null);
-    setFormOpen(false);
-  }
-
-  function savePlace() {
-    if (!place.street.trim() && !place.detectedAddress.trim()) {
-      setMessage(t("urride.menu.places.needAddress"));
-      return;
-    }
-
-    const savedPlace = saveTransportSavedPlace(place);
-    setPlaces(getTransportSavedPlaces());
-    setPlace(createEmptyPlace(accountContact));
-    setLocationCandidate(null);
-    setLocationStatus("");
-    setFormOpen(false);
-    setMessage(t("urride.menu.places.placeSaved", { label: getPlaceLabel(savedPlace) }));
-  }
-
-  function removePlace(placeId) {
-    setActionMenuId("");
-    setPlaces(removeTransportSavedPlace(placeId));
-    if (place.id === placeId) {
-      closeForm();
-    }
-    setMessage(t("urride.menu.places.placeRemoved"));
-  }
-
-  function selectPlace(nextPlace, kind) {
-    setActionMenuId("");
-    selectTransportSavedPlace(nextPlace, kind);
-    setMessage(t(kind === "dropoff" ? "urride.menu.places.placeSelectedDropoff" : "urride.menu.places.placeSelectedPickup", { label: getPlaceLabel(nextPlace) }));
-  }
-
-  async function sharePlace(nextPlace) {
-    setActionMenuId("");
-    const text = getPlaceShareText(nextPlace);
-
-    try {
-      if (navigator.share) {
-        await navigator.share({
-          title: t("urride.menu.places.shareText", { label: getPlaceLabel(nextPlace) }),
-          text,
-        });
-        setMessage(t("urride.menu.places.shareReady"));
-        return;
-      }
-
-      if (navigator.clipboard?.writeText) {
-        await navigator.clipboard.writeText(text);
-        setMessage(t("urride.menu.places.shareCopied"));
-        return;
-      }
-
-      window.prompt(t("urride.menu.places.shareDetails"), text);
-      setMessage(t("urride.menu.places.shareReady"));
-    } catch {
-      setMessage(t("urride.menu.places.shareError"));
-    }
-  }
-
-  function openPlaceAreaPicker(start = "current") {
-    setLocationStatus("");
-    setLocationCandidate(null);
-    setMessage("");
-    setAreaPicker({ start });
-  }
-
-  function locateMe() {
-    openPlaceAreaPicker("current");
-  }
-
-  function dropPlacePin() {
-    openPlaceAreaPicker("dropPin");
-  }
-
-  function acceptAreaLocation(location) {
-    const nextLocation = normalizeAreaLocation(location, place.street);
-    if (!nextLocation) return;
-
-    updatePlace({
-      detectedAddress: nextLocation.address,
-      street: nextLocation.address || place.street,
-      coordinates: nextLocation.coordinates,
-    });
-    setLocationStatus(t("urride.menu.places.locationAdded", { address: nextLocation.address }));
-    setAreaPicker(null);
-  }
-
-  function confirmDetectedLocation() {
-    if (!locationCandidate) return;
-
-    updatePlace({
-      detectedAddress: locationCandidate.address,
-      street: place.street || locationCandidate.address,
-      coordinates: {
-        latitude: locationCandidate.latitude,
-        longitude: locationCandidate.longitude,
+  async function savePlace(draft) {
+    const savedPlace = toBookAddress(saveTransportSavedPlace(toTransportPlace(draft)));
+    return {
+      address: savedPlace,
+      apply() {
+        setPlaces(readBookPlaces());
+        setSelectedKey(getSavedPlaceKey(savedPlace));
       },
-    });
-    setLocationStatus(t("urride.menu.places.locationAddedEdit"));
-    setLocationCandidate(null);
+    };
   }
 
-  function rejectDetectedLocation() {
-    setLocationCandidate(null);
-    setLocationStatus(t("urride.menu.places.enterManually"));
+  async function removePlace(place) {
+    setPlaces(removeTransportSavedPlace(place.id).map(toBookAddress));
+    setSelectedKey(getSavedPlaceKey(getActiveTransportPlace() || {}));
+    return {};
   }
 
-  function handleFrontPictureChange(event) {
-    const file = event.target.files?.[0];
-    if (!file) return;
-
-    const reader = new FileReader();
-    reader.onload = () => updatePlace({ frontPictureUrl: String(reader.result || "") });
-    reader.readAsDataURL(file);
+  function assignPlace(place, kind) {
+    selectTransportSavedPlace(toTransportPlace(place), kind);
+    setSelectedKey(getSavedPlaceKey(place));
+    showToast(kind === "dropoff" ? t("addressBook.toastDropoff") : t("addressBook.toastPickup"), "success");
   }
 
   return (
-    <div className="space-y-4">
-      {message ? <p className="rounded-xl bg-emerald-50 p-3 text-sm font-bold text-emerald-700">{translateUi(message)}</p> : null}
-      {actionMenuId ? (
-        <button
-          type="button"
-          aria-label={t("urride.menu.places.closeActions")}
-          className="fixed inset-0 z-10 cursor-default bg-transparent"
-          onClick={() => setActionMenuId("")}
-        />
-      ) : null}
-
-      {places.length ? (
-        <div className="space-y-2">
-          <p className="text-sm font-black text-gray-950">{t("urride.menu.places.heading")}</p>
-          {places.map((item) => {
-            const actionKey = item.id || i18nText("ui.literals.kea623b454821", { value0: item.category, value1: item.street || item.detectedAddress || i18nText("ui.literals.k9da8f1fa7d3a") });
-
-            const menuOpen = actionMenuId === actionKey;
-
-            return (
-            <article
-              key={actionKey}
-              className={`kt-touchable relative rounded-xl border border-gray-200 bg-white p-3 text-left shadow-sm ${menuOpen ? "z-30" : ""}`}
-            >
-              <div className="flex items-start justify-between gap-3">
-                <button type="button" onClick={() => editPlace(item)} className="kt-touchable min-w-0 flex-1 text-left">
-                  <p className="text-sm font-black text-gray-950">{t("urride.menu.places.placeSuffix", { label: getPlaceLabel(item) })}</p>
-                  <p className="mt-1 line-clamp-2 text-xs font-semibold leading-5 text-gray-500">
-                    {item.street || item.detectedAddress}
-                  </p>
-                </button>
-                <button
-                  type="button"
-                  onClick={(event) => {
-                    event.stopPropagation();
-                    setActionMenuId((current) => (current === actionKey ? "" : actionKey));
-                  }}
-                  className="kt-touchable flex h-9 w-9 shrink-0 items-center justify-center rounded-xl border border-gray-200 bg-white text-gray-500 hover:bg-gray-50 hover:text-gray-950"
-                  aria-label={t("urride.menu.places.actionsAria", { label: getPlaceLabel(item) })}
-                  aria-expanded={actionMenuId === actionKey}
-                >
-                  <MoreHorizontal size={18} />
-                </button>
-              </div>
-              {actionMenuId === actionKey ? (
-                <div className="kt-modal-enter absolute right-3 top-12 z-30 w-56 overflow-hidden rounded-2xl border border-gray-200 bg-white p-1.5 shadow-2xl shadow-slate-950/10">
-                  <SavedPlaceMenuAction icon={MapPin} label={t("urride.menu.places.useForPickup")} onClick={() => selectPlace(item, "pickup")} />
-                  <SavedPlaceMenuAction icon={Navigation} label={t("urride.menu.places.useForDropoff")} onClick={() => selectPlace(item, "dropoff")} />
-                  <SavedPlaceMenuAction icon={Pencil} label={t("urride.menu.places.editPlace")} onClick={() => editPlace(item)} />
-                  <SavedPlaceMenuAction icon={Share2} label={t("urride.menu.places.shareDetails")} onClick={() => sharePlace(item)} />
-                  <SavedPlaceMenuAction danger icon={Trash2} label={t("urride.menu.places.deletePlace")} onClick={() => removePlace(item.id)} />
-                </div>
-              ) : null}
-            </article>
-            );
-          })}
-        </div>
-      ) : null}
-
-      {!formOpen ? (
-        <button
-          type="button"
-          onClick={openAddPlace}
-          className="kt-touchable inline-flex h-12 w-full items-center justify-center gap-2 rounded-xl bg-emerald-600 px-4 text-sm font-black text-white shadow-sm hover:bg-emerald-700"
-        >
-          <Plus size={17} />
-          {places.length ? t("urride.menu.places.addAnother") : t("urride.menu.places.addLocation")}
-        </button>
-      ) : null}
-
-      {formOpen ? (
-        <div ref={formRef} className="kt-page-fade-slide grid scroll-mt-4 gap-3 rounded-2xl border border-gray-200 bg-white p-4 shadow-sm">
-          <div className="flex items-start justify-between gap-3">
-            <div>
-              <p className="text-sm font-black text-gray-950">
-                {place.id ? t("urride.menu.places.editSavedLocation") : t("urride.menu.places.addLocationTitle")}
-              </p>
-              <p className="mt-1 text-xs font-semibold leading-5 text-gray-500">
-                {t("urride.menu.places.formIntro")}
-              </p>
-            </div>
-            <button
-              type="button"
-              onClick={closeForm}
-              className="flex h-9 w-9 shrink-0 items-center justify-center rounded-full border border-gray-200 text-gray-500 hover:bg-gray-50"
-              aria-label={t("urride.menu.places.closeForm")}
-            >
-              <X size={16} />
-            </button>
-          </div>
-
-        <label className="space-y-1">
-          <span className="text-xs font-black uppercase text-gray-500">{t("urride.menu.places.categoryLabel")}</span>
-          <select
-            value={place.category}
-            onChange={(event) => updatePlace({ category: event.target.value })}
-            className="h-12 w-full rounded-xl border border-gray-200 bg-gray-50 px-3 text-sm font-black text-gray-950 outline-none focus:border-emerald-500"
-          >
-            {placeTypes.map((type) => (
-              <option key={type} value={type}>{t(PLACE_TYPE_LABEL_KEYS[type])}</option>
-            ))}
-          </select>
-        </label>
-
-        {place.category === "Other" ? (
-          <label className="space-y-1">
-            <span className="text-xs font-black uppercase text-gray-500">{t("urride.menu.places.customCategoryLabel")}</span>
-            <input
-              value={place.customCategory}
-              onChange={(event) => updatePlace({ customCategory: event.target.value })}
-              placeholder={t("urride.menu.places.customCategoryPlaceholder")}
-              className="h-12 w-full rounded-xl border border-gray-200 bg-gray-50 px-3 text-sm font-semibold outline-none focus:border-emerald-500"
-            />
-          </label>
-        ) : null}
-
-        <label className="space-y-1">
-          <span className="text-xs font-black uppercase text-gray-500">{t("urride.menu.places.placeNameLabel")}</span>
-          <input
-            value={place.placeName}
-            onChange={(event) => updatePlace({ placeName: event.target.value })}
-            placeholder={t("urride.menu.places.placeNamePlaceholder")}
-            className="h-12 w-full rounded-xl border border-gray-200 bg-gray-50 px-3 text-sm font-semibold outline-none focus:border-emerald-500"
-          />
-        </label>
-
-        <div className="grid gap-3 sm:grid-cols-2">
-          <label className="space-y-1">
-            <span className="text-xs font-black uppercase text-gray-500">{t("urride.menu.places.contactNameLabel")}</span>
-            <input
-              value={place.contactName}
-              onChange={(event) => updatePlace({ contactName: event.target.value })}
-              placeholder={t("urride.menu.places.contactNamePlaceholder")}
-              className="h-12 w-full rounded-xl border border-gray-200 bg-gray-50 px-3 text-sm font-semibold outline-none focus:border-emerald-500"
-            />
-          </label>
-          <label className="space-y-1">
-            <span className="text-xs font-black uppercase text-gray-500">{t("urride.menu.places.phoneLabel")}</span>
-            <input
-              value={place.phone}
-              onChange={(event) => updatePlace({ phone: event.target.value })}
-              placeholder={t("urride.menu.places.phonePlaceholder")}
-              className="h-12 w-full rounded-xl border border-gray-200 bg-gray-50 px-3 text-sm font-semibold outline-none focus:border-emerald-500"
-            />
-          </label>
-        </div>
-
-        <label className="space-y-1">
-          <span className="inline-flex items-center gap-2 text-xs font-black uppercase text-gray-500">
-            {t("urride.menu.places.streetLabel")}
-            <AddressAreaStatusIcon status={placeValidation.status} />
-          </span>
-          <div className="grid gap-2 sm:grid-cols-[1fr_auto_auto]">
-            <input
-              value={place.street}
-              onChange={(event) => updatePlace({ street: event.target.value })}
-              placeholder={t("urride.menu.places.streetPlaceholder")}
-              className="h-12 w-full rounded-xl border border-gray-200 bg-gray-50 px-3 text-sm font-semibold outline-none focus:border-emerald-500"
-            />
-            <button
-              type="button"
-              onClick={locateMe}
-              className="kt-touchable inline-flex h-12 items-center justify-center gap-2 rounded-xl bg-gray-950 px-4 text-sm font-black text-white transition hover:bg-gray-800"
-            >
-              <LocateFixed size={16} />
-              {t("urride.menu.places.locateMe")}
-            </button>
-            <button
-              type="button"
-              onClick={dropPlacePin}
-              className="kt-touchable inline-flex h-12 items-center justify-center gap-2 rounded-xl border border-gray-200 bg-white px-4 text-sm font-black text-gray-700 transition hover:bg-gray-50"
-            >
-              <MapPin size={16} />
-              {t("urride.menu.places.dropPin")}
-            </button>
-          </div>
-        </label>
-
-        <AddressAreaResolutionCard
-          validation={placeValidation}
-          onLocateMe={locateMe}
-          onDropPin={dropPlacePin}
-        />
-
-        {locationCandidate ? (
-          <div className="rounded-xl border border-emerald-200 bg-emerald-50 p-3">
-            <p className="text-sm font-black text-emerald-950">
-              {t("urride.menu.places.currentLocationIs", { address: locationCandidate.address })}
-            </p>
-            <div className="mt-3 grid gap-2 sm:grid-cols-2">
-              <button
-                type="button"
-                onClick={confirmDetectedLocation}
-                className="kt-touchable inline-flex h-10 items-center justify-center gap-2 rounded-lg bg-emerald-600 px-3 text-xs font-black text-white hover:bg-emerald-700"
-              >
-                <CheckCircle2 size={15} />
-                {t("urride.menu.places.correctAdd")}
-              </button>
-              <button
-                type="button"
-                onClick={rejectDetectedLocation}
-                className="kt-touchable h-10 rounded-lg border border-gray-200 bg-white px-3 text-xs font-black text-gray-700 hover:bg-gray-50"
-              >
-                {t("urride.menu.places.wrongManual")}
-              </button>
-            </div>
-          </div>
-        ) : null}
-
-        <label className="space-y-1">
-          <span className="text-xs font-black uppercase text-gray-500">{t("urride.menu.places.noteLabel")}</span>
-          <textarea
-            value={place.note}
-            onChange={(event) => updatePlace({ note: event.target.value })}
-            placeholder={t("urride.menu.places.notePlaceholder")}
-            rows={3}
-            className="w-full resize-none rounded-xl border border-gray-200 bg-gray-50 px-3 py-3 text-sm font-semibold outline-none focus:border-emerald-500"
-          />
-        </label>
-
-        <label className="space-y-2">
-          <span className="text-xs font-black uppercase text-gray-500">{t("urride.menu.places.pictureLabel")}</span>
-          <div className="grid gap-3 sm:grid-cols-[120px_1fr]">
-            <div className="flex aspect-square items-center justify-center overflow-hidden rounded-xl border border-dashed border-gray-300 bg-gray-50">
-              {place.frontPictureUrl ? (
-                <img src={resizedImageUrl(place.frontPictureUrl, { width: 320, quality: 70 })} alt="" className="h-full w-full object-cover" />
-              ) : (
-                <Camera className="text-gray-400" size={30} />
-              )}
-            </div>
-            <div className="flex flex-col justify-center">
-              <input
-                type="file"
-                accept="image/*"
-                onChange={handleFrontPictureChange}
-                className="text-sm font-semibold text-gray-600 file:mr-3 file:rounded-lg file:border-0 file:bg-gray-950 file:px-3 file:py-2 file:text-xs file:font-black file:text-white"
-              />
-              <p className="mt-2 text-xs font-semibold leading-5 text-gray-500">
-                {t("urride.menu.places.pictureHint")}
-              </p>
-            </div>
-          </div>
-        </label>
-
-        {place.detectedAddress ? (
-          <p className="rounded-xl bg-gray-50 p-3 text-xs font-bold leading-5 text-gray-600">
-            {t("urride.menu.places.detectedLocation", { address: place.detectedAddress })}
-          </p>
-        ) : null}
-        {locationStatus ? <p className="text-sm font-bold text-gray-600">{locationStatus}</p> : null}
-        </div>
-      ) : null}
-
-      {formOpen ? (
-        <button
-          type="button"
-          onClick={savePlace}
-          className="kt-touchable h-12 w-full rounded-xl bg-emerald-600 px-4 text-sm font-black text-white shadow-sm hover:bg-emerald-700"
-        >
-          {place.id ? t("urride.menu.places.updatePlace") : t("urride.menu.places.savePlace")}
-        </button>
-      ) : null}
-
-      {areaPicker ? (
-        <AppPortal><div className="fixed inset-0 z-[1300] bg-slate-950">
-          <NearbyAreaScreen
-            mode="businessLocationPicker"
-            pickerStart={areaPicker.start}
-            pickerLabels={savedPlacePickerLabels}
-            backLabel={t("urride.menu.places.pickerBack")}
-            onBack={() => setAreaPicker(null)}
-            onLocationPicked={acceptAreaLocation}
-          />
-        </div></AppPortal>
-      ) : null}
-    </div>
+    <SavedAddressBook
+      addresses={places}
+      categories={placeTypes}
+      createEmptyAddress={() => toBookAddress(createEmptyPlace(accountContact))}
+      getKey={getSavedPlaceKey}
+      selectedKey={selectedKey}
+      menuActions={[
+        { id: "pickup", icon: MapPin, label: t("urride.menu.places.useForPickup"), onSelect: (place) => assignPlace(place, "pickup") },
+        { id: "dropoff", icon: Navigation, label: t("urride.menu.places.useForDropoff"), onSelect: (place) => assignPlace(place, "dropoff") },
+      ]}
+      onSave={savePlace}
+      onRemove={removePlace}
+      pickerLabels={savedPlacePickerLabels}
+      pickerBackLabel={t("urride.menu.places.pickerBack")}
+    />
   );
 }
 

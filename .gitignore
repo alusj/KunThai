@@ -59,6 +59,20 @@ build/
 .env.*
 !.env.example
 
+# Signing keys, certificates and signing secrets (never commit)
+*.jks
+*.keystore
+*.pem
+*.p12
+*.pfx
+*.pepk
+*.p8
+*.mobileprovision
+keystore.properties
+key.properties
+signing.properties
+signing-key-info.txt
+
 # Vercel
 .vercel/
 .vercel

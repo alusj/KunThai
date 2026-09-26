@@ -5,6 +5,7 @@
 import { URRIDE } from "./urride";
 import { UI_TRANSLATIONS } from "./ui";
 import { REGIONS } from "./regions";
+import { ADDRESS_BOOK } from "./addressBook";
 
 export const TRANSLATIONS = {
   en: {
@@ -18565,6 +18566,13 @@ export const TRANSLATIONS = {
 for (const [locale, section] of Object.entries(URRIDE)) {
   if (TRANSLATIONS[locale]) {
     TRANSLATIONS[locale].urride = section;
+  }
+}
+
+// Graft the saved-locations bundle shared by UrMall and UrRide.
+for (const [locale, section] of Object.entries(ADDRESS_BOOK)) {
+  if (TRANSLATIONS[locale]) {
+    TRANSLATIONS[locale].addressBook = section;
   }
 }
 

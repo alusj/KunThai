@@ -18,6 +18,7 @@ import ReturningUserIntro from "./components/shared/ReturningUserIntro";
 import TwoFactorGate from "./components/auth/TwoFactorGate";
 import GuestGateCard from "./components/shared/GuestGateCard";
 import NotificationBannerHost from "./components/shared/NotificationBannerHost";
+import DirectionCardHost from "./components/shared/directionCards/DirectionCardHost";
 import CampaignPresentationHost from "./components/shared/CampaignPresentationHost";
 import CrossServiceActivityHost from "./components/shared/CrossServiceActivityHost";
 import ScreenshotVoiceCard from "./components/shared/ScreenshotVoiceCard";
@@ -918,6 +919,8 @@ export default function App() {
       {/* KAI floats on every screen, including full-screen flows; a screen can hide it. */}
       {!guestSession ? <AiFloatingButton /> : null}
       <NotificationBannerHost userId={userId} />
+      {/* One-time tips pointing at key buttons; guests get GuestGateCard instead. */}
+      {userId && !guestSession ? <DirectionCardHost userId={userId} /> : null}
     </div>,
   );
 }

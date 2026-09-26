@@ -2051,3 +2051,72 @@
     transition-duration: 1ms !important;
   }
 }
+
+/* Saved locations (shared UrMall delivery addresses + UrRide saved places).
+   Saving: the pin hops while a bar sweeps; saved: the check pops, then the new
+   card glows in the list. Transform/opacity only; reduced-motion shortens them. */
+.kt-address-saving-pin { animation: kt-address-pin-hop 720ms cubic-bezier(.45,0,.3,1) infinite; }
+.kt-address-saving-shadow { animation: kt-address-pin-shadow 720ms cubic-bezier(.45,0,.3,1) infinite; }
+.kt-address-saving-bar { animation: kt-address-bar-sweep 1100ms cubic-bezier(.4,0,.2,1) infinite; }
+.kt-address-saved-pop { animation: kt-address-saved-pop 420ms cubic-bezier(.2,.9,.2,1.2) both; }
+.kt-address-saving-overlay { animation: kt-campaign-fade-in 180ms ease-out both; }
+.kt-address-card-new { animation: kt-address-card-in 460ms cubic-bezier(.16,1,.3,1) both, kt-address-card-glow 1800ms ease-out 200ms both; }
+.kt-address-suggestions-enter { animation: kt-address-suggestions-in 180ms cubic-bezier(.16,1,.3,1) both; transform-origin: top center; }
+
+@keyframes kt-address-pin-hop { 0%, 100% { transform: translate3d(0, 0, 0); } 45% { transform: translate3d(0, -10px, 0); } }
+@keyframes kt-address-pin-shadow { 0%, 100% { opacity: .35; transform: scaleX(1); } 45% { opacity: .15; transform: scaleX(.6); } }
+@keyframes kt-address-bar-sweep { from { transform: translate3d(-100%, 0, 0); } to { transform: translate3d(250%, 0, 0); } }
+@keyframes kt-address-saved-pop { 0% { opacity: 0; transform: scale(.4); } 100% { opacity: 1; transform: none; } }
+@keyframes kt-address-card-in { from { opacity: 0; transform: translate3d(0, -10px, 0) scale(.98); } to { opacity: 1; transform: none; } }
+@keyframes kt-address-card-glow { 0% { box-shadow: 0 0 0 0 rgb(16 185 129 / .55); } 60% { box-shadow: 0 0 0 8px rgb(16 185 129 / 0); } 100% { box-shadow: 0 0 0 0 rgb(16 185 129 / 0); } }
+@keyframes kt-address-suggestions-in { from { opacity: 0; transform: translate3d(0, -4px, 0) scaleY(.97); } to { opacity: 1; transform: none; } }
+
+/* Direction cards: a one-time pointer at a real button (DirectionCardHost). */
+@keyframes kt-direction-ring-pulse {
+  0% { box-shadow: 0 0 0 0 rgba(56, 189, 248, 0.55); }
+  70% { box-shadow: 0 0 0 12px rgba(56, 189, 248, 0); }
+  100% { box-shadow: 0 0 0 0 rgba(56, 189, 248, 0); }
+}
+@keyframes kt-direction-card-in {
+  from { opacity: 0; transform: translateY(6px) scale(0.97); }
+  to { opacity: 1; transform: translateY(0) scale(1); }
+}
+.kt-direction-ring {
+  border: 2px solid rgb(56, 189, 248);
+  animation: kt-direction-ring-pulse 1.6s ease-out infinite;
+}
+/* Own colours (not Tailwind bg-*) so the dark-appearance remap leaves the card
+   the same bright brand blue in both themes. */
+.kt-direction-card {
+  background: linear-gradient(135deg, #0284c7, #0369a1);
+  color: #fff;
+  box-shadow: 0 18px 40px -12px rgba(2, 44, 80, 0.55), 0 0 0 1px rgba(255, 255, 255, 0.14);
+  animation: kt-direction-card-in 220ms ease-out both;
+}
+.kt-direction-arrow { background: #0377b3; }
+.kt-direction-icon { background: rgba(255, 255, 255, 0.16); color: #fff; }
+.kt-direction-eyebrow { color: #bae6fd; }
+.kt-direction-body { color: #e0f2fe; }
+.kt-direction-ghost { color: #e0f2fe; }
+.kt-direction-ghost:hover { color: #fff; background: rgba(255, 255, 255, 0.12); }
+.kt-direction-primary { background: #fff; color: #075985; }
+.kt-direction-primary:hover { background: #f0f9ff; }
+@media (prefers-reduced-motion: reduce) {
+  .kt-direction-ring,
+  .kt-direction-card { animation: none; }
+}
+
+/* Two quick side-to-side shakes: "not yet" (Area View lock refusing an exit). */
+@keyframes kt-double-shake {
+  0%, 50%, 100% { transform: translateX(0); }
+  10%, 60% { transform: translateX(-6px); }
+  20%, 70% { transform: translateX(6px); }
+  30%, 80% { transform: translateX(-4px); }
+  40%, 90% { transform: translateX(4px); }
+}
+.kt-double-shake {
+  animation: kt-double-shake 600ms ease-in-out;
+}
+@media (prefers-reduced-motion: reduce) {
+  .kt-double-shake { animation: none; }
+}

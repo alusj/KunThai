@@ -147,6 +147,7 @@ export default function AiFloatingButton() {
         }
       }}
       data-gesture-lock="true"
+      data-direction="kai-assistant"
       aria-label={t("ai.fab.label", { section: aiSurfaceLabel(context.surface) })}
       title={t("ai.fab.label", { section: aiSurfaceLabel(context.surface) })}
       className={`fixed z-[1420] grid touch-none select-none place-items-center rounded-2xl bg-gradient-to-br from-slate-900 via-slate-800 to-sky-800 text-white shadow-lg shadow-slate-950/30 ring-1 ring-white/15 ${

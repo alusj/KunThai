@@ -1,9 +1,7 @@
 import { useCallback, useEffect, useRef, useState } from "react";
 import { createPortal } from "react-dom";
 import {
-  BookmarkCheck,
   CalendarDays,
-  ChevronDown,
   Heart,
   LocateFixed,
   MapPin,
@@ -25,11 +23,14 @@ import { ensureBuyerLocation, useBuyerLocation } from "../../../Backend/utils/bu
 import { resizedImageUrl } from "../../../Backend/lib/imageProxy";
 import { BuyerProductCard } from "./BuyerProductGrid";
 import {
+  AddressAccuracyCaution,
   AddressAreaResolutionCard,
   AddressAreaStatusIcon,
   normalizeAreaLocation,
+  useAddressAccuracyCaution,
   useAddressAreaValidation,
 } from "../../shared/AddressAreaValidation";
+import SavedAddressSuggestions from "../../shared/savedAddresses/SavedAddressSuggestions";
 import NearbyAreaScreen from "../../transport/NearbyAreaScreen";
 import useBodyScrollLock from "../../shared/useBodyScrollLock";
 import MediaGalleryViewer from "../../shared/MediaGalleryViewer";
@@ -54,7 +55,7 @@ import {
   writeBuyerAddressList,
 } from "../shared/buyerAddressPreferences";
 import { uiText as translateUi, useI18n as useUiLocale } from "../../../i18n/index.js";
-import { inlineErrorMessage, shortErrorToast } from "../../../Backend/services/friendlyErrorService";
+import { inlineErrorMessage, shortErrorToast } from "../../../Backend/services/friendlyErrorService";
 import AppPortal from "../../shared/AppPortal";
 
 function mapSavedAddressToOrder(address = {}) {
@@ -79,10 +80,6 @@ function readDefaultAddress() {
   return saved
     ? mapSavedAddressToOrder(saved)
     : { addressType: "Resident", buyerName: "", phone: "", address: "", detectedAddress: "", coordinates: null, note: "" };
-}
-
-function getAddressLabel(address) {
-  return address.category === "Other" ? address.customCategory || "Other" : address.category || "Resident";
 }
 
 function getProductSpecs(product = {}) {
@@ -399,6 +396,99 @@ function ProductActionSheet({ children, labelledBy, maxWidth = "max-w-lg", onClo
   );
 }
 
+// The order form's delivery address. Reaching the field pops the buyer's saved
+// addresses (about two at a time, the rest scroll) so one tap fills it; typing
+// a new address raises the same accuracy caution as every address field.
+function DeliveryAddressField({ value, validationStatus, savedAddresses, onChange, onPickSaved, onLocateMe, onDropPin }) {
+  useUiLocale();
+  const [focused, setFocused] = useState(false);
+  const inputRef = useRef(null);
+  const caution = useAddressAccuracyCaution(value, { gate: false, lockOnEdit: true });
+
+  return (
+    <div className="min-w-0 space-y-2">
+      <div className="relative">
+        <label className="block min-w-0 space-y-1">
+          <span className="inline-flex items-center gap-2 text-xs font-black uppercase text-gray-500">
+            {t("urmall.detail.deliveryAddress")}
+            <AddressAreaStatusIcon status={validationStatus} />
+          </span>
+          <span className="relative block min-w-0">
+            <input
+              ref={inputRef}
+              value={value}
+              onChange={caution.guardChange((event) => onChange(event.target.value))}
+              {...caution.inputProps}
+              onFocus={(event) => {
+                caution.inputProps.onFocus(event);
+                setFocused(true);
+              }}
+              onBlur={(event) => {
+                caution.inputProps.onBlur(event);
+                window.setTimeout(() => setFocused(false), 150);
+              }}
+              placeholder={t("urmall.detail.deliveryAddress")}
+              autoComplete="street-address"
+              className="kt-address-entry-input h-11 w-full min-w-0 rounded-lg border border-gray-200 px-3 pr-9 text-sm font-semibold outline-none focus:border-emerald-500"
+            />
+            <AddressAreaStatusIcon status={validationStatus} className="absolute right-3 top-1/2 -translate-y-1/2" />
+          </span>
+        </label>
+
+        <SavedAddressSuggestions
+          open={focused && !caution.open}
+          addresses={savedAddresses}
+          query={value}
+          onPick={(address) => {
+            caution.act(() => onPickSaved(address));
+            setFocused(false);
+            inputRef.current?.blur();
+          }}
+          className="absolute inset-x-0 top-full z-30 mt-1"
+        />
+
+        <AddressAccuracyCaution
+          cover
+          open={caution.open}
+          onLocateMe={() => caution.act(onLocateMe)}
+          onDropPin={() => caution.act(onDropPin)}
+          onContinueWriting={() => {
+            caution.dismiss();
+            window.requestAnimationFrame(() => inputRef.current?.focus());
+          }}
+          title={t("addressBook.cautionTitle")}
+          message={t("addressBook.cautionMessage")}
+          details={t("urmall.biz.reg.accuracyDetails")}
+          locateLabel={t("urmall.detail.locateMe")}
+          dropPinLabel={t("urmall.detail.dropPin")}
+          continueLabel={t("urmall.biz.reg.accuracyContinueWriting")}
+          readMoreLabel={t("urmall.biz.reg.accuracyReadMore")}
+          readLessLabel={t("urmall.biz.reg.accuracyReadLess")}
+        />
+      </div>
+
+      <div className="grid grid-cols-1 gap-2">
+        <button
+          type="button"
+          onClick={() => caution.act(onLocateMe)}
+          className="inline-flex h-11 w-full items-center justify-center gap-2 rounded-lg bg-gray-950 px-3 text-xs font-black text-white hover:bg-gray-800"
+        >
+          <LocateFixed size={15} />
+          {t("urmall.detail.locateMe")}
+        </button>
+        <button
+          type="button"
+          onClick={() => caution.act(onDropPin)}
+          className="inline-flex h-11 w-full items-center justify-center gap-2 rounded-lg border border-gray-200 px-3 text-xs font-black text-gray-700 hover:bg-gray-50"
+        >
+          <MapPin size={15} />
+          {t("urmall.detail.dropPin")}
+        </button>
+      </div>
+    </div>
+  );
+}
+
 export default function ProductDetailDrawer({
   product,
   open,
@@ -451,7 +541,7 @@ export default function ProductDetailDrawer({
   const [orderSubmitting, setOrderSubmitting] = useState(false);
   const [orderForm, setOrderForm] = useState(() => ({ ...readDefaultAddress(), quantity: 1, fulfillment: "delivery" }));
   const [savedAddresses, setSavedAddresses] = useState(readSavedAddresses);
-  const [savedAddressesOpen, setSavedAddressesOpen] = useState(false);
+  const [orderAddressSession, setOrderAddressSession] = useState(0);
   const [orderAreaPicker, setOrderAreaPicker] = useState(null);
   const [messageText, setMessageText] = useState("");
   const [messageSending, setMessageSending] = useState(false);
@@ -651,7 +741,7 @@ export default function ProductDetailDrawer({
       endDate: "",
     });
     setOrderAreaPicker(null);
-    setSavedAddressesOpen(false);
+    setOrderAddressSession((current) => current + 1);
     setOrderOpen(true);
 
     if (isBooking) return;
@@ -1130,49 +1220,6 @@ export default function ProductDetailDrawer({
                     {t("urmall.browse.pickupChip")}
                   </button>
                 </div> : null}
-                {!isBooking ? (
-                  <div className="col-span-2">
-                    <button
-                      type="button"
-                      onClick={() => setSavedAddressesOpen((current) => !current)}
-                      aria-expanded={savedAddressesOpen}
-                      className="flex h-11 w-full items-center gap-2 rounded-lg border border-gray-200 bg-gray-50 px-3 text-left transition hover:border-emerald-200 hover:bg-emerald-50/50"
-                    >
-                      <BookmarkCheck size={16} className="shrink-0 text-emerald-700" />
-                      <span className="min-w-0 flex-1 truncate text-xs font-black uppercase text-gray-600">
-                        {t("urmall.detail.savedAddresses")}{savedAddresses.length ? ` (${savedAddresses.length})` : ""}
-                      </span>
-                      <ChevronDown
-                        size={17}
-                        className={`shrink-0 text-gray-500 transition-transform ${savedAddressesOpen ? "rotate-180" : ""}`}
-                      />
-                    </button>
-                    {savedAddressesOpen ? (
-                      savedAddresses.length ? (
-                        <div className="mt-2 grid gap-2 sm:grid-cols-2">
-                          {savedAddresses.map((address) => (
-                            <button
-                              key={address.id || `${address.category}-${address.street}`}
-                              type="button"
-                              onClick={() => {
-                                updateOrderForm(mapSavedAddressToOrder(address));
-                                setSavedAddressesOpen(false);
-                              }}
-                              className="rounded-lg border border-gray-200 bg-gray-50 p-3 text-left transition hover:border-emerald-200 hover:bg-emerald-50"
-                            >
-                              <p className="text-xs font-black text-gray-950">{t("urmall.detail.addressLabel", { label: getAddressLabel(address) })}</p>
-                              <p className="mt-1 line-clamp-2 text-xs font-semibold leading-5 text-gray-500">{address.street || address.detectedAddress}</p>
-                            </button>
-                          ))}
-                        </div>
-                      ) : (
-                        <p className="mt-2 rounded-lg border border-dashed border-gray-200 bg-gray-50 p-3 text-center text-xs font-bold text-gray-400">
-                          {t("urmall.detail.noSavedAddresses")}
-                        </p>
-                      )
-                    ) : null}
-                  </div>
-                ) : null}
                 <input
                   value={orderForm.buyerName}
                   onChange={(event) => updateOrderForm({ buyerName: event.target.value })}
@@ -1212,45 +1259,28 @@ export default function ProductDetailDrawer({
               </div>
 
               {!isBooking ? <div className="mt-2 grid gap-2 sm:grid-cols-[1fr_120px]">
-                <label className="min-w-0 space-y-1">
-                  <span className="inline-flex items-center gap-2 text-xs font-black uppercase text-gray-500">
-                    {orderForm.fulfillment === "pickup" ? t("urmall.detail.pickupNote") : t("urmall.detail.deliveryAddress")}
-                    {orderForm.fulfillment !== "pickup" ? <AddressAreaStatusIcon status={orderAddressValidation.status} /> : null}
-                  </span>
-                  <span className="grid gap-2 lg:grid-cols-[1fr_auto_auto]">
-                    <span className="relative block min-w-0">
-                      <input
-                        value={orderForm.address}
-                        onChange={(event) => updateOrderForm({ address: event.target.value, coordinates: null })}
-                        placeholder={orderForm.fulfillment === "pickup" ? t("urmall.detail.pickupNotePlaceholder") : t("urmall.detail.deliveryAddress")}
-                        className="h-11 w-full min-w-0 rounded-lg border border-gray-200 px-3 pr-9 text-sm font-semibold outline-none focus:border-emerald-500"
-                      />
-                      {orderForm.fulfillment !== "pickup" ? (
-                        <AddressAreaStatusIcon status={orderAddressValidation.status} className="absolute right-3 top-1/2 -translate-y-1/2" />
-                      ) : null}
-                    </span>
-                    {orderForm.fulfillment !== "pickup" ? (
-                      <>
-                        <button
-                          type="button"
-                          onClick={() => openOrderAreaPicker("current")}
-                          className="inline-flex h-11 items-center justify-center gap-2 rounded-lg bg-gray-950 px-3 text-xs font-black text-white hover:bg-gray-800"
-                        >
-                          <LocateFixed size={15} />
-                          {t("urmall.detail.locateMe")}
-                        </button>
-                        <button
-                          type="button"
-                          onClick={() => openOrderAreaPicker("dropPin")}
-                          className="inline-flex h-11 items-center justify-center gap-2 rounded-lg border border-gray-200 px-3 text-xs font-black text-gray-700 hover:bg-gray-50"
-                        >
-                          <MapPin size={15} />
-                          {t("urmall.detail.dropPin")}
-                        </button>
-                      </>
-                    ) : null}
-                  </span>
-                </label>
+                {orderForm.fulfillment === "pickup" ? (
+                  <label className="min-w-0 space-y-1">
+                    <span className="text-xs font-black uppercase text-gray-500">{t("urmall.detail.pickupNote")}</span>
+                    <input
+                      value={orderForm.address}
+                      onChange={(event) => updateOrderForm({ address: event.target.value, coordinates: null })}
+                      placeholder={t("urmall.detail.pickupNotePlaceholder")}
+                      className="h-11 w-full min-w-0 rounded-lg border border-gray-200 px-3 text-sm font-semibold outline-none focus:border-emerald-500"
+                    />
+                  </label>
+                ) : (
+                  <DeliveryAddressField
+                    key={orderAddressSession}
+                    value={orderForm.address}
+                    validationStatus={orderAddressValidation.status}
+                    savedAddresses={savedAddresses}
+                    onChange={(value) => updateOrderForm({ address: value, coordinates: null })}
+                    onPickSaved={(address) => updateOrderForm(mapSavedAddressToOrder(address))}
+                    onLocateMe={() => openOrderAreaPicker("current")}
+                    onDropPin={() => openOrderAreaPicker("dropPin")}
+                  />
+                )}
                 <label className="space-y-1">
                   <span className="text-xs font-black uppercase text-gray-500">{t("urmall.detail.qty")}</span>
                   <input

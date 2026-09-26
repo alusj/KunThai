@@ -3,41 +3,27 @@
 
 import { createElement, useEffect, useMemo, useState } from "react";
 import {
-  Camera,
-  CheckCircle2,
   CreditCard,
   Heart,
   HelpCircle,
   History,
   LifeBuoy,
-  LocateFixed,
   MapPin,
-  MoreHorizontal,
   Navigation,
   PackageCheck,
-  Pencil,
-  Plus,
   ReceiptText,
   RotateCcw,
   Settings,
   ShieldAlert,
   ShieldCheck,
   ShoppingBag,
-  Share2,
-  Trash2,
-  X,
 } from "lucide-react";
 import AppPortal from "../../../shared/AppPortal";
 import AppBackTab from "../../../shared/AppBackTab";
 import { SlidePanel, useSlidePanel } from "../../../shared/SlideTransition";
 import useBodyScrollLock from "../../../shared/useBodyScrollLock";
-import {
-  AddressAreaResolutionCard,
-  AddressAreaStatusIcon,
-  normalizeAreaLocation,
-  useAddressAreaValidation,
-} from "../../../shared/AddressAreaValidation";
-import NearbyAreaScreen from "../../../transport/NearbyAreaScreen";
+import SavedAddressBook from "../../../shared/savedAddresses/SavedAddressBook";
+import { showToast } from "../../../../Backend/services/toastService";
 import { useI18n, t } from "../../../../i18n";
 import { resizedImageUrl } from "../../../../Backend/lib/imageProxy";
 import { formatCurrency } from "../../../../Backend/utils/formatCurrency";
@@ -91,63 +77,13 @@ function readLocalValue(key) {
   }
 }
 
-function readBuyerAddress() {
-  const saved = readBuyerAddressPreference();
-  if (saved) {
-    return {
-      id: saved.id || "",
-      category: saved.category || saved.type || "Resident",
-      customCategory: saved.customCategory || "",
-      fullName: saved.fullName || saved.name || "",
-      phone: saved.phone || "",
-      street: saved.street || saved.address || "",
-      note: saved.note || "",
-      frontPictureUrl: saved.frontPictureUrl || "",
-      detectedAddress: saved.detectedAddress || "",
-      coordinates: saved.coordinates || null,
-    };
-  }
-
-  return {
-    id: "",
-    category: "Resident",
-    customCategory: "",
-    fullName: "",
-    phone: "",
-    street: "",
-    note: "",
-    frontPictureUrl: "",
-    detectedAddress: "",
-    coordinates: null,
-  };
-}
-
 function readBuyerAddresses() {
   return readBuyerAddressList();
 }
 
-function getAddressLabel(address) {
-  return address.category === "Other" ? address.customCategory || "Other" : address.category || "Resident";
-}
-
-function getAddressActionKey(address = {}) {
-  return getBuyerAddressKey(address);
-}
-
-function getAddressShareText(address) {
-  const label = getAddressLabel(address);
-  const street = address.street || address.detectedAddress || t("urmall.menu.addressPending");
-  const phone = address.phone ? `\n${t("urmall.orders.phoneLabel", { phone: address.phone })}` : "";
-  const note = address.note ? `\n${t("urmall.orders.noteLabel", { note: address.note })}` : "";
-  return `${t("urmall.menu.deliveryAddressHeading", { label })}\n${street}${phone}${note}`;
-}
-
-function writeBuyerAddress(address) {
-  writeBuyerAddressPreference(address);
-}
-
-function writeBuyerAddresses(addresses) {
-  writeBuyerAddressList(addresses);
+function readSelectedAddressKey() {
+  const preference = readBuyerAddressPreference();
+  return preference ? getBuyerAddressKey(preference) : "";
 }
 
 function createEmptyAddress(profile = {}) {
@@ -291,52 +227,17 @@ function BuyerArticlePanel({ icon, tone = "emerald", title, summary, sections })
   );
 }
 
-function SavedAddressMenuAction({ danger = false, icon: Icon, label, onClick }) {
-  useUiLocale();
-  return (
-    <button
-      type="button"
-      onClick={onClick}
-      className={`kt-touchable flex min-h-12 w-full items-center gap-3 rounded-2xl px-3 py-3 text-left text-sm font-black ${
-        danger ? "text-rose-600 hover:bg-rose-50" : "text-gray-700 hover:bg-gray-50 hover:text-gray-950"
-      }`}
-    >
-      <span className={`flex h-9 w-9 shrink-0 items-center justify-center rounded-xl ${danger ? "bg-rose-50" : "bg-slate-50"}`}>
-        <Icon size={18} />
-      </span>
-      <span className="min-w-0 flex-1 truncate">{translateUi(label)}</span>
-    </button>
-  );
-}
-
 export default function MenuDrawer({ open, onClose, onRequestedScreenHandled, requestedScreen = "" }) {
   const { locale } = useI18n();
   const [active, setActive] = useState(null);
   const { visibleKey: visibleActive, action: activeAction } = useSlidePanel(active);
   const [savedProducts, setSavedProducts] = useState([]);
   const [recentProducts, setRecentProducts] = useState([]);
-  const [address, setAddress] = useState(readBuyerAddress);
   const [savedAddresses, setSavedAddresses] = useState(readBuyerAddresses);
-  const [locationCandidate, setLocationCandidate] = useState(null);
-  const [locationStatus, setLocationStatus] = useState("");
-  const [areaPicker, setAreaPicker] = useState(null);
+  const [selectedAddressKey, setSelectedAddressKey] = useState(readSelectedAddressKey);
   const [payment, setPayment] = useState(() => readLocalValue(BUYER_PAYMENT_KEY));
   const [message, setMessage] = useState("");
-  const [addressFormOpen, setAddressFormOpen] = useState(false);
-  const [addressActionMenuId, setAddressActionMenuId] = useState("");
   const [accountContact, setAccountContact] = useState({});
-  const addressPoint = address.coordinates
-    ? {
-        lat: address.coordinates.latitude ?? address.coordinates.lat,
-        lng: address.coordinates.longitude ?? address.coordinates.lng,
-        address: address.detectedAddress || address.street,
-      }
-    : null;
-  const addressValidation = useAddressAreaValidation(address.street, { selectedPoint: addressPoint });
-  const activeActionAddress = useMemo(
-    () => savedAddresses.find((item) => getAddressActionKey(item) === addressActionMenuId) || null,
-    [addressActionMenuId, savedAddresses],
-  );
   const deliveryPickerLabels = useMemo(
     () => ({
       historyKey: "urmall-delivery-address-picker",
@@ -364,13 +265,7 @@ export default function MenuDrawer({ open, onClose, onRequestedScreenHandled, re
     setRecentProducts(readRecentProducts());
     getOnboardingProfile()
       .then((profile) => {
-        if (!profile) return;
-        setAccountContact(profile);
-        setAddress((current) => ({
-          ...current,
-          fullName: current.fullName || String(profile.displayName || profile.fullName || profile.full_name || "").trim(),
-          phone: current.phone || String(profile.phone || profile.phoneNumber || profile.phone_number || "").trim(),
-        }));
+        if (profile) setAccountContact(profile);
       })
       .catch(() => null);
     fetchBuyerDeliveryAddresses()
@@ -378,7 +273,7 @@ export default function MenuDrawer({ open, onClose, onRequestedScreenHandled, re
         const mergedAddresses = mergeRemoteBuyerAddresses(addresses);
         const activeAddress = findPreferredBuyerAddress(mergedAddresses);
         setSavedAddresses(mergedAddresses);
-        setAddress(activeAddress ? { ...createEmptyAddress(), ...activeAddress } : createEmptyAddress());
+        setSelectedAddressKey(activeAddress ? getBuyerAddressKey(activeAddress) : "");
         writeBuyerAddressPreference(activeAddress, { notify: false });
         writeBuyerAddressList(mergedAddresses);
       })
@@ -386,10 +281,6 @@ export default function MenuDrawer({ open, onClose, onRequestedScreenHandled, re
     fetchSavedBuyerProducts()
       .then(setSavedProducts)
       .catch((err) => setMessage(inlineErrorMessage(err, t("urmall.menu.savedLoadFailed"))));
-  }, [open]);
-
-  useEffect(() => {
-    if (!open) setAreaPicker(null);
   }, [open]);
 
   useEffect(() => {
@@ -428,182 +319,72 @@ export default function MenuDrawer({ open, onClose, onRequestedScreenHandled, re
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [visibleActive, locale]);
 
-  async function saveAddress() {
-    const localId = address.id || `local-address-${Date.now()}`;
-    const localAddress = { ...address, id: localId };
+  // Saved on this device first, so an offline or signed-out buyer keeps it,
+  // then to their account. The list is updated by the address book once its
+  // "saved" animation has played (see SavedAddressBook's onSave contract).
+  async function saveAddress(draft) {
+    const localId = draft.id || `local-address-${Date.now()}`;
+    const localAddress = { ...draft, id: localId };
     restoreBuyerAddress(localAddress);
-    const nextAddresses = [localAddress, ...savedAddresses.filter((item) => item.id !== localId)];
-    setSavedAddresses(nextAddresses);
-    writeBuyerAddress(localAddress);
-    writeBuyerAddresses(nextAddresses);
+    const localList = [localAddress, ...savedAddresses.filter((item) => item.id !== localId)];
+    writeBuyerAddressList(localList);
+    writeBuyerAddressPreference(localAddress, { notify: false });
+
+    let savedAddress = localAddress;
+    let synced = false;
     try {
-      const savedAddress = await saveBuyerDeliveryAddress(address);
+      savedAddress = { ...localAddress, ...(await saveBuyerDeliveryAddress(draft)) };
       restoreBuyerAddress(savedAddress);
-      const syncedAddresses = [savedAddress, ...nextAddresses.filter((item) => item.id !== localId && item.id !== savedAddress.id)];
-      setSavedAddresses(syncedAddresses);
-      writeBuyerAddress(savedAddress);
-      writeBuyerAddresses(syncedAddresses);
-      setMessage(t("urmall.menu.addressSaved"));
+      synced = true;
     } catch {
-      setMessage(t("urmall.menu.addressSavedLocal"));
+      // Kept on this device; it reaches the account on a later save.
     }
-    setAddress(createEmptyAddress(accountContact));
-    setLocationCandidate(null);
-    setLocationStatus("");
-    setAddressFormOpen(false);
-  }
 
-  function updateAddress(patch) {
-    setAddress((current) => ({ ...current, ...patch }));
-  }
-
-  function openAddAddress() {
-    setAddress(createEmptyAddress(accountContact));
-    setLocationCandidate(null);
-    setLocationStatus("");
-    setMessage("");
-    setAddressFormOpen(true);
-  }
-
-  function editAddress(nextAddress) {
-    setAddressActionMenuId("");
-    setAddress({ ...createEmptyAddress(), ...nextAddress });
-    setLocationCandidate(null);
-    setLocationStatus("");
-    setMessage("");
-    setAddressFormOpen(true);
-  }
-
-  function closeAddressForm() {
-    setAddress(createEmptyAddress(accountContact));
-    setLocationCandidate(null);
-    setLocationStatus("");
-    setAreaPicker(null);
-    setAddressFormOpen(false);
+    const nextAddresses = [savedAddress, ...localList.filter((item) => item.id !== localId && item.id !== savedAddress.id)];
+    writeBuyerAddressList(nextAddresses);
+    writeBuyerAddressPreference(savedAddress);
+    return {
+      address: savedAddress,
+      synced,
+      apply() {
+        setSavedAddresses(nextAddresses);
+        setSelectedAddressKey(getBuyerAddressKey(savedAddress));
+      },
+    };
   }
 
   function selectAddress(nextAddress) {
-    setAddressActionMenuId("");
-    setAddress({ ...createEmptyAddress(), ...nextAddress });
-    const selectedKey = getAddressActionKey(nextAddress);
+    const selectedKey = getBuyerAddressKey(nextAddress);
     const orderedAddresses = [
       nextAddress,
-      ...savedAddresses.filter((item) => getAddressActionKey(item) !== selectedKey),
+      ...savedAddresses.filter((item) => getBuyerAddressKey(item) !== selectedKey),
     ];
     setSavedAddresses(orderedAddresses);
-    writeBuyerAddress(nextAddress);
-    writeBuyerAddresses(orderedAddresses);
-    setMessage(t("urmall.menu.addressSelected", { label: getAddressLabel(nextAddress) }));
+    setSelectedAddressKey(selectedKey);
+    writeBuyerAddressPreference(nextAddress);
+    writeBuyerAddressList(orderedAddresses);
+    showToast(t("addressBook.toastNextOrder"), "success");
   }
 
-  async function shareAddress(nextAddress) {
-    setAddressActionMenuId("");
-    const text = getAddressShareText(nextAddress);
-
-    try {
-      if (navigator.share) {
-        await navigator.share({
-          title: t("urmall.menu.deliveryAddressHeading", { label: getAddressLabel(nextAddress) }),
-          text,
-        });
-        setMessage(t("urmall.menu.addressReadyShare"));
-        return;
-      }
-
-      if (navigator.clipboard?.writeText) {
-        await navigator.clipboard.writeText(text);
-        setMessage(t("urmall.menu.addressCopied"));
-        return;
-      }
-
-      setMessage(text);
-    } catch {
-      setMessage(t("urmall.menu.addressShareFailed"));
-    }
-  }
-
-  async function removeAddress(addressKey, nextAddress) {
-    setAddressActionMenuId("");
-    const deletingActiveAddress = getAddressActionKey(readBuyerAddressPreference() || {}) === addressKey;
+  async function removeAddress(nextAddress) {
+    const addressKey = getBuyerAddressKey(nextAddress);
     markBuyerAddressDeleted(nextAddress);
-    const nextAddresses = savedAddresses.filter((item) => getAddressActionKey(item) !== addressKey);
+    const nextAddresses = savedAddresses.filter((item) => getBuyerAddressKey(item) !== addressKey);
     setSavedAddresses(nextAddresses);
-    writeBuyerAddresses(nextAddresses);
-
-    if (deletingActiveAddress) {
+    writeBuyerAddressList(nextAddresses);
+    if (selectedAddressKey === addressKey) {
       const replacement = nextAddresses[0] || null;
-      writeBuyerAddress(replacement);
-      setAddress(replacement ? { ...createEmptyAddress(), ...replacement } : createEmptyAddress());
-    }
-
-    if (addressFormOpen && getAddressActionKey(address) === addressKey) {
-      closeAddressForm();
+      writeBuyerAddressPreference(replacement);
+      setSelectedAddressKey(replacement ? getBuyerAddressKey(replacement) : "");
     }
 
     try {
       await deleteBuyerDeliveryAddress(nextAddress.id);
       clearBuyerAddressDeleted(nextAddress);
-      setMessage(t("urmall.menu.addressRemoved"));
+      return { synced: true };
     } catch {
-      setMessage(t("urmall.menu.addressRemovedLocal"));
+      return { synced: false };
     }
-  }
-
-  function openAddressAreaPicker(start = "current") {
-    setLocationStatus("");
-    setLocationCandidate(null);
-    setMessage("");
-    setAreaPicker({ start });
-  }
-
-  function locateMe() {
-    openAddressAreaPicker("current");
-  }
-
-  function dropAddressPin() {
-    openAddressAreaPicker("dropPin");
-  }
-
-  function acceptAreaLocation(location) {
-    const nextLocation = normalizeAreaLocation(location, address.street);
-    if (!nextLocation) return;
-
-    updateAddress({
-      detectedAddress: nextLocation.address,
-      street: nextLocation.address || address.street,
-      coordinates: nextLocation.coordinates,
-    });
-    setLocationStatus(t("urmall.menu.locationAdded", { address: nextLocation.address }));
-    setAreaPicker(null);
-  }
-
-  function confirmDetectedLocation() {
-    if (!locationCandidate) return;
-
-    updateAddress({
-      detectedAddress: locationCandidate.address,
-      street: address.street || locationCandidate.address,
-      coordinates: {
-        latitude: locationCandidate.latitude,
-        longitude: locationCandidate.longitude,
-      },
-    });
-    setLocationStatus(t("urmall.menu.locationAddedEdit"));
-    setLocationCandidate(null);
-  }
-
-  function rejectDetectedLocation() {
-    setLocationCandidate(null);
-    setLocationStatus(t("urmall.menu.enterManually"));
-  }
-
-  function handleFrontPictureChange(event) {
-    const file = event.target.files?.[0];
-    if (!file) return;
-
-    const reader = new FileReader();
-    reader.onload = () => updateAddress({ frontPictureUrl: String(reader.result || "") });
-    reader.readAsDataURL(file);
   }
 
   function savePayment() {
@@ -642,282 +423,20 @@ export default function MenuDrawer({ open, onClose, onRequestedScreenHandled, re
         )}
 
         {screenKey === "address" && (
-          <div className="space-y-4">
-            {savedAddresses.length ? (
-              <div className="space-y-2">
-                <p className="text-sm font-black text-gray-950">{t("urmall.detail.savedAddresses")}</p>
-                {savedAddresses.map((item) => {
-                  const actionKey = getAddressActionKey(item);
-                  const selected = actionKey === getAddressActionKey(address);
-
-                  return (
-                    <article
-                      key={actionKey}
-                      className="kt-touchable relative rounded-xl border border-gray-200 bg-white p-3 text-left shadow-sm"
-                    >
-                      <div className="flex items-start justify-between gap-3">
-                        <button type="button" onClick={() => editAddress(item)} className="kt-touchable min-w-0 flex-1 text-left">
-                          <span className="flex flex-wrap items-center gap-2">
-                            <span className="text-sm font-black text-gray-950">{t("urmall.detail.addressLabel", { label: getAddressLabel(item) })}</span>
-                            {selected ? (
-                              <span className="rounded-full border border-emerald-200 bg-emerald-50 px-2 py-0.5 text-[10px] font-black uppercase tracking-wide text-emerald-700">
-                                {t("urmall.menu.selected")}
-                              </span>
-                            ) : null}
-                          </span>
-                          <p className="mt-1 line-clamp-2 text-xs font-semibold leading-5 text-gray-500">
-                            {item.street || item.detectedAddress}
-                          </p>
-                        </button>
-                        <button
-                          type="button"
-                          onClick={(event) => {
-                            event.stopPropagation();
-                            setAddressActionMenuId((current) => (current === actionKey ? "" : actionKey));
-                          }}
-                          className="kt-touchable flex h-9 w-9 shrink-0 items-center justify-center rounded-xl border border-gray-200 bg-white text-gray-500 hover:bg-gray-50 hover:text-gray-950"
-                          aria-label={t("urmall.menu.addressActionsAria", { label: getAddressLabel(item) })}
-                          aria-expanded={addressActionMenuId === actionKey}
-                          aria-haspopup="menu"
-                        >
-                          <MoreHorizontal size={18} />
-                        </button>
-                      </div>
-                    </article>
-                  );
-                })}
-              </div>
-            ) : null}
-
-            {activeActionAddress ? (
-              <AppPortal><div
-                className="fixed inset-0 z-[1300] flex items-end justify-center bg-slate-950/20 px-3 py-4 backdrop-blur-[1px] sm:items-center sm:p-6"
-                role="presentation"
-                onClick={() => setAddressActionMenuId("")}
-              >
-                <section
-                  className="kt-modal-enter w-full max-w-sm overflow-hidden rounded-[1.75rem] border border-gray-200 bg-white p-2 shadow-2xl shadow-slate-950/20 sm:max-w-xs"
-                  role="menu"
-                  aria-label={t("urmall.menu.addressActionsMenuAria", { label: getAddressLabel(activeActionAddress) })}
-                  onClick={(event) => event.stopPropagation()}
-                >
-                  <div className="border-b border-gray-100 px-3 py-3">
-                    <p className="text-xs font-black uppercase tracking-wide text-emerald-700">
-                      {t("urmall.detail.addressLabel", { label: getAddressLabel(activeActionAddress) })}
-                    </p>
-                    <p className="mt-1 line-clamp-2 text-xs font-semibold leading-5 text-gray-500">
-                      {activeActionAddress.street || activeActionAddress.detectedAddress || t("urmall.menu.deliveryLocationFallback")}
-                    </p>
-                  </div>
-                  <div className="grid gap-1 p-1">
-                    <SavedAddressMenuAction icon={Navigation} label={t("urmall.menu.useForNextOrder")} onClick={() => selectAddress(activeActionAddress)} />
-                    <SavedAddressMenuAction icon={Pencil} label={t("urmall.menu.editAddress")} onClick={() => editAddress(activeActionAddress)} />
-                    <SavedAddressMenuAction icon={Share2} label={t("urmall.menu.shareDetails")} onClick={() => shareAddress(activeActionAddress)} />
-                    <SavedAddressMenuAction
-                      danger
-                      icon={Trash2}
-                      label={t("urmall.menu.deleteAddress")}
-                      onClick={() => removeAddress(addressActionMenuId, activeActionAddress)}
-                    />
-                  </div>
-                </section>
-              </div></AppPortal>
-            ) : null}
-
-            {!addressFormOpen ? (
-              <button
-                type="button"
-                onClick={openAddAddress}
-                className="kt-touchable inline-flex h-12 w-full items-center justify-center gap-2 rounded-xl bg-emerald-600 px-4 text-sm font-black text-white shadow-sm hover:bg-emerald-700"
-              >
-                <Plus size={17} />
-                {savedAddresses.length ? t("urmall.menu.addAnother") : t("urmall.menu.addAddress")}
-              </button>
-            ) : null}
-
-            {addressFormOpen ? (
-              <div className="grid gap-3 rounded-2xl border border-gray-200 bg-white p-4 shadow-sm">
-                <div className="flex items-start justify-between gap-3">
-                  <div>
-                    <p className="text-sm font-black text-gray-950">
-                      {address.id ? t("urmall.menu.editDeliveryAddress") : t("urmall.menu.addDeliveryAddress")}
-                    </p>
-                    <p className="mt-1 text-xs font-semibold leading-5 text-gray-500">
-                      {t("urmall.menu.formHint")}
-                    </p>
-                  </div>
-                  <button
-                    type="button"
-                    onClick={closeAddressForm}
-                    className="kt-touchable flex h-9 w-9 shrink-0 items-center justify-center rounded-xl border border-gray-200 text-gray-500 hover:bg-gray-50"
-                    aria-label={t("urmall.menu.closeForm")}
-                  >
-                    <X size={16} />
-                  </button>
-                </div>
-
-              <label className="space-y-1">
-                <span className="text-xs font-black uppercase text-gray-500">{t("urmall.menu.locationCategory")}</span>
-                <select
-                  value={address.category}
-                  onChange={(event) => updateAddress({ category: event.target.value })}
-                  className="h-12 w-full rounded-xl border border-gray-200 bg-gray-50 px-3 text-sm font-black text-gray-950 outline-none focus:border-emerald-500"
-                >
-                  {addressTypes.map((type) => (
-                    <option key={type} value={type}>{type}</option>
-                  ))}
-                </select>
-              </label>
-
-              {address.category === "Other" ? (
-                <label className="space-y-1">
-                  <span className="text-xs font-black uppercase text-gray-500">{t("urmall.menu.customCategory")}</span>
-                  <input
-                    value={address.customCategory}
-                    onChange={(event) => updateAddress({ customCategory: event.target.value })}
-                    placeholder={t("urmall.menu.customCategoryPlaceholder")}
-                    className="h-12 w-full rounded-xl border border-gray-200 bg-gray-50 px-3 text-sm font-semibold outline-none focus:border-emerald-500"
-                  />
-                </label>
-              ) : null}
-
-              <div className="grid gap-3 sm:grid-cols-2">
-                <label className="space-y-1">
-                  <span className="text-xs font-black uppercase text-gray-500">{t("urmall.detail.fullName")}</span>
-                  <input
-                    value={address.fullName}
-                    onChange={(event) => updateAddress({ fullName: event.target.value })}
-                    placeholder={t("urmall.menu.receiverName")}
-                    className="h-12 w-full rounded-xl border border-gray-200 bg-gray-50 px-3 text-sm font-semibold outline-none focus:border-emerald-500"
-                  />
-                </label>
-                <label className="space-y-1">
-                  <span className="text-xs font-black uppercase text-gray-500">{t("urmall.detail.phoneNumber")}</span>
-                  <input
-                    value={address.phone}
-                    onChange={(event) => updateAddress({ phone: event.target.value })}
-                    placeholder={t("urmall.detail.phoneNumber")}
-                    className="h-12 w-full rounded-xl border border-gray-200 bg-gray-50 px-3 text-sm font-semibold outline-none focus:border-emerald-500"
-                  />
-                </label>
-              </div>
-
-              <label className="space-y-1">
-                <span className="inline-flex items-center gap-2 text-xs font-black uppercase text-gray-500">
-                  {t("urmall.menu.street")}
-                  <AddressAreaStatusIcon status={addressValidation.status} />
-                </span>
-                <div className="grid gap-2 sm:grid-cols-[1fr_auto_auto]">
-                  <input
-                    value={address.street}
-                    onChange={(event) => updateAddress({ street: event.target.value })}
-                    placeholder={t("urmall.menu.streetPlaceholder")}
-                    className="h-12 w-full rounded-xl border border-gray-200 bg-gray-50 px-3 text-sm font-semibold outline-none focus:border-emerald-500"
-                  />
-                  <button
-                    type="button"
-                    onClick={locateMe}
-                    className="kt-touchable inline-flex h-12 items-center justify-center gap-2 rounded-xl bg-gray-950 px-4 text-sm font-black text-white transition hover:bg-gray-800"
-                  >
-                    <LocateFixed size={16} />
-                    {t("urmall.detail.locateMe")}
-                  </button>
-                  <button
-                    type="button"
-                    onClick={dropAddressPin}
-                    className="kt-touchable inline-flex h-12 items-center justify-center gap-2 rounded-xl border border-gray-200 bg-white px-4 text-sm font-black text-gray-700 transition hover:bg-gray-50"
-                  >
-                    <MapPin size={16} />
-                    {t("urmall.detail.dropPin")}
-                  </button>
-                </div>
-              </label>
-
-              <AddressAreaResolutionCard
-                validation={addressValidation}
-                onLocateMe={locateMe}
-                onDropPin={dropAddressPin}
-              />
-
-              {locationCandidate ? (
-                <div className="rounded-xl border border-emerald-200 bg-emerald-50 p-3">
-                  <p className="text-sm font-black text-emerald-950">
-                    {t("urmall.menu.currentLocationIs", { address: locationCandidate.address })}
-                  </p>
-                  <div className="mt-3 grid gap-2 sm:grid-cols-2">
-                    <button
-                      type="button"
-                      onClick={confirmDetectedLocation}
-                      className="kt-touchable inline-flex h-10 items-center justify-center gap-2 rounded-lg bg-emerald-600 px-3 text-xs font-black text-white hover:bg-emerald-700"
-                    >
-                      <CheckCircle2 size={15} />
-                      {t("urmall.menu.correctAddLocation")}
-                    </button>
-                    <button
-                      type="button"
-                      onClick={rejectDetectedLocation}
-                      className="kt-touchable h-10 rounded-lg border border-gray-200 bg-white px-3 text-xs font-black text-gray-700 hover:bg-gray-50"
-                    >
-                      {t("urmall.menu.wrongEnterManually")}
-                    </button>
-                  </div>
-                </div>
-              ) : null}
-
-              <label className="space-y-1">
-                <span className="text-xs font-black uppercase text-gray-500">{t("urmall.menu.noteLabel")}</span>
-                <textarea
-                  value={address.note}
-                  onChange={(event) => updateAddress({ note: event.target.value })}
-                  placeholder={t("urmall.menu.notePlaceholder")}
-                  rows={3}
-                  className="w-full resize-none rounded-xl border border-gray-200 bg-gray-50 px-3 py-3 text-sm font-semibold outline-none focus:border-emerald-500"
-                />
-              </label>
-
-              <label className="space-y-2">
-                <span className="text-xs font-black uppercase text-gray-500">{t("urmall.menu.frontPicture")}</span>
-                <div className="grid gap-3 sm:grid-cols-[120px_1fr]">
-                  <div className="flex aspect-square items-center justify-center overflow-hidden rounded-xl border border-dashed border-gray-300 bg-gray-50">
-                    {address.frontPictureUrl ? (
-                      <img src={resizedImageUrl(address.frontPictureUrl, { width: 320, quality: 70 })} alt="" className="h-full w-full object-cover" />
-                    ) : (
-                      <Camera className="text-gray-400" size={30} />
-                    )}
-                  </div>
-                  <div className="flex flex-col justify-center">
-                    <input
-                      type="file"
-                      accept="image/*"
-                      onChange={handleFrontPictureChange}
-                      className="text-sm font-semibold text-gray-600 file:mr-3 file:rounded-lg file:border-0 file:bg-gray-950 file:px-3 file:py-2 file:text-xs file:font-black file:text-white"
-                    />
-                    <p className="mt-2 text-xs font-semibold leading-5 text-gray-500">
-                      {t("urmall.menu.frontPictureHint")}
-                    </p>
-                  </div>
-                </div>
-              </label>
-
-              {address.detectedAddress ? (
-                <p className="rounded-xl bg-gray-50 p-3 text-xs font-bold leading-5 text-gray-600">
-                  {t("urmall.menu.detectedLocation", { address: address.detectedAddress })}
-                </p>
-              ) : null}
-              {locationStatus ? <p className="text-sm font-bold text-gray-600">{locationStatus}</p> : null}
-              </div>
-            ) : null}
-
-            {addressFormOpen ? (
-              <button
-                type="button"
-                onClick={saveAddress}
-                className="kt-touchable h-12 w-full rounded-xl bg-emerald-600 px-4 text-sm font-black text-white shadow-sm hover:bg-emerald-700"
-              >
-                {address.id ? t("urmall.menu.updateAddress") : t("urmall.menu.saveAddress")}
-              </button>
-            ) : null}
-          </div>
+          <SavedAddressBook
+            addresses={savedAddresses}
+            categories={addressTypes}
+            createEmptyAddress={() => createEmptyAddress(accountContact)}
+            getKey={getBuyerAddressKey}
+            selectedKey={selectedAddressKey}
+            menuActions={[
+              { id: "use", icon: Navigation, label: t("urmall.menu.useForNextOrder"), onSelect: selectAddress },
+            ]}
+            onSave={saveAddress}
+            onRemove={removeAddress}
+            pickerLabels={deliveryPickerLabels}
+            pickerBackLabel={t("urmall.menu.pickerBack")}
+          />
         )}
 
         {screenKey === "payments" && (
@@ -1081,18 +600,6 @@ export default function MenuDrawer({ open, onClose, onRequestedScreenHandled, re
           </SlidePanel>
         ) : null}
         </div>
-      {areaPicker ? (
-        <div className="fixed inset-0 z-[1300] bg-slate-950">
-          <NearbyAreaScreen
-            mode="businessLocationPicker"
-            pickerStart={areaPicker.start}
-            pickerLabels={deliveryPickerLabels}
-            backLabel={t("urmall.menu.pickerBack")}
-            onBack={() => setAreaPicker(null)}
-            onLocationPicked={acceptAreaLocation}
-          />
-        </div>
-      ) : null}
     </AppPortal>
   );
 }

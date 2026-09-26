@@ -29,6 +29,7 @@ export function PremiumHeaderButton({
   badge = 0,
   children,
   className = "",
+  direction,
   disabled = false,
   icon,
   iconSize = 20,
@@ -47,6 +48,7 @@ export function PremiumHeaderButton({
       type="button"
       onClick={onClick}
       disabled={disabled}
+      data-direction={direction || undefined}
       aria-label={label || title}
       title={title || label}
       className={`kt-premium-icon-button kt-pressable ${wide ? "kt-premium-icon-button-wide" : "kt-premium-icon-button-square"} ${

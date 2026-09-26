@@ -24,6 +24,7 @@ export default function SellerHeaderActions({
       {showAddProduct ?
         <HeaderActionButton
           icon={Plus}
+          direction="urmall-seller-add"
           label={translateUi(primaryActionLabel)}
           primary
           onClick={onAddProduct}
@@ -32,6 +33,7 @@ export default function SellerHeaderActions({
       {showOrders ?
         <HeaderActionButton
           icon={PackageCheck}
+          direction="urmall-seller-orders"
           label={t("urmall.biz.header.orders")}
           badge={orderCount}
           onClick={onOrders}
@@ -40,6 +42,7 @@ export default function SellerHeaderActions({
       {showMessages ?
         <HeaderActionButton
           icon={MessageSquare}
+          direction="urmall-seller-messages"
           label={t("urmall.biz.header.messages")}
           badge={messageCount}
           onClick={onMessages}

@@ -56,7 +56,9 @@ export default function AddressLocationField({ onChange, value }) {
     ? { lat: Number(value.latitude), lng: Number(value.longitude), address: value.address }
     : null;
   const validation = useAddressAreaValidation(value.address, { selectedPoint: point });
-  const caution = useAddressAccuracyCaution(value.address);
+  // Same as every address field: writable until the first character, then the
+  // caution covers the field until Locate me, Drop a pin or Enter manually.
+  const caution = useAddressAccuracyCaution(value.address, { gate: false, lockOnEdit: true });
   const addressInputRef = useRef(null);
 
   function locateMe() {
@@ -98,7 +100,7 @@ export default function AddressLocationField({ onChange, value }) {
             ref={addressInputRef}
             required
             value={value.address}
-            onChange={(event) => onChange({ address: event.target.value })}
+            onChange={caution.guardChange((event) => onChange({ address: event.target.value }))}
             {...caution.inputProps}
             placeholder={t("urmall.biz.reg.bizAddressPlaceholder")}
             autoComplete="street-address"
@@ -107,6 +109,7 @@ export default function AddressLocationField({ onChange, value }) {
         </label>
 
         <AddressAccuracyCaution
+          cover
           open={caution.open}
           onLocateMe={() => caution.act(locateMe)}
           onDropPin={() => caution.act(() => setPicking("dropPin"))}
@@ -131,23 +134,23 @@ export default function AddressLocationField({ onChange, value }) {
         onDropPin={() => caution.act(() => setPicking("dropPin"))}
       />
 
-      <div className="grid gap-2 sm:grid-cols-[minmax(0,1fr)_auto_minmax(0,1fr)] sm:items-center">
-        <button
-          type="button"
-          onClick={() => caution.act(locateMe)}
-          disabled={locating}
-          className="inline-flex h-11 items-center justify-center gap-2 rounded-xl bg-gray-900 px-4 text-sm font-black text-white transition hover:bg-gray-800 disabled:opacity-60"
-        >
-          <LocateFixed size={16} />
-          {t("urmall.biz.reg.locateMe")}
-        </button>
-        <span className="justify-self-center rounded-full border border-emerald-100 bg-emerald-50 px-3 py-1 text-[11px] font-black uppercase tracking-wide text-emerald-700">
+      <div className="grid grid-cols-1 gap-2">
+        <span className="justify-self-start rounded-full border border-emerald-100 bg-emerald-50 px-3 py-1 text-[11px] font-black uppercase tracking-wide text-emerald-700">
           {t("urmall.biz.reg.recommended")}
         </span>
         <button
           type="button"
+          onClick={() => caution.act(locateMe)}
+          disabled={locating}
+          className="inline-flex h-11 w-full items-center justify-center gap-2 rounded-xl bg-gray-900 px-4 text-sm font-black text-white transition hover:bg-gray-800 disabled:opacity-60"
+        >
+          <LocateFixed size={16} />
+          {t("urmall.biz.reg.locateMe")}
+        </button>
+        <button
+          type="button"
           onClick={() => caution.act(() => setPicking("dropPin"))}
-          className="inline-flex h-11 items-center justify-center gap-2 rounded-xl border border-gray-200 bg-white px-4 text-sm font-black text-gray-700 transition hover:bg-gray-50"
+          className="inline-flex h-11 w-full items-center justify-center gap-2 rounded-xl border border-gray-200 bg-white px-4 text-sm font-black text-gray-700 transition hover:bg-gray-50"
         >
           <MapPin size={16} />
           {t("urmall.biz.reg.dropPin")}

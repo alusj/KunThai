@@ -52,6 +52,7 @@ import { getEmergencyContacts } from "../../data/emergencyContacts";
 import { isMapFleetTypeVisible } from "../../data/globalTransportCapabilities";
 import { haptics } from "../../Backend/services/feedbackService";
 import { showToast } from "../../Backend/services/toastService";
+import { useScreenWakeLock } from "../../Backend/hooks/useScreenWakeLock";
 import { getNetworkStatus } from "../../Backend/services/networkService";
 import { cacheAreaViewData, readAreaViewCache } from "../../Backend/services/areaViewCacheService";
 import {
@@ -917,6 +918,53 @@ export default function NearbyAreaScreen({
   const [userLocation, setUserLocation] = useState(() => initialAreaCache.position);
   const [focusMode, setFocusMode] = useState(false);
   const [mapLocked, setMapLocked] = useState(false);
+  const [lockedExitNudge, setLockedExitNudge] = useState(0);
+  // Focus (eye) and lock both mean "I'm watching the map": keep the screen on.
+  useScreenWakeLock(focusMode || mapLocked);
+  const mapLockedRef = useRef(false);
+  mapLockedRef.current = mapLocked;
+
+  // Leaving while locked is refused: double buzz, the lock button shakes, and
+  // a short toast says why. Used by the back tab and the phone's back action.
+  const warnLockedExit = useCallback(() => {
+    haptics.doubleShake();
+    setLockedExitNudge((count) => count + 1);
+    showToast(t("urride.areaView.unlockBeforeExit"), "warning");
+  }, []);
+
+  // While locked, park a guard entry on top of history. The phone's back
+  // button / gesture pops it; we put it straight back and warn, so the screen
+  // cannot be left until it is unlocked. Unlocking removes the guard.
+  useEffect(() => {
+    if (!mapLocked || typeof window === "undefined") return undefined;
+    const guardId = `area-lock-${Date.now()}`;
+    window.history.pushState({ ...(window.history.state || {}), kuntaiBackLayer: undefined, kuntaiAreaLock: guardId }, "", window.location.href);
+    const onPopState = (event) => {
+      if (event.state?.kuntaiAreaLock === guardId) return; // a layer above the guard closed
+      window.history.pushState({ ...(event.state || {}), kuntaiBackLayer: undefined, kuntaiAreaLock: guardId }, "", window.location.href);
+      warnLockedExit();
+    };
+    window.addEventListener("popstate", onPopState);
+    return () => {
+      window.removeEventListener("popstate", onPopState);
+      if (window.history.state?.kuntaiAreaLock === guardId) window.history.back();
+    };
+  }, [mapLocked, warnLockedExit]);
+
+  // Locking tells the user straight away that the screen can't be left (and
+  // stays on) until they unlock; unlocking confirms it.
+  const toggleMapLock = useCallback(() => {
+    const next = !mapLockedRef.current;
+    setMapLocked(next);
+    haptics.light();
+    showToast(next ? t("urride.areaView.lockedToast") : t("urride.areaView.unlockedToast"), next ? "warning" : "info");
+  }, []);
+
+  useEffect(() => {
+    if (!lockedExitNudge) return undefined;
+    const timer = window.setTimeout(() => setLockedExitNudge(0), 650);
+    return () => window.clearTimeout(timer);
+  }, [lockedExitNudge]);
   const [searchOverlayOpen, setSearchOverlayOpen] = useState(false);
   const [searchQuery, setSearchQuery] = useState("");
   const [searchResults, setSearchResults] = useState([]);
@@ -2341,7 +2389,10 @@ export default function NearbyAreaScreen({
           <div className="pointer-events-auto flex items-center gap-2 sm:gap-3">
             <AppBackTab
               onBack={() => {
-                if (mapLocked) return;
+                if (mapLockedRef.current) {
+                  warnLockedExit();
+                  return;
+                }
                 onBack?.();
               }}
               label={mapLocked ? t("urride.areaView.mapLocked") : backLabel}
@@ -2367,6 +2418,7 @@ export default function NearbyAreaScreen({
             <button
               type="button"
               onClick={() => setFocusMode((value) => !value)}
+              data-direction="area-focus"
               className={`flex h-12 w-12 shrink-0 items-center justify-center rounded-2xl shadow-lg transition ${
                 focusMode ? "bg-slate-950 text-white" : "bg-white/95 text-slate-900 hover:bg-white"
               }`}
@@ -2377,8 +2429,9 @@ export default function NearbyAreaScreen({
 
             <button
               type="button"
-              onClick={() => setMapLocked((value) => !value)}
-              className={`flex h-12 w-12 shrink-0 items-center justify-center rounded-2xl shadow-lg transition ${
+              onClick={toggleMapLock}
+              data-direction="area-lock"
+              className={`${lockedExitNudge ? "kt-double-shake " : ""}flex h-12 w-12 shrink-0 items-center justify-center rounded-2xl shadow-lg transition ${
                 mapLocked ? "bg-green-600 text-white" : "bg-white/95 text-slate-900 hover:bg-white"
               }`}
               aria-label={mapLocked ? t("urride.areaView.unlockMap") : t("urride.areaView.lockMap")}
@@ -2458,6 +2511,7 @@ export default function NearbyAreaScreen({
             <button
               type="button"
               onClick={openEmergencyMode}
+              data-direction="area-sos"
               className="kt-pressable flex h-12 w-12 items-center justify-center rounded-full bg-red-600 text-white shadow-xl"
               aria-label={t("urride.areaView.openSos")}
             >

@@ -178,21 +178,21 @@ export default function LocationContactStep({ registration }) {
           tone="blue"
         />
 
-        <div className="grid gap-2 sm:grid-cols-[minmax(0,1fr)_auto_minmax(0,1fr)] sm:items-center">
-          <button
-            type="button"
-            onClick={() => accuracyCaution.act(() => locateBusiness("main"))}
-            className="rounded-lg bg-gray-900 px-4 py-3 text-sm font-black text-white transition hover:bg-gray-800"
-          >
-            {t("urmall.biz.reg.locateMe")}
-          </button>
-          <span className="justify-self-center rounded-full border border-blue-100 bg-blue-50 px-3 py-1 text-[11px] font-black uppercase tracking-wide text-blue-700">
+        <div className="grid grid-cols-1 gap-2">
+          <span className="justify-self-start rounded-full border border-blue-100 bg-blue-50 px-3 py-1 text-[11px] font-black uppercase tracking-wide text-blue-700">
             {t("urmall.biz.reg.recommended")}
           </span>
           <button
             type="button"
+            onClick={() => accuracyCaution.act(() => locateBusiness("main"))}
+            className="w-full rounded-lg bg-gray-900 px-4 py-3 text-sm font-black text-white transition hover:bg-gray-800"
+          >
+            {t("urmall.biz.reg.locateMe")}
+          </button>
+          <button
+            type="button"
             onClick={() => accuracyCaution.act(() => openDropPinPicker("main"))}
-            className="rounded-lg border border-gray-200 bg-white px-4 py-3 text-sm font-black text-gray-700 transition hover:bg-gray-50"
+            className="w-full rounded-lg border border-gray-200 bg-white px-4 py-3 text-sm font-black text-gray-700 transition hover:bg-gray-50"
           >
             {t("urmall.biz.reg.dropPin")}
           </button>
@@ -454,21 +454,21 @@ function BranchAddressCard({ branch, index, maxBusinessLocations, updateBranch, 
         tone="blue"
       />
 
-      <div className="grid gap-2 sm:grid-cols-[minmax(0,1fr)_auto_minmax(0,1fr)] sm:items-center">
-        <button
-          type="button"
-          onClick={() => accuracyCaution.act(() => locateBusiness(index))}
-          className="rounded-lg bg-gray-900 px-4 py-3 text-sm font-black text-white transition hover:bg-gray-800"
-        >
-          {t("urmall.biz.reg.locateMe")}
-        </button>
-        <span className="justify-self-center rounded-full border border-blue-100 bg-blue-50 px-3 py-1 text-[11px] font-black uppercase tracking-wide text-blue-700">
+      <div className="grid grid-cols-1 gap-2">
+        <span className="justify-self-start rounded-full border border-blue-100 bg-blue-50 px-3 py-1 text-[11px] font-black uppercase tracking-wide text-blue-700">
           {t("urmall.biz.reg.recommended")}
         </span>
         <button
           type="button"
+          onClick={() => accuracyCaution.act(() => locateBusiness(index))}
+          className="w-full rounded-lg bg-gray-900 px-4 py-3 text-sm font-black text-white transition hover:bg-gray-800"
+        >
+          {t("urmall.biz.reg.locateMe")}
+        </button>
+        <button
+          type="button"
           onClick={() => accuracyCaution.act(() => openDropPinPicker(index))}
-          className="rounded-lg border border-gray-200 bg-white px-4 py-3 text-sm font-black text-gray-700 transition hover:bg-gray-50"
+          className="w-full rounded-lg border border-gray-200 bg-white px-4 py-3 text-sm font-black text-gray-700 transition hover:bg-gray-50"
         >
           {t("urmall.biz.reg.dropPin")}
         </button>
