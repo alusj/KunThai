@@ -8,7 +8,9 @@ import MyCircle from "./myCircle/MyCircle";
 const CONNECTION_TAB_ORDER = ["mycircle", "followers", "discover"];
 
 export default function Connections({ currentUserId = "", onViewProfile }) {
-  const [tab, setTab] = useState("mycircle");
+  // Opens on Suggested: new accounts have no connections yet, and discovery
+  // is where most visits start.
+  const [tab, setTab] = useState("discover");
   const [slideDirection, setSlideDirection] = useState("forward");
   const circle = useExploreConnections("mycircle", currentUserId);
   const followers = useExploreConnections("followers", currentUserId);

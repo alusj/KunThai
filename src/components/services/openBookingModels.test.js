@@ -2,7 +2,22 @@ import test from "node:test";
 import assert from "node:assert/strict";
 import { readFileSync } from "node:fs";
 
-import { buildFareOffers, collapseOpenBookingTrips, roundOfferAmount, toDbFleetType } from "./openBookingModels.js";
+import { buildFareOffers, collapseOpenBookingTrips, maxPassengersForVehicle, roundOfferAmount, toDbFleetType } from "./openBookingModels.js";
+
+test("seats per vehicle: motorbike 1, tricycle 3, taxi 4", () => {
+  assert.equal(maxPassengersForVehicle("Motorcycle"), 1);
+  assert.equal(maxPassengersForVehicle("Tricycle"), 3);
+  assert.equal(maxPassengersForVehicle("Car"), 4);
+  assert.equal(maxPassengersForVehicle(""), 4); // any fleet
+});
+
+test("both booking screens limit passengers by vehicle and offer a pickup time", () => {
+  for (const file of ["../transport/booking/TransportBookingDrawer.jsx", "../transport/booking/OpenBookingSheet.jsx"]) {
+    const source = readFileSync(new URL(file, import.meta.url), "utf8");
+    assert.match(source, /<PassengerCountSelect[^>]*max=\{maxPassengers\}/, file);
+    assert.match(source, /<PickupTimeFields/, file);
+  }
+});
 
 test("UI vehicle values map to database fleet types", () => {
   assert.equal(toDbFleetType("Motorcycle"), "motorcycle");
@@ -52,4 +67,10 @@ test("the migration keeps first-accept-wins and nearest-first selection", () => 
   assert.match(sql, /array\[3, 7, 15, 30\]/);
   assert.match(sql, /fleet\.fleet_type::text/); // enum columns are compared as text
   assert.match(sql, /security definer/);
+
+  const reach = readFileSync(new URL("../../../supabase/migrations/20260927140000_urride_open_booking_reach.sql", import.meta.url), "utf8");
+  assert.match(reach, /v_reach := 'nearby'/);
+  assert.match(reach, /v_reach := 'active'/);
+  assert.match(reach, /v_reach := 'all'/);
+  assert.match(reach, /when 'motorcycle' then 1 when 'tricycle' then 3 else 4/);
 });

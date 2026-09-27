@@ -9,6 +9,14 @@ export function toDbFleetType(value) {
   return FLEET_TYPE_TO_DB[value] || String(value || "").trim().toLowerCase();
 }
 
+// Seats per vehicle, for open and fleet bookings alike: motorbike 1,
+// tricycle 3, taxi 4. Unknown vehicle ("any fleet") allows the taxi maximum.
+const MAX_PASSENGERS = { motorcycle: 1, tricycle: 3, car: 4 };
+
+export function maxPassengersForVehicle(value) {
+  return MAX_PASSENGERS[toDbFleetType(value)] || 4;
+}
+
 // Fares are offered in round amounts: whole units, or steps of 5 from 100 up.
 export function roundOfferAmount(amount) {
   const value = Number(amount);

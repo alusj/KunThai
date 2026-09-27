@@ -4,6 +4,13 @@
 export const UI_TRANSLATIONS = {
   en: {
     literals: {
+      "k9573ade79ed4": "Choose a pickup time in the future.",
+      "k35702f3fe61a": "No {value0} operators are registered in your country yet. Try another vehicle.",
+      "k6b86c335eb70": "How open booking works",
+      "k59e9955cde21": "You do not pick an operator. KunThai sends your request to the nearest online operators of the vehicle you choose; if none are online nearby, active operators in your country receive it.",
+      "ke2c3d77e50e6": "The first operator to accept takes your trip. The other requests are withdrawn at once, and Trips shows only your one trip.",
+      "k4ccb1ffd9b9f": "Operators see the fare you offer and decide whether to accept it. Average or Priority usually gets a faster pickup.",
+      "k6e6b717e843d": "Before you ride or hand over a package, check the operator's name and plate in Trips. Built-in payments are not active yet: agree the fare in person and never share PINs or OTPs.",
       "kc995f186459f": "Account type updated",
       "kcc52ea5448c8": "Delete business accounts",
       "k43deeb8b9da9": "Account type not saved",
@@ -3736,6 +3743,13 @@ export const UI_TRANSLATIONS = {
 
   fr: {
     literals: {
+      "k9573ade79ed4": "Choisissez une heure de prise en charge à venir.",
+      "k35702f3fe61a": "Aucun opérateur {value0} n'est encore inscrit dans votre pays. Essayez un autre véhicule.",
+      "k6b86c335eb70": "Comment fonctionne la réservation ouverte",
+      "k59e9955cde21": "Vous ne choisissez pas d'opérateur. KunThai envoie votre demande aux opérateurs en ligne les plus proches du véhicule choisi ; si aucun n'est en ligne à proximité, les opérateurs actifs de votre pays la reçoivent.",
+      "ke2c3d77e50e6": "Le premier opérateur qui accepte prend votre course. Les autres demandes sont retirées aussitôt et Courses n'affiche que votre course.",
+      "k4ccb1ffd9b9f": "Les opérateurs voient le prix que vous proposez et décident s'ils l'acceptent. Moyen ou Prioritaire permet souvent une prise en charge plus rapide.",
+      "k6e6b717e843d": "Avant de monter ou de remettre un colis, vérifiez le nom et la plaque de l'opérateur dans Courses. Les paiements intégrés ne sont pas encore actifs : convenez du prix en personne et ne partagez jamais vos codes PIN ou OTP.",
       "kc995f186459f": "Type de compte mis à jour",
       "kcc52ea5448c8": "Supprimez les comptes pro",
       "k43deeb8b9da9": "Type de compte non enregistré",
@@ -7468,6 +7482,13 @@ export const UI_TRANSLATIONS = {
 
   ar: {
     literals: {
+      "k9573ade79ed4": "اختر وقت انطلاق في المستقبل.",
+      "k35702f3fe61a": "لا يوجد مشغلو {value0} مسجلون في بلدك بعد. جرّب مركبة أخرى.",
+      "k6b86c335eb70": "كيف يعمل الحجز المفتوح",
+      "k59e9955cde21": "لا تختار مشغلاً بنفسك. يرسل KunThai طلبك إلى أقرب المشغلين المتصلين لنوع المركبة الذي تختاره؛ وإن لم يكن أحد متصلاً بالقرب منك، يتلقاه المشغلون النشطون في بلدك.",
+      "ke2c3d77e50e6": "أول مشغل يقبل يتولى رحلتك. تُسحب الطلبات الأخرى فوراً، ولا تعرض «الرحلات» إلا رحلتك الواحدة.",
+      "k4ccb1ffd9b9f": "يرى المشغلون الأجرة التي تعرضها ويقررون قبولها أو لا. عادةً ما يمنحك «متوسط» أو «أولوية» استلاماً أسرع.",
+      "k6e6b717e843d": "قبل الركوب أو تسليم طرد، تحقّق من اسم المشغل ولوحة المركبة في «الرحلات». الدفع المدمج غير مفعّل بعد: اتفق على الأجرة شخصياً ولا تشارك أبداً رموز PIN أو OTP.",
       "kc995f186459f": "تم تحديث نوع الحساب",
       "kcc52ea5448c8": "احذف الحسابات التجارية",
       "k43deeb8b9da9": "لم يتم حفظ نوع الحساب",
@@ -11200,6 +11221,13 @@ export const UI_TRANSLATIONS = {
 
   es: {
     literals: {
+      "k9573ade79ed4": "Elige una hora de recogida futura.",
+      "k35702f3fe61a": "Aún no hay operadores de {value0} registrados en tu país. Prueba otro vehículo.",
+      "k6b86c335eb70": "Cómo funciona la reserva abierta",
+      "k59e9955cde21": "No eliges operador. KunThai envía tu solicitud a los operadores conectados más cercanos del vehículo que elijas; si no hay ninguno cerca, la reciben los operadores activos de tu país.",
+      "ke2c3d77e50e6": "El primer operador que acepte se queda con tu viaje. Las demás solicitudes se retiran al instante y Viajes muestra solo tu viaje.",
+      "k4ccb1ffd9b9f": "Los operadores ven la tarifa que ofreces y deciden si la aceptan. Promedio o Prioritaria suele conseguir una recogida más rápida.",
+      "k6e6b717e843d": "Antes de subir o entregar un paquete, comprueba el nombre y la matrícula del operador en Viajes. Los pagos integrados aún no están activos: acuerda la tarifa en persona y nunca compartas PIN ni códigos OTP.",
       "kc995f186459f": "Tipo de cuenta actualizado",
       "kcc52ea5448c8": "Elimina las cuentas de negocio",
       "k43deeb8b9da9": "No se guardó el tipo de cuenta",
@@ -14932,6 +14960,13 @@ export const UI_TRANSLATIONS = {
 
   zh: {
     literals: {
+      "k9573ade79ed4": "请选择一个未来的接载时间。",
+      "k35702f3fe61a": "您所在的国家还没有注册的{value0}运营者。请换一种车辆。",
+      "k6b86c335eb70": "开放预订如何运作",
+      "k59e9955cde21": "您无需挑选运营者。KunThai 会把请求发送给您所选车辆类型中离您最近的在线运营者；如果附近没有在线的，则由您所在国家的活跃运营者接收。",
+      "ke2c3d77e50e6": "最先接单的运营者负责您的行程。其他请求会立即撤回，“行程”中只显示您的这一趟。",
+      "k4ccb1ffd9b9f": "运营者会看到您的出价，并决定是否接单。选择“平均”或“优先”通常接载更快。",
+      "k6e6b717e843d": "乘车或交付包裹前，请在“行程”中核对运营者的姓名和车牌。内置支付尚未开通：请当面确认费用，切勿透露 PIN 或 OTP 验证码。",
       "kc995f186459f": "账户类型已更新",
       "kcc52ea5448c8": "请先删除商业账户",
       "k43deeb8b9da9": "账户类型未保存",
@@ -18664,6 +18699,13 @@ export const UI_TRANSLATIONS = {
 
   pt: {
     "literals": {
+      "k9573ade79ed4": "Escolha um horário de partida no futuro.",
+      "k35702f3fe61a": "Ainda não há operadores de {value0} registrados no seu país. Tente outro veículo.",
+      "k6b86c335eb70": "Como funciona a reserva aberta",
+      "k59e9955cde21": "Você não escolhe o operador. O KunThai envia seu pedido aos operadores online mais próximos do veículo escolhido; se nenhum estiver online por perto, os operadores ativos do seu país o recebem.",
+      "ke2c3d77e50e6": "O primeiro operador a aceitar fica com sua viagem. Os outros pedidos são retirados na hora, e Viagens mostra só a sua viagem.",
+      "k4ccb1ffd9b9f": "Os operadores veem o valor que você oferece e decidem se aceitam. Média ou Prioritária costuma trazer uma busca mais rápida.",
+      "k6e6b717e843d": "Antes de embarcar ou entregar um pacote, confira o nome e a placa do operador em Viagens. Os pagamentos integrados ainda não estão ativos: combine o valor pessoalmente e nunca compartilhe PINs ou OTPs.",
       "kc995f186459f": "Tipo de conta atualizado",
       "kcc52ea5448c8": "Exclua as contas de negócio",
       "k43deeb8b9da9": "Tipo de conta não salvo",
@@ -22396,6 +22438,13 @@ export const UI_TRANSLATIONS = {
 
   hi: {
     "literals": {
+      "k9573ade79ed4": "पिकअप का समय आगे का चुनें।",
+      "k35702f3fe61a": "आपके देश में अभी कोई {value0} ऑपरेटर रजिस्टर नहीं है। कोई दूसरा वाहन चुनें।",
+      "k6b86c335eb70": "ओपन बुकिंग कैसे काम करती है",
+      "k59e9955cde21": "आप ऑपरेटर नहीं चुनते। KunThai आपका अनुरोध आपके चुने वाहन के सबसे नज़दीकी ऑनलाइन ऑपरेटरों को भेजता है; अगर पास में कोई ऑनलाइन नहीं है, तो आपके देश के सक्रिय ऑपरेटरों को मिलता है।",
+      "ke2c3d77e50e6": "जो ऑपरेटर पहले स्वीकार करेगा, वही आपकी यात्रा लेगा। बाकी अनुरोध तुरंत वापस ले लिए जाते हैं और यात्राओं में सिर्फ़ आपकी एक यात्रा दिखती है।",
+      "k4ccb1ffd9b9f": "ऑपरेटर आपका प्रस्तावित किराया देखकर तय करते हैं कि स्वीकार करें या नहीं। औसत या प्राथमिकता से आम तौर पर पिकअप जल्दी होता है।",
+      "k6e6b717e843d": "सवारी करने या पैकेज सौंपने से पहले यात्राओं में ऑपरेटर का नाम और नंबर प्लेट जाँचें। अंतर्निहित भुगतान अभी चालू नहीं है: किराया आमने-सामने तय करें और PIN या OTP कभी साझा न करें।",
       "kc995f186459f": "खाता प्रकार अपडेट हुआ",
       "kcc52ea5448c8": "बिज़नेस खाते हटाएँ",
       "k43deeb8b9da9": "खाता प्रकार सेव नहीं हुआ",
@@ -26128,6 +26177,13 @@ export const UI_TRANSLATIONS = {
 
   bn: {
     "literals": {
+      "k9573ade79ed4": "ভবিষ্যতের একটি পিকআপ সময় বেছে নিন।",
+      "k35702f3fe61a": "আপনার দেশে এখনো কোনো {value0} অপারেটর নিবন্ধিত নেই। অন্য যানবাহন বেছে নিন।",
+      "k6b86c335eb70": "ওপেন বুকিং কীভাবে কাজ করে",
+      "k59e9955cde21": "আপনি অপারেটর বাছেন না। KunThai আপনার অনুরোধ আপনার বেছে নেওয়া যানবাহনের সবচেয়ে কাছের অনলাইন অপারেটরদের পাঠায়; কাছে কেউ অনলাইনে না থাকলে আপনার দেশের সক্রিয় অপারেটররা তা পান।",
+      "ke2c3d77e50e6": "যে অপারেটর প্রথমে গ্রহণ করবেন, তিনিই আপনার যাত্রা নেবেন। বাকি অনুরোধগুলো সঙ্গে সঙ্গে প্রত্যাহার হয়, আর যাত্রা-তে শুধু আপনার একটি যাত্রাই দেখায়।",
+      "k4ccb1ffd9b9f": "অপারেটররা আপনার প্রস্তাবিত ভাড়া দেখে ঠিক করেন গ্রহণ করবেন কি না। গড় বা অগ্রাধিকার বেছে নিলে সাধারণত পিকআপ দ্রুত হয়।",
+      "k6e6b717e843d": "রাইডে ওঠার বা প্যাকেজ দেওয়ার আগে যাত্রা-তে অপারেটরের নাম ও নম্বর প্লেট মিলিয়ে নিন। বিল্ট-ইন পেমেন্ট এখনো চালু নয়: ভাড়া সামনাসামনি ঠিক করুন এবং কখনো PIN বা OTP শেয়ার করবেন না।",
       "kc995f186459f": "অ্যাকাউন্টের ধরন আপডেট হয়েছে",
       "kcc52ea5448c8": "ব্যবসায়িক অ্যাকাউন্ট মুছুন",
       "k43deeb8b9da9": "অ্যাকাউন্টের ধরন সংরক্ষিত হয়নি",

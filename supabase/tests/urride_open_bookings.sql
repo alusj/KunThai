@@ -23,7 +23,8 @@ create table public.transport_operators(id uuid primary key, user_id uuid unique
 create table public.transport_fleets(
   id uuid primary key, operator_id uuid references public.transport_operators, company_id uuid,
   is_visible_to_passengers boolean not null default true, active_status text default 'active',
-  fleet_type public.transport_fleet_type, service_category public.transport_service_category, country_iso text default 'SL'
+  fleet_type public.transport_fleet_type, service_category public.transport_service_category, country_iso text default 'SL',
+  last_active_at timestamptz
 );
 create table public.transport_operator_locations(
   operator_id uuid primary key references auth.users, status text not null default 'online', available boolean not null default true,
@@ -45,6 +46,7 @@ create table public.transport_operator_alerts(
 );
 
 \ir ../migrations/20260927120000_urride_open_bookings.sql
+\ir ../migrations/20260927140000_urride_open_booking_reach.sql
 
 -- Pickup: central Freetown. ~0.009 degrees of latitude = 1 km.
 insert into auth.users(id, raw_user_meta_data) values
@@ -54,7 +56,8 @@ insert into auth.users(id, raw_user_meta_data) values
   ('00000000-0000-4000-8000-0000000000a5', '{}'), ('00000000-0000-4000-8000-0000000000a6', '{}'),
   ('00000000-0000-4000-8000-0000000000a7', '{}'), ('00000000-0000-4000-8000-0000000000a8', '{}'),
   ('00000000-0000-4000-8000-0000000000a9', '{}'), ('00000000-0000-4000-8000-0000000000aa', '{}'),
-  ('00000000-0000-4000-8000-0000000000ab', '{}'), ('00000000-0000-4000-8000-0000000000ac', '{}');
+  ('00000000-0000-4000-8000-0000000000ab', '{}'), ('00000000-0000-4000-8000-0000000000ac', '{}'),
+  ('00000000-0000-4000-8000-0000000000ad', '{}');
 
 insert into public.transport_operators(id, user_id, full_name) values
   ('10000000-0000-4000-8000-000000000001', '00000000-0000-4000-8000-0000000000a1', 'A near bike'),
@@ -69,7 +72,8 @@ insert into public.transport_operators(id, user_id, full_name) values
   ('10000000-0000-4000-8000-00000000000a', '00000000-0000-4000-8000-0000000000a9', 'J busy bike'),
   ('10000000-0000-4000-8000-00000000000b', '00000000-0000-4000-8000-0000000000aa', 'K 2.5km bike'),
   ('10000000-0000-4000-8000-00000000000c', '00000000-0000-4000-8000-0000000000ab', 'L delivery van'),
-  ('10000000-0000-4000-8000-00000000000d', '00000000-0000-4000-8000-0000000000ac', 'M unavailable bike');
+  ('10000000-0000-4000-8000-00000000000d', '00000000-0000-4000-8000-0000000000ac', 'M unavailable bike'),
+  ('10000000-0000-4000-8000-00000000000e', '00000000-0000-4000-8000-0000000000ad', 'N offline delivery tricycle');
 
 insert into public.transport_fleets(id, operator_id, company_id, is_visible_to_passengers, active_status, fleet_type, service_category, country_iso) values
   ('20000000-0000-4000-8000-000000000001', '10000000-0000-4000-8000-000000000001', null, true, 'active', 'motorcycle', 'transport', 'SL'),
@@ -84,7 +88,8 @@ insert into public.transport_fleets(id, operator_id, company_id, is_visible_to_p
   ('20000000-0000-4000-8000-00000000000a', '10000000-0000-4000-8000-00000000000a', null, true, 'active', 'motorcycle', 'transport', 'SL'),
   ('20000000-0000-4000-8000-00000000000b', '10000000-0000-4000-8000-00000000000b', null, true, 'active', 'motorcycle', 'transport', 'SL'),
   ('20000000-0000-4000-8000-00000000000c', '10000000-0000-4000-8000-00000000000c', null, true, 'active', 'car', 'delivery', 'SL'),
-  ('20000000-0000-4000-8000-00000000000d', '10000000-0000-4000-8000-00000000000d', null, true, 'active', 'motorcycle', 'transport', 'SL');
+  ('20000000-0000-4000-8000-00000000000d', '10000000-0000-4000-8000-00000000000d', null, true, 'active', 'motorcycle', 'transport', 'SL'),
+  ('20000000-0000-4000-8000-00000000000e', '10000000-0000-4000-8000-00000000000e', null, true, 'offline', 'tricycle', 'delivery', 'SL');
 
 insert into public.transport_operator_locations(operator_id, status, available, lat, lng, last_seen_at) values
   ('00000000-0000-4000-8000-0000000000a1', 'online', true, 8.4747, -13.2317, now()),                        -- A 1 km
@@ -114,13 +119,13 @@ select set_config('request.jwt.claim.sub', '00000000-0000-4000-8000-0000000000a0
 -- 1. Ride by motorbike: only A (1 km) and K (2.5 km) qualify inside 3 km, nearest first.
 insert into results select 'ride', public.create_transport_open_booking(
   'ride', 'Motorcycle', 'Siaka Stevens Street', 8.4657, -13.2317, 'Lumley', 8.4200, -13.2800,
-  25, 'SLE', 'SL', 'Sierra Leone', null, '+232 99 000 000', null, 'Near the clock tower', 2, 6.2, null);
+  25, 'SLE', 'SL', 'Sierra Leone', null, '+232 99 000 000', null, 'Near the clock tower', 1, 6.2, null);
 
 do $$
 declare r jsonb := (select value from results where name = 'ride'); fleets uuid[];
 begin
   if (r ->> 'notified_count')::int <> 2 then raise exception 'ride: expected 2 operators, got %', r; end if;
-  if (r ->> 'radius_km')::numeric <> 3 then raise exception 'ride: expected the 3 km ring, got %', r; end if;
+  if (r ->> 'radius_km')::numeric <> 3 or r ->> 'reach' <> 'nearby' then raise exception 'ride: expected the 3 km ring, got %', r; end if;
   select array_agg(fleet_id order by pickup_latitude, fleet_id) into fleets from public.transport_trips where open_booking_id = (r ->> 'open_booking_id')::uuid;
   if not (fleets @> array['20000000-0000-4000-8000-000000000001', '20000000-0000-4000-8000-00000000000b']::uuid[] and array_length(fleets, 1) = 2) then
     raise exception 'ride: wrong operators notified: %', fleets;
@@ -131,7 +136,7 @@ begin
   end if;
   if exists (select 1 from public.transport_trips where open_booking_id = (r ->> 'open_booking_id')::uuid
              and (status <> 'requested' or fare_amount <> 25 or fare_currency <> 'SLE' or passenger_name <> 'Pat Passenger'
-                  or title <> 'Open ride request - 2 passengers' or trip_type <> 'ride' or country_iso <> 'SL')) then
+                  or title <> 'Open ride request' or trip_type <> 'ride' or country_iso <> 'SL')) then
     raise exception 'ride: request rows are not as sent';
   end if;
 end $$;
@@ -246,6 +251,67 @@ begin
   if (r ->> 'notified_count')::int < 1 then raise exception 'rings: expected nearby operators, got %', r; end if;
 end $$;
 
+-- Earlier bookings leave the throttle window (5 per 10 minutes).
+update public.transport_trips set created_at = now() - interval '1 hour' where open_booking_id is not null;
+
+-- 8b. Nobody with a live position within 30 km: active fleets are reached
+--     instead (tier 2), and they are real ride motorbikes of the country.
+do $$
+declare r jsonb;
+begin
+  r := public.create_transport_open_booking('ride', 'motorcycle', 'Far pickup', 9.9000, -12.0000, 'Makeni', null, null,
+    20, 'SLE', 'SL', 'Sierra Leone', null, null, null, null, 1, null, null);
+  if r ->> 'reach' <> 'active' or (r ->> 'notified_count')::int < 1 then raise exception 'tier 2: expected active fleets, got %', r; end if;
+  if exists (
+    select 1 from public.transport_trips t join public.transport_fleets f on f.id = t.fleet_id
+    where t.open_booking_id = (r ->> 'open_booking_id')::uuid
+      and (f.fleet_type::text <> 'motorcycle' or f.country_iso <> 'SL' or f.active_status <> 'active' or f.service_category::text = 'delivery'
+           or f.id in ('20000000-0000-4000-8000-000000000006', '20000000-0000-4000-8000-000000000009', '20000000-0000-4000-8000-00000000000a'))
+  ) then raise exception 'tier 2: an ineligible fleet was notified'; end if;
+end $$;
+
+-- 8c. Only an offline fleet of that vehicle exists: it still gets the request (tier 3).
+do $$
+declare r jsonb;
+begin
+  r := public.create_transport_open_booking('delivery', 'tricycle', 'Siaka Stevens Street', 8.4657, -13.2317, 'Lumley', null, null,
+    30, 'SLE', 'SL', 'Sierra Leone', null, null, 'Rice bag', null, 1, null, null);
+  if r ->> 'reach' <> 'all' or (r ->> 'notified_count')::int <> 1
+     or (select fleet_id from public.transport_trips where id = (r -> 'trip_ids' ->> 0)::uuid) <> '20000000-0000-4000-8000-00000000000e' then
+    raise exception 'tier 3: expected the offline delivery tricycle, got %', r;
+  end if;
+end $$;
+
+-- 8d. Seats per vehicle and a scheduled pickup.
+do $$
+declare r jsonb;
+begin
+  begin
+    perform public.create_transport_open_booking('ride', 'motorcycle', 'Somewhere', 8.4657, -13.2317, 'Lumley', null, null, 10, 'SLE', 'SL', null, null, null, null, null, 2, null, null);
+    raise exception 'seats: a motorbike took 2 passengers';
+  exception when others then
+    if sqlerrm <> 'Too many passengers for this vehicle.' then raise; end if;
+  end;
+  begin
+    perform public.create_transport_open_booking('ride', 'tricycle', 'Somewhere', 8.4657, -13.2317, 'Lumley', null, null, 10, 'SLE', 'SL', null, null, null, null, null, 4, null, null);
+    raise exception 'seats: a tricycle took 4 passengers';
+  exception when others then
+    if sqlerrm <> 'Too many passengers for this vehicle.' then raise; end if;
+  end;
+  begin
+    perform public.create_transport_open_booking('ride', 'motorcycle', 'Somewhere', 8.4657, -13.2317, 'Lumley', null, null, 10, 'SLE', 'SL', null, null, null, null, null, 1, null, now() - interval '1 day');
+    raise exception 'schedule: a past pickup time was accepted';
+  exception when others then
+    if sqlerrm <> 'Choose a pickup time within the next 30 days.' then raise; end if;
+  end;
+  r := public.create_transport_open_booking('ride', 'tricycle', 'Siaka Stevens Street', 8.4657, -13.2317, 'Lumley', null, null,
+    30, 'SLE', 'SL', 'Sierra Leone', null, null, null, null, 3, null, now() + interval '2 hours');
+  if (select count(*) from public.transport_trips where open_booking_id = (r ->> 'open_booking_id')::uuid
+        and scheduled_at > now() + interval '1 hour' and title = 'Open ride request - 3 passengers') < 1 then
+    raise exception 'schedule: the scheduled tricycle booking was not stored, got %', r;
+  end if;
+end $$;
+
 -- 9. Validation.
 do $$
 declare cases text[][] := array[
@@ -272,10 +338,9 @@ begin
   end loop;
 end $$;
 
--- 10. Throttle: five open bookings in ten minutes (four were made above plus
---     this one), then the next is refused.
+-- 10. Throttle: five open bookings in ten minutes, then the next is refused.
 do $$
-declare made int := (select count(distinct open_booking_id) from public.transport_trips where passenger_id = '00000000-0000-4000-8000-0000000000a0' and open_booking_id is not null);
+declare made int := (select count(distinct open_booking_id) from public.transport_trips where passenger_id = '00000000-0000-4000-8000-0000000000a0' and open_booking_id is not null and created_at > now() - interval '10 minutes');
 begin
   while made < 5 loop
     perform public.create_transport_open_booking('ride', 'motorcycle', 'Siaka Stevens Street', 8.4657, -13.2317, 'Lumley', null, null, 15, 'SLE', 'SL', null, null, null, null, null, 1, null, null);

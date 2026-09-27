@@ -37,8 +37,9 @@ import { getTransportCapabilities } from "../../../data/globalTransportCapabilit
 import { getTransportSavedPlaces, TRANSPORT_SAVED_PLACES_EVENT } from "../../services/passengerTransportService";
 import { fetchTransportFleets } from "../../services/transportFleetService";
 import { calculateBookingRoute, formatBookingDistance } from "../../services/transportPricingService";
-import { buildFareOffers, createOpenBooking, roundOfferAmount } from "../../services/openBookingService";
+import { buildFareOffers, createOpenBooking, maxPassengersForVehicle, roundOfferAmount } from "../../services/openBookingService";
 import { AddressSuggestionInput, FormInput, getBookingPickerLabels } from "./TransportBookingDrawer";
+import { PassengerCountSelect, PickupTimeFields } from "./bookingFields";
 import { getBookingLocationInputValue, normalizeBookingLocationPoint } from "./bookingLocationPreferences";
 import { useI18n, t } from "../../../i18n";
 import { uiText as translateUi } from "../../../i18n/index.js";
@@ -63,7 +64,19 @@ const EMPTY_FORM = {
   passengers: "1",
   packageDescription: "",
   note: "",
+  pickupTime: "now",
+  scheduledAt: "",
 };
+
+const OPEN_BOOKING_CAUTION_KEY = "kunthai-open-booking-caution-accepted";
+
+function readCautionAccepted() {
+  try {
+    return localStorage.getItem(OPEN_BOOKING_CAUTION_KEY) === "true";
+  } catch {
+    return false;
+  }
+}
 
 function hasText(value) {
   return String(value || "").trim().length > 1;
@@ -132,8 +145,9 @@ export default function OpenBookingSheet({ open, onClose, onOpenTrips }) {
   const [customAmount, setCustomAmount] = useState("");
   const [sending, setSending] = useState(false);
   const [notice, setNotice] = useState("");
-  const [result, setResult] = useState(null);
   const [session, setSession] = useState(0);
+  const [showCaution, setShowCaution] = useState(false);
+  const [dontShowCaution, setDontShowCaution] = useState(false);
 
   const vehicleOptions = mode === "delivery" ? capabilities.deliveryOptions : mode === "ride" ? capabilities.rideOptions : [];
   const vehicle = vehicleOptions.find((option) => option.value === fleetType) || null;
@@ -143,6 +157,12 @@ export default function OpenBookingSheet({ open, onClose, onOpenTrips }) {
   );
   const offerAmount = offerChoice === "custom" ? roundOfferAmount(customAmount) : Number(offers?.[offerChoice] || 0);
   const pickupPoint = hasCoordinates(form.pickupPoint) ? form.pickupPoint : hasCoordinates(route?.pickupPoint) ? route.pickupPoint : null;
+  const maxPassengers = maxPassengersForVehicle(fleetType);
+
+  // A smaller vehicle never keeps more passengers than it seats.
+  useEffect(() => {
+    if (Number(form.passengers) > maxPassengers) setForm((current) => ({ ...current, passengers: String(maxPassengers) }));
+  }, [form.passengers, maxPassengers]);
 
   // Fresh sheet every time it opens.
   useEffect(() => {
@@ -156,7 +176,8 @@ export default function OpenBookingSheet({ open, onClose, onOpenTrips }) {
     setOfferChoice("average");
     setCustomAmount("");
     setNotice("");
-    setResult(null);
+    setShowCaution(!readCautionAccepted());
+    setDontShowCaution(false);
     setSavedPlaces(getTransportSavedPlaces());
     setSession((value) => value + 1);
 
@@ -296,6 +317,8 @@ export default function OpenBookingSheet({ open, onClose, onOpenTrips }) {
     const phone = validateCountryPhone(form.phone);
     if (!phone.valid) return phone.message;
     if (mode === "delivery" && !hasText(form.packageDescription)) return t("urride.booking.needPackage");
+    if (form.pickupTime === "schedule" && !form.scheduledAt) return t("urride.booking.needScheduledTime");
+    if (form.pickupTime === "schedule" && new Date(form.scheduledAt).getTime() < Date.now()) return translateUi("Choose a pickup time in the future.");
     if (!(offerAmount > 0)) return translateUi("Choose or enter the fare you are offering.");
     return "";
   }
@@ -323,15 +346,18 @@ export default function OpenBookingSheet({ open, onClose, onOpenTrips }) {
         offerAmount,
         currency,
         countryCode: country.iso2,
+        scheduledAt: form.pickupTime === "schedule" ? form.scheduledAt : "",
       });
       if (!booking.notifiedCount) {
-        setNotice(translateUi("No {value0} operators are online near your pickup right now. Try another vehicle or try again in a few minutes.", { value0: translateUi(vehicle.displayName || vehicle.label) }));
-        showToast("No operators nearby", "info");
+        // Only when no operator of this vehicle exists in the country at all.
+        setNotice(translateUi("No {value0} operators are registered in your country yet. Try another vehicle.", { value0: translateUi(vehicle.displayName || vehicle.label) }));
         return;
       }
       sounds.success("transport");
       showToast("Open booking sent", "success");
-      setResult(booking);
+      // The request now waits in Trips, where the passenger sees who accepts.
+      onClose?.();
+      onOpenTrips?.(booking);
     } catch (error) {
       setNotice(inlineErrorMessage(error, translateUi("Unable to send this open booking.")));
       showToast(shortErrorToast(error, "Open booking not sent"), "danger");
@@ -368,39 +394,7 @@ export default function OpenBookingSheet({ open, onClose, onOpenTrips }) {
             </button>
           </header>
 
-          {result ? (
-            <div className="flex min-h-0 flex-1 flex-col items-center justify-center gap-4 px-6 py-8 text-center">
-              <span className="grid h-20 w-20 place-items-center rounded-full bg-emerald-100 text-emerald-700">
-                <FiCheckCircle size={40} aria-hidden="true" />
-              </span>
-              <h3 className="text-2xl font-black text-slate-950">
-                {result.notifiedCount === 1
-                  ? translateUi("Sent to 1 nearby operator")
-                  : translateUi("Sent to {value0} nearby operators", { value0: result.notifiedCount })}
-              </h3>
-              <p className="max-w-md text-sm font-semibold leading-6 text-slate-600">
-                {translateUi("The first operator to accept takes your trip. You will be notified as soon as someone accepts.")}
-              </p>
-              <p className="rounded-full bg-emerald-50 px-4 py-2 text-sm font-black text-emerald-800">
-                {translateUi("Your offer")}: {formatCountryMoney(offerAmount, currency)}
-              </p>
-              <div className="mt-2 grid w-full max-w-sm gap-2">
-                <button
-                  type="button"
-                  onClick={() => {
-                    onClose?.();
-                    onOpenTrips?.();
-                  }}
-                  className="kt-pressable h-12 rounded-2xl bg-emerald-600 text-sm font-black text-white"
-                >
-                  {translateUi("View my trips")}
-                </button>
-                <button type="button" onClick={onClose} className="kt-pressable h-12 rounded-2xl border border-slate-200 bg-white text-sm font-black text-slate-700">
-                  {translateUi("Done")}
-                </button>
-              </div>
-            </div>
-          ) : (
+          {(
             <>
               <div className="min-h-0 flex-1 space-y-4 overflow-y-auto px-4 py-4 sm:px-5">
                 <p className="rounded-2xl border border-emerald-100 bg-emerald-50 p-3 text-sm font-semibold leading-6 text-emerald-900">
@@ -502,18 +496,15 @@ export default function OpenBookingSheet({ open, onClose, onOpenTrips }) {
                       ) : (
                         <label className="space-y-1">
                           <span className="text-xs font-black uppercase text-gray-500">{t("urride.booking.passengers")}</span>
-                          <select
-                            value={form.passengers}
-                            onChange={(event) => updateForm({ passengers: event.target.value })}
-                            className="h-12 w-full rounded-xl border border-gray-200 bg-gray-50 px-3 text-sm font-black text-gray-950 outline-none focus:border-emerald-500"
-                          >
-                            <option value="1">{t("urride.booking.passengerCountOne", { count: 1 })}</option>
-                            <option value="2">{t("urride.booking.passengerCount", { count: 2 })}</option>
-                            <option value="3">{t("urride.booking.passengerCount", { count: 3 })}</option>
-                            <option value="4">{t("urride.booking.passengerCount", { count: 4 })}</option>
-                          </select>
+                          <PassengerCountSelect value={form.passengers} max={maxPassengers} onChange={(value) => updateForm({ passengers: value })} />
                         </label>
                       )}
+
+                      <PickupTimeFields
+                        pickupTime={form.pickupTime}
+                        scheduledAt={form.scheduledAt}
+                        onChange={(patch) => updateForm(patch)}
+                      />
 
                       <label className="space-y-1">
                         <span className="text-xs font-black uppercase text-gray-500">{t("urride.booking.tripNote")}</span>
@@ -632,6 +623,56 @@ export default function OpenBookingSheet({ open, onClose, onOpenTrips }) {
             </>
           )}
         </aside>
+
+        {showCaution ? (
+          <div className="fixed inset-0 z-[1400] flex items-end justify-center bg-slate-950/45 px-4 py-5 backdrop-blur-sm sm:items-center">
+            <section className="w-full max-w-lg rounded-[2rem] bg-white p-5 shadow-2xl" role="dialog" aria-modal="true" aria-labelledby="open-booking-caution-title">
+              <div className="flex items-start gap-3">
+                <span className="flex h-12 w-12 shrink-0 items-center justify-center rounded-2xl bg-emerald-50 text-emerald-700">
+                  <FiRadio size={24} aria-hidden="true" />
+                </span>
+                <div>
+                  <p className="text-xs font-black uppercase tracking-wide text-emerald-700">{translateUi("Open booking")}</p>
+                  <h2 id="open-booking-caution-title" className="mt-1 text-xl font-black text-slate-950">{translateUi("How open booking works")}</h2>
+                </div>
+              </div>
+
+              <ol className="mt-5 grid max-h-[48vh] list-decimal gap-3 overflow-y-auto pl-5 pr-1 text-sm font-semibold leading-6 text-slate-600">
+                <li>{translateUi("You do not pick an operator. KunThai sends your request to the nearest online operators of the vehicle you choose; if none are online nearby, active operators in your country receive it.")}</li>
+                <li>{translateUi("The first operator to accept takes your trip. The other requests are withdrawn at once, and Trips shows only your one trip.")}</li>
+                <li>{translateUi("Operators see the fare you offer and decide whether to accept it. Average or Priority usually gets a faster pickup.")}</li>
+                <li>{translateUi("Before you ride or hand over a package, check the operator's name and plate in Trips. Built-in payments are not active yet: agree the fare in person and never share PINs or OTPs.")}</li>
+              </ol>
+
+              <label className="mt-5 flex items-start gap-3 rounded-2xl border border-slate-100 bg-slate-50 p-4">
+                <input
+                  type="checkbox"
+                  checked={dontShowCaution}
+                  onChange={(event) => setDontShowCaution(event.target.checked)}
+                  className="mt-1 h-5 w-5 accent-emerald-600"
+                />
+                <span className="text-sm font-bold leading-6 text-slate-700">{t("urride.booking.cautionDontShow")}</span>
+              </label>
+
+              <button
+                type="button"
+                onClick={() => {
+                  if (dontShowCaution) {
+                    try {
+                      localStorage.setItem(OPEN_BOOKING_CAUTION_KEY, "true");
+                    } catch {
+                      // Storage is optional: the card simply shows again next time.
+                    }
+                  }
+                  setShowCaution(false);
+                }}
+                className="mt-5 h-12 w-full rounded-2xl bg-emerald-600 px-5 text-sm font-black text-white shadow-lg shadow-emerald-600/20 transition hover:bg-emerald-700"
+              >
+                {t("urride.booking.cautionAccept")}
+              </button>
+            </section>
+          </div>
+        ) : null}
 
         {areaPicker ? (
           <div className="fixed inset-0 z-[1200] bg-slate-950">

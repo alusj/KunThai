@@ -4,7 +4,7 @@ import { getActiveCountryProfile } from "../../data/globalCountryProfiles";
 import { fetchTransportFleets } from "./transportFleetService";
 import { buildFareOffers, toDbFleetType } from "./openBookingModels";
 
-export { buildFareOffers, collapseOpenBookingTrips, roundOfferAmount, toDbFleetType } from "./openBookingModels";
+export { buildFareOffers, collapseOpenBookingTrips, maxPassengersForVehicle, roundOfferAmount, toDbFleetType } from "./openBookingModels";
 
 // UrRide open bookings: a ride or delivery request that is not addressed to a
 // fleet. The server (create_transport_open_booking) picks the nearest online
@@ -52,7 +52,7 @@ export async function createOpenBooking(booking) {
     p_trip_note: String(booking.note || "").trim() || null,
     p_passenger_count: Number(booking.passengers) || 1,
     p_estimated_distance_km: Number(booking.distanceKm) > 0 ? Number(Number(booking.distanceKm).toFixed(3)) : null,
-    p_scheduled_at: null,
+    p_scheduled_at: booking.scheduledAt ? new Date(booking.scheduledAt).toISOString() : null,
   });
 
   if (error) {
@@ -66,6 +66,7 @@ export async function createOpenBooking(booking) {
     openBookingId: data?.open_booking_id || "",
     notifiedCount: Number(data?.notified_count || 0),
     radiusKm: data?.radius_km == null ? null : Number(data.radius_km),
+    reach: data?.reach || "",
     tripIds: Array.isArray(data?.trip_ids) ? data.trip_ids : [],
   };
 

@@ -33,6 +33,8 @@ import {
   validateCountryPhone,
 } from "../../../data/globalCountryProfiles";
 import { createTransportBooking } from "../../services/bookingService";
+import { maxPassengersForVehicle } from "../../services/openBookingModels";
+import { PassengerCountSelect, PickupTimeFields } from "./bookingFields";
 import {
   getNextTransportPlace,
   getTransportSavedPlaces,
@@ -205,6 +207,9 @@ export default function TransportBookingDrawer({ open, target, onClose, onCreate
   }, [activeAvailableFleets, availableFleets, bookingTargetFleets, selectedFleet]);
 
   const displayFleet = bookingFleet;
+  // Seats: the chosen fleet's vehicle, else the vehicle filter (motorbike 1,
+  // tricycle 3, taxi 4); "any fleet" allows up to 4.
+  const maxPassengers = maxPassengersForVehicle(selectedFleet?.fleetType || selection.fleetType);
   const bookingMode = modeForFleet(bookingFleet, selection.mode);
   const pricingInput = {
     bookingMethod: form.bookingMethod,
@@ -311,6 +316,10 @@ export default function TransportBookingDrawer({ open, target, onClose, onCreate
       alive = false;
     };
   }, [open]);
+
+  useEffect(() => {
+    if (Number(form.passengers) > maxPassengers) setForm((current) => ({ ...current, passengers: String(maxPassengers) }));
+  }, [form.passengers, maxPassengers]);
 
   useEffect(() => {
     if (!selection.fleetType) return;
@@ -804,30 +813,7 @@ export default function TransportBookingDrawer({ open, target, onClose, onCreate
                 </label>
               )}
 
-              <div className="grid gap-3 md:grid-cols-3">
-                <label className="space-y-1">
-                  <span className="text-xs font-black uppercase text-gray-500">{t("urride.booking.pickupTime")}</span>
-                  <select
-                    value={form.pickupTime}
-                    onChange={(event) => updateForm({ pickupTime: event.target.value })}
-                    className="h-12 w-full rounded-xl border border-gray-200 bg-gray-50 px-3 text-sm font-black text-gray-950 outline-none focus:border-emerald-500"
-                  >
-                    <option value="now">{t("urride.booking.now")}</option>
-                    <option value="schedule">{t("urride.booking.schedule")}</option>
-                  </select>
-                </label>
-
-                <label className="space-y-1 md:col-span-2">
-                  <span className="text-xs font-black uppercase text-gray-500">{t("urride.booking.scheduledTime")}</span>
-                  <input
-                    type="datetime-local"
-                    value={form.scheduledAt}
-                    onChange={(event) => updateForm({ scheduledAt: event.target.value })}
-                    disabled={form.pickupTime !== "schedule"}
-                    className="h-12 w-full rounded-xl border border-gray-200 bg-gray-50 px-3 text-sm font-semibold text-gray-950 outline-none focus:border-emerald-500 disabled:text-gray-400"
-                  />
-                </label>
-              </div>
+              <PickupTimeFields pickupTime={form.pickupTime} scheduledAt={form.scheduledAt} onChange={updateForm} />
 
               {bookingMode === "delivery" ? (
                 <FormInput
@@ -840,16 +826,7 @@ export default function TransportBookingDrawer({ open, target, onClose, onCreate
               ) : (
                 <label className="space-y-1">
                   <span className="text-xs font-black uppercase text-gray-500">{t("urride.booking.passengers")}</span>
-                  <select
-                    value={form.passengers}
-                    onChange={(event) => updateForm({ passengers: event.target.value })}
-                    className="h-12 w-full rounded-xl border border-gray-200 bg-gray-50 px-3 text-sm font-black text-gray-950 outline-none focus:border-emerald-500"
-                  >
-                    <option value="1">{t("urride.booking.passengerCountOne", { count: 1 })}</option>
-                    <option value="2">{t("urride.booking.passengerCount", { count: 2 })}</option>
-                    <option value="3">{t("urride.booking.passengerCount", { count: 3 })}</option>
-                    <option value="4">{t("urride.booking.passengerCount", { count: 4 })}</option>
-                  </select>
+                  <PassengerCountSelect value={form.passengers} max={maxPassengers} onChange={(value) => updateForm({ passengers: value })} />
                 </label>
               )}
 
