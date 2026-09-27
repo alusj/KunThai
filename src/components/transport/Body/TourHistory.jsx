@@ -2,7 +2,8 @@ import { FiClock } from "react-icons/fi";
 
 import { useI18n, t } from "../../../i18n";
 
-export default function TourHistory({ onClick, count = 0, loading = false }) {
+// notch: the Open booking button sits on this card's top-right corner.
+export default function TourHistory({ onClick, count = 0, loading = false, notch = false }) {
   useI18n();
   return (
     <button
@@ -11,7 +12,7 @@ export default function TourHistory({ onClick, count = 0, loading = false }) {
       className="group h-40 rounded-3xl border border-indigo-200 bg-indigo-50/70 p-5 text-left shadow-lg shadow-indigo-100/70 transition hover:-translate-y-0.5 hover:bg-indigo-50 hover:shadow-xl"
     >
       <div className="flex h-full flex-col justify-between">
-        <span>
+        <span className={notch ? "pr-9" : ""}>
           <span className="block text-lg font-black text-slate-900">{t("urride.dashboard.activeTripsTitle")}</span>
           <span className="mt-1 block text-xs font-black uppercase tracking-wide text-indigo-700">
             {loading ? t("urride.common.loading") : t("urride.dashboard.liveCount", { count })}

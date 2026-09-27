@@ -19,6 +19,8 @@ import {
   ShoppingBag,
 } from "lucide-react";
 import AppPortal from "../../../shared/AppPortal";
+import CountryRegionSettings from "../../../shared/regions/CountryRegionSettings";
+import AccountTypeSettings from "../../../shared/AccountTypeSettings";
 import AppBackTab from "../../../shared/AppBackTab";
 import { SlidePanel, useSlidePanel } from "../../../shared/SlideTransition";
 import useBodyScrollLock from "../../../shared/useBodyScrollLock";
@@ -511,6 +513,12 @@ export default function MenuDrawer({ open, onClose, onRequestedScreenHandled, re
           />
         )}
 
+        {screenKey === "settings" && (
+          <div className="space-y-3 px-4 pt-4 sm:px-6">
+            <CountryRegionSettings />
+            <AccountTypeSettings />
+          </div>
+        )}
         {screenKey === "settings" && (
           <BuyerArticlePanel
             icon={Settings}

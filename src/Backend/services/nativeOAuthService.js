@@ -16,6 +16,7 @@ import { App as CapacitorApp } from "@capacitor/app";
 import { Browser } from "@capacitor/browser";
 
 import supabase from "../lib/supabaseClient";
+import { describeOAuthFailure } from "./oauthErrors";
 
 // Custom scheme registered in iOS Info.plist and the Android manifest, and
 // allow-listed in Supabase Redirect URLs (app.kunthai.mobile://**).
@@ -48,10 +49,18 @@ export function resolveOAuthRedirect() {
   return isNativePlatform() ? NATIVE_AUTH_REDIRECT : window.location.origin;
 }
 
-function providerQueryParams(provider, intent) {
+export function providerQueryParams(provider, intent) {
   // Preserve Google's account chooser (and consent on first sign-up).
   if (provider === "google") {
     return { prompt: intent === "signup" ? "select_account consent" : "select_account" };
+  }
+  // Supabase needs the Facebook email. Facebook remembers an earlier grant
+  // ("You previously logged into KunThai") and does not ask again for a
+  // permission the person skipped, so Supabase gets no email and refuses the
+  // sign-in. "rerequest" makes Facebook ask for the missing email again; it
+  // changes nothing when email was already granted.
+  if (provider === "facebook") {
+    return { auth_type: "rerequest" };
   }
   return undefined;
 }
@@ -61,6 +70,8 @@ let listenersBound = false;
 let processing = false;
 let sawCallback = false;
 const handledCodes = new Set();
+// Provider of the sign-in in progress, for error messages.
+let activeProvider = "";
 
 function emitSettled(detail) {
   window.dispatchEvent(new CustomEvent(OAUTH_SETTLED_EVENT, { detail }));
@@ -91,36 +102,6 @@ function parseCallback(url) {
   };
 }
 
-function mapProviderError(error, description) {
-  const value = `${error || ""} ${description || ""}`.toLowerCase();
-  if (value.includes("access_denied") || value.includes("cancel") || value.includes("denied")) {
-    return "Sign-in was cancelled or permission was declined.";
-  }
-  if (value.includes("provider is not enabled") || value.includes("not enabled") || value.includes("validation_failed")) {
-    return "This sign-in method is not enabled. Please try another option or contact support.";
-  }
-  return description || "The sign-in provider reported an error. Please try again.";
-}
-
-function mapExchangeError(err) {
-  const message = String(err?.message || "").toLowerCase();
-  if (
-    message.includes("already linked") ||
-    message.includes("identity is already") ||
-    message.includes("already been registered") ||
-    message.includes("already registered")
-  ) {
-    return "This social account is already connected to another KunThai account.";
-  }
-  if (message.includes("manual linking") || message.includes("linking is disabled")) {
-    return "Account linking is turned off for KunThai. Please contact support.";
-  }
-  if (message.includes("network") || message.includes("fetch")) {
-    return "Network problem completing sign-in. Check your connection and try again.";
-  }
-  return err?.message || "We couldn't finish signing you in. Please try again.";
-}
-
 // The single entry point that turns a callback deep link into a session. Safe
 // to call from both appUrlOpen (warm) and getLaunchUrl (cold start); duplicate
 // deliveries of the same code are ignored.
@@ -139,7 +120,10 @@ async function handleCallbackUrl(rawUrl) {
 
   if (error) {
     devLog("provider returned error");
-    emitSettled({ status: "error", message: mapProviderError(error, errorDescription) });
+    emitSettled({
+      status: "error",
+      message: describeOAuthFailure({ error, description: errorDescription, provider: activeProvider }),
+    });
     return;
   }
 
@@ -172,7 +156,10 @@ async function handleCallbackUrl(rawUrl) {
     emitSettled({ status: "success" });
   } catch (err) {
     devLog("code exchange failed");
-    emitSettled({ status: "error", message: mapExchangeError(err) });
+    emitSettled({
+      status: "error",
+      message: describeOAuthFailure({ code: err?.code || "", description: err?.message || "", provider: activeProvider }),
+    });
   } finally {
     processing = false;
   }
@@ -215,6 +202,7 @@ export function initNativeOAuth() {
 // supabase-js redirect the webview) and open it in the system browser.
 export async function startNativeOAuth({ provider, intent = "signin" }) {
   sawCallback = false;
+  activeProvider = provider;
   devLog("start sign-in", { provider, intent, platform: Capacitor.getPlatform() });
 
   const { data, error } = await supabase.auth.signInWithOAuth({
@@ -238,6 +226,7 @@ export async function startNativeOAuth({ provider, intent = "signin" }) {
 export async function linkOAuthIdentity(provider) {
   if (isNativePlatform()) {
     sawCallback = false;
+    activeProvider = provider;
     devLog("start link", { provider });
 
     const { data, error } = await supabase.auth.linkIdentity({

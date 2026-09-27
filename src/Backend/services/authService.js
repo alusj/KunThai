@@ -205,6 +205,23 @@ export const verifyPhoneRecoveryOtp = async (phone, token) => {
   });
 };
 
+// On only once the otp-delivery function and the Supabase Send SMS Hook are
+// live (web/docs/2026-09-26-whatsapp-otp-setup.md). Until then codes come from
+// Twilio as before, and the WhatsApp wording and "Send by SMS" stay hidden.
+export const WHATSAPP_OTP_ENABLED = import.meta.env?.VITE_WHATSAPP_OTP_ENABLED === "true";
+
+// Phone codes go out on WhatsApp first (otp-delivery Edge Function). This asks
+// it to send the SAME code by SMS now, for someone who has no WhatsApp at hand.
+// It works once per code; the function answers the same way either way, so
+// the result carries no information and errors are not surfaced.
+export const requestOtpBySms = async (phone) => {
+  try {
+    await supabase.functions.invoke("otp-delivery/fallback", { body: { phone } });
+  } catch {
+    // The person can still use "Resend OTP".
+  }
+};
+
 export const updateAccountPassword = async (password) => {
   return await supabase.auth.updateUser({ password });
 };

@@ -36,6 +36,8 @@ import useBusinessTypeCapacity from "../../../../Backend/hooks/useBusinessTypeCa
 import { resolveSellerActivityProduct } from "../../../../Backend/services/marketplace/sellerProductService";
 import { BUSINESS_PLAN_UPDATED_EVENT, fetchBusinessSubscription, planTierMeets } from "../../../../Backend/services/businessSubscriptionService";
 import { useSellerBusinessStatus } from "../../../../Backend/hooks/useSellerBusinessStatus";
+import { useAccountType } from "../../../../Backend/services/accountTypeService";
+import BusinessAccountRequired from "../../../shared/BusinessAccountRequired";
 import { useSellerOverview } from "../../../../Backend/hooks/useSellerOverview";
 import { useNavigationStack } from "../../../../Backend/hooks/useNavigationStack";
 import { useEffect, useRef, useState } from "react";
@@ -117,6 +119,8 @@ export default function Business({ initialScreen = "", onBack, onInitialScreenHa
   // seller's business assistant rather than a shopping assistant.
   useAiRoleContext("urmall", "seller", { screen: "seller workspace" });
   const { loading, hasBusiness, setHasBusiness } = useSellerBusinessStatus();
+  // Personal accounts never register (header "+", "Add business" are hidden).
+  const { canRegister, loading: accountTypeLoading } = useAccountType();
   const { capacity: typeCapacity, refresh: refreshTypeCapacity } = useBusinessTypeCapacity(hasBusiness);
   const addBusinessPlanLabel = typeCapacity?.requiredPlan === "premium" ? "Premium" : typeCapacity?.requiredPlan === "pro" ? "Pro" : "";
   const sellerOverview = useSellerOverview({ enabled: hasBusiness });
@@ -752,7 +756,7 @@ export default function Business({ initialScreen = "", onBack, onInitialScreenHa
         <MyBizHeader
           activeBusinessId={activeBusinessId}
           businesses={businesses}
-          onAddBusiness={addAnotherBusiness}
+          onAddBusiness={canRegister ? addAnotherBusiness : undefined}
           addBusinessPlanLabel={addBusinessPlanLabel}
           onBack={onBack}
           onAddProduct={() => {
@@ -824,14 +828,16 @@ export default function Business({ initialScreen = "", onBack, onInitialScreenHa
           onClose={() => setMenuOpen(false)}
           initialScreenKey={menuInitialScreen}
           profileInitialView={profileInitialView}
-          onAddBusiness={addAnotherBusiness}
+          onAddBusiness={canRegister ? addAnotherBusiness : undefined}
           addBusinessPlanLabel={addBusinessPlanLabel}
           permissions={permissions}
           plansEnabled={hasBusinessPlans(businessKind)}
         />
       ) : null}
 
-      {!hasBusiness ? (
+      {!hasBusiness && !accountTypeLoading && !canRegister ? (
+        <BusinessAccountRequired service="UrMall" onBack={onBack} />
+      ) : !hasBusiness ? (
         <BusinessRegistration
           onComplete={(_business, origin) => {
             setDashboardReveal({ type: "onboarding", origin: origin || { x: "50%", y: "70%" } });

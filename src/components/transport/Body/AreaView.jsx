@@ -2,7 +2,9 @@ import { FiMapPin, FiNavigation } from "react-icons/fi";
 
 import { useI18n, t } from "../../../i18n";
 
-export default function AreaView({ onClick }) {
+// notch: the Open booking button sits on this card's bottom-right corner, so
+// the arrow icon moves in from the edge.
+export default function AreaView({ onClick, notch = false }) {
   useI18n();
   return (
     <button
@@ -15,7 +17,7 @@ export default function AreaView({ onClick }) {
       <div className="absolute left-6 top-7 h-3 w-3 rounded-full bg-emerald-700 ring-4 ring-white" />
       <div className="absolute right-8 top-12 h-3 w-3 rounded-full bg-amber-500 ring-4 ring-white" />
       <div className="absolute left-10 top-14 h-1 w-[72%] rotate-[-8deg] rounded-full bg-emerald-600 shadow-sm" />
-      <div className="absolute bottom-0 left-0 right-0 bg-white/90 p-4 backdrop-blur">
+      <div className={`absolute bottom-0 left-0 right-0 bg-white/90 p-4 backdrop-blur ${notch ? "pr-12" : ""}`}>
         <div className="flex items-center justify-between gap-3">
           <span>
             <span className="block text-base font-black text-slate-900">{t("urride.dashboard.nearbyAreaTitle")}</span>

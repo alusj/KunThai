@@ -3,7 +3,6 @@ import { Globe2 } from "lucide-react";
 
 import FlagIcon from "../FlagIcon";
 import { GLOBAL_COUNTRY_CODES } from "../../data/globalCountryCodes";
-import { storeCountryContext } from "../../data/globalCountryProfiles";
 import { t as i18nText } from "../../i18n/index";
 import { useI18n as useUiLocale } from "../../i18n/index.js";
 
@@ -11,7 +10,7 @@ import { useI18n as useUiLocale } from "../../i18n/index.js";
 // the number field, dropdown with every dialing profile. Used by onboarding and
 // any other screen that collects an international phone number.
 
-function CountryPickerButton({ country, onCountryChange }) {
+export function CountryPickerButton({ country, onCountryChange }) {
   useUiLocale();
   const [open, setOpen] = useState(false);
   const pickerRef = useRef(null);
@@ -69,7 +68,10 @@ function CountryPickerButton({ country, onCountryChange }) {
               key={item.iso2}
               type="button"
               onClick={() => {
-                storeCountryContext(item.iso2);
+                // Only the number's dial code changes here. Picking +1 for a
+                // contact used to switch the whole app to that country, which
+                // hid every local UrMall retail product. Screens that choose
+                // the user's own country (onboarding) store it themselves.
                 onCountryChange(item);
                 setOpen(false);
               }}
@@ -92,6 +94,14 @@ function CountryPickerButton({ country, onCountryChange }) {
   );
 }
 
+// The picker already shows the country code, so the box shows only the
+// national number even when the stored value is international ("+232 99 …").
+function nationalPart(phone, country) {
+  const text = String(phone || "");
+  const dial = country?.dialCode || "";
+  return dial && text.startsWith(dial) ? text.slice(dial.length).trimStart() : text;
+}
+
 export default function PhoneCountryField({
   country,
   phone,
@@ -109,7 +119,7 @@ export default function PhoneCountryField({
       <input
         type="tel"
         inputMode="tel"
-        value={phone}
+        value={nationalPart(phone, country)}
         onChange={(event) => onPhoneChange(event.target.value)}
         placeholder={country ? placeholder : i18nText("ui.literals.k07be7c544463")}
         disabled={!country}

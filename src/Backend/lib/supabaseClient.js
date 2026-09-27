@@ -1,6 +1,7 @@
 import { createClient } from "@supabase/supabase-js";
 
 import { createReadRetryingFetch } from "../services/networkService";
+import { captureOAuthReturn } from "../services/oauthReturnService";
 import { isRetryableSupabaseRead } from "./supabaseReadRequests";
 
 const supabaseUrl = import.meta.env.VITE_SUPABASE_URL;
@@ -9,6 +10,10 @@ const supabaseAnonKey = import.meta.env.VITE_SUPABASE_ANON_KEY;
 if (!supabaseUrl || !supabaseAnonKey) {
   throw new Error("Missing VITE_SUPABASE_URL or VITE_SUPABASE_ANON_KEY.");
 }
+
+// Grab a social sign-in return URL (?code / ?error) before supabase-js reads
+// and swallows it, so Login can explain a failed sign-in.
+captureOAuthReturn();
 
 const supabase = createClient(supabaseUrl, supabaseAnonKey, {
   auth: {
@@ -61,7 +66,7 @@ function looksLikeNetworkFault(error) {
   const text = `${error?.name || ""} ${error?.message || ""}`.toLowerCase();
   return /failed to fetch|networkerror|network request failed|network error|load failed|fetch failed|err_/.test(text);
 }
-supabase.auth.getUser = async (jwt) => {
+async function validatedUser(jwt) {
   // Offline: skip the network validation and trust the cached session.
   if (typeof navigator !== "undefined" && navigator.onLine === false) {
     return { data: { user: await cachedSessionUser() }, error: null };
@@ -75,6 +80,43 @@ supabase.auth.getUser = async (jwt) => {
     if (cachedUser?.id) return { data: { user: cachedUser }, error: null };
   }
   return result;
+}
+
+// One server check per session token, shared by everyone who asks.
+//
+// supabase-js runs every getUser() behind one auth lock, network call
+// included, so the dozen screens/services that ask "who is signed in?" while a
+// dashboard opens queued up one after another: ~15 sequential /auth/v1/user
+// round trips (5-7 s) before Explore could even start loading its feed.
+// Callers now share the in-flight check and reuse its answer briefly. A new
+// token (refresh, sign-in, account switch) or any auth change (USER_UPDATED
+// after updateUser, SIGNED_OUT, ...) starts a fresh check.
+const USER_CHECK_REUSE_MS = 30 * 1000;
+let sharedUserCheck = null;
+
+supabase.auth.onAuthStateChange((event) => {
+  if (event !== "INITIAL_SESSION") sharedUserCheck = null;
+});
+
+supabase.auth.getUser = async (jwt) => {
+  if (jwt) return validatedUser(jwt);
+
+  const { data } = await supabase.auth.getSession().catch(() => ({ data: null }));
+  const token = data?.session?.access_token || "";
+  if (!token) return validatedUser();
+
+  const reusable = sharedUserCheck
+    && sharedUserCheck.token === token
+    && Date.now() - sharedUserCheck.startedAt < USER_CHECK_REUSE_MS;
+  if (reusable) return sharedUserCheck.promise;
+
+  const entry = { token, startedAt: Date.now(), promise: validatedUser() };
+  sharedUserCheck = entry;
+  // Only a confirmed user is reused; a failed check is retried by the next caller.
+  entry.promise.then((result) => {
+    if (!result?.data?.user?.id && sharedUserCheck === entry) sharedUserCheck = null;
+  });
+  return entry.promise;
 };
 
 export default supabase;

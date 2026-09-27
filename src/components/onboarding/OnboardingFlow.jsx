@@ -29,6 +29,10 @@ function normalizeProfile(profile) {
     country: profile?.country || countryProfile.name,
     countryCode: profile?.countryCode || countryProfile.iso2,
     currency: profile?.currency || countryProfile.currency.code,
+    // Nothing is pre-selected: the account country counts only once saved or
+    // picked, and the phone's dial country is its own explicit choice.
+    countryConfirmed: Boolean(profile?.countryConfirmed),
+    phoneCountryCode: profile?.phoneCountryCode || "",
     address: profile?.address ?? "",
     email: profile?.email ?? "",
     phone: profile?.phone ?? "",

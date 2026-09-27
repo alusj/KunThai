@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useState } from "react";
-import { Truck } from "lucide-react";
+import { RadioTower, Truck } from "lucide-react";
 
 import OperatorButton from "./Operator/OperatorButton";
 import SearchButton from "./SearchButton";
@@ -7,7 +7,8 @@ import NotificationButton from "./NotificationButton"
 import MenuButton from "./MenuButton";
 import Radar from "./Radar";
 import TransportMenuDrawer from "./TransportMenuDrawer";
-import PremiumHeader from "../../shared/PremiumHeader";
+import PremiumHeader, { PremiumHeaderButton } from "../../shared/PremiumHeader";
+import { uiText as translateUi } from "../../../i18n/index.js";
 import CenteredModal from "../../shared/CenteredModal";
 import {
   subscribeNotificationSeen,
@@ -16,6 +17,9 @@ import { fetchTransportOperationBadgeState } from "../../services/transportHeade
 import { useI18n, t } from "../../../i18n";
 
 export default function Header({
+  accountTypeLoading = false,
+  openBookingInHeader = false,
+  onOpenBooking,
   companyAccount,
   companyLoading = false,
   operatorAccount,
@@ -122,7 +126,7 @@ export default function Header({
         title="UrRide"
         left={(
           <>
-            {accountLoading ? (
+            {accountLoading || accountTypeLoading ? (
               // Same placeholder UrMall's seller entry uses: until the operator
               // and company accounts are known, never show a guessed icon
               // (the "register" + flashing before "my fleet").
@@ -130,6 +134,17 @@ export default function Header({
                 className="kt-premium-icon-button kt-premium-icon-button-square kt-startup-shimmer rounded-2xl border-slate-200 bg-slate-200/70"
                 data-loading-region="operator-entry"
                 aria-hidden="true"
+              />
+            ) : openBookingInHeader ? (
+              // Personal account: the registration slot books an open ride.
+              <PremiumHeaderButton
+                active
+                accent="emerald"
+                direction="urride-open-booking"
+                icon={RadioTower}
+                iconSize={18}
+                label={translateUi("Open booking")}
+                onClick={onOpenBooking}
               />
             ) : (
               <OperatorButton

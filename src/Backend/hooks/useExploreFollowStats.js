@@ -7,7 +7,8 @@ import { EXPLORE_FOLLOW_CHANGED_EVENT } from "./useExploreFollows";
 
 const STATS_MEMORY = new Map();
 const STATS_MEMORY_TTL = 120_000;
-const STATS_STORAGE_PREFIX = "kunthai.exploreStats:";
+// v2: Space stats were cached as 0 by a counting bug; drop those entries.
+const STATS_STORAGE_PREFIX = "kunthai.exploreStats.v2:";
 
 // Stats persist across reloads so the profile never flashes 0 while the fresh
 // numbers load; stale values are replaced silently once the fetch resolves.

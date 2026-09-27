@@ -26,6 +26,8 @@ import { useAppearanceMode } from "../../../../contexts/appearanceContext";
 import { useI18n } from "../../../../i18n";
 import SocialScreenHeader from "../shared/SocialScreenHeader";
 import TwoFactorSection from "./TwoFactorSection";
+import CountryRegionSettings from "../../../shared/regions/CountryRegionSettings";
+import AccountTypeSettings from "../../../shared/AccountTypeSettings";
 import { t as i18nText } from "../../../../i18n/index";
 import { uiText as translateUi, useI18n as useUiLocale } from "../../../../i18n/index.js";
 import { shortErrorToast } from "../../../../Backend/services/friendlyErrorService";
@@ -203,6 +205,14 @@ export default function SettingsScreen({ hideHeader = false, onOpenDataMobile, o
               />
             </div>
           </div>
+        </SettingsSection>
+
+        <SettingsSection title={translateUi("Country / Region")} subtitle={translateUi("Where you use KunThai")}>
+          <CountryRegionSettings />
+        </SettingsSection>
+
+        <SettingsSection title={i18n.t("onboarding.profile.accountType")} subtitle={translateUi("Personal, Business or Both")}>
+          <AccountTypeSettings />
         </SettingsSection>
 
         <SettingsSection title={i18n.t("settings.controlCenterTitle")} subtitle={i18n.t("settings.controlCenterSubtitle")}>

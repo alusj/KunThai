@@ -13,6 +13,12 @@ import { t as i18nText } from "../../../../i18n/index";
 import { uiText as translateUi, useI18n as useUiLocale } from "../../../../i18n/index.js";
 import { inlineErrorMessage } from "../../../../Backend/services/friendlyErrorService";
 import { optimizeImageFile } from "../../../../Backend/services/marketplace/imageOptimization";
+import PhoneCountryField from "../../../shared/PhoneCountryField";
+import {
+  constrainCountryPhoneInput,
+  getActiveCountryProfile,
+  getCountryPhoneHint,
+} from "../../../../data/globalCountryProfiles";
 
 const INITIAL_FORM = {
   name: "",
@@ -47,6 +53,8 @@ function fileToDataUrl(file) {
 export default function SpaceCreateScreen({ hideHeader = false, onCreated }) {
   useUiLocale();
   const [form, setForm] = useState(INITIAL_FORM);
+  // Contact phone country: the person's own country until they pick another.
+  const [phoneCountry, setPhoneCountry] = useState(() => getActiveCountryProfile());
   const [fieldErrors, setFieldErrors] = useState({});
   const [saving, setSaving] = useState(false);
   const [feedback, setFeedback] = useState("");
@@ -232,12 +240,16 @@ export default function SpaceCreateScreen({ hideHeader = false, onCreated }) {
             />
           </Field>
           <Field label={i18nText("ui.literals.k77064d526523")}>
-            <input
-              value={form.phone}
-              onChange={(event) => updateField("phone", event.target.value)}
-              maxLength={32}
-              placeholder="+232..."
-              className="h-12 w-full rounded-2xl bg-slate-100 px-4 text-sm font-bold text-slate-900 outline-none focus:ring-2 focus:ring-sky-200"
+            <PhoneCountryField
+              country={phoneCountry}
+              phone={form.phone}
+              onCountryChange={(selected) => {
+                // A new code clears the digits so a number is never saved under the wrong country.
+                setPhoneCountry(getActiveCountryProfile(selected.iso2));
+                updateField("phone", "");
+              }}
+              onPhoneChange={(value) => updateField("phone", constrainCountryPhoneInput(value, phoneCountry, { international: true }))}
+              placeholder={getCountryPhoneHint(phoneCountry)}
             />
           </Field>
           <Field label={i18nText("ui.literals.k2e8a57cc5c47")} error={fieldErrors.websiteUrl}>

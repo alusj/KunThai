@@ -37,6 +37,9 @@ import {
 import { fetchTransportOperationBadgeState } from "../services/transportHeaderService";
 import { submitTransportSupportTicket } from "../services/bookingService";
 import { guardGuestAction } from "../../Backend/services/guestModeService";
+import { useAccountType } from "../../Backend/services/accountTypeService";
+import { haptics } from "../../Backend/services/feedbackService";
+import OpenBookingSheet from "./booking/OpenBookingSheet";
 import { subscribeNotificationSeen } from "../../Backend/services/notificationSeenStore";
 import { getNetworkStatus } from "../../Backend/services/networkService";
 import { showToast } from "../../Backend/services/toastService";
@@ -68,6 +71,11 @@ export default function Transport({
   userId = "",
 }) {
   useI18n();
+  // Personal accounts cannot register fleets/companies; their header slot
+  // holds the Open booking button instead (Business/Both get it in the middle
+  // of the dashboard cards).
+  const { canRegister, loading: accountTypeLoading } = useAccountType();
+  const [openBookingOpen, setOpenBookingOpen] = useState(false);
   const [registrationOpen, setRegistrationOpen] = useState(false);
   const [registrationType, setRegistrationType] = useState(null);
   const [companyRegistrationMode, setCompanyRegistrationMode] = useState("full");
@@ -179,7 +187,22 @@ export default function Transport({
     setOperatorDashboardOpen(true);
   }
 
+  // Registration of anything new needs a Business/Both account. Changes to a
+  // company that already exists (company workspace) are not registration.
+  function registrationBlocked(source = "") {
+    if (canRegister || source === "company-workspace") return false;
+    haptics.doubleShake("transport");
+    showToast("Business account needed", "info");
+    return true;
+  }
+
+  function openOpenBooking() {
+    if (guardGuestAction("book", "trip")) return;
+    setOpenBookingOpen(true);
+  }
+
   function openRegistrationChooser() {
+    if (registrationBlocked("transport-chooser")) return;
     setRegistrationSource("transport-chooser");
     setRegistrationType(null);
     setRegistrationOpen(true);
@@ -190,6 +213,7 @@ export default function Transport({
   }
 
   function openSoloRegistration(source = "transport-chooser") {
+    if (registrationBlocked(source)) return;
     setRegistrationSource(source);
     setRegistrationType("solo");
     setRegistrationOpen(true);
@@ -200,6 +224,7 @@ export default function Transport({
   }
 
   function openCompanyRegistration(source = "transport-chooser", mode = "full") {
+    if (registrationBlocked(source)) return;
     setRegistrationSource(source);
     setCompanyRegistrationMode(mode);
     setRegistrationType("company");
@@ -1526,10 +1551,21 @@ export default function Transport({
     );
   }
 
+  // Where the Open booking button sits: in the header's registration slot for
+  // a Personal account without fleets or companies; otherwise in the middle of
+  // the dashboard cards. Nothing is shown until the accounts are known.
+  const hasTransportCompany = Boolean(companyAccount?.id || companyAccount?.companyName || companyAccount?.companyCode);
+  const transportAccountsLoading = operatorLoading || companyLoading || accountTypeLoading;
+  const openBookingInHeader = !transportAccountsLoading && !canRegister && !operatorAccount && !hasTransportCompany;
+  const openBookingInBody = !transportAccountsLoading && !openBookingInHeader;
+
   return renderWithAreaView(
     <div className={`${routeDirection === "backward" ? "kt-explore-stack-enter-left" : ""} kt-mobile-viewport bg-gray-50 relative`}>
       <Header
         active={active}
+        accountTypeLoading={accountTypeLoading}
+        openBookingInHeader={openBookingInHeader}
+        onOpenBooking={openOpenBooking}
         companyAccount={companyAccount}
         companyLoading={companyLoading}
         operatorAccount={operatorAccount}
@@ -1592,6 +1628,8 @@ export default function Transport({
       />
       <Body
         userId={userId}
+        showOpenBooking={openBookingInBody}
+        onOpenOpenBooking={openOpenBooking}
         onSelectFleetType={(mode, fleetType, label) => {
           setRouteDirection("forward");
           setFleetSelection({ mode, fleetType, label, includeOffline: true });
@@ -1641,6 +1679,15 @@ export default function Transport({
         />
       ) : null}
       {renderBookingDrawer()}
+      <OpenBookingSheet
+        open={openBookingOpen}
+        onClose={() => setOpenBookingOpen(false)}
+        onOpenTrips={() => {
+          setActiveTripsActionRequest(null);
+          setRouteDirection("forward");
+          setActiveTripsOpen(true);
+        }}
+      />
     </div>
   );
 }

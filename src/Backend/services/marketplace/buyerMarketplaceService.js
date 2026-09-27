@@ -660,7 +660,7 @@ export async function fetchBuyerMarketplaceProducts(filters = {}) {
     }
   }
   return cachedQuery(
-    `marketplace-products|${stableKey(filters)}|${localDiscoveryKey}`,
+    `marketplace-products|${getActiveCountryProfile(filters.country || filters.countryCode).iso2}|${stableKey(filters)}|${localDiscoveryKey}`,
     () => loadBuyerMarketplaceProducts(filters),
     BUYER_DISCOVERY_TTL_MS,
   );

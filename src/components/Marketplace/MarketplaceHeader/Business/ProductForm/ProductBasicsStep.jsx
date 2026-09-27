@@ -100,12 +100,6 @@ export default function ProductBasicsStep({ productForm }) {
         </ProductFormField>
       </div>
 
-      <div className="rounded-xl border border-blue-100 bg-blue-50 p-4">
-        <p className="text-sm font-black text-blue-900">{t("urmall.biz.pform.detailsNextTitle")}</p>
-        <p className="mt-1 text-sm font-semibold leading-6 text-blue-700">
-          {t("urmall.biz.pform.detailsNextHint")}
-        </p>
-      </div>
       <div className="grid gap-4 sm:grid-cols-2">
         <ProductFormField label={t("urmall.biz.pform.brandOptional")}>
           <ProductFormInput

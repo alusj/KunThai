@@ -9,6 +9,8 @@ import {
   pickDeviceContactNumbers,
 } from "../../../../../Backend/services/contactMatchService";
 import Avatar from "../../../shared/Avatar";
+import { CountryPickerButton } from "../../../../shared/PhoneCountryField";
+import { getActiveCountryProfile } from "../../../../../data/globalCountryProfiles";
 import { useI18n } from "../../../../../i18n";
 import { t as i18nText } from "../../../../../i18n/index";
 import { uiText as translateUi } from "../../../../../i18n/index.js";
@@ -27,6 +29,8 @@ export default function ImportContactsPanel({ onFollow, onViewProfile }) {
   const [error, setError] = useState("");
   const [results, setResults] = useState(null);
   const [connected, setConnected] = useState(() => new Set());
+  // Country for pasted local numbers; the placeholder shows its number format.
+  const [country, setCountry] = useState(() => getActiveCountryProfile());
 
   async function runMatch(numbers) {
     if (!numbers.length) {
@@ -37,7 +41,7 @@ export default function ImportContactsPanel({ onFollow, onViewProfile }) {
     setError("");
 
     try {
-      const matches = await matchContactsToKunThaiAccounts(numbers);
+      const matches = await matchContactsToKunThaiAccounts(numbers, { countryIso: country?.iso2 });
       setResults(matches);
       setExpanded(true);
     } catch (matchError) {
@@ -93,25 +97,34 @@ export default function ImportContactsPanel({ onFollow, onViewProfile }) {
       <AnimatePresence initial={false}>
         {expanded ? (
           <motion.div
-            initial={{ opacity: 0, height: 0 }}
-            animate={{ opacity: 1, height: "auto" }}
-            exit={{ opacity: 0, height: 0 }}
+            // Clip only while animating, so the country dropdown is not cut off.
+            initial={{ opacity: 0, height: 0, overflow: "hidden" }}
+            animate={{ opacity: 1, height: "auto", transitionEnd: { overflow: "visible" } }}
+            exit={{ opacity: 0, height: 0, overflow: "hidden" }}
             transition={{ duration: 0.25, ease: "easeOut" }}
-            className="overflow-hidden"
           >
             <div className="mt-2 rounded-[24px] border border-slate-200 bg-white p-4 shadow-sm">
               {!isContactPickerSupported() && results === null ? (
                 <div className="space-y-3">
-                  <label className="block">
+                  <div>
                     <span className="mb-2 block text-xs font-semibold uppercase tracking-[0.2em] text-slate-500">{t("importContacts.pasteLabel")}</span>
-                    <textarea
-                      value={pasted}
-                      onChange={(event) => setPasted(event.target.value)}
-                      rows={4}
-                      placeholder={"+232 76 000 000\n+234 803 000 0000"}
-                      className="w-full rounded-2xl border border-slate-200 bg-slate-50 px-4 py-3 text-sm font-semibold outline-none focus:border-sky-400"
-                    />
-                  </label>
+                    <div className="flex items-start gap-2">
+                      <div className="h-12 w-32 flex-none">
+                        <CountryPickerButton
+                          country={country}
+                          onCountryChange={(selected) => setCountry(getActiveCountryProfile(selected.iso2))}
+                        />
+                      </div>
+                      <textarea
+                        value={pasted}
+                        onChange={(event) => setPasted(event.target.value)}
+                        rows={4}
+                        placeholder={`${country?.placeholder || ""}\n${country?.placeholder || ""}`}
+                        aria-label={t("importContacts.pasteLabel")}
+                        className="min-w-0 flex-1 rounded-2xl border border-slate-200 bg-slate-50 px-4 py-3 text-sm font-semibold outline-none focus:border-sky-400"
+                      />
+                    </div>
+                  </div>
                   <button
                     type="button"
                     onClick={() => runMatch(parsePastedNumbers(pasted))}

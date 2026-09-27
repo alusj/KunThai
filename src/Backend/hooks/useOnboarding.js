@@ -35,7 +35,9 @@ export function useOnboarding(session) {
           setCheckedSessionId(session.id || "");
           resolved = true;
         }
-      } catch {
+      } catch (error) {
+        // Logged so a code error here can't hide as an endless loader.
+        console.warn("[KunThai onboarding] Account check failed; retrying.", error);
         // Keep the destination unresolved after a failed account lookup. An
         // incomplete auth-metadata fallback can incorrectly route an existing
         // UrMall/UrRide account into onboarding. Retry silently without

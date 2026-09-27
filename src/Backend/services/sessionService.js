@@ -153,6 +153,14 @@ export function consumeOAuthFlow() {
   return value;
 }
 
+// Reads the pending OAuth flow without clearing it (onboarding consumes it).
+export function peekOAuthFlow() {
+  if (typeof sessionStorage === "undefined") return null;
+  const value = safeParse(sessionStorage.getItem(OAUTH_FLOW_KEY), null);
+  if (!value?.provider || Date.now() - Number(value.startedAt || 0) > 30 * 60 * 1000) return null;
+  return value;
+}
+
 export function clearOAuthFlow() {
   if (typeof sessionStorage !== "undefined") sessionStorage.removeItem(OAUTH_FLOW_KEY);
 }

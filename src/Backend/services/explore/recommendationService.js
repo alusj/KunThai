@@ -40,6 +40,27 @@ function advertSupportsScope(post, scope) {
   return ["urfeed", "both"].includes(placement) && (!post.video_url || Boolean(post.image_url));
 }
 
+// The ranked-feed RPCs return a fixed column list without the actor fields,
+// so a Space post arrived looking like a personal post by the Space owner
+// (opening it showed the owner's profile). Fill them in from explore_posts.
+const ACTOR_COLUMNS = "id, actor_type, actor_id, space_id, actor_metadata";
+
+async function attachPostActors(posts = []) {
+  const ids = posts.filter((post) => post?.id && !("actor_type" in post)).map((post) => post.id);
+  if (!ids.length) return posts;
+
+  const { data, error } = await supabase.from("explore_posts").select(ACTOR_COLUMNS).in("id", ids);
+  if (error || !data?.length) return posts;
+
+  const actorsById = new Map(data.map((row) => [row.id, row]));
+  return posts.map((post) => {
+    const actor = actorsById.get(post.id);
+    if (!actor) return post;
+    const { id: _id, ...fields } = actor;
+    return { ...post, ...fields };
+  });
+}
+
 async function attachDedicatedAdvertisements(posts, scope, userId) {
   try {
     const hydratedPosts = await hydrateOwnedExploreAdverts(posts, userId);
@@ -97,7 +118,7 @@ export async function fetchRecommendedExplorePosts(scope = "feed", options = {})
   }
 
   if (!error) {
-    const recommended = (data || []).map((post) => markRecommendedPost(post, scope));
+    const recommended = await attachPostActors((data || []).map((post) => markRecommendedPost(post, scope)));
     return attachDedicatedAdvertisements(recommended, scope, userId);
   }
 

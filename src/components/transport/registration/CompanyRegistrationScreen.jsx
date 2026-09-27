@@ -1326,7 +1326,7 @@ function CompanyIdentityStep({ documentRequirements = [], errors = {}, form, onC
           value={form.phone}
           onChange={(value) => onChange("phone", constrainCountryPhoneInput(value, countryProfile, { international: true }))}
           placeholder={getCountryPhoneHint(countryProfile)}
-          helper={phoneValidation.valid ? t("urride.companyReg.phoneHelper", { country: countryProfile.name, dial: countryProfile.dialCode, placeholder: countryProfile.placeholder }) : phoneValidation.message}
+          helper={phoneValidation.valid ? undefined : phoneValidation.message}
           error={errors.phone}
         />
         <FormInput label={t("urride.companyReg.emailLabel")} type="email" value={form.email} onChange={(value) => onChange("email", value)} placeholder={t("urride.companyReg.emailPlaceholder")} />

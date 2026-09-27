@@ -260,16 +260,18 @@ export default function MyBizMenu({
 
               <div className="space-y-5 px-4 pt-5">
                 <SellerDrawerSection title={t("urmall.biz.menu.sectionManageStore")}>
-                    <SellerDrawerNavItem
-                      icon={Plus}
-                      title={t("urmall.biz.menu.addBusinessTitle")}
-                      badge={addBusinessPlanLabel}
-                      description={t("urmall.biz.menu.addBusinessDesc")}
-                      onClick={() => {
-                        closeDrawer();
-                        onAddBusiness?.();
-                      }}
-                    />
+                    {onAddBusiness ? (
+                      <SellerDrawerNavItem
+                        icon={Plus}
+                        title={t("urmall.biz.menu.addBusinessTitle")}
+                        badge={addBusinessPlanLabel}
+                        description={t("urmall.biz.menu.addBusinessDesc")}
+                        onClick={() => {
+                          closeDrawer();
+                          onAddBusiness();
+                        }}
+                      />
+                    ) : null}
                     {canAccessDashboard ? (
                       <SellerDrawerNavItem
                         icon={LayoutDashboard}

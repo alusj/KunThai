@@ -19,6 +19,8 @@ import {
 
 import AppBackTab from "../../shared/AppBackTab.jsx";
 import AppPortal from "../../shared/AppPortal";
+import CountryRegionSettings from "../../shared/regions/CountryRegionSettings";
+import AccountTypeSettings from "../../shared/AccountTypeSettings";
 import { SlidePanel, useSlidePanel } from "../../shared/SlideTransition";
 import useBodyScrollLock from "../../shared/useBodyScrollLock";
 import SavedAddressBook from "../../shared/savedAddresses/SavedAddressBook";
@@ -1166,6 +1168,9 @@ function TransportSettingsPage() {
           onChange={() => updateSettings({ savedPlaceSuggestions: !settings.savedPlaceSuggestions })}
         />
       </section>
+
+      <CountryRegionSettings />
+      <AccountTypeSettings />
 
       <section className="grid gap-3 rounded-2xl border border-gray-200 bg-white p-4 shadow-sm">
         <label className="space-y-1">

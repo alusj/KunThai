@@ -7,6 +7,7 @@ import {
   subscribeNotificationSeen,
 } from "../../../Backend/services/notificationSeenStore";
 import { guardGuestAction } from "../../../Backend/services/guestModeService";
+import { useAccountType } from "../../../Backend/services/accountTypeService";
 import { useI18n } from "../../../i18n";
 import { fetchBuyerMessages, fetchBuyerOrders } from "../../../Backend/services/marketplace/buyerMarketplaceService";
 import PremiumHeader, { PremiumHeaderButton } from "../../shared/PremiumHeader";
@@ -44,6 +45,7 @@ export default function MarketplaceHeader({
 }) {
   const { t } = useI18n();
   const { loading, hasBusiness } = useSellerBusinessStatus();
+  const { canRegister, loading: accountTypeLoading } = useAccountType();
   const [orderItems, setOrderItems] = useState([]);
   const [messageItems, setMessageItems] = useState([]);
   const [notificationCount, setNotificationCount] = useState(0);
@@ -156,7 +158,9 @@ export default function MarketplaceHeader({
       title="UrMall"
       className="z-20"
       left={(
-        loading ? (
+        // A Personal account never sees "Register business"; an existing
+        // workspace (owned or administered) always stays reachable.
+        !loading && !hasBusiness && !accountTypeLoading && !canRegister ? null : loading || (!hasBusiness && accountTypeLoading) ? (
           <div
             className="kt-premium-icon-button kt-premium-icon-button-square kt-startup-shimmer rounded-2xl border-slate-200 bg-slate-200/70"
             data-loading-region="seller-entry"

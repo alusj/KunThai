@@ -40,6 +40,12 @@ export function normalizeIdentityTarget(target, fallbackType = PROFILE_IDENTITY_
     return { type: fallbackType, id: target, key: target ? `${fallbackType}:${target}` : "" };
   }
 
+  // Already normalized ({type, id, key}): pass through. Re-normalizing it
+  // dropped `type`, so a Space identity silently became a person.
+  if (target.type && target.id && target.key === `${target.type}:${target.id}`) {
+    return { type: target.type, id: target.id, key: target.key };
+  }
+
   const type = target.identityType || target.actorType || target.targetType || (target.spaceId || target.target_space_id ? SPACE_IDENTITY_TYPE : fallbackType);
   const id =
     target.identityId ||

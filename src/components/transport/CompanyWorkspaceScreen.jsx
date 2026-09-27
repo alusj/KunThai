@@ -1079,7 +1079,7 @@ export default function CompanyWorkspaceScreen({ company, initialTab = "Overview
             canManage={canManageFleets || access.isOwner}
             company={company}
             fleet={fleetAction}
-            onAssignOperator={canAddOperators && fleetAction?.serviceCategory !== "Rental" ? () => {
+            onAssignOperator={canAddOperators && canInviteOperatorToFleet(fleetAction) ? () => {
               setInvitationFleet(fleetAction);
               setFleetAction(null);
             } : undefined}
@@ -1873,6 +1873,14 @@ function ReadinessItem({ label, ready }) {
       <span className="text-sm font-black text-slate-700">{translateUi(label)}</span>
     </div>
   );
+}
+
+// "Invite operator" is only for a fleet that has no operator yet and is offline.
+// A fleet with an operator (or one that is live) is managed, not re-staffed.
+function canInviteOperatorToFleet(fleet) {
+  if (!fleet || fleet.serviceCategory === "Rental") return false;
+  if (getFleetAssignedOperator(fleet)) return false;
+  return String(fleet.activeStatus || "").toLowerCase() !== "active";
 }
 
 function getFleetAssignedOperator(fleet = {}) {

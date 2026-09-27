@@ -121,8 +121,9 @@ export default function ProfileHeaderCard({
   const creditMenuPanelRef = useRef(null);
   const socialLinks = normalizeSocialLinks(values.socialLinks).filter((link) => link.url);
   const coverStyle = getCoverStyle(values.coverUrl);
-  const publicUserId = getKunThaiPublicUserId(values);
   const isSpace = values.identityType === "space" || values.accountType === "space" || values.isSpace;
+  // A Space's ID comes from the Space itself, never from its owner's account.
+  const publicUserId = isSpace && values.spaceId ? getKunThaiPublicUserId({ id: values.spaceId }) : getKunThaiPublicUserId(values);
   // Spaces have their own wallet too; sending and buying stay personal-only.
   const showVisibilityCredits = editable && creditWallet;
 

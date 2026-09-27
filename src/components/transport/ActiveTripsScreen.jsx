@@ -304,9 +304,9 @@ function TripCard({ trip, onOpenActions, onCancel, onConfirmStart, onDeclineStar
         <div className="min-w-0">
           <p className="text-xs font-bold uppercase tracking-wide text-green-700">{t("urride.activeTrips.bookByLine", { mode: trip.mode, method: trip.bookingMethod })}</p>
           <h2 className="mt-1 text-lg font-black text-gray-950">{trip.title}</h2>
-          <p className="mt-1 text-sm font-semibold text-gray-600">{t("urride.activeTrips.statusStage", { status: trip.status, stage: trip.stage })}</p>
+          <p className="mt-1 text-sm font-semibold text-gray-600">{t("urride.activeTrips.statusStage", { status: trip.status, stage: translateUi(trip.stage) })}</p>
         </div>
-        <span className={`shrink-0 rounded-full px-3 py-1 text-xs font-bold ${statusTone}`}>{trip.stage}</span>
+        <span className={`shrink-0 rounded-full px-3 py-1 text-xs font-bold ${statusTone}`}>{translateUi(trip.stage)}</span>
       </div>
 
       <TripProgress step={trip.step} />

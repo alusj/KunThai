@@ -1,7 +1,7 @@
 import { forwardRef, useEffect, useMemo, useRef, useState } from "react";
 import { FaApple, FaFacebookF } from "react-icons/fa";
 import { FcGoogle } from "react-icons/fc";
-import { Eye, EyeOff, Globe2, ShieldAlert } from "lucide-react";
+import { Eye, EyeOff, Globe2, ShieldAlert, UserPlus } from "lucide-react";
 
 import supabase from "./Backend/lib/supabaseClient";
 import { consumeAuthIntent, enterGuestMode } from "./Backend/services/guestModeService";
@@ -15,6 +15,7 @@ import {
   updateAccountPassword,
   verifyPhoneOtp,
   verifyPhoneRecoveryOtp,
+  WHATSAPP_OTP_ENABLED,
 } from "./Backend/services/authService";
 import {
   clearOtpRequests,
@@ -23,6 +24,7 @@ import {
   registerOtpRequest,
 } from "./Backend/services/otpRequestGuardService";
 import LastOtpNoticeCard from "./components/auth/LastOtpNoticeCard";
+import OtpSmsFallbackButton from "./components/auth/OtpSmsFallbackButton";
 import { GLOBAL_COUNTRY_CODES } from "./data/globalCountryCodes";
 import {
   constrainCountryPhoneInput,
@@ -31,6 +33,7 @@ import {
 import {
   clearOAuthFlow,
   consumeSwitchAccountPrefill,
+  peekOAuthFlow,
   rememberOAuthFlow,
 } from "./Backend/services/sessionService";
 import {
@@ -41,11 +44,13 @@ import {
 import {
   isNativePlatform,
   OAUTH_SETTLED_EVENT,
+  providerQueryParams,
   startNativeOAuth,
 } from "./Backend/services/nativeOAuthService";
 import FindAccountModal from "./components/auth/FindAccountModal";
 import { t as i18nText } from "./i18n/index";
 import { inlineErrorMessage } from "./Backend/services/friendlyErrorService";
+import { takeOAuthReturnFailure } from "./Backend/services/oauthReturnService";
 import { uiText as translateUi, useI18n as useUiLocale } from "./i18n/index.js";
 
 function AuthMessage({ tone = "info", children }) {
@@ -263,6 +268,9 @@ function PhoneAccountInput({ country, value, onCountryChange, onValueChange }) {
   );
 }
 
+const isInvalidCredentialsError = (error) =>
+  error?.code === "invalid_credentials" || /invalid login credentials/i.test(String(error?.message || ""));
+
 const normalizePhoneDigits = (value, country) => {
   if (!country) return "";
   const digits = value.replace(/\D/g, "");
@@ -380,6 +388,8 @@ export default function Login() {
   const [phoneNumber, setPhoneNumber] = useState("");
   const [pendingPhone, setPendingPhone] = useState("");
   const [otpCode, setOtpCode] = useState("");
+  // When the current phone code was sent; drives the "Send by SMS" fallback.
+  const [otpSentAt, setOtpSentAt] = useState(0);
   const [password, setPassword] = useState("");
   const [confirmPassword, setConfirmPassword] = useState("");
 
@@ -388,6 +398,8 @@ export default function Login() {
   const [message, setMessage] = useState("");
   const [error, setError] = useState("");
   const [phoneConflict, setPhoneConflict] = useState(false);
+  // Sign-in with a number that has no KunThai account: offer sign-up instead.
+  const [noAccountNumber, setNoAccountNumber] = useState("");
   const [recoveryOpen, setRecoveryOpen] = useState(false);
   const [recoveryPhone, setRecoveryPhone] = useState("");
 
@@ -417,6 +429,22 @@ export default function Login() {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
+  // Web: a social sign-in that failed on the way back (provider/Supabase error,
+  // or a code that could not be exchanged) used to drop the person silently on
+  // this screen. Say what went wrong instead.
+  useEffect(() => {
+    let active = true;
+    const flow = peekOAuthFlow();
+    takeOAuthReturnFailure(supabase, flow?.provider).then((failure) => {
+      if (!active || !failure) return;
+      clearOAuthFlow();
+      setError(failure);
+    });
+    return () => {
+      active = false;
+    };
+  }, []);
+
   // Native OAuth completes asynchronously through the deep-link callback. This
   // listener releases the provider button and surfaces provider/cancel errors;
   // on success the auth-state change routes away from Login on its own.
@@ -440,6 +468,7 @@ export default function Login() {
     setError("");
     setMessage("");
     setPhoneConflict(false);
+    setNoAccountNumber("");
   }
 
   function handleCountryChange(country) {
@@ -484,9 +513,7 @@ export default function Login() {
         provider,
         options: {
           redirectTo,
-          queryParams: provider === "google"
-            ? { prompt: intent === "signup" ? "select_account consent" : "select_account" }
-            : undefined,
+          queryParams: providerQueryParams(provider, intent),
         },
       });
 
@@ -547,6 +574,20 @@ export default function Login() {
       setForgotAvailable(false);
       setMessage(t("auth.msgWelcomeBack"));
     } catch (err) {
+      // New people often try "Log in" first. When the number has no account,
+      // say so and offer sign-up instead of "Invalid login credentials". The
+      // signup preflight is the existence check (phone_exists = registered).
+      if (isInvalidCredentialsError(err)) {
+        const registered = await checkKunThaiIdentityAvailability({ phone: authPhone, country: selectedCountry })
+          .then(() => false)
+          .catch((lookupError) => (isPhoneAlreadyLinkedError(lookupError) ? true : null));
+        if (registered === false) {
+          // Shown above the button, which turns into "Sign up instead".
+          setNoAccountNumber(account);
+          return;
+        }
+      }
+
       setError(inlineErrorMessage(err, t("auth.errUnableSignIn")));
 
       // After more than one wrong password on a phone number that really has a
@@ -611,6 +652,7 @@ export default function Login() {
       const { error: otpError } = await requestPhonePasswordRecoveryOtp(recoveryActivePhone);
       if (otpError) throw otpError;
 
+      setOtpSentAt(Date.now());
       setRecoveryStep("otp");
       setMessage(t("auth.msgOtpSentConfirm", { phone: recoveryActivePhone }));
       if (guard.isSecond) setLastOtpNoticeOpen(true);
@@ -656,6 +698,7 @@ export default function Login() {
       const { error: otpError } = await requestPhonePasswordRecoveryOtp(recoveryActivePhone);
       if (otpError) throw otpError;
 
+      setOtpSentAt(Date.now());
       setMessage(t("auth.msgOtpResent"));
       if (guard.isSecond) setLastOtpNoticeOpen(true);
     } catch (err) {
@@ -696,6 +739,7 @@ export default function Login() {
 
       const guard = registerOtpRequest(signupPhone);
       setPendingPhone(signupPhone);
+      setOtpSentAt(Date.now());
       setSignupStep("otp");
       setMessage(t("auth.msgOtpSentVerify"));
       if (guard.isSecond) setLastOtpNoticeOpen(true);
@@ -748,6 +792,7 @@ export default function Login() {
         throw authError;
       }
 
+      setOtpSentAt(Date.now());
       setMessage(t("auth.msgOtpResent"));
       if (guard.isSecond) setLastOtpNoticeOpen(true);
     } catch (err) {
@@ -772,7 +817,10 @@ export default function Login() {
               country={selectedCountry}
               value={signInAccount}
               onCountryChange={handleCountryChange}
-              onValueChange={setSignInAccount}
+              onValueChange={(value) => {
+                setSignInAccount(value);
+                setNoAccountNumber("");
+              }}
             />
 
             <AuthPasswordInput
@@ -784,13 +832,52 @@ export default function Login() {
               required
             />
 
-            <button
-              type="submit"
-              disabled={isLoading}
-              className="min-h-12 w-full rounded-xl bg-blue-600 px-4 py-3 text-sm font-semibold text-white transition hover:bg-blue-700 disabled:opacity-60"
-            >
-              {loading ? t("auth.loggingIn") : t("auth.loginWithPhone")}
-            </button>
+            <div>
+              {/* Unregistered number: the notice opens above the button (pushing
+                  it down) and the button becomes "Sign up instead". */}
+              <div
+                className={`grid transition-[grid-template-rows] duration-300 ease-out motion-reduce:transition-none ${
+                  noAccountNumber ? "grid-rows-[1fr]" : "grid-rows-[0fr]"
+                }`}
+                aria-hidden={!noAccountNumber}
+              >
+                <div className="overflow-hidden">
+                  <div
+                    role={noAccountNumber ? "alert" : undefined}
+                    className={`mb-3 flex items-start gap-2.5 rounded-xl border border-amber-300/70 bg-amber-50 px-4 py-3 text-sm font-semibold text-amber-900 transition duration-300 ease-out motion-reduce:transition-none ${
+                      noAccountNumber ? "translate-y-0 opacity-100 delay-100" : "-translate-y-2 opacity-0"
+                    }`}
+                  >
+                    <UserPlus size={18} className="mt-0.5 shrink-0" aria-hidden="true" />
+                    <span>{t("auth.errNoAccountForNumber")}</span>
+                  </div>
+                </div>
+              </div>
+
+              {noAccountNumber ? (
+                <button
+                  type="button"
+                  onClick={() => {
+                    const number = noAccountNumber;
+                    switchMode("signup");
+                    setPhoneNumber(number);
+                  }}
+                  className="min-h-12 w-full rounded-xl bg-blue-600 px-4 py-3 text-sm font-semibold text-white transition hover:bg-blue-700"
+                >
+                  <span key="signup" className="kt-fade-up inline-block" style={{ animationDuration: "320ms", animationDelay: "160ms" }}>
+                    {t("auth.signUpInstead")}
+                  </span>
+                </button>
+              ) : (
+                <button
+                  type="submit"
+                  disabled={isLoading}
+                  className="min-h-12 w-full rounded-xl bg-blue-600 px-4 py-3 text-sm font-semibold text-white transition hover:bg-blue-700 disabled:opacity-60"
+                >
+                  {loading ? t("auth.loggingIn") : t("auth.loginWithPhone")}
+                </button>
+              )}
+            </div>
 
             {forgotAvailable ? (
               <button
@@ -879,7 +966,7 @@ export default function Login() {
             </h2>
 
             <p className="text-center text-sm text-slate-500">
-              {t("auth.otpSentTo", { phone: pendingPhone })}
+              {t(WHATSAPP_OTP_ENABLED ? "auth.otpSentToWhatsApp" : "auth.otpSentTo", { phone: pendingPhone })}
             </p>
 
             <AuthInput
@@ -910,6 +997,8 @@ export default function Login() {
             >
               {t("auth.resendOtp")}
             </button>
+
+            {WHATSAPP_OTP_ENABLED && <OtpSmsFallbackButton phone={pendingPhone} sentAt={otpSentAt} disabled={isLoading} />}
           </form>
         )}
 
@@ -971,7 +1060,7 @@ export default function Login() {
 
             <h2 className="text-center text-xl font-bold text-slate-900">{t("auth.confirmItsYouTitle")}</h2>
             <p className="text-center text-sm text-slate-500">
-              {t("auth.recoveryOtpSubtitle", { phone: recoveryActivePhone })}
+              {t(WHATSAPP_OTP_ENABLED ? "auth.recoveryOtpSubtitleWhatsApp" : "auth.recoveryOtpSubtitle", { phone: recoveryActivePhone })}
             </p>
 
             <AuthInput
@@ -1002,6 +1091,8 @@ export default function Login() {
             >
               {t("auth.resendOtp")}
             </button>
+
+            {WHATSAPP_OTP_ENABLED && <OtpSmsFallbackButton phone={recoveryActivePhone} sentAt={otpSentAt} disabled={isLoading} />}
           </form>
         )}
 

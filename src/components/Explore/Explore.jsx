@@ -33,6 +33,7 @@ import {
   readPostingNotice,
   writePostingNotice,
 } from "../../Backend/services/explore/postingProgressService";
+import { getIdentityKey } from "../../Backend/services/explore/identityService";
 import { cancelPendingVideoReviewJob, resumePendingVideoReviewJobs } from "../../Backend/services/explore/videoReviewService";
 import { EXPLORE_SETTINGS_EVENT, readExploreSettings } from "../../Backend/services/explore/preferencesService";
 import { getExplorePostTargetTab } from "../../Backend/services/explore/notificationTargetService";
@@ -112,6 +113,7 @@ export default function Explore({ active = true, onNavigateMain, onScreenModeCha
   const [profileError, setProfileError] = useState("");
   const [profileFetched, setProfileFetched] = useState(false);
   const [viewedProfile, setViewedProfile] = useState(null);
+  const loadedAccountIdRef = useRef("");
   const [messageRecipient, setMessageRecipient] = useState(null);
   const [messageRecipientOwnerId, setMessageRecipientOwnerId] = useState("");
   const [messageConversationActive, setMessageConversationActive] = useState(false);
@@ -426,6 +428,7 @@ export default function Explore({ active = true, onNavigateMain, onScreenModeCha
 }
 
     if (!authenticatedUser?.id) {
+      loadedAccountIdRef.current = "";
       setProfileOverride(null);
       setSpaceProfiles([]);
       setActiveIdentity({ type: "profile", id: "", key: "" });
@@ -438,10 +441,16 @@ export default function Explore({ active = true, onNavigateMain, onScreenModeCha
     setProfileOverride((current) => (current?.userId === authenticatedUser.id ? current : null));
     // Paint the remembered Spaces straight away; the fetch below replaces them.
     setSpaceProfiles(readCachedExploreSpaces(authenticatedUser.id));
-    setViewedProfile(null);
-    setMessageRecipient(null);
-    setMessageRecipientOwnerId("");
-    setMessageConversationActive(false);
+    // This effect also re-runs when auth settles or the language bundle
+    // arrives. Only a real account change may drop what is on screen, or an
+    // open Space/profile gets swapped for the viewer's own profile.
+    if (loadedAccountIdRef.current !== authenticatedUser.id) {
+      loadedAccountIdRef.current = authenticatedUser.id;
+      setViewedProfile(null);
+      setMessageRecipient(null);
+      setMessageRecipientOwnerId("");
+      setMessageConversationActive(false);
+    }
     setProfileLoading(true);
     setProfileFetched(false);
     setProfileError("");
@@ -688,7 +697,8 @@ export default function Explore({ active = true, onNavigateMain, onScreenModeCha
       fetchExploreSpace(spaceId)
         .then((spaceProfile) => {
           if (spaceProfile) {
-            setViewedProfile({ ...authorProfile, ...spaceProfile });
+            // Ignore a late answer once another profile has been opened.
+            setViewedProfile((current) => (current === authorProfile ? { ...authorProfile, ...spaceProfile } : current));
           }
         })
         .catch(() => {});
@@ -699,7 +709,7 @@ export default function Explore({ active = true, onNavigateMain, onScreenModeCha
       fetchExploreProfile(authorProfile.userId)
         .then((profileData) => {
           if (profileData) {
-            setViewedProfile({ ...authorProfile, ...profileData });
+            setViewedProfile((current) => (current === authorProfile ? { ...authorProfile, ...profileData } : current));
           }
         })
         .catch(() => {});
@@ -1349,13 +1359,29 @@ export default function Explore({ active = true, onNavigateMain, onScreenModeCha
     }
 
     if (screenKey === "ViewedProfile") {
+      // A viewed profile is "own" only when it is the identity currently in
+      // use. A Space is always shown like any other public profile (Feed and
+      // Swip only, no credits or management) unless the viewer is acting as
+      // that Space; owners/admins get a one-tap way to switch into it.
+      const viewedIsSpace = Boolean(viewedProfile?.spaceId || viewedProfile?.identityType === "space");
+      const viewedEditable = viewedIsSpace
+        ? Boolean(activeSpaceProfile && getIdentityKey(viewedProfile) === getIdentityKey(activeSpaceProfile))
+        : Boolean(viewedProfile?.userId && viewedProfile.userId === (personalProfile?.userId || currentUserId));
+      const managedSpace = viewedIsSpace && !viewedEditable
+        ? spaceProfiles.find((space) => space.spaceId === viewedProfile.spaceId
+          && space.membershipStatus === "active"
+          && (space.memberRole === "owner" || space.memberRole === "administrator"))
+        : null;
       return (
         <ProfileScreen
-          profile={viewedProfile || profile}
+          // Never fall back to the viewer's own profile: a viewed Space or
+          // person must not turn into "me" while it loads.
+          profile={viewedProfile}
           authProfile={authProfile}
           currentUserId={currentUserId}
           hideHeader
-          editable={viewedProfile?.userId === profile?.userId}
+          editable={viewedEditable}
+          managedSpace={managedSpace || null}
           loading={!viewedProfile}
           profileFetched={Boolean(viewedProfile)}
           onCreateSpace={() => openMenuScreen("CreateSpace")}

@@ -8,7 +8,9 @@ import FindAccountModal from "../auth/FindAccountModal";
 import {
   constrainCountryPhoneInput,
   getActiveCountryProfile,
+  getCountryFromInternationalPhone,
   getCountryPhoneHint,
+  getCountryProfile,
   storeCountryContext,
   validateCountryPhone,
   GLOBAL_COUNTRY_PROFILES,
@@ -139,8 +141,16 @@ export default function ProfileStep({ values, saving = false, error, errorCode =
   const phoneConflict = errorCode === PHONE_ALREADY_LINKED_CODE;
   const fullName = buildFullName(values);
   const previewName = fullName || values.displayName || t("onboarding.profile.yourName");
-  const countryProfile = getActiveCountryProfile(values.country);
-  const phoneValidation = validateCountryPhone(values.phone, countryProfile);
+  // Nothing is chosen for the person (as on the sign-up screen): the account
+  // country only once saved or picked, the phone's dial country only once
+  // picked or evident from a number already on the account.
+  const countryProfile = values.countryConfirmed ? getActiveCountryProfile(values.countryCode || values.country) : null;
+  const phoneCountry = values.phoneCountryCode
+    ? getCountryProfile(values.phoneCountryCode)
+    : getCountryFromInternationalPhone(values.phone, countryProfile);
+  const phoneValidation = phoneCountry
+    ? validateCountryPhone(values.phone, phoneCountry)
+    : { valid: false, message: t("auth.chooseCountryFirst") };
   const emailValue = values.email.trim();
   const emailValid = !emailValue || /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(emailValue);
 
@@ -150,8 +160,10 @@ export default function ProfileStep({ values, saving = false, error, errorCode =
     if (values.lastName.trim().length < 2) nextErrors.lastName = t("onboarding.profile.errLastName");
     if (!values.dateOfBirth) nextErrors.dateOfBirth = t("onboarding.profile.errDob");
     else if (isUnderage) nextErrors.dateOfBirth = t("onboarding.profile.errUnderage", { age: MINIMUM_AGE });
-    if (!values.phone.trim()) nextErrors.phone = t("onboarding.profile.errPhone");
+    if (!phoneCountry) nextErrors.phone = t("auth.chooseCountryFirst");
+    else if (!values.phone.trim()) nextErrors.phone = t("onboarding.profile.errPhone");
     else if (!phoneValidation.valid) nextErrors.phone = phoneValidation.message;
+    if (!countryProfile) nextErrors.country = t("auth.chooseCountry");
     if (emailValue && !emailValid) nextErrors.email = t("onboarding.profile.errEmail");
     if (values.username.trim().length < 3) nextErrors.username = t("onboarding.profile.errUsername");
     return nextErrors;
@@ -299,26 +311,36 @@ export default function ProfileStep({ values, saving = false, error, errorCode =
             <label className="block" data-field-error={fieldErrors.phone || phoneConflict ? "true" : undefined}>
               <span className="mb-2 block text-xs font-semibold uppercase tracking-[0.26em] text-slate-500">{t("onboarding.profile.phone")}</span>
               <PhoneCountryField
-                country={countryProfile}
+                country={phoneCountry}
                 phone={values.phone}
                 onCountryChange={(selected) => {
                   const selectedCountry = getActiveCountryProfile(selected.iso2);
                   clearFieldError(setFieldErrors, "phone");
                   // Match phone sign-in behavior: changing the dial country clears
                   // entered digits so a number is never submitted under the wrong code.
+                  // The account country follows only while it is still unchosen.
                   onChange({
-                    country: selectedCountry.name,
-                    countryCode: selectedCountry.iso2,
-                    currency: selectedCountry.currency.code,
+                    phoneCountryCode: selectedCountry.iso2,
                     phone: "",
+                    ...(countryProfile ? {} : {
+                      country: selectedCountry.name,
+                      countryCode: selectedCountry.iso2,
+                      currency: selectedCountry.currency.code,
+                      countryConfirmed: true,
+                    }),
                   });
+                  if (!countryProfile) {
+                    clearFieldError(setFieldErrors, "country");
+                    storeCountryContext(selectedCountry.iso2);
+                  }
                 }}
                 onPhoneChange={(value) => {
+                  if (!phoneCountry) return;
                   clearFieldError(setFieldErrors, "phone");
-                  onChange("phone", constrainCountryPhoneInput(value, countryProfile, { international: true }));
+                  onChange("phone", constrainCountryPhoneInput(value, phoneCountry, { international: true }));
                 }}
-                placeholder={getCountryPhoneHint(countryProfile)}
-                invalid={Boolean(phoneConflict || fieldErrors.phone || (!phoneValidation.valid && Boolean(values.phone)))}
+                placeholder={phoneCountry ? getCountryPhoneHint(phoneCountry) : ""}
+                invalid={Boolean(phoneConflict || fieldErrors.phone || (phoneCountry && !phoneValidation.valid && Boolean(values.phone)))}
               />
               {phoneConflict ? (
                 <span className="mt-2 block text-xs font-semibold text-rose-600" role="alert">
@@ -326,11 +348,11 @@ export default function ProfileStep({ values, saving = false, error, errorCode =
                 </span>
               ) : fieldErrors.phone ? (
                 <InlineFieldError message={translateUi(fieldErrors.phone)} />
-              ) : (
-                <span className={`mt-2 block text-xs font-semibold ${phoneValidation.valid || !values.phone ? "text-slate-500" : "text-rose-600"}`}>
-                  {phoneValidation.valid ? i18nText("ui.literals.k23576fc890bc", { value0: countryProfile.name, value1: countryProfile.dialCode, value2: countryProfile.placeholder }) : phoneValidation.message}
+              ) : phoneCountry && !phoneValidation.valid ? (
+                <span className={`mt-2 block text-xs font-semibold ${values.phone ? "text-rose-600" : "text-slate-500"}`}>
+                  {phoneValidation.message}
                 </span>
-              )}
+              ) : null}
               {phoneConflict ? (
                 <button
                   type="button"
@@ -383,32 +405,37 @@ export default function ProfileStep({ values, saving = false, error, errorCode =
               />
             </label>
 
-            <label className="block">
+            <label className="block" data-field-error={fieldErrors.country ? "true" : undefined}>
               <span className="mb-2 block text-xs font-semibold uppercase tracking-[0.26em] text-slate-500">{t("onboarding.profile.country")}</span>
               <select
-                value={countryProfile.name}
+                value={countryProfile?.iso2 || ""}
                 onChange={(event) => {
-                  const selectedCountry = getActiveCountryProfile(event.target.value);
+                  const selectedCountry = getCountryProfile(event.target.value);
+                  if (!selectedCountry) return;
+                  clearFieldError(setFieldErrors, "country");
                   storeCountryContext(selectedCountry.iso2);
+                  // The account country no longer rewrites the phone number: the
+                  // number keeps the dial country chosen beside it.
                   onChange({
                     country: selectedCountry.name,
                     countryCode: selectedCountry.iso2,
                     currency: selectedCountry.currency.code,
-                    // Re-prefix any digits already entered under the new dial code;
-                    // per-country length validation re-checks them on submit.
-                    phone: constrainCountryPhoneInput(values.phone, selectedCountry, { international: true }),
+                    countryConfirmed: true,
                   });
                 }}
-                className="w-full rounded-[20px] border border-slate-200 bg-slate-50 px-4 py-3 outline-none focus:border-sky-400"
+                aria-invalid={fieldErrors.country ? "true" : undefined}
+                className={`w-full rounded-[20px] border bg-slate-50 px-4 py-3 outline-none focus:border-sky-400 ${fieldErrors.country ? "border-rose-300" : "border-slate-200"} ${countryProfile ? "" : "text-slate-400"}`}
               >
+                <option value="" disabled>{t("auth.chooseCountry")}</option>
                 {GLOBAL_COUNTRY_PROFILES.map((country) => (
-                  <option key={country.iso2} value={country.name}>{country.name}</option>
+                  <option key={country.iso2} value={country.iso2}>{country.name}</option>
                 ))}
               </select>
+              <InlineFieldError message={translateUi(fieldErrors.country)} />
             </label>
           </div>
 
-          <MyRegionCard className="mt-5" country={countryProfile.iso2} />
+          {countryProfile ? <MyRegionCard className="mt-5" country={countryProfile.iso2} /> : null}
 
           <div className="mt-5">
             <span className="mb-2 block text-xs font-semibold uppercase tracking-[0.26em] text-slate-500">{t("onboarding.profile.socialProfiles")}</span>
@@ -468,14 +495,14 @@ export default function ProfileStep({ values, saving = false, error, errorCode =
               </p>
               <p className="flex items-center gap-2">
                 <Phone size={15} />
-                {values.phone || t("onboarding.profile.phoneNumberFallback", { dial: countryProfile.dialCode })}
+                {values.phone || (phoneCountry ? t("onboarding.profile.phoneNumberFallback", { dial: phoneCountry.dialCode }) : t("auth.phoneNumber"))}
               </p>
               <p className="flex items-center gap-2">
                 <MapPin size={15} />
                 {values.address || t("onboarding.profile.address")}
               </p>
               <p>
-                {values.city || t("onboarding.profile.city")}, {values.country || t("onboarding.profile.country")}
+                {values.city || t("onboarding.profile.city")}, {countryProfile?.name || t("onboarding.profile.country")}
               </p>
             </div>
 
@@ -511,7 +538,7 @@ export default function ProfileStep({ values, saving = false, error, errorCode =
 
       {findAccountOpen ? (
         <FindAccountModal
-          country={values.country}
+          country={phoneCountry?.iso2 || values.countryCode}
           phone={values.phone}
           redirectTo={typeof window !== "undefined" ? window.location.origin : undefined}
           onClose={() => setFindAccountOpen(false)}

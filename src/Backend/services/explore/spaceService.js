@@ -142,7 +142,10 @@ function toSpaceProfile(row = {}, membership = {}, fallbackUserId = "") {
     actorType: SPACE_IDENTITY_TYPE,
     actorId: spaceId,
     spaceId,
-    userId: fallbackUserId || row.owner_user_id || "",
+    // Only a member acts through the Space as themselves; for everyone else a
+    // Space belongs to its owner. Using the viewer's id here made a viewed
+    // Space look like the viewer's own profile (credits, "Switch back").
+    userId: (role && fallbackUserId) || row.owner_user_id || "",
     ownerUserId: row.owner_user_id || fallbackUserId || "",
     memberRole: role,
     membershipId: membership.id || "",

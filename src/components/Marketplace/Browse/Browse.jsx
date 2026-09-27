@@ -16,6 +16,7 @@ import {
   toggleSavedBuyerSeller,
 } from "../../../Backend/services/marketplace/buyerMarketplaceService";
 import { guardGuestAction } from "../../../Backend/services/guestModeService";
+import { getActiveCountryProfile } from "../../../data/globalCountryProfiles";
 import { readBrowseCatalogSnapshot, writeBrowseCatalogSnapshot } from "../../../Backend/services/marketplace/browseCatalogCache";
 import { showToast } from "../../../Backend/services/toastService";
 import { useI18n } from "../../../i18n";
@@ -88,7 +89,9 @@ function catalogHasProducts(catalog) {
 }
 
 function buildCatalogKey(filters) {
-  const normalized = cloneFilters(filters);
+  // The market is part of the key: after a country change the saved
+  // catalogue of the previous country must not paint.
+  const normalized = { ...cloneFilters(filters), market: getActiveCountryProfile().iso2 };
   return JSON.stringify(
     Object.keys(normalized)
       .sort()

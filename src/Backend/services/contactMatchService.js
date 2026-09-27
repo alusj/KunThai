@@ -25,13 +25,15 @@ export function parsePastedNumbers(text = "") {
     .slice(0, 100);
 }
 
-export async function matchContactsToKunThaiAccounts(phones = []) {
+// `countryIso`: the country local numbers (no "+") belong to. Defaults to the
+// person's stored country.
+export async function matchContactsToKunThaiAccounts(phones = [], { countryIso = "" } = {}) {
   const list = [...new Set(phones.filter(Boolean))].slice(0, 100);
   if (!list.length) return [];
 
   const { data, error } = await supabase.rpc("match_contacts_to_kunthai_accounts", {
     p_phones: list,
-    p_country_hint: readStoredCountryIso() || null,
+    p_country_hint: countryIso || readStoredCountryIso() || null,
   });
 
   if (error) throw new Error(error.message || "Unable to check your contacts right now.");

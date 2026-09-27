@@ -111,7 +111,7 @@ function getBookingRequirementMessage(form, mode) {
   return "";
 }
 
-function getBookingPickerLabels(kind, bookingMode) {
+export function getBookingPickerLabels(kind, bookingMode) {
   const isPickup = kind === "pickup";
   const label = isPickup
     ? t("urride.booking.pickerNounPickup")
@@ -1013,7 +1013,8 @@ function InfoLine({ icon, label, value }) {
 // (about two at a time, the rest scroll); typing raises the same accuracy
 // caution as every address field, and after "Enter manually" the map search
 // suggestions take over.
-function AddressSuggestionInput({ icon, label, value, selectedPoint, center, savedPlaces = [], onChange, onSelect, onLocateMe, onDropPin, placeholder }) {
+// Shared with the open-booking sheet.
+export function AddressSuggestionInput({ icon, label, value, selectedPoint, center, savedPlaces = [], onChange, onSelect, onLocateMe, onDropPin, placeholder }) {
   useUiLocale();
   const [focused, setFocused] = useState(false);
   const [searching, setSearching] = useState(false);
@@ -1197,7 +1198,7 @@ function AddressSuggestionInput({ icon, label, value, selectedPoint, center, sav
   );
 }
 
-function FormInput({ icon, label, value, onChange, placeholder }) {
+export function FormInput({ icon, label, value, onChange, placeholder }) {
   useUiLocale();
   return (
     <label className="space-y-1">

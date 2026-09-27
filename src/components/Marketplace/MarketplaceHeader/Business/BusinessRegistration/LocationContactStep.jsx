@@ -239,9 +239,11 @@ export default function LocationContactStep({ registration }) {
             placeholder={getCountryPhoneHint(countryProfile)}
             autoComplete="tel"
           />
-          <span className={`mt-2 block text-xs font-bold ${phoneValidation.valid || !form.location.phone ? "text-gray-500" : "text-red-600"}`}>
-            {phoneValidation.valid ? `${countryProfile.name}: ${countryProfile.dialCode} ${countryProfile.placeholder}` : phoneValidation.message}
-          </span>
+          {!phoneValidation.valid ? (
+            <span className={`mt-2 block text-xs font-bold ${form.location.phone ? "text-red-600" : "text-gray-500"}`}>
+              {phoneValidation.message}
+            </span>
+          ) : null}
         </RegistrationField>
         <RegistrationField label={t("urmall.biz.reg.bizEmail")} error={errors.email}>
           <RegistrationInput

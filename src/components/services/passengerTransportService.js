@@ -2,6 +2,7 @@ import supabase from "../../Backend/lib/supabaseClient";
 import { cachedQuery, invalidateCache } from "../../Backend/lib/queryCache";
 import { formatCountryMoney, getCountryCurrencyCode } from "../../data/globalCountryProfiles";
 import { fetchTransportFleetById } from "./transportFleetService";
+import { collapseOpenBookingTrips } from "./openBookingModels";
 
 const TRANSPORT_SAVED_PLACES_KEY = "kuntai.transport.savedPlaces";
 const TRANSPORT_ACTIVE_PLACE_KEY = "kuntai.transport.activePlace";
@@ -156,7 +157,7 @@ function formatTripStage(row) {
   if (row.eta_minutes) return `ETA ${row.eta_minutes} min`;
   if (row.status === "completed") return "Completed";
   if (row.status === "cancelled") return "Cancelled";
-  if (row.status === "requested") return "Sent to operator";
+  if (row.status === "requested") return row.open_booking_id ? "Sent to nearby operators" : "Sent to operator";
   if (row.status === "accepted") return "Operator accepted";
   if (row.status === "arrived") return "Operator arrived";
   if (row.status === "start_requested") return "Confirm trip start";
@@ -221,6 +222,7 @@ async function mapTrip(row, operatorContact = null) {
     mode: tripType === "delivery" ? "Delivery" : "Ride",
     title: row.title || (tripType === "delivery" ? "Delivery booking" : "Ride booking"),
     fleetId: row.fleet_id,
+    openBookingId: row.open_booking_id || "",
     status: formatStatusLabel(row.status),
     rawStatus: row.status || "",
     group: getTripGroup(row.status),
@@ -266,8 +268,9 @@ export async function fetchActiveTrips() {
     throw error;
   }
 
-  const contacts = await fetchTripOperatorContacts(data || []);
-  return Promise.all((data || []).map((trip) => mapTrip(trip, contacts.get(trip.id))));
+  const trips = collapseOpenBookingTrips(data || []);
+  const contacts = await fetchTripOperatorContacts(trips);
+  return Promise.all(trips.map((trip) => mapTrip(trip, contacts.get(trip.id))));
 }
 
 export async function fetchActiveTripCount({ force = false } = {}) {
@@ -277,14 +280,24 @@ export async function fetchActiveTripCount({ force = false } = {}) {
   return cachedQuery(
     `transport-dashboard:active-trip-count:${passengerId}`,
     async () => {
-      const { count, error } = await supabase
+      // One open booking is several request rows but counts as one trip.
+      const { data, error } = await supabase
         .from("transport_trips")
-        .select("id", { count: "exact", head: true })
+        .select("id, status, open_booking_id")
         .eq("passenger_id", passengerId)
         .in("status", pendingTripStatuses);
 
+      if (error && /open_booking_id/i.test(error.message || "")) {
+        const legacy = await supabase
+          .from("transport_trips")
+          .select("id", { count: "exact", head: true })
+          .eq("passenger_id", passengerId)
+          .in("status", pendingTripStatuses);
+        if (legacy.error) throw legacy.error;
+        return Number(legacy.count || 0);
+      }
       if (error) throw error;
-      return Number(count || 0);
+      return collapseOpenBookingTrips(data || []).length;
     },
     20_000,
     { force },
@@ -307,8 +320,9 @@ export async function fetchPassengerTrips() {
     throw error;
   }
 
-  const contacts = await fetchTripOperatorContacts(data || []);
-  return Promise.all((data || []).map((trip) => mapTrip(trip, contacts.get(trip.id))));
+  const trips = collapseOpenBookingTrips(data || []);
+  const contacts = await fetchTripOperatorContacts(trips);
+  return Promise.all(trips.map((trip) => mapTrip(trip, contacts.get(trip.id))));
 }
 
 export function subscribePassengerTrips(onChange) {

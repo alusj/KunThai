@@ -11,6 +11,7 @@ import TopRated from "./TopRated";
 import TourHistory from "./TourHistory";
 import Favorite from "./Favorite";
 import NearbyOperators from "./NearbyOperators";
+import OpenBookingCenterButton from "./OpenBookingCenterButton";
 import {
   fetchActiveTripCount,
   fetchSavedOperatorCount,
@@ -38,6 +39,8 @@ export default function Body({
   onViewCompany,
   onOpenBooking,
   onReportConcern,
+  onOpenOpenBooking,
+  showOpenBooking = false,
   userId = "",
 }) {
   useUiLocale();
@@ -169,13 +172,16 @@ export default function Body({
         <BookRide onSelectFleetType={onSelectFleetType} />
         <SendDelivery onSelectFleetType={onSelectFleetType} />
 
-        {/* Row 2 */}
-        <AreaView onClick={onOpenNearbyArea} />
-        <TopRated onClick={onOpenTopRated} count={summary.topRatedCount} loading={summary.loading} />
-
-        {/* Row 3 */}
-        <TourHistory onClick={onOpenActiveTrips} count={summary.activeTripsCount} loading={summary.loading} />
-        <Favorite onClick={onOpenSavedOperators} count={summary.savedOperatorsCount} loading={summary.loading} />
+        {/* Rows 2-3: four cards around the Open booking button (Business /
+            Both accounts). Each card clears the corner that faces the button
+            so no text or icon sits under it. */}
+        <div className="relative col-span-2 grid grid-cols-2 gap-3 sm:gap-5">
+          <AreaView onClick={onOpenNearbyArea} notch={showOpenBooking} />
+          <TopRated onClick={onOpenTopRated} count={summary.topRatedCount} loading={summary.loading} notch={showOpenBooking} />
+          <TourHistory onClick={onOpenActiveTrips} count={summary.activeTripsCount} loading={summary.loading} notch={showOpenBooking} />
+          <Favorite onClick={onOpenSavedOperators} count={summary.savedOperatorsCount} loading={summary.loading} notch={showOpenBooking} />
+          {showOpenBooking ? <OpenBookingCenterButton onClick={onOpenOpenBooking} /> : null}
+        </div>
 
       </div>
 

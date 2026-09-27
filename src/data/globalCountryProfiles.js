@@ -778,24 +778,36 @@ export function storeCountryContext(value) {
   return iso2;
 }
 
-export function detectBrowserCountryIso() {
-  if (typeof navigator === "undefined") return "";
-
-  const localeCandidates = [navigator.language, ...(navigator.languages || [])]
-    .filter(Boolean)
-    .map((locale) => String(locale).split("-").pop()?.toUpperCase())
-    .filter(Boolean);
-
-  return localeCandidates.find((candidate) => COUNTRY_BY_ISO.has(candidate)) || "";
-}
-
+// The browser's language region is deliberately NOT used as a country: most
+// English devices and desktop apps report "en-US" wherever they are, and
+// trusting it saved new Sierra Leone accounts as "United States", hiding every
+// local UrMall retail product. Until the person picks a country (sign-up,
+// Settings > Country / Region) or GPS confirms one, the default market applies.
 export function getActiveCountryProfile(value = "") {
   return (
     getCountryProfile(value) ||
     getCountryProfile(readStoredCountryIso()) ||
-    getCountryProfile(detectBrowserCountryIso()) ||
     getDefaultCountryProfile()
   );
+}
+
+// The dial country of an already-entered international number ("+232 99 …"),
+// or null. Several countries share a code (+1, +7, +44 …): the preferred
+// country wins when its code matches, otherwise the longest code does.
+export function getCountryFromInternationalPhone(phone = "", preferred = null) {
+  const digits = String(phone || "").trim().startsWith("+") ? String(phone).replace(/\D/g, "") : "";
+  if (!digits) return null;
+
+  const preferredProfile = preferred ? getCountryProfile(preferred) : null;
+  const preferredDial = preferredProfile?.dialCode.replace(/\D/g, "") || "";
+  if (preferredDial && digits.startsWith(preferredDial)) return preferredProfile;
+
+  let best = null;
+  for (const profile of GLOBAL_COUNTRY_PROFILES) {
+    const dial = profile.dialCode.replace(/\D/g, "");
+    if (dial && digits.startsWith(dial) && (!best || dial.length > best.dial.length)) best = { profile, dial };
+  }
+  return best?.profile || null;
 }
 
 export function getNearbyCountryProfiles(value = "") {
@@ -821,8 +833,11 @@ export function getCountryPhoneDigitCount(value = "") {
   return profile.maxLength;
 }
 
+// Placeholder for phone inputs. The country code is left out: it is shown by
+// the country picker, or added to the value automatically as the person types
+// (constrainCountryPhoneInput with { international: true }).
 export function getCountryPhoneHint(value = "") {
-  return getCountryPhonePlaceholder(value);
+  return getCountryPhonePlaceholder(value, { includeDialCode: false });
 }
 
 export function getCountryAddressPlaceholder(value = "") {

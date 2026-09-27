@@ -4,6 +4,7 @@ import { readStoredProfile, writeStoredProfile } from "./explore/profileStorage"
 import { normalizeSocialLinks } from "./explore/socialLinks";
 import { getActiveCountryProfile, storeCountryContext } from "../../data/globalCountryProfiles";
 import { consumeOAuthFlow } from "./sessionService";
+import { hasUsableReturningProfile } from "./returningProfileRules";
 import { getStoredVisibilityInviteCode } from "./visibilityCreditService";
 import {
   checkKunThaiIdentityAvailability,
@@ -53,6 +54,9 @@ export function buildProfileFromUser(user) {
     city: metadata.city ?? "",
     country: metadata.country || countryProfile.name,
     countryCode: metadata.country_code || countryProfile.iso2,
+    // False when country/countryCode above are only the device default (e.g. a
+    // new Google/Facebook account): onboarding then asks instead of guessing.
+    countryConfirmed: Boolean(metadata.country_code || metadata.country),
     currency: metadata.currency || countryProfile.currency.code,
     address: metadata.address ?? "",
     email: metadata.contact_email ?? user?.email ?? "",
@@ -119,22 +123,6 @@ function hasExplicitOnboardingState(user) {
   const metadata = user?.user_metadata ?? {};
   return Object.prototype.hasOwnProperty.call(metadata, "onboarding_complete") ||
     Object.prototype.hasOwnProperty.call(metadata, "onboarding_step");
-}
-
-function hasUsableReturningProfile(profile = {}) {
-  const displayName = String(profile.displayName || profile.display_name || "").trim();
-  const businessName = String(profile.businessName || profile.business_name || profile.name || "").trim();
-  const fullName = String(profile.fullName || profile.full_name || "").trim();
-  const username = String(profile.username || "").trim();
-  const email = String(profile.email || profile.contact_email || "").trim();
-
-  return Boolean(
-    (displayName && displayName.toLowerCase() !== "profile") ||
-      businessName ||
-      fullName ||
-      (username && username.toLowerCase() !== "user") ||
-      email,
-  );
 }
 
 function mergeExploreProfile(authProfile, row) {
@@ -504,6 +492,33 @@ export async function updateOnboardingProfile(patch) {
   }
 
   return profile;
+}
+
+export const ACCOUNT_COUNTRY_CHANGED_EVENT = "kunthai-account-country-changed";
+
+// Settings > Country / Region. Writes only the country keys (auth metadata is
+// merged), unlike updateOnboardingProfile, which re-normalizes the saved phone
+// number under the requested country.
+export async function saveAccountCountry(value) {
+  const profile = getActiveCountryProfile(value);
+  if (!profile?.iso2) throw new Error("Choose a country.");
+
+  const { data, error } = await withTimeout(
+    supabase.auth.updateUser({
+      data: { country: profile.name, country_code: profile.iso2, currency: profile.currency.code },
+    }),
+    "KunThai could not save your country. Please try again.",
+    12000,
+  );
+  if (error) throw error;
+
+  storeCountryContext(profile.iso2);
+  if (typeof window !== "undefined") {
+    window.dispatchEvent(new CustomEvent(ACCOUNT_COUNTRY_CHANGED_EVENT, { detail: { iso2: profile.iso2 } }));
+    // UrMall keeps per-session catalogues; drop them so the new market loads.
+    window.dispatchEvent(new CustomEvent("kunthai-urmall-retention-updated"));
+  }
+  return data?.user ? buildProfileFromUser(data.user) : null;
 }
 
 export async function markOnboardingComplete(profile) {

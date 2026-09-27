@@ -71,6 +71,7 @@ export default function ProfileScreen({
   hideHeader = false,
   loading = false,
   loadError = "",
+  managedSpace = null,
   onEditProfile,
   onCreateSpace,
   onOpenNotification,
@@ -423,6 +424,23 @@ export default function ProfileScreen({
               className="kt-pressable h-10 flex-none rounded-2xl bg-slate-950 px-4 text-sm font-black text-white"
             >
               {translateUi("Switch back")}
+            </button>
+          </section>
+        ) : null}
+        {/* Viewing a Space you own/administer from outside it: the page stays
+            public, with one tap to act as the Space and manage it. */}
+        {!editable && isSpace && managedSpace && typeof onSwitchIdentity === "function" ? (
+          <section className="flex items-center justify-between gap-3 rounded-[24px] border border-slate-200 bg-white p-3 shadow-sm">
+            <div className="min-w-0">
+              <p className="truncate text-sm font-black text-slate-950">{translateUi("You manage this Space")}</p>
+              <p className="truncate text-xs font-bold text-slate-500">{translateUi("Others see this public view")}</p>
+            </div>
+            <button
+              type="button"
+              onClick={() => onSwitchIdentity(managedSpace, { openProfile: true })}
+              className="kt-pressable h-10 flex-none rounded-2xl bg-slate-950 px-4 text-sm font-black text-white"
+            >
+              {translateUi("Manage")}
             </button>
           </section>
         ) : null}

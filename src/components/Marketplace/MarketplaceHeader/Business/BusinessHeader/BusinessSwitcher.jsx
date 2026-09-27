@@ -152,17 +152,20 @@ export default function BusinessSwitcher({ activeBusinessId, businesses = [], ad
                   );
                 })}
               </div>
-              <button
-                type="button"
-                onClick={() => {
-                  setOpen(false);
-                  onAddBusiness();
-                }}
-                className="mt-4 flex h-12 w-full items-center justify-center gap-2 rounded-2xl bg-gray-950 text-sm font-black text-white"
-              >
-                <Plus size={18} /> {t("urmall.biz.header.addAnotherBusiness")}
-                {addBusinessPlanLabel ? <span className="rounded-full bg-emerald-100 px-2 py-0.5 text-[10px] font-black uppercase text-emerald-900">{addBusinessPlanLabel}</span> : null}
-              </button>
+              {/* Absent for Personal accounts (no registration). */}
+              {onAddBusiness ? (
+                <button
+                  type="button"
+                  onClick={() => {
+                    setOpen(false);
+                    onAddBusiness();
+                  }}
+                  className="mt-4 flex h-12 w-full items-center justify-center gap-2 rounded-2xl bg-gray-950 text-sm font-black text-white"
+                >
+                  <Plus size={18} /> {t("urmall.biz.header.addAnotherBusiness")}
+                  {addBusinessPlanLabel ? <span className="rounded-full bg-emerald-100 px-2 py-0.5 text-[10px] font-black uppercase text-emerald-900">{addBusinessPlanLabel}</span> : null}
+                </button>
+              ) : null}
       </CenteredModal>
     </>
   );
