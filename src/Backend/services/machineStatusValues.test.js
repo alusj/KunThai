@@ -22,7 +22,9 @@ test("no status value is passed through a translation function", () => {
   const offenders = [];
   for (const file of sourceFiles(SRC)) {
     const code = readFileSync(file, "utf8");
-    const pattern = /\bstatus:\s*(i18nText|translateUi|uiText)\(/g;
+    // Object values (status: t(...)) and state setters (setStatus(t(...))):
+    // PlanFeatureGate once stored "débloqué" and never matched "unlocked".
+    const pattern = /\b(status:\s*|setStatus\()(i18nText|translateUi|uiText)\(/g;
     const rel = relative(SRC, file).split(sep).join("/");
     // NearbyAreaMap's GPS "status" is on-screen text ("Showing Freetown"), not a value.
     if (rel === "components/transport/area/NearbyAreaMap.jsx") continue;

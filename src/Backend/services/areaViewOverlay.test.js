@@ -5,6 +5,7 @@ import test from "node:test";
 const transportSource = readFileSync(new URL("../../components/transport/Transport.jsx", import.meta.url), "utf8");
 const nearbyAreaSource = readFileSync(new URL("../../components/transport/NearbyAreaScreen.jsx", import.meta.url), "utf8");
 const emergencySource = readFileSync(new URL("../../components/emergency/EmergencySheet.jsx", import.meta.url), "utf8");
+const cautionSheetSource = readFileSync(new URL("../../components/transport/shared/TransportCautionSheet.jsx", import.meta.url), "utf8");
 
 test("every Area View entrance mounts at the document overlay root", () => {
   assert.match(transportSource, /createPortal\([\s\S]*document\.body/);
@@ -14,8 +15,11 @@ test("every Area View entrance mounts at the document overlay root", () => {
 
 test("Nearby Area guidance and emergency help float over the map without adding layout height", () => {
   assert.match(nearbyAreaSource, /presentation="map"/);
-  assert.match(nearbyAreaSource, /pointer-events-none absolute inset-0 z-\[80\]/);
-  assert.match(nearbyAreaSource, /h-\[82dvh\] max-h-\[82dvh\]/);
+  // The first-use guide renders like the booking drawer (full height, pinned
+  // footer) inside the map layer, never as a partial-height bottom sheet.
+  assert.match(nearbyAreaSource, /<TransportCautionSheet\s+positioning="absolute"\s+zIndexClass="z-\[80\]"/);
+  assert.doesNotMatch(nearbyAreaSource, /h-\[82dvh\]/);
+  assert.match(cautionSheetSource, /<footer className="shrink-0/);
   assert.match(emergencySource, /pointer-events-none absolute inset-0 z-\[90\]/);
   assert.match(emergencySource, /h-\[75dvh\] max-h-\[75dvh\]/);
 });

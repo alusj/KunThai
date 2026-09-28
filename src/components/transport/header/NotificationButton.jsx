@@ -29,6 +29,9 @@ import { runNotificationAction } from "../../../Backend/services/notificationBan
 import { t as i18nText } from "../../../i18n/index";
 import { uiText as translateUi, useI18n as useUiLocale } from "../../../i18n/index.js";
 import { inlineErrorMessage } from "../../../Backend/services/friendlyErrorService";
+import { showToast } from "../../../Backend/services/toastService";
+
+let lastAnnouncedUnread = 0;
 
 export default function NotificationButton({ companyAccount, openRequest = 0, operatorAccount, onOpenChange, onUnreadCountChange, onViewFleet, onViewTrip }) {
   useI18n();
@@ -91,6 +94,24 @@ export default function NotificationButton({ companyAccount, openRequest = 0, op
   useEffect(() => {
     onUnreadCountChange?.(unreadCount);
   }, [onUnreadCountChange, unreadCount]);
+
+  // New unread alerts are announced once with a toast (the bell badge keeps
+  // the count) instead of a pill that stayed pinned under the bell. The last
+  // announced count is module-level so re-entering UrRide doesn't repeat it.
+  useEffect(() => {
+    if (open) {
+      lastAnnouncedUnread = 0;
+      return;
+    }
+    if (unreadCount > lastAnnouncedUnread) {
+      showToast("New notification", "info", {
+        title: t("urride.notifications.eyebrow"),
+        actionLabel: t("common.open"),
+        onAction: () => setOpen(true),
+      });
+    }
+    lastAnnouncedUnread = unreadCount;
+  }, [open, unreadCount]);
 
   useEffect(() => subscribeNotificationSeen(() => refreshNotifications({ quiet: true })), [refreshNotifications]);
 
@@ -192,16 +213,6 @@ export default function NotificationButton({ companyAccount, openRequest = 0, op
           onClick={() => setOpen(true)}
           title={t("urride.notifications.button")}
         />
-        {unreadCount > 0 && !open ? (
-          <button
-            type="button"
-            onClick={() => setOpen(true)}
-            className="absolute right-0 top-[calc(100%+0.55rem)] z-50 w-40 rounded-xl border border-emerald-100 bg-white px-3 py-2 text-left text-xs font-black text-slate-700 shadow-xl shadow-slate-900/10"
-          >
-            {t("urride.notifications.new")}
-            <span className="absolute -top-1 right-5 h-3 w-3 rotate-45 border-l border-t border-emerald-100 bg-white" />
-          </button>
-        ) : null}
       </div>
 
       <AppPortal>

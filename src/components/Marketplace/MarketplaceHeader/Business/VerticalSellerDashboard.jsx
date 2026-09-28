@@ -1,6 +1,6 @@
-import { useCallback, useEffect, useMemo, useRef, useState } from "react";
+import { createContext, useCallback, useContext, useEffect, useMemo, useRef, useState } from "react";
 import { createPortal } from "react-dom";
-import { BarChart3, Bath, BedDouble, CalendarDays, Clock3, Copy, Film, Hotel, House, LoaderCircle, MapPin, MessageCircle, MoreVertical, PackageCheck, Pencil, Plus, Rocket, Share2, Star, ToggleLeft, ToggleRight, Trash2, UtensilsCrossed, X } from "lucide-react";
+import { BarChart3, Bath, BedDouble, CalendarDays, Clock3, Copy, Film, Hotel, House, LoaderCircle, Lock, MapPin, MessageCircle, MoreVertical, PackageCheck, Pencil, Plus, Rocket, Share2, Star, ToggleLeft, ToggleRight, Trash2, UtensilsCrossed, X } from "lucide-react";
 
 import {
   fetchHotelWorkspace,
@@ -32,6 +32,8 @@ import { createEmptyVerticalMedia } from "../../../../Backend/services/marketpla
 import { consumePendingVerticalEditor, subscribeVerticalEditor } from "../../../../Backend/services/marketplace/verticalEditorBus";
 import VerticalMediaFields from "./VerticalMediaFields";
 import ProductInsightsScreen from "./BusinessCatalog/ProductInsightsScreen";
+import PlanFeatureGate from "../../../shared/PlanFeatureGate";
+import { t as i18nText } from "../../../../i18n/index";
 import AddressLocationField from "../../../shared/AddressLocationField";
 import ListingUploadProgressCard from "../../shared/ListingUploadProgressCard";
 import useBodyScrollLock from "../../../shared/useBodyScrollLock";
@@ -131,15 +133,22 @@ function useVerticalActivity(businessId) {
   return activity;
 }
 
-export default function VerticalSellerDashboard({ business, canManage = true, initialWorkspace = null }) {
+// Listing insights are a Pro feature on every UrMall business kind, exactly
+// like retail: the "..." menu shows a Pro badge while locked and the insights
+// sheet renders behind PlanFeatureGate (which fails open if plans are down).
+const VerticalPlanContext = createContext({ plansEnabled: false, insightsLocked: false, onOpenPlans: null });
+
+export default function VerticalSellerDashboard({ business, canManage = true, initialWorkspace = null, plansEnabled = false, insightsLocked = false, onOpenPlans = null }) {
   useI18n();
+  const plan = useMemo(() => ({ plansEnabled, insightsLocked, onOpenPlans }), [insightsLocked, onOpenPlans, plansEnabled]);
   if (!business?.id) return null;
   // The key makes same-category business switches hydrate from that business's
   // own cache on the first render instead of briefly retaining the prior store.
-  if (business.kind === "restaurant") return <RestaurantDashboard key={business.id} business={business} canManage={canManage} initialWorkspace={initialWorkspace} />;
-  if (business.kind === "hotel") return <HotelDashboard key={business.id} business={business} canManage={canManage} initialWorkspace={initialWorkspace} />;
-  if (business.kind === "property_agent") return <PropertyDashboard key={business.id} business={business} canManage={canManage} initialWorkspace={initialWorkspace} />;
-  return null;
+  let dashboard = null;
+  if (business.kind === "restaurant") dashboard = <RestaurantDashboard key={business.id} business={business} canManage={canManage} initialWorkspace={initialWorkspace} />;
+  else if (business.kind === "hotel") dashboard = <HotelDashboard key={business.id} business={business} canManage={canManage} initialWorkspace={initialWorkspace} />;
+  else if (business.kind === "property_agent") dashboard = <PropertyDashboard key={business.id} business={business} canManage={canManage} initialWorkspace={initialWorkspace} />;
+  return dashboard ? <VerticalPlanContext.Provider value={plan}>{dashboard}</VerticalPlanContext.Provider> : null;
 }
 
 function WorkspaceShell({ children, icon: Icon, eyebrow, title, subtitle, stats = [] }) {
@@ -270,7 +279,7 @@ function RestaurantDashboard({ business, canManage = true, initialWorkspace = nu
         <RestaurantForm formId="restaurant-meal-form" form={form} setForm={setForm} onSubmit={save} />
       </VerticalEditorSheet>
       {promoteItem ? <VerticalPromoteSheet listingType="meal" listing={promoteItem} onClose={() => setPromoteItem(null)} onPromoted={load} /> : null}
-      {insightsItem ? <VerticalInsightsSheet listingType="meal" listing={insightsItem} onClose={() => setInsightsItem(null)} /> : null}
+      {insightsItem ? <VerticalInsightsSheet listingType="meal" businessId={business.id} listing={insightsItem} onClose={() => setInsightsItem(null)} /> : null}
     </WorkspaceShell>
   );
 }
@@ -545,7 +554,7 @@ function PropertyDashboard({ business, canManage = true, initialWorkspace = null
         <PropertyForm formId="property-listing-form" form={form} setForm={setForm} onSubmit={save} />
       </VerticalEditorSheet>
       {promoteItem ? <VerticalPromoteSheet listingType="property" listing={promoteItem} onClose={() => setPromoteItem(null)} onPromoted={load} /> : null}
-      {insightsItem ? <VerticalInsightsSheet listingType="property" listing={insightsItem} onClose={() => setInsightsItem(null)} /> : null}
+      {insightsItem ? <VerticalInsightsSheet listingType="property" businessId={business.id} listing={insightsItem} onClose={() => setInsightsItem(null)} /> : null}
     </WorkspaceShell>
   );
 }
@@ -752,6 +761,7 @@ function buildShareUrl(type, id) { if (typeof window === "undefined") return "";
 
 function SellerItemActions({ label, canManage = true, onDelete, onEdit, onInsights, onPromote, shareUrl }) {
   useUiLocale();
+  const plan = useContext(VerticalPlanContext);
   const [open, setOpen] = useState(false);
   const [confirmDelete, setConfirmDelete] = useState(false);
   const [deleting, setDeleting] = useState(false);
@@ -776,7 +786,7 @@ function SellerItemActions({ label, canManage = true, onDelete, onEdit, onInsigh
     try { await onDelete?.(); setOpen(false); setConfirmDelete(false); } catch (error) { showToast(shortErrorToast(error, "Couldn't delete item"), "danger"); } finally { setDeleting(false); }
   }
 
-  return <><button type="button" onClick={() => setOpen(true)} className="grid h-10 w-10 place-items-center rounded-full border border-white/70 bg-slate-950/80 text-white shadow-lg backdrop-blur-md transition hover:bg-slate-950" aria-label={t("urmall.biz.vert.actionsFor", { label })}><MoreVertical size={19} /></button>{open ? createPortal(<div className="fixed inset-0 z-[1350]" role="presentation"><button type="button" aria-label={t("urmall.biz.vert.closeItemActions")} onClick={() => { setOpen(false); setConfirmDelete(false); }} className="absolute inset-0 bg-slate-950/35 backdrop-blur-[1px]" /><section role="dialog" aria-modal="true" aria-label={t("urmall.biz.vert.actionsFor", { label })} className="kt-detail-zoom-enter absolute bottom-[max(0.75rem,env(safe-area-inset-bottom))] right-3 left-auto w-56 max-w-[calc(100vw-1.5rem)] rounded-2xl border border-white/70 bg-white p-1.5 shadow-2xl sm:right-4 sm:w-60"><div className="mb-0.5 flex items-center justify-between gap-2 px-2 py-1"><p className="truncate text-sm font-black text-gray-950">{translateUi(label)}</p><button type="button" onClick={() => setOpen(false)} className="grid h-7 w-7 shrink-0 place-items-center rounded-full bg-gray-100 text-gray-600" aria-label={t("urmall.biz.vert.closeActions")}><X size={15} /></button></div>{canManage && onInsights ? <button type="button" onClick={() => { setOpen(false); onInsights(); }} className="flex w-full items-center gap-3 rounded-xl px-3 py-2.5 text-left text-sm font-black text-gray-700 hover:bg-gray-50"><BarChart3 size={17} /> {t("urmall.biz.intel.insightsTab")}</button> : null}{canManage && onEdit ? <button type="button" onClick={() => { setOpen(false); onEdit(); }} className="flex w-full items-center gap-3 rounded-xl px-3 py-2.5 text-left text-sm font-black text-gray-700 hover:bg-gray-50"><Pencil size={17} /> {t("urmall.biz.reg.edit")}</button> : null}<button type="button" onClick={copyLink} className="flex w-full items-center gap-3 rounded-xl px-3 py-2.5 text-left text-sm font-black text-gray-700 hover:bg-gray-50"><Copy size={17} /> {t("urmall.biz.vert.copyLink")}</button><button type="button" onClick={share} className="flex w-full items-center gap-3 rounded-xl px-3 py-2.5 text-left text-sm font-black text-gray-700 hover:bg-gray-50"><Share2 size={17} /> {t("urmall.biz.vert.share")}</button>{canManage && onPromote ? <button type="button" onClick={() => { setOpen(false); onPromote(); }} className="flex w-full items-center gap-3 rounded-xl px-3 py-2.5 text-left text-sm font-black text-emerald-700 hover:bg-emerald-50"><Rocket size={17} /> {t("urmall.biz.vert.promote")}</button> : null}{canManage ? (confirmDelete ? <div className="mt-1 rounded-xl bg-red-50 p-3"><p className="text-xs font-bold text-red-700">{t("urmall.biz.vert.deletePermanently")}</p><div className="mt-2 grid grid-cols-2 gap-2"><button type="button" onClick={() => setConfirmDelete(false)} className="rounded-lg bg-white px-2 py-2 text-xs font-black text-gray-700">{t("urmall.biz.vert.cancel")}</button><button type="button" disabled={deleting} onClick={remove} className="rounded-lg bg-red-600 px-2 py-2 text-xs font-black text-white disabled:opacity-60">{deleting ? t("urmall.biz.vert.deleting") : t("urmall.biz.vert.delete")}</button></div></div> : <button type="button" onClick={() => setConfirmDelete(true)} className="flex w-full items-center gap-3 rounded-xl px-3 py-2.5 text-left text-sm font-black text-red-600 hover:bg-red-50"><Trash2 size={17} /> {t("urmall.biz.vert.delete")}</button>) : null}</section></div>, document.body) : null}</>;
+  return <><button type="button" onClick={() => setOpen(true)} className="grid h-10 w-10 place-items-center rounded-full border border-white/70 bg-slate-950/80 text-white shadow-lg backdrop-blur-md transition hover:bg-slate-950" aria-label={t("urmall.biz.vert.actionsFor", { label })}><MoreVertical size={19} /></button>{open ? createPortal(<div className="fixed inset-0 z-[1350]" role="presentation"><button type="button" aria-label={t("urmall.biz.vert.closeItemActions")} onClick={() => { setOpen(false); setConfirmDelete(false); }} className="absolute inset-0 bg-slate-950/35 backdrop-blur-[1px]" /><section role="dialog" aria-modal="true" aria-label={t("urmall.biz.vert.actionsFor", { label })} className="kt-detail-zoom-enter absolute bottom-[max(0.75rem,env(safe-area-inset-bottom))] right-3 left-auto w-56 max-w-[calc(100vw-1.5rem)] rounded-2xl border border-white/70 bg-white p-1.5 shadow-2xl sm:right-4 sm:w-60"><div className="mb-0.5 flex items-center justify-between gap-2 px-2 py-1"><p className="truncate text-sm font-black text-gray-950">{translateUi(label)}</p><button type="button" onClick={() => setOpen(false)} className="grid h-7 w-7 shrink-0 place-items-center rounded-full bg-gray-100 text-gray-600" aria-label={t("urmall.biz.vert.closeActions")}><X size={15} /></button></div>{canManage && onInsights ? <button type="button" onClick={() => { setOpen(false); onInsights(); }} className="flex w-full items-center gap-3 rounded-xl px-3 py-2.5 text-left text-sm font-black text-gray-700 hover:bg-gray-50"><BarChart3 size={17} /> <span className="truncate">{t("urmall.biz.intel.insightsTab")}</span>{plan.insightsLocked ? <span className="ml-auto inline-flex items-center gap-1 rounded-full bg-emerald-100 px-1.5 py-0.5 text-[10px] font-black uppercase tracking-wide text-emerald-700"><Lock size={10} strokeWidth={2.6} />Pro</span> : null}</button> : null}{canManage && onEdit ? <button type="button" onClick={() => { setOpen(false); onEdit(); }} className="flex w-full items-center gap-3 rounded-xl px-3 py-2.5 text-left text-sm font-black text-gray-700 hover:bg-gray-50"><Pencil size={17} /> {t("urmall.biz.reg.edit")}</button> : null}<button type="button" onClick={copyLink} className="flex w-full items-center gap-3 rounded-xl px-3 py-2.5 text-left text-sm font-black text-gray-700 hover:bg-gray-50"><Copy size={17} /> {t("urmall.biz.vert.copyLink")}</button><button type="button" onClick={share} className="flex w-full items-center gap-3 rounded-xl px-3 py-2.5 text-left text-sm font-black text-gray-700 hover:bg-gray-50"><Share2 size={17} /> {t("urmall.biz.vert.share")}</button>{canManage && onPromote ? <button type="button" onClick={() => { setOpen(false); onPromote(); }} className="flex w-full items-center gap-3 rounded-xl px-3 py-2.5 text-left text-sm font-black text-emerald-700 hover:bg-emerald-50"><Rocket size={17} /> {t("urmall.biz.vert.promote")}</button> : null}{canManage ? (confirmDelete ? <div className="mt-1 rounded-xl bg-red-50 p-3"><p className="text-xs font-bold text-red-700">{t("urmall.biz.vert.deletePermanently")}</p><div className="mt-2 grid grid-cols-2 gap-2"><button type="button" onClick={() => setConfirmDelete(false)} className="rounded-lg bg-white px-2 py-2 text-xs font-black text-gray-700">{t("urmall.biz.vert.cancel")}</button><button type="button" disabled={deleting} onClick={remove} className="rounded-lg bg-red-600 px-2 py-2 text-xs font-black text-white disabled:opacity-60">{deleting ? t("urmall.biz.vert.deleting") : t("urmall.biz.vert.delete")}</button></div></div> : <button type="button" onClick={() => setConfirmDelete(true)} className="flex w-full items-center gap-3 rounded-xl px-3 py-2.5 text-left text-sm font-black text-red-600 hover:bg-red-50"><Trash2 size={17} /> {t("urmall.biz.vert.delete")}</button>) : null}</section></div>, document.body) : null}</>;
 }
 // Meals and properties use the same promotion planner as retail products. The
 // actual credit assertion and spend still happen server-side.
@@ -844,11 +854,20 @@ function VerticalPromoteSheet({ listingType, listing, onClose, onPromoted }) {
 // Vertical listings reuse the retail ProductInsightsScreen, fed by the vertical
 // insights fetcher so the seller sees the same insight layout for meals and
 // properties as for retail products.
-function VerticalInsightsSheet({ listingType, listing, onClose }) {
+function VerticalInsightsSheet({ listingType, businessId, listing, onClose }) {
   useUiLocale();
   useBodyScrollLock(true);
+  const plan = useContext(VerticalPlanContext);
   const fetchInsights = useCallback(() => fetchVerticalListingInsights(listingType, listing), [listingType, listing]);
   const name = listing?.name || listing?.title || "";
+  // Must be referentially stable: ProductInsightsScreen refetches when its
+  // product changes, and a fresh object literal every render made the sheet
+  // flash back to the skeleton in an endless reload loop.
+  const insightsProduct = useMemo(
+    () => ({ id: listing.id, name, mainImageUrl: listing.image_url || listing.image_urls?.[0] || "", views: listing.views }),
+    [listing.id, listing.image_url, listing.image_urls, listing.views, name],
+  );
+  const insightsScreen = <ProductInsightsScreen product={insightsProduct} fetchInsights={fetchInsights} />;
 
   return createPortal(
     <div className="fixed inset-0 z-[1360]" role="presentation">
@@ -865,10 +884,18 @@ function VerticalInsightsSheet({ listingType, listing, onClose }) {
           <button type="button" onClick={onClose} className="grid h-8 w-8 shrink-0 place-items-center rounded-full bg-gray-100 text-gray-600" aria-label={t("urmall.biz.vert.closeActions")}><X size={16} /></button>
         </div>
         <div className="mt-4">
-          <ProductInsightsScreen
-            product={{ id: listing.id, name, mainImageUrl: listing.image_url || listing.image_urls?.[0] || "", views: listing.views }}
-            fetchInsights={fetchInsights}
-          />
+          {plan.plansEnabled ? (
+            <PlanFeatureGate
+              surface="urmall"
+              entityId={businessId}
+              requiredTier="pro"
+              featureName={t("urmall.biz.intel.insightsTab")}
+              description={i18nText("ui.literals.kfe48d0530221")}
+              onOpenPlans={plan.onOpenPlans ? () => { onClose(); plan.onOpenPlans(); } : undefined}
+            >
+              {insightsScreen}
+            </PlanFeatureGate>
+          ) : insightsScreen}
         </div>
       </section>
     </div>,

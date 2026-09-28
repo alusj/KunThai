@@ -37,7 +37,7 @@ export default function PlanFeatureGate({
   useEffect(() => {
     if (!entityId) {
       // No entity resolved yet: don't gate on an unknown business.
-      setStatus(i18nText("ui.literals.k9bb5a73dfd4d"));
+      setStatus("unlocked");
       return undefined;
     }
     let alive = true;
@@ -50,13 +50,13 @@ export default function PlanFeatureGate({
           setPlanName(state?.entitlement?.planName || "Free");
           // Fail open when the plan service is not available.
           if (state?.available === false || planTierMeets(planCode, requiredTier)) {
-            setStatus(i18nText("ui.literals.k9bb5a73dfd4d"));
+            setStatus("unlocked");
           } else {
-            setStatus(i18nText("ui.literals.kadec79fd87d0"));
+            setStatus("locked");
           }
         })
         .catch(() => {
-          if (alive) setStatus(i18nText("ui.literals.k9bb5a73dfd4d"));
+          if (alive) setStatus("unlocked");
         });
     }
     evaluate();

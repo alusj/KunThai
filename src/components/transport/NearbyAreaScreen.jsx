@@ -68,8 +68,9 @@ import EmergencySheet from "../emergency/EmergencySheet";
 import { isLateRouteHour } from "./areaViewSafety";
 import { useI18n, t } from "../../i18n";
 import { t as i18nText } from "../../i18n/index";
-import { uiText as translateUi, useI18n as useUiLocale } from "../../i18n/index.js";
+import { uiText as translateUi, useI18n as useUiLocale } from "../../i18n/index.js";
 import AppPortal from "../shared/AppPortal";
+import TransportCautionSheet from "./shared/TransportCautionSheet";
 
 const DROP_PIN_CARD_REVEAL_DELAY_MS = 4_000;
 
@@ -2616,36 +2617,26 @@ function AreaViewFirstUseGuide({ dontShowAgain, onDontShowAgainChange, onEmergen
   useUiLocale();
   const lateRouteWarningActive = isLateRouteHour();
 
+  // Same frame as the booking drawer: full height, pinned footer, so the
+  // confirm button is always visible instead of below an 82dvh sheet's fold.
   return (
-    <div className="pointer-events-none absolute inset-0 z-[80] bg-slate-950/35 backdrop-blur-[2px]">
-      <section
-        role="dialog"
-        aria-labelledby="area-view-first-use-title"
-        className="pointer-events-auto absolute bottom-0 left-0 right-0 flex h-[82dvh] max-h-[82dvh] flex-col overflow-hidden rounded-t-[2rem] border border-emerald-200 bg-gradient-to-br from-emerald-50 via-white to-white text-slate-950 shadow-2xl sm:bottom-5 sm:left-1/2 sm:right-auto sm:w-[min(38rem,calc(100vw-2.5rem))] sm:-translate-x-1/2 sm:rounded-[2rem]"
-      >
-        <div className="shrink-0 pt-3 sm:hidden">
-          <div className="mx-auto h-1.5 w-16 rounded-full bg-slate-300" />
-        </div>
-        <div className="shrink-0 border-b border-emerald-100 px-5 py-4 sm:px-6 sm:py-5">
-          <h2 id="area-view-first-use-title" className="text-base font-black leading-tight sm:text-lg">
-            {t("urride.areaView.guideEyebrow")}
-          </h2>
-        </div>
-
-        <div className="min-h-0 flex-1 overflow-y-auto overscroll-contain px-4 py-4 sm:px-6">
-          <div className="flex items-start gap-3">
-            <span className="grid h-12 w-12 shrink-0 place-items-center rounded-2xl bg-emerald-100 text-emerald-700">
-              <FiShield size={24} />
-            </span>
-            <div>
-              <h3 className="text-xl font-black leading-tight sm:text-2xl">
-                {t("urride.areaView.guideTitle")}
-              </h3>
-              <p className="mt-2 text-sm font-semibold leading-6 text-slate-600">
-                {t("urride.areaView.guideIntro")}
-              </p>
-            </div>
-          </div>
+    <TransportCautionSheet
+      positioning="absolute"
+      zIndexClass="z-[80]"
+      icon={FiShield}
+      eyebrow={t("urride.areaView.guideEyebrow")}
+      title={t("urride.areaView.guideTitle")}
+      titleId="area-view-first-use-title"
+      dontShowAgain={dontShowAgain}
+      onDontShowAgainChange={onDontShowAgainChange}
+      dontShowLabel={t("urride.areaView.guideDontShowAgain")}
+      confirmLabel={t("urride.areaView.guideConfirm")}
+      confirmIcon={FiCheckCircle}
+      onConfirm={onConfirm}
+    >
+          <p className="text-sm font-semibold leading-6 text-slate-600">
+            {t("urride.areaView.guideIntro")}
+          </p>
           {lateRouteWarningActive ? (
             <div role="alert" className="my-3 flex items-start gap-3 rounded-2xl border border-red-200 bg-red-50 p-4 text-red-950 shadow-sm">
               <span className="grid h-10 w-10 shrink-0 place-items-center rounded-xl bg-red-100 text-red-700">
@@ -2699,31 +2690,7 @@ function AreaViewFirstUseGuide({ dontShowAgain, onDontShowAgainChange, onEmergen
               {t("urride.areaView.guideEmergencySupport")}
             </button>
           </div>
-        <div className="mt-4 border-t border-slate-100 pb-[max(0.5rem,env(safe-area-inset-bottom))] pt-4">
-          <label className="flex cursor-pointer items-start gap-3 rounded-2xl border border-slate-200 bg-slate-50 p-3.5">
-            <input
-              type="checkbox"
-              checked={dontShowAgain}
-              onChange={(event) => onDontShowAgainChange(event.target.checked)}
-              className="mt-0.5 h-5 w-5 shrink-0 accent-emerald-600"
-            />
-            <span className="text-sm font-bold leading-5 text-slate-700">
-              {t("urride.areaView.guideDontShowAgain")}
-            </span>
-          </label>
-
-          <button
-            type="button"
-            onClick={onConfirm}
-            className="kt-pressable mt-3 flex h-12 w-full items-center justify-center gap-2 rounded-2xl bg-emerald-600 px-5 text-sm font-black text-white shadow-lg shadow-emerald-600/20 transition hover:bg-emerald-700"
-          >
-            <FiCheckCircle size={19} />
-            {t("urride.areaView.guideConfirm")}
-          </button>
-        </div>
-        </div>
-      </section>
-    </div>
+    </TransportCautionSheet>
   );
 }
 

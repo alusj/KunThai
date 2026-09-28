@@ -38,7 +38,7 @@ function AccountAvatar({ account, active }) {
 
 export default function SwitchAccountScreen({ currentProfile = {}, user = null }) {
   const { t } = useI18n();
-  const [status, setStatus] = useState("");
+  const [statusMessage, setStatusMessage] = useState("");
   const currentUserId = currentProfile?.userId || user?.id || "";
   const accounts = useMemo(() => {
     const remembered = getRememberedSocialAccounts();
@@ -60,29 +60,29 @@ export default function SwitchAccountScreen({ currentProfile = {}, user = null }
 
   async function chooseAccount(account) {
     if (account.id === currentUserId) {
-      setStatus(t("switchAccount.alreadyActive"));
+      setStatusMessage(t("switchAccount.alreadyActive"));
       return;
     }
 
     const instant = hasVaultedSession(account.id);
 
     try {
-      setStatus(instant ? t("switchAccount.switching") : t("switchAccount.openingSignIn"));
+      setStatusMessage(instant ? t("switchAccount.switching") : t("switchAccount.openingSignIn"));
       const result = await switchToRememberedSocialAccount(account);
       if (result?.switched === false && instant) {
-        setStatus(t("switchAccount.sessionExpired"));
+        setStatusMessage(t("switchAccount.sessionExpired"));
       }
     } catch (error) {
-      setStatus(inlineErrorMessage(error, i18nText("ui.literals.k435fff56c883")));
+      setStatusMessage(inlineErrorMessage(error, i18nText("ui.literals.k435fff56c883")));
     }
   }
 
   async function signOut() {
     try {
-      setStatus(i18nText("ui.literals.kb9412f771503"));
+      setStatusMessage(i18nText("ui.literals.kb9412f771503"));
       await signOutSocialSession();
     } catch (error) {
-      setStatus(inlineErrorMessage(error, i18nText("ui.literals.k2719ccab4f15")));
+      setStatusMessage(inlineErrorMessage(error, i18nText("ui.literals.k2719ccab4f15")));
     }
   }
 
@@ -94,7 +94,7 @@ export default function SwitchAccountScreen({ currentProfile = {}, user = null }
         <p className="mt-2 text-sm font-semibold leading-6 text-slate-600">
           {t("switchAccount.subtitle")}
         </p>
-        {status ? <p className="mt-3 rounded-2xl bg-sky-50 px-4 py-3 text-sm font-black text-sky-700">{translateUi(status)}</p> : null}
+        {statusMessage ? <p className="mt-3 rounded-2xl bg-sky-50 px-4 py-3 text-sm font-black text-sky-700">{translateUi(statusMessage)}</p> : null}
       </section>
 
       <section className="grid gap-3">

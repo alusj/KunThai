@@ -743,6 +743,7 @@ export default function Business({ initialScreen = "", onBack, onInitialScreenHa
     countryIso: sellerOverview.business?.countryIso || activeRegisteredBusiness?.location?.countryIso || "",
     location: sellerOverview.business?.location || activeRegisteredBusiness?.location?.city || "",
   };
+  const openVerticalPlans = () => openSellerScreen("plans");
   const primaryActionLabel = businessKind === "restaurant" ? t("urmall.biz.dash.addMeal") : businessKind === "hotel" ? t("urmall.biz.dash.addHotel") : businessKind === "property_agent" ? t("urmall.biz.dash.addProperty") : businessKind === "vendor" ? "Add supply item" : t("urmall.biz.header.addProduct");
 
   return (
@@ -947,6 +948,9 @@ export default function Business({ initialScreen = "", onBack, onInitialScreenHa
                 business={verticalBusiness}
                 canManage={permissions.canAddProducts}
                 initialWorkspace={sellerOverview.verticalWorkspace}
+                plansEnabled={activeBusinessPlansEnabled}
+                insightsLocked={productInsightsLocked}
+                onOpenPlans={openVerticalPlans}
               />
             )}
           </main>

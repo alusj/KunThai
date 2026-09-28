@@ -1,4 +1,5 @@
 import { createElement, useCallback, useEffect, useRef, useState } from "react";
+import { formatTripPickupTime } from "./shared/pickupTime";
 import {
   FiAlertTriangle,
   FiCheckCircle,
@@ -338,6 +339,7 @@ function TripCard({ trip, onOpenActions, onCancel, onConfirmStart, onDeclineStar
         <InfoLine icon={FiNavigation} label={t("urride.activeTrips.lineDropoff")} text={trip.destination} />
         <InfoLine icon={FiTruck} label={t("urride.activeTrips.lineOperator")} text={trip.fleet ? t("urride.activeTrips.fleetLine", { name: trip.fleet.fleetName, code: trip.fleet.operatorId }) : t("urride.activeTrips.fleetUnavailable")} />
         <InfoLine icon={FiClock} label={t("urride.activeTrips.lineFare")} text={trip.fare} />
+        <InfoLine icon={FiClock} label={t("urride.booking.pickupTime")} text={formatTripPickupTime(trip.scheduledAt)} />
       </div>
 
       <div className="mt-4 flex flex-wrap items-center gap-2">

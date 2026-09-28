@@ -1,4 +1,5 @@
 import { createElement, useEffect, useMemo, useState } from "react";
+import { formatTripPickupTime } from "../shared/pickupTime";
 import {
   CheckCircle2,
   ChevronRight,
@@ -20,7 +21,6 @@ import {
 import AppBackTab from "../../shared/AppBackTab.jsx";
 import AppPortal from "../../shared/AppPortal";
 import CountryRegionSettings from "../../shared/regions/CountryRegionSettings";
-import AccountTypeSettings from "../../shared/AccountTypeSettings";
 import { SlidePanel, useSlidePanel } from "../../shared/SlideTransition";
 import useBodyScrollLock from "../../shared/useBodyScrollLock";
 import SavedAddressBook from "../../shared/savedAddresses/SavedAddressBook";
@@ -576,6 +576,7 @@ function TripCard({ trip, onViewFleet, onOpenSupport }) {
         <TripLine label={t("urride.menu.trips.linePickup")} value={trip.pickup} />
         <TripLine label={t("urride.menu.trips.lineDestination")} value={trip.destination} />
         <TripLine label={t("urride.menu.trips.lineFare")} value={trip.fare} />
+        <TripLine label={t("urride.booking.pickupTime")} value={formatTripPickupTime(trip.scheduledAt)} />
         <TripLine label={t("urride.menu.trips.lineFleet")} value={trip.fleet?.fleetName || t("urride.menu.trips.fleetUnavailable")} />
       </div>
 
@@ -1170,7 +1171,6 @@ function TransportSettingsPage() {
       </section>
 
       <CountryRegionSettings />
-      <AccountTypeSettings />
 
       <section className="grid gap-3 rounded-2xl border border-gray-200 bg-white p-4 shadow-sm">
         <label className="space-y-1">

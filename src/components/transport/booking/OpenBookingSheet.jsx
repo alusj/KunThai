@@ -19,6 +19,7 @@ import {
 } from "react-icons/fi";
 
 import AppPortal from "../../shared/AppPortal";
+import TransportCautionSheet, { PassengerBookingCautionBody } from "../shared/TransportCautionSheet";
 import useBodyScrollLock from "../../shared/useBodyScrollLock";
 import { normalizeAreaLocation } from "../../shared/AddressAreaValidation";
 import NearbyAreaScreen from "../NearbyAreaScreen";
@@ -625,53 +626,38 @@ export default function OpenBookingSheet({ open, onClose, onOpenTrips }) {
         </aside>
 
         {showCaution ? (
-          <div className="fixed inset-0 z-[1400] flex items-end justify-center bg-slate-950/45 px-4 py-5 backdrop-blur-sm sm:items-center">
-            <section className="w-full max-w-lg rounded-[2rem] bg-white p-5 shadow-2xl" role="dialog" aria-modal="true" aria-labelledby="open-booking-caution-title">
-              <div className="flex items-start gap-3">
-                <span className="flex h-12 w-12 shrink-0 items-center justify-center rounded-2xl bg-emerald-50 text-emerald-700">
-                  <FiRadio size={24} aria-hidden="true" />
-                </span>
-                <div>
-                  <p className="text-xs font-black uppercase tracking-wide text-emerald-700">{translateUi("Open booking")}</p>
-                  <h2 id="open-booking-caution-title" className="mt-1 text-xl font-black text-slate-950">{translateUi("How open booking works")}</h2>
-                </div>
-              </div>
-
-              <ol className="mt-5 grid max-h-[48vh] list-decimal gap-3 overflow-y-auto pl-5 pr-1 text-sm font-semibold leading-6 text-slate-600">
+          <TransportCautionSheet
+            icon={FiRadio}
+            eyebrow={translateUi("Open booking")}
+            title={t("urride.booking.cautionTitle")}
+            titleId="open-booking-caution-title"
+            dontShowAgain={dontShowCaution}
+            onDontShowAgainChange={setDontShowCaution}
+            dontShowLabel={t("urride.booking.cautionDontShow")}
+            confirmLabel={t("urride.booking.cautionAccept")}
+            onConfirm={() => {
+              if (dontShowCaution) {
+                try {
+                  localStorage.setItem(OPEN_BOOKING_CAUTION_KEY, "true");
+                } catch {
+                  // Storage is optional: the card simply shows again next time.
+                }
+              }
+              setShowCaution(false);
+            }}
+          >
+            {/* Everything the selected-fleet caution says applies here too, so
+                it comes first; the open-booking rules follow. */}
+            <p className="mb-2 text-xs font-black uppercase tracking-wide text-emerald-700">{t("urride.booking.cautionEyebrow")}</p>
+            <PassengerBookingCautionBody />
+            <h3 className="mb-2 mt-5 text-xs font-black uppercase tracking-wide text-emerald-700">{translateUi("How open booking works")}</h3>
+            <ol className="grid list-decimal gap-3 rounded-2xl border border-slate-100 bg-white py-4 pl-9 pr-4 text-sm font-semibold leading-6 text-slate-600 shadow-sm">
                 <li>{translateUi("You do not pick an operator. KunThai sends your request to the nearest online operators of the vehicle you choose; if none are online nearby, active operators in your country receive it.")}</li>
                 <li>{translateUi("The first operator to accept takes your trip. The other requests are withdrawn at once, and Trips shows only your one trip.")}</li>
                 <li>{translateUi("Operators see the fare you offer and decide whether to accept it. Average or Priority usually gets a faster pickup.")}</li>
                 <li>{translateUi("Before you ride or hand over a package, check the operator's name and plate in Trips. Built-in payments are not active yet: agree the fare in person and never share PINs or OTPs.")}</li>
-              </ol>
-
-              <label className="mt-5 flex items-start gap-3 rounded-2xl border border-slate-100 bg-slate-50 p-4">
-                <input
-                  type="checkbox"
-                  checked={dontShowCaution}
-                  onChange={(event) => setDontShowCaution(event.target.checked)}
-                  className="mt-1 h-5 w-5 accent-emerald-600"
-                />
-                <span className="text-sm font-bold leading-6 text-slate-700">{t("urride.booking.cautionDontShow")}</span>
-              </label>
-
-              <button
-                type="button"
-                onClick={() => {
-                  if (dontShowCaution) {
-                    try {
-                      localStorage.setItem(OPEN_BOOKING_CAUTION_KEY, "true");
-                    } catch {
-                      // Storage is optional: the card simply shows again next time.
-                    }
-                  }
-                  setShowCaution(false);
-                }}
-                className="mt-5 h-12 w-full rounded-2xl bg-emerald-600 px-5 text-sm font-black text-white shadow-lg shadow-emerald-600/20 transition hover:bg-emerald-700"
-              >
-                {t("urride.booking.cautionAccept")}
-              </button>
-            </section>
-          </div>
+            </ol>
+          </TransportCautionSheet>
         ) : null}
 
         {areaPicker ? (

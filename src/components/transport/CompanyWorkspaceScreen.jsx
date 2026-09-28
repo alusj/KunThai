@@ -161,6 +161,12 @@ export default function CompanyWorkspaceScreen({ company, initialTab = "Overview
   const [bookingQueueOpen, setBookingQueueOpen] = useState(false);
   const [bookingQueue, setBookingQueue] = useState([]);
   const [bookingQueueLoading, setBookingQueueLoading] = useState(false);
+  // The company object is re-fetched on every realtime change, so effects read
+  // it through a ref and only the first load for a company shows the loading
+  // state; later refreshes swap the data in silently.
+  const companyRef = useRef(company);
+  companyRef.current = company;
+  const bookingQueueLoadedForRef = useRef("");
   const [operatorMenuOpen, setOperatorMenuOpen] = useState(false);
   const [leaveCompanyOpen, setLeaveCompanyOpen] = useState(false);
   const [operatorAvailable, setOperatorAvailable] = useState(companyOperatorAssignment?.activeStatus === "active");
@@ -414,19 +420,25 @@ export default function CompanyWorkspaceScreen({ company, initialTab = "Overview
   useEffect(() => {
     let active = true;
     if (!company?.id || !canViewBookingQueue) {
+      bookingQueueLoadedForRef.current = "";
       setBookingQueue([]);
       return undefined;
     }
 
+    const companyId = company.id;
     async function loadQueue() {
+      const firstLoad = bookingQueueLoadedForRef.current !== companyId;
       try {
-        setBookingQueueLoading(true);
+        if (firstLoad) setBookingQueueLoading(true);
         const queue = await getTransportCompanyBookingQueue(company);
-        if (active) setBookingQueue(queue);
+        if (!active) return;
+        bookingQueueLoadedForRef.current = companyId;
+        setBookingQueue((current) => (sameJson(current, queue) ? current : queue));
       } catch {
-        if (active) setBookingQueue([]);
+        // Keep the bookings already on screen when a background refresh fails.
+        if (active && firstLoad) setBookingQueue([]);
       } finally {
-        if (active) setBookingQueueLoading(false);
+        if (active && firstLoad) setBookingQueueLoading(false);
       }
     }
 
@@ -459,11 +471,11 @@ export default function CompanyWorkspaceScreen({ company, initialTab = "Overview
             companyOperatorAssignment.transportFleetId,
             { fleetScoped: true },
           ),
-          getTransportCompanyBookingQueue(company).catch(() => null),
+          getTransportCompanyBookingQueue(companyRef.current).catch(() => null),
         ]);
         if (!active || !nextDashboard) return;
-        setOperatorDashboardData(nextDashboard);
-        if (nextQueue) setBookingQueue(nextQueue);
+        setOperatorDashboardData((current) => (sameJson(current, nextDashboard) ? current : nextDashboard));
+        if (nextQueue) setBookingQueue((current) => (sameJson(current, nextQueue) ? current : nextQueue));
       } catch {
         // Keep the last successful dashboard snapshot visible if a refresh fails.
       }
@@ -477,7 +489,9 @@ export default function CompanyWorkspaceScreen({ company, initialTab = "Overview
       active = false;
       unsubscribe?.();
     };
-  }, [basicOperator, company, companyOperatorAssignment?.operatorId, companyOperatorAssignment?.transportFleetId]);
+    // Keyed on ids: re-subscribing on every company re-fetch tore the realtime
+    // channel down and refetched over and over ("the dashboard keeps reloading").
+  }, [basicOperator, company?.id, companyOperatorAssignment?.operatorId, companyOperatorAssignment?.transportFleetId]);
 
   const companyOperatorHasTrip = (operatorDashboardData?.waitingPassengers || []).some((trip) =>
     ["accepted", "arrived", "start_requested", "in_progress", "paused"].includes(trip.status));
@@ -555,7 +569,7 @@ export default function CompanyWorkspaceScreen({ company, initialTab = "Overview
           )
         : Promise.resolve(null),
     ]);
-    setBookingQueue(nextQueue);
+    setBookingQueue((current) => (sameJson(current, nextQueue) ? current : nextQueue));
     if (nextDashboard) setOperatorDashboardData(nextDashboard);
   }
 
@@ -2741,6 +2755,17 @@ function RemoveOperatorDrawer({ busy, onClose, onConfirm, open, operator }) {
       </div>
     </FleetHqActionSheet>
   );
+}
+
+// Realtime refreshes usually return identical data; keeping the old reference
+// avoids re-rendering every card on screen for nothing.
+function sameJson(a, b) {
+  if (a === b) return true;
+  try {
+    return JSON.stringify(a) === JSON.stringify(b);
+  } catch {
+    return false;
+  }
 }
 
 function EmptyPanel({ body, title }) {

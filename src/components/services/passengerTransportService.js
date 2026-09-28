@@ -230,6 +230,8 @@ async function mapTrip(row, operatorContact = null) {
     pickup: row.pickup_label || "Pickup pending",
     destination: row.destination_label || "Destination pending",
     fare: formatFare(row),
+    // Empty = booked for "Now"; otherwise the pickup time the passenger chose.
+    scheduledAt: row.scheduled_at || "",
     priority: ["pending_confirmation", "waiting_operator", "requested"].includes(row.status) ? "pending" : "live",
     step: getTripStep(row.status),
     createdAt: row.created_at || "",

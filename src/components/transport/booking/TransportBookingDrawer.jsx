@@ -14,7 +14,8 @@ import {
   FiX,
 } from "react-icons/fi";
 
-import AppPortal from "../../shared/AppPortal";
+import TransportCautionSheet, { PassengerBookingCautionBody } from "../shared/TransportCautionSheet";
+import AppPortal from"../../shared/AppPortal";
 import useBodyScrollLock from "../../shared/useBodyScrollLock";
 import {
   AddressAccuracyCaution,
@@ -881,51 +882,19 @@ export default function TransportBookingDrawer({ open, target, onClose, onCreate
         </aside>
 
         {showPassengerCaution ? (
-          <div className="fixed inset-0 z-[1400] flex items-end justify-center bg-slate-950/45 px-4 py-5 backdrop-blur-sm sm:items-center">
-            <section className="w-full max-w-lg rounded-[2rem] bg-white p-5 shadow-2xl">
-              <div className="flex items-start gap-3">
-                <span className="flex h-12 w-12 shrink-0 items-center justify-center rounded-2xl bg-emerald-50 text-emerald-700">
-                  <FiAlertTriangle size={24} />
-                </span>
-
-                <div>
-                  <p className="text-xs font-black uppercase tracking-wide text-emerald-700">
-                    {t("urride.booking.cautionEyebrow")}
-                  </p>
-                  <h2 className="mt-1 text-xl font-black text-slate-950">
-                    {t("urride.booking.cautionTitle")}
-                  </h2>
-                </div>
-              </div>
-
-              <div className="mt-5 grid max-h-[48vh] gap-3 overflow-y-auto pr-1 text-sm font-semibold leading-6 text-slate-600">
-                <p>{t("urride.booking.cautionP1")}</p>
-                <p>{t("urride.booking.cautionP2")}</p>
-                <p>{t("urride.booking.cautionP3")}</p>
-                <p>{t("urride.booking.cautionP4")}</p>
-              </div>
-
-              <label className="mt-5 flex items-start gap-3 rounded-2xl border border-slate-100 bg-slate-50 p-4">
-                <input
-                  type="checkbox"
-                  checked={dontShowPassengerCaution}
-                  onChange={(event) => setDontShowPassengerCaution(event.target.checked)}
-                  className="mt-1 h-5 w-5 accent-emerald-600"
-                />
-                <span className="text-sm font-bold leading-6 text-slate-700">
-                  {t("urride.booking.cautionDontShow")}
-                </span>
-              </label>
-
-              <button
-                type="button"
-                onClick={acceptPassengerCaution}
-                className="mt-5 h-12 w-full rounded-2xl bg-emerald-600 px-5 text-sm font-black text-white shadow-lg shadow-emerald-600/20 transition hover:bg-emerald-700"
-              >
-                {t("urride.booking.cautionAccept")}
-              </button>
-            </section>
-          </div>
+          <TransportCautionSheet
+            icon={FiAlertTriangle}
+            eyebrow={t("urride.booking.cautionEyebrow")}
+            title={t("urride.booking.cautionTitle")}
+            titleId="passenger-booking-caution-title"
+            dontShowAgain={dontShowPassengerCaution}
+            onDontShowAgainChange={setDontShowPassengerCaution}
+            dontShowLabel={t("urride.booking.cautionDontShow")}
+            confirmLabel={t("urride.booking.cautionAccept")}
+            onConfirm={acceptPassengerCaution}
+          >
+            <PassengerBookingCautionBody />
+          </TransportCautionSheet>
         ) : null}
 
         {areaPicker ? (

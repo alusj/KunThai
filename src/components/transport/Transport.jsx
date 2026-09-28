@@ -60,6 +60,15 @@ const TRANSPORT_ACCOUNT_MEMORY = {
   companyAccounts: [],
 };
 
+function sameJsonValue(a, b) {
+  if (a === b) return true;
+  try {
+    return JSON.stringify(a) === JSON.stringify(b);
+  } catch {
+    return false;
+  }
+}
+
 export default function Transport({
   active = false,
   areaViewRequest = null,
@@ -88,6 +97,8 @@ export default function Transport({
   const [companyAccount, setCompanyAccount] = useState(() => TRANSPORT_ACCOUNT_MEMORY.companyAccount);
   const [companyAccounts, setCompanyAccounts] = useState(() => TRANSPORT_ACCOUNT_MEMORY.companyAccounts);
   const [companyOperationBadgeCount, setCompanyOperationBadgeCount] = useState(0);
+  const companyAccountRef = useRef(companyAccount);
+  companyAccountRef.current = companyAccount;
   const [companyLoading, setCompanyLoading] = useState(() => !TRANSPORT_ACCOUNT_MEMORY.companyLoaded);
   const [companyWorkspaceOpen, setCompanyWorkspaceOpen] = useState(false);
   const [companyWorkspaceInitialTab, setCompanyWorkspaceInitialTab] = useState("Overview");
@@ -817,8 +828,11 @@ export default function Transport({
       const nextAccount = await getTransportCompanyAccount().catch(() => null);
       const nextAccounts = await getTransportCompanyAccounts().catch(() => []);
       if (!alive) return;
-      setCompanyAccount(nextAccount);
-      setCompanyAccounts(nextAccounts);
+      // This feed fires for trip/fleet changes platform-wide; most re-fetches
+      // return the same company, so keep the old reference and skip the
+      // re-render that made the company dashboards look like they reloaded.
+      setCompanyAccount((current) => (sameJsonValue(current, nextAccount) ? current : nextAccount));
+      setCompanyAccounts((current) => (sameJsonValue(current, nextAccounts) ? current : nextAccounts));
 
       const inviteUpdate = account?.table === "transport_company_operator_invites" ? account.new : null;
       if (nextAccount?.id && inviteUpdate?.company_id === nextAccount.id) {
@@ -855,13 +869,14 @@ export default function Transport({
     let intervalId = null;
 
     async function refreshCompanyOperationBadge() {
-      if (!companyAccount?.id) {
+      const currentCompany = companyAccountRef.current;
+      if (!currentCompany?.id) {
         if (alive) setCompanyOperationBadgeCount(0);
         return;
       }
 
       try {
-        const state = await fetchTransportOperationBadgeState(null, companyAccount);
+        const state = await fetchTransportOperationBadgeState(null, currentCompany);
         if (alive) setCompanyOperationBadgeCount(state.totalCount);
       } catch {
         if (alive) setCompanyOperationBadgeCount(0);
@@ -885,7 +900,9 @@ export default function Transport({
       window.removeEventListener("transport-trip-updated", refreshCompanyOperationBadge);
       window.removeEventListener("transport-booking-created", refreshCompanyOperationBadge);
     };
-  }, [companyAccount]);
+    // Keyed on the id (latest object read via ref) so a company re-fetch no
+    // longer tears down and rebuilds this 7-table realtime channel.
+  }, [companyAccount?.id]);
 
   useEffect(() => {
     return () => {

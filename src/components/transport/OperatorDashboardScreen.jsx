@@ -1,4 +1,5 @@
 import { createElement, useCallback, useEffect, useMemo, useRef, useState } from "react";
+import { formatTripPickupTime } from "./shared/pickupTime";
 import {
   FiAlertTriangle,
   FiBell,
@@ -80,7 +81,7 @@ import {
   shouldPreserveAvailabilityOverride,
 } from "./operatorAvailabilityState";
 import { uiText as translateUi, useI18n as useUiLocale } from "../../i18n/index.js";
-import { inlineErrorMessage, shortErrorToast } from "../../Backend/services/friendlyErrorService";
+import { inlineErrorMessage, shortErrorToast } from "../../Backend/services/friendlyErrorService";
 import AppPortal from "../shared/AppPortal";
 
 function formatOperatorMoney(value, account = null) {
@@ -1788,12 +1789,22 @@ function formatSeconds(value) {
   return `${Math.round(seconds / 60)}m`;
 }
 
-function MiniRow({ label, value }) {
+function MiniRow({ label, value, stacked = false }) {
   useUiLocale();
+  // Stacked rows carry long free text (full pickup/drop-off addresses): the
+  // label sits above the value so a wrapped address never runs over it.
+  if (stacked) {
+    return (
+      <div className="flex min-w-0 flex-col gap-1.5 rounded-2xl border border-gray-100 px-4 py-3">
+        <span className="text-xs font-black uppercase tracking-wide text-gray-400">{translateUi(label)}</span>
+        <span className="break-words text-sm font-black leading-6 text-gray-950">{value}</span>
+      </div>
+    );
+  }
   return (
-    <div className="flex items-center justify-between rounded-2xl border border-gray-100 px-3 py-3">
-      <span className="text-sm font-semibold text-gray-500">{translateUi(label)}</span>
-      <span className="text-sm font-black text-gray-950">{value}</span>
+    <div className="flex items-center justify-between gap-3 rounded-2xl border border-gray-100 px-3 py-3">
+      <span className="shrink-0 text-sm font-semibold text-gray-500">{translateUi(label)}</span>
+      <span className="min-w-0 break-words text-right text-sm font-black text-gray-950">{value}</span>
     </div>
   );
 }
@@ -1947,10 +1958,11 @@ export function OperatorTripRequestCard({ passenger, account, isActive, readOnly
         </div>
       </div>
 
-      <div className="mt-4 grid gap-2 sm:grid-cols-3">
-        <MiniRow label={t("urride.opDash.pickup")} value={passenger.pickup} />
-        <MiniRow label={t("urride.opDash.dropoff")} value={passenger.destination} />
-        <MiniRow label={t("urride.opDash.fare")} value={passenger.fare} />
+      <div className="mt-4 grid gap-2 sm:grid-cols-2">
+        <MiniRow stacked label={t("urride.opDash.pickup")} value={passenger.pickup} />
+        <MiniRow stacked label={t("urride.opDash.dropoff")} value={passenger.destination} />
+        <MiniRow stacked label={t("urride.opDash.fare")} value={passenger.fare} />
+        <MiniRow stacked label={t("urride.booking.pickupTime")} value={formatTripPickupTime(passenger.raw?.scheduled_at)} />
       </div>
 
       <div className="mt-4 grid gap-2 sm:grid-cols-2">

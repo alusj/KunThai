@@ -9,7 +9,7 @@ import {
   Sparkles,
   Wallet,
 } from "lucide-react";
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 
 import { fetchSellerProductInsights } from "../../../../../Backend/services/marketplace/sellerInsightService";
 import { resizedImageUrl } from "../../../../../Backend/lib/imageProxy";
@@ -127,15 +127,22 @@ export default function ProductInsightsScreen({ product, fetchInsights = fetchSe
     latestPromotion: null,
   }), [product]);
   const [insights, setInsights] = useState(null);
+  // Refetch only when a different product opens. Keying on the object made
+  // any parent re-render (new object, same product) drop back to the skeleton
+  // and fetch again, so the insights dashboard kept "reloading".
+  const latestRef = useRef({ product, fallback, fetchInsights });
+  latestRef.current = { product, fallback, fetchInsights };
+  const productKey = product?.id ?? "";
 
   useEffect(() => {
     let active = true;
+    const { product: current, fallback: currentFallback, fetchInsights: fetcher } = latestRef.current;
     setInsights(null);
-    fetchInsights(product)
-      .then((next) => { if (active) setInsights(next || fallback); })
-      .catch(() => { if (active) setInsights(fallback); });
+    fetcher(current)
+      .then((next) => { if (active) setInsights(next || currentFallback); })
+      .catch(() => { if (active) setInsights(currentFallback); });
     return () => { active = false; };
-  }, [fallback, fetchInsights, product]);
+  }, [productKey]);
 
   if (!insights) return <InsightsSkeleton />;
 
