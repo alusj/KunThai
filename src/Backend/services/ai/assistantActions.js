@@ -1,5 +1,6 @@
 import { t } from "../../../i18n";
-import { openAreaViewDestination, openSection } from "./aiEntityNavigation";
+import { openSection } from "./aiEntityNavigation";
+import { startTripBooking } from "./tripBookingFlow";
 import { getRecentAssistantPlace } from "./assistantTools/urrideTools";
 import { areaViewDestinationFromPlace } from "./urrideAiModels";
 
@@ -16,13 +17,14 @@ const HANDLERS = {
     run: (action) => openSection(action.section),
   },
   // The place is looked up from this session's KunThai place search again at
-  // tap time, so the destination is always the real search result.
+  // tap time, so the destination is always the real search result. It starts
+  // KAI's guided booking in the chat (the chat stays open for the questions).
   open_area_view: {
     label: (action) => t("ai.chat.actions.planTrip", { place: action.name || "" }),
+    keepOpen: true,
     run: (action) => {
       const place = getRecentAssistantPlace(action.placeId);
-      const destination = place ? areaViewDestinationFromPlace(place) : null;
-      if (destination) openAreaViewDestination(destination);
+      if (place && areaViewDestinationFromPlace(place)) startTripBooking(place);
     },
   },
 };
@@ -45,5 +47,5 @@ export function runAssistantAction(action, { onDone } = {}) {
   const handler = HANDLERS[action?.type];
   if (!handler) return;
   handler.run(action);
-  onDone?.();
+  if (!handler.keepOpen) onDone?.();
 }

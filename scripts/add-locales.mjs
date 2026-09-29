@@ -20,6 +20,7 @@ import path from "node:path";
 import { fileURLToPath } from "node:url";
 
 import parser from "@babel/parser";
+import { joinTranslationBatch, splitTranslationBatch } from "./localeBatch.mjs";
 
 const root = fileURLToPath(new URL("../", import.meta.url));
 const targetLocales = process.argv.slice(2).filter((arg) => /^[a-z]{2,3}$/.test(arg));
@@ -29,6 +30,7 @@ const GRAFTED_SECTIONS = new Set(["urride", "addressBook", "regions", "ui"]);
 // Language names shown as autonyms (each language in its own script).
 const KEEP_ENGLISH_PATHS = [/^ai\.languages\./];
 const BUNDLES = ["translations", "urride", "ui", "regions", "addressBook", "cautionFeatures", "directionCards", "policies"];
+const EXTRA_BUNDLES = ["kaiTripFlow", "kaiFormGuide"];
 const protectedTerms = [
   "Visibility Credits", "Fleet HQ", "KunThai ID", "KunThai", "Explore", "UrFeed", "UrMall", "UrRide",
   "Spaces", "Space", "Swip", "KAI", "Flutterwave", "Monime", "Orange Money", "Afrimoney", "WhatsApp", "Facebook", "Instagram",
@@ -100,7 +102,7 @@ function unmask(text, values) {
 
 async function request(text, locale, attempt = 0) {
   try {
-    const response = await fetch("https://translate.googleapis.com/translate_a/single", {
+    const response = await fetch("https://translate.google.com/translate_a/single", {
       method: "POST",
       headers: { "content-type": "application/x-www-form-urlencoded;charset=UTF-8" },
       body: new URLSearchParams({ client: "gtx", sl: "en", tl: locale, dt: "t", q: text }),
@@ -144,9 +146,9 @@ async function translateAll(sources, locale) {
     while (next < batches.length) {
       const index = next++;
       const group = batches[index];
-      const joined = group.map((item, i) => (i ? `\n__KTSEP${i}__\n${item.masked}` : item.masked)).join("");
+      const joined = joinTranslationBatch(group.map((item) => item.masked));
       const result = await request(joined, locale);
-      const parts = result.split(/\s*__\s*KTSEP\s*\d+\s*__\s*/g);
+      const parts = splitTranslationBatch(result);
       if (parts.length !== group.length) retryAlone.push(...group);
       else group.forEach((item, i) => {
         const text = unmask(parts[i].trim(), item.values);
@@ -191,6 +193,20 @@ for (const name of BUNDLES) {
   const references = REFERENCE_LOCALES.filter((l) => locales[l]).map((l) => flatten(toValue(locales[l].value, `${name}.${l}`)));
   bundles.push({ name, file, code, object, locales, english, flat: flatten(english), references });
 }
+for (const name of EXTRA_BUNDLES) {
+  const file = path.join(root, "src/i18n", `${name}.js`);
+  const code = await fs.readFile(file, "utf8");
+  const ast = parser.parse(code, { sourceType: "module" });
+  const locales = Object.fromEntries(ast.program.body
+    .filter((node) => node.type === "VariableDeclaration")
+    .flatMap((node) => node.declarations)
+    .filter((node) => node.init?.type === "ObjectExpression")
+    .map((node) => [node.id.name, node.init]));
+  const english = toValue(locales.en, `${name}.en`);
+  const references = REFERENCE_LOCALES.filter((locale) => locales[locale])
+    .map((locale) => flatten(toValue(locales[locale], `${name}.${locale}`)));
+  bundles.push({ name, file, code, locales, english, flat: flatten(english), references, extra: true });
+}
 
 function keepEnglish(bundle, key, source) {
   if (KEEP_ENGLISH_PATHS.some((re) => re.test(key)) && bundle.name === "translations") return true;
@@ -226,6 +242,39 @@ for (const locale of targetLocales) {
 }
 
 for (const bundle of bundles) {
+  if (bundle.extra) {
+    let code = bundle.code;
+    const ast = parser.parse(code, { sourceType: "module" });
+    const existing = ast.program.body.filter((node) => node.type === "VariableDeclaration"
+      && node.declarations.some((declaration) => targetLocales.includes(declaration.id.name)))
+      .sort((a, b) => b.start - a.start);
+    for (const node of existing) {
+      let end = node.end;
+      while (code[end] === "\r" || code[end] === "\n") end += 1;
+      code = code.slice(0, node.start) + code.slice(end);
+    }
+    const exportNode = parser.parse(code, { sourceType: "module" }).program.body.find((node) =>
+      node.type === "ExportNamedDeclaration" && node.declaration?.declarations?.[0]?.id?.name?.startsWith("KAI_")
+    );
+    if (!exportNode?.declaration?.declarations?.[0]?.init || exportNode.declaration.declarations[0].init.type !== "ObjectExpression") {
+      throw new Error(`Missing KAI locale export in ${bundle.name}`);
+    }
+    const object = exportNode.declaration.declarations[0].init;
+    const listed = new Set(object.properties.map((property) => property.key.name ?? property.key.value));
+    const missing = targetLocales.filter((locale) => !listed.has(locale));
+    if (missing.length) {
+      let before = object.end - 2;
+      while (/\s/.test(code[before])) before -= 1;
+      code = code.slice(0, before + 1) + `, ${missing.join(", ")}` + code.slice(before + 1);
+    }
+    const blocks = targetLocales.map((locale) => `const ${locale} = ${JSON.stringify(rebuild(bundle.english, "", (key, source) => (
+      overrides[locale][source] ?? (keepEnglish(bundle, key, source) ? source : (translated[locale][source] ?? source))
+    )), null, 2)};`);
+    code = code.slice(0, exportNode.start) + `${blocks.join("\n\n")}\n\n` + code.slice(exportNode.start);
+    await fs.writeFile(bundle.file, code);
+    console.log(`wrote ${path.relative(root, bundle.file)} (+${targetLocales.join(", ")})`);
+    continue;
+  }
   let code = bundle.code;
   // Remove existing blocks for the target locales (highest offset first).
   const existing = targetLocales.map((l) => bundle.locales[l]).filter(Boolean).sort((a, b) => b.start - a.start);

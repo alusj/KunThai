@@ -42,6 +42,7 @@ import { haptics } from "../../Backend/services/feedbackService";
 import OpenBookingSheet from "./booking/OpenBookingSheet";
 import { subscribeNotificationSeen } from "../../Backend/services/notificationSeenStore";
 import { getNetworkStatus } from "../../Backend/services/networkService";
+import { KAI_TRIP_BOOKING_EVENT } from "../../Backend/services/ai/aiEntityNavigation";
 import { showToast } from "../../Backend/services/toastService";
 import { useI18n, t } from "../../i18n";
 import { uiText as translateUi } from "../../i18n/index.js";
@@ -85,6 +86,7 @@ export default function Transport({
   // of the dashboard cards).
   const { canRegister, loading: accountTypeLoading } = useAccountType();
   const [openBookingOpen, setOpenBookingOpen] = useState(false);
+  const [openBookingDraft, setOpenBookingDraft] = useState(null);
   const [registrationOpen, setRegistrationOpen] = useState(false);
   const [registrationType, setRegistrationType] = useState(null);
   const [companyRegistrationMode, setCompanyRegistrationMode] = useState("full");
@@ -209,8 +211,50 @@ export default function Transport({
 
   function openOpenBooking() {
     if (guardGuestAction("book", "trip")) return;
+    setOpenBookingDraft(null);
     setOpenBookingOpen(true);
   }
+
+  // KAI's guided booking hands over its answers here: the chosen operator's
+  // booking drawer, or the open-booking sheet, opens already filled in and the
+  // passenger checks it and presses Send. UrRide first returns to the
+  // passenger view (a registration in progress is never thrown away).
+  const kaiTripBookingRef = useRef(null);
+  kaiTripBookingRef.current = (booking) => {
+    if (registrationOpen || fleetEditOpen || registrationAreaPreviewOpen || operatorInviteDocumentsInvite) {
+      showToast(t("urride.transport.toast.closeScreenFirst"), "info");
+      return;
+    }
+    if (guardGuestAction("book", "trip")) return;
+    setRentalTarget("");
+    setCompanyOperatorDashboardOpen(false);
+    setCompanyWorkspaceOpen(false);
+    setOperatorDashboardOpen(false);
+    setActiveCompanyId("");
+    setActiveFleetId(null);
+    setActiveTripsOpen(false);
+    setSavedOperatorsOpen(false);
+    setFleetSelection(null);
+    setNearbyAreaOpen(false);
+    if (booking.kind === "operator" && booking.fleet) {
+      setOpenBookingOpen(false);
+      setBookingTarget({ fleet: booking.fleet, draftForm: booking.draftForm || null, fromKai: true });
+    } else if (booking.kind === "open") {
+      setBookingTarget(null);
+      setOpenBookingDraft(booking.draft || null);
+      setOpenBookingOpen(true);
+    }
+  };
+  useEffect(() => {
+    function handleKaiTripBooking(event) {
+      const booking = event.detail?.booking;
+      if (!booking) return;
+      event.detail.handled = true;
+      kaiTripBookingRef.current?.(booking);
+    }
+    window.addEventListener(KAI_TRIP_BOOKING_EVENT, handleKaiTripBooking);
+    return () => window.removeEventListener(KAI_TRIP_BOOKING_EVENT, handleKaiTripBooking);
+  }, []);
 
   function openRegistrationChooser() {
     if (registrationBlocked("transport-chooser")) return;
@@ -1698,7 +1742,11 @@ export default function Transport({
       {renderBookingDrawer()}
       <OpenBookingSheet
         open={openBookingOpen}
-        onClose={() => setOpenBookingOpen(false)}
+        draft={openBookingDraft}
+        onClose={() => {
+          setOpenBookingOpen(false);
+          setOpenBookingDraft(null);
+        }}
         onOpenTrips={() => {
           setActiveTripsActionRequest(null);
           setRouteDirection("forward");

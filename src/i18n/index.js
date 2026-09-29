@@ -6,8 +6,7 @@ import { LOCALE_OPTIONS, TRANSLATIONS } from "./translations";
 // override it from Settings. Brand vocabulary (KunThai, Explore, UrFeed, Swip,
 // UrMall, UrRide, Spaces, KAI, KunThai ID, Visibility Credits) is never translated.
 //
-// Right-to-left note: Arabic strings are provided, but the layout still renders
-// left-to-right until the interface has been reviewed for RTL mirroring.
+// Arabic and Urdu use right-to-left document direction.
 
 const LOCALE_OVERRIDE_KEY = "kunthai.locale";
 // A locale is selectable / auto-detectable only when it appears in
@@ -18,7 +17,7 @@ const LOCALE_OVERRIDE_KEY = "kunthai.locale";
 const SUPPORTED = new Set(LOCALE_OPTIONS.map((option) => option.code));
 // Locales whose script reads right-to-left. Adding one here flips the whole
 // interface direction (document + <html dir>) when that locale is active.
-const RTL_LOCALES = new Set(["ar"]);
+const RTL_LOCALES = new Set(["ar", "ur"]);
 
 export function isRtlLocale(locale) {
   return RTL_LOCALES.has(locale);

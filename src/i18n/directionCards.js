@@ -246,4 +246,390 @@ export const DIRECTION_CARDS = {
       ]
     }
   },
+
+  id: {
+    "ui": {
+      "gotIt": "Mengerti",
+      "hideAll": "Sembunyikan semua tip",
+      "close": "Tutup tip",
+      "tip": "Tip"
+    },
+    "cards": {
+      "explore-create": [
+        "Bagikan postingan pertama Anda",
+        "Ketuk + untuk memposting teks, foto, catatan suara, atau video ke Explore."
+      ],
+      "urmall-register": [
+        "Daftarkan bisnis Anda secara gratis",
+        "Buka toko UrMall Anda, daftarkan apa yang Anda jual dan jangkau pembeli di dekat Anda."
+      ],
+      "urride-register": [
+        "Daftarkan perjalanan Anda secara gratis",
+        "Tambahkan kendaraan atau perusahaan transportasi Anda dan mulailah mendapatkan pemesanan."
+      ],
+      "urmall-seller-add": [
+        "Tambahkan daftar pertama Anda",
+        "Produk, item menu, atau properti yang Anda tambahkan di sini akan ditampilkan kepada pembeli."
+      ],
+      "urmall-seller-orders": [
+        "Pesanan baru tiba di sini",
+        "Periksa setiap pesanan dan perbarui statusnya agar pembeli tetap mendapat informasi."
+      ],
+      "urmall-seller-messages": [
+        "Balas ke pembeli",
+        "Pertanyaan pembeli muncul di sini. Balasan cepat memenangkan lebih banyak penjualan."
+      ],
+      "urride-availability": [
+        "Aktiflah untuk mendapatkan pemesanan",
+        "Penumpang hanya dapat menemukan dan memesan Anda saat Anda aktif."
+      ],
+      "area-sos": [
+        "Bantuan darurat dalam satu ketukan",
+        "Ketuk SOS untuk nomor polisi, ambulans, dan pemadam kebakaran, serta bantuan di sekitar."
+      ],
+      "area-lock": [
+        "Kunci peta saat Anda bergerak",
+        "Menghentikan ketukan dan keluar yang tidak disengaja. Layar tetap menyala hingga Anda membuka kuncinya."
+      ],
+      "area-focus": [
+        "Fokus pada peta",
+        "Menyembunyikan tombol sehingga Anda melihat lebih banyak peta. Layar tetap menyala."
+      ],
+      "kai-assistant": [
+        "Temui KAI, asisten Anda",
+        "Minta KAI untuk menemukan produk, wahana, atau bantuan terkait formulir. Seret ke mana saja."
+      ]
+    }
+  },
+
+  ur: {
+    "ui": {
+      "gotIt": "سمجھ گیا",
+      "hideAll": "تمام نکات چھپائیں۔",
+      "close": "ٹپ بند کریں۔",
+      "tip": "ٹپ"
+    },
+    "cards": {
+      "explore-create": [
+        "اپنی پہلی پوسٹ شیئر کریں۔",
+        "Explore پر متن، تصاویر، صوتی نوٹ یا ویڈیوز پوسٹ کرنے کے لیے + کو تھپتھپائیں۔"
+      ],
+      "urmall-register": [
+        "اپنے کاروبار کو مفت میں رجسٹر کریں۔",
+        "اپنی UrMall دکان کھولیں، جو کچھ آپ بیچتے ہیں اس کی فہرست بنائیں اور اپنے قریب خریداروں تک پہنچیں۔"
+      ],
+      "urride-register": [
+        "اپنی سواری کو مفت میں رجسٹر کریں۔",
+        "اپنی گاڑی یا ٹرانسپورٹ کمپنی شامل کریں اور بکنگ حاصل کرنا شروع کریں۔"
+      ],
+      "urmall-seller-add": [
+        "اپنی پہلی فہرست شامل کریں۔",
+        "پروڈکٹس، مینو آئٹمز یا پراپرٹیز جو آپ یہاں شامل کرتے ہیں خریداروں کو دکھائی دیتے ہیں۔"
+      ],
+      "urmall-seller-orders": [
+        "یہاں نئے آرڈر آتے ہیں۔",
+        "ہر آرڈر کو چیک کریں اور اس کی حیثیت کو اپ ڈیٹ کریں تاکہ خریدار باخبر رہیں۔"
+      ],
+      "urmall-seller-messages": [
+        "خریداروں کو جواب دیں۔",
+        "خریدار کے سوالات یہاں اترتے ہیں۔ فوری جوابات مزید فروخت جیتتے ہیں۔"
+      ],
+      "urride-availability": [
+        "بکنگ حاصل کرنے کے لیے متحرک رہیں",
+        "مسافر صرف آپ کو تلاش اور بک کر سکتے ہیں جب آپ متحرک ہوں۔"
+      ],
+      "area-sos": [
+        "ایک نل میں ہنگامی مدد",
+        "پولیس، ایمبولینس اور فائر نمبرز کے لیے SOS کو تھپتھپائیں، اور قریبی مدد کریں۔"
+      ],
+      "area-lock": [
+        "جب آپ حرکت کرتے ہو تو نقشہ کو مقفل کریں۔",
+        "حادثاتی نلکوں اور باہر نکلنے کو روکتا ہے۔ اسکرین اس وقت تک آن رہتی ہے جب تک آپ غیر مقفل نہ کریں۔"
+      ],
+      "area-focus": [
+        "نقشے پر توجہ مرکوز کریں۔",
+        "بٹنوں کو چھپاتا ہے تاکہ آپ مزید نقشہ دیکھیں۔ سکرین آن رہتی ہے۔"
+      ],
+      "kai-assistant": [
+        "اپنے معاون، KAI سے ملیں۔",
+        "KAI سے مصنوعات، سواری تلاش کرنے یا فارم میں مدد کے لیے کہیں۔ اسے کہیں بھی گھسیٹیں۔"
+      ]
+    }
+  },
+
+  ru: {
+    "ui": {
+      "gotIt": "понял",
+      "hideAll": "Скрыть все советы",
+      "close": "Закрыть совет",
+      "tip": "Совет"
+    },
+    "cards": {
+      "explore-create": [
+        "Поделитесь своим первым постом",
+        "Нажмите +, чтобы опубликовать текст, фотографии, голосовые заметки или видео на Explore."
+      ],
+      "urmall-register": [
+        "Зарегистрируйте свой бизнес бесплатно",
+        "Откройте свой магазин UrMall, перечислите то, что вы продаете, и привлеките покупателей рядом с вами."
+      ],
+      "urride-register": [
+        "Зарегистрируйте поездку бесплатно",
+        "Добавьте свой автомобиль или транспортную компанию и начните получать заказы."
+      ],
+      "urmall-seller-add": [
+        "Добавьте свое первое объявление",
+        "Продукты, пункты меню или свойства, которые вы добавляете сюда, отображаются покупателям."
+      ],
+      "urmall-seller-orders": [
+        "Сюда поступают новые заказы",
+        "Проверяйте каждый заказ и обновляйте его статус, чтобы покупатели оставались в курсе."
+      ],
+      "urmall-seller-messages": [
+        "Ответ покупателям",
+        "Вопросы покупателя попадают сюда. Быстрые ответы приносят больше продаж."
+      ],
+      "urride-availability": [
+        "Будьте активны, чтобы получать заказы",
+        "Пассажиры могут найти и забронировать вас только пока вы активны."
+      ],
+      "area-sos": [
+        "Скорая помощь в одно касание",
+        "Нажмите SOS, чтобы узнать номера полиции, скорой помощи и пожарных, а также помощь поблизости."
+      ],
+      "area-lock": [
+        "Блокируйте карту во время движения",
+        "Останавливает случайные нажатия и выходы. Экран будет гореть до тех пор, пока вы его не разблокируете."
+      ],
+      "area-focus": [
+        "Ориентируйтесь на карту",
+        "Скрывает кнопки, чтобы вы могли видеть больше карты. Экран остается включенным."
+      ],
+      "kai-assistant": [
+        "Знакомьтесь, KAI, ваш помощник",
+        "Попросите KAI найти продукты, аттракционы или помочь с формой. Перетащите его куда угодно."
+      ]
+    }
+  },
+
+
+  ja: {
+    "ui": {
+      "gotIt": "わかりました",
+      "hideAll": "すべてのヒントを非表示にする",
+      "close": "先端を閉じる",
+      "tip": "ヒント"
+    },
+    "cards": {
+      "explore-create": [
+        "最初の投稿を共有する",
+        "+ をタップして、テキスト、写真、音声メモ、またはビデオを Explore に投稿します。"
+      ],
+      "urmall-register": [
+        "ビジネスを無料で登録",
+        "UrMall ショップを開き、販売する商品をリストし、近くの購入者に連絡します。"
+      ],
+      "urride-register": [
+        "配車を無料で登録",
+        "車両または運送会社を追加して予約を開始してください。"
+      ],
+      "urmall-seller-add": [
+        "最初のリストを追加する",
+        "ここに追加した製品、メニュー項目、またはプロパティが購入者に表示されます。"
+      ],
+      "urmall-seller-orders": [
+        "新しい注文はここに到着します",
+        "各注文を確認してステータスを更新し、購入者に常に最新情報を提供します。"
+      ],
+      "urmall-seller-messages": [
+        "購入者への返信",
+        "購入者の質問がここに集まります。迅速な返信により、より多くの売上が得られます。"
+      ],
+      "urride-availability": [
+        "積極的に行動して予約を獲得しましょう",
+        "乗客はあなたがアクティブな間のみあなたを見つけて予約できます。"
+      ],
+      "area-sos": [
+        "ワンタップで緊急支援",
+        "SOS をタップすると、警察、救急車、消防車の番号が表示され、近くの助けが表示されます。"
+      ],
+      "area-lock": [
+        "移動中はマップをロックする",
+        "誤ってタップして終了するのを防ぎます。ロックを解除するまで画面は点灯したままになります。"
+      ],
+      "area-focus": [
+        "地図に注目してください",
+        "ボタンを非表示にして、より多くの地図を表示します。画面はオンのままです。"
+      ],
+      "kai-assistant": [
+        "あなたのアシスタント、KAI をご紹介します",
+        "製品、乗り物を検索したり、フォームに関するサポートを依頼したりする場合は、KAI に依頼してください。任意の場所にドラッグします。"
+      ]
+    }
+  },
+
+  mr: {
+    "ui": {
+      "gotIt": "समजले",
+      "hideAll": "सर्व टिपा लपवा",
+      "close": "टीप बंद करा",
+      "tip": "टीप"
+    },
+    "cards": {
+      "explore-create": [
+        "तुमची पहिली पोस्ट शेअर करा",
+        "Explore वर मजकूर, फोटो, व्हॉइस नोट्स किंवा व्हिडिओ पोस्ट करण्यासाठी + वर टॅप करा."
+      ],
+      "urmall-register": [
+        "तुमचा व्यवसाय विनामूल्य नोंदणी करा",
+        "तुमचे UrMall दुकान उघडा, तुम्ही काय विकता याची यादी करा आणि तुमच्या जवळच्या खरेदीदारांपर्यंत पोहोचा."
+      ],
+      "urride-register": [
+        "तुमची राइड मोफत नोंदणी करा",
+        "तुमचे वाहन किंवा वाहतूक कंपनी जोडा आणि बुकिंग मिळवणे सुरू करा."
+      ],
+      "urmall-seller-add": [
+        "तुमची पहिली सूची जोडा",
+        "तुम्ही येथे जोडलेली उत्पादने, मेनू आयटम किंवा गुणधर्म खरेदीदारांना दिसतात."
+      ],
+      "urmall-seller-orders": [
+        "नवीन ऑर्डर येथे येतात",
+        "प्रत्येक ऑर्डर तपासा आणि त्याची स्थिती अद्यतनित करा जेणेकरुन खरेदीदार सूचित राहतील."
+      ],
+      "urmall-seller-messages": [
+        "खरेदीदारांना उत्तर द्या",
+        "खरेदीदार प्रश्न येथे जमीन. द्रुत प्रत्युत्तरे अधिक विक्री जिंकतात."
+      ],
+      "urride-availability": [
+        "बुकिंग मिळवण्यासाठी सक्रिय व्हा",
+        "तुम्ही सक्रिय असतानाच प्रवासी तुम्हाला शोधू आणि बुक करू शकतात."
+      ],
+      "area-sos": [
+        "एका टॅपमध्ये आपत्कालीन मदत",
+        "पोलीस, रुग्णवाहिका आणि अग्निशमन क्रमांक आणि जवळपासच्या मदतीसाठी SOS वर टॅप करा."
+      ],
+      "area-lock": [
+        "तुम्ही हलवत असताना नकाशा लॉक करा",
+        "अपघाती नळ आणि बाहेर पडणे थांबवते. तुम्ही अनलॉक करेपर्यंत स्क्रीन चालू राहते."
+      ],
+      "area-focus": [
+        "नकाशावर लक्ष केंद्रित करा",
+        "बटणे लपवते जेणेकरून तुम्हाला अधिक नकाशा दिसेल. स्क्रीन चालू राहते."
+      ],
+      "kai-assistant": [
+        "तुमचा सहाय्यक KAI ला भेटा",
+        "KAI ला उत्पादने, राइड शोधण्यासाठी किंवा फॉर्ममध्ये मदत करण्यासाठी विचारा. ते कुठेही ड्रॅग करा."
+      ]
+    }
+  },
+
+  vi: {
+    "ui": {
+      "gotIt": "Hiểu rồi",
+      "hideAll": "Ẩn tất cả mẹo",
+      "close": "Đóng mẹo",
+      "tip": "Mẹo"
+    },
+    "cards": {
+      "explore-create": [
+        "Chia sẻ bài viết đầu tiên của bạn",
+        "Nhấn + để đăng văn bản, ảnh, ghi chú thoại hoặc video lên Explore."
+      ],
+      "urmall-register": [
+        "Đăng ký doanh nghiệp của bạn miễn phí",
+        "Mở cửa hàng UrMall của bạn, liệt kê những mặt hàng bạn bán và tiếp cận những người mua ở gần bạn."
+      ],
+      "urride-register": [
+        "Đăng ký chuyến đi của bạn miễn phí",
+        "Thêm phương tiện hoặc công ty vận tải của bạn và bắt đầu nhận đặt chỗ."
+      ],
+      "urmall-seller-add": [
+        "Thêm danh sách đầu tiên của bạn",
+        "Sản phẩm, mục menu hoặc thuộc tính bạn thêm vào đây sẽ hiển thị với người mua."
+      ],
+      "urmall-seller-orders": [
+        "Đơn đặt hàng mới đến đây",
+        "Kiểm tra từng đơn hàng và cập nhật trạng thái của nó để người mua luôn được thông báo."
+      ],
+      "urmall-seller-messages": [
+        "Trả lời người mua",
+        "Người mua thắc mắc đất ở đây. Trả lời nhanh sẽ giành được nhiều doanh số hơn."
+      ],
+      "urride-availability": [
+        "Hãy chủ động để nhận đặt chỗ",
+        "Hành khách chỉ có thể tìm và đặt chỗ cho bạn khi bạn đang hoạt động."
+      ],
+      "area-sos": [
+        "Trợ giúp khẩn cấp chỉ bằng một cú chạm",
+        "Nhấn vào SOS để biết số điện thoại của cảnh sát, xe cứu thương và cứu hỏa cũng như sự trợ giúp ở gần."
+      ],
+      "area-lock": [
+        "Khóa bản đồ trong khi bạn di chuyển",
+        "Dừng các thao tác chạm và thoát vô tình. Màn hình vẫn sáng cho đến khi bạn mở khóa."
+      ],
+      "area-focus": [
+        "Tập trung vào bản đồ",
+        "Ẩn các nút để bạn xem thêm bản đồ. Màn hình vẫn bật."
+      ],
+      "kai-assistant": [
+        "Hãy gặp KAI, trợ lý của bạn",
+        "Hãy hỏi KAI để tìm sản phẩm, chuyến đi hoặc trợ giúp về biểu mẫu. Kéo nó đi bất cứ đâu."
+      ]
+    }
+  },
+
+  de: {
+    "ui": {
+      "gotIt": "Verstanden",
+      "hideAll": "Alle Tipps ausblenden",
+      "close": "Tipp schließen",
+      "tip": "Tipp"
+    },
+    "cards": {
+      "explore-create": [
+        "Teilen Sie Ihren ersten Beitrag",
+        "Tippen Sie auf +, um Text, Fotos, Sprachnotizen oder Videos auf Explore zu posten."
+      ],
+      "urmall-register": [
+        "Registrieren Sie Ihr Unternehmen kostenlos",
+        "Eröffnen Sie Ihren UrMall-Shop, listen Sie auf, was Sie verkaufen, und erreichen Sie Käufer in Ihrer Nähe."
+      ],
+      "urride-register": [
+        "Registrieren Sie Ihre Fahrt kostenlos",
+        "Fügen Sie Ihr Fahrzeug oder Transportunternehmen hinzu und erhalten Sie Buchungen."
+      ],
+      "urmall-seller-add": [
+        "Fügen Sie Ihren ersten Eintrag hinzu",
+        "Produkte, Menüpunkte oder Eigenschaften, die Sie hier hinzufügen, werden Käufern angezeigt."
+      ],
+      "urmall-seller-orders": [
+        "Hier treffen neue Bestellungen ein",
+        "Überprüfen Sie jede Bestellung und aktualisieren Sie ihren Status, damit Käufer auf dem Laufenden bleiben."
+      ],
+      "urmall-seller-messages": [
+        "Antwort an Käufer",
+        "Hier landen Käuferfragen. Schnelle Antworten führen zu mehr Verkäufen."
+      ],
+      "urride-availability": [
+        "Werden Sie aktiv, um Buchungen zu erhalten",
+        "Passagiere können Sie nur finden und buchen, solange Sie aktiv sind."
+      ],
+      "area-sos": [
+        "Notfallhilfe mit einem Fingertipp",
+        "Tippen Sie auf SOS, um die Nummern von Polizei, Krankenwagen und Feuerwehr sowie Hilfe in der Nähe anzuzeigen."
+      ],
+      "area-lock": [
+        "Sperren Sie die Karte, während Sie sich bewegen",
+        "Stoppt versehentliches Tippen und Beenden. Der Bildschirm bleibt eingeschaltet, bis Sie ihn entsperren."
+      ],
+      "area-focus": [
+        "Konzentrieren Sie sich auf die Karte",
+        "Blendet die Schaltflächen aus, sodass Sie mehr Karte sehen können. Der Bildschirm bleibt eingeschaltet."
+      ],
+      "kai-assistant": [
+        "Lernen Sie KAI kennen, Ihren Assistenten",
+        "Bitten Sie KAI um die Suche nach Produkten, Fahrten oder Hilfe bei einem Formular. Ziehen Sie es an eine beliebige Stelle."
+      ]
+    }
+  },
 };

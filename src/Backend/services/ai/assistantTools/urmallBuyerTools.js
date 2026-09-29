@@ -17,8 +17,8 @@ import {
   sortByDistance,
   verticalFactsForAi,
   verticalPrice,
-  verticalSearchText,
 } from "../urmallAiModels";
+import { rankVerticalEntries, verticalEntriesFrom } from "../../marketplace/verticalSearch";
 
 // KAI — UrMall buyer tools.
 //
@@ -68,6 +68,15 @@ async function searchProducts(args) {
   }
 
   const top = products.slice(0, ASSISTANT_RESULT_LIMIT);
+
+  // A buyer asking for "shawarma" or "a room" may not know it is a meal or a
+  // stay rather than a product, so the same words also search meals, hotels
+  // and property. They only fill the space products left over.
+  const room = Math.max(0, ASSISTANT_RESULT_LIMIT - top.length);
+  const verticals = room && !category
+    ? await matchingVerticals(args.query, budget, currency).then((entries) => entries.slice(0, Math.max(2, room))).catch(() => [])
+    : [];
+
   return {
     result: {
       marketCurrency: currency,
@@ -77,9 +86,24 @@ async function searchProducts(args) {
       ...(budget.mismatch ? { budgetCurrencyMismatch: budget.mismatch } : {}),
       ...(args.sort === "nearby" && !buyer ? { locationUnknown: true } : {}),
       products: top.map((product) => productFactsForAi(product, { buyer })),
+      ...(verticals.length
+        ? { mealsStaysAndProperty: verticals.map(({ type, item }) => verticalFactsForAi(type, item, { buyer })) }
+        : {}),
     },
-    entities: { products: top },
+    entities: { products: top, ...(verticals.length ? { verticals } : {}) },
   };
+}
+
+async function matchingVerticals(query, budget, currency) {
+  const discovery = await fetchMarketplaceVerticalDiscovery();
+  let entries = rankVerticalEntries(verticalEntriesFrom(discovery), query);
+  if (budget.apply && budget.maxPrice !== null) {
+    entries = entries.filter(({ type, item }) => {
+      const price = verticalPrice(type, item);
+      return price > 0 && price <= budget.maxPrice && (!item.currency || item.currency === currency);
+    });
+  }
+  return entries;
 }
 
 async function searchFoodAndStays(args) {
@@ -89,12 +113,9 @@ async function searchFoodAndStays(args) {
   const discovery = await fetchMarketplaceVerticalDiscovery();
   const pools = { restaurant: discovery?.restaurants, hotel: discovery?.hotels, property: discovery?.properties };
 
-  const words = String(args.query || "").toLowerCase().split(/\s+/).filter((word) => word.length >= 2);
-  let items = (pools[args.type] || []).filter((item) => {
-    if (!words.length) return true;
-    const haystack = verticalSearchText(args.type, item);
-    return words.some((word) => haystack.includes(word));
-  });
+  // Same typo-tolerant ranking as UrMall's search bar ("sharwama" -> Shawarma).
+  let items = rankVerticalEntries((pools[args.type] || []).map((item) => ({ type: args.type, item })), args.query || "")
+    .map((entry) => entry.item);
 
   if (budget.apply && budget.maxPrice !== null) {
     items = items.filter((item) => {

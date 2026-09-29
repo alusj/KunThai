@@ -15,6 +15,7 @@ import {
   isFleetTypeAvailableForService,
 } from "../../data/globalTransportCapabilities";
 import { cachedQuery, invalidateCache } from "../../Backend/lib/queryCache";
+import { resolvePublicCode } from "../../Backend/services/publicCodeService";
 
 const TRANSPORT_FLEET_MEMORY = new Map();
 
@@ -508,6 +509,46 @@ export async function fetchTransportFleetById(id) {
     fetchPublicFleetContacts([data.id]),
   ]);
   return mapLiveFleet(data, affiliations.get(data.id), stats.get(data.id), contacts.get(data.id));
+}
+
+function compactFleetCode(value) {
+  return String(value || "").replace(/[^a-z0-9]/gi, "").toUpperCase();
+}
+
+/**
+ * The bookable fleet behind an operator code a passenger typed: the operator's
+ * KT- code (with or without "KT") or a company fleet code. Looks through the
+ * same passenger-visible fleet list UrRide shows first, then falls back to the
+ * public code resolver. Returns null when nothing bookable matches; a company
+ * fleet the company hides from passengers never matches.
+ */
+export async function findBookableFleetByCode(code) {
+  const wanted = compactFleetCode(code);
+  if (wanted.length < 3) return null;
+  // "KT-685B8", "kt 685b8" and "685B8" are the same operator.
+  const candidates = new Set([wanted, wanted.startsWith("KT") ? wanted : `KT${wanted}`]);
+  const matches = (fleet) => candidates.has(compactFleetCode(fleet.operatorId)) || (fleet.fleetCode && candidates.has(compactFleetCode(fleet.fleetCode)));
+
+  const listed = await fetchTransportFleets({ mode: "topRated", fleetType: null, includeOffline: true }).catch(() => []);
+  const found = listed.filter(matches);
+  if (found.length) return found.find((fleet) => fleet.activeStatus === "active") || found[0];
+
+  for (const candidate of candidates) {
+    const resolved = await resolvePublicCode(candidate).catch(() => null);
+    if (resolved?.kind !== "urride" || !resolved.operatorId) continue;
+    const { data } = await supabase
+      .from("transport_fleets")
+      .select("id, active_status")
+      .eq("operator_id", resolved.operatorId)
+      .order("updated_at", { ascending: false })
+      .limit(5);
+    const rows = data || [];
+    const row = rows.find((item) => item.active_status === "active") || rows[0];
+    if (!row) continue;
+    const fleet = await fetchTransportFleetById(row.id).catch(() => null);
+    if (fleet && (!fleet.isCompanyFleet || fleet.isVisibleToPassengers)) return fleet;
+  }
+  return null;
 }
 
 export async function fetchTransportFleetReviews(fleet) {

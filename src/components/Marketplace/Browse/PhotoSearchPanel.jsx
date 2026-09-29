@@ -4,7 +4,8 @@ import { Camera, Loader2, Package, Search, Sparkles, X } from "lucide-react";
 import { isAiCancellation, runAiTask } from "../../../Backend/services/ai/aiService";
 import { prepareImageForAi } from "../../../Backend/services/ai/exploreAi";
 import { moneyLabel } from "../../../Backend/services/ai/urmallAiModels";
-import { applyPhotoMatches, photoMatchListing, photoSearchCandidates } from "../../../Backend/services/marketplace/photoSearch";
+import { applyPhotoMatches, photoMatchListing, photoSearchCandidates, photoSearchTerms } from "../../../Backend/services/marketplace/photoSearch";
+import { verticalAsPhotoCandidate } from "../../../Backend/services/marketplace/verticalSearch";
 import { isConnectionFailure } from "../../../Backend/services/friendlyErrorService";
 import { announceConnectionTrouble } from "../../../Backend/services/networkService";
 import { resizedImageUrl } from "../../../Backend/lib/imageProxy";
@@ -22,7 +23,7 @@ function productPriceLabel(product) {
  * marks each real listing as an exact or similar match. If the matching step
  * fails, the ranked listings are still shown (without KAI's reasons).
  */
-export default function PhotoSearchPanel({ file, products = [], catalogLoading = false, onOpenProduct, onSearchTerm, onRetake, onClear }) {
+export default function PhotoSearchPanel({ file, products = [], verticalEntries = [], catalogLoading = false, onOpenProduct, onSearchTerm, onRetake, onClear }) {
   const { t, locale } = useI18n();
   const [preview, setPreview] = useState("");
   const [state, setState] = useState({ step: "reading", identified: null, results: [], error: "" });
@@ -84,7 +85,12 @@ export default function PhotoSearchPanel({ file, products = [], catalogLoading =
   useEffect(() => {
     if (!readyToMatch || !identified) return undefined;
     const controller = controllerRef.current;
-    const candidates = photoSearchCandidates(products, identified.searchTerms);
+    // Everything a buyer can find: shop and vendor products plus meals, hotels
+    // and property (a photographed burger must be able to match a menu item).
+    const candidates = photoSearchCandidates(
+      [...products, ...verticalEntries.map(verticalAsPhotoCandidate)],
+      photoSearchTerms(identified),
+    );
     if (!candidates.length) {
       setState((current) => ({ ...current, step: "done", results: [] }));
       return undefined;

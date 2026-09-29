@@ -124,7 +124,7 @@ function ChoiceCard({ active, icon, title, detail, onClick }) {
  * offer. No operator is chosen; the nearest online operators of that vehicle
  * type are notified and the first to accept takes the trip.
  */
-export default function OpenBookingSheet({ open, onClose, onOpenTrips }) {
+export default function OpenBookingSheet({ open, draft = null, onClose, onOpenTrips }) {
   useI18n();
   useBodyScrollLock(open);
   const country = getActiveCountryProfile();
@@ -165,17 +165,18 @@ export default function OpenBookingSheet({ open, onClose, onOpenTrips }) {
     if (Number(form.passengers) > maxPassengers) setForm((current) => ({ ...current, passengers: String(maxPassengers) }));
   }, [form.passengers, maxPassengers]);
 
-  // Fresh sheet every time it opens.
+  // Fresh sheet every time it opens — or, when KAI's guided booking opened it,
+  // the passenger's answers already filled in for them to check and send.
   useEffect(() => {
     if (!open) return undefined;
-    setMode("");
-    setFleetType("");
-    setForm(EMPTY_FORM);
+    setMode(draft?.mode === "delivery" || draft?.mode === "ride" ? draft.mode : "");
+    setFleetType(draft?.fleetType || "");
+    setForm(draft?.form ? { ...EMPTY_FORM, ...draft.form } : EMPTY_FORM);
     setRoute(null);
     setRouteMessage("");
     setAreaPicker(null);
-    setOfferChoice("average");
-    setCustomAmount("");
+    setOfferChoice(["economy", "average", "priority", "custom"].includes(draft?.offerChoice) ? draft.offerChoice : "average");
+    setCustomAmount(draft?.customAmount || "");
     setNotice("");
     setShowCaution(!readCautionAccepted());
     setDontShowCaution(false);
@@ -212,6 +213,8 @@ export default function OpenBookingSheet({ open, onClose, onOpenTrips }) {
       alive = false;
       window.removeEventListener(TRANSPORT_SAVED_PLACES_EVENT, refreshSavedPlaces);
     };
+    // The draft is read once, when the sheet opens.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [open]);
 
   // Operators' published prices for this vehicle type feed the fare offers.

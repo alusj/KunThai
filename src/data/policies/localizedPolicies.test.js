@@ -7,7 +7,7 @@ import { policyDate, policyText } from "../../i18n/policyText.js";
 import { buildPolicySearchResults, getLocalizedPolicies } from "./localizedPolicies.js";
 import { policyDocuments } from "./policyDocuments.js";
 
-const locales = ["en", "fr", "ar", "es", "zh", "hi", "bn", "pt"];
+const locales = ["en", "fr", "ar", "es", "zh", "hi", "bn", "pt", "id", "ur", "ru", "de", "ja", "mr", "vi"];
 const displayFields = new Set(["title", "shortTitle", "description", "summary", "audience", "appliesWhen", "introduction", "paragraphs", "bullets", "allowed", "prohibited", "examples", "callouts", "keywords", "policiesAffected"]);
 
 function compareValues(source, translated, locale, field = "") {

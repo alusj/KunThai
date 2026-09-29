@@ -83,6 +83,16 @@ function findScreen(id) {
   return null;
 }
 
+/** A registered screen by id (even when another screen is on top of it). */
+export function getAiScreenById(id) {
+  return id ? findScreen(id) : null;
+}
+
+/** The fields a screen currently offers (empty when it has no form). */
+export function aiScreenFormFields(context) {
+  return fieldsOf(context);
+}
+
 /**
  * Declare the current screen to KAI while the component is mounted. The
  * builder is called when KAI needs it, so it always sees the latest state.

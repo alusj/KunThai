@@ -212,4 +212,313 @@ export const CAUTION_FEATURES = {
       ]
     ]
   },
+
+  id: {
+    "heading": "Paket, akses, dan penggunaan sehari-hari",
+    "urmall": [
+      [
+        "Banyak bisnis memerlukan Pro atau Premium",
+        "Gratis mendukung jenis bisnis {freeTypes}. Tingkatkan bisnis milik ke Pro untuk jenis {proTypes}, atau Premium untuk semua {premiumTypes}: Toko, Vendor, Restoran, dan Real Estat. Setiap tipe memiliki ruang kerjanya sendiri; gunakan ruang kerja yang ada untuk lebih banyak stok atau lokasi daripada mendaftarkan jenis yang sama lagi."
+      ],
+      [
+        "Perpanjangan dan jangka waktu retensi 15 hari",
+        "Paket menggunakan Visibility Credits. Jika paket berbayar habis masa berlakunya tanpa perpanjangan, atau Anda berpindah ke Gratis, hanya 10 item terbitan yang tetap terlihat. Pilih item tersebut di dasbor Anda. Perpanjang atau tingkatkan dalam waktu 15 hari untuk mencegah penghapusan permanen kelebihan item dan draf. Periksa pemberitahuan perpanjangan dan saldo kredit Anda."
+      ],
+      [
+        "Daftar, ketersediaan, dan permintaan yang akurat",
+        "Selalu perbarui harga, stok, ketersediaan makanan, status properti, dan detail pengambilan atau pengiriman. Tambahkan foto sampul yang jelas dan lokasi yang akurat. Hotel ditambahkan di bawah Real Estat. Konfirmasi status pesanan atau reservasi, pengaturan pembayaran dan pemenuhan dengan bisnis sebelum membayar atau melakukan perjalanan; permintaan saja bukanlah konfirmasi."
+      ],
+      [
+        "Admin, pesan dan verifikasi",
+        "Gunakan undangan dan izin admin yang tersedia di paket Anda. Setiap orang harus menggunakan akunnya sendiri. Periksa pesan, permintaan, dan pemberitahuan pelanggan di ruang kerja bisnis yang benar. Membayar sebuah paket tidak memverifikasi bisnis Anda; dokumen dan tinjauan ditangani secara terpisah."
+      ]
+    ],
+    "urride": [
+      [
+        "Akses tunggal ke perusahaan: {accessCredits} Visibility Credits satu kali",
+        "Operator yang memulai solo harus mengonfirmasi biaya kredit {accessCredits} satu kali saat pertama kali menerima undangan perusahaan. Miliki kredit yang cukup di dompet Anda. Setelah dibuka, akses tidak dikenakan biaya lagi untuk setiap perusahaan. Operator yang memulai melalui undangan perusahaan menerima akses perusahaan tanpa biaya solo-ke-perusahaan. Hal ini terpisah dari rencana perusahaan."
+      ],
+      [
+        "Banyak perusahaan, satu armada aktif",
+        "Terima undangan dengan KunThai ID dan akun Anda sendiri. Anda dapat mempertahankan koneksi armada solo dan perusahaan, namun hanya memilih satu armada aktif untuk bekerja. Selesaikan perjalanan yang sedang berlangsung sebelum beralih. Periksa perusahaan dan kendaraan yang Anda aktifkan; keanggotaan perusahaan tidak mengalihkan kepemilikan armada tunggal Anda."
+      ],
+      [
+        "Daftarkan armada sewaan satu kali",
+        "Penyewaan kendaraan mandiri adalah milik perusahaan dan tidak memiliki operator yang ditugaskan. Simpan kendaraan satu kali, lalu gunakan Tersedia untuk menampilkannya secara publik atau matikan ketersediaan untuk menyembunyikannya. Pemilik dan admin aktif mengelola permintaan, pengeditan, ulasan, dan riwayat. Tambahkan foto sampul; mobil dan taksi juga memerlukan tampilan depan, belakang, kiri, kanan, interior depan, dan interior belakang."
+      ],
+      [
+        "Permintaan sewa, harga dan pemberitahuan",
+        "Periksa tanggal pengambilan dan pengembalian, kondisi pengambilan, deposit, dan persewaan. Permintaan menjadi reservasi hanya setelah konfirmasi perusahaan. Untuk harga yang bisa dinegosiasikan, perusahaan mengusulkan total dan penyewa menerimanya sebelum konfirmasi. Ikuti status reservasi dan pemberitahuan perubahan; mematikan ketersediaan tidak membatalkan reservasi yang sudah ada. Ulasan tersedia setelah penyewaan selesai."
+      ],
+      [
+        "Kapasitas, dokumen dan perjalanan yang lebih aman",
+        "Perusahaan merencanakan pengendalian kapasitas operator, kendaraan dan admin; biaya akses operator satu kali tidak meningkatkan batas tersebut. Diperlukan foto armada dan telepon yang dapat dihubungi; dokumen verifikasi dapat diselesaikan kemudian jika diizinkan. Periksa lencana verifikasi, kendaraan sebenarnya, plat, tarif dan rute. Paket berbayar atau undangan perusahaan tidak menjamin verifikasi, pekerjaan, atau keselamatan."
+      ]
+    ]
+  },
+
+  ur: {
+    "heading": "منصوبے، رسائی اور روزمرہ استعمال",
+    "urmall": [
+      [
+        "متعدد کاروباروں کو پرو یا پریمیم کی ضرورت ہے۔",
+        "مفت سپورٹ کرتا ہے {freeTypes} کاروبار کی قسم۔ کسی ملکیتی کاروبار کو {proTypes} اقسام کے لیے پرو، یا تمام {premiumTypes} کے لیے پریمیم میں اپ گریڈ کریں: دکان، فروش، ریستوراں اور رئیل اسٹیٹ۔ ہر قسم کی اپنی ورک اسپیس ہوتی ہے۔ ایک ہی قسم کو دوبارہ رجسٹر کرنے کے بجائے موجودہ ورک اسپیس کو مزید اسٹاک یا مقامات کے لیے استعمال کریں۔"
+      ],
+      [
+        "تجدیدات اور 15 دن کی برقراری ونڈو",
+        "منصوبے Visibility Credits استعمال کرتے ہیں۔ اگر ایک بامعاوضہ منصوبہ تجدید کے بغیر ختم ہو جاتا ہے، یا آپ مفت میں چلے جاتے ہیں، تو صرف 10 شائع شدہ آئٹمز نظر آتے ہیں۔ اپنے ڈیش بورڈ میں ان اشیاء کو منتخب کریں۔ اضافی اشیاء اور مسودوں کو مستقل طور پر حذف ہونے سے روکنے کے لیے 15 دنوں کے اندر تجدید یا اپ گریڈ کریں۔ تجدید نوٹس اور اپنا کریڈٹ بیلنس چیک کریں۔"
+      ],
+      [
+        "درست فہرستیں، دستیابی اور درخواستیں۔",
+        "قیمتیں، اسٹاک، کھانے کی دستیابی، جائیداد کی حیثیت اور پک اپ یا ڈیلیوری کی تفصیلات کو تازہ رکھیں۔ کور کی واضح تصاویر اور ایک درست مقام شامل کریں۔ ہوٹل ریئل اسٹیٹ کے تحت شامل کیے گئے ہیں۔ ادائیگی کرنے یا سفر کرنے سے پہلے آرڈر یا ریزرویشن کی حیثیت، ادائیگی کے انتظامات اور کاروبار کے ساتھ تکمیل کی تصدیق کریں۔ اکیلے ایک درخواست کی تصدیق نہیں ہے."
+      ],
+      [
+        "ایڈمنز، پیغامات اور تصدیق",
+        "اپنے پلان پر دستیاب ایڈمن دعوت ناموں اور اجازتوں کا استعمال کریں۔ ہر شخص کو اپنا اکاؤنٹ استعمال کرنا چاہیے۔ کسٹمر کے پیغامات، درخواستوں اور اطلاعات کو درست کاروباری کام کی جگہ پر چیک کریں۔ پلان کی ادائیگی آپ کے کاروبار کی تصدیق نہیں کرتی ہے۔ دستاویزات اور جائزہ الگ الگ سنبھالے جاتے ہیں۔"
+      ]
+    ],
+    "urride": [
+      [
+        "سولو ٹو کمپنی تک رسائی: {accessCredits} Visibility Credits ایک بار",
+        "ایک آپریٹر جس نے سولو شروع کیا اسے کمپنی کی دعوت قبول کرتے وقت ایک بار {accessCredits}-کریڈٹ چارج کی تصدیق کرنی ہوگی۔ اپنے بٹوے میں کافی کریڈٹ رکھیں۔ ایک بار غیر مقفل ہونے کے بعد، رسائی ہر کمپنی کے لیے دوبارہ چارج نہیں کی جاتی ہے۔ آپریٹرز جو کمپنی کے دعوت نامے کے ذریعے شروع کرتے ہیں وہ کمپنی تک اس سولو ٹو کمپنی چارج کے بغیر رسائی حاصل کرتے ہیں۔ یہ کمپنی کے منصوبے سے الگ ہے۔"
+      ],
+      [
+        "متعدد کمپنیاں، ایک فعال بیڑا",
+        "اپنے KunThai ID اور اکاؤنٹ کے ساتھ دعوت نامے قبول کریں۔ آپ سولو اور کمپنی فلیٹ کنکشن رکھ سکتے ہیں، لیکن کام کے لیے صرف ایک فعال بیڑا منتخب کریں۔ سوئچ کرنے سے پہلے جاری سفر کو مکمل کریں۔ جس کمپنی اور گاڑی کو آپ چالو کر رہے ہیں اسے چیک کریں۔ کمپنی کی رکنیت آپ کے سولو فلیٹ کی ملکیت کو منتقل نہیں کرتی ہے۔"
+      ],
+      [
+        "کرایہ کے بیڑے ایک بار رجسٹر کریں۔",
+        "سیلف ڈرائیو کرائے کا تعلق کمپنی سے ہے اور اس کا کوئی تفویض کردہ آپریٹر نہیں ہے۔ گاڑی کو ایک بار محفوظ کریں، پھر اسے عوامی طور پر دکھانے کے لیے Available کا استعمال کریں یا اسے چھپانے کے لیے دستیابی کو بند کریں۔ مالکان اور فعال منتظمین درخواستوں، ترمیم، جائزوں اور تاریخ کا نظم کرتے ہیں۔ ایک کور تصویر شامل کریں؛ کاروں اور ٹیکسیوں کو بھی سامنے، پیچھے، بائیں، دائیں، سامنے کے اندرونی اور پیچھے کے اندرونی نظاروں کی ضرورت ہوتی ہے۔"
+      ],
+      [
+        "کرایہ کی درخواستیں، قیمتیں اور اطلاعات",
+        "جمع کرنے اور واپسی کی تاریخیں، پک اپ، ڈپازٹ اور کرائے کے حالات چیک کریں۔ کمپنی کی تصدیق کے بعد ہی درخواست بکنگ بن جاتی ہے۔ قابل تبادلہ قیمت کے لیے، کمپنی کل تجویز کرتی ہے اور کرایہ دار تصدیق سے پہلے اسے قبول کرتا ہے۔ ریزرویشن کی حیثیت اور تبدیلیوں کے لیے اطلاعات پر عمل کریں۔ دستیابی کو بند کرنے سے موجودہ ریزرویشن منسوخ نہیں ہوتا ہے۔ مکمل کرائے کے بعد جائزے دستیاب ہیں۔"
+      ],
+      [
+        "صلاحیت، دستاویزات اور محفوظ سفر",
+        "کمپنی کنٹرول آپریٹر، گاڑی اور منتظم کی صلاحیت کا منصوبہ بناتی ہے۔ ایک بار آپریٹر تک رسائی کا چارج ان حدود میں اضافہ نہیں کرتا ہے۔ بیڑے کی تصاویر اور قابل رسائی فون درکار ہے۔ تصدیقی دستاویزات کو بعد میں مکمل کیا جا سکتا ہے جہاں اجازت ہو۔ تصدیقی بیج، اصل گاڑی، پلیٹ، کرایہ اور راستہ چیک کریں۔ ادا شدہ منصوبہ یا کمپنی کا دعوت نامہ تصدیق، کام یا حفاظت کی ضمانت نہیں دیتا۔"
+      ]
+    ]
+  },
+
+  ru: {
+    "heading": "Планы, доступ и повседневное использование",
+    "urmall": [
+      [
+        "Многим компаниям нужен Pro или Premium",
+        "Бесплатная поддержка типа бизнеса {freeTypes}. Обновите собственный бизнес до уровня Pro для типов {proTypes} или уровня Premium для всех {premiumTypes}: магазина, продавца, ресторана и недвижимости. Каждый тип имеет свое рабочее пространство; используйте существующее рабочее пространство для большего количества товаров или местоположений вместо повторной регистрации того же типа."
+      ],
+      [
+        "Продление и 15-дневный период хранения",
+        "В планах используется Visibility Credits. Если срок действия платного плана истекает без продления или вы переходите на бесплатный, видимыми останутся только 10 опубликованных элементов. Выберите эти элементы на панели инструментов. Продлите или обновите подписку в течение 15 дней, чтобы предотвратить безвозвратное удаление лишних элементов и черновиков. Проверьте уведомления о продлении и свой кредитный баланс."
+      ],
+      [
+        "Точные списки, наличие и запросы",
+        "Держите цены, наличие на складе, наличие еды, статус собственности, а также информацию о получении или доставке в актуальном состоянии. Добавьте четкие фотографии на обложке и точное местоположение. Отели добавлены в раздел «Недвижимость». Подтвердите статус заказа или бронирования, порядок оплаты и его выполнение перед оплатой или поездкой; запрос сам по себе не является подтверждением."
+      ],
+      [
+        "Админы, сообщения и проверка",
+        "Используйте приглашения и разрешения администратора, доступные в вашем плане. Каждый человек должен использовать свою собственную учетную запись. Проверяйте сообщения, запросы и уведомления клиентов в правильном рабочем пространстве. Оплата плана не подтверждает ваш бизнес; документы и проверка обрабатываются отдельно."
+      ]
+    ],
+    "urride": [
+      [
+        "Индивидуальный доступ к компании: {accessCredits} Visibility Credits один раз.",
+        "Оператор, начавший в одиночку, должен подтвердить единоразовое списание {accessCredits}-кредита при первом принятии приглашения компании. Имейте достаточно кредитов в своем кошельке. После разблокировки доступ не взимается повторно для каждой компании. Операторы, которые начинают работу по приглашению компании, получают корпоративный доступ без взимания индивидуальной платы с компании. Это отдельно от плана компании."
+      ],
+      [
+        "Несколько компаний, один действующий автопарк",
+        "Принимайте приглашения, используя свой KunThai ID и учетную запись. Вы можете сохранить подключение к одиночному или корпоративному автопарку, но выбрать для работы только один активный автопарк. Завершите текущую поездку, прежде чем переключаться. Проверьте компанию и автомобиль, который вы активируете; Членство в компании не передает право собственности на ваш индивидуальный автопарк."
+      ],
+      [
+        "Зарегистрируйте арендованный автопарк один раз",
+        "Аренда беспилотных автомобилей принадлежит компании и не имеет назначенного оператора. Сохраните автомобиль один раз, затем используйте «Доступно», чтобы показать его публично, или отключите доступность, чтобы скрыть его. Владельцы и активные администраторы управляют запросами, редактированием, отзывами и историей. Добавьте обложку; Автомобили и такси также нуждаются в видах спереди, сзади, слева, справа, спереди и сзади."
+      ],
+      [
+        "Заявки на аренду, цены и уведомления",
+        "Проверьте даты получения и возврата, условия получения, залога и аренды. Запрос становится бронированием только после подтверждения компании. В случае договорных цен компания предлагает общую сумму, и арендатор принимает ее до подтверждения. Следите за статусом бронирования и уведомлениями об изменениях; отключение доступности не отменяет существующее бронирование. Отзывы доступны после завершения аренды."
+      ],
+      [
+        "Вместимость, документы и безопасные поездки",
+        "Компания планирует контролировать возможности оператора, транспортного средства и администратора; единовременная плата за операторский доступ не увеличивает эти лимиты. Требуются фотографии автопарка и доступный телефон; Документы для проверки могут быть заполнены позже, если это разрешено. Проверьте проверочный значок, фактическое транспортное средство, номерной знак, тариф и маршрут. Платный план или приглашение компании не гарантируют проверку, работу или безопасность."
+      ]
+    ]
+  },
+
+
+  ja: {
+    "heading": "プラン・アクセス・普段の使い方",
+    "urmall": [
+      [
+        "複数の企業には Pro または Premium が必要です",
+        "無料は {freeTypes} ビジネス タイプをサポートします。所有するビジネスを {proTypes} タイプの場合は Pro にアップグレードするか、すべての {premiumTypes} タイプ (ショップ、ベンダー、レストラン、不動産) の場合はプレミアムにアップグレードします。各タイプには独自のワークスペースがあります。同じタイプを再度登録する代わりに、既存のワークスペースを使用して在庫や場所を追加します。"
+      ],
+      [
+        "更新と 15 日間の保持期間",
+        "プランでは Visibility Credits を使用します。有料プランが更新されずに期限切れになった場合、または無料プランに移行した場合、公開されたアイテムは 10 件のみ表示されます。ダッシュボードでこれらの項目を選択します。余分なアイテムや下書きが完全に削除されないように、15 日以内に更新またはアップグレードしてください。更新通知とクレジット残高を確認してください。"
+      ],
+      [
+        "正確なリスト、在庫状況、リクエスト",
+        "価格、在庫、食事の有無、施設のステータス、集荷または配達の詳細を最新の状態に保ちます。明確なカバー写真と正確な場所を追加します。ホテルは不動産の下に追加されます。支払いまたは旅行の前に、注文または予約のステータス、支払いの取り決めおよび事業者との履行を確認する。リクエストだけでは確認とはなりません。"
+      ],
+      [
+        "管理者、メッセージ、確認",
+        "プランで利用可能な管理者の招待と権限を使用します。各人が自分のアカウントを使用する必要があります。顧客のメッセージ、リクエスト、通知を適切なビジネス ワークスペースで確認します。プランの支払いはあなたのビジネスを証明するものではありません。書類と審査は別々に処理されます。"
+      ]
+    ],
+    "urride": [
+      [
+        "個人から会社へのアクセス: {accessCredits} Visibility Credits 1 回",
+        "個人で始めたオペレーターは、最初に会社からの招待を受け入れるときに、1 回限りの {accessCredits} クレジット請求を確認する必要があります。ウォレットに十分なクレジットを入れてください。ロックが解除されると、各企業に再度アクセス料金が請求されることはありません。企業への招待を通じて開始したオペレーターは、この個人から企業への料金なしで企業へのアクセスを受け取ります。これは会社の計画とは別のものです。"
+      ],
+      [
+        "複数の会社、1 つのアクティブなフリート",
+        "自分の KunThai ID とアカウントを使用して招待を受け入れます。個人および会社のフリート接続を維持できますが、作業用にアクティブなフリートを 1 つだけ選択します。切り替える前に進行中の旅行を完了してください。アクティベートしている会社と車両を確認してください。会社のメンバーシップは、個人のフリートの所有権を譲渡するものではありません。"
+      ],
+      [
+        "レンタル車両を一度登録する",
+        "セルフドライブのレンタルは会社に帰属し、オペレーターは割り当てられません。車両を一度保存​​し、[利用可能] を使用して一般に公開するか、[利用可能] をオフにして非表示にします。所有者とアクティブな管理者は、リクエスト、編集、レビュー、履歴を管理します。カバー写真を追加します。車やタクシーには、前方、後方、左方、右方、前方内部、後方内部のビューも必要です。"
+      ],
+      [
+        "レンタルリクエスト、価格、通知",
+        "回収日と返却日、受け取り、デポジット、レンタル条件を確認してください。ご希望は当社確認後、ご予約となります。交渉可能な価格の場合、会社は総額を提案し、賃貸人は確認前にそれを受け入れます。予約状況と変更通知を追跡します。空き状況をオフにしても、既存の予約はキャンセルされません。レビューはレンタル完了後に利用できます。"
+      ],
+      [
+        "収容力、書類、そしてより安全な旅行",
+        "会社の計画では、オペレーター、車両、管理者の能力を制御します。 1 回限りのオペレータ アクセス料金によってこれらの制限が増加することはありません。車両の写真と連絡可能な電話が必要です。許可されている場合は、後で確認書類を完成させることもできます。認証バッジ、実車、ナンバープレート、運賃、経路を確認します。有料プランや企業への招待は、検証、作業、安全性を保証するものではありません。"
+      ]
+    ]
+  },
+
+  mr: {
+    "heading": "योजना, प्रवेश आणि दैनंदिन वापर",
+    "urmall": [
+      [
+        "एकाधिक व्यवसायांना प्रो किंवा प्रीमियम आवश्यक आहे",
+        "मोफत समर्थन {freeTypes} व्यवसाय प्रकार. मालकीचा व्यवसाय {proTypes} प्रकारांसाठी Pro वर श्रेणीसुधारित करा किंवा सर्व {premiumTypes} साठी प्रीमियम: दुकान, विक्रेता, रेस्टॉरंट आणि रिअल इस्टेट. प्रत्येक प्रकाराचे स्वतःचे कार्यक्षेत्र असते; त्याच प्रकारची पुन्हा नोंदणी करण्याऐवजी अधिक स्टॉक किंवा स्थानांसाठी विद्यमान कार्यक्षेत्र वापरा."
+      ],
+      [
+        "नूतनीकरण आणि 15-दिवस धारणा विंडो",
+        "योजना Visibility Credits वापरतात. सशुल्क योजना नूतनीकरणाशिवाय कालबाह्य झाल्यास, किंवा तुम्ही विनामूल्य वर गेल्यास, केवळ 10 प्रकाशित आयटम दृश्यमान राहतील. तुमच्या डॅशबोर्डमध्ये ते आयटम निवडा. अतिरिक्त आयटम आणि मसुदे कायमस्वरूपी हटवणे टाळण्यासाठी 15 दिवसांच्या आत नूतनीकरण करा किंवा अपग्रेड करा. नूतनीकरण सूचना आणि तुमची क्रेडिट शिल्लक तपासा."
+      ],
+      [
+        "अचूक सूची, उपलब्धता आणि विनंत्या",
+        "किंमती, स्टॉक, जेवणाची उपलब्धता, मालमत्तेची स्थिती आणि पिकअप किंवा डिलिव्हरी तपशील चालू ठेवा. स्पष्ट कव्हर फोटो आणि अचूक स्थान जोडा. रिअल इस्टेट अंतर्गत हॉटेल जोडले जातात. पैसे देण्यापूर्वी किंवा प्रवास करण्यापूर्वी ऑर्डर किंवा आरक्षण स्थिती, पेमेंट व्यवस्था आणि व्यवसायाची पूर्तता याची पुष्टी करा; केवळ विनंती पुष्टीकरण नाही."
+      ],
+      [
+        "प्रशासक, संदेश आणि सत्यापन",
+        "तुमच्या योजनेवर उपलब्ध प्रशासकीय आमंत्रणे आणि परवानग्या वापरा. प्रत्येक व्यक्तीने स्वतःचे खाते वापरावे. योग्य व्यावसायिक कार्यक्षेत्रात ग्राहकांचे संदेश, विनंत्या आणि सूचना तपासा. योजनेसाठी पैसे भरल्याने तुमच्या व्यवसायाची पडताळणी होत नाही; दस्तऐवज आणि पुनरावलोकन स्वतंत्रपणे हाताळले जातात."
+      ]
+    ],
+    "urride": [
+      [
+        "सोलो-टू-कंपनी प्रवेश: {accessCredits} Visibility Credits एकदा",
+        "एकट्याने सुरू केलेल्या ऑपरेटरने प्रथम कंपनीचे आमंत्रण स्वीकारताना एक-वेळचे {accessCredits}-क्रेडिट शुल्क निश्चित करणे आवश्यक आहे. तुमच्या वॉलेटमध्ये पुरेशी क्रेडिट्स ठेवा. एकदा अनलॉक केल्यानंतर, प्रत्येक कंपनीसाठी प्रवेशासाठी पुन्हा शुल्क आकारले जात नाही. कंपनीच्या आमंत्रणाद्वारे प्रारंभ करणारे ऑपरेटर या सोलो-टू-कंपनी शुल्काशिवाय कंपनी प्रवेश प्राप्त करतात. हे कंपनीच्या योजनेपेक्षा वेगळे आहे."
+      ],
+      [
+        "अनेक कंपन्या, एक सक्रिय फ्लीट",
+        "तुमच्या स्वतःच्या KunThai ID आणि खात्यासह आमंत्रणे स्वीकारा. तुम्ही सोलो आणि कंपनी फ्लीट कनेक्शन ठेवू शकता, परंतु कामासाठी फक्त एक सक्रिय फ्लीट निवडा. स्विच करण्यापूर्वी चालू असलेली ट्रिप पूर्ण करा. तुम्ही सक्रिय करत असलेली कंपनी आणि वाहन तपासा; कंपनी सदस्यत्व तुमच्या सोलो फ्लीटची मालकी हस्तांतरित करत नाही."
+      ],
+      [
+        "भाड्याच्या फ्लीट्सची एकदा नोंदणी करा",
+        "सेल्फ-ड्राइव्ह भाडे कंपनीचे आहे आणि त्यांना नियुक्त केलेला ऑपरेटर नाही. वाहन एकदा सेव्ह करा, नंतर ते सार्वजनिकरीत्या दाखवण्यासाठी Available वापरा किंवा ते लपवण्यासाठी उपलब्धता बंद करा. मालक आणि सक्रिय प्रशासक विनंत्या, संपादन, पुनरावलोकने आणि इतिहास व्यवस्थापित करतात. कव्हर फोटो जोडा; कार आणि टॅक्सींना देखील समोर, मागे, डावीकडे, उजवीकडे, समोर-आतील आणि मागील-आतील दृश्ये आवश्यक आहेत."
+      ],
+      [
+        "भाडे विनंत्या, किमती आणि सूचना",
+        "संकलन आणि परतीच्या तारखा, पिकअप, ठेव आणि भाडे अटी तपासा. कंपनीच्या पुष्टीकरणानंतरच विनंती आरक्षण होते. वाटाघाटीयोग्य किंमतीसाठी, कंपनी एकूण प्रस्तावित करते आणि भाडेकरू पुष्टीकरणापूर्वी ते स्वीकारतो. आरक्षण स्थिती आणि बदलांसाठी सूचनांचे अनुसरण करा; उपलब्धता बंद केल्याने विद्यमान आरक्षण रद्द होत नाही. पूर्ण भाड्याने घेतल्यानंतर पुनरावलोकने उपलब्ध आहेत."
+      ],
+      [
+        "क्षमता, कागदपत्रे आणि सुरक्षित सहली",
+        "कंपनी नियंत्रण ऑपरेटर, वाहन आणि प्रशासक क्षमता योजना; एक-वेळ ऑपरेटर प्रवेश शुल्क त्या मर्यादा वाढवत नाही. फ्लीट फोटो आणि पोहोचता येण्याजोगा फोन आवश्यक आहे; जेथे परवानगी असेल तेथे सत्यापन दस्तऐवज नंतर पूर्ण केले जाऊ शकतात. पडताळणी बॅज, वास्तविक वाहन, प्लेट, भाडे आणि मार्ग तपासा. सशुल्क योजना किंवा कंपनीचे आमंत्रण पडताळणी, काम किंवा सुरक्षिततेची हमी देत ​​नाही."
+      ]
+    ]
+  },
+
+  vi: {
+    "heading": "Kế hoạch, quyền truy cập và sử dụng hàng ngày",
+    "urmall": [
+      [
+        "Nhiều doanh nghiệp cần Pro hoặc Premium",
+        "Hỗ trợ miễn phí loại hình kinh doanh {freeTypes}. Nâng cấp doanh nghiệp thuộc sở hữu lên Pro cho các loại {proTypes} hoặc Premium cho tất cả {premiumTypes}: Cửa hàng, Nhà cung cấp, Nhà hàng và Bất động sản. Mỗi loại có không gian làm việc riêng; sử dụng không gian làm việc hiện có để có thêm hàng hóa hoặc địa điểm thay vì đăng ký lại cùng loại."
+      ],
+      [
+        "Gia hạn và thời hạn lưu giữ 15 ngày",
+        "Các gói sử dụng Visibility Credits. Nếu gói trả phí hết hạn mà không gia hạn hoặc bạn chuyển sang Miễn phí thì chỉ còn lại 10 mục đã xuất bản. Chọn những mục đó trong trang tổng quan của bạn. Gia hạn hoặc nâng cấp trong vòng 15 ngày để ngăn chặn việc xóa vĩnh viễn các mục và bản nháp dư thừa. Kiểm tra thông báo gia hạn và số dư tín dụng của bạn."
+      ],
+      [
+        "Danh sách chính xác, tính sẵn có và yêu cầu",
+        "Cập nhật giá cả, lượng hàng tồn kho, tình trạng sẵn có của bữa ăn, tình trạng tài sản và thông tin chi tiết về việc nhận hoặc giao hàng. Thêm ảnh bìa rõ ràng và vị trí chính xác. Khách sạn được thêm vào mục Bất động sản. Xác nhận trạng thái đơn hàng hoặc đặt chỗ, sắp xếp thanh toán và thực hiện với doanh nghiệp trước khi thanh toán hoặc đi du lịch; chỉ một yêu cầu thôi thì không phải là sự xác nhận."
+      ],
+      [
+        "Quản trị viên, tin nhắn và xác minh",
+        "Sử dụng lời mời và quyền của quản trị viên có sẵn trong gói của bạn. Mỗi người nên sử dụng tài khoản của riêng mình. Kiểm tra tin nhắn, yêu cầu và thông báo của khách hàng tại đúng không gian làm việc của doanh nghiệp. Việc trả tiền cho một gói không xác minh hoạt động kinh doanh của bạn; tài liệu và đánh giá được xử lý riêng biệt."
+      ]
+    ],
+    "urride": [
+      [
+        "Quyền truy cập cá nhân vào công ty: {accessCredits} Visibility Credits một lần",
+        "Nhà điều hành bắt đầu hoạt động solo phải xác nhận khoản phí tín dụng {accessCredits} một lần khi lần đầu tiên chấp nhận lời mời của công ty. Có đủ tín dụng trong ví của bạn. Sau khi được mở khóa, quyền truy cập sẽ không bị tính phí lại cho mỗi công ty. Những người điều hành bắt đầu thông qua lời mời của công ty sẽ nhận được quyền truy cập vào công ty mà không phải trả phí riêng cho công ty. Điều này khác với kế hoạch của công ty."
+      ],
+      [
+        "Nhiều công ty, một đội tàu đang hoạt động",
+        "Chấp nhận lời mời bằng KunThai ID và tài khoản của riêng bạn. Bạn có thể duy trì các kết nối nhóm đơn lẻ và nhóm công ty, nhưng chỉ chọn một nhóm hoạt động để làm việc. Hoàn thành chuyến đi đang diễn ra trước khi chuyển đổi. Kiểm tra công ty và phương tiện bạn đang kích hoạt; tư cách thành viên công ty không chuyển quyền sở hữu đội tàu riêng của bạn."
+      ],
+      [
+        "Đăng ký đội xe cho thuê một lần",
+        "Dịch vụ cho thuê xe tự lái thuộc quyền sở hữu của công ty và không có người điều hành được chỉ định. Lưu xe một lần, sau đó sử dụng Có sẵn để hiển thị công khai hoặc tắt tính khả dụng để ẩn xe. Chủ sở hữu và quản trị viên đang hoạt động quản lý các yêu cầu, chỉnh sửa, đánh giá và lịch sử. Thêm ảnh bìa; ô tô và taxi cũng cần có tầm nhìn phía trước, phía sau, bên trái, bên phải, phía trước bên trong và phía sau bên trong."
+      ],
+      [
+        "Yêu cầu cho thuê, giá cả và thông báo",
+        "Kiểm tra ngày nhận và trả, điều kiện nhận, đặt cọc và cho thuê. Một yêu cầu chỉ trở thành đặt chỗ sau khi có xác nhận của công ty. Để có giá thương lượng, công ty đề xuất tổng giá và người thuê chấp nhận trước khi xác nhận. Theo dõi trạng thái đặt chỗ và thông báo về các thay đổi; tắt tính khả dụng sẽ không hủy đặt chỗ hiện có. Đánh giá có sẵn sau khi hoàn thành việc thuê."
+      ],
+      [
+        "Năng lực, giấy tờ và chuyến đi an toàn hơn",
+        "Công ty có kế hoạch kiểm soát năng lực người điều hành, phương tiện và quản trị viên; phí truy cập một lần của nhà điều hành không làm tăng các giới hạn đó. Cần có ảnh đội xe và điện thoại có thể truy cập được; tài liệu xác minh có thể được hoàn thành sau nếu được phép. Kiểm tra huy hiệu xác minh, xe thực tế, biển số, giá vé và lộ trình. Gói trả phí hoặc lời mời của công ty không đảm bảo việc xác minh, công việc hoặc sự an toàn."
+      ]
+    ]
+  },
+
+  de: {
+    "heading": "Pläne, Zugang und alltägliche Nutzung",
+    "urmall": [
+      [
+        "Mehrere Unternehmen benötigen Pro oder Premium",
+        "Kostenlos unterstützt den Geschäftstyp {freeTypes}. Rüsten Sie ein eigenes Unternehmen auf Pro für {proTypes}-Typen oder auf Premium für alle {premiumTypes} auf: Geschäft, Verkäufer, Restaurant und Immobilien. Jeder Typ hat seinen eigenen Arbeitsbereich; Nutzen Sie den vorhandenen Arbeitsbereich für mehr Bestände oder Standorte, anstatt denselben Typ erneut zu registrieren."
+      ],
+      [
+        "Verlängerungen und das 15-tägige Aufbewahrungsfenster",
+        "Pläne verwenden Visibility Credits. Wenn ein kostenpflichtiger Plan ohne Verlängerung abläuft oder Sie zum kostenlosen Plan wechseln, bleiben nur noch 10 veröffentlichte Artikel sichtbar. Wählen Sie diese Elemente in Ihrem Dashboard aus. Erneuern oder aktualisieren Sie innerhalb von 15 Tagen, um das dauerhafte Löschen überschüssiger Elemente und Entwürfe zu verhindern. Überprüfen Sie Verlängerungsmitteilungen und Ihr Guthaben."
+      ],
+      [
+        "Genaue Auflistungen, Verfügbarkeit und Anfragen",
+        "Halten Sie Preise, Lagerbestände, Verfügbarkeit von Mahlzeiten, Immobilienstatus und Abhol- oder Lieferdetails auf dem neuesten Stand. Fügen Sie klare Titelbilder und einen genauen Standort hinzu. Hotels werden unter Immobilien hinzugefügt. Bestätigen Sie den Bestell- oder Reservierungsstatus, die Zahlungsvereinbarungen und die Erfüllung mit dem Unternehmen, bevor Sie bezahlen oder reisen. Eine Anfrage allein ist noch keine Bestätigung."
+      ],
+      [
+        "Admins, Nachrichten und Verifizierung",
+        "Nutzen Sie die in Ihrem Plan verfügbaren Administratoreinladungen und Berechtigungen. Jede Person sollte ihr eigenes Konto verwenden. Überprüfen Sie Kundennachrichten, Anfragen und Benachrichtigungen im richtigen Geschäftsarbeitsbereich. Durch die Bezahlung eines Plans wird Ihr Unternehmen nicht bestätigt; Dokumente und Überprüfung werden getrennt behandelt."
+      ]
+    ],
+    "urride": [
+      [
+        "Solo-to-Company-Zugriff: {accessCredits} Visibility Credits einmal",
+        "Ein Betreiber, der alleine gestartet ist, muss bei der ersten Annahme einer Firmeneinladung eine einmalige Gutschrift in Höhe von {accessCredits} bestätigen. Halten Sie genügend Guthaben in Ihrem Portemonnaie bereit. Nach der Freischaltung wird der Zugang nicht für jedes Unternehmen erneut berechnet. Betreiber, die über eine Firmeneinladung starten, erhalten Firmenzugang ohne diese Solo-zu-Firmen-Gebühr. Dies ist unabhängig vom Plan des Unternehmens."
+      ],
+      [
+        "Mehrere Unternehmen, eine aktive Flotte",
+        "Nehmen Sie Einladungen mit Ihrem eigenen KunThai ID und Konto an. Sie können Einzel- und Firmenflottenverbindungen beibehalten, aber nur eine aktive Flotte für die Arbeit auswählen. Schließen Sie eine laufende Reise ab, bevor Sie wechseln. Überprüfen Sie das Unternehmen und das Fahrzeug, das Sie aktivieren. Durch die Firmenmitgliedschaft wird das Eigentum an Ihrer Soloflotte nicht übertragen."
+      ],
+      [
+        "Registrieren Sie Mietflotten einmalig",
+        "Selbstfahrer-Vermietungen gehören dem Unternehmen und haben keinen zugewiesenen Betreiber. Speichern Sie das Fahrzeug einmal und verwenden Sie dann „Verfügbar“, um es öffentlich anzuzeigen, oder schalten Sie die Verfügbarkeit aus, um es auszublenden. Eigentümer und aktive Administratoren verwalten Anfragen, Bearbeitungen, Bewertungen und den Verlauf. Fügen Sie ein Titelbild hinzu; Autos und Taxis benötigen außerdem Ansichten von vorne, hinten, links, rechts, von vorne nach innen und von hinten nach innen."
+      ],
+      [
+        "Mietanfragen, Preise und Benachrichtigungen",
+        "Überprüfen Sie die Abhol- und Rückgabedaten sowie die Abhol-, Kautions- und Mietbedingungen. Eine Anfrage wird erst nach Bestätigung durch das Unternehmen zu einer Reservierung. Bei verhandelbaren Preisen schlägt das Unternehmen einen Gesamtpreis vor und der Mieter akzeptiert diesen vor der Bestätigung. Verfolgen Sie den Reservierungsstatus und Benachrichtigungen über Änderungen. Durch das Deaktivieren der Verfügbarkeit wird eine bestehende Reservierung nicht storniert. Bewertungen sind nach abgeschlossener Anmietung verfügbar."
+      ],
+      [
+        "Kapazität, Dokumente und sicherere Reisen",
+        "Das Unternehmen plant die Kontrolle von Bediener-, Fahrzeug- und Verwaltungskapazitäten; Durch die einmalige Betreiberzugangsgebühr werden diese Grenzwerte nicht erhöht. Flottenfotos und ein erreichbares Telefon sind erforderlich; Verifizierungsdokumente können, sofern zulässig, später ausgefüllt werden. Überprüfen Sie den Verifizierungsausweis, das tatsächliche Fahrzeug, das Nummernschild, den Fahrpreis und die Route. Ein kostenpflichtiger Plan oder eine Firmeneinladung garantiert keine Überprüfung, Arbeit oder Sicherheit."
+      ]
+    ]
+  },
 };

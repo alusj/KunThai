@@ -154,10 +154,10 @@ export const URMALL_BUYER_TASKS = {
       required: ["found", "name", "explanation", "searchTerms"],
     },
     instruction: [
-      "A shopper photographed something they want to buy on UrMall, KunThai's marketplace. Identify the main product in the photo.",
+      "A shopper photographed something they want to buy on UrMall, KunThai's marketplace, which sells shop and vendor products, restaurant meals, hotel rooms and property. Identify the main product, meal or place in the photo.",
       "name: the most specific product name you can honestly tell from the photo (brand and model only when clearly visible, e.g. printed on it); otherwise a plain generic name like 'men's leather sandals'.",
       "explanation: two or three plain sentences for the shopper: what the product is, its visible features (colour, material, size, style) and what it is typically used for. Never state or estimate a price, and never claim where it is sold.",
-      "searchTerms: 3 to 6 short shopping keywords a seller would use in a listing, most specific first, then more general (e.g. 'iPhone 13', 'iPhone', 'smartphone', 'phone'). Always write searchTerms in English.",
+      "searchTerms: 3 to 6 short shopping keywords a seller would use in a listing, most specific first, then more general (e.g. 'iPhone 13', 'iPhone', 'smartphone', 'phone'). For food, use the dish's common name and its usual alternative spellings (e.g. 'shawarma', 'shwarma', 'wrap'). For rooms or buildings, use words like 'hotel room', 'apartment', 'house'. Always write searchTerms in English.",
       "If the photo shows no product (a person, a blank or dark image, a document), set found to false and use the explanation to say briefly what is in the photo.",
     ].join(" "),
     build(input) {

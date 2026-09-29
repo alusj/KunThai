@@ -5,8 +5,9 @@ import parser from "@babel/parser";
 
 // Read the declared bundles directly so a runtime English fallback cannot hide
 // a missing translation. Array indices are included for the caution cards.
-const locales = ["fr", "ar", "es", "zh", "hi", "bn", "pt"];
-const bundles = ["translations", "urride", "regions", "cautionFeatures", "ui", "addressBook", "directionCards"];
+const locales = ["fr", "ar", "es", "zh", "hi", "bn", "pt", "id", "ur", "ru", "de", "ja", "mr", "vi"];
+const bundles = ["translations", "urride", "regions", "cautionFeatures", "ui", "addressBook", "directionCards", "policies"];
+const graftedSections = new Set(["urride", "addressBook", "regions", "ui"]);
 const placeholders = (text) => (text.match(/\{[A-Za-z0-9_]+\}/g) || []).sort();
 
 function flatten(node, prefix = "", result = {}) {
@@ -33,7 +34,8 @@ for (const bundle of bundles) {
     (node) => node.type === "ExportNamedDeclaration" && node.declaration?.type === "VariableDeclaration",
   );
   const entries = flatten(declaration.declaration.declarations[0].init);
-  const english = Object.entries(entries).filter(([key]) => key.startsWith("en."));
+  const english = Object.entries(entries).filter(([key]) => key.startsWith("en.") &&
+    (bundle !== "translations" || !graftedSections.has(key.split(".")[1])));
 
   for (const locale of locales) {
     for (const [englishKey, source] of english) {

@@ -5,6 +5,7 @@ import {
   AlertTriangle,
   ArrowRight,
   Check,
+  ClipboardList,
   Copy,
   CornerDownLeft,
   MessageSquarePlus,
@@ -37,6 +38,24 @@ import useBodyScrollLock from "../../shared/useBodyScrollLock";
 import AiEntityCards from "./AiEntityCards";
 import AiChatActionButtons from "./AiChatActionButtons";
 import AiScreenActionCards from "./AiScreenActionCards";
+import AiTripBookingFlow from "./AiTripBookingFlow";
+import {
+  cancelTripBooking,
+  onTripHandOff,
+  submitTripText,
+  tripFlowWantsText,
+  tripText,
+  useTripBookingFlow,
+} from "../../../Backend/services/ai/tripBookingFlow";
+import AiFormGuideFlow from "./AiFormGuideFlow";
+import {
+  cancelFormGuide,
+  formGuideWantsText,
+  guideText,
+  startFormGuide,
+  submitFormGuideText,
+  useFormGuideFlow,
+} from "../../../Backend/services/ai/formGuideFlow";
 import { uiText as translateUi, useI18n as useUiLocale } from "../../../i18n/index.js";
 
 // KAI — the conversational assistant.
@@ -72,6 +91,14 @@ function IconButton({ onClick, label, children, disabled = false, active = "" })
 export default function AiChatPanel({ open, request, onClose }) {
   const { t , locale: memoLocale } = useI18n();
   const conversation = useAssistantConversation();
+  // KAI's guided UrRide booking. While it is asking a question, what the
+  // person types answers that question instead of going to the AI model.
+  const tripFlow = useTripBookingFlow();
+  const tripQuestion = tripFlow.active ? tripFlow.question : null;
+  // KAI's guided form filling (registrations): same idea, one question at a
+  // time, and each section is filled only from its "Fill" button.
+  const formGuide = useFormGuideFlow();
+  const guideQuestion = formGuide.active ? formGuide.question : null;
   const [draft, setDraft] = useState("");
   const [selection, setSelection] = useState([]);
   const [copiedId, setCopiedId] = useState("");
@@ -102,6 +129,15 @@ export default function AiChatPanel({ open, request, onClose }) {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [surface, role, open, screenVersion, t, memoLocale]);
   const roleLabel = assistantRoleLabel(role);
+  const fillPrompt = t("ai.chat.screen.promptFill");
+  const formCapable = prompts.includes(fillPrompt);
+
+  // One guided flow at a time.
+  function beginFormGuide() {
+    cancelTripBooking({ silent: true });
+    startFormGuide();
+    setDraft("");
+  }
 
   useBodyScrollLock(open);
 
@@ -111,6 +147,25 @@ export default function AiChatPanel({ open, request, onClose }) {
   }, [open, request?.key]);
 
   function send(text, extra = {}) {
+    if (tripFlowWantsText()) {
+      submitTripText(text);
+      setDraft("");
+      return;
+    }
+    if (formGuideWantsText()) {
+      submitFormGuideText(text);
+      setDraft("");
+      return;
+    }
+    // "Fill this form for me" runs the guided questions instead of a model
+    // reply that fills everything at once.
+    if (text === fillPrompt && formCapable) {
+      beginFormGuide();
+      return;
+    }
+    // A finished (or cancelled) guided flow makes way for the new question.
+    if (tripFlow.transcript.length) cancelTripBooking({ silent: true });
+    if (formGuide.transcript.length) cancelFormGuide({ silent: true });
     sendAssistantMessage({
       text,
       surface,
@@ -147,7 +202,10 @@ export default function AiChatPanel({ open, request, onClose }) {
 
   useEffect(() => {
     listRef.current?.scrollTo({ top: listRef.current.scrollHeight, behavior: "smooth" });
-  }, [conversation.messages.length, conversation.busy]);
+  }, [conversation.messages.length, conversation.busy, tripFlow.transcript.length, tripFlow.busy, formGuide.transcript.length, formGuide.question]);
+
+  // When the filled booking form opens, the chat steps out of the way.
+  useEffect(() => onTripHandOff(() => onClose?.()), [onClose]);
 
   function toggleSelect(id) {
     setSelection((current) => (current.includes(id) ? current.filter((item) => item !== id) : [...current, id].slice(-3)));
@@ -170,7 +228,23 @@ export default function AiChatPanel({ open, request, onClose }) {
 
   if (typeof document === "undefined") return null;
 
-  const empty = !conversation.messages.length;
+  const empty = !conversation.messages.length && !tripFlow.transcript.length && !formGuide.transcript.length;
+  const inputPlaceholder = tripQuestion
+    ? tripQuestion.input?.placeholder || tripText("typeAnswer")
+    : guideQuestion
+      ? guideText("typeAnswer")
+      : t("ai.chat.placeholder");
+  const guideInputType = guideQuestion?.kind === "text" ? guideQuestion.inputType : "";
+
+  // "New chat" starts over completely: the conversation, any guided booking
+  // or form filling (finished ones too), the selection and the typed draft.
+  function startNewChat() {
+    clearAssistantConversation();
+    cancelTripBooking({ silent: true });
+    cancelFormGuide({ silent: true });
+    setSelection([]);
+    setDraft("");
+  }
 
   return createPortal(
     <AnimatePresence>
@@ -213,10 +287,7 @@ export default function AiChatPanel({ open, request, onClose }) {
               {!empty ? (
                 <button
                   type="button"
-                  onClick={() => {
-                    clearAssistantConversation();
-                    setSelection([]);
-                  }}
+                  onClick={startNewChat}
                   className="inline-flex items-center gap-1 rounded-full border border-white/20 bg-white/10 px-2.5 py-1.5 text-[11px] font-black transition hover:bg-white/20"
                 >
                   <MessageSquarePlus size={13} />
@@ -269,6 +340,21 @@ export default function AiChatPanel({ open, request, onClose }) {
                     <p className="text-sm font-black text-slate-900">{t("ai.chat.welcomeTitle")}</p>
                     <p className="mt-1 text-xs leading-relaxed text-slate-500">{t("ai.chat.welcomeBody")}</p>
                   </div>
+                  {formCapable ? (
+                    <div className="rounded-2xl border border-emerald-200 bg-emerald-50 p-4" data-kai-form-guide-start>
+                      <p className="flex items-center gap-1.5 text-sm font-black text-emerald-900">
+                        <ClipboardList size={15} /> {guideText("startTitle")}
+                      </p>
+                      <p className="mt-1 text-xs leading-relaxed text-emerald-800">{guideText("startBody")}</p>
+                      <button
+                        type="button"
+                        onClick={beginFormGuide}
+                        className="mt-3 inline-flex items-center gap-1.5 rounded-xl bg-emerald-600 px-3.5 py-2 text-xs font-black text-white hover:bg-emerald-700"
+                      >
+                        {guideText("startButton")} <ArrowRight size={13} />
+                      </button>
+                    </div>
+                  ) : null}
                   <p className="px-1 text-[10px] font-black uppercase tracking-[0.18em] text-slate-400">{t("ai.tryAsking")}</p>
                   {prompts.map((prompt) => (
                     <button
@@ -393,6 +479,8 @@ export default function AiChatPanel({ open, request, onClose }) {
                   </div>
                 ),
               )}
+              <AiTripBookingFlow />
+              <AiFormGuideFlow />
             </div>
 
             {selection.length >= 2 ? (
@@ -410,7 +498,7 @@ export default function AiChatPanel({ open, request, onClose }) {
             ) : null}
 
             <footer className="border-t border-slate-200 bg-white px-3 pb-[max(0.75rem,env(safe-area-inset-bottom))] pt-2.5">
-              {!empty && !conversation.busy ? (
+              {!empty && !conversation.busy && !tripQuestion && !guideQuestion ? (
                 <div className="-mx-3 mb-2 flex gap-1.5 overflow-x-auto px-3 [scrollbar-width:none] [&::-webkit-scrollbar]:hidden" aria-label={t("ai.chat.quickActions")}>
                   {prompts.map((prompt) => (
                     <button
@@ -442,7 +530,18 @@ export default function AiChatPanel({ open, request, onClose }) {
                     }
                   }}
                   rows={1}
-                  placeholder={t("ai.chat.placeholder")}
+                  inputMode={
+                    tripQuestion?.input?.type === "number" || guideInputType === "number"
+                      ? "decimal"
+                      : tripQuestion?.input?.type === "tel" || guideInputType === "tel"
+                        ? "tel"
+                        : guideInputType === "email"
+                          ? "email"
+                          : guideInputType === "url"
+                            ? "url"
+                            : undefined
+                  }
+                  placeholder={inputPlaceholder}
                   className="max-h-28 min-h-[2.75rem] flex-1 resize-none rounded-2xl border border-slate-200 bg-slate-50 px-3 py-2.5 text-sm text-slate-800 outline-none transition focus:border-sky-400 focus:bg-white"
                 />
                 {conversation.busy ? (

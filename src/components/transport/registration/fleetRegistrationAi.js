@@ -16,6 +16,17 @@ const CAR_BODY_TYPES = ["Sedan", "SUV", "Hatchback", "Minivan", "Pickup", "Van"]
 const DELIVERY_BODY_TYPES = ["Open cargo", "Covered cargo", "Delivery box", "Insulated box", "Passenger + cargo"];
 const ANSWERS = ["Yes", "No", "Needs admin check"];
 
+const OPERATOR_KEYS = new Set(["name", "phone", "city", "emergencyContact"]);
+const SERVICE_KEYS = new Set(["category", "fleetType"]);
+
+function fleetFieldSection(key) {
+  if (OPERATOR_KEYS.has(key)) return "sectionOperator";
+  if (SERVICE_KEYS.has(key)) return "sectionService";
+  if (key.startsWith("answer.")) return "sectionSafety";
+  if (key === "photos" || key.startsWith("document.")) return "sectionDocuments";
+  return "sectionFleet";
+}
+
 function enumOptions(values) {
   return values.map((value) => ({ value, label: t(`urride.fleetEdit.enum.${value}`) }));
 }
@@ -74,6 +85,13 @@ export function buildFleetRegistrationAiContext({
   fields.push({ key: "photos", label: "Vehicle photos", type: "image", value: "" });
   (documents || []).slice(0, 8).forEach((document, index) => {
     fields.push({ key: `document.${index}`, label: document.label || document.title || "Document", type: "file", value: "" });
+  });
+
+  // Each field names its registration step (for KAI's guided filling).
+  fields.forEach((field) => {
+    const section = fleetFieldSection(field.key);
+    field.section = section;
+    field.sectionLabel = t(`urride.fleetEdit.${section}`);
   });
 
   const errors = Object.values(fieldErrors || {}).filter(Boolean);

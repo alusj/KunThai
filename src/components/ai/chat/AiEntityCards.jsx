@@ -5,8 +5,8 @@ import { resizedImageUrl } from "../../../Backend/lib/imageProxy";
 import { formatCurrency } from "../../../Backend/utils/formatCurrency";
 import { moneyLabel, verticalName, verticalPrice } from "../../../Backend/services/ai/urmallAiModels";
 import { areaViewDestinationFromPlace } from "../../../Backend/services/ai/urrideAiModels";
+import { startTripBooking } from "../../../Backend/services/ai/tripBookingFlow";
 import {
-  openAreaViewDestination,
   openExploreResult,
   openMarketplaceProduct,
   openMarketplaceSeller,
@@ -136,7 +136,9 @@ function StoreCard({ store, onOpened }) {
   );
 }
 
-function PlaceCard({ place, onOpened }) {
+// "Plan trip" starts KAI's guided booking in the chat (open booking or a
+// chosen operator, then the booking questions) instead of jumping to the map.
+function PlaceCard({ place }) {
   const { t } = useI18n();
   const destination = areaViewDestinationFromPlace(place);
   return (
@@ -153,10 +155,7 @@ function PlaceCard({ place, onOpened }) {
       {destination ? (
         <button
           type="button"
-          onClick={() => {
-            openAreaViewDestination(destination);
-            onOpened?.();
-          }}
+          onClick={() => startTripBooking(place)}
           className="inline-flex flex-none items-center gap-1 rounded-xl bg-emerald-600 px-2.5 py-2 text-[11px] font-black text-white"
         >
           <Navigation size={12} />
@@ -225,7 +224,7 @@ export default function AiEntityCards({ entities, selection = [], onToggleSelect
         <StoreCard key={`s-${store.id}`} store={store} onOpened={onOpened} />
       ))}
       {places.map((place) => (
-        <PlaceCard key={`pl-${place.id}`} place={place} onOpened={onOpened} />
+        <PlaceCard key={`pl-${place.id}`} place={place} />
       ))}
       {exploreResults.map((item) => (
         <ExploreResultCard key={`ex-${item.type}-${item.id}`} item={item} onOpened={onOpened} />

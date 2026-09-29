@@ -3,9 +3,10 @@
 // UrRide's map, routing, fares and live operator positions are NOT tools. The
 // assistant can look places up through KunThai's own place search, list the
 // transport types KunThai offers in the person's country, read the person's
-// own trips, and PREPARE a trip plan that opens in Area View — where the
-// existing routing and booking flow calculates everything and the person
-// confirms. Gemini never supplies coordinates, routes, fares or ETAs.
+// own trips, and PREPARE a trip plan. Its "Plan trip" button runs KunThai's
+// guided booking in the chat (browser-side, not the model), which fills the
+// existing booking form for the person to confirm. Gemini never supplies
+// coordinates, routes, fares or ETAs.
 
 import { cleanLine } from "../aiInput.js";
 import { ToolArgumentError, registerToolGroup } from "./assistantTools.js";
@@ -29,7 +30,7 @@ registerToolGroup({
     surfaces: ["urride", "global"],
     roles: PASSENGER_ROLES,
     description:
-      "Look up a destination or pickup place through KunThai's place search (e.g. 'Lumley Beach', 'Connaught Hospital'). Returns real places with their KunThai place ids. Use the person's own words; never guess coordinates.",
+      "Look up a destination or pickup place through KunThai's place search (e.g. 'the central market', 'city hospital', a street or neighbourhood name). Returns real places with their KunThai place ids. Use the person's own words; never guess coordinates.",
     parameters: {
       type: "object",
       properties: { query: { type: "string", description: "The place as the person described it." } },
@@ -43,7 +44,7 @@ registerToolGroup({
     surfaces: ["urride", "global"],
     roles: PASSENGER_ROLES,
     description:
-      "Prepare a trip to a place returned by find_place. This only offers a button that opens Area View, where KunThai shows the route, operators and fare. It does not book anything.",
+      "Prepare a trip to a place returned by find_place. This offers a 'Plan trip' button; when pressed, KunThai itself asks the booking questions in this chat (open booking or a chosen operator by their code, pickup, time, contact, fare) and opens the filled booking form for the person to check and send. It does not book anything. Do not ask those booking questions yourself.",
     parameters: {
       type: "object",
       properties: { placeId: { type: "string", description: "The id of a place from find_place results." } },

@@ -141,7 +141,7 @@ export const EXPLORE_TASKS = {
     },
     instruction: [
       "Suggest up to eight hashtags that real people on KunThai would search for to find this post.",
-      "Mix specific tags with one or two broader ones. Prefer local relevance (e.g. Freetown, Salone) only when the post itself is local.",
+      "Mix specific tags with one or two broader ones. Add a local place tag (the city or country the post names) only when the post itself is local.",
       "Tags must reflect what the post is actually about. No spammy or misleading tags, no tags about things the post does not mention.",
       "Return each tag without the # symbol, using only letters, digits and underscores.",
     ].join(" "),

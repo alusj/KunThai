@@ -21,7 +21,7 @@ const SRC = fileURLToPath(new URL("../../", import.meta.url));
 const WEB = fileURLToPath(new URL("../../../", import.meta.url));
 const MIN = 15;
 const MAX = 25;
-const LOCALES = ["en", "fr", "ar", "es", "zh", "hi", "bn", "pt"];
+const LOCALES = ["en", "fr", "ar", "es", "zh", "hi", "bn", "pt", "id", "ur", "ru", "de", "ja", "mr", "vi"];
 const TOAST_FNS = { showToast: 0, showNotice: 0, onNotice: 0, notifyActionDone: 0, notifyActionFailed: 1 };
 const TRANSLATE_FNS = new Set(["t", "i18nText", "uiText", "translateUi"]);
 

@@ -38,6 +38,23 @@ export function photoSearchCandidates(products = [], terms = [], limit = PHOTO_C
     .map(([id]) => byId.get(id));
 }
 
+/**
+ * Words to search with: KAI's search terms first (most specific), then the
+ * identified name and category as a safety net, de-duplicated.
+ */
+export function photoSearchTerms(identified = {}) {
+  const seen = new Set();
+  return [...(Array.isArray(identified?.searchTerms) ? identified.searchTerms : []), identified?.name, identified?.category]
+    .map((term) => String(term || "").trim())
+    .filter((term) => {
+      const key = term.toLowerCase();
+      if (!key || seen.has(key)) return false;
+      seen.add(key);
+      return true;
+    })
+    .slice(0, 8);
+}
+
 /** The compact, exact-label record KAI compares against the photo. */
 export function photoMatchListing(product) {
   const discount = Number(product?.discountPrice);

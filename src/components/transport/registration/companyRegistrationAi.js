@@ -28,6 +28,8 @@ const FLEET_NUMBER_FIELDS = [
   ["pricePerHour", "Price per hour"],
 ];
 
+const COMPANY_KEYS = new Set(["companyName", "companyType", "registrationNumber", "taxId", "ownerName", "phone", "email"]);
+
 function matchCountry(text) {
   const wanted = String(text || "").trim().toLowerCase();
   const country = GLOBAL_COUNTRY_PROFILES.find((profile) => (
@@ -93,6 +95,20 @@ export function buildCompanyRegistrationAiContext({
       });
     });
     fields.push({ key: `${prefix}.photos`, label: `${name} — photos and documents`, type: "image", value: "" });
+  });
+
+  // Each field names its registration step (for KAI's guided filling); every
+  // fleet is its own section, named after the fleet.
+  fields.forEach((field) => {
+    const fleetMatch = field.key.match(/^(fleet\d+)\./);
+    if (fleetMatch) {
+      const fleet = fleets?.[Number(fleetMatch[1].slice(5)) - 1];
+      field.section = fleetMatch[1];
+      field.sectionLabel = `${t("urride.companyReg.stepFleets")}: ${fleet?.fleetName || fleetMatch[1].replace("fleet", "#")}`;
+    } else {
+      field.section = COMPANY_KEYS.has(field.key) ? "company" : "location";
+      field.sectionLabel = t(field.section === "company" ? "urride.companyReg.stepCompany" : "urride.companyReg.stepLocation");
+    }
   });
 
   const errors = Object.values(fieldErrors || {}).filter(Boolean);

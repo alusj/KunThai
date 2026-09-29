@@ -84,11 +84,11 @@ export const ASSISTANT_TOOLS = {
     surfaces: ["urmall", "global"],
     roles: ["", "buyer"],
     description:
-      "Search real, in-stock UrMall product listings. Use for any request to find, browse or recommend products. Returns up to 6 listings with exact prices.",
+      "Search real, in-stock UrMall listings from shops AND vendors/suppliers (wholesale and bulk goods), and also matching restaurant meals, hotel rooms and property. Use for any request to find, browse or recommend something to buy, including food by dish name. Spelling mistakes are tolerated. Returns up to 6 listings with exact prices.",
     parameters: {
       type: "object",
       properties: {
-        query: { type: "string", description: "What to look for, in a few words (e.g. 'phone good camera', 'work shoes')." },
+        query: { type: "string", description: "What to look for, in a few words, using the person's own words (e.g. 'phone good camera', 'work shoes', 'rice in bulk')." },
         category: { type: "string", description: "Optional category name if the person named one." },
         minPrice: { type: "number", description: "Minimum price, only if the person gave one." },
         maxPrice: { type: "number", description: "Maximum price / budget, only if the person gave one." },
@@ -124,7 +124,7 @@ export const ASSISTANT_TOOLS = {
       type: "object",
       properties: {
         type: { type: "string", enum: ["restaurant", "hotel", "property"] },
-        query: { type: "string", description: "Optional words to match (e.g. 'rice', 'jollof', 'two bedroom')." },
+        query: { type: "string", description: "Optional words to match, e.g. a dish name, 'pizza', 'two bedroom'. Spelling mistakes are tolerated." },
         maxPrice: { type: "number" },
         budgetCurrency: { type: "string" },
         nearby: { type: "boolean", description: "True if the person asked for places near them." },

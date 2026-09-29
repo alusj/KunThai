@@ -7,7 +7,8 @@ import {
   fetchBuyerMarketplaceProducts,
 } from "../../../Backend/services/marketplace/buyerMarketplaceService";
 import { fetchMarketplaceVerticalDiscovery } from "../../../Backend/services/marketplace/marketplaceVerticalService";
-import { MIN_QUERY_LENGTH, normalizeSearchQuery, rankSearchResults } from "../../../Backend/services/marketplace/productSearch";
+import { MIN_QUERY_LENGTH, normalizeSearchQuery } from "../../../Backend/services/marketplace/productSearch";
+import { rankMarketplaceSearch } from "../../../Backend/services/marketplace/verticalSearch";
 import { resizedImageUrl } from "../../../Backend/lib/imageProxy";
 import {
   addRecentMarketplaceSearch,
@@ -40,11 +41,6 @@ function verticalImage(type, item) {
 function verticalAddress(type, item) {
   if (type === "hotel") return [item.city, item.country].filter(Boolean).join(", ");
   return [item.address, item.city, item.country].filter(Boolean).join(", ");
-}
-function verticalText(type, item) {
-  if (type === "restaurant") return [item.name, item.description, item.businessName, item.meal_period].filter(Boolean).join(" ");
-  if (type === "property") return [item.title, item.description, item.address, item.businessName, item.purpose].filter(Boolean).join(" ");
-  return [item.businessName, item.description, item.city].filter(Boolean).join(" ");
 }
 
 export default function MarketplaceSearchOverlay({
@@ -142,15 +138,14 @@ export default function MarketplaceSearchOverlay({
   // Typed-query results only: a ranked search across retail products + meals,
   // hotels and property. Category chips do not filter here — they reorder the
   // dashboard behind the overlay (see onBrowseCategory).
+  // Products (shops + vendors), meals, hotels and property share one
+  // typo-tolerant ranking, so "sharwama" still finds "Shawarma".
   const rows = useMemo(() => {
     if (!hasQuery) return [];
-    const retail = rankSearchResults(allProducts, trimmed).map(toRetailRow);
-    const listings = verticalEntries
-      .filter((entry) => normalizeSearchQuery(`${verticalText(entry.type, entry.item)} ${verticalAddress(entry.type, entry.item)}`).includes(q))
-      .map(toVerticalRow);
-    return [...retail, ...listings];
+    return rankMarketplaceSearch(allProducts, verticalEntries, trimmed)
+      .map((row) => (row.kind === "retail" ? toRetailRow(row.product) : toVerticalRow(row)));
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [allProducts, verticalEntries, trimmed, q, hasQuery]);
+  }, [allProducts, verticalEntries, trimmed, hasQuery]);
 
   const stores = useMemo(() => {
     if (!hasQuery) return [];
@@ -209,7 +204,9 @@ export default function MarketplaceSearchOverlay({
     photoInputRef.current?.click();
   }
   function openPhotoResult(product) {
-    onOpenProduct?.(product);
+    // Meals, hotels and property carry their original listing.
+    if (product?.vertical) onOpenVertical?.(product.vertical.type, product.vertical.item);
+    else onOpenProduct?.(product);
     close();
   }
   function remember(term) {
@@ -361,6 +358,7 @@ export default function MarketplaceSearchOverlay({
             <PhotoSearchPanel
               file={photoFile}
               products={allProducts}
+              verticalEntries={verticalEntries}
               catalogLoading={catalogLoading}
               onOpenProduct={openPhotoResult}
               onSearchTerm={(term) => {

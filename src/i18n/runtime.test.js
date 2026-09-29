@@ -14,8 +14,9 @@ function runtime() {
       en: { common: { save: "Save", unread: "{count} unread messages" }, ui: { literals: { order: "Order {value0} was cancelled.", failure: "Unable to save {value0}." } } },
       fr: { common: { save: "Enregistrer", unread: "{count} messages non lus" }, ui: { literals: { order: "La commande {value0} a été annulée.", failure: "Impossible d’enregistrer {value0}." } } },
       ar: { common: { save: "حفظ" } },
+      ur: { common: { save: "محفوظ کریں" } },
     },
-    LOCALE_OPTIONS: [{ code: "en" }, { code: "fr" }, { code: "ar" }],
+    LOCALE_OPTIONS: [{ code: "en" }, { code: "fr" }, { code: "ar" }, { code: "ur" }],
     localStorage: { getItem: (key) => storage.get(key), setItem: (key, value) => storage.set(key, value), removeItem: (key) => storage.delete(key) },
     navigator: { languages: ["en"] },
     document: { documentElement: {} },
@@ -29,6 +30,9 @@ test("display text can reuse existing semantic translations and changes with the
   assert.equal(api.uiText("Save"), "Enregistrer");
   api.setLocaleOverride("ar");
   assert.equal(api.uiText("Save"), "حفظ");
+  assert.equal(api.getDir(), "rtl");
+  api.setLocaleOverride("ur");
+  assert.equal(api.uiText("Save"), "محفوظ کریں");
   assert.equal(api.getDir(), "rtl");
 });
 

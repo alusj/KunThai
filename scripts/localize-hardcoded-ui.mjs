@@ -319,7 +319,7 @@ async function writeTranslations(hits) {
     // First generation has no existing UI bundle.
   }
   const sources = [...new Set([...existingSources, ...hits.map((hit) => hit.text), ...additionalSources])].sort();
-  const locales = ["fr", "ar", "es", "zh", "hi", "bn", "pt"];
+  const locales = ["fr", "ar", "es", "zh", "hi", "bn", "pt", "id", "ur", "ru", "de", "ja", "mr", "vi"];
   const translated = {};
   for (const locale of locales) {
     const retained = Object.fromEntries(existingSources.map((source) => [

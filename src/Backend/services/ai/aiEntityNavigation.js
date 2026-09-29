@@ -51,6 +51,18 @@ export function openAreaViewDestination(destination) {
   window.dispatchEvent(new CustomEvent("kuntai-open-area-view", { detail: { autoRoute: true, destination } }));
 }
 
+export const KAI_TRIP_BOOKING_EVENT = "kunthai-kai-trip-booking";
+
+/**
+ * Hand KAI's answers to UrRide's real booking form: the chosen operator's
+ * booking drawer, or the open-booking sheet, opened already filled in. The
+ * passenger reviews it there and presses Send; nothing is booked here.
+ */
+export function openKaiTripBooking(booking) {
+  if (!booking?.kind) return;
+  dispatchUntilHandled(KAI_TRIP_BOOKING_EVENT, { booking }, "urride");
+}
+
 /** Open an Explore search result through Explore's own events. */
 export function openExploreResult(item) {
   if (!item) return;

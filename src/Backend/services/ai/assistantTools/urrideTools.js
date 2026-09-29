@@ -64,7 +64,7 @@ async function planTrip(args) {
     result: {
       prepared: true,
       place: place.name,
-      note: "The person will see a button that opens Area View for this destination. Area View shows the route, available operators and fare. Nothing is booked yet.",
+      note: "The person will see a 'Plan trip' button. Pressing it starts KunThai's guided booking in this chat (open booking or an operator code, then the booking questions) and opens the filled booking form to check and send. Nothing is booked yet. Tell them to press the button.",
     },
     entities: { places: [place] },
     actions: [{ type: "open_area_view", placeId: String(place.id), name: place.name }],

@@ -72,7 +72,7 @@ test("reaching an order or booking address field pops the saved locations", () =
 });
 
 test("every language has the same saved-location copy", () => {
-  const locales = ["en", "fr", "es", "zh", "ar", "hi", "bn", "pt"];
+  const locales = ["en", "fr", "es", "zh", "ar", "hi", "bn", "pt", "id", "ur", "ru", "de", "ja", "mr", "vi"];
   const counts = locales.map((locale) => {
     const start = addressBookLocales.indexOf(`  ${locale}: {`);
     const next = locales.map((other) => addressBookLocales.indexOf(`  ${other}: {`)).filter((index) => index > start).sort((a, b) => a - b)[0];

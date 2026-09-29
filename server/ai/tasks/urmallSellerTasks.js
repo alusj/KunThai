@@ -148,7 +148,7 @@ export const URMALL_SELLER_TASKS = {
     temperature: 0.4,
     schema: { type: "object", properties: { keywords: { type: "array", items: { type: "string" } } }, required: ["keywords"] },
     instruction: [
-      "Suggest up to 10 short search keywords buyers in West Africa would type to find this exact product (common names, local terms, spelling variants).",
+      "Suggest up to 10 short search keywords buyers in the seller's own market would type to find this exact product (common names, local terms, spelling variants).",
       "Only keywords that truly describe the draft. No brands the draft does not mention, no misleading terms.",
     ].join(" "),
     build(input) {

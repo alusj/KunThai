@@ -34,4 +34,11 @@ test("relative times follow the selected language, including missing timestamps"
   assert.equal(formatRelativeTime(ago(3 * 24 * 60 * 60_000), "es"), "hace 3 días");
   assert.equal(formatRelativeTime("", "zh"), "刚刚");
   assert.equal(formatRelativeTime("", "ar"), "الآن");
+  assert.equal(formatRelativeTime("", "id"), "Baru saja");
+  assert.equal(formatRelativeTime("", "ur"), "ابھی");
+  assert.equal(formatRelativeTime("", "ru"), "Только что");
+  assert.equal(formatRelativeTime("", "de"), "Gerade eben");
+  assert.equal(formatRelativeTime("", "ja"), "たった今");
+  assert.equal(formatRelativeTime("", "mr"), "आत्ताच");
+  assert.equal(formatRelativeTime("", "vi"), "Vừa xong");
 });

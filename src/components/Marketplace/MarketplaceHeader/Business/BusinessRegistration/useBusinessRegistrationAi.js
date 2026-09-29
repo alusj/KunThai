@@ -117,8 +117,15 @@ function buildFields(registration) {
     { key: "trustPayout.bankDetails", label: "Bank / payout details", type: "text", fillable: false, value: form.trustPayout.accountName ? "provided" : "" },
   );
 
-  return fields;
+  // Each field names its registration step, so KAI's guided filling can work
+  // through the form one step at a time.
+  return fields.map((field) => {
+    const section = field.key.split(".")[0];
+    return SECTION_STEP_KEYS[section] ? { ...field, section, sectionLabel: t(`urmall.biz.reg.${SECTION_STEP_KEYS[section]}`) } : field;
+  });
 }
+
+const SECTION_STEP_KEYS = { identity: "stepIdentity", location: "stepLocation", operations: "stepOperations", trustPayout: "stepVerification" };
 
 // Apply KAI's values the way the form's own inputs do.
 function applyValues(registration, values) {
