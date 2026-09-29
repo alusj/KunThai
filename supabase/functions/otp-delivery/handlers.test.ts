@@ -43,6 +43,7 @@ const baseEnv: Env = {
   maxCodesPerDay: 10,
   maxAttempts: 5,
   unreachableDays: 30,
+  hookBudgetMs: 4000,
 };
 const envWith = (smsMode: SmsMode): Env => ({ ...baseEnv, smsMode });
 
@@ -128,8 +129,12 @@ const logs: Record<string, unknown>[] = [];
 const log = (e: Record<string, unknown>) => logs.push(e);
 const newCode = () => USER_CODE;
 
-async function hookRequest(phone: string, otp = AUTH_OTP, secret = HOOK_KEY) {
-  const body = JSON.stringify({ user: { id: "u1", phone }, sms: { otp, phone } });
+async function hookRequest(phone: string, otp = AUTH_OTP, secret = HOOK_KEY, extra: { user?: object; sms?: object } = {}) {
+  const body = JSON.stringify({
+    metadata: { name: "send-sms", ip_address: "203.0.113.9" },
+    user: { id: "u1", phone, ...(extra.user ?? {}) },
+    sms: { otp, phone, ...(extra.sms ?? {}) },
+  });
   const id = "msg_1";
   const ts = String(Math.floor(clock.getTime() / 1000));
   const sig = bytesToBase64(await hmacSha256(secret, `${id}.${ts}.${body}`));
@@ -384,4 +389,79 @@ test("a new code supersedes the old one: old code and old internal code are dead
   assert.equal(a.status, "superseded");
   assert.equal(a.auth_code_ciphertext, null);
   assert.equal(b.status, "sent");
+});
+
+// Payload shapes below follow supabase/auth internal/api/phone.go and mfa.go:
+// phone change sends sms.phone = the NEW number with user.phone = the old one;
+// MFA sets sms_type "mfa"; signup/recovery/reauthentication send no sms_type.
+
+test("phone change: code goes to the NEW number and verifies as phone_change", async () => {
+  const { deps, calls } = setup();
+  const req = await hookRequest("23277000020", AUTH_OTP, HOOK_KEY, {
+    user: { phone: "23277000019", phone_change: "23277000020" },
+    sms: { phone: "23277000020" },
+  });
+  assert.equal((await handleSendSmsHook(req, deps)).status, 200);
+  assert.equal(JSON.parse(calls[0].body).to, "23277000020");
+  const res = await handleVerify(post("verify", { phone: "+23277000020", token: USER_CODE, type: "phone_change" }), deps);
+  assert.equal(res.status, 200);
+  const authCall = calls.find((c) => c.url.endsWith("/auth/v1/verify"))!;
+  assert.deepEqual(JSON.parse(authCall.body), { type: "phone_change", phone: "+23277000020", token: AUTH_OTP });
+  // The OLD number has no code to use.
+  assert.equal((await handleVerify(post("verify", { phone: "23277000019", token: USER_CODE }), deps)).status, 404);
+});
+
+test("verify only forwards the sms / phone_change types to Supabase", async () => {
+  const { deps, calls } = setup();
+  await handleSendSmsHook(await hookRequest("23277000021"), deps);
+  await handleVerify(post("verify", { phone: "23277000021", token: USER_CODE, type: "recovery" }), deps);
+  const authCall = calls.find((c) => c.url.endsWith("/auth/v1/verify"))!;
+  assert.equal(JSON.parse(authCall.body).type, "sms");
+});
+
+test("SMS MFA challenge is refused (not supported with the two-code model)", async () => {
+  const { deps, calls } = setup();
+  const res = await handleSendSmsHook(await hookRequest("23277000022", "123456", HOOK_KEY, { sms: { sms_type: "mfa" } }), deps);
+  assert.equal(res.status, 400);
+  assert.match((await res.json()).error.message, /authenticator app/);
+  assert.equal(calls.length, 0);
+});
+
+test("hook answers inside Supabase's 5 s window even if WhatsApp hangs", async () => {
+  const m = memStore();
+  let whatsappCalls = 0;
+  const hanging = (async (url: string, init: RequestInit) => {
+    if (url.includes("graph.facebook.com")) {
+      whatsappCalls++;
+      return await new Promise<Response>((_, reject) => init.signal!.addEventListener("abort", () => reject(new Error("aborted"))));
+    }
+    throw new Error("no other call expected");
+  }) as unknown as typeof fetch;
+  const deps = { env: { ...envWith("verify_native"), hookBudgetMs: 800 }, store: m.store, fetch: hanging, now, log, uuid, newCode };
+  const t0 = Date.now();
+  const keepAlive = setInterval(() => {}, 50); // AbortSignal.timeout timers are unref'd in Node
+  const res = await handleSendSmsHook(await hookRequest("23277000023"), deps);
+  clearInterval(keepAlive);
+  assert.equal(res.status, 200);
+  assert.ok(Date.now() - t0 < 1500, "answered quickly");
+  assert.equal(whatsappCalls, 1);
+  assert.ok([...m.rows.values()][0].user_code_ciphertext, "code kept for the SMS button");
+});
+
+test("definite WhatsApp failure with no time left: no SMS inside the hook, button still works", async () => {
+  const m = memStore();
+  const calls: string[] = [];
+  const slowFail = (async (url: string) => {
+    calls.push(url);
+    if (url.includes("graph.facebook.com")) {
+      await new Promise((r) => setTimeout(r, 400));
+      return Response.json({ error: { code: 100 } }, { status: 400 });
+    }
+    return Response.json({ sid: "VE9" }, { status: 201 });
+  }) as unknown as typeof fetch;
+  const deps = { env: { ...envWith("verify_native"), hookBudgetMs: 700 }, store: m.store, fetch: slowFail, now, log, uuid, newCode };
+  assert.equal((await handleSendSmsHook(await hookRequest("23277000024"), deps)).status, 200);
+  assert.equal(calls.filter((u) => u.includes("twilio")).length, 0);
+  await handleManualFallback(post("fallback", { phone: "23277000024" }), deps);
+  assert.equal(calls.filter((u) => u.includes("twilio")).length, 1);
 });

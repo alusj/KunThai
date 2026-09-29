@@ -55,6 +55,7 @@ const env: Env = {
   maxCodesPerDay: num(Deno.env.get("OTP_MAX_CODES_PER_DAY"), 10),
   maxAttempts: num(Deno.env.get("OTP_MAX_ATTEMPTS"), 5),
   unreachableDays: num(Deno.env.get("OTP_WHATSAPP_UNREACHABLE_DAYS"), 30),
+  hookBudgetMs: num(Deno.env.get("OTP_HOOK_BUDGET_MS"), 4000),
 };
 
 const store = supabaseStore(

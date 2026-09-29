@@ -52,6 +52,9 @@ export interface Env extends Config {
   maxCodesPerDay: number;
   maxAttempts: number;
   unreachableDays: number;
+  // Supabase Auth waits at most 5 s for an HTTP hook (all retries included);
+  // the hook must answer well inside that.
+  hookBudgetMs: number;
 }
 
 export interface Deps {
@@ -115,9 +118,9 @@ const userAad = (id: string) => `${id}:user`;
 const authAad = (id: string) => `${id}:auth`;
 const isSms = (ch: Channel | null) => ch === "twilio_verify" || ch === "orange_sms";
 
-async function sendOn(c: Ctx, channel: Channel, phone: string, code: string): Promise<SendResult> {
-  if (channel === "whatsapp") return await sendWhatsApp(c.env, phone, code, c.fetch);
-  if (channel === "twilio_verify") return await sendSms(c.env, phone, code, c.fetch);
+async function sendOn(c: Ctx, channel: Channel, phone: string, code: string, timeoutMs: number): Promise<SendResult> {
+  if (channel === "whatsapp") return await sendWhatsApp(c.env, phone, code, c.fetch, timeoutMs);
+  if (channel === "twilio_verify") return await sendSms(c.env, phone, code, c.fetch, timeoutMs);
   return { ok: false, definite: true, errorCode: "channel_unavailable" }; // orange_sms: not built yet
 }
 
@@ -129,16 +132,26 @@ async function deliverFrom(
   code: string,
   startStep: number,
   reason: string,
+  budgetMs = 20_000,
 ): Promise<{ delivered: boolean; patch: Partial<Delivery> }> {
   const history = [...(row.history ?? [])];
   const nowIso = () => c.now().toISOString();
+  const deadline = Date.now() + budgetMs;
   for (let step = startStep; step < row.channels.length; step++) {
     const channel = row.channels[step];
     if (channel === "whatsapp" && (await c.store.isWhatsAppUnreachable(row.phone, nowIso()))) {
       history.push({ at: nowIso(), channel, result: "skipped_unreachable" });
       continue;
     }
-    const r = await sendOn(c, channel, row.phone, code);
+    const remaining = deadline - Date.now();
+    if (remaining < 500) {
+      // Out of time: don't risk Supabase giving up on the hook. The code is
+      // kept, so "Send by SMS" still works.
+      history.push({ at: nowIso(), channel, result: "skipped_no_time" });
+      c.log({ event: "send_skipped_no_time", id: row.id, channel });
+      return { delivered: true, patch: { step: Math.max(startStep, step - 1), status: "sent", history } };
+    }
+    const r = await sendOn(c, channel, row.phone, code, Math.min(10_000, remaining));
     history.push({ at: nowIso(), channel, reason, result: r.ok ? "accepted" : r.errorCode });
     c.log({ event: "send", id: row.id, phone: maskPhone(row.phone), channel, reason, ok: r.ok, error: r.ok ? undefined : r.errorCode });
     if (r.ok) {
@@ -176,7 +189,7 @@ export async function handleSendSmsHook(req: Request, deps: Deps): Promise<Respo
     c.log({ event: "hook_rejected", reason: "bad_signature" });
     return hookError(401, "Invalid hook signature");
   }
-  let payload: { user?: { id?: string; phone?: string }; sms?: { otp?: string; phone?: string } };
+  let payload: { user?: { id?: string; phone?: string }; sms?: { otp?: string; phone?: string; sms_type?: string } };
   try {
     payload = JSON.parse(raw);
   } catch {
@@ -184,6 +197,13 @@ export async function handleSendSmsHook(req: Request, deps: Deps): Promise<Respo
   }
   // sms.phone is where Supabase wants the code to go (the new number for a
   // phone change); fall back to the account phone.
+  // SMS MFA is disabled for KunThai. If it is ever turned on, its codes are
+  // checked inside Supabase (and by Twilio Verify while that is the SMS
+  // provider), so a KunThai-issued code could never work: refuse loudly.
+  if (payload.sms?.sms_type === "mfa") {
+    c.log({ event: "hook_rejected", reason: "mfa_not_supported" });
+    return hookError(400, "SMS two-step verification is not available. Use your authenticator app.");
+  }
   const phone = digitsOnly(payload.sms?.phone || payload.user?.phone);
   const authCode = String(payload.sms?.otp ?? "");
   if (phone.length < 8 || !/^\d+$/.test(authCode)) return hookError(400, "Invalid payload");
@@ -233,7 +253,7 @@ export async function handleSendSmsHook(req: Request, deps: Deps): Promise<Respo
   };
   await c.store.insertDelivery(row);
 
-  const result = await deliverFrom(c, row, userCode, 0, "initial");
+  const result = await deliverFrom(c, row, userCode, 0, "initial", c.env.hookBudgetMs);
   await c.store.updateDelivery(id, result.patch);
   if (!result.delivered) return hookError(502, "We could not send your code right now. Please try again shortly.");
   return json(200, {});

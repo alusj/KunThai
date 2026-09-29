@@ -30,7 +30,7 @@ export type Fetch = typeof fetch;
 // WhatsApp error codes meaning "this person cannot get WhatsApp messages".
 export const WHATSAPP_UNREACHABLE = new Set(["131026", "131049", "131050"]);
 
-export async function sendWhatsApp(cfg: Config, phoneDigits: string, code: string, f: Fetch = fetch): Promise<SendResult> {
+export async function sendWhatsApp(cfg: Config, phoneDigits: string, code: string, f: Fetch = fetch, timeoutMs = 10_000): Promise<SendResult> {
   if (!cfg.whatsappToken || !cfg.whatsappPhoneNumberId) return { ok: false, definite: true, errorCode: "not_configured" };
   const url = `https://graph.facebook.com/${cfg.graphVersion}/${cfg.whatsappPhoneNumberId}/messages`;
   const body = {
@@ -54,7 +54,7 @@ export async function sendWhatsApp(cfg: Config, phoneDigits: string, code: strin
       method: "POST",
       headers: { Authorization: `Bearer ${cfg.whatsappToken}`, "Content-Type": "application/json" },
       body: JSON.stringify(body),
-      signal: AbortSignal.timeout(10_000),
+      signal: AbortSignal.timeout(timeoutMs),
     });
   } catch {
     // Network error or timeout: Meta may still have queued it, so this is
@@ -70,13 +70,13 @@ export async function sendWhatsApp(cfg: Config, phoneDigits: string, code: strin
 
 const twilioAuth = (cfg: Config) => "Basic " + btoa(`${cfg.twilioAccountSid}:${cfg.twilioAuthToken}`);
 
-async function twilioPost(cfg: Config, url: string, form: URLSearchParams, f: Fetch): Promise<{ ok: boolean; json: any; status: number }> {
+async function twilioPost(cfg: Config, url: string, form: URLSearchParams, f: Fetch, timeoutMs = 10_000): Promise<{ ok: boolean; json: any; status: number }> {
   try {
     const res = await f(url, {
       method: "POST",
       headers: { Authorization: twilioAuth(cfg), "Content-Type": "application/x-www-form-urlencoded" },
       body: form.toString(),
-      signal: AbortSignal.timeout(10_000),
+      signal: AbortSignal.timeout(timeoutMs),
     });
     return { ok: res.ok, json: await res.json().catch(() => ({})), status: res.status };
   } catch {
@@ -86,7 +86,7 @@ async function twilioPost(cfg: Config, url: string, form: URLSearchParams, f: Fe
 
 // Sends the SMS step. In verify_native mode `code` is ignored: Twilio sends
 // its own code and the returned messageId is the Verification SID.
-export async function sendSms(cfg: Config, phoneDigits: string, code: string, f: Fetch = fetch): Promise<SendResult> {
+export async function sendSms(cfg: Config, phoneDigits: string, code: string, f: Fetch = fetch, timeoutMs = 10_000): Promise<SendResult> {
   if (cfg.smsMode === "off") return { ok: false, definite: true, errorCode: "sms_off" };
   if (!cfg.twilioAccountSid || !cfg.twilioAuthToken) return { ok: false, definite: true, errorCode: "sms_not_configured" };
   const to = `+${phoneDigits}`;
@@ -105,7 +105,7 @@ export async function sendSms(cfg: Config, phoneDigits: string, code: string, f:
     form.set("Channel", "sms");
     if (cfg.smsMode === "verify_custom_code") form.set("CustomCode", code);
   }
-  const r = await twilioPost(cfg, url, form, f);
+  const r = await twilioPost(cfg, url, form, f, timeoutMs);
   if (r.ok) return { ok: true, messageId: r.json?.sid ?? null, smsMode: cfg.smsMode };
   // Status 0 = network/timeout: uncertain, not definite.
   return { ok: false, definite: r.status !== 0, errorCode: `twilio_${r.json?.code ?? r.status}` };
