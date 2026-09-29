@@ -85,7 +85,10 @@ const verifyPhoneOtpViaDelivery = async (phone, token, type = "sms") => {
     response && typeof response.json === "function"
       ? await response.json().catch(() => ({}))
       : {};
-  if (body.reason === "not_tracked") return null;
+  // Only a definite answer from otp-delivery stops here. "not_tracked" (hook
+  // off), a missing function or a network error fall back to Supabase, which
+  // simply rejects the code if the hook is on.
+  if (!["locked", "wrong_code", "expired"].includes(body.reason)) return null;
   const left = Number(body.attemptsLeft || 0);
   const messages = {
     locked: "Too many incorrect attempts. Please request a new code.",
@@ -98,7 +101,7 @@ const verifyPhoneOtpViaDelivery = async (phone, token, type = "sms") => {
       name: "AuthApiError",
       status: body.reason === "locked" ? 429 : 400,
       code: `otp_${body.reason || "unavailable"}`,
-      message: messages[body.reason] || "We couldn't check your code. Please try again.",
+      message: messages[body.reason],
     },
   };
 };
