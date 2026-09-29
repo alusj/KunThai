@@ -58,8 +58,20 @@ export async function hashCode(masterB64: string, deliveryId: string, phone: str
   return bytesToHex(await hmacSha256(hashKey, `${deliveryId}:${phone}:${code}`));
 }
 
-// The code is encrypted only so the SMS fallback can resend the SAME code.
-// The ciphertext is wiped as soon as no fallback is possible any more.
+// Uniformly random numeric code (rejection sampling, no modulo bias).
+export function generateNumericCode(digits = 6): string {
+  let out = "";
+  while (out.length < digits) {
+    const buf = crypto.getRandomValues(new Uint8Array(16));
+    for (const b of buf) {
+      if (b < 250 && out.length < digits) out += String(b % 10);
+    }
+  }
+  return out;
+}
+
+// AES-GCM with the context string (delivery id + purpose) as associated data,
+// so a ciphertext can't be moved to another row or used for another purpose.
 export async function encryptCode(masterB64: string, deliveryId: string, code: string): Promise<string> {
   const { aesKey } = await deriveKeys(masterB64);
   const iv = crypto.getRandomValues(new Uint8Array(12));

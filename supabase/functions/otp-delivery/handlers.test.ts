@@ -3,26 +3,30 @@ import { test } from "node:test";
 import assert from "node:assert/strict";
 import { bytesToBase64, bytesToHex, hmacSha256 } from "./crypto.ts";
 import {
-  blockedUntil,
   type Env,
-  handleCheck,
   handleManualFallback,
   handleSendSmsHook,
+  handleVerify,
   handleWebhookEvent,
   handleWebhookVerify,
+  nextSendAllowedAt,
 } from "./handlers.ts";
-import type { Delivery, Store } from "./store.ts";
+import type { SmsMode } from "./providers.ts";
+import { ACTIVE_STATUSES, type Delivery, type Store } from "./store.ts";
 
 const enc = new TextEncoder();
 const HOOK_KEY = crypto.getRandomValues(new Uint8Array(32));
-const HOOK_SECRET = `v1,whsec_${bytesToBase64(HOOK_KEY)}`;
+const AUTH_OTP = "8350129946"; // Supabase's internal 10-digit code
+const USER_CODE = "482913"; // what the person receives
 
-const env: Env = {
+const baseEnv: Env = {
   otpCodeKey: bytesToBase64(crypto.getRandomValues(new Uint8Array(32))),
-  sendSmsHookSecret: HOOK_SECRET,
+  sendSmsHookSecret: `v1,whsec_${bytesToBase64(HOOK_KEY)}`,
   whatsappAppSecret: "app-secret-test",
   webhookVerifyToken: "verify-token-test",
-  graphVersion: "v23.0",
+  supabaseUrl: "https://proj.supabase.co",
+  supabaseAnonKey: "anon-test",
+  graphVersion: "v26.0",
   whatsappToken: "wa-token-test",
   whatsappPhoneNumberId: "1394928910365376",
   whatsappTemplate: "kunthai_login_code",
@@ -30,14 +34,17 @@ const env: Env = {
   twilioAccountSid: "ACtest",
   twilioAuthToken: "twilio-test",
   twilioVerifyServiceSid: "VAtest",
-  twilioVerifyCustomCode: true,
-  twilioMessagingServiceSid: "",
+  twilioMessagingServiceSid: "MGtest",
+  smsMode: "verify_native",
   codeTtlSeconds: 600,
-  maxCodesPerDay: 3,
-  lockoutHours: 72,
+  userCodeDigits: 6,
+  minAuthOtpLength: 10,
+  maxCodesPerHour: 5,
+  maxCodesPerDay: 10,
   maxAttempts: 5,
   unreachableDays: 30,
 };
+const envWith = (smsMode: SmsMode): Env => ({ ...baseEnv, smsMode });
 
 function memStore() {
   const rows = new Map<string, Delivery>();
@@ -58,9 +65,8 @@ function memStore() {
     },
     async supersedeActive(phone) {
       for (const r of rows.values()) {
-        if (r.phone === phone && ["sending", "sent", "delivered"].includes(r.status)) {
-          r.status = "superseded";
-          r.code_ciphertext = null;
+        if (r.phone === phone && ACTIVE_STATUSES.includes(r.status)) {
+          Object.assign(r, { status: "superseded", user_code_ciphertext: null, auth_code_ciphertext: null });
         }
       }
     },
@@ -75,7 +81,7 @@ function memStore() {
     },
     async latestActive(phone, nowIso) {
       const list = [...rows.values()]
-        .filter((r) => r.phone === phone && ["sending", "sent", "delivered", "exhausted"].includes(r.status) && r.expires_at > nowIso)
+        .filter((r) => r.phone === phone && ACTIVE_STATUSES.includes(r.status) && r.expires_at > nowIso)
         .sort((a, b) => b.created_at.localeCompare(a.created_at));
       return list[0] ? structuredClone(list[0]) : null;
     },
@@ -89,14 +95,27 @@ function memStore() {
 }
 
 type Call = { url: string; body: string };
-function mockFetch(plan: { whatsapp?: () => Response; twilio?: () => Response }) {
+function mockFetch(plan: {
+  whatsapp?: () => Response;
+  twilioSend?: () => Response;
+  twilioCheck?: (body: string) => Response;
+  auth?: (body: string) => Response;
+} = {}) {
   const calls: Call[] = [];
   const f = (async (url: string, init: RequestInit) => {
-    calls.push({ url, body: String(init.body) });
-    if (url.includes("graph.facebook.com")) {
-      return plan.whatsapp ? plan.whatsapp() : Response.json({ messages: [{ id: "wamid.OK1" }] });
+    const body = String(init.body);
+    calls.push({ url, body });
+    if (url.includes("graph.facebook.com")) return plan.whatsapp ? plan.whatsapp() : Response.json({ messages: [{ id: "wamid.OK1" }] });
+    if (url.endsWith("/VerificationCheck")) return plan.twilioCheck ? plan.twilioCheck(body) : Response.json({ status: "pending" });
+    if (/Verifications\/VE/.test(url)) return Response.json({ status: "canceled" });
+    if (url.includes("twilio.com")) return plan.twilioSend ? plan.twilioSend() : Response.json({ sid: "VE123" }, { status: 201 });
+    if (url.endsWith("/auth/v1/verify")) {
+      if (plan.auth) return plan.auth(body);
+      return JSON.parse(body).token === AUTH_OTP
+        ? Response.json({ access_token: "at", refresh_token: "rt", user: { id: "u1" } })
+        : Response.json({ error_code: "otp_expired" }, { status: 403 });
     }
-    return plan.twilio ? plan.twilio() : Response.json({ sid: "VEtest" }, { status: 201 });
+    throw new Error("unexpected " + url);
   }) as unknown as typeof fetch;
   return { f, calls };
 }
@@ -107,9 +126,10 @@ let n = 0;
 const uuid = () => `00000000-0000-4000-8000-${String(++n).padStart(12, "0")}`;
 const logs: Record<string, unknown>[] = [];
 const log = (e: Record<string, unknown>) => logs.push(e);
+const newCode = () => USER_CODE;
 
-async function hookRequest(phone: string, otp: string, secret = HOOK_KEY) {
-  const body = JSON.stringify({ user: { id: "u1", phone }, sms: { otp } });
+async function hookRequest(phone: string, otp = AUTH_OTP, secret = HOOK_KEY) {
+  const body = JSON.stringify({ user: { id: "u1", phone }, sms: { otp, phone } });
   const id = "msg_1";
   const ts = String(Math.floor(clock.getTime() / 1000));
   const sig = bytesToBase64(await hmacSha256(secret, `${id}.${ts}.${body}`));
@@ -119,221 +139,249 @@ async function hookRequest(phone: string, otp: string, secret = HOOK_KEY) {
     body,
   });
 }
-
-async function metaRequest(payload: unknown, secret = env.whatsappAppSecret) {
+async function metaRequest(payload: unknown, secret = baseEnv.whatsappAppSecret) {
   const raw = JSON.stringify(payload);
   const sig = bytesToHex(await hmacSha256(enc.encode(secret), raw));
-  return new Request("https://x/functions/v1/otp-delivery/webhook", {
-    method: "POST",
-    headers: { "x-hub-signature-256": `sha256=${sig}` },
-    body: raw,
-  });
+  return new Request("https://x/otp-delivery/webhook", { method: "POST", headers: { "x-hub-signature-256": `sha256=${sig}` }, body: raw });
 }
-
 const statusEvent = (id: string, status: string, code?: number) => ({
   entry: [{ changes: [{ field: "messages", value: { statuses: [{ id, status, ...(code ? { errors: [{ code }] } : {}) }] } }] }],
 });
+const post = (path: string, body: unknown) => new Request(`https://x/otp-delivery/${path}`, { method: "POST", body: JSON.stringify(body) });
 
-const post = (path: string, body: unknown) =>
-  new Request(`https://x/functions/v1/otp-delivery/${path}`, { method: "POST", body: JSON.stringify(body) });
+function setup(mode: SmsMode = "verify_native", plan = {}) {
+  const m = memStore();
+  const fx = mockFetch(plan);
+  const deps = { env: envWith(mode), store: m.store, fetch: fx.f, now, log, uuid, newCode };
+  return { ...m, ...fx, deps };
+}
 
-test("hook: rejects bad signature", async () => {
-  const { store } = memStore();
-  const res = await handleSendSmsHook(await hookRequest("23230318472", "123456", new Uint8Array(32)), { env, store, now, log, uuid });
-  assert.equal(res.status, 401);
+test("hook rejects a bad signature", async () => {
+  const { deps } = setup();
+  assert.equal((await handleSendSmsHook(await hookRequest("23230318472", AUTH_OTP, new Uint8Array(32)), deps)).status, 401);
 });
 
-test("hook: sends via WhatsApp only, stores hash + ciphertext, never logs the code", async () => {
-  const { store, rows } = memStore();
-  const { f, calls } = mockFetch({});
+test("hook fails closed while Supabase still issues short (6-digit) codes", async () => {
+  const { deps, calls } = setup();
+  const res = await handleSendSmsHook(await hookRequest("23230318472", "123456"), deps);
+  assert.equal(res.status, 500);
+  assert.equal(calls.length, 0, "nothing sent");
+});
+
+test("hook delivers OUR 6-digit code on WhatsApp; Supabase's code is never sent or logged", async () => {
+  const { deps, calls, rows } = setup();
   logs.length = 0;
-  const res = await handleSendSmsHook(await hookRequest("+232 30 318472", "482913"), { env, store, fetch: f, now, log, uuid });
+  const res = await handleSendSmsHook(await hookRequest("+232 30 318472"), deps);
   assert.equal(res.status, 200);
   assert.equal(calls.length, 1);
-  assert.match(calls[0].url, /graph\.facebook\.com\/v23\.0\/1394928910365376\/messages/);
   const sent = JSON.parse(calls[0].body);
   assert.equal(sent.template.name, "kunthai_login_code");
-  assert.equal(sent.template.components[1].sub_type, "url");
+  assert.equal(sent.template.components[0].parameters[0].text, USER_CODE);
+  assert.ok(!calls[0].body.includes(AUTH_OTP));
   const row = [...rows.values()][0];
   assert.equal(row.status, "sent");
-  assert.equal(row.provider_message_id, "wamid.OK1");
-  assert.ok(row.code_hash && !row.code_hash.includes("482913"));
-  assert.ok(row.code_ciphertext && !row.code_ciphertext.includes("482913"));
-  assert.ok(!JSON.stringify(logs).includes("482913"));
+  for (const secret of [AUTH_OTP, USER_CODE]) {
+    assert.ok(!JSON.stringify(row).includes(secret), "no plaintext code stored");
+    assert.ok(!JSON.stringify(logs).includes(secret), "no code in logs");
+  }
   assert.ok(!JSON.stringify(logs).includes("30318472"));
-  assert.ok(!JSON.stringify(logs).includes("wa-token-test"));
 });
 
-test("hook: definite WhatsApp API error falls back to Twilio with the SAME code", async () => {
-  const { store, rows, unreachable } = memStore();
-  const { f, calls } = mockFetch({ whatsapp: () => Response.json({ error: { code: 131026 } }, { status: 400 }) });
-  const res = await handleSendSmsHook(await hookRequest("23277000001", "111222"), { env, store, fetch: f, now, log, uuid });
+test("send limits: 5 per hour, 10 per day, no multi-day lockout", async () => {
+  const { deps } = setup();
+  const phone = "23277000004";
+  const start = clock;
+  for (let i = 0; i < 5; i++) {
+    clock = new Date(start.getTime() + i * 60_000);
+    assert.equal((await handleSendSmsHook(await hookRequest(phone), deps)).status, 200, `code ${i + 1}`);
+  }
+  clock = new Date(start.getTime() + 10 * 60_000);
+  assert.equal((await handleSendSmsHook(await hookRequest(phone), deps)).status, 429, "6th in the hour");
+  clock = new Date(start.getTime() + 61 * 60_000);
+  assert.equal((await handleSendSmsHook(await hookRequest(phone), deps)).status, 200, "hour window freed");
+  clock = start;
+});
+
+test("nextSendAllowedAt", () => {
+  const t0 = new Date("2026-01-01T12:00:00Z");
+  assert.equal(nextSendAllowedAt([], t0, 5, 10), 0);
+  const ten = Array.from({ length: 10 }, (_, i) => new Date(t0.getTime() - (23 - i) * 3600_000).toISOString());
+  const until = nextSendAllowedAt(ten, t0, 5, 10);
+  assert.equal(until, Date.parse(ten[0]) + 24 * 3600_000, "frees when the oldest ages out (1 h), not 72 h");
+});
+
+test("verify: right code -> Supabase verified server-side with the INTERNAL code -> session", async () => {
+  const { deps, calls, rows } = setup();
+  await handleSendSmsHook(await hookRequest("23277000001"), deps);
+  const res = await handleVerify(post("verify", { phone: "+23277000001", token: USER_CODE }), deps);
   assert.equal(res.status, 200);
-  assert.equal(calls.length, 2);
-  assert.match(calls[1].url, /verify\.twilio\.com/);
-  assert.match(calls[1].body, /CustomCode=111222/);
+  const body = await res.json();
+  assert.equal(body.session.access_token, "at");
+  const authCall = calls.find((c) => c.url.endsWith("/auth/v1/verify"))!;
+  assert.deepEqual(JSON.parse(authCall.body), { type: "sms", phone: "+23277000001", token: AUTH_OTP });
   const row = [...rows.values()][0];
-  assert.equal(row.current_channel, "twilio_verify");
-  assert.equal(row.code_ciphertext, null);
-  assert.ok(unreachable.has("23277000001"));
+  assert.equal(row.status, "verified");
+  assert.equal(row.auth_code_ciphertext, null);
+  assert.equal(row.user_code_ciphertext, null);
 });
 
-test("hook: WhatsApp timeout is NOT a definite failure -> no automatic SMS", async () => {
-  const { store, rows } = memStore();
-  const { f, calls } = mockFetch({
+test("bypass closed: Supabase never accepts the 6-digit code the person holds", async () => {
+  // Model of Supabase /verify: only its own 10-digit code works.
+  const { deps } = setup();
+  await handleSendSmsHook(await hookRequest("23277000002"), deps);
+  const direct = await deps.fetch("https://proj.supabase.co/auth/v1/verify", {
+    method: "POST",
+    body: JSON.stringify({ type: "sms", phone: "+23277000002", token: USER_CODE }),
+  });
+  assert.equal(direct.status, 403);
+});
+
+test("verify: 5 wrong codes lock the attempt, even the right code is refused afterwards", async () => {
+  const { deps, rows, calls } = setup();
+  await handleSendSmsHook(await hookRequest("23277000003"), deps);
+  const r1 = await handleVerify(post("verify", { phone: "23277000003", token: "000000" }), deps);
+  assert.equal((await r1.json()).attemptsLeft, 4);
+  for (let i = 0; i < 4; i++) await handleVerify(post("verify", { phone: "23277000003", token: "000000" }), deps);
+  const locked = await handleVerify(post("verify", { phone: "23277000003", token: USER_CODE }), deps);
+  assert.ok([404, 429].includes(locked.status));
+  const row = [...rows.values()][0];
+  assert.equal(row.status, "locked");
+  assert.equal(row.auth_code_ciphertext, null);
+  assert.ok(!calls.some((c) => c.url.endsWith("/auth/v1/verify")), "Supabase never called");
+});
+
+test("verify: parallel guesses are all counted", async () => {
+  const { deps } = setup();
+  await handleSendSmsHook(await hookRequest("23277000013"), deps);
+  const results = await Promise.all(
+    Array.from({ length: 8 }, () => handleVerify(post("verify", { phone: "23277000013", token: "111111" }), deps)),
+  );
+  assert.equal(results.filter((r) => r.status === 400).length, 5);
+  assert.equal(results.filter((r) => r.status === 429).length, 3);
+});
+
+test("verify: expired code is not tracked; client falls back to Supabase (which also refuses)", async () => {
+  const { deps } = setup();
+  await handleSendSmsHook(await hookRequest("23277000010"), deps);
+  const saved = clock;
+  clock = new Date(clock.getTime() + 11 * 60_000);
+  const r = await handleVerify(post("verify", { phone: "23277000010", token: USER_CODE }), deps);
+  assert.equal(r.status, 404);
+  clock = saved;
+});
+
+test("verify: Supabase refuses (e.g. its expiry shorter) -> expired, secrets wiped", async () => {
+  const { deps, rows } = setup("verify_native", { auth: () => Response.json({ error_code: "otp_expired" }, { status: 403 }) });
+  await handleSendSmsHook(await hookRequest("23277000011"), deps);
+  const r = await handleVerify(post("verify", { phone: "23277000011", token: USER_CODE }), deps);
+  assert.equal((await r.json()).reason, "expired");
+  assert.equal([...rows.values()][0].auth_code_ciphertext, null);
+});
+
+test("WhatsApp API error -> Twilio Verify (native) SMS; Twilio's code accepted in the SAME attempt", async () => {
+  const { deps, calls, rows } = setup("verify_native", {
+    whatsapp: () => Response.json({ error: { code: 131026 } }, { status: 400 }),
+    twilioCheck: (b: string) => Response.json({ status: new URLSearchParams(b).get("Code") === "777777" ? "approved" : "pending" }),
+  });
+  assert.equal((await handleSendSmsHook(await hookRequest("23277000005"), deps)).status, 200);
+  const send = calls.find((c) => c.url.endsWith("/Verifications"))!;
+  assert.ok(!new URLSearchParams(send.body).has("CustomCode"), "native mode: Twilio makes its own code");
+  const row = [...rows.values()][0];
+  assert.equal(row.sms_mode, "verify_native");
+  assert.equal(row.twilio_verification_sid, "VE123");
+  // Wrong code counts against the one shared attempt counter.
+  await handleVerify(post("verify", { phone: "23277000005", token: "123123" }), deps);
+  const ok = await handleVerify(post("verify", { phone: "23277000005", token: "777777" }), deps);
+  assert.equal(ok.status, 200);
+  assert.equal(rows.get(row.id)!.attempts, 2);
+});
+
+test("WhatsApp code wins after a native SMS went out -> Twilio verification canceled", async () => {
+  const { deps, calls } = setup("verify_native");
+  await handleSendSmsHook(await hookRequest("23277000006"), deps);
+  await handleManualFallback(post("fallback", { phone: "23277000006" }), deps);
+  const ok = await handleVerify(post("verify", { phone: "23277000006", token: USER_CODE }), deps);
+  assert.equal(ok.status, 200);
+  const cancel = calls.find((c) => /Verifications\/VE123$/.test(c.url))!;
+  assert.equal(new URLSearchParams(cancel.body).get("Status"), "canceled");
+});
+
+test("custom-code mode sends the SAME code and reports 'approved' feedback", async () => {
+  const { deps, calls } = setup("verify_custom_code", { whatsapp: () => Response.json({ error: { code: 100 } }, { status: 400 }) });
+  await handleSendSmsHook(await hookRequest("23277000007"), deps);
+  const send = calls.find((c) => c.url.endsWith("/Verifications"))!;
+  assert.equal(new URLSearchParams(send.body).get("CustomCode"), USER_CODE);
+  await handleVerify(post("verify", { phone: "23277000007", token: USER_CODE }), deps);
+  const fb = calls.find((c) => /Verifications\/VE123$/.test(c.url))!;
+  assert.equal(new URLSearchParams(fb.body).get("Status"), "approved");
+});
+
+test("messaging mode sends the SAME code as plain SMS", async () => {
+  const { deps, calls } = setup("messaging", { whatsapp: () => Response.json({ error: { code: 100 } }, { status: 400 }) });
+  await handleSendSmsHook(await hookRequest("23277000008"), deps);
+  const sms = calls.find((c) => c.url.includes("Messages.json"))!;
+  assert.match(new URLSearchParams(sms.body).get("Body")!, new RegExp(`^${USER_CODE} is your KunThai`));
+});
+
+test("WhatsApp timeout is not definite -> no automatic SMS", async () => {
+  const { deps, calls } = setup("verify_native", {
     whatsapp: () => {
       throw new Error("timeout");
     },
   });
-  const res = await handleSendSmsHook(await hookRequest("23277000002", "333444"), { env, store, fetch: f, now, log, uuid });
-  assert.equal(res.status, 200);
+  assert.equal((await handleSendSmsHook(await hookRequest("23277000009"), deps)).status, 200);
   assert.equal(calls.length, 1);
-  const row = [...rows.values()][0];
-  assert.ok(row.code_ciphertext, "code kept for manual SMS button");
 });
 
-test("hook: all channels fail -> error to Supabase", async () => {
-  const { store } = memStore();
-  const { f } = mockFetch({
+test("all channels fail -> error to Supabase, secrets wiped", async () => {
+  const { deps, rows } = setup("verify_native", {
     whatsapp: () => Response.json({ error: { code: 100 } }, { status: 400 }),
-    twilio: () => Response.json({ code: 60200 }, { status: 400 }),
+    twilioSend: () => Response.json({ code: 60200 }, { status: 400 }),
   });
-  const res = await handleSendSmsHook(await hookRequest("23277000003", "555666"), { env, store, fetch: f, now, log, uuid });
+  const res = await handleSendSmsHook(await hookRequest("23277000012"), deps);
   assert.equal(res.status, 502);
-  assert.ok((await res.json()).error.message);
-});
-
-test("hook: server-side resend limit (3 per 24h, then 72h lockout)", async () => {
-  const { store } = memStore();
-  const { f } = mockFetch({});
-  const phone = "23277000004";
-  const start = clock;
-  for (let i = 0; i < 3; i++) {
-    clock = new Date(start.getTime() + i * 120_000);
-    const r = await handleSendSmsHook(await hookRequest(phone, `10000${i}`), { env, store, fetch: f, now, log, uuid });
-    assert.equal(r.status, 200, `code ${i + 1} allowed`);
-  }
-  clock = new Date(start.getTime() + 10 * 60_000);
-  assert.equal((await handleSendSmsHook(await hookRequest(phone, "100009"), { env, store, fetch: f, now, log, uuid })).status, 429);
-  clock = new Date(start.getTime() + 60 * 3600_000);
-  assert.equal((await handleSendSmsHook(await hookRequest(phone, "100010"), { env, store, fetch: f, now, log, uuid })).status, 429);
-  clock = new Date(start.getTime() + 73 * 3600_000);
-  assert.equal((await handleSendSmsHook(await hookRequest(phone, "100011"), { env, store, fetch: f, now, log, uuid })).status, 200);
-  clock = start;
-});
-
-test("blockedUntil helper", () => {
-  const t0 = new Date("2026-01-01T00:00:00Z");
-  assert.equal(blockedUntil([], t0, 3, 72), 0);
-  const times = ["2026-01-01T00:00:00Z", "2026-01-01T01:00:00Z", "2026-01-01T02:00:00Z"];
-  assert.ok(blockedUntil(times, new Date("2026-01-01T03:00:00Z"), 3, 72) > 0);
-  assert.equal(blockedUntil(["2026-01-01T00:00:00Z", "2026-01-02T01:00:00Z", "2026-01-03T02:00:00Z"], new Date("2026-01-03T03:00:00Z"), 3, 72), 0);
-});
-
-test("webhook GET: challenge only with the right verify token", () => {
-  const ok = handleWebhookVerify(
-    new Request("https://x/otp-delivery/webhook?hub.mode=subscribe&hub.verify_token=verify-token-test&hub.challenge=12345"),
-    { env, store: memStore().store },
-  );
-  assert.equal(ok.status, 200);
-  const bad = handleWebhookVerify(
-    new Request("https://x/otp-delivery/webhook?hub.mode=subscribe&hub.verify_token=nope&hub.challenge=12345"),
-    { env, store: memStore().store },
-  );
-  assert.equal(bad.status, 403);
-});
-
-test("webhook POST: bad signature rejected", async () => {
-  const res = await handleWebhookEvent(await metaRequest(statusEvent("x", "delivered"), "wrong"), { env, store: memStore().store, log });
-  assert.equal(res.status, 401);
-});
-
-test("webhook POST: delivered marks row; failed triggers SMS with same code once", async () => {
-  const { store, rows } = memStore();
-  const { f, calls } = mockFetch({});
-  await handleSendSmsHook(await hookRequest("23277000005", "777888"), { env, store, fetch: f, now, log, uuid });
   const row = [...rows.values()][0];
-  const mid = row.provider_message_id!;
-
-  await handleWebhookEvent(await metaRequest(statusEvent(mid, "failed", 131047)), { env, store, fetch: f, now, log, uuid });
-  assert.equal(calls.length, 2);
-  assert.match(calls[1].body, /CustomCode=777888/);
-  const after = rows.get(row.id)!;
-  assert.equal(after.current_channel, "twilio_verify");
-  assert.equal(after.code_ciphertext, null);
-
-  // A repeated failed event must not send again.
-  await handleWebhookEvent(await metaRequest(statusEvent(mid, "failed", 131047)), { env, store, fetch: f, now, log, uuid });
-  assert.equal(calls.length, 2);
+  assert.equal(row.auth_code_ciphertext, null);
 });
 
-test("webhook POST: delivered status", async () => {
-  const { store, rows } = memStore();
-  const { f } = mockFetch({});
-  await handleSendSmsHook(await hookRequest("23277000006", "121212"), { env, store, fetch: f, now, log, uuid });
+test("webhook GET challenge and POST signature", async () => {
+  const { deps } = setup();
+  assert.equal(handleWebhookVerify(new Request("https://x/w?hub.mode=subscribe&hub.verify_token=verify-token-test&hub.challenge=9"), deps).status, 200);
+  assert.equal(handleWebhookVerify(new Request("https://x/w?hub.mode=subscribe&hub.verify_token=no&hub.challenge=9"), deps).status, 403);
+  assert.equal((await handleWebhookEvent(await metaRequest(statusEvent("x", "delivered"), "wrong"), deps)).status, 401);
+});
+
+test("webhook: failed status -> SMS once; delivered status recorded", async () => {
+  const { deps, calls, rows } = setup("messaging");
+  await handleSendSmsHook(await hookRequest("23277000014"), deps);
   const row = [...rows.values()][0];
-  const res = await handleWebhookEvent(await metaRequest(statusEvent(row.provider_message_id!, "delivered")), { env, store, fetch: f, now, log, uuid });
-  assert.equal(res.status, 200);
-  assert.equal(rows.get(row.id)!.status, "delivered");
+  await handleWebhookEvent(await metaRequest(statusEvent(row.provider_message_id!, "failed", 131047)), deps);
+  await handleWebhookEvent(await metaRequest(statusEvent(row.provider_message_id!, "failed", 131047)), deps);
+  assert.equal(calls.filter((c) => c.url.includes("Messages.json")).length, 1);
+
+  const s2 = setup();
+  await handleSendSmsHook(await hookRequest("23277000015"), s2.deps);
+  const r2 = [...s2.rows.values()][0];
+  await handleWebhookEvent(await metaRequest(statusEvent(r2.provider_message_id!, "delivered")), s2.deps);
+  assert.equal(s2.rows.get(r2.id)!.status, "delivered");
 });
 
-test("manual fallback: same code by SMS, only once", async () => {
-  const { store, rows } = memStore();
-  const { f, calls } = mockFetch({});
-  await handleSendSmsHook(await hookRequest("23277000007", "989898"), { env, store, fetch: f, now, log, uuid });
-  const r1 = await handleManualFallback(post("fallback", { phone: "+23277000007" }), { env, store, fetch: f, now, log, uuid });
-  assert.equal(r1.status, 200);
-  assert.equal(calls.length, 2);
-  assert.match(calls[1].body, /CustomCode=989898/);
-  await handleManualFallback(post("fallback", { phone: "+23277000007" }), { env, store, fetch: f, now, log, uuid });
-  assert.equal(calls.length, 2, "second tap does nothing");
-  assert.equal([...rows.values()][0].code_ciphertext, null);
-  // Unknown number: same answer, no send.
-  const r3 = await handleManualFallback(post("fallback", { phone: "+23277999999" }), { env, store, fetch: f, now, log, uuid });
-  assert.equal(r3.status, 200);
-  assert.equal(calls.length, 2);
+test("manual fallback: once per code, same answer for unknown numbers", async () => {
+  const { deps, calls } = setup("messaging");
+  await handleSendSmsHook(await hookRequest("23277000016"), deps);
+  await handleManualFallback(post("fallback", { phone: "23277000016" }), deps);
+  await handleManualFallback(post("fallback", { phone: "23277000016" }), deps);
+  assert.equal(calls.filter((c) => c.url.includes("Messages.json")).length, 1);
+  assert.equal((await handleManualFallback(post("fallback", { phone: "23277999999" }), deps)).status, 200);
 });
 
-test("check: wrong codes counted, locks after 5, right code passes before lock", async () => {
-  const { store } = memStore();
-  const { f } = mockFetch({});
-  await handleSendSmsHook(await hookRequest("23277000008", "246810"), { env, store, fetch: f, now, log, uuid });
-  const deps = { env, store, fetch: f, now, log, uuid };
-  const r1 = await handleCheck(post("check", { phone: "23277000008", token: "000000" }), deps);
-  assert.equal(r1.status, 400);
-  assert.equal((await r1.json()).attemptsLeft, 4);
-  const ok = await handleCheck(post("check", { phone: "23277000008", token: "246810" }), deps);
-  assert.equal(ok.status, 200);
-
-  const { store: s2 } = memStore();
-  await handleSendSmsHook(await hookRequest("23277000009", "135791"), { env, store: s2, fetch: f, now, log, uuid });
-  const d2 = { env, store: s2, fetch: f, now, log, uuid };
-  for (let i = 0; i < 5; i++) await handleCheck(post("check", { phone: "23277000009", token: "000000" }), d2);
-  const locked = await handleCheck(post("check", { phone: "23277000009", token: "135791" }), d2);
-  assert.equal(locked.status, 429);
-});
-
-test("check: expired code is not tracked any more", async () => {
-  const { store } = memStore();
-  const { f } = mockFetch({});
-  await handleSendSmsHook(await hookRequest("23277000010", "112233"), { env, store, fetch: f, now, log, uuid });
-  const saved = clock;
-  clock = new Date(clock.getTime() + 11 * 60_000);
-  const r = await handleCheck(post("check", { phone: "23277000010", token: "112233" }), { env, store, fetch: f, now, log, uuid });
-  assert.equal((await r.json()).tracked, false);
-  clock = saved;
-});
-
-test("new code supersedes the old one (one valid attempt)", async () => {
-  const { store, rows } = memStore();
-  const { f } = mockFetch({});
-  await handleSendSmsHook(await hookRequest("23277000011", "111111"), { env, store, fetch: f, now, log, uuid });
+test("a new code supersedes the old one: old code and old internal code are dead", async () => {
+  const { deps, rows } = setup();
+  await handleSendSmsHook(await hookRequest("23277000017"), deps);
   clock = new Date(clock.getTime() + 90_000);
-  await handleSendSmsHook(await hookRequest("23277000011", "222222"), { env, store, fetch: f, now, log, uuid });
+  await handleSendSmsHook(await hookRequest("23277000017", "9999999999"), deps);
   const [a, b] = [...rows.values()];
   assert.equal(a.status, "superseded");
-  assert.equal(a.code_ciphertext, null);
+  assert.equal(a.auth_code_ciphertext, null);
   assert.equal(b.status, "sent");
-  const oldCode = await handleCheck(post("check", { phone: "23277000011", token: "111111" }), { env, store, fetch: f, now, log, uuid });
-  assert.equal(oldCode.status, 400);
 });

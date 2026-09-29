@@ -1,8 +1,12 @@
 // Persistence for otp-delivery. Tables are service-role only (see migrations
 // 20260926170000_otp_delivery_chain.sql and 20260928120000_otp_delivery_hardening.sql).
 
+import type { SmsMode } from "./providers.ts";
+
 export type Channel = "whatsapp" | "orange_sms" | "twilio_verify";
-export type Status = "sending" | "sent" | "delivered" | "exhausted" | "superseded" | "failed";
+export type Status = "sending" | "sent" | "delivered" | "exhausted" | "superseded" | "failed" | "verified" | "locked";
+
+export const ACTIVE_STATUSES: Status[] = ["sending", "sent", "delivered", "exhausted"];
 
 export interface Delivery {
   id: string;
@@ -14,15 +18,22 @@ export interface Delivery {
   current_channel: Channel | null;
   status: Status;
   provider_message_id: string | null;
-  code_ciphertext: string | null;
-  code_hash: string | null;
+  // HMAC of the 6-digit code the person receives (KunThai's code).
+  user_code_hash: string;
+  // That code, encrypted, kept only while an SMS of the SAME code may still go out.
+  user_code_ciphertext: string | null;
+  // Supabase Auth's internal OTP (10 digits), encrypted. Never delivered to anyone;
+  // used once, server-side, to finish verification. Wiped when no longer needed.
+  auth_code_ciphertext: string | null;
   attempts: number;
   manual_fallback_used: boolean;
+  sms_mode: SmsMode | null;
+  twilio_verification_sid: string | null;
   history: unknown[];
   created_at: string;
   expires_at: string;
   delivered_at: string | null;
-  precheck_passed_at: string | null;
+  verified_at: string | null;
 }
 
 export interface Store {
@@ -41,6 +52,8 @@ export interface Store {
 
 // deno-lint-ignore no-explicit-any
 type SupabaseClient = any;
+
+const WIPED = { user_code_ciphertext: null, auth_code_ciphertext: null };
 
 export function supabaseStore(db: SupabaseClient): Store {
   const must = <T>(r: { data: T; error: unknown }): T => {
@@ -68,12 +81,7 @@ export function supabaseStore(db: SupabaseClient): Store {
     },
     async markWhatsAppUnreachable(phone, reason, untilIso) {
       must(
-        await db.from("kunthai_otp_whatsapp_unreachable").upsert({
-          phone,
-          reason,
-          until: untilIso,
-          updated_at: new Date().toISOString(),
-        }),
+        await db.from("kunthai_otp_whatsapp_unreachable").upsert({ phone, reason, until: untilIso, updated_at: new Date().toISOString() }),
       );
     },
     async recentSendTimes(phone, sinceIso) {
@@ -92,9 +100,9 @@ export function supabaseStore(db: SupabaseClient): Store {
       must(
         await db
           .from("kunthai_otp_deliveries")
-          .update({ status: "superseded", code_ciphertext: null })
+          .update({ status: "superseded", ...WIPED })
           .eq("phone", phone)
-          .in("status", ["sending", "sent", "delivered"]),
+          .in("status", ACTIVE_STATUSES),
       );
     },
     async insertDelivery(row) {
@@ -115,7 +123,7 @@ export function supabaseStore(db: SupabaseClient): Store {
           .from("kunthai_otp_deliveries")
           .select("*")
           .eq("phone", phone)
-          .in("status", ["sending", "sent", "delivered", "exhausted"])
+          .in("status", ACTIVE_STATUSES)
           .gt("expires_at", nowIso)
           .order("created_at", { ascending: false })
           .limit(1),
