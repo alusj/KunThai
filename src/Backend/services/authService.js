@@ -64,53 +64,53 @@ export const signUpWithPhone = async (phone, password, country = "") => {
   }
 };
 
-// Server-side attempt limit (otp-delivery/check) before Supabase verifies the
-// code. Returns an error to stop, or null to continue with verifyOtp. If the
-// check itself can't be reached, Supabase Auth still verifies the code.
-const precheckPhoneOtp = async (phone, token) => {
+// While the Send SMS hook is on, the code the person receives is issued by the
+// otp-delivery function, not by Supabase. It is checked there (5 attempts per
+// code) and exchanged server-side for a Supabase session, so it can't be
+// brute-forced against Supabase directly. Returns null when otp-delivery is not
+// tracking this code (hook off / rollback): Supabase then checks it itself.
+const verifyPhoneOtpViaDelivery = async (phone, token, type = "sms") => {
   if (!WHATSAPP_OTP_ENABLED) return null;
-  try {
-    const { error } = await supabase.functions.invoke("otp-delivery/check", {
-      body: { phone, token },
+  const { data, error } = await supabase.functions.invoke("otp-delivery/verify", {
+    body: { phone, token, type },
+  });
+  if (!error && data?.session?.access_token) {
+    return await supabase.auth.setSession({
+      access_token: data.session.access_token,
+      refresh_token: data.session.refresh_token,
     });
-    if (!error) return null;
-    const response = error.context;
-    const body =
-      response && typeof response.json === "function"
-        ? await response.json().catch(() => ({}))
-        : {};
-    if (body.reason === "locked") {
-      return {
-        name: "AuthApiError",
-        status: 429,
-        code: "otp_attempts_exceeded",
-        message: "Too many incorrect attempts. Please request a new code.",
-      };
-    }
-    if (body.reason === "wrong_code") {
-      const left = Number(body.attemptsLeft || 0);
-      return {
-        name: "AuthApiError",
-        status: 400,
-        code: "otp_invalid",
-        message: `Incorrect code. ${left} attempt${left === 1 ? "" : "s"} left.`,
-      };
-    }
-    return null;
-  } catch {
-    return null;
   }
+  const response = error?.context;
+  const body =
+    response && typeof response.json === "function"
+      ? await response.json().catch(() => ({}))
+      : {};
+  if (body.reason === "not_tracked") return null;
+  const left = Number(body.attemptsLeft || 0);
+  const messages = {
+    locked: "Too many incorrect attempts. Please request a new code.",
+    expired: "This code has expired. Please request a new one.",
+    wrong_code: `Incorrect code. ${left} attempt${left === 1 ? "" : "s"} left.`,
+  };
+  return {
+    data: { user: null, session: null },
+    error: {
+      name: "AuthApiError",
+      status: body.reason === "locked" ? 429 : 400,
+      code: `otp_${body.reason || "unavailable"}`,
+      message: messages[body.reason] || "We couldn't check your code. Please try again.",
+    },
+  };
 };
 
 export const verifyPhoneOtp = async (phone, token) => {
-  const blocked = await precheckPhoneOtp(phone, token);
-  if (blocked) return { data: { user: null, session: null }, error: blocked };
-
-  const { data, error } = await supabase.auth.verifyOtp({
-    phone,
-    token,
-    type: "sms",
-  });
+  const { data, error } =
+    (await verifyPhoneOtpViaDelivery(phone, token)) ??
+    (await supabase.auth.verifyOtp({
+      phone,
+      token,
+      type: "sms",
+    }));
 
   if (!error && data?.user) {
     const metadata = data.user.user_metadata || {};
@@ -239,14 +239,14 @@ export const requestPhonePasswordRecoveryOtp = async (phone) => {
 };
 
 export const verifyPhoneRecoveryOtp = async (phone, token) => {
-  const blocked = await precheckPhoneOtp(phone, token);
-  if (blocked) return { data: { user: null, session: null }, error: blocked };
-
-  return await supabase.auth.verifyOtp({
-    phone,
-    token,
-    type: "sms",
-  });
+  return (
+    (await verifyPhoneOtpViaDelivery(phone, token)) ??
+    (await supabase.auth.verifyOtp({
+      phone,
+      token,
+      type: "sms",
+    }))
+  );
 };
 
 // On only once the otp-delivery function and the Supabase Send SMS Hook are
