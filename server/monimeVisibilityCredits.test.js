@@ -8,6 +8,16 @@ import {
   resolveMonimeWallet,
   MONIME_PRICE_PER_CREDIT_MINOR,
   checkoutSessionTotal,
+  createMonimeCheckout,
+  cardCreditsForUsd,
+  getUsdToSleRate,
+  isMonimeCardPurchase,
+  MONIME_CARD_AMOUNTS_USD,
+  MONIME_CARD_CURRENCY,
+  monimePurchaseMethodName,
+  parseCardUsdAmount,
+  priceCardPurchase,
+  resetUsdToSleRateCache,
   createMonimePaymentCode,
   extractMonimeWebhookEvent,
   getMonimePayment,
@@ -617,4 +627,149 @@ test("a completed payment for a different payment code cannot grant credits", as
     }),
     (error) => error.code === "payment_mismatch",
   );
+});
+
+// ---- ATM / bank card (global, USD) -----------------------------------------
+
+test("card amounts are offered in USD only: $5, $10, $15, $20", () => {
+  assert.equal(MONIME_CARD_CURRENCY, "USD");
+  assert.deepEqual(MONIME_CARD_AMOUNTS_USD, [5, 10, 15, 20]);
+  assert.deepEqual(MONIME_CARD_AMOUNTS_USD.map((usd) => cardCreditsForUsd(usd * 100)), [75, 150, 225, 300]);
+});
+
+test("custom card amounts accept dollars and cents within $1–$1,000", () => {
+  assert.equal(parseCardUsdAmount("5"), 500);
+  assert.equal(parseCardUsdAmount("7.50"), 750);
+  assert.equal(parseCardUsdAmount(12), 1200);
+  assert.equal(parseCardUsdAmount("0.99"), null);
+  assert.equal(parseCardUsdAmount("1000.01"), null);
+  assert.equal(parseCardUsdAmount("7.505"), null);
+  assert.equal(parseCardUsdAmount("abc"), null);
+  assert.equal(parseCardUsdAmount(""), null);
+  assert.equal(cardCreditsForUsd(750), 112);
+});
+
+test("a card purchase converts USD to Leones at the rate given, rounding up", () => {
+  const card = priceCardPurchase(500, 24.613943);
+  assert.equal(card.credits, 75);
+  assert.equal(card.usdAmountMinor, 500);
+  assert.equal(card.currency, "SLE");
+  assert.equal(card.priceMinor, Math.ceil(500 * 24.613943));
+  assert.equal(priceCardPurchase(500, 0), null);
+  assert.equal(priceCardPurchase(50, 24), null);
+});
+
+function fxResponse(body, status = 200) {
+  return async () => new Response(JSON.stringify(body), { status, headers: { "Content-Type": "application/json" } });
+}
+
+test("the live USD→SLE rate is fetched and cached for an hour", async () => {
+  resetUsdToSleRateCache();
+  let calls = 0;
+  const fetchImpl = async (...args) => { calls += 1; return fxResponse({ rates: { SLE: 24.6 } })(...args); };
+  const first = await getUsdToSleRate({ now: 0, fetchImpl });
+  assert.deepEqual([first.rate, first.source], [24.6, "live"]);
+  await getUsdToSleRate({ now: 30 * 60 * 1000, fetchImpl });
+  assert.equal(calls, 1);
+  await getUsdToSleRate({ now: 61 * 60 * 1000, fetchImpl });
+  assert.equal(calls, 2);
+});
+
+test("a failed rate lookup falls back to a recent rate, never an old one", async () => {
+  resetUsdToSleRateCache();
+  await getUsdToSleRate({ now: 0, fetchImpl: fxResponse({ rates: { SLE: 24.6 } }) });
+  const down = async () => { throw new Error("offline"); };
+  const recent = await getUsdToSleRate({ now: 2 * 60 * 60 * 1000, fetchImpl: down });
+  assert.equal(recent.rate, 24.6);
+
+  const previous = process.env.MONIME_CARD_SLE_PER_USD;
+  delete process.env.MONIME_CARD_SLE_PER_USD;
+  try {
+    await assert.rejects(
+      getUsdToSleRate({ now: 25 * 60 * 60 * 1000, fetchImpl: down }),
+      (error) => error.code === "fx_unavailable",
+    );
+    process.env.MONIME_CARD_SLE_PER_USD = "25";
+    const override = await getUsdToSleRate({ now: 25 * 60 * 60 * 1000, fetchImpl: down });
+    assert.deepEqual([override.rate, override.source], [25, "override"]);
+  } finally {
+    if (previous === undefined) delete process.env.MONIME_CARD_SLE_PER_USD;
+    else process.env.MONIME_CARD_SLE_PER_USD = previous;
+    resetUsdToSleRateCache();
+  }
+});
+
+test("an insane or missing SLE rate from the service is rejected", async () => {
+  resetUsdToSleRateCache();
+  const previous = process.env.MONIME_CARD_SLE_PER_USD;
+  delete process.env.MONIME_CARD_SLE_PER_USD;
+  try {
+    await assert.rejects(getUsdToSleRate({ now: 0, fetchImpl: fxResponse({ rates: { SLE: 0 } }) }));
+    await assert.rejects(getUsdToSleRate({ now: 0, fetchImpl: fxResponse({ rates: {} }) }));
+  } finally {
+    if (previous !== undefined) process.env.MONIME_CARD_SLE_PER_USD = previous;
+    resetUsdToSleRateCache();
+  }
+});
+
+test("a card checkout disables every non-card payment option", async () => {
+  const sent = [];
+  const originalFetch = globalThis.fetch;
+  globalThis.fetch = async (url, options) => {
+    sent.push({ url, body: JSON.parse(options.body), headers: options.headers });
+    return new Response(JSON.stringify({ success: true, result: { id: "scs-1", redirectUrl: "https://checkout.monime.io/scs-1" } }), {
+      status: 200,
+      headers: { "Content-Type": "application/json" },
+    });
+  };
+  try {
+    const session = await createMonimeCheckout(
+      { credits: 15, priceMinor: 2300, purchaseId: "p-card", successUrl: "https://kunthai.app/?ok", cancelUrl: "https://kunthai.app/?no", cardOnly: true },
+      { apiUrl: "https://api.monime.test/v1", monimeAccessToken: "t", monimeSpaceId: "spc-1" },
+    );
+    assert.equal(session.id, "scs-1");
+    assert.match(sent[0].url, /\/checkout-sessions$/);
+    assert.deepEqual(sent[0].body.paymentOptions, {
+      momo: { disable: true },
+      bank: { disable: true },
+      wallet: { disable: true },
+    });
+    assert.deepEqual(sent[0].body.lineItems[0].price, { currency: "SLE", value: 2300 });
+    assert.equal(sent[0].body.reference, "p-card");
+  } finally {
+    globalThis.fetch = originalFetch;
+  }
+});
+
+test("a completed card checkout grants and the notification says Card", async () => {
+  const inserted = [];
+  const adminClient = {
+    rpc: async () => ({ data: [{ balance: 15 }], error: null }),
+    from: (table) => ({
+      select: () => ({
+        eq: function () { return this; },
+        maybeSingle: async () => ({ data: null }),
+      }),
+      insert: async (row) => { inserted.push({ table, row }); return { error: null }; },
+    }),
+  };
+  const purchase = {
+    id: "p-card", user_id: "u1", provider_reference: "p-card",
+    amount_minor: 12307, currency: "SLE", credits: 75,
+    metadata: {
+      method: "card", checkout: "checkout_session", checkoutSessionId: "scs-1",
+      displayCurrency: "USD", displayAmountMinor: 500, slePerUsd: 24.613943,
+    },
+  };
+  assert.equal(isMonimeCardPurchase(purchase), true);
+  assert.equal(monimePurchaseMethodName(purchase), "Card");
+
+  await verifyAndGrantMonimeCredits({
+    adminClient,
+    purchase,
+    session: { id: "scs-1", status: "completed", lineItems: { data: [{ price: { currency: "SLE", value: 12307 }, quantity: 1 }] } },
+  });
+  // The buyer is told the USD amount they chose, never the Leone settlement.
+  assert.match(inserted[0].row.body, /Card payment of USD 5\.00/);
+  assert.doesNotMatch(inserted[0].row.body, /SLE/);
 });

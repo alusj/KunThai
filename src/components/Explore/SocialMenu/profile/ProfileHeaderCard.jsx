@@ -6,6 +6,7 @@ import {
   HiOutlineCheckBadge,
   HiOutlineChatBubbleLeftRight,
   HiOutlineClipboardDocument,
+  HiOutlineCreditCard,
   HiOutlineDevicePhoneMobile,
   HiOutlineEllipsisHorizontal,
   HiOutlineFlag,
@@ -37,7 +38,13 @@ import {
   pollMonimePaymentStatus,
   MONIME_MIN_CREDITS,
   monimeCustomPriceMinor,
+  cardCreditsForUsd,
+  startMonimeCardPurchase,
+  CARD_AMOUNTS_USD,
+  CARD_MAX_USD,
+  CARD_MIN_USD,
 } from "../../../../Backend/services/visibilityCreditService";
+import { isNativeApp } from "../../../../Backend/lib/apiUrl";
 import { showToast } from "../../../../Backend/services/toastService";
 import { t } from "../../../../i18n";
 import CenteredModal from "../../../shared/CenteredModal";
@@ -112,6 +119,11 @@ export default function ProfileHeaderCard({
   const [momoPending, setMomoPending] = useState(null); // { purchaseId, ussdCode, credits, expireTime, phoneNumber }
   const [momoSecondsLeft, setMomoSecondsLeft] = useState(null);
   const [momoCodeCopied, setMomoCodeCopied] = useState(false);
+  // ATM/bank card, any country: the buyer picks a US-dollar amount and pays on
+  // Monime's hosted card checkout. On the web the page navigates there; in the native app it opens
+  // in the in-app browser and this sheet waits ("card-waiting") for it.
+  const [cardCustomUsd, setCardCustomUsd] = useState("");
+  const [cardPending, setCardPending] = useState(null); // { purchaseId, credits, redirectUrl }
   const momoPollRef = useRef(null);
   const momoReconnectRef = useRef(null);
   const [publicIdHelpOpen, setPublicIdHelpOpen] = useState(false);
@@ -230,7 +242,37 @@ export default function ProfileHeaderCard({
     setBuyCreditsMethod("");
     setMomoStage("select");
     setMomoPending(null);
+    setCardPending(null);
     setMomoError("");
+  }
+
+  async function openCardCheckoutPage(redirectUrl) {
+    if (isNativeApp()) {
+      const { Browser } = await import("@capacitor/browser");
+      await Browser.open({ url: redirectUrl });
+      return;
+    }
+    // Same-tab navigation: a window opened after an await is popup-blocked on
+    // mobile. Monime returns the buyer to KunThai, and the app's settle-on-open
+    // pass confirms the purchase and adds the credits.
+    window.location.assign(redirectUrl);
+  }
+
+  async function startCardCheckout(usdAmount) {
+    if (momoBusy) return;
+    try {
+      setMomoBusy(true);
+      setMomoError("");
+      const result = await startMonimeCardPurchase({ usdAmount, spaceId: creditSpaceId });
+      await openCardCheckoutPage(result.redirectUrl);
+      if (!isNativeApp()) return; // navigating away; keep the busy state
+      setCardPending({ purchaseId: result.purchaseId, credits: result.credits, redirectUrl: result.redirectUrl });
+      setMomoStage("card-waiting");
+      pollMomoStatus(result.purchaseId);
+    } catch (error) {
+      setMomoBusy(false);
+      setMomoError(inlineErrorMessage(error, "Card payment couldn't start. Please try again."));
+    }
   }
 
   // Tap-to-dial link for a USSD string. The "#" has to be percent-encoded or
@@ -280,17 +322,37 @@ export default function ProfileHeaderCard({
   // Paying takes the customer out to the phone dialler, and a backgrounded tab
   // has its timers suspended — so the poll is restarted from scratch the moment
   // they come back, rather than waiting on a timer that may never fire.
+  const waitingPurchaseId = momoStage === "waiting"
+    ? momoPending?.purchaseId
+    : momoStage === "card-waiting" ? cardPending?.purchaseId : "";
   useEffect(() => {
-    if (momoStage !== "waiting" || !momoPending?.purchaseId) return undefined;
+    if (!waitingPurchaseId) return undefined;
 
     function repollOnReturn() {
       if (document.visibilityState !== "visible") return;
-      pollMomoStatusRef.current?.(momoPending.purchaseId);
+      pollMomoStatusRef.current?.(waitingPurchaseId);
+    }
+
+    // Closing the native in-app browser does not always fire visibilitychange.
+    let browserListener = null;
+    let disposed = false;
+    if (momoStage === "card-waiting" && isNativeApp()) {
+      import("@capacitor/browser")
+        .then(({ Browser }) => Browser.addListener("browserFinished", () => pollMomoStatusRef.current?.(waitingPurchaseId)))
+        .then((handle) => {
+          if (disposed) handle?.remove?.();
+          else browserListener = handle;
+        })
+        .catch(() => {});
     }
 
     document.addEventListener("visibilitychange", repollOnReturn);
-    return () => document.removeEventListener("visibilitychange", repollOnReturn);
-  }, [momoStage, momoPending?.purchaseId]);
+    return () => {
+      disposed = true;
+      browserListener?.remove?.();
+      document.removeEventListener("visibilitychange", repollOnReturn);
+    };
+  }, [momoStage, waitingPurchaseId]);
 
   function stopMomoPolling() {
     if (momoPollRef.current) {
@@ -327,6 +389,7 @@ export default function ProfileHeaderCard({
         });
         setMomoStage("select");
         setMomoPending(null);
+        setCardPending(null);
         setMomoBusy(false);
         closeBuyCredits();
       })
@@ -794,8 +857,138 @@ export default function ProfileHeaderCard({
                   helper={t("profile.useMobileMoney")}
                   onClick={() => setBuyCreditsMethod("mobile-money")}
                 />
+                <PaymentMethodButton
+                  icon={HiOutlineCreditCard}
+                  label={t("profile.buyWithCard")}
+                  helper={t("profile.paySecurelyByCard")}
+                  onClick={() => setBuyCreditsMethod("card")}
+                />
               </div>
               <button type="button" onClick={closeBuyCredits} className="mt-3 h-12 w-full rounded-2xl border border-slate-200 bg-white px-4 text-sm font-black text-slate-700">
+                {t("common.close")}
+              </button>
+            </motion.div>
+          ) : buyCreditsMethod === "card" && momoStage === "card-waiting" ? (
+            <motion.div
+              key="buy-credit-card-waiting"
+              initial={{ opacity: 0, x: 28, scale: 0.98 }}
+              animate={{ opacity: 1, x: 0, scale: 1 }}
+              exit={{ opacity: 0, x: 28, scale: 0.98 }}
+              transition={{ type: "spring", stiffness: 360, damping: 28 }}
+              className="py-2 text-center"
+            >
+              <span className="mx-auto flex h-16 w-16 items-center justify-center rounded-full bg-sky-50 text-sky-700">
+                <span className="h-9 w-9 animate-spin rounded-full border-[3px] border-sky-200 border-t-sky-700" aria-hidden="true" />
+              </span>
+              <h2 className="mt-4 text-xl font-black text-slate-950">{t("profile.cardWaitingTitle")}</h2>
+              <p className="mt-2 text-sm font-semibold leading-6 text-slate-500">{t("profile.cardWaitingBody")}</p>
+              {cardPending?.redirectUrl ? (
+                <button
+                  type="button"
+                  onClick={() => openCardCheckoutPage(cardPending.redirectUrl).catch(() => {})}
+                  className="mt-4 flex h-12 w-full items-center justify-center gap-2 rounded-2xl bg-slate-900 px-4 text-sm font-black text-white transition hover:bg-slate-800"
+                >
+                  <HiOutlineCreditCard className="text-lg" aria-hidden="true" />
+                  {t("profile.cardReopen")}
+                </button>
+              ) : null}
+              {momoError ? (
+                <p role="alert" className="mt-3 rounded-2xl bg-rose-50 px-4 py-3 text-sm font-bold text-rose-700">{momoError}</p>
+              ) : null}
+              <button
+                type="button"
+                onClick={() => {
+                  stopMomoPolling();
+                  setMomoBusy(false);
+                  setMomoStage("select");
+                  setCardPending(null);
+                }}
+                className="mt-3 h-12 w-full rounded-2xl border border-slate-200 bg-white px-4 text-sm font-black text-slate-700"
+              >
+                {i18nText("ui.literals.k77dfd2135f4d")}
+              </button>
+            </motion.div>
+          ) : buyCreditsMethod === "card" ? (
+            <motion.div
+              key="buy-credit-card"
+              initial={{ opacity: 0, x: 28, scale: 0.98 }}
+              animate={{ opacity: 1, x: 0, scale: 1 }}
+              exit={{ opacity: 0, x: 28, scale: 0.98 }}
+              transition={{ type: "spring", stiffness: 360, damping: 28 }}
+            >
+              <div className="flex items-start gap-3">
+                <button
+                  type="button"
+                  onClick={() => { setBuyCreditsMethod(""); setMomoError(""); }}
+                  className="flex h-11 w-11 shrink-0 items-center justify-center rounded-full bg-slate-100 text-xl text-slate-700 transition hover:bg-sky-50 hover:text-sky-700"
+                  aria-label={t("profile.chooseAnotherPaymentMethod")}
+                >
+                  <HiOutlineArrowLeft />
+                </button>
+                <div className="min-w-0">
+                  <p className="text-xs font-black uppercase tracking-[0.18em] text-sky-700">{t("profile.creditCard")}</p>
+                  <h2 id="buy-credits-title" className="mt-1 text-xl font-black text-slate-950">{t("profile.cardChooseAmount")}</h2>
+                </div>
+              </div>
+
+              <p className="mt-4 rounded-2xl bg-sky-50 px-4 py-3 text-xs font-bold leading-5 text-sky-900">
+                {t("profile.cardPricedInUsd")}
+              </p>
+
+              <div className="mt-4 grid grid-cols-2 gap-2.5">
+                {CARD_AMOUNTS_USD.map((usd) => (
+                  <button
+                    key={usd}
+                    type="button"
+                    disabled={momoBusy}
+                    onClick={() => startCardCheckout(usd)}
+                    className="flex flex-col items-start rounded-2xl border border-sky-100 bg-gradient-to-br from-sky-50 to-white p-3.5 text-left shadow-sm transition hover:border-sky-300 disabled:cursor-wait disabled:opacity-65"
+                  >
+                    <span className="text-2xl font-black text-sky-800">{formatUsd(usd)}</span>
+                    <span className="mt-1 text-xs font-semibold text-slate-500">{t("profile.creditCount", { count: cardCreditsForUsd(usd) })}</span>
+                  </button>
+                ))}
+              </div>
+
+              <div className="mt-2.5 rounded-2xl border border-slate-200 bg-white p-3.5">
+                <label htmlFor="card-custom-usd" className="block text-xs font-black uppercase tracking-wide text-slate-500">
+                  {t("profile.cardCustomAmount", { min: formatUsd(CARD_MIN_USD), max: formatUsd(CARD_MAX_USD) })}
+                </label>
+                <div className="mt-2 flex items-center gap-2">
+                  <span className="relative">
+                    <span className="pointer-events-none absolute left-3 top-1/2 -translate-y-1/2 text-sm font-black text-slate-400">$</span>
+                    <input
+                      id="card-custom-usd"
+                      type="text"
+                      inputMode="decimal"
+                      value={cardCustomUsd}
+                      onChange={(event) => setCardCustomUsd(sanitizeUsdInput(event.target.value))}
+                      placeholder="25"
+                      className="h-11 w-28 rounded-xl border border-slate-300 pl-7 pr-3 text-sm font-black text-slate-950 focus:border-sky-400 focus:outline-none"
+                    />
+                  </span>
+                  <span className="min-w-0 flex-1 text-xs font-semibold text-slate-500">
+                    {cardCreditsForUsd(cardCustomUsd) ? t("profile.creditCount", { count: cardCreditsForUsd(cardCustomUsd) }) : null}
+                  </span>
+                  <button
+                    type="button"
+                    disabled={momoBusy || !cardCreditsForUsd(cardCustomUsd)}
+                    onClick={() => startCardCheckout(cardCustomUsd)}
+                    className="h-11 shrink-0 rounded-xl bg-sky-700 px-4 text-sm font-black text-white transition hover:bg-sky-800 disabled:opacity-50"
+                  >
+                    {momoBusy ? t("profile.openingCheckout") : i18nText("ui.literals.k2e02623966f9")}
+                  </button>
+                </div>
+              </div>
+
+              {momoError ? (
+                <p role="alert" className="mt-3 rounded-2xl bg-rose-50 px-4 py-3 text-sm font-bold text-rose-700">{momoError}</p>
+              ) : null}
+              <div className="mt-4 flex items-center justify-center gap-2 text-center text-xs font-bold text-slate-500">
+                <HiOutlineCreditCard className="shrink-0 text-base text-sky-700" />
+                {t("profile.cardDetailsPrivacy")}
+              </div>
+              <button type="button" onClick={closeBuyCredits} disabled={momoBusy} className="mt-3 h-12 w-full rounded-2xl border border-slate-200 bg-white px-4 text-sm font-black text-slate-700 disabled:opacity-50">
                 {t("common.close")}
               </button>
             </motion.div>
@@ -1177,6 +1370,26 @@ function PaymentMethodButton({ helper, icon: Icon, label, onClick }) {
       <HiOutlineArrowTopRightOnSquare className="shrink-0 text-lg text-sky-700" />
     </motion.button>
   );
+}
+
+function formatUsd(amount) {
+  const value = Number(amount) || 0;
+  try {
+    return new Intl.NumberFormat(undefined, {
+      style: "currency",
+      currency: "USD",
+      minimumFractionDigits: Number.isInteger(value) ? 0 : 2,
+      maximumFractionDigits: 2,
+    }).format(value);
+  } catch {
+    return `${value}`;
+  }
+}
+
+// Keep a typed dollar amount to digits with at most one point and two decimals.
+function sanitizeUsdInput(raw) {
+  const [whole = "", ...rest] = String(raw || "").replace(/[^\d.]/g, "").split(".");
+  return rest.length ? `${whole.slice(0, 4)}.${rest.join("").slice(0, 2)}` : whole.slice(0, 4);
 }
 
 function formatPackagePrice(item) {

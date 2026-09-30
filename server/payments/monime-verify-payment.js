@@ -1,10 +1,13 @@
 import {
   authenticatePaymentRequest,
   createAdminClient,
+  getMonimeCheckout,
   getMonimeConfig,
   getMonimePaymentCode,
+  isMonimeCardPurchase,
+  monimePurchaseMethodName,
   json,
-  resolveMonimeWallet,
+  verifyAndGrantMonimeCredits,
   verifyAndGrantMonimePaymentCode,
 } from "../monimeVisibilityCredits.js";
 
@@ -42,7 +45,7 @@ export default async function handler(req, res) {
     if (purchaseError) throw purchaseError;
     if (!purchase) return json(res, 404, { ok: false, message: "We couldn't find that purchase." });
 
-    const walletName = resolveMonimeWallet(purchase.metadata?.wallet).name;
+    const walletName = monimePurchaseMethodName(purchase);
 
     if (purchase.status === "paid") {
       return json(res, 200, {
@@ -51,6 +54,25 @@ export default async function handler(req, res) {
         credits: purchase.credits,
         wallet: purchase.metadata?.wallet || null,
         walletName,
+      });
+    }
+
+    // Card purchases are a hosted checkout session: its status is the proof.
+    if (isMonimeCardPurchase(purchase)) {
+      const sessionId = String(purchase.metadata?.checkoutSessionId || "").trim();
+      if (!sessionId) return json(res, 422, { ok: false, message: "This purchase is missing its checkout." });
+      const session = await getMonimeCheckout(sessionId, config);
+      const status = String(session?.status || "").toLowerCase();
+      if (status === "cancelled" || status === "expired") {
+        return json(res, 200, { ok: false, pending: false, status, message: "This card payment was not completed." });
+      }
+      const result = await verifyAndGrantMonimeCredits({ adminClient, purchase, session });
+      return json(res, 200, {
+        ok: true,
+        credits: purchase.credits,
+        method: "card",
+        walletName,
+        balance: result.wallet || null,
       });
     }
 

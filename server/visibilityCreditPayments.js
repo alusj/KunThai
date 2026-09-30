@@ -115,9 +115,13 @@ export async function notifyVisibilityCreditPurchase({ adminClient, purchase, me
     if (existing) return;
 
     const credits = Number(purchase.credits || 0);
-    const currency = String(purchase.currency || "").toUpperCase();
+    // Card purchases are chosen in USD and only settled in another currency,
+    // so the buyer is told the amount they actually picked.
+    const display = purchase.metadata?.displayCurrency && Number(purchase.metadata?.displayAmountMinor) > 0;
+    const currency = String(display ? purchase.metadata.displayCurrency : purchase.currency || "").toUpperCase();
+    const amountMinor = display ? purchase.metadata.displayAmountMinor : purchase.amount_minor;
     const amount = (
-      Number(purchase.amount_minor || 0) / 10 ** currencyExponent(currency)
+      Number(amountMinor || 0) / 10 ** currencyExponent(currency)
     ).toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 });
 
     await adminClient.from("platform_notifications").insert({

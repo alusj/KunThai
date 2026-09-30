@@ -3,12 +3,18 @@ import { randomUUID } from "node:crypto";
 import {
   authenticatePaymentRequest,
   createAdminClient,
+  createMonimeCheckout,
   createMonimePaymentCode,
   getMonimeConfig,
+  getRequestOrigin,
   json,
   normalizeSierraLeonePhone,
+  getUsdToSleRate,
+  parseCardUsdAmount,
+  priceCardPurchase,
   priceCustomCredits,
   resolveMonimeWallet,
+  MONIME_CARD_CURRENCY,
   MONIME_CURRENCY,
 } from "../monimeVisibilityCredits.js";
 
@@ -47,6 +53,111 @@ function clean(value, maxLength = 120) {
     .slice(0, maxLength);
 }
 
+// ATM / bank card purchase, open to cards from any country: a Monime hosted
+// checkout with only cards enabled. The buyer chooses a USD amount; their bank
+// converts from the card's own currency. Monime settles in Leones only, so the
+// USD amount is converted at the live rate right now. The purchase row records
+// the SLE amount actually collected (what the grant verifies against) plus the
+// USD amount and the exact rate used.
+async function startCardCheckout({ req, res, config, adminClient, user, creditSpace, usdAmountMinor }) {
+  let fx;
+  try {
+    fx = await getUsdToSleRate();
+  } catch (error) {
+    console.error("[Monime card FX failed]", error.code || "", error.message);
+    return json(res, 503, { ok: false, message: "Card payment is temporarily unavailable. Please try again." });
+  }
+  const card = priceCardPurchase(usdAmountMinor, fx.rate);
+  if (!card) return json(res, 400, { ok: false, message: "Enter an amount between $1 and $1,000." });
+
+  const purchaseId = randomUUID();
+  const metadata = {
+    checkout: "checkout_session",
+    method: "card",
+    displayCurrency: MONIME_CARD_CURRENCY,
+    displayAmountMinor: card.usdAmountMinor,
+    slePerUsd: card.rate,
+    rateSource: fx.source,
+    rateTime: new Date(fx.fetchedAt).toISOString(),
+  };
+
+  const { error: purchaseError } = await adminClient
+    .from("visibility_credit_purchases")
+    .insert({
+      id: purchaseId,
+      user_id: user.id,
+      package_id: null,
+      credits: card.credits,
+      amount_minor: card.priceMinor,
+      currency: card.currency,
+      provider: "monime",
+      provider_reference: purchaseId,
+      status: "pending",
+      metadata,
+      ...(creditSpace.spaceId ? { space_id: creditSpace.spaceId } : {}),
+    });
+  if (purchaseError) {
+    console.error("[Monime card purchase insert failed]", purchaseError.code, purchaseError.message);
+    return json(res, 503, { ok: false, message: "KunThai could not prepare this purchase." });
+  }
+
+  const failPurchase = () => adminClient
+    .from("visibility_credit_purchases")
+    .update({ status: "failed", updated_at: new Date().toISOString() })
+    .eq("id", purchaseId)
+    .eq("status", "pending");
+
+  // The return pages only bring the buyer back; the app's settle-on-open pass
+  // (monime-resume-pending) confirms the session with Monime before granting.
+  const origin = getRequestOrigin(req);
+  let session;
+  try {
+    session = await createMonimeCheckout({
+      credits: card.credits,
+      priceMinor: card.priceMinor,
+      purchaseId,
+      successUrl: `${origin}/?creditPurchase=${purchaseId}&creditPayment=success`,
+      cancelUrl: `${origin}/?creditPurchase=${purchaseId}&creditPayment=cancelled`,
+      cardOnly: true,
+      description: `${card.credits} Visibility Credits (US$${(card.usdAmountMinor / 100).toFixed(2)})`,
+    }, config);
+  } catch (error) {
+    console.error("[Monime card checkout failed]", error.status || "", error.reason || "", error.message);
+    await failPurchase();
+    const rejected = Number(error.status) >= 400 && Number(error.status) < 500;
+    return json(res, rejected ? 400 : 502, {
+      ok: false,
+      reason: error.reason || "monime_error",
+      message: rejected ? "Card payment could not start. Please try again." : "Card payment is temporarily unavailable. Please try again.",
+    });
+  }
+
+  const checkoutSessionId = String(session?.id || "");
+  const redirectUrl = String(session?.redirectUrl || "");
+  if (!checkoutSessionId || !/^https:\/\//i.test(redirectUrl)) {
+    await failPurchase();
+    return json(res, 502, { ok: false, message: "Card payment could not start. Please try again." });
+  }
+
+  await adminClient
+    .from("visibility_credit_purchases")
+    .update({ metadata: { ...metadata, checkoutSessionId }, updated_at: new Date().toISOString() })
+    .eq("id", purchaseId);
+
+  return json(res, 201, {
+    ok: true,
+    method: "card",
+    purchaseId,
+    checkoutSessionId,
+    redirectUrl,
+    credits: card.credits,
+    usdAmountMinor: card.usdAmountMinor,
+    currency: MONIME_CARD_CURRENCY,
+    expireTime: String(session?.expireTime || ""),
+    testMode: Boolean(config.testMode),
+  });
+}
+
 // Starts a direct Orange Money collection: creates a Monime Payment Code,
 // optionally locked to the customer's phone. The customer initiates payment by
 // dialing the returned USSD code. Credits are granted only after confirmation
@@ -66,6 +177,15 @@ export default async function handler(req, res) {
     const creditSpace = await resolveCreditSpace(adminClient, req.body?.spaceId, user.id);
     if (creditSpace.error) return json(res, 403, { ok: false, message: creditSpace.error });
 
+    // Card purchases are a USD amount, not a (mobile-money) package.
+    if (String(req.body?.method || "").trim().toLowerCase() === "card") {
+      const usdAmountMinor = parseCardUsdAmount(req.body?.usdAmount);
+      if (usdAmountMinor === null) {
+        return json(res, 400, { ok: false, message: "Enter an amount between $1 and $1,000." });
+      }
+      return startCardCheckout({ req, res, config, adminClient, user, creditSpace, usdAmountMinor });
+    }
+
     const packageId = String(req.body?.packageId || "").trim();
 
     let credits;
@@ -80,7 +200,7 @@ export default async function handler(req, res) {
       }
       const { data: creditPackage, error: packageError } = await adminClient
         .from("visibility_credit_packages")
-        .select("id,credits,price_minor,currency,label,active")
+        .select("id,credits,price_minor,usd_price_minor,currency,label,active")
         .eq("id", packageId)
         .eq("active", true)
         .maybeSingle();

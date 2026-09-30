@@ -316,25 +316,50 @@ export default function App() {
     captureVisibilityInviteFromLocation();
   }, []);
 
-  // Mobile money (Monime payment codes) is collected in-app, so there is no
-  // redirect-return URL to confirm. ProfileHeaderCard polls while its sheet is
-  // open, but paying means leaving for the phone dialler — which suspends that
-  // poll — so a purchase can be paid with nobody listening. Settle any such
-  // purchase on app open and whenever the app is brought back to the front.
+  // Mobile money (Monime payment codes) is collected in-app. ProfileHeaderCard
+  // polls while its sheet is open, but paying means leaving for the phone
+  // dialler — which suspends that poll — so a purchase can be paid with nobody
+  // listening. Card payments leave for Monime's hosted checkout entirely and
+  // return as a fresh load. Settle any such purchase on app open and whenever
+  // the app is brought back to the front.
   useEffect(() => {
     if (guestSession || !userId) return undefined;
 
     let cancelled = false;
+    let retryTimer = null;
+
+    // Card payments (Monime hosted checkout) come back here as a fresh page
+    // load with ?creditPayment=success|cancelled. Strip the params, and on a
+    // success keep settling for a little while — Monime can take a few seconds
+    // to mark the checkout session completed.
+    const returnParams = new URLSearchParams(window.location.search);
+    const cardReturn = returnParams.get("creditPayment");
+    if (cardReturn) {
+      returnParams.delete("creditPayment");
+      returnParams.delete("creditPurchase");
+      const query = returnParams.toString();
+      window.history.replaceState(window.history.state, "", `${window.location.pathname}${query ? `?${query}` : ""}${window.location.hash}`);
+      if (cardReturn === "cancelled") showToast(i18nText("profile.cardPaymentCancelled"), "info");
+    }
+    let cardRetriesLeft = cardReturn === "success" ? 6 : 0;
 
     async function settlePaidPurchases() {
       const result = await resumePendingMonimePurchases();
-      if (cancelled || !result?.granted) return;
+      if (cancelled) return;
+      if (!result?.granted) {
+        if (cardRetriesLeft > 0 && result?.pending) {
+          cardRetriesLeft -= 1;
+          retryTimer = window.setTimeout(settlePaidPurchases, 4000);
+        }
+        return;
+      }
+      cardRetriesLeft = 0;
 
       window.dispatchEvent(new CustomEvent("kuntai-visibility-credits-updated"));
       showToast(
         `+${Number(result.credits || 0)} credits added`,
         "success",
-        { title: i18nText("ui.literals.kff0075d7f19c") },
+        { title: cardReturn === "success" ? i18nText("profile.creditCard") : i18nText("ui.literals.kff0075d7f19c") },
       );
     }
 
@@ -346,6 +371,7 @@ export default function App() {
     document.addEventListener("visibilitychange", settleOnReturn);
     return () => {
       cancelled = true;
+      window.clearTimeout(retryTimer);
       document.removeEventListener("visibilitychange", settleOnReturn);
     };
   }, [guestSession, userId]);

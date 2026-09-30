@@ -1,10 +1,13 @@
 import {
   createAdminClient,
   extractMonimeWebhookEvent,
+  getMonimeCheckout,
   getMonimeConfig,
   getMonimePayment,
   getMonimePaymentCode,
   json,
+  isMonimeCardPurchase,
+  verifyAndGrantMonimeCredits,
   verifyAndGrantMonimePayment,
   verifyAndGrantMonimePaymentCode,
 } from "../monimeVisibilityCredits.js";
@@ -79,7 +82,12 @@ export default async function handler(req, res) {
   try {
     const parsed = extractMonimeWebhookEvent(req.body || {});
     const { eventName, paymentCodeId, paymentId } = parsed;
-    if (eventName && !eventName.startsWith("payment_code.") && !eventName.startsWith("payment.")) {
+    if (
+      eventName
+      && !eventName.startsWith("payment_code.")
+      && !eventName.startsWith("payment.")
+      && !eventName.startsWith("checkout_session.")
+    ) {
       return json(res, 200, { ok: true, ignored: true });
     }
 
@@ -98,6 +106,16 @@ export default async function handler(req, res) {
 
     if (!purchase) return json(res, 200, { ok: true, ignored: true });
     if (purchase.status === "paid") return json(res, 200, { ok: true });
+
+    // Card purchases (hosted checkout): re-fetch the session with our own token
+    // and grant only if Monime itself says it completed.
+    if (isMonimeCardPurchase(purchase)) {
+      const sessionId = clean(purchase.metadata?.checkoutSessionId, 120);
+      if (!sessionId) return json(res, 200, { ok: true, ignored: true });
+      const session = await getMonimeCheckout(sessionId, config);
+      await verifyAndGrantMonimeCredits({ adminClient, purchase, session });
+      return json(res, 200, { ok: true });
+    }
 
     await rememberPayment(adminClient, purchase, parsed, payment);
 

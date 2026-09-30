@@ -30,6 +30,95 @@ export const MONIME_MIN_CREDITS = 15;
 export const MONIME_MAX_CREDITS = 100000;
 export const MONIME_PRICE_PER_CREDIT_MINOR = 134; // ≈ 1.34 SLE / credit
 
+// ---- ATM / bank card (global, USD) -----------------------------------------
+// Card buyers anywhere in the world pay a US-dollar amount: $5/$10/$15/$20 or
+// a custom amount. Their bank converts from the card's own currency (NGN, XOF,
+// EUR, USD, ...) automatically. Monime, our processor, settles only in Leones,
+// so the server converts the USD amount at the LIVE market rate at the moment
+// the checkout is created — never a fixed rate, because the Leone moves.
+export const MONIME_CARD_CURRENCY = "USD";
+export const MONIME_CARD_AMOUNTS_USD = [5, 10, 15, 20];
+export const MONIME_CARD_CREDITS_PER_USD = 15;
+export const MONIME_CARD_MIN_USD_MINOR = 100; // $1 = 15 credits, the minimum
+export const MONIME_CARD_MAX_USD_MINOR = 100000; // $1,000
+
+// Credits for a USD amount (in cents). Whole credits only, rounded down.
+export function cardCreditsForUsd(usdMinor) {
+  return Math.floor((Number(usdMinor) * MONIME_CARD_CREDITS_PER_USD) / 100);
+}
+
+// Parse a caller-supplied USD amount ("5", "7.50", 12) into cents. Returns
+// null when it is not a valid amount inside the allowed range.
+export function parseCardUsdAmount(raw) {
+  const minor = amountToMinor(String(raw ?? "").trim(), MONIME_CARD_CURRENCY);
+  if (minor === null) return null;
+  const value = Number(minor);
+  if (value < MONIME_CARD_MIN_USD_MINOR || value > MONIME_CARD_MAX_USD_MINOR) return null;
+  return value;
+}
+
+// Server-authoritative card price: credits from the USD amount, and the SLE
+// amount Monime actually collects at the given live rate. USD cents and SLE
+// cents are both x100 units, so the conversion is a multiply (rounded up).
+export function priceCardPurchase(usdMinor, slePerUsd) {
+  const usd = Math.trunc(Number(usdMinor));
+  const rate = Number(slePerUsd);
+  if (!(usd >= MONIME_CARD_MIN_USD_MINOR && usd <= MONIME_CARD_MAX_USD_MINOR)) return null;
+  if (!(Number.isFinite(rate) && rate > 0)) return null;
+  return {
+    credits: cardCreditsForUsd(usd),
+    usdAmountMinor: usd,
+    priceMinor: Math.ceil(usd * rate),
+    currency: MONIME_CURRENCY,
+    rate,
+  };
+}
+
+// Live USD -> SLE rate. Cached for an hour per server instance; if the rate
+// service is down, a cached rate up to a day old is still used, then the
+// optional MONIME_CARD_SLE_PER_USD emergency override. With none of those the
+// card payment is refused rather than charged at a guessed rate.
+const FX_DEFAULT_URL = "https://open.er-api.com/v6/latest/USD";
+const FX_FRESH_MS = 60 * 60 * 1000;
+const FX_STALE_MS = 24 * 60 * 60 * 1000;
+let fxCache = null; // { rate, fetchedAt, source }
+
+function saneSleRate(value) {
+  const rate = Number(value);
+  return Number.isFinite(rate) && rate >= 1 && rate <= 1000 ? rate : null;
+}
+
+export function resetUsdToSleRateCache() {
+  fxCache = null;
+}
+
+export async function getUsdToSleRate({ now = Date.now(), fetchImpl = globalThis.fetch } = {}) {
+  if (fxCache && now - fxCache.fetchedAt < FX_FRESH_MS) return fxCache;
+
+  try {
+    const controller = new AbortController();
+    const timeoutId = setTimeout(() => controller.abort(), 5_000);
+    try {
+      const response = await fetchImpl(process.env.MONIME_FX_URL || FX_DEFAULT_URL, { signal: controller.signal });
+      const data = await response.json().catch(() => null);
+      const rate = saneSleRate(data?.rates?.SLE);
+      if (!response.ok || !rate) throw new Error("The exchange-rate service returned no SLE rate.");
+      fxCache = { rate, fetchedAt: now, source: "live" };
+      return fxCache;
+    } finally {
+      clearTimeout(timeoutId);
+    }
+  } catch (error) {
+    console.warn("[Card FX] live rate unavailable:", error.message);
+    if (fxCache && now - fxCache.fetchedAt < FX_STALE_MS) return fxCache;
+    const override = saneSleRate(process.env.MONIME_CARD_SLE_PER_USD);
+    if (override) return { rate: override, fetchedAt: now, source: "override" };
+    const unavailable = new Error("The live exchange rate is unavailable.");
+    unavailable.code = "fx_unavailable";
+    throw unavailable;
+  }
+}
+
 // Default Monime API base. MONIME_API_URL overrides it (e.g. to point at a
 // sandbox); a trailing slash or an included /v1 is tolerated either way.
 const MONIME_DEFAULT_API_URL = "https://api.monime.io/v1";
@@ -131,12 +220,13 @@ async function monimeFetch(path, options, config) {
   }
 }
 
-// Create a hosted checkout session. The customer opens `redirectUrl`, chooses
-// Orange Money, and pays; Monime then sends them to `successUrl`.
-export async function createMonimeCheckout({ credits, priceMinor, purchaseId, successUrl, cancelUrl }, config) {
+// Create a hosted checkout session. The customer opens `redirectUrl`, pays,
+// and Monime then sends them to `successUrl`. `cardOnly` hides mobile money,
+// bank transfer and wallets so the page is purely an ATM/bank card checkout.
+export async function createMonimeCheckout({ credits, priceMinor, purchaseId, successUrl, cancelUrl, cardOnly = false, description = "" }, config) {
   const body = {
     name: "KunThai Visibility Credits",
-    description: `${credits} Visibility Credits`,
+    description: description || `${credits} Visibility Credits`,
     lineItems: [
       {
         type: "custom",
@@ -149,11 +239,14 @@ export async function createMonimeCheckout({ credits, priceMinor, purchaseId, su
     cancelUrl,
     reference: purchaseId,
     metadata: { purchase_id: purchaseId, product: "visibility_credits", credits: String(credits) },
+    ...(cardOnly
+      ? { paymentOptions: { momo: { disable: true }, bank: { disable: true }, wallet: { disable: true } } }
+      : {}),
   };
 
   const data = await monimeFetch("/checkout-sessions", {
     method: "POST",
-    headers: { "Idempotency-Key": `kt-vc-${purchaseId}` },
+    headers: { "Idempotency-Key": `kt-vc-${purchaseId}`, "Monime-Version": MONIME_API_VERSION },
     body: JSON.stringify(body),
   }, config);
 
@@ -163,7 +256,10 @@ export async function createMonimeCheckout({ credits, priceMinor, purchaseId, su
 export async function getMonimeCheckout(sessionId, config) {
   const id = encodeURIComponent(String(sessionId || "").trim());
   if (!id) throw new Error("A Monime checkout session id is required.");
-  const data = await monimeFetch(`/checkout-sessions/${id}`, { method: "GET" }, config);
+  const data = await monimeFetch(`/checkout-sessions/${id}`, {
+    method: "GET",
+    headers: { "Monime-Version": MONIME_API_VERSION },
+  }, config);
   return data.result || {};
 }
 
@@ -213,7 +309,7 @@ export async function verifyAndGrantMonimeCredits({ adminClient, purchase, sessi
   await notifyVisibilityCreditPurchase({
     adminClient,
     purchase,
-    methodName: resolveMonimeWallet(purchase.metadata?.wallet).name,
+    methodName: monimePurchaseMethodName(purchase),
   });
   return { purchase, session, wallet: normalizedWallet };
 }
@@ -240,6 +336,16 @@ export const MONIME_DEFAULT_WALLET = "orange";
 export function resolveMonimeWallet(rawWallet) {
   const key = String(rawWallet || "").trim().toLowerCase();
   return MONIME_WALLETS[key] || MONIME_WALLETS[MONIME_DEFAULT_WALLET];
+}
+
+// Card purchases are paid through a hosted checkout session, not a payment code.
+export function isMonimeCardPurchase(purchase) {
+  return purchase?.metadata?.method === "card" || purchase?.metadata?.checkout === "checkout_session";
+}
+
+// How a purchase was paid, in words the buyer recognises ("Card", "Afrimoney").
+export function monimePurchaseMethodName(purchase) {
+  return isMonimeCardPurchase(purchase) ? "Card" : resolveMonimeWallet(purchase?.metadata?.wallet).name;
 }
 const MONIME_API_VERSION = "caph.2025-08-23";
 
@@ -433,7 +539,7 @@ export async function verifyAndGrantMonimePayment({ adminClient, purchase, payme
   await notifyVisibilityCreditPurchase({
     adminClient,
     purchase,
-    methodName: resolveMonimeWallet(purchase.metadata?.wallet).name,
+    methodName: monimePurchaseMethodName(purchase),
   });
   return { purchase, payment, wallet: Array.isArray(wallet) ? wallet[0] : wallet };
 }
@@ -475,7 +581,7 @@ export async function verifyAndGrantMonimePaymentCode({ adminClient, purchase, p
   await notifyVisibilityCreditPurchase({
     adminClient,
     purchase,
-    methodName: resolveMonimeWallet(purchase.metadata?.wallet).name,
+    methodName: monimePurchaseMethodName(purchase),
   });
   return { purchase, paymentCode, wallet: Array.isArray(wallet) ? wallet[0] : wallet };
 }

@@ -1,12 +1,15 @@
 import {
   authenticatePaymentRequest,
   createAdminClient,
+  getMonimeCheckout,
   getMonimeConfig,
   getMonimePayment,
   getMonimePaymentCode,
   json,
+  isMonimeCardPurchase,
   listMonimePayments,
   monimePaymentMatchesPurchase,
+  verifyAndGrantMonimeCredits,
   verifyAndGrantMonimePayment,
   verifyAndGrantMonimePaymentCode,
 } from "../monimeVisibilityCredits.js";
@@ -59,6 +62,35 @@ export default async function handler(req, res) {
     let recentPayments = null;
 
     for (const purchase of pendingPurchases || []) {
+      // Card purchases: the buyer comes back from Monime's hosted checkout to
+      // a fresh app load, so this pass is what confirms them.
+      if (isMonimeCardPurchase(purchase)) {
+        const sessionId = String(purchase.metadata?.checkoutSessionId || "").trim();
+        if (!sessionId) continue;
+        try {
+          const session = await getMonimeCheckout(sessionId, config);
+          const status = String(session?.status || "").toLowerCase();
+          if (status === "completed") {
+            await verifyAndGrantMonimeCredits({ adminClient, purchase, session });
+            granted += 1;
+            credits += Number(purchase.credits || 0);
+          } else if (status === "cancelled" || status === "expired") {
+            // A hosted checkout that ended unpaid never took money (unlike a
+            // payment code, it has no out-of-band redemption), so close it.
+            await adminClient
+              .from("visibility_credit_purchases")
+              .update({ status: "failed", updated_at: new Date().toISOString() })
+              .eq("id", purchase.id)
+              .eq("status", "pending");
+          } else {
+            stillPending += 1;
+          }
+        } catch (sessionError) {
+          console.error("[Monime resume card failed]", purchase.id, sessionError.code || sessionError.status || "", sessionError.message);
+        }
+        continue;
+      }
+
       const codeId = String(purchase.metadata?.paymentCodeId || "").trim();
       const paymentId = String(purchase.metadata?.paymentId || "").trim();
       if (!codeId && !paymentId) continue;

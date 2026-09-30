@@ -431,6 +431,38 @@ export async function resumePendingMonimePurchases() {
   }
 }
 
+// ---- ATM / bank card (global, USD) -----------------------------------------
+// Display-only mirror of server/monimeVisibilityCredits.js. Card buyers from
+// any country pay a US-dollar amount; their bank converts from the card's own
+// currency. The server re-prices every purchase and converts it at the live
+// rate for our processor, so nothing here is authoritative.
+export const CARD_AMOUNTS_USD = [5, 10, 15, 20];
+export const CARD_CREDITS_PER_USD = 15;
+export const CARD_MIN_USD = 1;
+export const CARD_MAX_USD = 1000;
+
+// Credits for a USD amount (dollars, cents allowed). 0 when out of range.
+export function cardCreditsForUsd(usd) {
+  const cents = Math.round(Number(usd) * 100);
+  if (!Number.isFinite(cents) || cents < CARD_MIN_USD * 100 || cents > CARD_MAX_USD * 100) return 0;
+  return Math.floor((cents * CARD_CREDITS_PER_USD) / 100);
+}
+
+// Start an ATM/bank card purchase for a USD amount: the server creates a
+// card-only hosted checkout and returns its redirectUrl. Credits are granted
+// only after the server confirms the payment.
+export async function startMonimeCardPurchase({ usdAmount, spaceId = "" } = {}) {
+  return authenticatedPaymentRequest(
+    "/api/monime-create-payment",
+    {
+      method: "card",
+      usdAmount: String(usdAmount),
+      ...(spaceId ? { spaceId } : {}),
+    },
+    "Card payment is temporarily unavailable. Please try again.",
+  );
+}
+
 export async function lookupVisibilityCreditRecipient(kunThaiId = "") {
   const input = String(kunThaiId || "").trim();
   if (!input) return null;
