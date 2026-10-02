@@ -17,16 +17,19 @@ import ActionHistoryView from "./views/ActionHistoryView";
 import UsersView from "./views/UsersView";
 import UrMallMessageSupervisionView from "./views/UrMallMessageSupervisionView";
 import JoinKunThaiView from "./views/JoinKunThaiView";
+import DirectoryView from "./views/DirectoryView";
+import StaffView from "./views/StaffView";
+import AuditLogView from "./views/AuditLogView";
+import PlatformPulse from "./components/ops/PlatformPulse";
+import { touchAdminPresence } from "./operationsService";
 import {
   AnalyticsView,
-  AuditView,
   FinanceView,
   NotificationsView,
   OverviewView,
   QueueView,
   SectorView,
   SettingsView,
-  TeamView,
 } from "./views/AdminViews";
 import { t as i18nText } from "../i18n/index";
 import { uiText as translateUi, useI18n as useUiLocale } from "../i18n/index.js";
@@ -69,8 +72,10 @@ function AccessDenied({ user }) {
   );
 }
 
+// The hash may carry filters (#/urmall-businesses?status=suspended); the page
+// is everything before the query.
 function initialPage() {
-  const page = window.location.hash.replace(/^#\/?/, "");
+  const page = window.location.hash.replace(/^#\/?/, "").split("?")[0];
   return page || "overview";
 }
 
@@ -119,6 +124,9 @@ function AdminWorkspace({ access, user, preview }) {
   const [error, setError] = useState("");
   const [globalSearch, setGlobalSearch] = useState("");
   const [countryFilter, setCountryFilter] = useState("all");
+  // Bumped on every in-app navigation so directory screens re-read filters
+  // from the URL (e.g. a dashboard tile linking to suspended businesses).
+  const [navKey, setNavKey] = useState(0);
 
   const visiblePages = useMemo(() => new Set(ADMIN_NAV_GROUPS.flatMap((group) => group.items).filter((item) => canAccess(access, item.permission, item.sector)).map((item) => item.id)), [access]);
 
@@ -152,6 +160,7 @@ function AdminWorkspace({ access, user, preview }) {
   }, [refresh]);
 
   useEffect(() => { refresh(); }, [refresh]);
+  useEffect(() => { touchAdminPresence(); }, []);
 
   useEffect(() => {
     function syncPage() { setPageState(initialPage()); }
@@ -159,10 +168,11 @@ function AdminWorkspace({ access, user, preview }) {
     return () => window.removeEventListener("hashchange", syncPage);
   }, []);
 
-  function setPage(nextPage) {
+  function setPage(nextPage, query = "") {
     if (!visiblePages.has(nextPage)) return;
     setPageState(nextPage);
-    window.history.replaceState({}, "", `${window.location.pathname}${window.location.search}#/${nextPage}`);
+    setNavKey((current) => current + 1);
+    window.history.replaceState({}, "", `${window.location.pathname}${window.location.search}#/${nextPage}${query}`);
     window.scrollTo({ top: 0, behavior: "smooth" });
   }
 
@@ -179,9 +189,12 @@ function AdminWorkspace({ access, user, preview }) {
   if (loading) return <LoadingScreen message={i18nText("ui.literals.k02fc6db0216b")} />;
 
   let content;
-  if (page === "overview") content = <OverviewView summary={visibleSummary} cases={countryCases} onOpenCase={setSelectedCase} onNavigate={setPage} refreshing={refreshing} onRefresh={() => refresh(true)} />;
+  if (page === "overview") content = <OverviewView pulse={<PlatformPulse canOpen={(id) => visiblePages.has(id)} onOpen={setPage} />} summary={visibleSummary} cases={countryCases} onOpenCase={setSelectedCase} onNavigate={setPage} refreshing={refreshing} onRefresh={() => refresh(true)} />;
   else if (page === "my-work") content = <QueueView title={globalSearch ? i18nText("ui.literals.kc7e7e82fe077", { value0: globalSearch }) : i18nText("ui.literals.k57a125343d6e")} description={globalSearch ? i18nText("ui.literals.k2d6c8f04b6bd") : i18nText("ui.literals.k2d21261b5279")} cases={searchedCases} onOpenCase={setSelectedCase} />;
   else if (page === "users") content = <UsersView access={access} />;
+  else if (page === "urmall-businesses") content = <DirectoryView key={`biz-${navKey}`} pageId={page} targetType="marketplace_business" access={access} />;
+  else if (page === "urride-operators") content = <DirectoryView key={`op-${navKey}`} pageId={page} targetType="transport_operator" access={access} />;
+  else if (page === "urride-companies") content = <DirectoryView key={`co-${navKey}`} pageId={page} targetType="transport_company" access={access} />;
   else if (["explore", "marketplace", "transport"].includes(page)) content = <SectorView sector={page} cases={countryCases} onOpenCase={setSelectedCase} />;
   else if (page === "verification") content = <QueueView title={i18nText("ui.literals.k03128bed9062")} description={i18nText("ui.literals.k549d652bdd02")} cases={countryCases} defaultQueue="verification" onOpenCase={setSelectedCase} />;
   else if (page === "reports") content = <QueueView title={i18nText("ui.literals.k6d18054c6543")} description={i18nText("ui.literals.ke6c9a95abd64")} cases={countryCases} defaultQueue="reports" onOpenCase={setSelectedCase} />;
@@ -191,9 +204,9 @@ function AdminWorkspace({ access, user, preview }) {
   else if (page === "notifications") content = <NotificationsView access={access} />;
   else if (page === "finance") content = <FinanceView cases={countryCases} onOpenCase={setSelectedCase} />;
   else if (page === "analytics") content = <AnalyticsView summary={visibleSummary} cases={countryCases} />;
-  else if (page === "team") content = <TeamView access={access} />;
+  else if (page === "team") content = <StaffView access={access} user={user} />;
   else if (page === "actions") content = <ActionHistoryView user={user} />;
-  else if (page === "audit") content = <AuditView />;
+  else if (page === "audit") content = <AuditLogView />;
   else if (page === "settings") content = <SettingsView access={access} />;
 
   return (

@@ -47,6 +47,14 @@ export const ADMIN_NAV_GROUPS = [
     ],
   },
   {
+    label: "Directory",
+    items: [
+      { id: "urmall-businesses", label: "UrMall businesses", icon: "ShoppingBag", permission: "marketplace.businesses.view", sector: "marketplace" },
+      { id: "urride-operators", label: "UrRide operators", icon: "CarTaxiFront", permission: "transport.operators.view", sector: "transport" },
+      { id: "urride-companies", label: "UrRide companies", icon: "Building2", permission: "transport.companies.view", sector: "transport" },
+    ],
+  },
+  {
     label: "Sectors",
     items: [
       { id: "explore", label: "Explore", icon: "Compass", permission: "explore.view", sector: "explore" },
@@ -70,7 +78,7 @@ export const ADMIN_NAV_GROUPS = [
   {
     label: "Governance",
     items: [
-      { id: "team", label: "Admin team", icon: "UserCog", permission: "team.view" },
+      { id: "team", label: "Staff and roles", icon: "UserCog", permission: "team.view" },
       { id: "actions", label: "Action history", icon: "History", permission: "dashboard.view" },
       { id: "audit", label: "Audit log", icon: "ScrollText", permission: "audit.view" },
       { id: "settings", label: "Settings", icon: "Settings", permission: "settings.view" },

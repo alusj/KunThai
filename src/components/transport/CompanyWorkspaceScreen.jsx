@@ -89,6 +89,7 @@ import {
 } from "../../Backend/services/businessSubscriptionService";
 import { uiText as translateUi, useI18n as useUiLocale } from "../../i18n/index.js";
 import { inlineErrorMessage, shortErrorToast } from "../../Backend/services/friendlyErrorService";
+import EnforcementNoticeBanner from "../shared/EnforcementNoticeBanner";
 
 const tabs = ["Overview", "Fleets", "Rentals", "Operators", "Requests", "Activity"];
 const DRAWER_TRANSITION_MS = 300;
@@ -915,6 +916,9 @@ export default function CompanyWorkspaceScreen({ company, initialTab = "Overview
           </> : null}
 
          <section className={basicOperator ? "" : "mt-4"}>
+            {company?.id && !basicOperator ? (
+              <EnforcementNoticeBanner targetTypes={["transport_company"]} targetId={company.id} className="mb-4" />
+            ) : null}
             {statusMessage || localStatus ? (
               <div className="mb-4 rounded-2xl border border-blue-100 bg-blue-50 px-4 py-3 text-sm font-bold text-blue-800">
                 {localStatus || statusMessage}

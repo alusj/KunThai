@@ -25,6 +25,7 @@ import SellerIntelligence from "./SellerIntelligence/SellerIntelligence";
 import BusinessStats from "./BusinessStats/BusinessStats";
 import AddProductForm from "./ProductForm/AddProductForm";
 import SellerWorkspaceTabs from "./SellerWorkspaceTabs";
+import EnforcementNoticeBanner from "../../../shared/EnforcementNoticeBanner";
 import ProductSuccessToast from "./ProductSuccessToast";
 //import RecentOrders from "./RecentOrders";
 //import RecentMessages from "./RecentMessages";
@@ -879,6 +880,10 @@ export default function Business({ initialScreen = "", onBack, onInitialScreenHa
                 planCode={sellerPlan.planCode}
                 planAvailable={sellerPlan.available}
               />
+            ) : null}
+
+            {sellerOverview.business?.id ? (
+              <EnforcementNoticeBanner targetTypes={["marketplace_business"]} targetId={sellerOverview.business.id} />
             ) : null}
 
             {permissions.isAdmin ? (

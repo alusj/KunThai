@@ -2,44 +2,27 @@ import { useEffect, useMemo, useState } from "react";
 import {
   Activity,
   AlertTriangle,
-  BarChart3,
   BadgeCheck,
-  BellRing,
-  Check,
   ChevronRight,
   CircleDollarSign,
   Clock3,
   FileWarning,
-  FlaskConical,
-  LoaderCircle,
   LockKeyhole,
-  MailPlus,
-  Plus,
   RefreshCw,
   Search,
-  Send,
   ShieldCheck,
   ShieldOff,
   SlidersHorizontal,
-  UserMinus,
-  UserPlus,
   UsersRound,
-  X,
 } from "lucide-react";
-import { ADMIN_RESPONSIBILITIES, ADMIN_ROLES, ADMIN_SECTORS, formatDateTime, titleCase } from "../adminConfig";
-import { NOTIFICATION_MESSAGE_SUGGESTIONS, NOTIFICATION_TITLE_SUGGESTIONS } from "../adminTextSuggestions";
+import { titleCase } from "../adminConfig";
 import {
   getCaseSearchText,
   getCaseTypeLabel,
-  getAdminTeam,
-  getAuditLog,
   getFeatureFlags,
-  grantAdminAccess,
-  revokeAdminAccess,
   updateFeatureFlag,
 } from "../adminService";
 import CaseTable from "../components/CaseTable";
-import SuggestedTextSelect from "../components/SuggestedTextSelect";
 import NotificationCampaignCenter from "../notifications/NotificationCampaignCenter";
 import { t as i18nText } from "../../i18n/index";
 import { uiText as translateUi, useI18n as useUiLocale } from "../../i18n/index.js";
@@ -112,7 +95,7 @@ function QueueSummary({ cases }) {
   );
 }
 
-export function OverviewView({ summary, cases, onOpenCase, onNavigate, refreshing, onRefresh }) {
+export function OverviewView({ summary, cases, onOpenCase, onNavigate, refreshing, onRefresh, pulse = null }) {
   useUiLocale();
   const openCases = cases.filter((item) => !["resolved", "closed"].includes(item.status));
   return (
@@ -123,6 +106,7 @@ export function OverviewView({ summary, cases, onOpenCase, onNavigate, refreshin
         description={i18nText("ui.literals.kae8c7c40341a")}
         action={<button type="button" onClick={onRefresh} disabled={refreshing} className="inline-flex h-10 items-center gap-2 rounded-lg border border-zinc-300 bg-white px-3 text-sm font-black text-zinc-800 shadow-sm hover:bg-zinc-50 disabled:opacity-50"><RefreshCw className={refreshing ? "animate-spin" : ""} size={16} /> {i18nText("ui.literals.k56e3badc4e6c")}</button>}
       />
+      {pulse}
 
       <section className="grid gap-3 sm:grid-cols-2 xl:grid-cols-5">
         <Metric label={i18nText("ui.literals.k3c83436a2c5e")} value={summary.openCases} detail={i18nText("ui.literals.k9efa31cfd970")} icon={FileWarning} />
@@ -248,93 +232,6 @@ export function AnalyticsView({ summary, cases }) {
       <PageHeading eyebrow="Operational intelligence" title={i18nText("ui.literals.k25bc96295797")} description={i18nText("ui.literals.kf47f755af8a8")} />
       <section className="grid gap-3 sm:grid-cols-2 lg:grid-cols-4"><Metric label={i18nText("ui.literals.kdb5aba313d08")} value={summary.openCases} detail={i18nText("ui.literals.k84c90dcaccc2")} /><Metric label={i18nText("ui.literals.k894fdb0eb6e8")} value={summary.overdueCases} detail={i18nText("ui.literals.k6eeca62582e8")} tone="red" /><Metric label={i18nText("ui.literals.kbeeb64d1c49d")} value={summary.resolvedToday} detail={i18nText("ui.literals.k57130ea5e877")} tone="emerald" /><Metric label={i18nText("ui.literals.kfa4ddda5fa52")} value={`${summary.openCases ? Math.round((summary.unassignedCases / summary.openCases) * 100) : 0}%`} detail={i18nText("ui.literals.k891dc228801b")} tone="amber" /></section>
       <section className="mt-6 border-y border-zinc-200 bg-white p-5 sm:rounded-lg sm:border"><h2 className="text-base font-black text-zinc-950">{i18nText("ui.literals.k397d2b22bc4f")}</h2><div className="mt-6 space-y-5">{sectors.map((sector) => { const total = cases.filter((item) => item.sector === sector).length; return <div key={sector}><div className="mb-2 flex justify-between text-sm font-bold text-zinc-700"><span>{sector === "marketplace" ? "UrMall" : titleCase(sector)}</span><span>{total} {i18nText("ui.literals.kf9063c359f30")}</span></div><div className="h-3 overflow-hidden rounded-full bg-zinc-100"><div className={`h-full rounded-full ${sector === "explore" ? "bg-cyan-500" : sector === "marketplace" ? "bg-emerald-500" : "bg-violet-500"}`} style={{ width: `${(total / max) * 100}%` }} /></div></div>; })}</div></section>
-    </>
-  );
-}
-
-export function TeamView({ access }) {
-  useUiLocale();
-  const [team, setTeam] = useState([]);
-  const [dialogOpen, setDialogOpen] = useState(false);
-  const [busy, setBusy] = useState(false);
-  const [error, setError] = useState("");
-  const [form, setForm] = useState({ email: "", roleKey: "support_officer", sectors: ["all"], regions: ["all"], responsibilities: ["user_support"], authority: 2, expiresAt: "", reason: "" });
-  const canManage = access.permissions.includes("team.manage");
-  const currentRank = Math.max(...(access.roles || []).map((role) => role.rank || 0), 0);
-  const roles = ADMIN_ROLES.filter((role) => access.roles?.some((item) => item.key === "super_admin") || role.rank < currentRank);
-
-  function load() { getAdminTeam().then(setTeam).catch((nextError) => setError(inlineErrorMessage(nextError))); }
-  useEffect(load, []);
-
-  async function grant(event) {
-    event.preventDefault(); setBusy(true); setError("");
-    try { await grantAdminAccess(form); setDialogOpen(false); setForm({ email: "", roleKey: "support_officer", sectors: ["all"], regions: ["all"], responsibilities: ["user_support"], authority: 2, expiresAt: "", reason: "" }); load(); }
-    catch (nextError) { setError(inlineErrorMessage(nextError)); } finally { setBusy(false); }
-  }
-
-  async function revoke(item) {
-    const reason = window.prompt(`Reason for revoking ${item.display_name || item.email}?`);
-    if (!reason?.trim()) return;
-    setBusy(true); setError("");
-    try { await revokeAdminAccess(item.assignment_id, reason.trim()); load(); }
-    catch (nextError) { setError(inlineErrorMessage(nextError)); } finally { setBusy(false); }
-  }
-
-  function toggleSector(value) {
-    setForm((current) => {
-      if (value === "all") return { ...current, sectors: ["all"] };
-      const withoutAll = current.sectors.filter((item) => item !== "all");
-      const sectors = withoutAll.includes(value) ? withoutAll.filter((item) => item !== value) : [...withoutAll, value];
-      return { ...current, sectors: sectors.length ? sectors : ["all"] };
-    });
-  }
-
-  function toggleResponsibility(value) {
-    setForm((current) => ({
-      ...current,
-      responsibilities: current.responsibilities.includes(value)
-        ? current.responsibilities.filter((item) => item !== value)
-        : [...current.responsibilities, value],
-    }));
-  }
-
-  return (
-    <>
-      <PageHeading eyebrow="Access governance" title={i18nText("ui.literals.k221df061bcfe")} description={i18nText("ui.literals.k9307704b8596")} action={canManage ? <button type="button" onClick={() => setDialogOpen(true)} className="inline-flex h-10 items-center gap-2 rounded-lg bg-zinc-950 px-4 text-sm font-black text-white hover:bg-zinc-800"><UserPlus size={17} /> {i18nText("ui.literals.kb91195f1ab01")}</button> : null} />
-      <div className="overflow-hidden border-y border-zinc-200 bg-white sm:rounded-lg sm:border">
-        {team.map((item) => (
-          <article key={item.assignment_id} className="grid gap-3 border-b border-zinc-100 p-4 last:border-0 md:grid-cols-[minmax(0,1.3fr)_minmax(10rem,0.7fr)_minmax(10rem,0.8fr)_auto] md:items-center">
-            <div className="flex items-center gap-3"><span className="grid h-10 w-10 shrink-0 place-items-center rounded-lg bg-zinc-100 text-sm font-black text-zinc-700">{(item.display_name || item.email || "A").slice(0, 1).toUpperCase()}</span><div className="min-w-0"><p className="truncate text-sm font-black text-zinc-950">{item.display_name || i18nText("ui.literals.k1eda23758be9")}</p><p className="mt-1 truncate text-xs font-medium text-zinc-500">{item.email}</p></div></div>
-            <div><p className="text-xs font-black text-zinc-800">{item.role_name}</p><p className="mt-1 text-[11px] font-semibold text-zinc-500">{i18nText("ui.literals.k97a9869cf89f")} {item.authority_level}{item.expires_at ? i18nText("ui.literals.kdb31016376a4", { value0: formatDateTime(item.expires_at) }) : i18nText("ui.literals.k7c7f5fd01f59")}</p></div>
-            <div><div className="flex flex-wrap gap-1">{item.sector_scopes?.map((sector) => <span key={sector} className="rounded-full bg-emerald-50 px-2 py-1 text-[10px] font-black text-emerald-800">{sector === "all" ? i18nText("ui.literals.k3473d884bb86") : sector === "marketplace" ? "UrMall" : titleCase(sector)}</span>)}</div>{item.responsibilities?.length ? <p className="mt-2 line-clamp-2 text-[10px] font-semibold text-zinc-500">{item.responsibilities.map(titleCase).join(" · ")}</p> : null}</div>
-            {canManage && item.status === "active" ? <button type="button" title={i18nText("ui.literals.k094386f681e2")} disabled={busy} onClick={() => revoke(item)} className="grid h-9 w-9 place-items-center rounded-md text-zinc-400 hover:bg-red-50 hover:text-red-700 disabled:opacity-50"><UserMinus size={17} /></button> : <span className="text-xs font-bold text-zinc-400">{titleCase(item.status)}</span>}
-          </article>
-        ))}
-      </div>
-      {error ? <p className="mt-3 text-sm font-semibold text-red-700">{translateUi(error)}</p> : null}
-
-      {dialogOpen ? <div className="fixed inset-0 z-[70] flex items-center justify-center p-4"><button type="button" className="absolute inset-0 bg-zinc-950/50" aria-label={i18nText("ui.literals.kbbfa773e5a63")} onClick={() => setDialogOpen(false)} /><form onSubmit={grant} className="relative max-h-[90vh] w-full max-w-xl overflow-y-auto rounded-lg bg-white p-5 shadow-2xl sm:p-6"><div className="flex justify-between"><div><p className="text-xs font-black uppercase text-emerald-700">{i18nText("ui.literals.kd72cd6d333e1")}</p><h2 className="mt-1 text-xl font-black">{i18nText("ui.literals.kb91195f1ab01")}</h2></div><button type="button" title={i18nText("ui.literals.kbbfa773e5a63")} onClick={() => setDialogOpen(false)} className="grid h-9 w-9 place-items-center rounded-md hover:bg-zinc-100"><X size={19} /></button></div>
-        <div className="mt-5 space-y-4"><label className="block"><span className="mb-1.5 block text-sm font-bold">{i18nText("ui.literals.kf9609349275b")}</span><input type="email" required value={form.email} onChange={(event) => setForm((current) => ({ ...current, email: event.target.value }))} className="h-11 w-full rounded-lg border border-zinc-300 px-3 text-sm font-semibold outline-none focus:border-emerald-600" /></label><label className="block"><span className="mb-1.5 block text-sm font-bold">{i18nText("ui.literals.kc3f104d13657")}</span><select value={form.roleKey} onChange={(event) => { const role = ADMIN_ROLES.find((item) => item.key === event.target.value); setForm((current) => ({ ...current, roleKey: event.target.value, authority: role?.authority || current.authority })); }} className="h-11 w-full rounded-lg border border-zinc-300 px-3 text-sm font-bold">{roles.map((role) => <option key={role.key} value={role.key}>{role.name}</option>)}</select></label>
-          <fieldset><legend className="text-sm font-bold">{i18nText("ui.literals.kdd139c730b52")}</legend><div className="mt-2 grid grid-cols-2 gap-2">{ADMIN_SECTORS.map((sector) => <label key={sector.value} className="flex h-10 items-center gap-2 rounded-lg border border-zinc-200 px-3 text-sm font-semibold"><input type="checkbox" checked={form.sectors.includes(sector.value)} onChange={() => toggleSector(sector.value)} className="accent-emerald-700" /> {translateUi(sector.label)}</label>)}</div></fieldset>
-          <label className="block"><span className="mb-1.5 block text-sm font-bold">{i18nText("ui.literals.k7ed8c49e9e54")}</span><input value={form.regions.join(", ")} onChange={(event) => setForm((current) => ({ ...current, regions: event.target.value.split(",").map((value) => value.trim()).filter(Boolean) }))} placeholder={i18nText("ui.literals.k3e4312d1fc7f")} className="h-11 w-full rounded-lg border border-zinc-300 px-3 text-sm font-semibold outline-none focus:border-emerald-600" /><span className="mt-1 block text-xs font-semibold text-zinc-400">{i18nText("ui.literals.kf956bb94e086")}</span></label>
-          <fieldset><legend className="text-sm font-bold">{i18nText("ui.literals.k54dc6e55f143")}</legend><div className="mt-2 grid gap-2 sm:grid-cols-2">{ADMIN_RESPONSIBILITIES.map((responsibility) => <label key={responsibility.value} className="flex min-h-10 items-center gap-2 rounded-lg border border-zinc-200 px-3 py-2 text-sm font-semibold"><input type="checkbox" checked={form.responsibilities.includes(responsibility.value)} onChange={() => toggleResponsibility(responsibility.value)} className="accent-emerald-700" /> {translateUi(responsibility.label)}</label>)}</div></fieldset>
-          <div className="rounded-lg border border-sky-200 bg-sky-50 p-3 text-xs font-semibold leading-5 text-sky-900"><span className="font-black">{i18nText("ui.literals.k131e07f1aee1")}</span> {ADMIN_ROLES.find((role) => role.key === form.roleKey)?.name} · {form.sectors.map((sector) => sector === "marketplace" ? "UrMall" : titleCase(sector)).join(", ")} {i18nText("ui.literals.k609e4c31201d")} {form.authority} · {form.responsibilities.length} {i18nText("ui.literals.kba0f8ea52451")}</div>
-          <label className="block"><span className="mb-1.5 flex justify-between text-sm font-bold"><span>{i18nText("ui.literals.kebe4690f3c74")}</span><span>{form.authority}</span></span><input type="range" min="1" max="5" value={form.authority} onChange={(event) => setForm((current) => ({ ...current, authority: Number(event.target.value) }))} className="w-full accent-emerald-700" /></label><label className="block"><span className="mb-1.5 block text-sm font-bold">{i18nText("ui.literals.ka6115deaec37")} <span className="font-semibold text-zinc-400">{i18nText("ui.literals.kb16c7ac6faff")}</span></span><input type="datetime-local" value={form.expiresAt} onChange={(event) => setForm((current) => ({ ...current, expiresAt: event.target.value }))} className="h-11 w-full rounded-lg border border-zinc-300 px-3 text-sm font-semibold outline-none focus:border-emerald-600" /></label><label className="block"><span className="mb-1.5 block text-sm font-bold">{i18nText("ui.literals.ka73104616435")}</span><textarea required minLength={5} rows={3} value={form.reason} onChange={(event) => setForm((current) => ({ ...current, reason: event.target.value }))} className="w-full resize-none rounded-lg border border-zinc-300 p-3 text-sm font-medium outline-none focus:border-emerald-600" /></label></div>
-        <button type="submit" disabled={busy} className="mt-6 inline-flex h-11 w-full items-center justify-center gap-2 rounded-lg bg-zinc-950 px-4 text-sm font-black text-white disabled:opacity-50">{busy ? <LoaderCircle className="animate-spin" size={17} /> : <UserPlus size={17} />} {i18nText("ui.literals.k02c717ba56b7")}</button></form></div> : null}
-    </>
-  );
-}
-
-export function AuditView() {
-  useUiLocale();
-  const [logs, setLogs] = useState([]);
-  const [error, setError] = useState("");
-  useEffect(() => { getAuditLog().then(setLogs).catch((nextError) => setError(inlineErrorMessage(nextError))); }, []);
-  return (
-    <>
-      <PageHeading eyebrow="Governance" title={i18nText("ui.literals.k3cfc5f1cc987")} description={i18nText("ui.literals.k5c076a2d055b")} />
-      <div className="overflow-hidden border-y border-zinc-200 bg-white sm:rounded-lg sm:border">{logs.map((item) => <article key={item.id} className="grid gap-2 border-b border-zinc-100 px-4 py-4 last:border-0 md:grid-cols-[minmax(12rem,1fr)_minmax(8rem,0.5fr)_minmax(12rem,1.4fr)_auto] md:items-center"><div><p className="text-sm font-black text-zinc-900">{titleCase(item.action_key?.replaceAll(".", " "))}</p><p className="mt-1 text-xs font-semibold text-zinc-500">{item.actor_display_name || i18nText("ui.literals.k497b9f51d314")}{item.actor_email ? ` · ${item.actor_email}` : ""}</p><p className="mt-1 text-[10px] font-bold text-zinc-400">{item.actor_role_keys?.map(titleCase).join(", ") || i18nText("ui.literals.k0004af20a7b2")}</p></div><span className="w-fit rounded-full bg-zinc-100 px-2 py-1 text-[10px] font-black text-zinc-700">{item.sector === "marketplace" ? "UrMall" : titleCase(item.sector || i18nText("ui.literals.k3c72abbe626f"))}</span><p className="text-xs font-medium text-zinc-600">{item.reason || titleCase(item.resource_type || i18nText("ui.literals.k295432a291bb"))}</p><time className="text-xs font-semibold text-zinc-400">{formatDateTime(item.created_at)}</time></article>)}</div>
-      {error ? <p className="mt-3 text-sm font-semibold text-red-700">{translateUi(error)}</p> : null}
     </>
   );
 }

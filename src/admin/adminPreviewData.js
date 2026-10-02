@@ -19,7 +19,12 @@ export const previewAccess = {
     "notifications.settings", "analytics.view",
     "team.view", "team.manage", "audit.view", "settings.view", "settings.manage",
     "join.view", "join.manage", "join.decide",
+    "marketplace.businesses.view", "marketplace.businesses.enforce", "marketplace.businesses.suspend",
+    "transport.operators.view", "transport.operators.enforce", "transport.operators.suspend",
+    "transport.companies.view", "transport.companies.enforce", "transport.companies.suspend",
+    "notifications.direct",
   ],
+  staff: { staffNumber: "KTS-01001", levelKey: "executive", levelName: "Executive", levelRank: 8, maxAuthority: 5, department: "executive", jobTitle: "Chief Admin", status: "active" },
   roles: [{
     assignmentId: "preview-assignment",
     key: "chief_admin",

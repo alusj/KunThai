@@ -83,6 +83,7 @@ import {
 import { uiText as translateUi, useI18n as useUiLocale } from "../../i18n/index.js";
 import { inlineErrorMessage, shortErrorToast } from "../../Backend/services/friendlyErrorService";
 import AppPortal from "../shared/AppPortal";
+import EnforcementNoticeBanner from "../shared/EnforcementNoticeBanner";
 
 function formatOperatorMoney(value, account = null) {
   return formatCountryMoney(value, account?.form?.currency || account?.form?.countryCode || account?.form?.country || getCountryCurrencyCode());
@@ -646,6 +647,7 @@ export default function OperatorDashboardScreen({
       </header>
 
       <main className="min-h-0 w-full flex-1 touch-pan-y overflow-y-auto overscroll-contain px-3 py-4 pb-[calc(var(--kt-safe-area-bottom)+1rem)] sm:px-5 xl:px-8 [-webkit-overflow-scrolling:touch]">
+        <EnforcementNoticeBanner targetTypes={["transport_operator"]} className="mb-4" />
         {dashboardError && (
           <div className="mb-4 rounded-2xl border border-amber-200 bg-amber-50 px-4 py-3 text-sm font-bold text-amber-800">
             {dashboardError}
