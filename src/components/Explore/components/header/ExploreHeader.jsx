@@ -33,7 +33,7 @@ import { uiText as translateUi, useI18n as useUiLocale } from "../../../../i18n/
 
 const CREATE_MENU_EXIT_MS = 280;
 
-export default function ExploreHeader({ currentProfile, onAlertsClick, onNavigate, onCreateSelect, onSearchResult, onOverlayChange }) {
+export default function ExploreHeader({ currentProfile, onAlertsClick, onNavigate, onCreateSelect, onSearchResult, onOverlayChange, spaceActivityTotal = 0 }) {
   const { t } = useI18n();
   const [searchOpen, setSearchOpen] = useState(false);
   const [searchInitialQuery, setSearchInitialQuery] = useState("");
@@ -157,7 +157,8 @@ export default function ExploreHeader({ currentProfile, onAlertsClick, onNavigat
           title="Explore"
           left={(
             <>
-              <PremiumHeaderButton icon={Menu} label={t("explore.openMenu")} onClick={() => onNavigate?.("Menu")} />
+              {/* The menu lists the person's Spaces; its badge counts their new activity. */}
+              <PremiumHeaderButton icon={Menu} badge={spaceActivityTotal} label={t("explore.openMenu")} onClick={() => onNavigate?.("Menu")} />
               <PremiumHeaderButton
                 active={messageStatus.active}
                 accent="sky"

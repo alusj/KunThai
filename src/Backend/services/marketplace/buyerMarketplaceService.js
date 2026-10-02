@@ -21,6 +21,7 @@ import {
 } from "./productSearch";
 import { fetchPromotedVerticalListings } from "./marketplaceVerticalService";
 import { getMyRegion, selectRegionScopedPromotions } from "../regions/regionService";
+import { promotionHasCountryTargets, promotionReachesCountry } from "../regions/promotionTargeting";
 import { rankMarketplaceProductsNearby, rankMarketplacePromotionsForBuyer } from "./marketplaceDiscovery";
 
 function toOptionalNumber(value) {
@@ -758,23 +759,36 @@ async function loadAllPromotedListings(limit = 12) {
 async function loadPromotedVerticalAds(limit = 12) {
   const ads = await fetchPromotedVerticalListings(limit);
   if (!ads.length) return [];
-  const scoped = filterCountryScopedItems(ads, (ad) => [ad.country, ad.location]);
-  return scoped.items;
+  // Country-targeted boosts were already matched to this shopper's country;
+  // older boosts keep the usual local-first scoping.
+  const targeted = ads.filter((ad) => promotionHasCountryTargets(ad.promotionCountries));
+  const legacy = ads.filter((ad) => !promotionHasCountryTargets(ad.promotionCountries));
+  const scoped = legacy.length ? filterCountryScopedItems(legacy, (ad) => [ad.country, ad.location]).items : [];
+  return [...targeted, ...scoped];
 }
 
 async function loadPromotedMarketplaceProducts(limit = 12) {
   const nowIso = new Date().toISOString();
   // Only boosts for the whole country or for the shopper's own state/district.
-  const { data: promotionRows, error: promotionError } = await selectRegionScopedPromotions(() => supabase
+  const buildQuery = (columns) => () => supabase
     .from("marketplace_promotions")
-    .select("product_id,created_at,ends_at,status,credit_budget,metadata")
+    .select(columns)
     .eq("status", "active")
     .not("product_id", "is", null)
     .gt("ends_at", nowIso)
     .order("created_at", { ascending: false })
-    .limit(Math.max(limit, 1) * 3));
+    .limit(Math.max(limit, 1) * 3);
+  const baseColumns = "product_id,created_at,ends_at,status,credit_budget,metadata";
+  let { data: promotionRows, error: promotionError } = await selectRegionScopedPromotions(buildQuery(`${baseColumns},target_country_isos`));
+  // Before the country-targeting migration the column does not exist yet.
+  if (promotionError && /target_country_isos/i.test(promotionError.message || "")) {
+    ({ data: promotionRows, error: promotionError } = await selectRegionScopedPromotions(buildQuery(baseColumns)));
+  }
 
   if (!promotionError) {
+    // Boosts that paid for specific countries reach only those countries.
+    const viewerCountry = getActiveCountryProfile().iso2;
+    promotionRows = (promotionRows || []).filter((row) => promotionReachesCountry(row.target_country_isos, viewerCountry));
     const productIds = Array.from(new Set((promotionRows || []).map((row) => row.product_id).filter(Boolean))).slice(0, limit);
     if (!productIds.length) return [];
     const promotionByProductId = new Map();
@@ -794,20 +808,26 @@ async function loadPromotedMarketplaceProducts(limit = 12) {
       if (!error) {
         const productsById = new Map((data || []).map((product) => [product.id, product]));
         const orderedProducts = productIds.map((id) => productsById.get(id)).filter(Boolean);
-        const scoped = filterCountryScopedItems(
-          orderedProducts.map((row) => {
-            const product = mapBuyerProduct(row);
-            const promotion = promotionByProductId.get(row.id) || {};
-            return {
-              ...product,
-              promotionAudience: promotion.metadata?.audienceType || "countrywide",
-              promotionCredits: Number(promotion.credit_budget || 0),
-              promotedAt: promotion.created_at || "",
-            };
-          }),
-          (product) => [product.seller?.country, product.location],
-        );
-        return scoped.items;
+        const promoted = orderedProducts.map((row) => {
+          const product = mapBuyerProduct(row);
+          const promotion = promotionByProductId.get(row.id) || {};
+          return {
+            ...product,
+            promotionAudience: promotion.metadata?.audienceType || "countrywide",
+            promotionCredits: Number(promotion.credit_budget || 0),
+            promotionCountries: Array.isArray(promotion.target_country_isos) ? promotion.target_country_isos : [],
+            promotedAt: promotion.created_at || "",
+          };
+        });
+        // Country-targeted boosts were matched above; older boosts keep the
+        // usual local-first scoping by the seller's country.
+        const targeted = promoted.filter((product) => promotionHasCountryTargets(product.promotionCountries));
+        const legacy = promoted.filter((product) => !promotionHasCountryTargets(product.promotionCountries));
+        const scoped = legacy.length
+          ? filterCountryScopedItems(legacy, (product) => [product.seller?.country, product.location]).items
+          : [];
+        const keep = new Set([...targeted, ...scoped].map((product) => product.id));
+        return promoted.filter((product) => keep.has(product.id));
       }
       if (!isRecoverableSelectError(error)) return [];
     }
@@ -877,25 +897,8 @@ export async function fetchBuyerProductForAssistant(productId) {
   return data ? mapBuyerProduct(data) : null;
 }
 
-// Store/business-name search for the marketplace search overlay. Returns the
-// discoverable businesses whose name matches the query, mapped to a light shape
-// the overlay and seller drawer can consume. Respects RLS (only
-// discoverable_nearby businesses are readable by buyers).
-export async function searchMarketplaceStores(rawQuery, limit = 6) {
-  const query = String(rawQuery || "").trim();
-  if (query.length < 2) return [];
-
-  const term = `%${query}%`;
-  const { data, error } = await supabase
-    .from("marketplace_businesses")
-    .select("id,business_name,city,country,logo_url,business_kind,verification_status")
-    .eq("discoverable_nearby", true)
-    .ilike("business_name", term)
-    .limit(limit);
-
-  if (error) return [];
-
-  return (data || []).map((row) => ({
+function mapStoreSearchRow(row = {}) {
+  return {
     id: row.id,
     name: row.business_name || "UrMall seller",
     city: row.city || "",
@@ -903,7 +906,39 @@ export async function searchMarketplaceStores(rawQuery, limit = 6) {
     logoUrl: row.logo_url || "",
     businessKind: row.business_kind || "retail",
     verificationStatus: row.verification_status || "pending",
-  }));
+    publicBusinessId: row.public_business_id || "",
+    ownerName: row.owner_name || "",
+    ownerMatch: Boolean(row.owner_match),
+    listingCount: row.listing_count == null ? null : Number(row.listing_count) || 0,
+  };
+}
+
+// Store search for the marketplace search overlay and KAI. The
+// search_marketplace_stores RPC matches the business name, its public UrMall
+// ID (UM-12345) and the OWNER's name, and returns each store's live listing
+// count across every vertical. Before that migration is applied it falls back
+// to a plain business-name match. Only discoverable businesses are returned.
+export async function searchMarketplaceStores(rawQuery, limit = 6) {
+  const query = String(rawQuery || "").trim();
+  if (query.length < 2) return [];
+
+  const { data: rpcRows, error: rpcError } = await supabase.rpc("search_marketplace_stores", {
+    search_query: query,
+    result_limit: limit,
+  });
+  if (!rpcError) return (rpcRows || []).map(mapStoreSearchRow);
+
+  const term = `%${query.replace(/[%_\\]/g, (match) => `\\${match}`)}%`;
+  const { data, error } = await supabase
+    .from("marketplace_businesses")
+    .select("id,business_name,city,country,logo_url,business_kind,verification_status,public_business_id")
+    .eq("discoverable_nearby", true)
+    .ilike("business_name", term)
+    .limit(limit);
+
+  if (error) return [];
+
+  return (data || []).map(mapStoreSearchRow);
 }
 
 export async function fetchBuyerDiscoveryOptions() {

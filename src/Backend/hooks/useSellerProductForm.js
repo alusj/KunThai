@@ -14,6 +14,8 @@ import {
   normalizeVisibilityCreditSpend,
 } from "../services/visibilityCreditService";
 import { regionSelectionIds } from "../services/regions/regionModel";
+import { checkPromotionTargeting, normalizeCountrySelection, promotionTargetingMessage } from "../services/regions/promotionTargeting";
+import { uiText } from "../../i18n/index.js";
 import {
   clearProductDraft,
   productDraftHasContent,
@@ -86,6 +88,7 @@ function buildProductForm(product, options) {
       promotionAudience: product.promotionAudience || "countrywide",
       promotionRegionMode: "country",
       promotionRegions: [],
+      promotionCountries: [],
     },
     delivery: {
       deliveryAvailable: product.deliveryAvailable ?? options.deliveryAvailable,
@@ -221,6 +224,13 @@ export function useSellerProductForm({ onComplete, mode = "create", product = nu
         }
         if (form.pricing.promotionRegionMode === "regions" && !regionSelectionIds(form.pricing.promotionRegions).length) {
           nextErrors.promotionRegions = "Choose at least one state or district, or show it in the whole country.";
+        } else {
+          const targeting = checkPromotionTargeting({
+            credits: promotionCredits,
+            areas: form.pricing.promotionRegionMode === "regions" ? regionSelectionIds(form.pricing.promotionRegions).length : 0,
+            countries: form.pricing.promotionRegionMode === "countries" ? Math.max(1, normalizeCountrySelection(form.pricing.promotionCountries).length) : 1,
+          });
+          if (!targeting.ok) nextErrors.promotionRegions = promotionTargetingMessage(targeting, uiText);
         }
       }
     }

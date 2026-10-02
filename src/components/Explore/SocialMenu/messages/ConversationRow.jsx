@@ -1,8 +1,9 @@
 import Avatar from "../../shared/Avatar";
 import { t as i18nText } from "../../../../i18n/index";
-import { useI18n as useUiLocale } from "../../../../i18n/index.js";
+import { uiText as translateUi, useI18n as useUiLocale } from "../../../../i18n/index.js";
 
 function getOtherParticipant(conversation, currentUserId) {
+  if (conversation.counterpart) return conversation.counterpart;
   const otherId = conversation.participantIds?.find((id) => id !== currentUserId);
   return conversation.participants?.[otherId] || {};
 }
@@ -35,6 +36,9 @@ export default function ConversationRow({ conversation, currentUserId, onOpen, o
             <span className="truncate text-sm font-black text-slate-950">
               {user.displayName || i18nText("ui.literals.kff4fc0276e96")}
             </span>
+            {user.accountType === "space" ? (
+              <span className="flex-none rounded-full bg-sky-100 px-1.5 py-0.5 text-[9px] font-black uppercase tracking-wide text-sky-700">{translateUi("Space")}</span>
+            ) : null}
             {conversation.unreadCount ? (
               <span className="rounded-full bg-sky-600 px-2 py-0.5 text-[10px] font-black text-white">{conversation.unreadCount}</span>
             ) : null}

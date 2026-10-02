@@ -295,7 +295,14 @@ async function translateSources(sources, locale) {
     const result = await requestTranslation(source, locale);
     const pattern = new RegExp(`\\n?__KTSEP${batchIndex}_(\\d+)__\\n?`, "g");
     const parts = result.split(pattern).filter((_, index) => index % 2 === 0);
-    if (parts.length !== batch.length) throw new Error(`Separator mismatch for ${locale} batch ${batchIndex}`);
+    if (parts.length !== batch.length) {
+      // Some scripts (e.g. Bengali) occasionally rewrite the alphabetic
+      // separators; translate that batch one string at a time instead.
+      console.warn(`Separator mismatch for ${locale} batch ${batchIndex}; translating ${batch.length} strings individually`);
+      const single = [];
+      for (const item of batch) single.push([item.text, unmaskText((await requestTranslation(item.masked, locale)).trim(), item.values)]);
+      return single;
+    }
     return batch.map((item, index) => [item.text, unmaskText(parts[index].trim(), item.values)]);
   });
   return Object.fromEntries(translated.flat());

@@ -30,6 +30,7 @@ import ProfileEditForm from "./ProfileEditForm";
 import ProfileHeaderCard from "./ProfileHeaderCard";
 import ProfileTabs from "./ProfileTabs";
 import { uiText as translateUi } from "../../../../i18n/index.js";
+import SpaceActivityBadge from "../../shared/SpaceActivityBadge";
 
 const PROFILE_TAB_ORDER = ["feed", "swip", "saved", "activity"];
 
@@ -72,6 +73,7 @@ export default function ProfileScreen({
   loading = false,
   loadError = "",
   managedSpace = null,
+  spaceActivity = {},
   onEditProfile,
   onCreateSpace,
   onOpenNotification,
@@ -454,7 +456,10 @@ export default function ProfileScreen({
                   className="flex min-w-[112px] flex-col items-center gap-2 rounded-2xl bg-slate-50 px-3 py-3 text-center"
                 >
                   <button type="button" disabled={space.membershipStatus === "pending"} onClick={() => onSwitchIdentity?.(space, { openProfile: true })} className="kt-pressable flex flex-col items-center gap-2 disabled:cursor-default">
-                    <Avatar name={space.displayName} src={space.avatarUrl} size="md" />
+                    <span className="relative">
+                      <Avatar name={space.displayName} src={space.avatarUrl} size="md" />
+                      <SpaceActivityBadge activity={spaceActivity[space.spaceId]} className="absolute -right-2 -top-1" />
+                    </span>
                     <span className="line-clamp-2 text-xs font-black leading-4 text-slate-700">{space.displayName}</span>
                   </button>
                   {space.membershipStatus === "pending" ? (
@@ -497,7 +502,15 @@ export default function ProfileScreen({
             editing ? saveProfile() : setEditing(true);
           }}
           onFollow={followProfile}
-          onMessage={() => onStartChat?.(values)}
+          onMessage={() => {
+            // The Space's own team can't message it as a customer: take them
+            // to its shared inbox instead.
+            if (!editable && isSpace && managedSpace && typeof onSwitchIdentity === "function") {
+              onSwitchIdentity(managedSpace, { openMessages: true });
+              return;
+            }
+            onStartChat?.(values);
+          }}
           onLookupCreditRecipient={credits.lookupRecipient}
           onReport={reportProfile}
           onShare={handleShare}

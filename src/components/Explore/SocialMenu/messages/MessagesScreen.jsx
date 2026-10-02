@@ -1,4 +1,5 @@
 import { useEffect, useRef, useState } from "react";
+import { HiOutlineBuildingOffice2 } from "react-icons/hi2";
 
 import { useExploreMessages } from "../../../../Backend/hooks/useExploreMessages";
 import { useHideAiAssistant } from "../../../../Backend/services/ai/aiScreenContext";
@@ -21,7 +22,8 @@ export default function MessagesScreen({ currentProfile, hideHeader = false, ini
   const [tab, setTab] = useState("inbox");
   const messages = useExploreMessages(currentProfile, initialRecipient);
   const currentUserId = currentProfile?.userId || "";
-  const activeItems = tab === "requests" ? messages.requests : messages.inbox;
+  const spaceName = messages.spaceInbox ? currentProfile?.displayName || currentProfile?.name || translateUi("Space") : "";
+  const activeItems = messages.spaceInbox || tab !== "requests" ? messages.inbox : messages.requests;
 
   // Slide the conversation in/out over the list (same feel as other back-nav)
   // instead of an instant swap. The outgoing conversation and its last messages
@@ -94,11 +96,25 @@ export default function MessagesScreen({ currentProfile, hideHeader = false, ini
 
         <div className="min-h-0 w-full flex-1 space-y-4 overflow-y-auto overscroll-contain px-4 py-4 sm:px-5">
           <MessagePrivacyNotice variant="explore" />
-          <MessageTabs
-            active={tab}
-            requestCount={messages.requests.length}
-            onChange={setTab}
-          />
+          {messages.spaceInbox ? (
+            <section className="flex items-center gap-3 rounded-[24px] border border-sky-100 bg-gradient-to-br from-white to-sky-50 p-4 shadow-sm">
+              <span className="grid h-11 w-11 flex-none place-items-center rounded-2xl bg-sky-600 text-white">
+                <HiOutlineBuildingOffice2 size={21} aria-hidden="true" />
+              </span>
+              <span className="min-w-0">
+                <span className="block truncate text-sm font-black text-slate-950">{translateUi("{value0} inbox", { value0: spaceName })}</span>
+                <span className="block text-xs font-semibold leading-5 text-slate-500">
+                  {translateUi("Messages people send to this Space. Everyone on your team who can reply sees them here.")}
+                </span>
+              </span>
+            </section>
+          ) : (
+            <MessageTabs
+              active={tab}
+              requestCount={messages.requests.length}
+              onChange={setTab}
+            />
+          )}
 
           {messages.error ? <ErrorState message={translateUi(messages.error)} onRetry={messages.reload} /> : null}
 
@@ -106,8 +122,10 @@ export default function MessagesScreen({ currentProfile, hideHeader = false, ini
             <MessagesSkeleton />
           ) : !activeItems.length ? (
             <EmptyState
-              title={tab === "requests" ? t("messages.noRequests") : t("messages.noConversations")}
-              message={tab === "requests" ? t("messages.noRequestsMsg") : t("messages.noConversationsMsg")}
+              title={messages.spaceInbox ? translateUi("No messages yet") : tab === "requests" ? t("messages.noRequests") : t("messages.noConversations")}
+              message={messages.spaceInbox
+                ? translateUi("When someone messages {value0}, the conversation appears here for your team.", { value0: spaceName })
+                : tab === "requests" ? t("messages.noRequestsMsg") : t("messages.noConversationsMsg")}
             />
           ) : (
             <div className="space-y-3">
@@ -118,7 +136,7 @@ export default function MessagesScreen({ currentProfile, hideHeader = false, ini
                   currentUserId={currentUserId}
                   onOpen={messages.openConversation}
                   onRespond={messages.respondToRequest}
-                  request={tab === "requests"}
+                  request={!messages.spaceInbox && tab === "requests"}
                 />
               ))}
             </div>
@@ -139,6 +157,7 @@ export default function MessagesScreen({ currentProfile, hideHeader = false, ini
             onSend={messages.sendMessage}
             onActivity={messages.setActivity}
             onViewProfile={onViewProfile}
+            replyingAs={spaceName}
           />
         </div>
       ) : null}

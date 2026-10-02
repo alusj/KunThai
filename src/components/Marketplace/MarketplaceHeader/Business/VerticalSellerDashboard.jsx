@@ -251,6 +251,7 @@ function RestaurantDashboard({ business, canManage = true, initialWorkspace = nu
             audience: promotionSettings.promotionAudience,
             regionMode: promotionSettings.promotionRegionMode,
             regions: promotionSettings.promotionRegions,
+            countries: promotionSettings.promotionCountries,
           });
         } catch (promoError) {
           showToast(shortErrorToast(promoError, "Boost couldn't start"), "danger");
@@ -526,6 +527,7 @@ function PropertyDashboard({ business, canManage = true, initialWorkspace = null
             audience: promotionSettings.promotionAudience,
             regionMode: promotionSettings.promotionRegionMode,
             regions: promotionSettings.promotionRegions,
+            countries: promotionSettings.promotionCountries,
           });
         } catch (promoError) {
           showToast(shortErrorToast(promoError, "Boost couldn't start"), "danger");
@@ -808,6 +810,7 @@ function VerticalPromoteSheet({ listingType, listing, onClose, onPromoted }) {
         audience: nextSettings.promotionAudience,
         regionMode: nextSettings.promotionRegionMode,
         regions: nextSettings.promotionRegions,
+        countries: nextSettings.promotionCountries,
       });
       haptics.medium("marketplace");
       sounds.success("marketplace");

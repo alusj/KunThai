@@ -12,6 +12,8 @@ import { normalizeTierPricing } from "./tierPricingUtils";
 import { optimizeImageFile } from "./imageOptimization";
 import { hasBusinessPlans } from "./marketplaceBusinessKinds";
 import { regionSelectionIds } from "../regions/regionModel";
+import { assertPromotionTargeting, normalizeCountrySelection } from "../regions/promotionTargeting";
+import { uiText } from "../../../i18n/index.js";
 
 function withTimeout(promise, message, timeoutMs = 60000) {
   return Promise.race([
@@ -70,9 +72,11 @@ export const INITIAL_PRODUCT_FORM = {
     promotionCreditPackage: "small",
     promotionCredits: String(MINIMUM_VISIBILITY_CREDITS),
     promotionAudience: "countrywide",
-    // "country" or "regions" (only shoppers in promotionRegions).
+    // "country", "regions" (only shoppers in promotionRegions) or "countries"
+    // (several whole countries in promotionCountries, from 100 credits).
     promotionRegionMode: "country",
     promotionRegions: [],
+    promotionCountries: [],
   },
   delivery: {
     deliveryAvailable: true,
@@ -489,6 +493,7 @@ export async function submitSellerProduct(form, onProgress) {
             audience: form.pricing.promotionAudience,
             regionMode: form.pricing.promotionRegionMode,
             regions: form.pricing.promotionRegions,
+            countries: form.pricing.promotionCountries,
           },
         );
       } catch (promotionError) {
@@ -627,6 +632,7 @@ export async function updateSellerProductListing(product, form, onProgress) {
           audience: form.pricing.promotionAudience,
           regionMode: form.pricing.promotionRegionMode,
           regions: form.pricing.promotionRegions,
+          countries: form.pricing.promotionCountries,
         },
       );
     } catch (promotionError) {
@@ -767,17 +773,26 @@ export async function promoteSellerProduct(product, options = {}) {
   if (options.regionMode === "regions" && !regionIds.length) {
     throw new Error("Choose at least one state or district for this boost. (code: PROMO_NO_REGION)");
   }
+  const countryIsos = options.regionMode === "countries" ? normalizeCountrySelection(options.countries) : [];
+  // The credits decide how many places the boost may reach (the database
+  // enforces the same rule before spending).
+  assertPromotionTargeting({ credits: creditBudget, areas: regionIds.length, countries: Math.max(1, countryIsos.length) }, uiText);
+  const multiCountry = countryIsos.length > 1;
 
   const { data, error } = await supabase.rpc(
-    regionIds.length ? "create_marketplace_visibility_promotion_in_regions" : "create_marketplace_visibility_promotion",
+    regionIds.length || multiCountry ? "create_marketplace_visibility_promotion_in_regions" : "create_marketplace_visibility_promotion",
     {
       p_product_id: product.id,
       p_credit_budget: creditBudget,
       p_audience_type: audienceType,
       ...(regionIds.length ? { p_target_region_ids: regionIds } : {}),
+      ...(multiCountry ? { p_target_country_isos: countryIsos } : {}),
     },
   );
 
+  if (error && multiCountry && /p_target_country_isos|schema cache|PGRST202/i.test(`${error.code || ""} ${error.message || ""}`)) {
+    throw new Error(uiText("Boosts in several countries are not available yet. Choose one country or try again later."));
+  }
   if (error) throw new Error(`${error.message} (code: PROMO_RPC)`);
   if (typeof window !== "undefined") {
     window.dispatchEvent(new CustomEvent("marketplace-products-updated"));

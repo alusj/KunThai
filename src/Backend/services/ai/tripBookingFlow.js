@@ -32,7 +32,8 @@ const listeners = new Set();
 let runToken = 0;
 
 function idleState() {
-  return { active: false, place: null, transcript: [], question: null, busy: "", data: {} };
+  // picker: the map pin picker KAI opened over the chat ({ kind, start }).
+  return { active: false, place: null, transcript: [], question: null, busy: "", data: {}, picker: null };
 }
 
 function emit(patch) {
@@ -214,8 +215,13 @@ function handle(step, value, option, { typed = false } = {}) {
       return askPickup();
     case "pickup":
       if (value === "__current") return locateCurrentPickup();
+      if (value === "__pin") return openPickupPin();
       if (!typed && option?.place) return setPickup(option.place);
       return searchPickup(value);
+    case "pickupConfirm":
+      if (value === "yes" && state.data.pendingPickup) return setPickup(state.data.pendingPickup);
+      if (value === "pin") return openPickupPin();
+      return askPickup();
     case "passengers": {
       const count = Math.round(Number(String(value).replace(/[^\d]/g, "")));
       const max = maxPassengers();
@@ -328,11 +334,55 @@ function savedPlaceOptions() {
     .slice(0, 4);
 }
 
+// The two ways to set a pickup lead (GPS, or a pin on the map); the
+// passenger's saved addresses follow as one-tap suggestions, and typing an
+// address in the chat box still searches for it.
 function askPickup(prefix = "") {
   ask("pickup", prefix || tripText("askPickup"), {
-    options: [{ value: "__current", label: tripText("useCurrent") }, ...savedPlaceOptions()],
+    options: [
+      { value: "__current", label: tripText("useCurrent"), primary: true },
+      { value: "__pin", label: tripText("dropPin"), primary: true },
+      ...savedPlaceOptions(),
+    ],
     input: { type: "text", placeholder: tripText("pickupPlaceholder") },
   });
+}
+
+// GPS fixes and map pins can be off by a street, so the address they resolve
+// to is shown back for the passenger to confirm before it becomes the pickup.
+function confirmPickup(point) {
+  if (!point) {
+    askPickup(tripText("locateFailed"));
+    return;
+  }
+  setData({ pendingPickup: point });
+  ask("pickupConfirm", tripText("confirmPickup"), {
+    card: { type: "location", point },
+    options: [
+      { value: "yes", label: tripText("confirmPickupYes"), primary: true },
+      { value: "pin", label: tripText("adjustPin") },
+      { value: "other", label: tripText("chooseAnother") },
+    ],
+  });
+}
+
+function openPickupPin() {
+  emit({ picker: { kind: "pickup", start: "dropPin" }, busy: "" });
+}
+
+/** The map pin picker returned a location (already normalized to a point). */
+export function submitTripPickedLocation(point) {
+  if (!state.active || !state.picker) return;
+  emit({ picker: null });
+  const pinned = point ? { ...point, name: point.name || tripText("pinnedLocation") } : null;
+  confirmPickup(pinned);
+}
+
+/** The passenger closed the map without choosing: back to the pickup choices. */
+export function cancelTripPicker() {
+  if (!state.picker) return;
+  emit({ picker: null });
+  if (state.active && state.question?.step !== "pickup") askPickup();
 }
 
 async function reverseLookup(lat, lng) {
@@ -358,7 +408,14 @@ async function locateCurrentPickup() {
     const lng = position.coords.longitude;
     const address = await reverseLookup(lat, lng);
     if (token !== runToken) return;
-    setPickup({ lat, lng, name: tripText("currentLocation"), address: address || tripText("currentLocation") });
+    emit({ busy: "" });
+    confirmPickup({
+      lat,
+      lng,
+      name: tripText("currentLocation"),
+      address: address || `${lat.toFixed(5)}, ${lng.toFixed(5)}`,
+      accuracy: Number(position.coords.accuracy) || null,
+    });
   } catch {
     if (token !== runToken) return;
     askPickup(tripText("locateFailed"));
@@ -387,7 +444,8 @@ async function searchPickup(query) {
 }
 
 function setPickup(point) {
-  setData({ pickup: point.name === tripText("currentLocation") ? getBookingLocationInputValue(point) : placeText(point), pickupPoint: point });
+  const addressOnly = [tripText("currentLocation"), tripText("pinnedLocation")].includes(point.name);
+  setData({ pickup: addressOnly ? getBookingLocationInputValue(point) : placeText(point), pickupPoint: point, pendingPickup: null });
   if (state.data.mode === "delivery") {
     ask("package", tripText("askPackage"), { input: { type: "text", placeholder: tripText("packagePlaceholder") } });
     return;

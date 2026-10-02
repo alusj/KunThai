@@ -76,3 +76,6 @@ signing-key-info.txt
 # Vercel
 .vercel/
 .vercel
+
+# Local secrets: never commit
+password.txt

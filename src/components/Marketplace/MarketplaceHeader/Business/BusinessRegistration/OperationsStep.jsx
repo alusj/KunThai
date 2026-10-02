@@ -6,6 +6,7 @@ import { useI18n, t } from "../../../../../i18n";
 import { supportsMarketplaceFulfillment } from "../../../../../Backend/services/marketplace/marketplaceBusinessKinds";
 import { t as i18nText } from "../../../../../i18n/index";
 import { uiText as translateUi } from "../../../../../i18n/index.js";
+import { getActiveCountryProfile } from "../../../../../data/globalCountryProfiles";
 
 export default function OperationsStep({ registration }) {
   useI18n();
@@ -97,7 +98,7 @@ export default function OperationsStep({ registration }) {
               <RegistrationInput
                 value={form.operations.serviceAreas}
                 onChange={(event) => updateSection("operations", { serviceAreas: event.target.value })}
-                placeholder={i18nText("ui.literals.k6a77859394d3")}
+                placeholder={translateUi("{value0}, nationwide", { value0: getActiveCountryProfile(form.location?.country).cityPlaceholder || getActiveCountryProfile(form.location?.country).name })}
               />
             </RegistrationField>
           </div>

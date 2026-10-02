@@ -39,6 +39,7 @@ import { optimizeImageFile } from "../../../../../../Backend/services/marketplac
 import useBodyScrollLock from "../../../../../shared/useBodyScrollLock";
 import { getAdvertObjectiveRequirement, hasAdvertCoordinates } from "../../../../shared/advertUtils";
 import { normalizeRegionSelection } from "../../../../../../Backend/services/regions/regionModel";
+import { normalizeCountrySelection } from "../../../../../../Backend/services/regions/promotionTargeting";
 import { upgradeNearbyAdvertDraft } from "../../../../../../Backend/services/explore/advertDraft";
 import AdvertComposerFields from "../composer/AdvertComposerFields";
 import CompactComposer from "../composer/CompactComposer";
@@ -102,9 +103,11 @@ const DEFAULT_ADVERT = {
   genderTarget: "all",
   interests: [],
   targetArea: "",
-  // "everywhere" or "regions" (only people located in targetRegions).
+  // "everywhere" = the advertiser's whole country, "regions" = only people in
+  // targetRegions, "countries" = several whole countries (100+ credits).
   regionMode: "everywhere",
   targetRegions: [],
+  targetCountries: [],
   durationPreset: "14",
   durationDays: 14,
   customStart: "",
@@ -280,8 +283,9 @@ function cleanAdvertCampaignForSubmit(advert = {}) {
     genderTarget: String(normalized.genderTarget || DEFAULT_ADVERT.genderTarget),
     interests: Array.isArray(normalized.interests) ? normalized.interests.slice(0, 20) : [],
     targetArea: String(normalized.targetArea || "").trim().slice(0, 80),
-    regionMode: normalized.regionMode === "regions" ? "regions" : "everywhere",
+    regionMode: ["regions", "countries"].includes(normalized.regionMode) ? normalized.regionMode : "everywhere",
     targetRegions: normalized.regionMode === "regions" ? normalizeRegionSelection(normalized.targetRegions) : [],
+    targetCountries: normalized.regionMode === "countries" ? normalizeCountrySelection(normalized.targetCountries) : [],
     durationPreset: String(normalized.durationPreset || DEFAULT_ADVERT.durationPreset),
     durationDays: Math.max(1, Math.min(Number(normalized.durationDays) || 14, 365)),
     customStart: String(normalized.customStart || ""),

@@ -2,6 +2,8 @@ import supabase from "../../lib/supabaseClient";
 import { getCountryCurrencyCode } from "../../../data/globalCountryProfiles";
 import { getMinimumExploreAdvertCredits, normalizeVisibilityCreditSpend } from "../visibilityCreditService";
 import { regionSelectionIds } from "../regions/regionModel";
+import { assertPromotionTargeting, normalizeCountrySelection } from "../regions/promotionTargeting";
+import { uiText } from "../../../i18n/index.js";
 
 const AD_SESSION_KEY = "kunthai_explore_ad_session_v1";
 const AD_SEEN_SESSION_KEY = "kunthai_explore_seen_ads_v1";
@@ -113,8 +115,16 @@ export async function createExploreAdvertCampaign(post, advertInput = {}) {
   // Regional adverts go through the wrapper that stores the states/districts in
   // the same transaction; everything else uses the original RPC unchanged.
   const regionIds = advert.regionMode === "regions" ? regionSelectionIds(advert.targetRegions) : [];
-  const { data, error } = await supabase.rpc(regionIds.length ? "create_explore_ad_campaign_in_regions" : "create_explore_ad_campaign", {
+  const countryIsos = advert.regionMode === "countries" ? normalizeCountrySelection(advert.targetCountries) : [];
+  // Several countries / several areas must be covered by the credits. Checked
+  // here so the person gets the reason before anything is spent; the database
+  // enforces the same rules.
+  assertPromotionTargeting({ credits: creditBudget, areas: regionIds.length, countries: Math.max(1, countryIsos.length) }, uiText);
+  const multiCountry = countryIsos.length > 1;
+  const useWrapper = regionIds.length > 0 || multiCountry;
+  const { data, error } = await supabase.rpc(useWrapper ? "create_explore_ad_campaign_in_regions" : "create_explore_ad_campaign", {
     ...(regionIds.length ? { p_target_region_ids: regionIds } : {}),
+    ...(multiCountry ? { p_target_country_isos: countryIsos } : {}),
     p_post_id: post.id,
     p_placement: advert.placement || "urfeed",
     p_objective: advert.objective || "brand_awareness",
@@ -135,6 +145,9 @@ export async function createExploreAdvertCampaign(post, advertInput = {}) {
 
   if (error) {
     // Never fall back to an unrestricted advert when regions were chosen.
+    if (isUnavailableDatabaseFeature(error) && multiCountry) {
+      throw new Error(uiText("Adverts in several countries are not available yet. Choose one country or try again later."));
+    }
     if (isUnavailableDatabaseFeature(error) && regionIds.length) {
       throw new Error("Regional adverts are not available yet. Remove the location limit or try again later.");
     }

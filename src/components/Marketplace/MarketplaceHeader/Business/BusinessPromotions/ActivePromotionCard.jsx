@@ -1,6 +1,7 @@
 import { formatCurrency } from "../../../../../Backend/utils/formatCurrency";
 import { useI18n, t } from "../../../../../i18n";
 import { describeRegionSelection } from "../../../../../Backend/services/regions/regionModel";
+import { getCountryProfile } from "../../../../../data/globalCountryProfiles";
 import { uiText as translateUi, useI18n as useUiLocale } from "../../../../../i18n/index.js";
 
 export default function ActivePromotionCard({ promotion }) {
@@ -17,7 +18,9 @@ export default function ActivePromotionCard({ promotion }) {
           <h4 className="mt-1 font-black text-gray-950">{promotion.name}</h4>
           <p className="mt-1 text-sm font-medium text-gray-500">{promotion.productName}</p>
           <p className="mt-2 text-xs font-black uppercase text-gray-400">
-            {promotion.targetRegions?.length
+            {promotion.targetCountries?.length > 1
+              ? translateUi("Shown in {value0} countries: {value1}", { value0: promotion.targetCountries.length, value1: promotion.targetCountries.map((iso) => getCountryProfile(iso)?.name || iso).join(", ") })
+              : promotion.targetRegions?.length
               ? t("regions.target.summary", { places: describeRegionSelection(promotion.targetRegions, { max: 3, andMore: (count) => t("regions.picker.andMore", { count }) }) })
               : formatAudience(promotion.audienceType)}{" "}
             {promotion.durationDays ? t("urmall.biz.promo.durationDays", { count: promotion.durationDays }) : ""}

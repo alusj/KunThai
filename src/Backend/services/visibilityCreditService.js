@@ -325,7 +325,7 @@ export async function fetchVisibilityCreditPackages() {
     id: item.id,
     credits: Number(item.credits || 0),
     priceMinor: Number(item.price_minor || 0),
-    currency: String(item.currency || "SLE").toUpperCase(),
+    currency: String(item.currency || "").toUpperCase(),
     label: item.label || "Visibility Credits",
   }));
 }
@@ -362,6 +362,16 @@ async function authenticatedPaymentRequest(path, body, fallbackMessage = "Paymen
 }
 
 // ---- Monime (Orange Money / mobile money) ----------------------------------
+// Mobile money is a LOCAL payment rail: Monime collects only from Sierra Leone
+// wallets (Orange Money, Afrimoney) and settles in Leones. Everyone else pays
+// by card, priced in US dollars. Add a country here only when its wallets are
+// actually connected.
+export const MOBILE_MONEY_COUNTRIES = Object.freeze(["SL"]);
+
+export function isMobileMoneyAvailable(countryIso = "") {
+  return MOBILE_MONEY_COUNTRIES.includes(String(countryIso || "").toUpperCase());
+}
+
 // Display-only pricing that mirrors the server constants; the server always
 // recomputes the authoritative price when creating the checkout.
 export const MONIME_MIN_CREDITS = 15;

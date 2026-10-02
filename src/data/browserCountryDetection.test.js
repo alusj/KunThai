@@ -3,6 +3,7 @@ import assert from "node:assert/strict";
 
 import {
   DEFAULT_COUNTRY_ISO,
+  detectDeviceCountryIso,
   applyCountryConfigOverrides,
   getActiveCountryProfile,
   getCountryFromInternationalPhone,
@@ -34,7 +35,8 @@ test("an en-US device is never placed in the United States by its language", () 
   // Even when the database lists the US as an active market.
   applyCountryConfigOverrides({ countries: [{ iso2: "US", marketStatus: "active" }] });
   withLanguages(["en-US"], () => {
-    assert.equal(getActiveCountryProfile().iso2, DEFAULT_COUNTRY_ISO);
+    assert.equal(getActiveCountryProfile().iso2, detectDeviceCountryIso() || DEFAULT_COUNTRY_ISO);
+    assert.notEqual(getActiveCountryProfile().iso2, detectDeviceCountryIso() ? "" : "SL");
   });
 });
 

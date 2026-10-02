@@ -26,6 +26,7 @@ export default function ProductPromotionScreen({ onPromoted, product }) {
         audience: nextSettings.promotionAudience,
         regionMode: nextSettings.promotionRegionMode,
         regions: nextSettings.promotionRegions,
+        countries: nextSettings.promotionCountries,
       });
       const chargedCredits = Number(promotion?.credit_budget || promotion?.credits_spent || nextSettings.promotionCredits);
       haptics.medium("marketplace");

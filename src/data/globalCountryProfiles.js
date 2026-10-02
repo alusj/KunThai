@@ -1,9 +1,14 @@
 const COUNTRY_STORAGE_KEY = "kunthai.activeCountryIso";
 
-export const DEFAULT_COUNTRY_ISO = "SL";
+// KunThai is global: no market is "the" default. When nothing says where the
+// person is (no account country, no saved choice, no recognisable device time
+// zone) the app uses the international fallback — US dollar pricing and the
+// +1 format — never one launch market's currency or phone format.
+export const DEFAULT_COUNTRY_ISO = "US";
 
 import { getEmergencyContacts } from "./emergencyContacts.js";
 import { INTERNATIONAL_COUNTRY_DIALING_PROFILES } from "./internationalCountryDialingProfiles.js";
+import { TIMEZONE_COUNTRIES } from "./timezoneCountries.js";
 
 const CURATED_GLOBAL_COUNTRY_PROFILES = [
   {
@@ -751,8 +756,24 @@ export function getCountryProfile(value = "") {
   return COUNTRY_BY_ISO.get(normalizeCountryIso(value)) || null;
 }
 
+function currentDeviceTimeZone() {
+  try {
+    return Intl.DateTimeFormat().resolvedOptions().timeZone || "";
+  } catch {
+    return "";
+  }
+}
+
+// The country of the device's time zone ("Africa/Lagos" → NG). Unlike the
+// language region (en-US everywhere), a phone's time zone follows where it
+// actually is, so it is a sound first guess before the person picks a country.
+export function detectDeviceCountryIso(timeZone = currentDeviceTimeZone()) {
+  const iso2 = TIMEZONE_COUNTRIES[String(timeZone || "")] || "";
+  return COUNTRY_BY_ISO.has(iso2) ? iso2 : "";
+}
+
 export function getDefaultCountryProfile() {
-  return COUNTRY_BY_ISO.get(DEFAULT_COUNTRY_ISO);
+  return COUNTRY_BY_ISO.get(detectDeviceCountryIso()) || COUNTRY_BY_ISO.get(DEFAULT_COUNTRY_ISO);
 }
 
 export function readStoredCountryIso() {
@@ -780,9 +801,9 @@ export function storeCountryContext(value) {
 
 // The browser's language region is deliberately NOT used as a country: most
 // English devices and desktop apps report "en-US" wherever they are, and
-// trusting it saved new Sierra Leone accounts as "United States", hiding every
-// local UrMall retail product. Until the person picks a country (sign-up,
-// Settings > Country / Region) or GPS confirms one, the default market applies.
+// trusting it saved accounts in other countries as "United States". Order:
+// an explicit country, the saved one (the account's country is restored into
+// it on start), the device's time zone, then the international fallback.
 export function getActiveCountryProfile(value = "") {
   return (
     getCountryProfile(value) ||

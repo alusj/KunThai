@@ -74,6 +74,8 @@ import useBodyScrollLock from "../shared/useBodyScrollLock";
 // UI Components
 import ExploreHeader from "./components/header/ExploreHeader";
 import { SocialMenuContent } from "./components/header/HeaderMenu";
+import { useSpaceActivity } from "../../Backend/hooks/useSpaceActivity";
+import { EXPLORE_OPEN_SPACE_INBOX_EVENT } from "../../Backend/services/explore/messageService";
 import ExploreTabs from "./ExploreTabs/ExploreTabs";
 import PostingStatusBanner from "./shared/PostingStatusBanner";
 import PostOutboxIndicator from "./shared/PostOutboxIndicator";
@@ -154,6 +156,8 @@ export default function Explore({ active = true, onNavigateMain, onScreenModeCha
   const { t } = useI18n();
   const { activeTab, activeMenuScreen, menuStack } = exploreNav;
   switchExploreTabRef.current = switchExploreTab;
+  const switchIdentityRef = useRef(null);
+  switchIdentityRef.current = switchExploreIdentity;
   openPostTargetRef.current = openExplorePostTarget;
   const isSwipTab = activeTab === "Swip";
   const menuOverlayVisible = exploreNav.isFullScreen || visibleMenuStack.length > 0;
@@ -189,6 +193,12 @@ export default function Explore({ active = true, onNavigateMain, onScreenModeCha
   // so a friend who joins through them earns the Space its credits. Leaving
   // Explore or switching back restores the personal code immediately.
   const activeSpaceId = active && activeIdentity?.type === "space" ? activeIdentity.id : "";
+  // Likes, comments, shares and inbox messages on the person's Spaces, for the
+  // badge next to each Space while they are on their personal profile.
+  const spaceActivity = useSpaceActivity(spaceProfiles.length ? currentUserId : "", activeSpaceProfile?.spaceId || "");
+  const otherSpacesActivityTotal = spaceProfiles.reduce((total, space) => (
+    space.spaceId === activeSpaceProfile?.spaceId ? total : total + Number(spaceActivity[space.spaceId]?.total || 0)
+  ), 0);
   useEffect(() => {
     if (!activeSpaceId) {
       setActiveSpaceInviteCode("");
@@ -207,6 +217,17 @@ export default function Explore({ active = true, onNavigateMain, onScreenModeCha
       setActiveSpaceInviteCode("");
     };
   }, [activeSpaceId]);
+
+  // A message notification for a Space thread: switch to that Space and open
+  // its inbox, where the pending conversation is then opened.
+  useEffect(() => {
+    function openSpaceInbox(event) {
+      const space = spaceProfiles.find((item) => item.spaceId === event.detail?.spaceId);
+      if (space && space.membershipStatus !== "pending") switchIdentityRef.current?.(space, { openMessages: true });
+    }
+    window.addEventListener(EXPLORE_OPEN_SPACE_INBOX_EVENT, openSpaceInbox);
+    return () => window.removeEventListener(EXPLORE_OPEN_SPACE_INBOX_EVENT, openSpaceInbox);
+  }, [spaceProfiles]);
 
   // Keep the device copy of "my Spaces" in step with creates, edits and
   // removals, so the next reload paints the right Space immediately.
@@ -623,6 +644,11 @@ export default function Explore({ active = true, onNavigateMain, onScreenModeCha
         exploreNav.openMenuScreen("SpaceDashboard");
         return;
       }
+      // The Space's own team pressing "Message" on it goes to its inbox.
+      if (options.openMessages) {
+        openMenuScreen("Messages");
+        return;
+      }
       // Switching to a Space from the account list lands on its profile; the
       // dashboard is one tap away in the profile's actions.
       if (options.openProfile) {
@@ -867,10 +893,18 @@ export default function Explore({ active = true, onNavigateMain, onScreenModeCha
     if (guardGuestAction("message", "user")) return;
     stopAllExploreMedia();
     exploreNav.rememberScrollPosition();
-    const messageTarget = recipient?.identityType === "space" || recipient?.spaceId
+    // A Space is messaged as the Space: the thread lands in its shared inbox
+    // for every team member who can reply — never in the owner's personal DMs.
+    const recipientSpaceId = recipient?.identityType === "space" || recipient?.accountType === "space"
+      ? recipient?.spaceId || recipient?.identityId || ""
+      : recipient?.spaceId || "";
+    const messageTarget = recipientSpaceId
       ? {
         ...recipient,
-        userId: recipient.ownerUserId || recipient.userId || "",
+        identityType: "space",
+        spaceId: recipientSpaceId,
+        ownerUserId: recipient.ownerUserId || "",
+        userId: "",
         displayName: recipient.displayName || recipient.name || t("explore.spaceFallback"),
         avatarUrl: recipient.avatarUrl || "",
       }
@@ -1313,6 +1347,7 @@ export default function Explore({ active = true, onNavigateMain, onScreenModeCha
             <SocialMenuContent
               currentProfile={profile}
               spaces={spaceProfiles}
+              spaceActivity={spaceActivity}
               onCreateSpace={() => openMenuScreen("CreateSpace")}
               onNavigate={openMenuScreen}
               onSelectIdentity={switchExploreIdentity}
@@ -1343,6 +1378,7 @@ export default function Explore({ active = true, onNavigateMain, onScreenModeCha
           onOpenSpaceDashboard={() => openMenuScreen("SpaceDashboard")}
           personalProfile={personalProfile}
           spaces={spaceProfiles}
+          spaceActivity={spaceActivity}
         />
       );
     }
@@ -1390,6 +1426,7 @@ export default function Explore({ active = true, onNavigateMain, onScreenModeCha
           onSwitchIdentity={switchExploreIdentity}
           onStartChat={startChat}
           spaces={spaceProfiles}
+          spaceActivity={spaceActivity}
         />
       );
     }
@@ -1433,7 +1470,7 @@ export default function Explore({ active = true, onNavigateMain, onScreenModeCha
     if (screenKey === "Messages") {
       return (
         <MessagesScreen keepAlive
-          key={currentUserId}
+          key={`${currentUserId}:${activeSpaceProfile?.spaceId || "personal"}`}
           currentProfile={profile}
           hideHeader
           initialRecipient={messageRecipientOwnerId === currentUserId ? messageRecipient : null}
@@ -1631,6 +1668,7 @@ export default function Explore({ active = true, onNavigateMain, onScreenModeCha
           {!isSwipTab ? (
             <ExploreHeader
               currentProfile={profile}
+              spaceActivityTotal={otherSpacesActivityTotal}
               onAlertsClick={() => openMenuScreen("Notifications")}
               onNavigate={openMenuScreen}
               onCreateSelect={handleCreateSelect}
@@ -1737,6 +1775,7 @@ export default function Explore({ active = true, onNavigateMain, onScreenModeCha
             compact
             currentProfile={profile}
             spaces={spaceProfiles}
+            spaceActivity={spaceActivity}
             onClose={closeLeftDrawer}
             onCreateSpace={() => openMenuScreen("CreateSpace")}
             onNavigate={(screen, options) => {

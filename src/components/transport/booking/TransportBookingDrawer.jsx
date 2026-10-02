@@ -892,6 +892,7 @@ export default function TransportBookingDrawer({ open, target, onClose, onCreate
             dontShowLabel={t("urride.booking.cautionDontShow")}
             confirmLabel={t("urride.booking.cautionAccept")}
             onConfirm={acceptPassengerCaution}
+            requireScroll
           >
             <PassengerBookingCautionBody />
           </TransportCautionSheet>

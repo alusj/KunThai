@@ -11,6 +11,7 @@ import { submitPublicPrivacyRequest } from "../../Backend/services/publicPrivacy
 import { legalConfig } from "../../config/legalConfig";
 import { t as i18nText, uiText, useI18n } from "../../i18n/index";
 import { policyText } from "../../i18n/policyText";
+import { getActiveCountryProfile } from "../../data/globalCountryProfiles";
 
 const EMPTY_FORM = {
   fullName: "",
@@ -173,7 +174,7 @@ export default function PublicPrivacyRequestDialog({ requestType, onClose }) {
                   <input
                     type="tel"
                     autoComplete="tel"
-                    placeholder="+232…"
+                    placeholder={`${getActiveCountryProfile().dialCode}…`}
                     value={form.accountPhone}
                     onChange={(event) => update("accountPhone", event.target.value)}
                     className="mt-2 h-12 w-full rounded-2xl border border-slate-300 bg-white px-4 text-sm font-bold text-slate-950 outline-none transition focus:border-sky-500 focus:ring-4 focus:ring-sky-100 dark:border-slate-700 dark:bg-slate-950 dark:text-white dark:focus:ring-sky-950"

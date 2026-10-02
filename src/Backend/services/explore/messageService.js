@@ -31,6 +31,22 @@ export function clearPendingConversationOpen() {
   pendingOpenConversationId = "";
 }
 
+// A push/banner for a Space inbox thread names only the conversation. When it
+// is not in the personal inbox, find which Space owns it so Explore can switch
+// to that Space and open its inbox (the pending id is then picked up there).
+export const EXPLORE_OPEN_SPACE_INBOX_EVENT = "explore-open-space-inbox";
+
+export async function findConversationSpaceId(conversationId) {
+  if (!isUuid(conversationId)) return "";
+  const { data, error } = await supabase
+    .from("explore_conversations")
+    .select("id, space_id")
+    .eq("id", conversationId)
+    .maybeSingle();
+  if (error || !data) return "";
+  return data.space_id || "";
+}
+
 function safeParse(value, fallback = null) {
   try {
     return value ? JSON.parse(value) : fallback;
@@ -199,6 +215,9 @@ function normalizeConversation(row) {
     participantIds: row.participant_ids || row.participantIds || [],
     participants: row.participants || {},
     request: Boolean(row.request),
+    // Set when the thread belongs to a Space (the Space inbox) instead of two
+    // people.
+    spaceId: row.space_id || row.spaceId || "",
     updatedAt: row.updated_at || row.updatedAt || new Date().toISOString(),
   };
 }
@@ -388,6 +407,55 @@ async function fetchProfilesByIds(userIds = []) {
   }, {});
 }
 
+async function fetchSpacesByIds(spaceIds = []) {
+  const ids = Array.from(new Set(spaceIds.filter(isUuid)));
+  if (!ids.length) return {};
+
+  const { data, error } = await supabase
+    .from("explore_spaces")
+    .select("id, owner_user_id, name, slug, avatar_url, verified, category")
+    .in("id", ids);
+
+  if (error) return {};
+  return (data || []).reduce((spaces, space) => {
+    spaces[space.id] = space;
+    return spaces;
+  }, {});
+}
+
+// The Space as the other side of a thread: what a customer sees in their inbox
+// and conversation header. userId stays empty — a Space has no single person
+// behind it, so presence and blocking never target the owner by accident.
+export function spaceCounterpart(space = {}, spaceId = "") {
+  const id = space.id || space.spaceId || spaceId;
+  return {
+    userId: "",
+    spaceId: id,
+    identityType: "space",
+    identityId: id,
+    actorType: "space",
+    actorId: id,
+    ownerUserId: space.owner_user_id || space.ownerUserId || "",
+    displayName: space.name || space.displayName || "Space",
+    username: space.slug || space.username || "",
+    avatarUrl: space.avatar_url || space.avatarUrl || "",
+    verified: Boolean(space.verified),
+    accountType: "space",
+  };
+}
+
+function attachSpaceCounterparts(conversations, spacesById) {
+  return conversations.map((conversation) => (
+    conversation.spaceId
+      ? { ...conversation, counterpart: spaceCounterpart(spacesById[conversation.spaceId], conversation.spaceId) }
+      : conversation
+  ));
+}
+
+export function spaceInboxCacheKey(currentUserId = "", spaceId = "") {
+  return currentUserId && spaceId ? `${currentUserId}-space-${spaceId}` : currentUserId;
+}
+
 function hydrateConversations(conversations, members, profiles) {
   const membersByConversation = members.reduce((map, member) => {
     const list = map.get(member.conversation_id) || [];
@@ -474,8 +542,13 @@ export async function fetchExploreConversations(currentUserId) {
   const conversations = dedupeExploreConversations((data || []).map(normalizeConversation));
   const fetchedConversationIds = conversations.map((conversation) => conversation.id);
   const allMembers = await fetchConversationMemberRows(fetchedConversationIds);
-  const profiles = await fetchProfilesByIds(allMembers.map((member) => member.user_id));
-  const hydratedConversations = dedupeExploreConversations(hydrateConversations(conversations, allMembers, profiles));
+  const [profiles, spacesById] = await Promise.all([
+    fetchProfilesByIds(allMembers.map((member) => member.user_id)),
+    fetchSpacesByIds(conversations.map((conversation) => conversation.spaceId)),
+  ]);
+  const hydratedConversations = dedupeExploreConversations(
+    attachSpaceCounterparts(hydrateConversations(conversations, allMembers, profiles), spacesById),
+  );
   const { data: messageRows, error: messageError } = fetchedConversationIds.length
     ? await supabase.from("explore_messages").select("*").in("conversation_id", fetchedConversationIds).order("created_at", { ascending: true })
     : { data: [], error: null };
@@ -497,6 +570,146 @@ export async function fetchExploreConversations(currentUserId) {
     }));
   writeConversations(nextConversations, currentUserId);
   return nextConversations;
+}
+
+// A Space's shared inbox: every thread people opened with the Space, readable
+// by each team member allowed to reply (database policy). Cached per member
+// AND per Space so it never mixes with the member's personal inbox.
+export function readCachedExploreSpaceConversations(currentUserId, spaceId) {
+  const cacheKey = spaceInboxCacheKey(currentUserId, spaceId);
+  if (!currentUserId || !spaceId) return [];
+  const messages = readArray(MESSAGES_KEY, cacheKey);
+  return readConversations(cacheKey)
+    .filter((conversation) => conversation.spaceId === spaceId)
+    .map((conversation) => {
+      const conversationMessages = messages.filter((message) => message.conversationId === conversation.id);
+      return {
+        ...conversation,
+        lastMessage: conversationMessages[conversationMessages.length - 1] || null,
+        unreadCount: conversationMessages.filter((message) => message.senderId === conversation.customerId && !message.read).length,
+      };
+    });
+}
+
+export async function fetchExploreSpaceConversations(spaceId, currentUserId) {
+  if (!isUuid(spaceId) || !currentUserId) return [];
+  const cacheKey = spaceInboxCacheKey(currentUserId, spaceId);
+
+  const { data, error } = await supabase
+    .from("explore_conversations")
+    .select("*")
+    .eq("space_id", spaceId)
+    .order("updated_at", { ascending: false });
+
+  if (error) {
+    if (isMissingMessageStore(error) || isMissingColumn(error, "space_id")) return readCachedExploreSpaceConversations(currentUserId, spaceId);
+    throw error;
+  }
+
+  const conversations = (data || []).map(normalizeConversation);
+  const conversationIds = conversations.map((conversation) => conversation.id);
+  const [profiles, messageResult] = await Promise.all([
+    fetchProfilesByIds(conversations.map((conversation) => conversation.participantIds[0])),
+    conversationIds.length
+      ? supabase.from("explore_messages").select("*").in("conversation_id", conversationIds).order("created_at", { ascending: true })
+      : Promise.resolve({ data: [], error: null }),
+  ]);
+
+  if (messageResult.error) {
+    if (isMissingMessageStore(messageResult.error)) return readCachedExploreSpaceConversations(currentUserId, spaceId);
+    throw messageResult.error;
+  }
+
+  const messages = (messageResult.data || []).map(normalizeMessage);
+  writeArray(MESSAGES_KEY, messages, cacheKey);
+
+  const next = conversations.map((conversation) => {
+    const customerId = conversation.participantIds[0] || "";
+    const customer = profiles[customerId] || { userId: customerId, displayName: "Profile", username: "user", avatarUrl: "" };
+    const conversationMessages = messages.filter((message) => message.conversationId === conversation.id);
+    return {
+      ...conversation,
+      spaceInbox: true,
+      customerId,
+      participants: { [customerId]: customer },
+      counterpart: { ...customer, accountType: "personal" },
+      lastMessage: conversationMessages[conversationMessages.length - 1] || null,
+      // Unread for the team = the customer's messages nobody on the team has read.
+      unreadCount: conversationMessages.filter((message) => message.senderId === customerId && !message.read).length,
+    };
+  });
+  writeConversations(next, cacheKey);
+  return next;
+}
+
+// Opens the person ↔ Space thread. With customerUserId, a Space team member is
+// starting it with that person; otherwise the caller is messaging the Space.
+export async function startExploreSpaceConversation(currentProfile, space, options = {}) {
+  const profileUserId = currentProfile?.userId || currentProfile?.id || "";
+  const currentUserId = await getAuthenticatedUserId(profileUserId);
+  const spaceId = space?.spaceId || space?.identityId || space?.id || "";
+  if (!isUuid(spaceId)) throw new Error("Unable to message this Space right now.");
+
+  const { data, error } = await supabase
+    .rpc("get_or_create_explore_space_conversation", {
+      target_space_id: spaceId,
+      customer_user_id: options.customerUserId || null,
+    })
+    .maybeSingle();
+
+  if (error) {
+    const message = String(error.message || "").toLowerCase();
+    const missingRpc = error.code === "PGRST202" || (message.includes("get_or_create_explore_space_conversation") && message.includes("schema cache"));
+    // Before the Space inbox migration is live, keep the old path working
+    // (a direct chat with the Space owner) instead of a dead Message button.
+    if (missingRpc && !options.customerUserId && isUuid(space?.ownerUserId) && space.ownerUserId !== currentUserId) {
+      return startExploreConversation(currentProfile, { ...space, userId: space.ownerUserId });
+    }
+    throw error;
+  }
+  if (!data) throw new Error("Unable to message this Space right now.");
+
+  const conversation = normalizeConversation(data);
+  if (options.customerUserId) {
+    const cacheKey = spaceInboxCacheKey(currentUserId, spaceId);
+    const customer = {
+      userId: options.customerUserId,
+      displayName: options.customer?.displayName || options.customer?.name || "Profile",
+      username: options.customer?.username || "user",
+      avatarUrl: options.customer?.avatarUrl || options.customer?.avatar_url || "",
+    };
+    const inboxConversation = {
+      ...conversation,
+      spaceInbox: true,
+      customerId: options.customerUserId,
+      participants: { [options.customerUserId]: customer },
+      counterpart: { ...customer, accountType: "personal" },
+    };
+    writeConversations([inboxConversation, ...readConversations(cacheKey).filter((item) => item.id !== conversation.id)], cacheKey);
+    return inboxConversation;
+  }
+
+  const withSpace = {
+    ...conversation,
+    participants: {
+      [currentUserId]: {
+        userId: currentUserId,
+        displayName: currentProfile?.displayName || currentProfile?.name || "You",
+        username: currentProfile?.username || "you",
+        avatarUrl: currentProfile?.avatarUrl || currentProfile?.avatar_url || "",
+      },
+    },
+    counterpart: spaceCounterpart({
+      id: spaceId,
+      name: space?.displayName || space?.name,
+      slug: space?.username || space?.slug,
+      avatar_url: space?.avatarUrl || space?.avatar_url,
+      owner_user_id: space?.ownerUserId || "",
+      verified: space?.verified,
+    }, spaceId),
+  };
+  writeConversations([withSpace, ...readConversations(currentUserId).filter((item) => item.id !== conversation.id)], currentUserId);
+  return withSpace;
 }
 
 export async function fetchExploreMessages(conversationId, currentUserId = "") {
@@ -844,23 +1057,31 @@ export async function sendExploreMessage(conversationId, senderProfile, body, op
   return savedMessage;
 }
 
-export async function markExploreConversationRead(conversationId, currentUserId) {
-  const messages = readArray(MESSAGES_KEY, currentUserId).map((message) =>
-    message.conversationId === conversationId && message.senderId !== currentUserId ? { ...message, read: true } : message,
+// options.fromSenderId (Space inbox): only that person's messages are marked
+// read — a team member opening the thread must not mark a teammate's replies
+// as "seen" by the customer. options.cacheKey picks the Space inbox cache.
+export async function markExploreConversationRead(conversationId, currentUserId, options = {}) {
+  const cacheKey = options.cacheKey || currentUserId;
+  const fromSenderId = options.fromSenderId || "";
+  const isIncoming = (senderId) => (fromSenderId ? senderId === fromSenderId : senderId !== currentUserId);
+  const messages = readArray(MESSAGES_KEY, cacheKey).map((message) =>
+    message.conversationId === conversationId && isIncoming(message.senderId) ? { ...message, read: true } : message,
   );
-  writeArray(MESSAGES_KEY, messages, currentUserId);
+  writeArray(MESSAGES_KEY, messages, cacheKey);
   window.dispatchEvent(new CustomEvent(EXPLORE_MESSAGE_EVENT, { detail: { type: "read", conversationId, currentUserId } }));
 
   if (isLocalConversationId(conversationId)) {
     return;
   }
 
-  const { error } = await supabase
+  let query = supabase
     .from("explore_messages")
     .update({ read: true })
     .eq("conversation_id", conversationId)
     .neq("sender_id", currentUserId)
     .eq("read", false);
+  if (fromSenderId) query = query.eq("sender_id", fromSenderId);
+  const { error } = await query;
 
   if (error && !isMissingMessageStore(error)) {
     throw error;

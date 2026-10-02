@@ -43,7 +43,9 @@ import {
   CARD_AMOUNTS_USD,
   CARD_MAX_USD,
   CARD_MIN_USD,
+  isMobileMoneyAvailable,
 } from "../../../../Backend/services/visibilityCreditService";
+import { getActiveCountryProfile } from "../../../../data/globalCountryProfiles";
 import { isNativeApp } from "../../../../Backend/lib/apiUrl";
 import { showToast } from "../../../../Backend/services/toastService";
 import { t } from "../../../../i18n";
@@ -851,12 +853,15 @@ export default function ProfileHeaderCard({
                 </div>
               </div>
               <div className="mt-5 space-y-3">
-                <PaymentMethodButton
-                  icon={HiOutlineDevicePhoneMobile}
-                  label={t("profile.buyWithMobileMoney")}
-                  helper={t("profile.useMobileMoney")}
-                  onClick={() => setBuyCreditsMethod("mobile-money")}
-                />
+                {/* Local wallets only where they are connected (see MOBILE_MONEY_COUNTRIES). */}
+                {isMobileMoneyAvailable(getActiveCountryProfile().iso2) ? (
+                  <PaymentMethodButton
+                    icon={HiOutlineDevicePhoneMobile}
+                    label={t("profile.buyWithMobileMoney")}
+                    helper={t("profile.useMobileMoney")}
+                    onClick={() => setBuyCreditsMethod("mobile-money")}
+                  />
+                ) : null}
                 <PaymentMethodButton
                   icon={HiOutlineCreditCard}
                   label={t("profile.buyWithCard")}

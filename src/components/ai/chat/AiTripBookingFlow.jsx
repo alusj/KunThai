@@ -1,11 +1,13 @@
-import { useState } from "react";
+import { lazy, Suspense, useState } from "react";
 import { motion } from "framer-motion";
-import { BadgeCheck, CalendarClock, Car, ClipboardCheck, X } from "lucide-react";
+import { BadgeCheck, CalendarClock, Car, ClipboardCheck, Crosshair, MapPin, X } from "lucide-react";
 
 import {
   cancelTripBooking,
+  cancelTripPicker,
   chooseTripOption,
   submitTripDateTime,
+  submitTripPickedLocation,
   tripText,
   useTripBookingFlow,
 } from "../../../Backend/services/ai/tripBookingFlow";
@@ -14,6 +16,8 @@ import { uiText as translateUi, useI18n as useUiLocale } from "../../../i18n/ind
 // KAI — the guided UrRide booking, shown inside the chat. KAI's questions and
 // the person's answers read like the rest of the conversation; options are
 // buttons, and free answers are typed in the normal chat box.
+
+const AiTripPinPicker = lazy(() => import("./AiTripPinPicker"));
 
 function localDateTimeValue(date) {
   const pad = (value) => String(value).padStart(2, "0");
@@ -39,6 +43,33 @@ function OperatorCard({ fleet }) {
       </span>
       <span className={`flex-none rounded-full px-2 py-0.5 text-[10px] font-black uppercase ${online ? "bg-emerald-100 text-emerald-700" : "bg-slate-200 text-slate-600"}`}>
         {online ? "●" : "○"}
+      </span>
+    </div>
+  );
+}
+
+// The address a GPS fix or map pin resolved to, shown back for confirmation.
+function LocationCard({ point }) {
+  useUiLocale();
+  const lat = Number(point?.lat);
+  const lng = Number(point?.lng);
+  const hasCoordinates = Number.isFinite(lat) && Number.isFinite(lng);
+  const accuracy = Number(point?.accuracy);
+  return (
+    <div className="mt-2 flex items-start gap-3 rounded-2xl border border-emerald-200 bg-emerald-50/60 p-3">
+      <span className="grid h-10 w-10 flex-none place-items-center rounded-xl bg-white text-emerald-700 shadow-sm">
+        <MapPin size={18} />
+      </span>
+      <span className="min-w-0 flex-1">
+        <span className="block text-[11px] font-black uppercase tracking-[0.12em] text-emerald-700">{point?.name || tripText("rowPickup")}</span>
+        <span className="mt-0.5 block break-words text-sm font-black leading-5 text-slate-900">{point?.address || "—"}</span>
+        {hasCoordinates ? (
+          <span className="mt-1 flex items-center gap-1 text-[11px] font-semibold text-slate-500">
+            <Crosshair size={11} />
+            {lat.toFixed(5)}, {lng.toFixed(5)}
+            {Number.isFinite(accuracy) && accuracy > 0 ? ` · ±${Math.round(accuracy)} m` : ""}
+          </span>
+        ) : null}
       </span>
     </div>
   );
@@ -105,6 +136,7 @@ export default function AiTripBookingFlow() {
               <p className="whitespace-pre-wrap text-sm leading-relaxed text-slate-800">{entry.text}</p>
               {entry.card?.type === "operator" ? <OperatorCard fleet={entry.card.fleet} /> : null}
               {entry.card?.type === "summary" ? <SummaryCard rows={entry.card.rows} /> : null}
+              {entry.card?.type === "location" ? <LocationCard point={entry.card.point} /> : null}
             </div>
           </div>
         ),
@@ -127,7 +159,7 @@ export default function AiTripBookingFlow() {
                   type="button"
                   onClick={() => chooseTripOption(option.value)}
                   className={`max-w-full rounded-2xl border px-3 py-2 text-left text-xs font-black transition ${
-                    ["review", "open", "operator"].includes(option.value)
+                    option.primary || ["review", "open", "operator"].includes(option.value)
                       ? "border-emerald-600 bg-emerald-600 text-white hover:bg-emerald-700"
                       : "border-slate-200 bg-white text-slate-700 hover:border-emerald-300 hover:bg-emerald-50"
                   }`}
@@ -147,6 +179,17 @@ export default function AiTripBookingFlow() {
             <X size={11} /> {tripText("cancel")}
           </button>
         </div>
+      ) : null}
+
+      {flow.active && flow.picker ? (
+        <Suspense fallback={null}>
+          <AiTripPinPicker
+            picker={flow.picker}
+            mode={flow.data.mode === "delivery" ? "delivery" : "ride"}
+            onPicked={submitTripPickedLocation}
+            onClose={cancelTripPicker}
+          />
+        </Suspense>
       ) : null}
     </div>
   );

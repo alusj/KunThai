@@ -83,7 +83,7 @@ export function CampaignStep({ form, setForm, canCritical }) {
 
   return (
     <div className="grid gap-5">
-      <TextField label={i18nText("ui.literals.kaa5d0e720b4b")} hint="Only administrators see this." value={form.campaign.name} maxLength={80} placeholder={i18nText("ui.literals.kc6f8e44d6ed2")} onChange={(name) => update({ name })} />
+      <TextField label={i18nText("ui.literals.kaa5d0e720b4b")} hint="Only administrators see this." value={form.campaign.name} maxLength={80} placeholder={translateUi("Weekend lunch offer reminder")} onChange={(name) => update({ name })} />
       <TextField label={i18nText("ui.literals.k8df3f3847b12")} hint="Optional. Why this campaign exists, for other administrators." value={form.campaign.description} maxLength={300} multiline rows={3} onChange={(description) => update({ description })} />
       <div className="grid gap-4 sm:grid-cols-2">
         <SelectField label={i18nText("ui.literals.k07cea0ceb3b7")} value={form.campaign.category} options={CAMPAIGN_CATEGORIES} onChange={(category) => update({ category })} />

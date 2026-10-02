@@ -1,10 +1,11 @@
 import { useEffect, useMemo, useRef, useState } from "react";
 import { createPortal } from "react-dom";
-import { Camera, ChevronDown, Clock, Package, Search, Sparkles, Store, Tag, UtensilsCrossed, X } from "lucide-react";
+import { BadgeCheck, Building2, Camera, ChevronDown, Clock, Hotel, Package, Search, Sparkles, Store, Tag, UtensilsCrossed, X } from "lucide-react";
 
 import {
   fetchBuyerDiscoveryOptions,
   fetchBuyerMarketplaceProducts,
+  searchMarketplaceStores,
 } from "../../../Backend/services/marketplace/buyerMarketplaceService";
 import { fetchMarketplaceVerticalDiscovery } from "../../../Backend/services/marketplace/marketplaceVerticalService";
 import { MIN_QUERY_LENGTH, normalizeSearchQuery } from "../../../Backend/services/marketplace/productSearch";
@@ -26,6 +27,38 @@ import { isNaturalLanguageQuery } from "../../../Backend/services/ai/exploreAiMo
 import { uiText as translateUi, useI18n as useUiLocale } from "../../../i18n/index.js";
 
 const EMPTY_VERTICAL = { restaurants: [], hotels: [], properties: [] };
+// Typing pauses this long before the server-side store/product lookups run, so
+// a fast typist sends one request instead of one per keystroke.
+const REMOTE_SEARCH_DELAY_MS = 260;
+const STORE_KIND_META = {
+  restaurant: { icon: UtensilsCrossed, labelKey: "urmall.biz.header.bizKindRestaurant" },
+  hotel: { icon: Hotel, labelKey: "urmall.biz.header.bizKindHotel" },
+  property_agent: { icon: Building2, labelKey: "urmall.biz.header.bizKindRealEstate" },
+  property: { icon: Building2, labelKey: "urmall.biz.header.bizKindRealEstate" },
+  retail: { icon: Store, labelKey: "urmall.biz.header.bizKindRetail" },
+};
+
+function storeKindMeta(kind) {
+  return STORE_KIND_META[String(kind || "retail").toLowerCase()] || STORE_KIND_META.retail;
+}
+
+// Stores found on the server (name, UrMall ID or owner's name) lead; stores
+// only seen through loaded listings follow. One row per business id, with the
+// server's fields (owner match, listing count) kept over the local copy.
+function mergeStores(remote = [], local = []) {
+  const byId = new Map();
+  local.forEach((store) => {
+    if (store?.id) byId.set(store.id, store);
+  });
+  remote.forEach((store) => {
+    if (store?.id) byId.set(store.id, { ...(byId.get(store.id) || {}), ...store });
+  });
+  const remoteIds = new Set(remote.map((store) => store?.id));
+  return [
+    ...remote.map((store) => byId.get(store?.id)).filter(Boolean),
+    ...local.filter((store) => !remoteIds.has(store?.id)),
+  ];
+}
 
 // ---- Vertical (restaurant / hotel / property) helpers -------------------
 function verticalName(type, item) {
@@ -66,6 +99,9 @@ export default function MarketplaceSearchOverlay({
   const [catalogLoading, setCatalogLoading] = useState(false);
   const [retailCategories, setRetailCategories] = useState([]);
   const [recent, setRecent] = useState(() => getRecentMarketplaceSearches());
+  // Server-side matches for the typed query: stores (by name, UrMall ID or the
+  // owner's name) and products outside the preloaded catalogue.
+  const [remote, setRemote] = useState({ query: "", stores: [], products: [], loading: false });
   const codeLookup = usePublicCodeLookup(open ? query : "");
   const aiAvailability = useAiAvailability();
 
@@ -110,6 +146,35 @@ export default function MarketplaceSearchOverlay({
     [vertical],
   );
 
+  useEffect(() => {
+    if (!open || !hasQuery) {
+      setRemote({ query: "", stores: [], products: [], loading: false });
+      return undefined;
+    }
+    let alive = true;
+    setRemote((current) => ({ ...current, loading: true }));
+    const timer = window.setTimeout(() => {
+      Promise.all([
+        searchMarketplaceStores(trimmed, 6).catch(() => []),
+        fetchBuyerMarketplaceProducts({ search: trimmed }).then((r) => r.newProducts || []).catch(() => []),
+      ]).then(([stores, products]) => {
+        if (alive) setRemote({ query: trimmed, stores, products, loading: false });
+      });
+    }, REMOTE_SEARCH_DELAY_MS);
+    return () => {
+      alive = false;
+      window.clearTimeout(timer);
+    };
+  }, [open, hasQuery, trimmed]);
+
+  // The preloaded catalogue plus any product the server search recalled that
+  // the catalogue did not include (other markets, older listings).
+  const searchableProducts = useMemo(() => {
+    if (!remote.products.length) return allProducts;
+    const known = new Set(allProducts.map((product) => product.id));
+    return [...allProducts, ...remote.products.filter((product) => !known.has(product.id))];
+  }, [allProducts, remote.products]);
+
   function toRetailRow(product) {
     return {
       key: `retail-${product.id}`,
@@ -142,29 +207,45 @@ export default function MarketplaceSearchOverlay({
   // typo-tolerant ranking, so "sharwama" still finds "Shawarma".
   const rows = useMemo(() => {
     if (!hasQuery) return [];
-    return rankMarketplaceSearch(allProducts, verticalEntries, trimmed)
+    return rankMarketplaceSearch(searchableProducts, verticalEntries, trimmed)
       .map((row) => (row.kind === "retail" ? toRetailRow(row.product) : toVerticalRow(row)));
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [allProducts, verticalEntries, trimmed, hasQuery]);
+  }, [searchableProducts, verticalEntries, trimmed, hasQuery]);
 
   const stores = useMemo(() => {
     if (!hasQuery) return [];
     const map = new Map();
-    allProducts.forEach((product) => {
+    searchableProducts.forEach((product) => {
       const seller = product.seller;
       if (seller?.id && seller?.name && !map.has(seller.id)) {
-        map.set(seller.id, { id: seller.id, name: seller.name, logoUrl: seller.logoUrl, city: seller.city, country: seller.country });
+        map.set(seller.id, {
+          id: seller.id,
+          name: seller.name,
+          logoUrl: seller.logoUrl,
+          city: seller.city,
+          country: seller.country,
+          businessKind: seller.businessKind || "retail",
+          verificationStatus: seller.verificationStatus,
+        });
       }
     });
     verticalEntries.forEach(({ item }) => {
       if (item.businessId && item.businessName && !map.has(item.businessId)) {
-        map.set(item.businessId, { id: item.businessId, name: item.businessName, logoUrl: item.logoUrl, city: item.city, country: item.country });
+        map.set(item.businessId, {
+          id: item.businessId,
+          name: item.businessName,
+          logoUrl: item.logoUrl,
+          city: item.city,
+          country: item.country,
+          businessKind: item.businessKind || "retail",
+          verificationStatus: item.verificationStatus,
+        });
       }
     });
-    return Array.from(map.values())
-      .filter((store) => normalizeSearchQuery(store.name).includes(q))
-      .slice(0, 4);
-  }, [allProducts, verticalEntries, q, hasQuery]);
+    const local = Array.from(map.values()).filter((store) => normalizeSearchQuery(store.name).includes(q));
+    const serverStores = remote.query === trimmed ? remote.stores : [];
+    return mergeStores(serverStores, local).slice(0, 6);
+  }, [searchableProducts, verticalEntries, q, hasQuery, remote, trimmed]);
 
   const categoryMatches = useMemo(() => {
     if (!hasQuery) return [];
@@ -190,6 +271,7 @@ export default function MarketplaceSearchOverlay({
 
   const showCode = Boolean(detectPublicCodeKind(trimmed)) && codeLookup.kind;
   const hasResults = rows.length || stores.length || categoryMatches.length || showCode;
+  const searchPending = catalogLoading || remote.loading;
 
   if (!open) return null;
 
@@ -220,7 +302,17 @@ export default function MarketplaceSearchOverlay({
   }
   function pickStore(store) {
     remember(trimmed || store.name);
-    onOpenSeller?.({ id: store.id, name: store.name, logoUrl: store.logoUrl, city: store.city });
+    // businessKind decides which catalogue the profile loads: a restaurant's
+    // menu, a hotel's rooms, an agent's listings or a shop's products.
+    onOpenSeller?.({
+      id: store.id,
+      name: store.name,
+      logoUrl: store.logoUrl,
+      city: store.city,
+      country: store.country,
+      businessKind: store.businessKind || "retail",
+      verificationStatus: store.verificationStatus,
+    });
     close();
   }
   function pickSearchCategory(category) {
@@ -281,24 +373,27 @@ export default function MarketplaceSearchOverlay({
               placeholder={t("urmall.search.placeholder")}
               className="min-w-0 flex-1 bg-transparent text-sm font-semibold text-gray-900 outline-none placeholder:text-gray-400"
             />
-            {/* Dropdown-arrow (replaces the inner clear X): pick a category to
-                browse it in the dashboard — Retail, Restaurant, Real Estate, Hotel. */}
+            {/* Arrow only: pick a category to browse it in the dashboard —
+                Retail, Restaurant, Real Estate, Hotel. A dot marks an active
+                category; its name is in the menu and the accessible label. */}
             <button
               type="button"
               onClick={() => setFilterOpen((value) => !value)}
-              aria-label={t("urmall.search.filterMenu")}
+              aria-label={activeCategory === "all" ? t("urmall.search.filterMenu") : `${t("urmall.search.filterMenu")}: ${translateUi(activeFilterLabel)}`}
               aria-expanded={filterOpen}
-              className={`flex flex-none items-center gap-1 rounded-xl px-2 py-1 text-xs font-black transition ${
+              title={activeCategory === "all" ? t("urmall.search.filterMenu") : translateUi(activeFilterLabel)}
+              className={`relative grid h-8 w-8 flex-none place-items-center rounded-xl transition ${
                 activeCategory === "all" ? "text-gray-500 hover:bg-gray-200" : "bg-emerald-100 text-emerald-700"
               }`}
             >
-              <span className="max-w-[7.5rem] truncate">{activeFilterLabel}</span>
-              <ChevronDown size={15} className={`transition-transform ${filterOpen ? "rotate-180" : ""}`} />
+              <ChevronDown size={17} strokeWidth={2.5} className={`transition-transform ${filterOpen ? "rotate-180" : ""}`} />
+              {activeCategory !== "all" ? <span className="absolute right-1 top-1 h-1.5 w-1.5 rounded-full bg-emerald-600" aria-hidden="true" /> : null}
             </button>
 
             {filterOpen ? (
               <div className="absolute right-0 top-[calc(100%+0.4rem)] z-30 max-h-72 w-56 overflow-y-auto rounded-2xl border border-gray-200 bg-white p-1.5 shadow-2xl">
-                {filterOptions.map((option) => (
+                {/* "All categories" appears only as a reset once a category is chosen. */}
+                {filterOptions.filter((option) => option.id !== "all" || activeCategory !== "all").map((option) => (
                   <button
                     key={option.id}
                     type="button"
@@ -414,38 +509,22 @@ export default function MarketplaceSearchOverlay({
                 />
               ) : null}
 
-              {catalogLoading && !hasResults ? (
+              {searchPending && !hasResults ? (
                 <p className="rounded-2xl bg-gray-50 px-4 py-3 text-sm font-bold text-gray-500">{t("urmall.search.searching")}</p>
+              ) : null}
+
+              {stores.length ? (
+                <ResultSection title={t("urmall.search.scopeStores")}>
+                  {stores.map((store) => (
+                    <StoreRow key={store.id} store={store} onClick={() => pickStore(store)} />
+                  ))}
+                </ResultSection>
               ) : null}
 
               {rows.length ? (
                 <ResultSection title={t("urmall.search.scopeProducts")}>
                   {rows.slice(0, 30).map((row) => (
                     <ResultRow key={row.key} row={row} onClick={() => pickResult(row)} />
-                  ))}
-                </ResultSection>
-              ) : null}
-
-              {stores.length ? (
-                <ResultSection title={t("urmall.search.scopeStores")}>
-                  {stores.map((store) => (
-                    <button
-                      key={store.id}
-                      type="button"
-                      onClick={() => pickStore(store)}
-                      className="kt-pressable flex w-full items-center gap-3 rounded-2xl bg-gray-50 px-3 py-2.5 text-left hover:bg-gray-100"
-                    >
-                      <span className="grid h-10 w-10 flex-none place-items-center overflow-hidden rounded-full bg-gray-200 text-gray-500">
-                        {store.logoUrl ? <img src={resizedImageUrl(store.logoUrl, { width: 96, quality: 70 })} alt="" className="h-full w-full object-cover" /> : <Store size={17} />}
-                      </span>
-                      <span className="min-w-0 flex-1">
-                        <span className="block truncate text-sm font-black text-gray-950">{store.name}</span>
-                        <span className="block truncate text-xs font-bold text-gray-500">
-                          {[store.city, store.country].filter(Boolean).join(", ") || t("urmall.search.store")}
-                        </span>
-                      </span>
-                      <TypeTag icon={Store} label={t("urmall.search.store")} />
-                    </button>
                   ))}
                 </ResultSection>
               ) : null}
@@ -469,7 +548,7 @@ export default function MarketplaceSearchOverlay({
                 </ResultSection>
               ) : null}
 
-              {!catalogLoading && !hasResults ? (
+              {!searchPending && !hasResults ? (
                 <div className="rounded-2xl bg-gray-50 px-4 py-4 text-center">
                   <p className="text-sm font-black text-gray-950">{t("urmall.search.noResultsTitle", { query: trimmed })}</p>
                   <p className="mt-1 text-sm font-semibold text-gray-500">{t("urmall.search.noResultsBody")}</p>
@@ -508,6 +587,41 @@ function ResultRow({ row, onClick }) {
         <span className="block truncate text-xs font-bold text-gray-500">{row.address || "—"}</span>
       </span>
       <TypeTag icon={Icon} label={translateUi(row.tag)} />
+    </button>
+  );
+}
+
+function StoreRow({ store, onClick }) {
+  const { t } = useI18n();
+  const meta = storeKindMeta(store.businessKind);
+  const KindIcon = meta.icon;
+  const place = [store.city, store.country].filter(Boolean).join(", ");
+  const details = [
+    store.ownerMatch && store.ownerName ? translateUi("Owner: {value0}", { value0: store.ownerName }) : "",
+    place,
+    store.listingCount == null
+      ? ""
+      : store.listingCount === 1
+        ? translateUi("1 listing")
+        : translateUi("{value0} listings", { value0: store.listingCount }),
+  ].filter(Boolean);
+  return (
+    <button
+      type="button"
+      onClick={onClick}
+      className="kt-pressable flex w-full items-center gap-3 rounded-2xl bg-gray-50 px-3 py-2.5 text-left hover:bg-gray-100"
+    >
+      <span className="grid h-10 w-10 flex-none place-items-center overflow-hidden rounded-full bg-gray-200 text-gray-500">
+        {store.logoUrl ? <img src={resizedImageUrl(store.logoUrl, { width: 96, quality: 70 })} alt="" className="h-full w-full object-cover" /> : <KindIcon size={17} />}
+      </span>
+      <span className="min-w-0 flex-1">
+        <span className="flex min-w-0 items-center gap-1">
+          <span className="truncate text-sm font-black text-gray-950">{store.name}</span>
+          {store.verificationStatus === "verified" ? <BadgeCheck size={14} className="flex-none text-sky-600" aria-hidden="true" /> : null}
+        </span>
+        <span className="block truncate text-xs font-bold text-gray-500">{details.join(" · ") || t("urmall.search.store")}</span>
+      </span>
+      <TypeTag icon={KindIcon} label={t(meta.labelKey)} />
     </button>
   );
 }

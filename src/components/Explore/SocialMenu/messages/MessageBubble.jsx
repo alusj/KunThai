@@ -20,6 +20,10 @@ export default function MessageBubble({
   onOpenSharedLocation,
   otherUserName,
   seen = false,
+  // Space inbox: which teammate sent one of "our" replies ("Sent by Aminata").
+  senderLabel = "",
+  // A Space is not a person: its threads offer no "block sender".
+  canBlock = true,
 }) {
   const { t } = useI18n();
   const otherName = otherUserName || t("messages.thisUser");
@@ -81,7 +85,7 @@ export default function MessageBubble({
           label={mine ? t("messages.deleteMessage") : t("messages.hideMessage")}
           onClick={(event) => runMessageAction(event, onDeleteMessage)}
         />
-        {!mine ? (
+        {!mine && canBlock ? (
           <MessageAction danger icon={HiOutlineNoSymbol} label={t("messages.blockSender")} onClick={(event) => runMessageAction(event, onBlockUser)} />
         ) : null}
       </div>
@@ -104,7 +108,7 @@ export default function MessageBubble({
             </div>
           </div>
           {!mine ? (
-            <div className="mt-3 grid grid-cols-2 gap-2">
+            <div className={`mt-3 grid gap-2 ${canBlock ? "grid-cols-2" : "grid-cols-1"}`}>
               <button
                 type="button"
                 onClick={(event) => runMessageAction(event, onApproveLocationRequest)}
@@ -113,14 +117,16 @@ export default function MessageBubble({
                 <HiOutlineShieldCheck />
                 {t("messages.approve")}
               </button>
-              <button
-                type="button"
-                onClick={(event) => runMessageAction(event, onBlockUser)}
-                className="flex h-10 items-center justify-center gap-1.5 rounded-2xl bg-white px-3 text-xs font-black text-rose-700"
-              >
-                <HiOutlineNoSymbol />
-                {t("messages.block")}
-              </button>
+              {canBlock ? (
+                <button
+                  type="button"
+                  onClick={(event) => runMessageAction(event, onBlockUser)}
+                  className="flex h-10 items-center justify-center gap-1.5 rounded-2xl bg-white px-3 text-xs font-black text-rose-700"
+                >
+                  <HiOutlineNoSymbol />
+                  {t("messages.block")}
+                </button>
+              ) : null}
             </div>
           ) : null}
           <p className={`mt-1 text-[10px] font-bold ${mine ? "text-white/55" : "text-slate-400"}`}>
@@ -174,6 +180,9 @@ export default function MessageBubble({
         ) : null}
         {!mine && actorName ? (
           <p className="mb-1 text-[10px] font-black uppercase tracking-[0.14em] text-sky-700">{actorName}</p>
+        ) : null}
+        {mine && senderLabel ? (
+          <p className="mb-1 text-[10px] font-black uppercase tracking-[0.14em] text-white/60">{senderLabel}</p>
         ) : null}
         {mediaType === "audio" && mediaUrl ? (
           <div className={`mb-2 rounded-2xl p-2 ${mine ? "bg-white/10" : "bg-white"}`}>

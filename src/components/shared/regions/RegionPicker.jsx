@@ -1,5 +1,5 @@
 import { useEffect, useMemo, useRef, useState } from "react";
-import { Check, ChevronDown, LoaderCircle, LocateFixed, MapPin, RotateCcw, Search, X } from "lucide-react";
+import { AlertTriangle, Check, ChevronDown, LoaderCircle, LocateFixed, MapPin, RotateCcw, Search, X } from "lucide-react";
 
 import { t, useI18n } from "../../../i18n";
 import {
@@ -11,6 +11,13 @@ import {
   toggleRegionSelection,
 } from "../../../Backend/services/regions/regionModel";
 import { detectRegionFromDevice } from "../../../Backend/services/regions/regionService";
+import {
+  checkPromotionTargeting,
+  maxTargetAreas,
+  promotionAllowanceText,
+  promotionTargetingMessage,
+} from "../../../Backend/services/regions/promotionTargeting";
+import { showToast } from "../../../Backend/services/toastService";
 import { regionLabel, useCountryRegions } from "./regionHooks";
 import { uiText as translateUi } from "../../../i18n/index.js";
 
@@ -20,6 +27,10 @@ import { uiText as translateUi } from "../../../i18n/index.js";
  * value: array of selections ({ id, name, type, parentName, countryIso }).
  * In single mode (multiple=false) the array holds at most one item.
  * onChange(nextValue, { source }) — source is "device" after "Use my location".
+ * credits (promotions): the Visibility Credits budget. It caps how many areas
+ * can be chosen (see promotionTargeting.js); a tap beyond the budget explains
+ * why instead of silently doing nothing, and a selection made before the
+ * budget was lowered is flagged rather than quietly trimmed.
  */
 export default function RegionPicker({
   country,
@@ -34,6 +45,7 @@ export default function RegionPicker({
   onIndex = null,
   listClassName = "",
   disabled = false,
+  credits = null,
 }) {
   useI18n();
   const { status, index, reload } = useCountryRegions(country);
@@ -44,6 +56,24 @@ export default function RegionPicker({
   onIndexRef.current = onIndex;
   const selection = useMemo(() => normalizeRegionSelection(value, multiple ? max : 1), [value, multiple, max]);
   const selectedIds = useMemo(() => new Set(selection.map((item) => item.id)), [selection]);
+  const creditLimited = multiple && credits !== null && credits !== undefined;
+  const allowance = creditLimited ? Math.min(max, maxTargetAreas(credits)) : max;
+  const overAllowance = creditLimited && selection.length > allowance;
+  const [budgetNotice, setBudgetNotice] = useState("");
+
+  // Budget raised (or areas removed) far enough: the notice no longer applies.
+  useEffect(() => {
+    if (budgetNotice && selection.length < allowance) setBudgetNotice("");
+  }, [allowance, budgetNotice, selection.length]);
+
+  // Adding beyond what the credits cover is refused with an explanation.
+  function exceedsBudget(next) {
+    if (!creditLimited || next.length <= selection.length || next.length <= allowance) return false;
+    const message = promotionTargetingMessage(checkPromotionTargeting({ credits, areas: next.length }), translateUi);
+    setBudgetNotice(message);
+    showToast("More credits needed", "warning");
+    return true;
+  }
 
   useEffect(() => {
     onIndexRef.current?.(index);
@@ -61,7 +91,10 @@ export default function RegionPicker({
       onChange?.(selectedIds.has(region.id) ? [] : [toRegionSelection(region, index?.countryIso)]);
       return;
     }
-    onChange?.(toggleRegionSelection(index, selection, region, { max }));
+    const next = toggleRegionSelection(index, selection, region, { max });
+    if (exceedsBudget(next)) return;
+    setBudgetNotice("");
+    onChange?.(next);
   }
 
   function toggleExpanded(regionId) {
@@ -84,7 +117,14 @@ export default function RegionPicker({
       const region = index?.byId.get(found.regionId);
       if (!region) throw Object.assign(new Error("not_found"), { code: "not_found" });
       if (!multiple) onChange?.([toRegionSelection(region, index.countryIso)], { source: "device" });
-      else if (!selectedIds.has(region.id)) onChange?.(toggleRegionSelection(index, selection, region, { max }), { source: "device" });
+      else if (!selectedIds.has(region.id)) {
+        const next = toggleRegionSelection(index, selection, region, { max });
+        if (exceedsBudget(next)) {
+          setLocate({ busy: false, message: "", tone: "" });
+          return;
+        }
+        onChange?.(next, { source: "device" });
+      }
       setLocate({ busy: false, message: t("regions.picker.locationFound", { name: region.name }), tone: "success" });
     } catch (error) {
       const key = error?.code === "denied" ? "locationDenied" : error?.code === "unsupported" ? "locationUnsupported" : "locationNotFound";
@@ -99,6 +139,7 @@ export default function RegionPicker({
     const count = counts ? Number(counts[region.id] || 0) : null;
     const open = expanded.has(region.id);
     const atLimit = multiple && !selected && !covered && selection.length >= max;
+    const atBudget = creditLimited && !selected && !covered && selection.length >= allowance;
     const detail = covered
       ? t("regions.picker.includedIn", { name: cover.name })
       : flat
@@ -116,7 +157,7 @@ export default function RegionPicker({
             aria-checked={selected || covered}
             disabled={disabled || covered || atLimit}
             onClick={() => choose(region)}
-            className={`group flex min-h-11 min-w-0 flex-1 items-center gap-3 rounded-xl px-2.5 py-2 text-left transition ${selected ? "bg-emerald-50 dark:bg-emerald-950/40" : "hover:bg-slate-100 dark:hover:bg-zinc-800/70"} disabled:cursor-not-allowed ${atLimit ? "opacity-50" : ""}`}
+            className={`group flex min-h-11 min-w-0 flex-1 items-center gap-3 rounded-xl px-2.5 py-2 text-left transition ${selected ? "bg-emerald-50 dark:bg-emerald-950/40" : "hover:bg-slate-100 dark:hover:bg-zinc-800/70"} disabled:cursor-not-allowed ${atLimit || atBudget ? "opacity-50" : ""}`}
           >
             <span
               aria-hidden="true"
@@ -182,6 +223,25 @@ export default function RegionPicker({
             </li>
           ))}
         </ul>
+      ) : null}
+
+      {creditLimited ? (
+        <p className="text-[11px] font-bold leading-5 text-slate-500 dark:text-zinc-400">{promotionAllowanceText(credits, translateUi)}</p>
+      ) : null}
+
+      {overAllowance ? (
+        <div role="alert" className="flex items-start gap-2 rounded-xl border border-amber-200 bg-amber-50 p-3 text-xs font-bold leading-5 text-amber-900 dark:border-amber-900 dark:bg-amber-950/40 dark:text-amber-200">
+          <AlertTriangle size={15} aria-hidden="true" className="mt-0.5 shrink-0" />
+          <span>{translateUi("You've chosen {value0} areas, but {value1} credits cover {value2}. Remove areas or add credits to continue.", { value0: selection.length, value1: Math.floor(Number(credits) || 0), value2: allowance })}</span>
+        </div>
+      ) : budgetNotice ? (
+        <div role="alert" className="flex items-start gap-2 rounded-xl border border-amber-200 bg-amber-50 p-3 text-xs font-bold leading-5 text-amber-900 dark:border-amber-900 dark:bg-amber-950/40 dark:text-amber-200">
+          <AlertTriangle size={15} aria-hidden="true" className="mt-0.5 shrink-0" />
+          <span className="min-w-0 flex-1">{budgetNotice}</span>
+          <button type="button" onClick={() => setBudgetNotice("")} aria-label={t("regions.picker.clear")} className="grid h-6 w-6 shrink-0 place-items-center rounded-full hover:bg-amber-100 dark:hover:bg-amber-900/40">
+            <X size={12} />
+          </button>
+        </div>
       ) : null}
 
       {status === "loading" ? (
@@ -258,7 +318,7 @@ export default function RegionPicker({
 
           {multiple ? (
             <div className="flex items-center justify-between gap-3 text-[11px] font-bold text-slate-500 dark:text-zinc-400">
-              <span>{selection.length >= max ? t("regions.picker.limit", { max }) : t("regions.picker.selectedCount", { count: selection.length, max })}</span>
+              <span>{selection.length >= max ? t("regions.picker.limit", { max }) : t("regions.picker.selectedCount", { count: selection.length, max: allowance })}</span>
               {selection.length ? (
                 <button type="button" disabled={disabled} onClick={() => onChange?.([])} className="rounded-lg px-2 py-1 font-black text-rose-600 hover:bg-rose-50 dark:hover:bg-rose-950/40">
                   {t("regions.picker.clear")}

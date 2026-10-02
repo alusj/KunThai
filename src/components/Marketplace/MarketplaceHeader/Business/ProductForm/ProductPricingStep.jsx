@@ -254,7 +254,9 @@ export default function ProductPricingStep({ productForm }) {
             <PromotionRegionSection
               mode={form.pricing.promotionRegionMode}
               regions={form.pricing.promotionRegions}
-              onChange={({ mode, regions }) => updateSection("pricing", { promotionRegionMode: mode, promotionRegions: regions })}
+              countries={form.pricing.promotionCountries}
+              credits={promotionCredits}
+              onChange={({ mode, regions, countries }) => updateSection("pricing", { promotionRegionMode: mode, promotionRegions: regions, promotionCountries: countries })}
             />
             {errors.promotionRegions ? <p className="mt-2 text-xs font-bold text-red-600">{errors.promotionRegions}</p> : null}
           </div>

@@ -224,7 +224,7 @@ export default function SpaceCreateScreen({ hideHeader = false, onCreated }) {
               value={form.location}
               onChange={(event) => updateField("location", event.target.value)}
               maxLength={120}
-              placeholder={i18nText("ui.literals.k6fb4e27edc8d")}
+              placeholder={[getActiveCountryProfile().cityPlaceholder, getActiveCountryProfile().name].filter(Boolean).join(", ")}
               className="h-12 w-full rounded-2xl bg-slate-100 px-4 text-sm font-bold text-slate-900 outline-none focus:ring-2 focus:ring-sky-200"
             />
           </Field>

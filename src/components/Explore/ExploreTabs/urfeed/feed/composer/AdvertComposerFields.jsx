@@ -34,9 +34,16 @@ import { readActiveExploreIdentity } from "../../../../../../Backend/services/ex
 import { getAdvertObjectiveRequirement, hasAdvertCoordinates } from "../../../../shared/advertUtils";
 import { useAddressAreaValidation } from "../../../../../shared/AddressAreaValidation";
 import { t as i18nText, uiText } from "../../../../../../i18n/index";
-import { getActiveCountryProfile } from "../../../../../../data/globalCountryProfiles";
+import { getActiveCountryProfile, getCountryPhonePlaceholder, getCountryProfile } from "../../../../../../data/globalCountryProfiles";
 import { describeRegionSelection, normalizeRegionSelection } from "../../../../../../Backend/services/regions/regionModel";
 import RegionPicker from "../../../../../shared/regions/RegionPicker";
+import CountryTargetPicker from "../../../../../shared/regions/CountryTargetPicker";
+import {
+  MULTI_COUNTRY_MIN_CREDITS,
+  checkPromotionTargeting,
+  normalizeCountrySelection,
+  promotionTargetingMessage,
+} from "../../../../../../Backend/services/regions/promotionTargeting";
 import { regionLabel, useCountryRegions } from "../../../../../shared/regions/regionHooks";
 import { uiText as translateUi, useI18n as useUiLocale } from "../../../../../../i18n/index.js";
 import { inlineErrorMessage } from "../../../../../../Backend/services/friendlyErrorService";
@@ -192,15 +199,26 @@ export default function AdvertComposerFields({
 
   const customDatesValid = advert.durationPreset !== "custom"
     || (advert.customStart && advert.customEnd && advert.customEnd >= advert.customStart);
-  const regionsReady = advert.regionMode !== "regions" || normalizeRegionSelection(advert.targetRegions).length > 0;
+  const chosenRegions = advert.regionMode === "regions" ? normalizeRegionSelection(advert.targetRegions) : [];
+  const chosenCountries = advert.regionMode === "countries" ? normalizeCountrySelection(advert.targetCountries) : [];
+  const regionsReady = (advert.regionMode !== "regions" || chosenRegions.length > 0)
+    && (advert.regionMode !== "countries" || chosenCountries.length > 0);
+  // The budget decides how many places the advert may reach.
+  const targetingCheck = checkPromotionTargeting({
+    credits: selectedCredits,
+    areas: chosenRegions.length,
+    countries: Math.max(1, chosenCountries.length),
+  });
+  const targetingMessage = promotionTargetingMessage(targetingCheck, uiText);
   const canContinue = step === 3
-    ? regionsReady
+    ? regionsReady && targetingCheck.ok
       : step === 4
       ? customDatesValid
       : step === 5
         ? selectedCredits >= minimumCredits
           && (advert.placement !== "both" || selectedCredits >= MINIMUM_EXPLORE_DUAL_MEDIA_VISIBILITY_CREDITS)
           && hasEnoughCredits
+          && targetingCheck.ok
           && !credits.loading
         : true;
 
@@ -255,7 +273,7 @@ export default function AdvertComposerFields({
             <div className="space-y-5">
               <ChoiceGrid options={SELECTABLE_AUDIENCES} value={advert.audienceType} onChange={(value) => onChange("audienceType", value)} />
 
-              <AdvertRegionTargeting advert={advert} onChange={onChange} />
+              <AdvertRegionTargeting advert={advert} credits={selectedCredits} onChange={onChange} onAdjustCredits={() => setStep(5)} />
 
               <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
                 <label className="block">
@@ -335,6 +353,15 @@ export default function AdvertComposerFields({
               selectedCredits={selectedCredits}
               durationDays={campaignDurationDays}
             />
+          ) : null}
+          {step === 5 && !targetingCheck.ok ? (
+            <div role="alert" className="mt-3 flex items-start gap-2 rounded-2xl border border-amber-200 bg-amber-50 p-3 text-xs font-bold leading-5 text-amber-900">
+              <MapPin size={15} aria-hidden="true" className="mt-0.5 shrink-0" />
+              <span className="min-w-0 flex-1">{targetingMessage}</span>
+              <button type="button" onClick={() => setStep(3)} className="shrink-0 rounded-lg bg-white px-2 py-1 font-black text-amber-900 shadow-sm">
+                {uiText("Edit places")}
+              </button>
+            </div>
           ) : null}
         </div>
 
@@ -442,6 +469,15 @@ function CreativeFields({
           <CampaignDetail label={uiText("Audience")} value={formatAudience(advert.audienceType)} />
           <CampaignDetail label={uiText("Schedule")} value={formatDuration(advert)} />
         </div>
+        {advert.regionMode === "countries" && normalizeCountrySelection(advert.targetCountries).length > 1 ? (
+          <p className="mt-3 flex items-start gap-2 rounded-2xl bg-emerald-50 px-3 py-2 text-xs font-bold text-emerald-800">
+            <Globe2 size={14} className="mt-0.5 shrink-0" />
+            {uiText("Shown in {value0} countries: {value1}", {
+              value0: normalizeCountrySelection(advert.targetCountries).length,
+              value1: normalizeCountrySelection(advert.targetCountries).map((iso) => getCountryProfile(iso)?.name || iso).join(", "),
+            })}
+          </p>
+        ) : null}
         {advert.regionMode === "regions" && normalizeRegionSelection(advert.targetRegions).length ? (
           <p className="mt-2 flex items-start gap-2 rounded-2xl bg-emerald-50 px-3 py-2 text-xs font-black text-emerald-800">
             <MapPin size={14} className="mt-0.5 flex-none" />
@@ -471,13 +507,13 @@ function CreativeFields({
 
       <label className="block">
         <span className="flex items-center gap-2 text-xs font-black uppercase tracking-[0.14em] text-slate-500"><Phone size={14} /> {i18nText("ui.literals.k8961d3bf56ef")}</span>
-        <input value={advert.phone} onChange={(event) => onChange("phone", event.target.value)} placeholder={i18nText("ui.literals.kc5a16fb6b294")} inputMode="tel" autoComplete="tel" maxLength={32} className="mt-2 h-12 w-full rounded-2xl border border-slate-200 bg-white px-4 text-sm font-bold text-slate-900 outline-none focus:border-amber-300 focus:ring-4 focus:ring-amber-100" />
+        <input value={advert.phone} onChange={(event) => onChange("phone", event.target.value)} placeholder={translateUi("Example: {value0}", { value0: getCountryPhonePlaceholder() })} inputMode="tel" autoComplete="tel" maxLength={32} className="mt-2 h-12 w-full rounded-2xl border border-slate-200 bg-white px-4 text-sm font-bold text-slate-900 outline-none focus:border-amber-300 focus:ring-4 focus:ring-amber-100" />
         <span className="mt-2 block text-xs font-bold leading-5 text-slate-500">{i18nText("ui.literals.k6457c92e34ae")}</span>
       </label>
 
       <label className="block">
         <span className="flex items-center gap-2 text-xs font-black uppercase tracking-[0.14em] text-slate-500"><MessageCircle size={14} /> {i18nText("ui.literals.k4955eb6c2b6d")}</span>
-        <input value={advert.whatsapp} onChange={(event) => onChange("whatsapp", event.target.value)} placeholder={i18nText("ui.literals.kc5a16fb6b294")} inputMode="tel" autoComplete="tel" maxLength={40} className="mt-2 h-12 w-full rounded-2xl border border-slate-200 bg-white px-4 text-sm font-bold text-slate-900 outline-none focus:border-amber-300 focus:ring-4 focus:ring-amber-100" />
+        <input value={advert.whatsapp} onChange={(event) => onChange("whatsapp", event.target.value)} placeholder={translateUi("Example: {value0}", { value0: getCountryPhonePlaceholder() })} inputMode="tel" autoComplete="tel" maxLength={40} className="mt-2 h-12 w-full rounded-2xl border border-slate-200 bg-white px-4 text-sm font-bold text-slate-900 outline-none focus:border-amber-300 focus:ring-4 focus:ring-amber-100" />
         <span className="mt-2 block text-xs font-bold leading-5 text-slate-500">{i18nText("ui.literals.k522512d3a3f9")}</span>
       </label>
 
@@ -740,30 +776,60 @@ function CampaignDetail({ label, value }) {
   );
 }
 
-// Limit an advert to people located in chosen states / districts.
-function AdvertRegionTargeting({ advert, onChange }) {
+// Where the advert is shown: the advertiser's whole country, chosen states /
+// districts in it, or several whole countries. How many places is set by the
+// credits (promotionTargeting.js; the database enforces the same rules).
+function AdvertRegionTargeting({ advert, credits = 0, onChange, onAdjustCredits }) {
   useUiLocale();
-  const country = getActiveCountryProfile()?.iso2 || "";
+  const homeProfile = getActiveCountryProfile();
+  const country = homeProfile?.iso2 || "";
   const { index } = useCountryRegions(country);
   const plural = regionLabel(index?.labelPlural || "Regions");
   const singular = regionLabel(index?.label || "Region");
-  const mode = advert.regionMode === "regions" ? "regions" : "everywhere";
+  const mode = ["regions", "countries"].includes(advert.regionMode) ? advert.regionMode : "everywhere";
   const selection = normalizeRegionSelection(advert.targetRegions);
+  const countries = normalizeCountrySelection(advert.targetCountries);
+  const countryName = index?.countryName || homeProfile?.name || country;
+  const multiCountryLocked = Number(credits || 0) < MULTI_COUNTRY_MIN_CREDITS;
   const options = [
-    { value: "everywhere", icon: Globe2, label: i18nText("regions.target.everywhereTitle"), description: i18nText("regions.target.everywhereAdvert") },
+    { value: "everywhere", icon: Globe2, label: uiText("All of {value0}", { value0: countryName }), description: uiText("Everyone in {value0} who matches your audience. Counts as one area.", { value0: countryName }) },
     { value: "regions", icon: MapPin, label: i18nText("regions.target.specificTitle", { plural }), description: i18nText("regions.target.specificDesc", { plural: plural.toLowerCase() }) },
+    {
+      value: "countries",
+      icon: Layers3,
+      label: uiText("Several countries"),
+      description: multiCountryLocked
+        ? uiText("From 100 credits — each extra country needs 50 more.")
+        : uiText("Reach people in more than one country, each as a whole."),
+    },
   ];
+
+  function chooseMode(value) {
+    onChange("regionMode", value);
+    // Several countries starts from the advertiser's own country.
+    if (value === "countries" && !countries.length && country) onChange("targetCountries", [country]);
+  }
 
   return (
     <section className="space-y-3">
       <p className="flex items-center gap-2 text-xs font-black uppercase tracking-[0.14em] text-slate-500"><MapPin size={14} /> {i18nText("regions.target.title")}</p>
-      <ChoiceGrid options={options} value={mode} onChange={(value) => onChange("regionMode", value)} />
+      <ChoiceGrid options={options} value={mode} onChange={chooseMode} />
       {mode === "regions" ? (
         <div className="rounded-[22px] border border-emerald-100 bg-emerald-50/40 p-3">
-          <RegionPicker country={country} value={selection} onChange={(next) => onChange("targetRegions", next)} allowLocate />
+          <RegionPicker country={country} value={selection} credits={credits} onChange={(next) => onChange("targetRegions", next)} allowLocate />
           <p className="mt-3 text-[11px] font-semibold leading-5 text-slate-500">{i18nText("regions.target.reachNote", { singular: singular.toLowerCase(), plural: plural.toLowerCase() })}</p>
           {!selection.length ? <p className="mt-2 text-xs font-black text-amber-700">{i18nText("regions.target.needOne", { singular: singular.toLowerCase() })}</p> : null}
         </div>
+      ) : null}
+      {mode === "countries" ? (
+        <div className="rounded-[22px] border border-emerald-100 bg-emerald-50/40 p-3">
+          <CountryTargetPicker value={countries} credits={credits} homeCountry={country} onChange={(next) => onChange("targetCountries", next)} />
+        </div>
+      ) : null}
+      {mode !== "everywhere" && onAdjustCredits ? (
+        <button type="button" onClick={onAdjustCredits} className="text-xs font-black text-sky-700 underline-offset-2 hover:underline">
+          {uiText("Change your credits")}
+        </button>
       ) : null}
     </section>
   );

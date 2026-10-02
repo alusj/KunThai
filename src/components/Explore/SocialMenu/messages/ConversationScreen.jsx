@@ -21,6 +21,7 @@ const PRESENCE_FRESH_MS = 45000;
 const PRESENCE_HEARTBEAT_MS = 25000;
 
 function getOtherParticipant(conversation, currentUserId) {
+  if (conversation?.counterpart) return conversation.counterpart;
   const otherId = conversation.participantIds?.find((id) => id !== currentUserId);
   return conversation.participants?.[otherId] || {};
 }
@@ -89,17 +90,28 @@ function usePeerPresence(conversationId, peerUserId, onActivity) {
   return presenceLabel;
 }
 
-export default function ConversationScreen({ conversation, currentUserId, loading = false, messages, onAction, onActivity, onBack, onSend, onViewProfile }) {
+export default function ConversationScreen({ conversation, currentUserId, loading = false, messages, onAction, onActivity, onBack, onSend, onViewProfile, replyingAs = "" }) {
   // KAI is not offered in Explore messages.
   useHideAiAssistant();
   const { t } = useI18n();
   const user = getOtherParticipant(conversation, currentUserId);
+  const peerIsSpace = user.accountType === "space" || Boolean(user.spaceId && !user.userId);
+  // In a Space inbox every team reply is "ours"; elsewhere only my own.
+  const isMine = (message) => (conversation?.spaceInbox
+    ? message.senderId !== conversation.customerId
+    : message.senderId === currentUserId);
+  // Name the teammate behind a Space reply that someone else on the team sent.
+  const teammateLabel = (message) => {
+    if (!conversation?.spaceInbox || message.senderId === currentUserId || !isMine(message)) return "";
+    const staffName = message.metadata?.actor?.staffName || "";
+    return staffName ? translateUi("Sent by {value0}", { value0: staffName }) : translateUi("Sent by your team");
+  };
   const messagesRef = useRef(null);
   // Read receipts: mark the newest of my messages the other side has read.
   // Honors the "Receipts" preference in Settings on this account.
   const receiptsEnabled = readExploreSettings().messages.readReceipts !== false;
   const lastSeenOwnMessageId = receiptsEnabled
-    ? [...messages].reverse().find((message) => message.senderId === currentUserId && message.read && !message.pending)?.id || ""
+    ? [...messages].reverse().find((message) => isMine(message) && message.read && !message.pending)?.id || ""
     : "";
   const presenceLabel = usePeerPresence(conversation?.id, user.userId, onActivity);
   const typingIndicator = presenceLabel === "typing…" || presenceLabel === "recording voice…";
@@ -111,6 +123,20 @@ export default function ConversationScreen({ conversation, currentUserId, loadin
 
   function openPeerProfile() {
     if (!onViewProfile) return;
+    if (peerIsSpace) {
+      onViewProfile({
+        ...user,
+        identityType: "space",
+        identityId: user.spaceId,
+        actorType: "space",
+        actorId: user.spaceId,
+        spaceId: user.spaceId,
+        userId: user.ownerUserId || "",
+        ownerUserId: user.ownerUserId || "",
+        accountType: "space",
+      });
+      return;
+    }
     onViewProfile({
       userId: user.userId || "",
       displayName: user.displayName || "Profile",
@@ -136,8 +162,11 @@ export default function ConversationScreen({ conversation, currentUserId, loadin
           ) : null}
         </button>
         <button type="button" onClick={openPeerProfile} className="kt-pressable min-w-0 rounded-lg text-left">
-          <p className="block max-w-full truncate text-left text-sm font-black text-slate-950">
-            {user.displayName || i18nText("ui.literals.kff4fc0276e96")}
+          <p className="flex max-w-full items-center gap-1.5 truncate text-left text-sm font-black text-slate-950">
+            <span className="truncate">{user.displayName || i18nText("ui.literals.kff4fc0276e96")}</span>
+            {peerIsSpace ? (
+              <span className="flex-none rounded-full bg-sky-100 px-1.5 py-0.5 text-[9px] font-black uppercase tracking-wide text-sky-700">{translateUi("Space")}</span>
+            ) : null}
           </p>
           {presenceLabel ? (
             <p
@@ -155,6 +184,11 @@ export default function ConversationScreen({ conversation, currentUserId, loadin
       </div>
 
       <MessagePrivacyNotice compact variant="explore" />
+      {conversation?.spaceInbox && replyingAs ? (
+        <p className="border-b border-sky-100 bg-sky-50 px-4 py-2 text-xs font-bold text-sky-800">
+          {translateUi("Replying as {value0}. Your Space team shares this conversation.", { value0: replyingAs })}
+        </p>
+      ) : null}
 
       <div ref={messagesRef} className="kt-message-thread space-y-3 bg-slate-50 px-4 py-4 kuntai-scrollbar-none">
         {loading && !messages.length ? <ConversationMessagesSkeleton /> : null}
@@ -168,8 +202,10 @@ export default function ConversationScreen({ conversation, currentUserId, loadin
           <MessageBubble
             key={message.id}
             message={translateUi(message)}
-            mine={message.senderId === currentUserId}
+            mine={isMine(message)}
             seen={message.id === lastSeenOwnMessageId}
+            senderLabel={teammateLabel(message)}
+            canBlock={!peerIsSpace}
             otherUserName={user.displayName || user.username || "This user"}
             onApproveLocationRequest={() => onAction?.("approveLocationRequest", { message, userId: user.userId })}
             onBlockUser={() => onAction?.("blockUser", { message, userId: user.userId })}

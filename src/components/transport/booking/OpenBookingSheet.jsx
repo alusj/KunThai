@@ -634,6 +634,7 @@ export default function OpenBookingSheet({ open, draft = null, onClose, onOpenTr
             eyebrow={translateUi("Open booking")}
             title={t("urride.booking.cautionTitle")}
             titleId="open-booking-caution-title"
+            requireScroll
             dontShowAgain={dontShowCaution}
             onDontShowAgainChange={setDontShowCaution}
             dontShowLabel={t("urride.booking.cautionDontShow")}

@@ -181,6 +181,8 @@ async function findStores(args) {
         name: store.name,
         city: store.city || undefined,
         kind: store.businessKind,
+        owner: store.ownerMatch ? store.ownerName : undefined,
+        listings: store.listingCount ?? undefined,
         verified: store.verificationStatus === "verified",
       })),
     },

@@ -1,6 +1,10 @@
 import supabase from "../../lib/supabaseClient";
 import { isMissingTable } from "../explore/errors";
 import { optimizeImageFile } from "./imageOptimization";
+import { COUNTRY_PRIMARY_TIMEZONES } from "../../../data/timezoneCountries";
+import { assertPromotionTargeting, normalizeCountrySelection, promotionReachesCountry } from "../regions/promotionTargeting";
+import { getActiveCountryProfile } from "../../../data/globalCountryProfiles";
+import { uiText } from "../../../i18n/index.js";
 import { validateVerticalMediaPackage } from "./verticalMediaValidation";
 import { assertBusinessCapacity, parseBusinessPlanError } from "../businessSubscriptionService";
 import { invalidateRegisteredBusinessesCache } from "./sellerRegistrationService";
@@ -13,17 +17,11 @@ import {
 } from "../visibilityCreditService";
 
 const BUSINESS_SELECT = "id,business_name,business_kind,description,city,country,country_iso,currency,address,phone,whatsapp_enabled,whatsapp,logo_url,banner_url,vertical_video_url,latitude,longitude,verification_status,open_time,close_time,delivery_enabled,pickup_enabled";
-const COUNTRY_TIMEZONES = {
-  BJ: "Africa/Porto-Novo", BF: "Africa/Ouagadougou", CV: "Atlantic/Cape_Verde", CI: "Africa/Abidjan",
-  GM: "Africa/Banjul", GH: "Africa/Accra", GN: "Africa/Conakry", GW: "Africa/Bissau",
-  LR: "Africa/Monrovia", ML: "Africa/Bamako", MR: "Africa/Nouakchott", NE: "Africa/Niamey",
-  NG: "Africa/Lagos", SN: "Africa/Dakar", SL: "Africa/Freetown", TG: "Africa/Lome",
-};
 const WEEKDAY_INDEX = { Sunday: 0, Monday: 1, Tuesday: 2, Wednesday: 3, Thursday: 4, Friday: 5, Saturday: 6 };
 
 export function getMarketplaceBusinessDay(countryIso = "") {
   try {
-    const weekday = new Intl.DateTimeFormat("en-US", { weekday: "long", timeZone: COUNTRY_TIMEZONES[String(countryIso).toUpperCase()] || "UTC" }).format(new Date());
+    const weekday = new Intl.DateTimeFormat("en-US", { weekday: "long", timeZone: COUNTRY_PRIMARY_TIMEZONES[String(countryIso).toUpperCase()] || "UTC" }).format(new Date());
     return WEEKDAY_INDEX[weekday] ?? new Date().getUTCDay();
   } catch {
     return new Date().getUTCDay();
@@ -464,18 +462,25 @@ export async function promoteVerticalListing(listingType, listing, options = {})
   if (options.regionMode === "regions" && !regionIds.length) {
     throw new Error("Choose at least one state or district for this boost. (code: PROMO_NO_REGION)");
   }
+  const countryIsos = options.regionMode === "countries" ? normalizeCountrySelection(options.countries) : [];
+  assertPromotionTargeting({ credits: creditBudget, areas: regionIds.length, countries: Math.max(1, countryIsos.length) }, uiText);
+  const multiCountry = countryIsos.length > 1;
 
   const { data, error } = await supabase.rpc(
-    regionIds.length ? "create_marketplace_listing_promotion_in_regions" : "create_marketplace_listing_promotion",
+    regionIds.length || multiCountry ? "create_marketplace_listing_promotion_in_regions" : "create_marketplace_listing_promotion",
     {
       p_listing_type: type,
       p_listing_id: listing.id,
       p_credit_budget: creditBudget,
       p_audience_type: audienceType,
       ...(regionIds.length ? { p_target_region_ids: regionIds } : {}),
+      ...(multiCountry ? { p_target_country_isos: countryIsos } : {}),
     },
   );
 
+  if (error && multiCountry && /p_target_country_isos|schema cache|PGRST202/i.test(`${error.code || ""} ${error.message || ""}`)) {
+    throw new Error(uiText("Boosts in several countries are not available yet. Choose one country or try again later."));
+  }
   if (error) throw new Error(`${error.message} (code: PROMO_RPC)`);
 
   if (typeof window !== "undefined") {
@@ -704,6 +709,7 @@ function promotedVerticalAd(listingType, row, promotion = {}) {
     countryCode: row.countryIso || "",
     promotionAudience: promotion.metadata?.audienceType || "countrywide",
     promotionCredits: Number(promotion.credit_budget || 0),
+    promotionCountries: Array.isArray(promotion.target_country_isos) ? promotion.target_country_isos : [],
     promotedAt: promotion.created_at || "",
     // The raw (business-normalized) row, so tapping the Sponsored card can open
     // the vertical detail via the "marketplace-open-vertical" event.
@@ -717,16 +723,26 @@ function promotedVerticalAd(listingType, row, promotion = {}) {
 export async function fetchPromotedVerticalListings(limit = 12) {
   const nowIso = new Date().toISOString();
   // Only boosts for the whole country or for the shopper's own state/district.
-  const { data: promos, error } = await selectRegionScopedPromotions(() => supabase
+  const buildQuery = (columns) => () => supabase
     .from("marketplace_promotions")
-    .select("meal_id,property_id,listing_type,created_at,ends_at,status,credit_budget,metadata")
+    .select(columns)
     .eq("status", "active")
     .in("listing_type", ["meal", "property"])
     .gt("ends_at", nowIso)
     .order("created_at", { ascending: false })
-    .limit(Math.max(limit, 1) * 3));
+    .limit(Math.max(limit, 1) * 3);
+  const baseColumns = "meal_id,property_id,listing_type,created_at,ends_at,status,credit_budget,metadata";
+  let { data: promos, error } = await selectRegionScopedPromotions(buildQuery(`${baseColumns},target_country_isos`));
+  // Before the country-targeting migration the column does not exist yet.
+  if (error && /target_country_isos/i.test(error.message || "")) {
+    ({ data: promos, error } = await selectRegionScopedPromotions(buildQuery(baseColumns)));
+  }
 
   if (error || !promos?.length) return [];
+  // Boosts that paid for specific countries reach only those countries.
+  const viewerCountry = getActiveCountryProfile().iso2;
+  promos = promos.filter((promo) => promotionReachesCountry(promo.target_country_isos, viewerCountry));
+  if (!promos.length) return [];
 
   const order = [];
   const mealIds = [];

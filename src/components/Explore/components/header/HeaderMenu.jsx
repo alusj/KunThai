@@ -28,6 +28,7 @@ import { useI18n } from "../../../../i18n";
 
 import MenuSection from "./menu/MenuSection";
 import MenuActionButton from "./menu/MenuActionButton";
+import SpaceActivityBadge, { SpaceActivitySummary } from "../../shared/SpaceActivityBadge";
 import { t as i18nText } from "../../../../i18n/index";
 
 // Each item is [navigationTarget, i18nKey, icon]; label/description resolve from
@@ -67,7 +68,7 @@ const MENU_GROUPS = [
   },
 ];
 
-export function SocialMenuContent({ compact = false, currentProfile = null, onClose, onNavigate, onSelectIdentity, spaces = [] }) {
+export function SocialMenuContent({ compact = false, currentProfile = null, onClose, onNavigate, onSelectIdentity, spaces = [], spaceActivity = {} }) {
   const { t } = useI18n();
   const handleSelect = (target) => {
     onClose?.();
@@ -137,9 +138,13 @@ export function SocialMenuContent({ compact = false, currentProfile = null, onCl
             <div className="space-y-2">
               {spaces.map((space) => {
                 const active = currentProfile?.spaceId && currentProfile.spaceId === space.spaceId;
+                // No badge on the Space being acted as: its activity is on screen.
+                const activity = active ? null : spaceActivity[space.spaceId];
                 return (
                   <MenuActionButton
                     key={space.spaceId}
+                    badge={<SpaceActivityBadge activity={activity} />}
+                    detail={<SpaceActivitySummary activity={activity} className="mt-0.5" />}
                     icon={HiOutlineBuildingOffice2}
                     label={space.displayName || t("explore.spaceFallback")}
                     description={i18nText("ui.literals.k46d33b4835b6", { value0: active ? t("explore.spaceActivePrefix") : "", value1: space.categoryLabel || t("explore.spaceDefault"), value2: space.memberRole || t("explore.spaceMember") })}

@@ -30,6 +30,10 @@ export async function fetchSellerPromotions() {
       audienceType: metadata.audienceType || "countrywide",
       // States/districts this boost is limited to (empty = whole country).
       targetRegions: Array.isArray(metadata.targetRegions) ? metadata.targetRegions : [],
+      // Countries this boost reaches (several only from 100 credits).
+      targetCountries: Array.isArray(promotion.target_country_isos) && promotion.target_country_isos.length
+        ? promotion.target_country_isos
+        : Array.isArray(metadata.targetCountries) ? metadata.targetCountries : [],
       durationDays: Number(metadata.durationDays || 0),
       views: promotion.views,
       orders: promotion.orders,
