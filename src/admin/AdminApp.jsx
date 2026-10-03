@@ -4,6 +4,7 @@ import { useAuth } from "../Backend/hooks/useAuth";
 import supabase from "../Backend/lib/supabaseClient";
 import AdminLogin from "./AdminLogin";
 import AdminMfaGate from "./AdminMfaGate";
+import AdminConsoleLock from "./AdminConsoleLock";
 import { ADMIN_NAV_GROUPS, canAccess } from "./adminConfig";
 import { enableAdminPreview, getAdminAccess, getAdminCases, getCaseSearchText, getCountryOptions, getDashboardSummary, isAdminPreview, matchesCaseCountry } from "./adminService";
 import { inlineErrorMessage } from "../Backend/services/friendlyErrorService";
@@ -258,7 +259,9 @@ export default function AdminApp() {
   const activeUser = user || { id: "preview-user", email: "chief@kunthai.preview" };
   return (
     <AdminMfaGate bypass={preview || access.requiresMfa === false}>
-      <AdminWorkspace access={access} user={activeUser} preview={preview} />
+      <AdminConsoleLock user={activeUser} bypass={preview}>
+        <AdminWorkspace access={access} user={activeUser} preview={preview} />
+      </AdminConsoleLock>
     </AdminMfaGate>
   );
 }

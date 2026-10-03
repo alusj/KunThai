@@ -64,6 +64,14 @@ select pg_temp.id('support'), id, 2 from public.admin_roles where role_key = 'su
 insert into public.admin_assignments (user_id, role_id, authority_level)
 select pg_temp.id('transport'), id, 4 from public.admin_roles where role_key = 'transport_manager';
 update public.admin_staff_profiles set level_key = 'executive' where user_id = pg_temp.id('super');
+-- Admin powers need an unlocked console (20261003100000). Open one for each
+-- test admin; the lock itself is checked in the last section.
+do $$ begin
+  if to_regclass('public.admin_console_sessions') is not null then
+    insert into public.admin_console_sessions (user_id, session_key, method, expires_at)
+    select v, '', 'passcode', now() + interval '1 day' from t_ids where k in ('super', 'mgr', 'risk', 'support', 'transport');
+  end if;
+end $$;
 
 do $$ begin
   assert (select count(*) from public.admin_staff_profiles where user_id in (pg_temp.id('mgr'), pg_temp.id('risk'), pg_temp.id('support'))) = 3,
@@ -402,7 +410,112 @@ select pg_temp.act_as('buyer');
 select pg_temp.expect_error($q$select * from public.admin_list_marketplace_businesses()$q$, 'Not authorized');
 select pg_temp.expect_error($q$select public.admin_platform_overview()$q$, 'Not authorized');
 
+
+-- --------------------------------------------------- 10. console lock ---
+-- Claims as Supabase sends them: auth session id, assurance level, MFA time.
+create or replace function pg_temp.claims(p_key text, p_aal text, p_mfa_age interval) returns void language plpgsql as $f$
+begin
+  perform set_config('request.jwt.claims', json_build_object(
+    'sub', pg_temp.id(p_key), 'session_id', 'checks-session', 'aal', p_aal,
+    'amr', case when p_mfa_age is null then '[]'::json
+      else json_build_array(json_build_object('method', 'totp', 'timestamp', extract(epoch from now() - p_mfa_age)::bigint)) end
+  )::text, true);
+end;
+$f$;
+
+do $$
+begin
+  if to_regclass('public.admin_console_sessions') is null then
+    raise notice 'Console lock migration not applied; skipping console lock checks.';
+  end if;
+end $$;
+
+select pg_temp.act_as('mgr');
+select pg_temp.claims('mgr', 'aal1', null);
+do $$
+begin
+  if to_regclass('public.admin_console_sessions') is null then return; end if;
+  -- A new auth session has no open console: every admin power is gone.
+  assert not public.admin_has_permission('marketplace.businesses.view', 'marketplace'), 'a locked console has no admin powers';
+  assert (public.admin_console_status() ->> 'unlocked')::boolean = false, 'status reports locked';
+  assert (public.admin_console_status() ->> 'passcodeSet')::boolean = false, 'no passcode yet';
+  -- Checks about OTHER admins (notifications, jobs) still work.
+  assert public.admin_has_permission('marketplace.businesses.view', 'marketplace', pg_temp.id('super')) is not null, 'checks about others still evaluate';
+  begin
+    perform public.admin_set_console_passcode('KunThai-Ops-71');
+    raise exception 'setting a passcode without a fresh authenticator check must fail';
+  exception when others then
+    if sqlerrm not like '%authenticator%' then raise; end if;
+  end;
+end $$;
+
+select pg_temp.claims('mgr', 'aal2', interval '1 minute');
+do $$
+declare
+  v jsonb;
+  i integer;
+begin
+  if to_regclass('public.admin_console_sessions') is null then return; end if;
+  begin
+    perform public.admin_set_console_passcode('123456');
+    raise exception 'a trivial passcode must be refused';
+  exception when others then
+    if sqlerrm not like '%too easy%' then raise; end if;
+  end;
+  v := public.admin_set_console_passcode('KunThai-Ops-71');
+  assert (v ->> 'passcodeSet')::boolean and (v ->> 'unlocked')::boolean, 'setting the passcode opens the console';
+  assert public.admin_has_permission('marketplace.businesses.view', 'marketplace'), 'an unlocked console has its powers back';
+  begin
+    perform 1 from public.admin_console_passcodes;
+    raise exception 'clients must not be able to read passcode hashes';
+  exception when insufficient_privilege then null;
+  end;
+
+  perform public.admin_lock_console();
+  assert not public.admin_has_permission('marketplace.businesses.view', 'marketplace'), 'locking removes the powers immediately';
+
+  v := public.admin_unlock_console('wrong-code');
+  assert v ->> 'reason' = 'wrong_passcode' and (v ->> 'attemptsLeft')::int = 4, 'a wrong passcode counts down';
+  v := public.admin_unlock_console('KunThai-Ops-71');
+  assert (v ->> 'ok')::boolean, 'the right passcode unlocks';
+  assert (public.admin_console_status() ->> 'attemptsLeft')::int = 5, 'success resets the counter';
+
+  perform public.admin_lock_console();
+  for i in 1..5 loop
+    v := public.admin_unlock_console('nope-' || i);
+  end loop;
+  assert v ->> 'reason' = 'locked_out', 'five wrong passcodes lock the console out';
+  v := public.admin_unlock_console('KunThai-Ops-71');
+  assert v ->> 'reason' = 'locked_out', 'even the right passcode waits out the lockout';
+  assert exists (select 1 from public.admin_audit_logs where action_key = 'security.console_lockout' and resource_id = pg_temp.id('mgr')), 'the lockout is audited';
+
+  -- A fresh authenticator check is the way back in.
+  v := public.admin_unlock_console_with_mfa();
+  assert (v ->> 'unlocked')::boolean, 'the authenticator unlocks after a lockout';
+  v := public.admin_console_heartbeat();
+  assert (v ->> 'expiresAt')::timestamptz > now() + interval '5 minutes', 'activity slides the session forward';
+end $$;
+
+select pg_temp.claims('mgr', 'aal2', interval '20 minutes');
+do $$
+begin
+  if to_regclass('public.admin_console_sessions') is null then return; end if;
+  perform public.admin_lock_console();
+  begin
+    perform public.admin_unlock_console_with_mfa();
+    raise exception 'an old authenticator check must not unlock';
+  exception when others then
+    if sqlerrm not like '%authenticator%' then raise; end if;
+  end;
+end $$;
 select pg_temp.act_as(null);
+select set_config('request.jwt.claims', '', true);
+do $$
+begin
+  if to_regclass('public.admin_console_passcodes') is null then return; end if;
+  assert (select passcode_hash from public.admin_console_passcodes where user_id = pg_temp.id('mgr')) like '$2%', 'the passcode is stored as a bcrypt hash';
+  assert (select passcode_hash from public.admin_console_passcodes where user_id = pg_temp.id('mgr')) not like '%KunThai-Ops-71%', 'never in plain text';
+end $$;
 select 'ADMIN OPERATIONS PLATFORM: ALL CHECKS PASSED' as result;
 
 rollback;

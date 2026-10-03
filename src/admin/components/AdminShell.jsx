@@ -19,6 +19,7 @@ import {
   Landmark,
   LayoutDashboard,
   LifeBuoy,
+  Lock,
   LogOut,
   Menu,
   MessagesSquare,
@@ -50,6 +51,7 @@ import {
 import { t as i18nText } from "../../i18n/index";
 import { uiText as translateUi, useI18n as useUiLocale } from "../../i18n/index.js";
 import { inlineErrorMessage } from "../../Backend/services/friendlyErrorService";
+import { useConsoleLock } from "../consoleLockContext";
 
 const ICONS = {
   BadgeCheck,
@@ -98,6 +100,7 @@ function activityMenuButtonClass(danger = false) {
 }
 
 export default function AdminShell({ access, user, page, setPage, children, caseCount = 0, onActivity, onSearch }) {
+  const consoleLock = useConsoleLock();
   useUiLocale();
   const [menuOpen, setMenuOpen] = useState(false);
   const [profileOpen, setProfileOpen] = useState(false);
@@ -549,6 +552,12 @@ export default function AdminShell({ access, user, page, setPage, children, case
             ) : null}
           </div>
 
+          {consoleLock.enabled ? (
+            <button type="button" title="Lock console" aria-label="Lock console" onClick={consoleLock.lockNow} className="grid h-10 w-10 shrink-0 place-items-center rounded-md border border-zinc-200 bg-white text-zinc-600 hover:bg-zinc-50 hover:text-zinc-950">
+              <Lock size={18} />
+            </button>
+          ) : null}
+
           <div className="relative">
             <button type="button" onClick={() => { setProfileOpen((value) => !value); setActivityOpen(false); setActivityActionOpen(""); setActivityUndoDraft(null); }} className="flex h-10 items-center gap-2 rounded-md border border-zinc-200 bg-white px-2 text-left hover:bg-zinc-50">
               <span className="grid h-7 w-7 shrink-0 place-items-center rounded-md bg-emerald-100 text-xs font-black text-emerald-800">
@@ -563,6 +572,11 @@ export default function AdminShell({ access, user, page, setPage, children, case
                   <p className="truncate text-sm font-black text-zinc-900">{user?.email || i18nText("ui.literals.ka51a9ebc609d")}</p>
                   <p className="mt-1 text-xs font-semibold text-zinc-500">{role?.name}</p>
                 </div>
+                {consoleLock.enabled ? (
+                  <button type="button" onClick={() => { setProfileOpen(false); consoleLock.lockNow(); }} className="mt-1 flex h-10 w-full items-center gap-2 rounded-md px-2 text-sm font-bold text-zinc-800 hover:bg-zinc-100">
+                    <Lock size={17} /> Lock console
+                  </button>
+                ) : null}
                 <button type="button" onClick={() => supabase.auth.signOut({ scope: "local" })} className="mt-1 flex h-10 w-full items-center gap-2 rounded-md px-2 text-sm font-bold text-red-700 hover:bg-red-50">
                   <LogOut size={17} /> {i18nText("ui.literals.kdc1649a16c14")}
                 </button>
