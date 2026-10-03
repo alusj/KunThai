@@ -245,3 +245,55 @@ export function formatDuration(seconds) {
   const remaining = minutes % 60;
   return `${hours}h ${remaining}m`;
 }
+
+// --- Road distances for many destinations at once ------------------------------
+
+const ROAD_DISTANCE_MEMORY = new Map();
+const ROAD_DISTANCE_TTL_MS = 10 * 60 * 1000;
+
+function roadDistanceKey(origin, point) {
+  return `${Number(origin.lat).toFixed(3)},${Number(origin.lng).toFixed(3)}>${Number(point.lat).toFixed(4)},${Number(point.lng).toFixed(4)}`;
+}
+
+// Driving distance (metres) from `origin` to each point, in the same order;
+// null where the road network gives no answer. One request to the OSRM table
+// service, the same engine as the route fallback, so a search result and its
+// route agree. Resolves to all-null instead of throwing.
+export async function getRoadDistancesFrom(origin, points = [], { timeoutMs = 6000 } = {}) {
+  if (!hasValidPoint(origin) || !points.length) return points.map(() => null);
+  const start = normalizePoint(origin);
+  const results = points.map((point) => {
+    if (!hasValidPoint(point)) return null;
+    const cached = ROAD_DISTANCE_MEMORY.get(roadDistanceKey(start, point));
+    return cached && Date.now() - cached.savedAt < ROAD_DISTANCE_TTL_MS ? cached.meters : undefined;
+  });
+  const missing = points.map((point, index) => ({ point, index })).filter(({ point, index }) => results[index] === undefined && hasValidPoint(point));
+  if (!missing.length) return results.map((value) => value ?? null);
+
+  const controller = typeof AbortController !== "undefined" ? new AbortController() : null;
+  const timer = controller ? setTimeout(() => controller.abort(), timeoutMs) : null;
+  try {
+    const coordinates = [start, ...missing.map(({ point }) => normalizePoint(point))]
+      .map((point) => `${point.lng},${point.lat}`)
+      .join(";");
+    const response = await fetch(
+      `https://router.project-osrm.org/table/v1/driving/${coordinates}?sources=0&annotations=distance`,
+      controller ? { signal: controller.signal } : undefined,
+    );
+    const data = await response.json().catch(() => null);
+    const row = response.ok && data?.code === "Ok" ? data.distances?.[0] : null;
+    missing.forEach(({ point, index }, position) => {
+      const raw = row?.[position + 1];
+      const meters = raw == null ? Number.NaN : Number(raw); // null = no road route
+      const value = Number.isFinite(meters) && meters >= 0 ? meters : null;
+      results[index] = value;
+      if (value !== null) ROAD_DISTANCE_MEMORY.set(roadDistanceKey(start, point), { meters: value, savedAt: Date.now() });
+    });
+  } catch {
+    missing.forEach(({ index }) => { results[index] = null; });
+  } finally {
+    if (timer) clearTimeout(timer);
+  }
+  if (ROAD_DISTANCE_MEMORY.size > 500) ROAD_DISTANCE_MEMORY.clear();
+  return results.map((value) => value ?? null);
+}

@@ -47,6 +47,7 @@ import { buildFleetRegistrationAiContext } from "./fleetRegistrationAi";
 import { t as i18nText } from "../../../i18n/index";
 import { uiText as translateUi, useI18n as useUiLocale } from "../../../i18n/index.js";
 import { inlineErrorMessage } from "../../../Backend/services/friendlyErrorService";
+import DeferredVerificationNotice from "../../shared/DeferredVerificationNotice";
 
 // Stored enum values stay English; display localized via urride.fleetEdit.enum.
 const availabilityOptions = ["Full-time", "Part-time", "Scheduled", "Weekends only", "Night service"];
@@ -848,6 +849,7 @@ export default function FleetRegistrationDrawer({ onClose, onComplete, onSaveExi
                   <h2 className="font-bold text-gray-950">{t("urride.fleetEdit.documentsTitle")}</h2>
                   <p className="text-xs text-gray-500">{t("urride.fleetEdit.documentsNote")}</p>
                 </div>
+                <DeferredVerificationNotice subject="operator" className="mb-4" />
                 {documentsSkipped && (
                   <div className="mb-3 rounded-2xl border border-red-200 bg-red-50 p-3 text-sm font-semibold text-red-800">
                     {t("urride.fleetReg.skippedNotice")}
@@ -983,6 +985,10 @@ export default function FleetRegistrationDrawer({ onClose, onComplete, onSaveExi
             <h2 id="fleet-skip-title" className="text-lg font-black text-gray-950">{t("urride.fleetReg.skipTitle")}</h2>
             <p className="mt-2 text-sm leading-6 text-gray-600">
               {t("urride.fleetReg.skipBody")}
+            </p>
+            <p className="mt-3 rounded-2xl border-2 border-red-200 bg-red-50 px-3 py-2.5 text-sm font-semibold leading-6 text-red-900">
+              <span className="block font-black uppercase tracking-wide text-red-700">{t("verificationNotice.warningTitle")}</span>
+              {t("verificationNotice.warningBody")}
             </p>
           </div>
         </div>

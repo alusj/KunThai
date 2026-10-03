@@ -84,6 +84,7 @@ import { uiText as translateUi, useI18n as useUiLocale } from "../../i18n/index.
 import { inlineErrorMessage, shortErrorToast } from "../../Backend/services/friendlyErrorService";
 import AppPortal from "../shared/AppPortal";
 import EnforcementNoticeBanner from "../shared/EnforcementNoticeBanner";
+import { useDashboardResumeHold } from "../../Backend/hooks/useDashboardResumeHold";
 
 function formatOperatorMoney(value, account = null) {
   return formatCountryMoney(value, account?.form?.currency || account?.form?.countryCode || account?.form?.country || getCountryCurrencyCode());
@@ -250,6 +251,9 @@ export default function OperatorDashboardScreen({
       ["accepted", "arrived", "start_requested", "in_progress", "paused"].includes(trip.status)),
     [waitingPassengers],
   );
+  // An operator mid-trip often leaves the app for a while (driving); returning
+  // must land back on the trip, not on a dashboard.
+  useDashboardResumeHold(hasActiveTrip, "operator-active-trip");
   const activeTripRef = useRef(hasActiveTrip);
   activeTripRef.current = hasActiveTrip;
 

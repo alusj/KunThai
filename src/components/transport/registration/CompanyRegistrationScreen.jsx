@@ -61,6 +61,7 @@ import { useAiScreen } from "../../../Backend/services/ai/aiScreenContext";
 import { buildCompanyRegistrationAiContext } from "./companyRegistrationAi";
 import { uiText as translateUi, useI18n as useUiLocale } from "../../../i18n/index.js";
 import { inlineErrorMessage } from "../../../Backend/services/friendlyErrorService";
+import DeferredVerificationNotice from "../../shared/DeferredVerificationNotice";
 
 const steps = [
   { labelKey: "urride.companyReg.stepCompany", icon: FiBriefcase },
@@ -1336,6 +1337,7 @@ function CompanyIdentityStep({ documentRequirements = [], errors = {}, form, onC
           <span className="mt-2 block text-xs font-semibold leading-5 text-slate-500">{t("urride.companyReg.ownerIdHelper")}</span>
         </label>
       </div>
+      <DeferredVerificationNotice subject="company" className="mt-5" />
       <DocumentGrid documents={documentRequirements.map((requirement) => documentGridItem(requirement))} uploads={form.documents} onUpload={onDocument} />
     </div>
   );

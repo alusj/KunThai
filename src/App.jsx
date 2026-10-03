@@ -49,6 +49,8 @@ import {
   resolveScreenshotAttachment,
 } from "./Backend/services/screenshotCaptureService";
 import { readDefaultMainPage } from "./Backend/services/mainDashboardPreference";
+import { resolveResumeDashboard, shouldResetToDashboard } from "./Backend/services/dashboardResume";
+import { clearBrowserBackStack } from "./Backend/hooks/useBrowserBack";
 import { lazyWithRetry } from "./Backend/utils/lazyWithRetry";
 import LazyRouteBoundary from "./components/shared/LazyRouteBoundary";
 import AppStartupSkeleton from "./components/shared/AppStartupSkeleton";
@@ -259,6 +261,27 @@ export default function App() {
   const [accountControl, setAccountControl] = useState(null);
   const [twoFactorPending, setTwoFactorPending] = useState(null);
   const [returningIntroOpen, setReturningIntroOpen] = useState(false);
+  // Bumped when KunThai returns from a long time in the background: the main
+  // dashboards remount, so inner screens (messages, settings, profiles) close.
+  const [dashboardResumeKey, setDashboardResumeKey] = useState(0);
+  const resetToDashboardRef = useRef(null);
+  resetToDashboardRef.current = () => {
+    const target = resolveResumeDashboard({
+      explicitDefault: readDefaultMainPage(),
+      primarySurface: onboardingProfile?.primarySurface,
+    });
+    clearBrowserBackStack();
+    clearBrowserHash();
+    setExploreFullScreen(false);
+    setMarketplaceNav({ root: "marketplace", sub: null });
+    setMarketplaceActivityOpen(false);
+    setTransportActivityOpen(false);
+    setTransportAreaRequest(null);
+    setTransportNavigationRequest(null);
+    setMainPageDirection("forward");
+    setPage(target);
+    setDashboardResumeKey((current) => current + 1);
+  };
   const appGestureRef = useRef(null);
   const pagePanelRef = useRef(null);
   const userId = user?.id || "";
@@ -296,6 +319,12 @@ export default function App() {
       }
 
       const returnedAt = Date.now();
+      // Away 15+ minutes: open the preferred dashboard with a clean Back
+      // stack. Shorter interruptions keep the current screen. Live trips and
+      // navigation hold this off (see dashboardResume.js).
+      if (backgroundedAt && shouldResetToDashboard(returnedAt - backgroundedAt)) {
+        resetToDashboardRef.current?.();
+      }
       const lastActivity = backgroundedAt || readReturningUserActivity(userId);
       if (shouldShowReturningUserIntro(userId, returnedAt, lastActivity)) {
         setReturningIntroOpen(true);
@@ -886,6 +915,7 @@ export default function App() {
           {page === "explore" ? (
             <section className={pagePanelClass("explore")} aria-hidden={false}>
               <Explore
+                key={`explore-${dashboardResumeKey}`}
                 active
                 onNavigateMain={changePage}
                 onScreenModeChange={setExploreFullScreen}
@@ -898,6 +928,7 @@ export default function App() {
           {page === "marketplace" ? (
             <section ref={pagePanelRef} className={pagePanelClass("marketplace")} aria-hidden={false}>
               <Marketplace
+                key={`marketplace-${dashboardResumeKey}`}
                 nav={marketplaceNav}
                 setNav={setMarketplaceNav}
                 onActivityChange={setMarketplaceActivityOpen}
@@ -913,6 +944,7 @@ export default function App() {
               inert={page === "transport" ? undefined : "true"}
             >
               <Transport
+                key={`transport-${dashboardResumeKey}`}
                 onActivityChange={setTransportActivityOpen}
                 areaViewRequest={transportAreaRequest}
                 onAreaViewRequestHandled={setTransportAreaRequest}

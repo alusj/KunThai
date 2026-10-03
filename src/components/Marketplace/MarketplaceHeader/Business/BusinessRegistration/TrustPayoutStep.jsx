@@ -5,6 +5,7 @@ import {
   getUrMallDocumentRequirements,
 } from "../../../../../data/globalDocumentRequirements";
 import { useI18n, t } from "../../../../../i18n";
+import DeferredVerificationNotice from "../../../../shared/DeferredVerificationNotice";
 
 export default function TrustPayoutStep({ registration }) {
   useI18n();
@@ -26,6 +27,8 @@ export default function TrustPayoutStep({ registration }) {
           </div>
         </div>
       </section>
+
+      <DeferredVerificationNotice subject="business" />
 
       <div className="grid gap-4 sm:grid-cols-2">
         {documentRequirements.map((requirement) => (

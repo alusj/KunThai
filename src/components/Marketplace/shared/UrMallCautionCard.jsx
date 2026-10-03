@@ -1,4 +1,4 @@
-import { BadgeCheck, Clock, FileText, House, Landmark, ShieldAlert, ShoppingBag, Store, UtensilsCrossed } from "lucide-react";
+import { Ban, BadgeCheck, Clock, FileText, House, Landmark, ShieldAlert, ShoppingBag, Store, UtensilsCrossed } from "lucide-react";
 
 import { useI18n, t } from "../../../i18n";
 import PlanStagesCard from "../../shared/PlanStagesCard";
@@ -54,6 +54,16 @@ export default function UrMallCautionCard({ showMenuNote = true }) {
             <p className="mt-2 text-xs font-semibold leading-5 text-slate-600">{t(bodyKey)}</p>
           </article>
         ))}
+      </div>
+
+      <div className="mt-3 flex items-start gap-3 rounded-2xl border-2 border-red-200 bg-red-50 p-4">
+        <span className="grid h-10 w-10 shrink-0 place-items-center rounded-xl bg-red-100 text-red-700">
+          <Ban size={19} />
+        </span>
+        <div>
+          <h3 className="font-black uppercase tracking-wide text-red-700">{t("verificationNotice.warningTitle")}</h3>
+          <p className="mt-1 text-xs font-semibold leading-5 text-red-900">{t("verificationNotice.warningBody")}</p>
+        </div>
       </div>
 
       <div className="mt-4 rounded-2xl border border-slate-200 bg-white p-4">

@@ -1,4 +1,4 @@
-import { BadgeCheck, Building2, BusFront, Clock, FileText, ShieldAlert, Truck, UserRound } from "lucide-react";
+import { Ban, BadgeCheck, Building2, BusFront, Clock, FileText, ShieldAlert, Truck, UserRound } from "lucide-react";
 
 import { useI18n, t } from "../../../i18n";
 import PlanStagesCard from "../../shared/PlanStagesCard";
@@ -46,6 +46,16 @@ export default function TransportCautionCard({ showMenuNote = true }) {
         {VERIFICATION_GUIDES.map(({ bodyKey, icon: Icon, titleKey }) => (
           <Guide key={titleKey} icon={Icon} title={t(titleKey)} body={t(bodyKey)} tone="emerald" />
         ))}
+      </div>
+
+      <div className="mt-3 flex items-start gap-3 rounded-2xl border-2 border-red-200 bg-red-50 p-4">
+        <span className="grid h-10 w-10 shrink-0 place-items-center rounded-xl bg-red-100 text-red-700">
+          <Ban size={19} />
+        </span>
+        <div>
+          <h3 className="font-black uppercase tracking-wide text-red-700">{t("verificationNotice.warningTitle")}</h3>
+          <p className="mt-1 text-xs font-semibold leading-5 text-red-900">{t("verificationNotice.warningBody")}</p>
+        </div>
       </div>
 
       <div className="mt-4 rounded-2xl border border-slate-200 bg-white p-4">

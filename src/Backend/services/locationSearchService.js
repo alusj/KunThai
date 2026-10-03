@@ -491,3 +491,58 @@ export async function resolveAddressLocation(query, center = null, options = {})
   )) || null;
   return { place, results };
 }
+
+// --- Distances and labels shown in Area View ---------------------------------
+
+export { formatDistance as formatPlaceDistance };
+
+// Search ranks places around the map's centre, but the distance shown to the
+// person must be from where they actually are, the same origin the routing
+// card uses. Recomputes the straight-line distance from `origin`.
+export function withDistancesFrom(places = [], origin = null) {
+  const start = normalizeCenter(origin);
+  if (!start) return places;
+  return places.map((place) => {
+    const distanceMeters = distanceInMeters(start, place);
+    return { ...place, distanceMeters, distance: formatDistance(distanceMeters), distanceIsRoad: false };
+  });
+}
+
+// "Juba Hill, Freetown": the place's own name plus its first area. A bare
+// area ("Freetown, Western Area") is not a destination anyone recognises.
+export function placeDisplayLabel(place) {
+  const name = String(place?.name || place?.label || place?.placeName || "").trim();
+  const address = String(place?.address || "").trim();
+  if (!name) return address;
+  if (!address) return name;
+  if (address.toLowerCase().startsWith(name.toLowerCase())) return address;
+  const area = address.split(",").map((part) => part.trim()).find((part) => part && part.toLowerCase() !== name.toLowerCase());
+  return area ? `${name}, ${area}` : name;
+}
+
+const REVERSE_LABEL_CACHE = new Map();
+
+// The street/community for a GPS point ("Wilkinson Road, Freetown"), or "".
+// Cached per ~11 m cell; never throws.
+export async function reverseGeocodeLabel(point) {
+  const center = normalizeCenter(point);
+  if (!center) return "";
+  const key = `${center.lat.toFixed(4)},${center.lng.toFixed(4)}`;
+  if (REVERSE_LABEL_CACHE.has(key)) return REVERSE_LABEL_CACHE.get(key);
+  try {
+    const data = await fetchNominatim(
+      `https://nominatim.openstreetmap.org/reverse?format=jsonv2&zoom=17&addressdetails=1&lat=${center.lat}&lon=${center.lng}`,
+    );
+    const address = data?.address || {};
+    const street = address.road || address.pedestrian || address.footway || "";
+    const community = address.neighbourhood || address.quarter || address.suburb || address.hamlet || address.locality || "";
+    const city = address.city || address.town || address.village || address.municipality || "";
+    const label = [street, community, city].filter((part, index, list) => part && list.indexOf(part) === index).slice(0, 2).join(", ")
+      || cleanAddressText(String(data?.display_name || "").split(",").slice(0, 2).join(","));
+    if (REVERSE_LABEL_CACHE.size > 200) REVERSE_LABEL_CACHE.clear();
+    REVERSE_LABEL_CACHE.set(key, label);
+    return label;
+  } catch {
+    return "";
+  }
+}

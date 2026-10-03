@@ -26,6 +26,7 @@ import LiveTripMetric from "./LiveTripMetric";
 import { useI18n, t } from "../../../i18n";
 import { uiText as translateUi, useI18n as useUiLocale } from "../../../i18n/index.js";
 import { shortErrorToast } from "../../../Backend/services/friendlyErrorService";
+import { useDashboardResumeHold } from "../../../Backend/hooks/useDashboardResumeHold";
 
 function isHeaderTrip(trip) {
   return ["start_requested", "in_progress", "paused"].includes(trip.rawStatus);
@@ -92,6 +93,8 @@ export default function PassengerLiveTripHeaderCard({ onOpenTrips }) {
   }, [refresh]);
 
   const trip = useMemo(() => trips.find(isHeaderTrip) || null, [trips]);
+  // A passenger on a live trip is never sent back to a dashboard on return.
+  useDashboardResumeHold(Boolean(trip), "passenger-live-trip");
 
   useEffect(() => {
     closeMenu(true);

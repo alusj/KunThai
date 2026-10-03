@@ -1,6 +1,7 @@
 import { useEffect, useRef, useState } from "react";
 import maplibregl from "maplibre-gl";
 import "maplibre-gl/dist/maplibre-gl.css";
+import { placeDisplayLabel, reverseGeocodeLabel } from "../../../Backend/services/locationSearchService";
 import { FiChevronDown, FiChevronUp, FiCrosshair } from "react-icons/fi";
 import {
   formatDistance,
@@ -26,6 +27,7 @@ import { getActiveCountryProfile } from "../../../data/globalCountryProfiles";
 import { useI18n, t } from "../../../i18n";
 import { t as i18nText } from "../../../i18n/index";
 import { inlineErrorMessage } from "../../../Backend/services/friendlyErrorService";
+import { useDashboardResumeHold } from "../../../Backend/hooks/useDashboardResumeHold";
 
 const ROUTE_STATUS_LABEL_KEYS = {
   correct: "urride.areaMap.rsCorrectLabel",
@@ -1704,6 +1706,38 @@ export default function NearbyAreaMap({
   const [deviceLocationState, setDeviceLocationState] = useState("checking");
   const [userLocation, setUserLocation] = useState(() => initialAreaCacheRef.current.position);
   const [routeInfo, setRouteInfo] = useState(null);
+  // The street the person is on ("Wilkinson Road, Freetown"), shown as the
+  // route start instead of a generic "current location". Looked up when a
+  // route is shown, then again only after moving ~150 m (at most every 30 s).
+  const [livePlaceLabel, setLivePlaceLabel] = useState("");
+  const livePlaceLabelPointRef = useRef(null);
+  const routeVisible = Boolean(routeInfo);
+  // Live navigation survives any time in the background.
+  useDashboardResumeHold(routeVisible, "area-view-navigation");
+  useEffect(() => {
+    if (!routeVisible) return undefined;
+    let cancelled = false;
+    async function refreshLivePlaceLabel() {
+      const point = smoothedPositionRef.current || userLocationRef.current;
+      if (!Number.isFinite(Number(point?.lat)) || !Number.isFinite(Number(point?.lng))) return;
+      const last = livePlaceLabelPointRef.current;
+      if (last) {
+        const metersPerDegree = 111_320;
+        const dLat = (Number(point.lat) - last.lat) * metersPerDegree;
+        const dLng = (Number(point.lng) - last.lng) * metersPerDegree * Math.cos((Number(point.lat) * Math.PI) / 180);
+        if (Math.hypot(dLat, dLng) < 150) return;
+      }
+      livePlaceLabelPointRef.current = { lat: Number(point.lat), lng: Number(point.lng) };
+      const label = await reverseGeocodeLabel(point);
+      if (!cancelled && label) setLivePlaceLabel(label);
+    }
+    refreshLivePlaceLabel();
+    const timer = window.setInterval(refreshLivePlaceLabel, 30_000);
+    return () => {
+      cancelled = true;
+      window.clearInterval(timer);
+    };
+  }, [routeVisible]);
   const [routeError, setRouteError] = useState("");
   const [routeLoading, setRouteLoading] = useState(false);
   const [routeStatusKey, setRouteStatusKey] = useState("correct");
@@ -1759,9 +1793,11 @@ export default function NearbyAreaMap({
   const routeDistanceLabel = routeInfo?.distance || (routeLoading ? t("urride.areaMap.findingRoute") : t("urride.areaMap.routeWord"));
   const routeDurationLabel = routeInfo?.duration || (routeError ? t("urride.areaMap.checkRoute") : "");
   const routeSummaryLabel = routeDurationLabel ? `${routeDistanceLabel} - ${routeDurationLabel}` : routeDistanceLabel;
-  const routeFromLabel = routeInfo?.from || t("urride.areaMap.currentLocation");
+  const routeFromLabel = (routeInfo?.from === t("urride.areaMap.fromCurrentLocation") && livePlaceLabel)
+    || routeInfo?.from
+    || t("urride.areaMap.currentLocation");
   const routePickupLabel = routeInfo?.pickup || routePlan?.pickup?.address || routePlan?.pickup?.name || "";
-  const routeToLabel = routeInfo?.to || routePlan?.dropoff?.address || selectedLocation?.name || selectedLocation?.label || t("urride.areaMap.selectedLocationLc");
+  const routeToLabel = routeInfo?.to || routePlan?.dropoff?.address || placeDisplayLabel(selectedLocation) || t("urride.areaMap.selectedLocationLc");
   const operatorPickup = normalizeRoutePreviewPoint(routePlan?.pickup);
   const operatorDropoff = normalizeRoutePreviewPoint(routePlan?.dropoff);
   const hasOperatorRoutePlan = Boolean(operatorPickup && operatorDropoff);
@@ -2329,7 +2365,7 @@ export default function NearbyAreaMap({
     setAlternativeError("");
     setRouteInfo({
       from: userLocationRef.current ? t("urride.areaMap.fromCurrentLocation") : DEFAULT_CENTER.label,
-      to: selectedLocation.name,
+      to: placeDisplayLabel(selectedLocation) || selectedLocation.name,
       distance: formatDistance(route.distanceMeters),
       duration: formatDuration(route.durationSeconds),
       raw: route,
@@ -2893,7 +2929,7 @@ export default function NearbyAreaMap({
       setRouteInfo({
         from: userLocationRef.current ? t("urride.areaMap.fromCurrentLocation") : DEFAULT_CENTER.label,
         pickup: operatorPickup?.address || operatorPickup?.name,
-        to: routeTarget.address || routeTarget.name || t("urride.areaMap.selectedDestination"),
+        to: placeDisplayLabel(routeTarget) || t("urride.areaMap.selectedDestination"),
         distance: t("urride.areaMap.findingRoute"),
         duration: "...",
         routePlan: hasOperatorRoutePlan,
@@ -2988,7 +3024,7 @@ export default function NearbyAreaMap({
       setRouteInfo({
         from: userLocationRef.current ? t("urride.areaMap.fromCurrentLocation") : DEFAULT_CENTER.label,
         pickup: operatorPickup?.address || operatorPickup?.name,
-        to: routeTarget.address || routeTarget.name,
+        to: placeDisplayLabel(routeTarget),
         distance: formatDistance(route.distanceMeters),
         // The ETA is intentionally withheld until movement is detected: the
         // routing engine's static duration is not trustworthy for a live
@@ -3020,7 +3056,7 @@ export default function NearbyAreaMap({
       setRouteInfo({
         from: userLocationRef.current ? t("urride.areaMap.fromCurrentLocation") : DEFAULT_CENTER.label,
         pickup: operatorPickup?.address || operatorPickup?.name,
-        to: operatorDropoff?.address || selectedLocation?.name || t("urride.areaMap.selectedDestination"),
+        to: operatorDropoff?.address || placeDisplayLabel(selectedLocation) || t("urride.areaMap.selectedDestination"),
         distance: t("urride.areaMap.routeUnavailable"),
         duration: t("urride.areaMap.tryAgain"),
         routePlan: hasOperatorRoutePlan,

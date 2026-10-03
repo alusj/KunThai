@@ -24,8 +24,8 @@ import {
 import AppBackTab from "../shared/AppBackTab";
 import { useAutoCollapseCard } from "../shared/motionHooks";
 import NearbyAreaMap from "./area/NearbyAreaMap";
-import { resolveAddressLocation, searchLocations } from "../../Backend/services/locationSearchService";
-import { getRouteBetweenPoints } from "../../Backend/services/routeService";
+import { formatPlaceDistance, resolveAddressLocation, searchLocations, withDistancesFrom } from "../../Backend/services/locationSearchService";
+import { getRoadDistancesFrom, getRouteBetweenPoints } from "../../Backend/services/routeService";
 import {
   getActiveAreaReports,
   getActiveTrafficSnapshots,
@@ -1847,7 +1847,24 @@ export default function NearbyAreaScreen({
         const searchCenter = mapCenterRef.current || userLocationRef.current;
         const results = await searchLocations(text, searchCenter, { sortByDistance: searchSortByDistance });
         if (searchRequestRef.current !== requestId) return;
-        setSearchResults(results || []);
+        // Results are found around the map view, but the distance shown is
+        // from the person, the same origin the routing card uses. Straight
+        // line first (instant), then the road distance replaces it.
+        const origin = userLocationRef.current;
+        const measured = origin ? withDistancesFrom(results || [], origin) : results || [];
+        setSearchResults(measured);
+        if (origin && measured.length) {
+          getRoadDistancesFrom(origin, measured).then((meters) => {
+            if (searchRequestRef.current !== requestId) return;
+            const roadById = new Map(measured.map((place, index) => [place.id, meters[index]]));
+            setSearchResults((current) => current.map((place) => {
+              const road = roadById.get(place.id);
+              return Number.isFinite(road)
+                ? { ...place, distanceMeters: road, distance: formatPlaceDistance(road), distanceIsRoad: true }
+                : place;
+            }));
+          });
+        }
       } catch {
         if (searchRequestRef.current !== requestId) return;
         setSearchResults([]);
@@ -2633,6 +2650,8 @@ function AreaViewFirstUseGuide({ dontShowAgain, onDontShowAgainChange, onEmergen
       confirmLabel={t("urride.areaView.guideConfirm")}
       confirmIcon={FiCheckCircle}
       onConfirm={onConfirm}
+      // "I understand" stays grey until the guide has been read to the end.
+      requireScroll
     >
           <p className="text-sm font-semibold leading-6 text-slate-600">
             {t("urride.areaView.guideIntro")}

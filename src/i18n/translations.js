@@ -281,6 +281,18 @@ export const TRANSLATIONS = {
       copied: "Invite link copied. Share it with your contacts.",
       unavailable: "Contact picking is not supported on this device, so your invite link was prepared to share instead.",
     },
+    verificationNotice: {
+      eyebrow: "Verification notice",
+      title: "Register now. Verify when you're ready.",
+      introBusiness: "You can complete registration without documents. Until KunThai reviews and approves them, your business is marked Not verified and buyers are advised to take extra care.",
+      introOperator: "You can complete registration without documents. Until KunThai reviews and approves them, your operator account is marked Not verified and passengers are advised to take extra care.",
+      introCompany: "You can complete registration without documents. Until KunThai reviews and approves them, your company is marked Not verified and customers are advised to take extra care.",
+      pointAddLater: "Add the requested documents at any time from your dashboard. Review starts as soon as they arrive.",
+      pointStatus: "Your Not verified status stays visible to customers until approval.",
+      warningTitle: "Zero tolerance for false documents",
+      warningBody: "Every document is reviewed. Submitting false, altered, expired, borrowed or someone else's documents will lead KunThai to suspend or permanently ban the account, and the case may be referred to the relevant authorities where the law requires.",
+      pledge: "Only upload genuine documents that belong to you or your business.",
+    },
     buyCredits: {
       button: "Buy credits",
       title: "Buy Visibility Credits",
@@ -3990,6 +4002,18 @@ export const TRANSLATIONS = {
       shareMessage: "Rejoins-moi sur KunThai ! Utilise mon lien d'invitation :",
       copied: "Lien d'invitation copié. Partagez-le avec vos contacts.",
       unavailable: "La sélection de contacts n'est pas prise en charge sur cet appareil ; votre lien d'invitation est prêt à partager.",
+    },
+    verificationNotice: {
+      eyebrow: "Avis de vérification",
+      title: "Inscrivez-vous maintenant. Faites-vous vérifier quand vous serez prêt.",
+      introBusiness: "Vous pouvez terminer l'inscription sans documents. Tant que KunThai ne les a pas examinés et approuvés, votre entreprise est marquée Non vérifiée et les acheteurs sont invités à redoubler de prudence.",
+      introOperator: "Vous pouvez terminer l'inscription sans documents. Tant que KunThai ne les a pas examinés et approuvés, votre compte d'opérateur est marqué Non vérifié et les passagers sont invités à redoubler de prudence.",
+      introCompany: "Vous pouvez terminer l'inscription sans documents. Tant que KunThai ne les a pas examinés et approuvés, votre société est marquée Non vérifiée et les clients sont invités à redoubler de prudence.",
+      pointAddLater: "Ajoutez les documents demandés à tout moment depuis votre tableau de bord. L'examen commence dès leur réception.",
+      pointStatus: "Votre statut Non vérifié reste visible pour les clients jusqu'à l'approbation.",
+      warningTitle: "Tolérance zéro pour les faux documents",
+      warningBody: "Chaque document est examiné. Soumettre des documents faux, modifiés, expirés, empruntés ou appartenant à autrui conduira KunThai à suspendre ou à bannir définitivement le compte, et le dossier pourra être transmis aux autorités compétentes lorsque la loi l'exige.",
+      pledge: "Ne téléversez que des documents authentiques qui vous appartiennent, à vous ou à votre entreprise.",
     },
     buyCredits: {
       button: "Acheter des crédits",
@@ -7703,6 +7727,18 @@ export const TRANSLATIONS = {
       shareMessage: "¡Únete a mí en KunThai! Usa mi enlace de invitación:",
       copied: "Enlace de invitación copiado. Compártelo con tus contactos.",
       unavailable: "Este dispositivo no permite elegir contactos; tu enlace de invitación quedó listo para compartir."
+    },
+    verificationNotice: {
+      eyebrow: "Aviso de verificación",
+      title: "Regístrate ahora. Verifícate cuando estés listo.",
+      introBusiness: "Puedes completar el registro sin documentos. Hasta que KunThai los revise y apruebe, tu negocio aparecerá como No verificado y se aconsejará a los compradores que tengan especial cuidado.",
+      introOperator: "Puedes completar el registro sin documentos. Hasta que KunThai los revise y apruebe, tu cuenta de operador aparecerá como No verificada y se aconsejará a los pasajeros que tengan especial cuidado.",
+      introCompany: "Puedes completar el registro sin documentos. Hasta que KunThai los revise y apruebe, tu empresa aparecerá como No verificada y se aconsejará a los clientes que tengan especial cuidado.",
+      pointAddLater: "Añade los documentos solicitados cuando quieras desde tu panel. La revisión empieza en cuanto llegan.",
+      pointStatus: "Tu estado No verificado seguirá visible para los clientes hasta la aprobación.",
+      warningTitle: "Tolerancia cero con los documentos falsos",
+      warningBody: "Se revisa cada documento. Enviar documentos falsos, alterados, caducados, prestados o de otra persona llevará a KunThai a suspender o prohibir de forma permanente la cuenta, y el caso podrá remitirse a las autoridades competentes cuando la ley lo exija.",
+      pledge: "Sube solo documentos auténticos que te pertenezcan a ti o a tu negocio.",
     },
     buyCredits: {
       button: "Comprar créditos",
@@ -11449,6 +11485,18 @@ export const TRANSLATIONS = {
       copied: "邀请链接已复制。与您的联系人分享。",
       unavailable: "此设备不支持联系人选择，因此您的邀请链接已准备好共享。"
     },
+    verificationNotice: {
+      eyebrow: "验证须知",
+      title: "立即注册，准备好后再完成验证。",
+      introBusiness: "您可以在不提交文件的情况下完成注册。在 KunThai 审核并批准文件之前，您的商家将显示为“未验证”，并提醒买家格外谨慎。",
+      introOperator: "您可以在不提交文件的情况下完成注册。在 KunThai 审核并批准文件之前，您的运营者账户将显示为“未验证”，并提醒乘客格外谨慎。",
+      introCompany: "您可以在不提交文件的情况下完成注册。在 KunThai 审核并批准文件之前，您的公司将显示为“未验证”，并提醒客户格外谨慎。",
+      pointAddLater: "您可以随时在控制台中补充所需文件，文件提交后即开始审核。",
+      pointStatus: "在获得批准之前，客户会一直看到您的“未验证”状态。",
+      warningTitle: "对虚假文件零容忍",
+      warningBody: "每份文件都会经过审核。提交虚假、篡改、过期、借用或属于他人的文件，KunThai 将暂停或永久封禁该账户，并可能在法律要求时将案件移交相关主管部门。",
+      pledge: "请只上传属于您本人或您企业的真实文件。",
+    },
     buyCredits: {
       button: "购买积分",
       title: "购买 Visibility Credits",
@@ -15194,6 +15242,18 @@ export const TRANSLATIONS = {
       shareMessage: "انضم إليّ في KunThai! استخدم رابط دعوتي:",
       copied: "تم نسخ رابط الدعوة. شاركه مع جهات اتصالك.",
       unavailable: "اختيار جهات الاتصال غير مدعوم على هذا الجهاز، لذا جُهّز رابط دعوتك للمشاركة.",
+    },
+    verificationNotice: {
+      eyebrow: "إشعار التحقق",
+      title: "سجّل الآن، وأكمل التحقق عندما تكون مستعدًا.",
+      introBusiness: "يمكنك إكمال التسجيل دون مستندات. وإلى أن تراجعها KunThai وتوافق عليها، يظهر نشاطك التجاري بحالة «غير موثّق» ويُنصح المشترون بمزيد من الحذر.",
+      introOperator: "يمكنك إكمال التسجيل دون مستندات. وإلى أن تراجعها KunThai وتوافق عليها، يظهر حساب المشغّل الخاص بك بحالة «غير موثّق» ويُنصح الركاب بمزيد من الحذر.",
+      introCompany: "يمكنك إكمال التسجيل دون مستندات. وإلى أن تراجعها KunThai وتوافق عليها، تظهر شركتك بحالة «غير موثّقة» ويُنصح العملاء بمزيد من الحذر.",
+      pointAddLater: "أضف المستندات المطلوبة في أي وقت من لوحة التحكم. تبدأ المراجعة فور وصولها.",
+      pointStatus: "تبقى حالة «غير موثّق» ظاهرة للعملاء حتى تتم الموافقة.",
+      warningTitle: "لا تسامح مطلقًا مع المستندات المزوّرة",
+      warningBody: "تُراجَع كل المستندات. يؤدي تقديم مستندات مزوّرة أو معدّلة أو منتهية الصلاحية أو مستعارة أو تخص شخصًا آخر إلى قيام KunThai بتعليق الحساب أو حظره نهائيًا، وقد تُحال القضية إلى الجهات المختصة حيثما يقتضي القانون ذلك.",
+      pledge: "لا ترفع إلا مستندات أصلية تخصك أنت أو نشاطك التجاري.",
     },
     buyCredits: {
       button: "شراء رصيد",
@@ -18988,6 +19048,18 @@ export const TRANSLATIONS = {
       "copied": "Link de convite copiado. Compartilhe com seus contatos.",
       "unavailable": "A seleção de contatos não é compatível com este dispositivo, portanto, seu link de convite foi preparado para ser compartilhado."
     },
+    "verificationNotice": {
+      "eyebrow": "Aviso de verificação",
+      "title": "Registe-se agora. Verifique quando estiver pronto.",
+      "introBusiness": "Pode concluir o registo sem documentos. Até a KunThai os analisar e aprovar, o seu negócio fica marcado como Não verificado e os compradores são aconselhados a ter cuidado redobrado.",
+      "introOperator": "Pode concluir o registo sem documentos. Até a KunThai os analisar e aprovar, a sua conta de operador fica marcada como Não verificada e os passageiros são aconselhados a ter cuidado redobrado.",
+      "introCompany": "Pode concluir o registo sem documentos. Até a KunThai os analisar e aprovar, a sua empresa fica marcada como Não verificada e os clientes são aconselhados a ter cuidado redobrado.",
+      "pointAddLater": "Adicione os documentos pedidos a qualquer momento a partir do seu painel. A análise começa assim que chegam.",
+      "pointStatus": "O estado Não verificado continua visível para os clientes até à aprovação.",
+      "warningTitle": "Tolerância zero para documentos falsos",
+      "warningBody": "Todos os documentos são analisados. Enviar documentos falsos, alterados, caducados, emprestados ou de outra pessoa levará a KunThai a suspender ou banir permanentemente a conta, e o caso poderá ser encaminhado às autoridades competentes quando a lei o exigir.",
+      "pledge": "Carregue apenas documentos autênticos que pertençam a si ou ao seu negócio.",
+    },
     "buyCredits": {
       "button": "Comprar créditos",
       "title": "Comprar Visibility Credits",
@@ -22728,6 +22800,18 @@ export const TRANSLATIONS = {
       "shareMessage": "KunThai पर मुझसे जुड़ें! मेरे आमंत्रण लिंक का उपयोग करें:",
       "copied": "आमंत्रण लिंक कॉपी किया गया. इसे अपने संपर्कों के साथ साझा करें.",
       "unavailable": "इस डिवाइस पर संपर्क चयन समर्थित नहीं है, इसलिए इसके बजाय आपका आमंत्रण लिंक साझा करने के लिए तैयार किया गया था।"
+    },
+    "verificationNotice": {
+      "eyebrow": "सत्यापन सूचना",
+      "title": "अभी पंजीकरण करें। तैयार होने पर सत्यापन कराएँ।",
+      "introBusiness": "आप दस्तावेज़ों के बिना पंजीकरण पूरा कर सकते हैं। जब तक KunThai उनकी समीक्षा और स्वीकृति नहीं करता, आपका व्यवसाय “असत्यापित” दिखेगा और खरीदारों को अतिरिक्त सावधानी बरतने की सलाह दी जाएगी।",
+      "introOperator": "आप दस्तावेज़ों के बिना पंजीकरण पूरा कर सकते हैं। जब तक KunThai उनकी समीक्षा और स्वीकृति नहीं करता, आपका ऑपरेटर खाता “असत्यापित” दिखेगा और यात्रियों को अतिरिक्त सावधानी बरतने की सलाह दी जाएगी।",
+      "introCompany": "आप दस्तावेज़ों के बिना पंजीकरण पूरा कर सकते हैं। जब तक KunThai उनकी समीक्षा और स्वीकृति नहीं करता, आपकी कंपनी “असत्यापित” दिखेगी और ग्राहकों को अतिरिक्त सावधानी बरतने की सलाह दी जाएगी।",
+      "pointAddLater": "माँगे गए दस्तावेज़ कभी भी अपने डैशबोर्ड से जोड़ें। उनके आते ही समीक्षा शुरू हो जाती है।",
+      "pointStatus": "स्वीकृति मिलने तक आपकी “असत्यापित” स्थिति ग्राहकों को दिखती रहेगी।",
+      "warningTitle": "झूठे दस्तावेज़ों के प्रति शून्य सहनशीलता",
+      "warningBody": "हर दस्तावेज़ की समीक्षा होती है। झूठे, बदले हुए, समाप्त, उधार लिए गए या किसी और के दस्तावेज़ जमा करने पर KunThai खाते को निलंबित या स्थायी रूप से प्रतिबंधित कर देगा, और जहाँ क़ानून की माँग हो वहाँ मामला संबंधित अधिकारियों को सौंपा जा सकता है।",
+      "pledge": "केवल वही असली दस्तावेज़ अपलोड करें जो आपके या आपके व्यवसाय के हों।",
     },
     "buyCredits": {
       "button": "क्रेडिट खरीदें",
@@ -26470,6 +26554,18 @@ export const TRANSLATIONS = {
       "copied": "আমন্ত্রণ লিঙ্ক কপি করা হয়েছে. আপনার পরিচিতিদের সাথে শেয়ার করুন।",
       "unavailable": "পরিচিতি বাছাই এই ডিভাইসে সমর্থিত নয়, তাই আপনার আমন্ত্রণ লিঙ্কটি শেয়ার করার জন্য প্রস্তুত করা হয়েছে।"
     },
+    "verificationNotice": {
+      "eyebrow": "যাচাইকরণ বিজ্ঞপ্তি",
+      "title": "এখনই নিবন্ধন করুন। প্রস্তুত হলে যাচাই করান।",
+      "introBusiness": "আপনি নথি ছাড়াই নিবন্ধন সম্পন্ন করতে পারেন। KunThai নথিগুলো পর্যালোচনা ও অনুমোদন না করা পর্যন্ত আপনার ব্যবসা “যাচাই করা হয়নি” হিসেবে দেখাবে এবং ক্রেতাদের বাড়তি সতর্ক থাকার পরামর্শ দেওয়া হবে।",
+      "introOperator": "আপনি নথি ছাড়াই নিবন্ধন সম্পন্ন করতে পারেন। KunThai নথিগুলো পর্যালোচনা ও অনুমোদন না করা পর্যন্ত আপনার অপারেটর অ্যাকাউন্ট “যাচাই করা হয়নি” হিসেবে দেখাবে এবং যাত্রীদের বাড়তি সতর্ক থাকার পরামর্শ দেওয়া হবে।",
+      "introCompany": "আপনি নথি ছাড়াই নিবন্ধন সম্পন্ন করতে পারেন। KunThai নথিগুলো পর্যালোচনা ও অনুমোদন না করা পর্যন্ত আপনার কোম্পানি “যাচাই করা হয়নি” হিসেবে দেখাবে এবং গ্রাহকদের বাড়তি সতর্ক থাকার পরামর্শ দেওয়া হবে।",
+      "pointAddLater": "যেকোনো সময় ড্যাশবোর্ড থেকে অনুরোধ করা নথি যোগ করুন। সেগুলো পৌঁছালেই পর্যালোচনা শুরু হয়।",
+      "pointStatus": "অনুমোদন না হওয়া পর্যন্ত আপনার “যাচাই করা হয়নি” অবস্থা গ্রাহকদের কাছে দৃশ্যমান থাকবে।",
+      "warningTitle": "ভুয়া নথির প্রতি শূন্য সহনশীলতা",
+      "warningBody": "প্রতিটি নথি পর্যালোচনা করা হয়। ভুয়া, পরিবর্তিত, মেয়াদোত্তীর্ণ, ধার করা বা অন্যের নথি জমা দিলে KunThai অ্যাকাউন্টটি স্থগিত বা স্থায়ীভাবে নিষিদ্ধ করবে, এবং আইনের প্রয়োজনে বিষয়টি সংশ্লিষ্ট কর্তৃপক্ষের কাছে পাঠানো হতে পারে।",
+      "pledge": "শুধুমাত্র আপনার বা আপনার ব্যবসার আসল নথি আপলোড করুন।",
+    },
     "buyCredits": {
       "button": "ক্রেডিট কিনুন",
       "title": "কিনুন Visibility Credits",
@@ -30210,6 +30306,18 @@ export const TRANSLATIONS = {
       "shareMessage": "Bergabunglah dengan saya di KunThai! Gunakan tautan undangan saya:",
       "copied": "Tautan undangan disalin. Bagikan dengan kontak Anda.",
       "unavailable": "Pengambilan kontak tidak didukung pada perangkat ini, jadi tautan undangan Anda telah disiapkan untuk dibagikan."
+    },
+    "verificationNotice": {
+      "eyebrow": "Pemberitahuan verifikasi",
+      "title": "Daftar sekarang. Verifikasi saat Anda siap.",
+      "introBusiness": "Anda dapat menyelesaikan pendaftaran tanpa dokumen. Sampai KunThai meninjau dan menyetujuinya, bisnis Anda ditandai Belum terverifikasi dan pembeli disarankan lebih berhati-hati.",
+      "introOperator": "Anda dapat menyelesaikan pendaftaran tanpa dokumen. Sampai KunThai meninjau dan menyetujuinya, akun operator Anda ditandai Belum terverifikasi dan penumpang disarankan lebih berhati-hati.",
+      "introCompany": "Anda dapat menyelesaikan pendaftaran tanpa dokumen. Sampai KunThai meninjau dan menyetujuinya, perusahaan Anda ditandai Belum terverifikasi dan pelanggan disarankan lebih berhati-hati.",
+      "pointAddLater": "Tambahkan dokumen yang diminta kapan saja dari dasbor Anda. Peninjauan dimulai begitu dokumen diterima.",
+      "pointStatus": "Status Belum terverifikasi tetap terlihat oleh pelanggan sampai disetujui.",
+      "warningTitle": "Tanpa toleransi untuk dokumen palsu",
+      "warningBody": "Setiap dokumen ditinjau. Mengirim dokumen palsu, diubah, kedaluwarsa, pinjaman, atau milik orang lain akan membuat KunThai menangguhkan atau memblokir akun secara permanen, dan kasusnya dapat diteruskan ke pihak berwenang bila diwajibkan oleh hukum.",
+      "pledge": "Unggah hanya dokumen asli milik Anda atau bisnis Anda.",
     },
     "buyCredits": {
       "button": "Beli kredit",
@@ -33952,6 +34060,18 @@ export const TRANSLATIONS = {
       "copied": "مدعو کرنے کا لنک کاپی ہو گیا۔ اسے اپنے رابطوں کے ساتھ شیئر کریں۔",
       "unavailable": "رابطہ چننا اس ڈیوائس پر تعاون یافتہ نہیں ہے، اس لیے آپ کا دعوتی لنک اس کے بجائے اشتراک کے لیے تیار کیا گیا تھا۔"
     },
+    "verificationNotice": {
+      "eyebrow": "تصدیق سے متعلق اطلاع",
+      "title": "ابھی رجسٹر کریں۔ تیار ہونے پر تصدیق کروائیں۔",
+      "introBusiness": "آپ دستاویزات کے بغیر رجسٹریشن مکمل کر سکتے ہیں۔ جب تک KunThai ان کا جائزہ لے کر منظوری نہ دے، آپ کا کاروبار “غیر تصدیق شدہ” دکھایا جائے گا اور خریداروں کو زیادہ احتیاط کا مشورہ دیا جائے گا۔",
+      "introOperator": "آپ دستاویزات کے بغیر رجسٹریشن مکمل کر سکتے ہیں۔ جب تک KunThai ان کا جائزہ لے کر منظوری نہ دے، آپ کا آپریٹر اکاؤنٹ “غیر تصدیق شدہ” دکھایا جائے گا اور مسافروں کو زیادہ احتیاط کا مشورہ دیا جائے گا۔",
+      "introCompany": "آپ دستاویزات کے بغیر رجسٹریشن مکمل کر سکتے ہیں۔ جب تک KunThai ان کا جائزہ لے کر منظوری نہ دے، آپ کی کمپنی “غیر تصدیق شدہ” دکھائی جائے گی اور صارفین کو زیادہ احتیاط کا مشورہ دیا جائے گا۔",
+      "pointAddLater": "مطلوبہ دستاویزات کسی بھی وقت اپنے ڈیش بورڈ سے شامل کریں۔ موصول ہوتے ہی جائزہ شروع ہو جاتا ہے۔",
+      "pointStatus": "منظوری تک آپ کی “غیر تصدیق شدہ” حیثیت صارفین کو نظر آتی رہے گی۔",
+      "warningTitle": "جعلی دستاویزات پر کوئی رعایت نہیں",
+      "warningBody": "ہر دستاویز کا جائزہ لیا جاتا ہے۔ جعلی، تبدیل شدہ، میعاد ختم، ادھار لی گئی یا کسی اور کی دستاویزات جمع کرانے پر KunThai اکاؤنٹ کو معطل یا مستقل طور پر بند کر دے گا، اور جہاں قانون کا تقاضا ہو معاملہ متعلقہ حکام کو بھیجا جا سکتا ہے۔",
+      "pledge": "صرف وہی اصل دستاویزات اپ لوڈ کریں جو آپ یا آپ کے کاروبار کی ہوں۔",
+    },
     "buyCredits": {
       "button": "کریڈٹ خریدیں۔",
       "title": "خریدیں Visibility Credits",
@@ -37692,6 +37812,18 @@ export const TRANSLATIONS = {
       "shareMessage": "Присоединяйтесь ко мне на KunThai! Используйте мою ссылку-приглашение:",
       "copied": "Ссылка для приглашения скопирована. Поделитесь им со своими контактами.",
       "unavailable": "Выбор контактов не поддерживается на этом устройстве, поэтому вместо этого мы подготовили ссылку для приглашения."
+    },
+    "verificationNotice": {
+      "eyebrow": "Уведомление о проверке",
+      "title": "Зарегистрируйтесь сейчас, пройдите проверку, когда будете готовы.",
+      "introBusiness": "Вы можете завершить регистрацию без документов. Пока KunThai их не проверит и не одобрит, ваш бизнес отмечен как «Не проверен», а покупателям рекомендуется проявлять особую осторожность.",
+      "introOperator": "Вы можете завершить регистрацию без документов. Пока KunThai их не проверит и не одобрит, ваш аккаунт оператора отмечен как «Не проверен», а пассажирам рекомендуется проявлять особую осторожность.",
+      "introCompany": "Вы можете завершить регистрацию без документов. Пока KunThai их не проверит и не одобрит, ваша компания отмечена как «Не проверена», а клиентам рекомендуется проявлять особую осторожность.",
+      "pointAddLater": "Добавьте запрошенные документы в любое время в своей панели. Проверка начнётся сразу после их получения.",
+      "pointStatus": "Статус «Не проверен» остаётся видимым для клиентов до одобрения.",
+      "warningTitle": "Нулевая терпимость к поддельным документам",
+      "warningBody": "Каждый документ проверяется. За подачу поддельных, изменённых, просроченных, чужих или взятых взаймы документов KunThai приостановит аккаунт или заблокирует его навсегда, а в случаях, предусмотренных законом, материалы могут быть переданы в компетентные органы.",
+      "pledge": "Загружайте только подлинные документы, принадлежащие вам или вашему бизнесу.",
     },
     "buyCredits": {
       "button": "Купить кредиты",
@@ -41435,6 +41567,18 @@ export const TRANSLATIONS = {
       "copied": "招待リンクがコピーされました。連絡先と共有してください。",
       "unavailable": "このデバイスでは連絡先の選択がサポートされていないため、代わりに招待リンクが共有されるように準備されました。"
     },
+    "verificationNotice": {
+      "eyebrow": "認証に関するお知らせ",
+      "title": "今すぐ登録し、準備ができたら認証を完了しましょう。",
+      "introBusiness": "書類なしで登録を完了できます。KunThai が書類を審査・承認するまで、あなたのビジネスは「未認証」と表示され、購入者には特に注意するよう案内されます。",
+      "introOperator": "書類なしで登録を完了できます。KunThai が書類を審査・承認するまで、あなたのオペレーターアカウントは「未認証」と表示され、乗客には特に注意するよう案内されます。",
+      "introCompany": "書類なしで登録を完了できます。KunThai が書類を審査・承認するまで、あなたの会社は「未認証」と表示され、お客様には特に注意するよう案内されます。",
+      "pointAddLater": "必要な書類はダッシュボードからいつでも追加できます。届き次第、審査を開始します。",
+      "pointStatus": "承認されるまで、「未認証」の表示はお客様に見え続けます。",
+      "warningTitle": "虚偽の書類は一切認めません",
+      "warningBody": "すべての書類は審査されます。偽造・改ざん・期限切れ・借用・他人名義の書類を提出した場合、KunThai はアカウントを停止または永久に利用禁止とし、法律で求められる場合は関係当局に通報することがあります。",
+      "pledge": "ご本人または貴社の正式な書類のみをアップロードしてください。",
+    },
     "buyCredits": {
       "button": "クレジットを購入する",
       "title": "Visibility Credits を購入する",
@@ -45175,6 +45319,18 @@ export const TRANSLATIONS = {
       "shareMessage": "माझ्याशी KunThai वर सामील व्हा! माझी आमंत्रण लिंक वापरा:",
       "copied": "आमंत्रण लिंक कॉपी केली. आपल्या संपर्कांसह सामायिक करा.",
       "unavailable": "या डिव्हाइसवर संपर्क निवडणे समर्थित नाही, म्हणून तुमची आमंत्रण लिंक त्याऐवजी सामायिक करण्यासाठी तयार केली गेली."
+    },
+    "verificationNotice": {
+      "eyebrow": "पडताळणी सूचना",
+      "title": "आत्ताच नोंदणी करा. तयार झाल्यावर पडताळणी करा.",
+      "introBusiness": "तुम्ही कागदपत्रांशिवाय नोंदणी पूर्ण करू शकता. KunThai त्यांचे पुनरावलोकन करून मंजुरी देईपर्यंत तुमचा व्यवसाय “पडताळणी न झालेला” म्हणून दिसेल आणि खरेदीदारांना अधिक काळजी घेण्याचा सल्ला दिला जाईल.",
+      "introOperator": "तुम्ही कागदपत्रांशिवाय नोंदणी पूर्ण करू शकता. KunThai त्यांचे पुनरावलोकन करून मंजुरी देईपर्यंत तुमचे ऑपरेटर खाते “पडताळणी न झालेले” म्हणून दिसेल आणि प्रवाशांना अधिक काळजी घेण्याचा सल्ला दिला जाईल.",
+      "introCompany": "तुम्ही कागदपत्रांशिवाय नोंदणी पूर्ण करू शकता. KunThai त्यांचे पुनरावलोकन करून मंजुरी देईपर्यंत तुमची कंपनी “पडताळणी न झालेली” म्हणून दिसेल आणि ग्राहकांना अधिक काळजी घेण्याचा सल्ला दिला जाईल.",
+      "pointAddLater": "मागितलेली कागदपत्रे कधीही तुमच्या डॅशबोर्डवरून जोडा. ती मिळताच पुनरावलोकन सुरू होते.",
+      "pointStatus": "मंजुरी मिळेपर्यंत तुमची “पडताळणी न झालेली” स्थिती ग्राहकांना दिसत राहील.",
+      "warningTitle": "खोट्या कागदपत्रांना अजिबात सहनशीलता नाही",
+      "warningBody": "प्रत्येक कागदपत्राचे पुनरावलोकन केले जाते. खोटी, बदललेली, मुदत संपलेली, उसनी घेतलेली किंवा दुसऱ्याची कागदपत्रे सादर केल्यास KunThai खाते निलंबित किंवा कायमचे बंद करेल, आणि कायद्याने आवश्यक असेल तेथे प्रकरण संबंधित अधिकाऱ्यांकडे पाठवले जाऊ शकते.",
+      "pledge": "फक्त तुमची किंवा तुमच्या व्यवसायाची खरी कागदपत्रे अपलोड करा.",
     },
     "buyCredits": {
       "button": "क्रेडिट्स खरेदी करा",
@@ -48917,6 +49073,18 @@ export const TRANSLATIONS = {
       "copied": "Đã sao chép liên kết lời mời. Chia sẻ nó với các liên hệ của bạn.",
       "unavailable": "Tính năng chọn liên hệ không được hỗ trợ trên thiết bị này nên thay vào đó, liên kết mời của bạn đã được chuẩn bị để chia sẻ."
     },
+    "verificationNotice": {
+      "eyebrow": "Thông báo xác minh",
+      "title": "Đăng ký ngay. Xác minh khi bạn sẵn sàng.",
+      "introBusiness": "Bạn có thể hoàn tất đăng ký mà không cần giấy tờ. Cho đến khi KunThai xem xét và phê duyệt, doanh nghiệp của bạn sẽ được đánh dấu Chưa xác minh và người mua được khuyên nên đặc biệt thận trọng.",
+      "introOperator": "Bạn có thể hoàn tất đăng ký mà không cần giấy tờ. Cho đến khi KunThai xem xét và phê duyệt, tài khoản tài xế của bạn sẽ được đánh dấu Chưa xác minh và hành khách được khuyên nên đặc biệt thận trọng.",
+      "introCompany": "Bạn có thể hoàn tất đăng ký mà không cần giấy tờ. Cho đến khi KunThai xem xét và phê duyệt, công ty của bạn sẽ được đánh dấu Chưa xác minh và khách hàng được khuyên nên đặc biệt thận trọng.",
+      "pointAddLater": "Bổ sung giấy tờ được yêu cầu bất cứ lúc nào từ bảng điều khiển. Việc xem xét bắt đầu ngay khi nhận được.",
+      "pointStatus": "Trạng thái Chưa xác minh vẫn hiển thị với khách hàng cho đến khi được phê duyệt.",
+      "warningTitle": "Không khoan nhượng với giấy tờ giả",
+      "warningBody": "Mọi giấy tờ đều được xem xét. Nộp giấy tờ giả, bị chỉnh sửa, hết hạn, mượn hoặc của người khác sẽ khiến KunThai tạm khóa hoặc cấm vĩnh viễn tài khoản, và vụ việc có thể được chuyển đến cơ quan chức năng khi pháp luật yêu cầu.",
+      "pledge": "Chỉ tải lên giấy tờ thật thuộc về bạn hoặc doanh nghiệp của bạn.",
+    },
     "buyCredits": {
       "button": "Mua tín dụng",
       "title": "Mua Visibility Credits",
@@ -52657,6 +52825,18 @@ export const TRANSLATIONS = {
       "shareMessage": "Begleiten Sie mich auf KunThai! Benutzen Sie meinen Einladungslink:",
       "copied": "Einladungslink kopiert. Teilen Sie es mit Ihren Kontakten.",
       "unavailable": "Die Kontaktauswahl wird auf diesem Gerät nicht unterstützt, daher wurde stattdessen Ihr Einladungslink zum Teilen vorbereitet."
+    },
+    "verificationNotice": {
+      "eyebrow": "Hinweis zur Verifizierung",
+      "title": "Jetzt registrieren. Verifizieren, wenn Sie bereit sind.",
+      "introBusiness": "Sie können die Registrierung ohne Dokumente abschließen. Bis KunThai sie geprüft und genehmigt hat, wird Ihr Unternehmen als „Nicht verifiziert“ angezeigt und Käufern wird zu besonderer Vorsicht geraten.",
+      "introOperator": "Sie können die Registrierung ohne Dokumente abschließen. Bis KunThai sie geprüft und genehmigt hat, wird Ihr Fahrerkonto als „Nicht verifiziert“ angezeigt und Fahrgästen wird zu besonderer Vorsicht geraten.",
+      "introCompany": "Sie können die Registrierung ohne Dokumente abschließen. Bis KunThai sie geprüft und genehmigt hat, wird Ihre Firma als „Nicht verifiziert“ angezeigt und Kunden wird zu besonderer Vorsicht geraten.",
+      "pointAddLater": "Fügen Sie die angeforderten Dokumente jederzeit über Ihr Dashboard hinzu. Die Prüfung beginnt, sobald sie eingehen.",
+      "pointStatus": "Ihr Status „Nicht verifiziert“ bleibt für Kunden bis zur Genehmigung sichtbar.",
+      "warningTitle": "Null Toleranz bei falschen Dokumenten",
+      "warningBody": "Jedes Dokument wird geprüft. Wer gefälschte, veränderte, abgelaufene, geliehene oder fremde Dokumente einreicht, muss damit rechnen, dass KunThai das Konto sperrt oder dauerhaft ausschließt; wo das Gesetz es verlangt, kann der Fall an die zuständigen Behörden weitergeleitet werden.",
+      "pledge": "Laden Sie nur echte Dokumente hoch, die Ihnen oder Ihrem Unternehmen gehören.",
     },
     "buyCredits": {
       "button": "Credits kaufen",
