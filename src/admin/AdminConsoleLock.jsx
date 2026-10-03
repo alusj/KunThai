@@ -19,6 +19,27 @@ import {
 } from "./consoleLockService";
 
 const ACTIVITY_EVENTS = ["pointerdown", "pointermove", "keydown", "wheel", "touchstart", "scroll"];
+// Set when an admin chooses "Forgot passcode" and signs out to re-authenticate.
+const RESET_FLAG_KEY = "kunthai-admin-console-reset";
+const RESET_FLAG_MAX_AGE_MS = 30 * 60 * 1000;
+
+function readResetFlag() {
+  try {
+    const at = Number(sessionStorage.getItem(RESET_FLAG_KEY) || 0);
+    return at > 0 && Date.now() - at < RESET_FLAG_MAX_AGE_MS;
+  } catch {
+    return false;
+  }
+}
+
+function writeResetFlag(on) {
+  try {
+    if (on) sessionStorage.setItem(RESET_FLAG_KEY, String(Date.now()));
+    else sessionStorage.removeItem(RESET_FLAG_KEY);
+  } catch {
+    // Without storage the admin simply chooses "Forgot passcode" again.
+  }
+}
 
 function Shell({ children }) {
   return (
@@ -118,7 +139,9 @@ function formatCountdown(ms) {
 
 // First visit (or a reset): confirm with the authenticator, then choose a passcode.
 function SetupScreen({ status, reset = false, onDone, onCancel }) {
-  const [step, setStep] = useState(status?.mfaFresh ? "passcode" : "verify");
+  // A reset needs a brand-new sign-in plus a fresh authenticator check; the
+  // database enforces this, the screen just asks for whatever is missing.
+  const [step, setStep] = useState((reset ? status?.reauthFresh : status?.mfaFresh) ? "passcode" : "verify");
   const [code, setCode] = useState("");
   const [passcode, setPasscode] = useState("");
   const [confirmation, setConfirmation] = useState("");
@@ -169,7 +192,26 @@ function SetupScreen({ status, reset = false, onDone, onCancel }) {
   );
 }
 
-function LockScreen({ user, status, onUnlocked, onForgot, onSignOut }) {
+// "Forgot passcode": the only way to reset is to sign in again from scratch
+// (password or code, then the authenticator). An unattended open session can
+// never change the passcode.
+function ForgotScreen({ user, onReauthenticate, onBack }) {
+  const [busy, setBusy] = useState(false);
+  return (
+    <Shell>
+      <Heading
+        icon={KeyRound}
+        eyebrow="Forgot console passcode"
+        title="Sign in again to reset it"
+        detail={`For your security, ${user?.email || "this account"} must sign in again (account password or sign-in code, then your authenticator) before a new console passcode can be set. Other devices using this console will be locked.`}
+      />
+      <PrimaryAction busy={busy} onClick={() => { setBusy(true); onReauthenticate(); }}><LogOut size={16} /> Sign out and sign in again</PrimaryAction>
+      <button type="button" onClick={onBack} className="mt-3 w-full text-center text-xs font-bold text-zinc-400 hover:text-white">Back to unlock</button>
+    </Shell>
+  );
+}
+
+function LockScreen({ user, status, onUnlocked, onForgot, onSignOut, onRecheck }) {
   const [mode, setMode] = useState("passcode");
   const [passcode, setPasscode] = useState("");
   const [code, setCode] = useState("");
@@ -198,7 +240,7 @@ function LockScreen({ user, status, onUnlocked, onForgot, onSignOut }) {
         setError("Too many wrong passcodes. For your security you are being signed out.");
         window.setTimeout(onSignOut, 3500);
       } else if (result?.reason === "no_passcode") {
-        onForgot();
+        onRecheck();
       } else {
         setError(`Wrong passcode. ${result?.attemptsLeft ?? 0} attempt${result?.attemptsLeft === 1 ? "" : "s"} left before the console locks for 15 minutes.`);
       }
@@ -264,7 +306,7 @@ export default function AdminConsoleLock({ user, bypass = false, children }) {
   const applyStatus = useCallback((next) => {
     setStatus(next);
     if (!next?.passcodeSet) setView("setup");
-    else if (!next?.unlocked) setView("locked");
+    else if (!next?.unlocked) setView(readResetFlag() ? "reset" : "locked");
     else {
       lastActivityRef.current = Date.now();
       lastHeartbeatRef.current = Date.now();
@@ -338,7 +380,14 @@ export default function AdminConsoleLock({ user, bypass = false, children }) {
     await supabase.auth.signOut({ scope: "local" });
   }, []);
 
+  const reauthenticateForReset = useCallback(async () => {
+    writeResetFlag(true);
+    await lockConsole();
+    await supabase.auth.signOut({ scope: "local" });
+  }, []);
+
   const unlocked = useCallback((next) => {
+    writeResetFlag(false);
     channelRef.current?.postMessage({ type: "unlocked" });
     applyStatus(next);
   }, [applyStatus]);
@@ -362,8 +411,18 @@ export default function AdminConsoleLock({ user, bypass = false, children }) {
     );
   }
   if (view === "setup") return <SetupScreen status={status} onDone={unlocked} />;
-  if (view === "reset") return <SetupScreen status={status} reset onDone={unlocked} onCancel={() => setView("locked")} />;
-  if (view === "locked") return <LockScreen user={user} status={status} onUnlocked={unlocked} onForgot={() => setView("reset")} onSignOut={signOut} />;
+  if (view === "forgot") return <ForgotScreen user={user} onReauthenticate={reauthenticateForReset} onBack={() => setView("locked")} />;
+  if (view === "reset") {
+    return (
+      <SetupScreen
+        status={status}
+        reset
+        onDone={unlocked}
+        onCancel={() => { writeResetFlag(false); setView("locked"); }}
+      />
+    );
+  }
+  if (view === "locked") return <LockScreen user={user} status={status} onUnlocked={unlocked} onForgot={() => setView("forgot")} onSignOut={signOut} onRecheck={refresh} />;
 
   return (
     <ConsoleLockContext.Provider value={contextValue}>

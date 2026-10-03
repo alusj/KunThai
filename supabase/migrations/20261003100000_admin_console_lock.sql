@@ -92,6 +92,25 @@ as $$
     );
 $$;
 
+-- Did the caller SIGN IN (password, email/phone code, OAuth...) within
+-- `max_age`? Used for passcode resets: a fresh sign-in, not just a session
+-- that happens to be open on an unattended desk.
+create or replace function public.admin_primary_auth_recent(max_age interval)
+returns boolean
+language sql
+stable
+as $$
+  with claims as (
+    select coalesce(nullif(current_setting('request.jwt.claims', true), '')::jsonb, '{}'::jsonb) as value
+  )
+  select exists (
+    select 1
+    from claims, jsonb_array_elements(coalesce(claims.value -> 'amr', '[]'::jsonb)) method
+    where coalesce(method ->> 'method', '') not in ('', 'totp', 'mfa/totp', 'webauthn', 'token_refresh')
+      and to_timestamp(coalesce(nullif(method ->> 'timestamp', ''), '0')::double precision) > now() - max_age
+  );
+$$;
+
 -- Every admin permission check made BY an admin for themselves now needs an
 -- unlocked console. Identical to 20261001150000 otherwise.
 create or replace function public.admin_has_permission(
@@ -153,6 +172,8 @@ begin
     'lockedUntil', case when v_passcode.locked_until > now() then v_passcode.locked_until end,
     'attemptsLeft', 5 - coalesce(v_passcode.failed_attempts, 0),
     'mfaFresh', public.admin_mfa_recent(interval '10 minutes'),
+    -- A reset needs a fresh sign-in AND a fresh authenticator check.
+    'reauthFresh', public.admin_primary_auth_recent(interval '10 minutes') and public.admin_mfa_recent(interval '5 minutes'),
     'idleSeconds', 300
   );
 end;
@@ -183,7 +204,18 @@ declare
   v_existing boolean;
 begin
   if auth.uid() is null or not public.is_kunthai_admin(auth.uid()) then raise exception 'Not authorized'; end if;
-  if not public.admin_mfa_recent(interval '10 minutes') then
+  select exists (select 1 from public.admin_console_passcodes where user_id = auth.uid()) into v_existing;
+  if v_existing then
+    -- Changing an existing passcode ("forgot passcode") needs a brand-new
+    -- sign-in plus a fresh authenticator check. An open session alone, e.g.
+    -- someone at an unattended desk, can never reset it.
+    if not public.admin_primary_auth_recent(interval '10 minutes') then
+      raise exception 'Sign in again to reset your console passcode';
+    end if;
+    if not public.admin_mfa_recent(interval '5 minutes') then
+      raise exception 'Confirm with your authenticator app first';
+    end if;
+  elsif not public.admin_mfa_recent(interval '10 minutes') then
     raise exception 'Confirm with your authenticator app first';
   end if;
   if length(v_code) < 6 or length(v_code) > 64 then
@@ -194,12 +226,16 @@ begin
     raise exception 'That passcode is too easy to guess';
   end if;
 
-  select exists (select 1 from public.admin_console_passcodes where user_id = auth.uid()) into v_existing;
   insert into public.admin_console_passcodes (user_id, passcode_hash, set_at, failed_attempts, locked_until, updated_at)
   values (auth.uid(), crypt(v_code, gen_salt('bf', 10)), now(), 0, null, now())
   on conflict (user_id) do update
   set passcode_hash = excluded.passcode_hash, set_at = now(), failed_attempts = 0, locked_until = null, updated_at = now();
 
+  -- A reset ends every other console session this admin has open.
+  if v_existing then
+    delete from public.admin_console_sessions
+    where user_id = auth.uid() and session_key <> public.admin_console_session_key();
+  end if;
   perform public.admin_console_open_session('setup');
   perform public.admin_log_action(
     case when v_existing then 'security.console_passcode_reset' else 'security.console_passcode_set' end,

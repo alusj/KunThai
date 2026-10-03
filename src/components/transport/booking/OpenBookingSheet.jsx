@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import { FaCarSide, FaMotorcycle, FaShuttleVan } from "react-icons/fa";
 import { MdElectricRickshaw } from "react-icons/md";
 import {
@@ -44,6 +44,7 @@ import { PassengerCountSelect, PickupTimeFields } from "./bookingFields";
 import { getBookingLocationInputValue, normalizeBookingLocationPoint } from "./bookingLocationPreferences";
 import { useI18n, t } from "../../../i18n";
 import { uiText as translateUi } from "../../../i18n/index.js";
+import { useLateHourGate } from "./useLateHourGate";
 
 const RIDE_ICONS = { Motorcycle: FaMotorcycle, Tricycle: MdElectricRickshaw, Car: FaCarSide };
 const DELIVERY_ICONS = { Motorcycle: FaMotorcycle, Tricycle: MdElectricRickshaw, Car: FaShuttleVan };
@@ -145,6 +146,8 @@ export default function OpenBookingSheet({ open, draft = null, onClose, onOpenTr
   const [offerChoice, setOfferChoice] = useState("average");
   const [customAmount, setCustomAmount] = useState("");
   const [sending, setSending] = useState(false);
+  const { confirmLateHour, lateHourWarning } = useLateHourGate();
+  const lateHourCheckingRef = useRef(false);
   const [notice, setNotice] = useState("");
   const [session, setSession] = useState(0);
   const [showCaution, setShowCaution] = useState(false);
@@ -336,6 +339,15 @@ export default function OpenBookingSheet({ open, draft = null, onClose, onOpenTr
       haptics.doubleShake("transport");
       return;
     }
+    // Late evening, night or early morning in the booking country: the
+    // passenger must read and accept the safety warning before booking.
+    if (lateHourCheckingRef.current) return;
+    lateHourCheckingRef.current = true;
+    const lateHourAccepted = await confirmLateHour({
+      country: country?.iso2,
+      longitude: pickupPoint?.lng ?? pickupPoint?.longitude ?? null,
+    }).finally(() => { lateHourCheckingRef.current = false; });
+    if (!lateHourAccepted) return;
     setSending(true);
     setNotice("");
     try {
@@ -677,6 +689,7 @@ export default function OpenBookingSheet({ open, draft = null, onClose, onOpenTr
           </div>
         ) : null}
       </div>
+      {lateHourWarning}
     </AppPortal>
   );
 }

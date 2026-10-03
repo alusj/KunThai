@@ -58,6 +58,7 @@ import {
 } from "./bookingLocationPreferences";
 import { uiText as translateUi, useI18n as useUiLocale } from "../../../i18n/index.js";
 import { inlineErrorMessage } from "../../../Backend/services/friendlyErrorService";
+import { useLateHourGate } from "./useLateHourGate";
 
 const PASSENGER_CAUTION_KEY = "kunthai-passenger-booking-caution-accepted";
 
@@ -152,6 +153,8 @@ export default function TransportBookingDrawer({ open, target, onClose, onCreate
   const [routeLoading, setRouteLoading] = useState(false);
   const [routeMessage, setRouteMessage] = useState("");
   const [submitting, setSubmitting] = useState(false);
+  const { confirmLateHour, lateHourWarning } = useLateHourGate();
+  const lateHourCheckingRef = useRef(false);
   const [status, setStatus] = useState("");
   // Whether `status` is a success (booking sent) message, tracked separately so
   // translated strings never need pattern matching for styling.
@@ -506,6 +509,16 @@ export default function TransportBookingDrawer({ open, target, onClose, onCreate
       setStatus(nextRequirementMessage);
       return;
     }
+
+    // Late evening, night or early morning in the booking country: the
+    // passenger must read and accept the safety warning before booking.
+    if (lateHourCheckingRef.current) return;
+    lateHourCheckingRef.current = true;
+    const lateHourAccepted = await confirmLateHour({
+      country: selectionCountry,
+      longitude: form.pickupPoint?.lng ?? form.pickupPoint?.longitude ?? null,
+    }).finally(() => { lateHourCheckingRef.current = false; });
+    if (!lateHourAccepted) return;
 
     try {
       setSubmitting(true);
@@ -880,6 +893,8 @@ export default function TransportBookingDrawer({ open, target, onClose, onCreate
             </div>
           </footer>
         </aside>
+
+        {lateHourWarning}
 
         {showPassengerCaution ? (
           <TransportCautionSheet

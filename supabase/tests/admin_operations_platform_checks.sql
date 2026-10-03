@@ -496,6 +496,36 @@ begin
   assert (v ->> 'expiresAt')::timestamptz > now() + interval '5 minutes', 'activity slides the session forward';
 end $$;
 
+-- "Forgot passcode": an authenticator code alone must not reset it; a brand-new
+-- sign-in plus a fresh authenticator check must, and it ends other sessions.
+do $$
+begin
+  if to_regclass('public.admin_console_sessions') is null then return; end if;
+  begin
+    perform public.admin_set_console_passcode('Another-Pass-90');
+    raise exception 'a reset without a fresh sign-in must fail';
+  exception when others then
+    if sqlerrm not like '%Sign in again%' then raise; end if;
+  end;
+end $$;
+select set_config('request.jwt.claims', json_build_object(
+  'sub', pg_temp.id('mgr'), 'session_id', 'fresh-session', 'aal', 'aal2',
+  'amr', json_build_array(
+    json_build_object('method', 'password', 'timestamp', extract(epoch from now() - interval '1 minute')::bigint),
+    json_build_object('method', 'totp', 'timestamp', extract(epoch from now() - interval '30 seconds')::bigint))
+)::text, true);
+do $$
+declare
+  v jsonb;
+begin
+  if to_regclass('public.admin_console_sessions') is null then return; end if;
+  assert (public.admin_console_status() ->> 'reauthFresh')::boolean, 'a fresh sign-in plus code allows a reset';
+  v := public.admin_set_console_passcode('Another-Pass-90');
+  assert (v ->> 'unlocked')::boolean, 'the reset opens the console on the new sign-in';
+  v := public.admin_unlock_console('KunThai-Ops-71');
+  assert not (v ->> 'ok')::boolean, 'the old passcode no longer works';
+end $$;
+
 select pg_temp.claims('mgr', 'aal2', interval '20 minutes');
 do $$
 begin
