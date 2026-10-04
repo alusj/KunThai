@@ -32,7 +32,7 @@ export function CountryPickerButton({ country, onCountryChange }) {
   }, []);
 
   return (
-    <div ref={pickerRef} className="relative">
+    <div ref={pickerRef} className="relative h-full">
       <button
         type="button"
         onClick={() => setOpen((current) => !current)}
@@ -109,11 +109,13 @@ export default function PhoneCountryField({
   onPhoneChange,
   placeholder = "",
   invalid = false,
+  readOnly = false,
 }) {
   useUiLocale();
   return (
     <div className="flex items-stretch gap-2">
-      <div className="w-32 flex-none">
+      {/* A read-only (verified) number keeps its dial country too. */}
+      <div className={`w-32 flex-none ${readOnly ? "pointer-events-none" : ""}`} aria-disabled={readOnly ? "true" : undefined}>
         <CountryPickerButton country={country} onCountryChange={onCountryChange} />
       </div>
       <input
@@ -121,6 +123,7 @@ export default function PhoneCountryField({
         inputMode="tel"
         value={nationalPart(phone, country)}
         onChange={(event) => onPhoneChange(event.target.value)}
+        readOnly={readOnly}
         placeholder={country ? placeholder : i18nText("ui.literals.k07be7c544463")}
         disabled={!country}
         aria-invalid={invalid ? "true" : undefined}

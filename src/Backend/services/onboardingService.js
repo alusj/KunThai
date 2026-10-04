@@ -8,6 +8,8 @@ import { hasUsableReturningProfile } from "./returningProfileRules";
 import { getStoredVisibilityInviteCode } from "./visibilityCreditService";
 import {
   checkKunThaiIdentityAvailability,
+  EMAIL_ALREADY_LINKED_CODE,
+  EMAIL_ALREADY_LINKED_MESSAGE,
   normalizeEmailForIdentity,
   normalizePhoneForIdentity,
   PHONE_ALREADY_LINKED_CODE,
@@ -25,6 +27,12 @@ function withTimeout(promise, message = "Request timed out. Please try again.", 
 }
 function normalizeArray(value) {
   return Array.isArray(value) ? value.filter(Boolean) : [];
+}
+
+// The number the person verified at sign-up (Supabase keeps it as digits).
+function verifiedAuthPhone(user) {
+  const digits = String(user?.phone || "").replace(/\D/g, "");
+  return digits ? `+${digits}` : "";
 }
 
 export function buildProfileFromUser(user) {
@@ -61,8 +69,10 @@ export function buildProfileFromUser(user) {
     address: metadata.address ?? "",
     email: metadata.contact_email ?? user?.email ?? "",
     // Older phone-auth accounts can have an empty metadata phone even though
-    // Supabase Auth still has the original verified number on user.phone.
-    phone: metadata.phone_number || user?.phone || "",
+    // Supabase Auth still has the original verified number on user.phone,
+    // which it stores without the "+" the phone field needs.
+    phone: metadata.phone_number || verifiedAuthPhone(user),
+    verifiedPhone: verifiedAuthPhone(user),
     avatarUrl: metadata.avatar_url ?? metadata.picture ?? "",
     bio: metadata.bio ?? "",
     socialLinks: normalizeSocialLinks(metadata.social_links),
@@ -429,8 +439,19 @@ export async function updateOnboardingProfile(patch) {
 );
 
   if (error) {
+    // An email already held by another Auth user (race past the preflight).
+    if (emailChanged && (error.code === "email_exists" || /already (been )?registered|already exists/i.test(error.message || ""))) {
+      const conflictError = new Error(EMAIL_ALREADY_LINKED_MESSAGE);
+      conflictError.code = EMAIL_ALREADY_LINKED_CODE;
+      throw conflictError;
+    }
     // The kunthai_account_identities trigger rejects duplicate phone/email with a
     // unique_violation, which GoTrue surfaces as a generic 500 "Error updating user".
+    if (emailChanged && !phoneChanged && /error updating user/i.test(error.message || "")) {
+      const conflictError = new Error(EMAIL_ALREADY_LINKED_MESSAGE);
+      conflictError.code = EMAIL_ALREADY_LINKED_CODE;
+      throw conflictError;
+    }
     if (requestedPhone && /error updating user/i.test(error.message || "")) {
       const conflictError = new Error(PHONE_ALREADY_LINKED_MESSAGE);
       conflictError.code = PHONE_ALREADY_LINKED_CODE;

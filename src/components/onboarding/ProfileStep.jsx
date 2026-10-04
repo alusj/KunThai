@@ -1,8 +1,8 @@
-import { useRef, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { Cake, Camera, CheckCircle2, Mail, MapPin, Phone, Search, ShieldCheck } from "lucide-react";
 import { FaFacebookF, FaInstagram, FaTiktok, FaTwitter, FaWhatsapp, FaYoutube } from "react-icons/fa";
 
-import { PHONE_ALREADY_LINKED_CODE } from "../../Backend/services/accountIdentityService";
+import { EMAIL_ALREADY_LINKED_CODE, PHONE_ALREADY_LINKED_CODE } from "../../Backend/services/accountIdentityService";
 import { detectSocialPlatform, normalizeSocialLinks } from "../../Backend/services/explore/socialLinks";
 import FindAccountModal from "../auth/FindAccountModal";
 import {
@@ -139,6 +139,13 @@ export default function ProfileStep({ values, saving = false, error, errorCode =
   const ageYears = computeAgeYears(values.dateOfBirth);
   const isUnderage = ageYears !== null && ageYears < MINIMUM_AGE;
   const phoneConflict = errorCode === PHONE_ALREADY_LINKED_CODE;
+  const emailConflict = errorCode === EMAIL_ALREADY_LINKED_CODE;
+  // A phone sign-up keeps the number it verified: changing it here would no
+  // longer match the number used to sign in.
+  const phoneDigits = (value) => String(value || "").replace(/\D/g, "");
+  const phoneLocked = values.provider === "phone"
+    && Boolean(values.verifiedPhone)
+    && phoneDigits(values.phone) === phoneDigits(values.verifiedPhone);
   const fullName = buildFullName(values);
   const previewName = fullName || values.displayName || t("onboarding.profile.yourName");
   // Nothing is chosen for the person (as on the sign-up screen): the account
@@ -153,6 +160,11 @@ export default function ProfileStep({ values, saving = false, error, errorCode =
     : { valid: false, message: t("auth.chooseCountryFirst") };
   const emailValue = values.email.trim();
   const emailValid = !emailValue || /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(emailValue);
+
+  // A save rejected for a taken email or phone points at that field.
+  useEffect(() => {
+    if (emailConflict || phoneConflict) scrollToFirstBlockingFieldSoon(formRef.current);
+  }, [emailConflict, phoneConflict]);
 
   function validateProfileFields() {
     const nextErrors = {};
@@ -288,8 +300,8 @@ export default function ProfileStep({ values, saving = false, error, errorCode =
           </div>
 
           <div className="mt-5 grid gap-4 sm:grid-cols-2">
-            <label className="block" data-field-error={fieldErrors.email ? "true" : undefined}>
-              <span className="mb-2 block text-xs font-semibold uppercase tracking-[0.26em] text-slate-500">{t("onboarding.profile.email")}</span>
+            <label className="block" data-field-error={fieldErrors.email || emailConflict ? "true" : undefined}>
+              <span className="mb-2 block text-xs font-semibold uppercase tracking-[0.26em] text-slate-500">{t("onboarding.profile.emailOptional")}</span>
               <input
                 type="email"
                 value={values.email}
@@ -298,10 +310,14 @@ export default function ProfileStep({ values, saving = false, error, errorCode =
                   onChange("email", event.target.value);
                 }}
                 placeholder={t("onboarding.profile.emailPlaceholder")}
-                aria-invalid={fieldErrors.email || !emailValid ? "true" : undefined}
-                className={`w-full rounded-[20px] border bg-slate-50 px-4 py-3 outline-none focus:border-sky-400 ${fieldErrors.email ? "border-rose-300" : "border-slate-200"}`}
+                aria-invalid={fieldErrors.email || emailConflict || !emailValid ? "true" : undefined}
+                className={`w-full rounded-[20px] border bg-slate-50 px-4 py-3 outline-none focus:border-sky-400 ${fieldErrors.email || emailConflict ? "border-rose-300" : "border-slate-200"}`}
               />
-              {fieldErrors.email ? <InlineFieldError message={translateUi(fieldErrors.email)} /> : !emailValid ? (
+              {emailConflict ? (
+                <span className="mt-2 block text-xs font-semibold text-rose-600" role="alert">
+                  {t("onboarding.profile.emailTaken")}
+                </span>
+              ) : fieldErrors.email ? <InlineFieldError message={translateUi(fieldErrors.email)} /> : !emailValid ? (
                 <span className="mt-2 block text-xs font-semibold text-rose-600">
                   {t("onboarding.profile.errEmail")}
                 </span>
@@ -341,7 +357,14 @@ export default function ProfileStep({ values, saving = false, error, errorCode =
                 }}
                 placeholder={phoneCountry ? getCountryPhoneHint(phoneCountry) : ""}
                 invalid={Boolean(phoneConflict || fieldErrors.phone || (phoneCountry && !phoneValidation.valid && Boolean(values.phone)))}
+                readOnly={phoneLocked}
               />
+              {phoneLocked && !phoneConflict && !fieldErrors.phone ? (
+                <span className="mt-2 inline-flex items-center gap-1 text-xs font-semibold text-emerald-700">
+                  <ShieldCheck size={13} aria-hidden="true" />
+                  {t("onboarding.profile.phoneVerified")}
+                </span>
+              ) : null}
               {phoneConflict ? (
                 <span className="mt-2 block text-xs font-semibold text-rose-600" role="alert">
                   {t("onboarding.profile.phoneConflict")}
@@ -530,7 +553,7 @@ export default function ProfileStep({ values, saving = false, error, errorCode =
         </div>
       </div>
 
-      {error && !phoneConflict ? (
+      {error && !phoneConflict && !emailConflict ? (
         <p className="mt-5 rounded-xl border border-rose-200 bg-rose-50 px-4 py-3 text-sm text-rose-700" role="alert">
           {translateUi(error)}
         </p>

@@ -5,6 +5,10 @@ export const PHONE_ALREADY_LINKED_CODE = "phone_exists";
 export const PHONE_ALREADY_LINKED_MESSAGE =
   "This phone number is already linked to an existing KunThai account.";
 
+export const EMAIL_ALREADY_LINKED_CODE = "email_exists";
+export const EMAIL_ALREADY_LINKED_MESSAGE =
+  "This email is already used by another KunThai account. Use a different email or leave it blank.";
+
 const IDENTITY_UNAVAILABLE_MESSAGE =
   "We could not create an account with these details. Sign in or try another number.";
 
@@ -58,6 +62,12 @@ export async function checkKunThaiIdentityAvailability({ email = "", phone = "",
 
   const result = firstRpcRow(data) || {};
   if (!result.allowed) {
+    // preflight_kunthai_signup answers "identity_unavailable" only when the
+    // email belongs to another account (the phone has its own code), so name
+    // the real reason instead of a generic "sign in instead".
+    if (result.conflict_code === "identity_unavailable" && normalizedEmail) {
+      throw identityError(EMAIL_ALREADY_LINKED_CODE, EMAIL_ALREADY_LINKED_MESSAGE);
+    }
     throw identityError(result.conflict_code);
   }
 

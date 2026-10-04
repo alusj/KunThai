@@ -1,4 +1,4 @@
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 
 import { getOnboardingProfile } from "../services/onboardingService";
 
@@ -9,6 +9,11 @@ export function useOnboarding(session) {
   const [checked, setChecked] = useState(!session);
   const [checkedSessionId, setCheckedSessionId] = useState(sessionId);
   const [refreshKey, setRefreshKey] = useState(0);
+  // The account whose profile is already on screen. The auth user object is
+  // replaced on every metadata write and token refresh (USER_UPDATED); for the
+  // same account those reloads run silently, so onboarding is never swapped
+  // for the startup skeleton mid-flow.
+  const loadedUserIdRef = useRef("");
 
   useEffect(() => {
     let active = true;
@@ -16,9 +21,8 @@ export function useOnboarding(session) {
     let retryId = null;
 
     async function load() {
-      setChecked(false);
-
       if (!session) {
+        loadedUserIdRef.current = "";
         setProfile(null);
         setCheckedSessionId("");
         setLoading(false);
@@ -26,13 +30,18 @@ export function useOnboarding(session) {
         return;
       }
 
-      setLoading(true);
+      const silent = loadedUserIdRef.current === session.id;
+      if (!silent) {
+        setChecked(false);
+        setLoading(true);
+      }
 
       try {
         const nextProfile = await getOnboardingProfile(session);
         if (active) {
           setProfile(nextProfile);
           setCheckedSessionId(session.id || "");
+          loadedUserIdRef.current = session.id || "";
           resolved = true;
         }
       } catch (error) {

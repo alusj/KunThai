@@ -35,7 +35,9 @@ function normalizeProfile(profile) {
     phoneCountryCode: profile?.phoneCountryCode || "",
     address: profile?.address ?? "",
     email: profile?.email ?? "",
-    phone: profile?.phone ?? "",
+    // Phone sign-ups start with the number they just verified.
+    phone: profile?.phone || profile?.verifiedPhone || "",
+    verifiedPhone: profile?.verifiedPhone || "",
     avatarUrl: profile?.avatarUrl ?? "",
     socialLinks: profile?.socialLinks ?? [],
     provider: profile?.provider ?? "email",
@@ -58,13 +60,16 @@ export default function OnboardingFlow({ profile, onComplete }) {
   const [error, setError] = useState("");
   const [errorCode, setErrorCode] = useState("");
   const userEditedRef = useRef(false);
+  // Once the person moves between steps, the on-screen step is theirs; a
+  // background profile refresh must not send them back to a saved step.
+  const navigatedRef = useRef(false);
 
   const safeValues = useMemo(() => normalizeProfile(values), [values]);
 
   useEffect(() => {
     if (!profile || finishing || userEditedRef.current) return;
 
-    setStep(Math.min(Math.max(profile.onboardingStep ?? 1, 1), 4));
+    if (!navigatedRef.current) setStep(Math.min(Math.max(profile.onboardingStep ?? 1, 1), 4));
     setValues(normalizeProfile(profile));
     setError("");
     setErrorCode("");
@@ -144,6 +149,7 @@ export default function OnboardingFlow({ profile, onComplete }) {
 
   const handleNext = async () => {
     const nextStep = Math.min(step + 1, 4);
+    navigatedRef.current = true;
     setDirection("forward");
 
     if (step === 1) {
@@ -171,6 +177,7 @@ export default function OnboardingFlow({ profile, onComplete }) {
 
   const handleBack = async () => {
     const nextStep = Math.max(step - 1, 1);
+    navigatedRef.current = true;
     setDirection("backward");
     setError("");
     setStep(nextStep);

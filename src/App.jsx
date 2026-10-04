@@ -258,6 +258,9 @@ export default function App() {
   // ref so it survives the reveal effect re-running before the refreshed
   // profile metadata arrives, which otherwise fell back to Explore.
   const pendingLandingRef = useRef("");
+  // True while the last screen shown was Login, so the first account check
+  // after signing in keeps Login on screen instead of the startup skeleton.
+  const loginShownRef = useRef(false);
   const [accountControl, setAccountControl] = useState(null);
   const [twoFactorPending, setTwoFactorPending] = useState(null);
   const [returningIntroOpen, setReturningIntroOpen] = useState(false);
@@ -684,14 +687,22 @@ export default function App() {
   }
 
   if (user && !guestSession && (!onboardingChecked || onboardingLoading) && !onboardingReveal) {
+    // Signing in from the Login screen: keep Login in place (same tree, so its
+    // state survives) while the account check runs. A new account then slides
+    // straight into onboarding instead of flashing the Explore skeleton.
+    if (loginShownRef.current) {
+      return withStartupIntro(<Login />);
+    }
     // Keep a useful shell visible even when the profile check is offline. If
     // this is an incomplete account, OnboardingFlow replaces it once the local
     // account route resolves.
     return withStartupIntro(<AppLoading page={page} marketplaceSub={marketplaceNav.sub || ""} />);
   }
   if (!user) {
+    loginShownRef.current = true;
     return withStartupIntro(<Login />);
   }
+  loginShownRef.current = false;
 
   if (!guestSession && twoFactorPending !== false) {
     return withStartupIntro(

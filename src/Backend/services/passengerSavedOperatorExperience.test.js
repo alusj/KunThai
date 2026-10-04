@@ -27,7 +27,8 @@ test("fleet images are mandatory while verification documents remain optional", 
 });
 
 test("account phone fallback and passenger-safe fleet contacts are wired", () => {
-  assert.match(onboardingService, /metadata\.phone_number \|\| user\?\.phone \|\| ""/);
+  assert.match(onboardingService, /metadata\.phone_number \|\| verifiedAuthPhone\(user\)/);
+  assert.match(onboardingService, /String\(user\?\.phone \|\| ""\)/);
   assert.match(migration, /get_public_transport_fleet_contacts/);
   assert.match(migration, /raw_user_meta_data->>'phone_number'/);
   assert.match(migration, /transport_operators_phone_required/);
