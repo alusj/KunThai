@@ -20,6 +20,7 @@ installMobileViewportVariables();
 
 const AdminApp = lazyWithRetry(() => import("./admin/AdminApp.jsx"));
 const PublicPolicyPage = lazyWithRetry(() => import("./components/public/PublicPolicyPage.jsx"));
+const PublicSupportPage = lazyWithRetry(() => import("./components/public/PublicSupportPage.jsx"));
 
 function RootApplication() {
   useUiLocale();
@@ -33,6 +34,15 @@ function RootApplication() {
     return (
       <Suspense fallback={<div className="flex min-h-screen items-center justify-center bg-zinc-100 text-sm font-bold text-zinc-600">{i18nText("ui.literals.kb23c1e4f1dc3")}</div>}>
         <AdminApp />
+      </Suspense>
+    );
+  }
+
+  // Public support page (App Store Support URL); no sign-in required.
+  if (pathname === "/support" || pathname === "/support/") {
+    return (
+      <Suspense fallback={<div className="flex min-h-screen items-center justify-center bg-slate-100 text-sm font-bold text-slate-600">{i18nText("ui.literals.kde99f5ae7e28")}</div>}>
+        <PublicSupportPage />
       </Suspense>
     );
   }

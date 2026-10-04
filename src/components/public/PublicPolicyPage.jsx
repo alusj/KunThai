@@ -38,7 +38,8 @@ export default function PublicPolicyPage({ initialPolicyId = "" }) {
       <footer className="border-t border-slate-200 bg-white">
         <div className="mx-auto flex max-w-6xl flex-wrap items-center justify-between gap-3 px-4 py-6 text-sm font-semibold text-slate-500 sm:px-6">
           <span>(c) {new Date().getFullYear()} KunThai</span>
-          <span className="flex gap-4">
+          <span className="flex flex-wrap gap-4">
+            <a href="/support" className="hover:text-slate-900">Support</a>
             <a href="/policy-center" className="hover:text-slate-900">{i18nText("ui.literals.k176ded55d96d")}</a>
             <a href="/terms" className="hover:text-slate-900">{i18nText("ui.literals.ka55a275aa676")}</a>
             <a href="/privacy" className="hover:text-slate-900">{i18nText("ui.literals.kcf01481f626d")}</a>
