@@ -25,11 +25,18 @@ function getFileExtensionFromMime(mimeType, fallback = "bin") {
   return map[mimeType] || fallback;
 }
 
-function dataUrlToBlob(dataUrl) {
-  const match = String(dataUrl || "").match(/^data:([^;,]+)?(;base64)?,(.*)$/s);
-  if (!match) throw new Error("Unable to prepare media for upload.");
-  const mimeType = match[1] || "application/octet-stream";
-  const binary = match[2] ? window.atob(match[3]) : decodeURIComponent(match[3]);
+// Recorders produce headers with parameters, e.g.
+// "data:audio/webm;codecs=opus;base64,…", so parse the header by parts.
+export function dataUrlToBlob(dataUrl) {
+  const value = String(dataUrl || "");
+  const comma = value.indexOf(",");
+  if (!value.startsWith("data:") || comma < 0) throw new Error("Unable to prepare media for upload.");
+  const header = value.slice(5, comma).split(";");
+  const isBase64 = header[header.length - 1].toLowerCase() === "base64";
+  // Storage matches allowed types on the bare MIME, so drop codec params.
+  const mimeType = header[0].trim().toLowerCase() || "application/octet-stream";
+  const payload = value.slice(comma + 1);
+  const binary = isBase64 ? window.atob(payload) : decodeURIComponent(payload);
   const bytes = Uint8Array.from(binary, (character) => character.charCodeAt(0));
   return new Blob([bytes], { type: mimeType });
 }
