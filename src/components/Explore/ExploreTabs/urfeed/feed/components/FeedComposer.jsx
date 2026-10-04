@@ -41,6 +41,7 @@ import { getAdvertObjectiveRequirement, hasAdvertCoordinates } from "../../../..
 import { normalizeRegionSelection } from "../../../../../../Backend/services/regions/regionModel";
 import { normalizeCountrySelection } from "../../../../../../Backend/services/regions/promotionTargeting";
 import { upgradeNearbyAdvertDraft } from "../../../../../../Backend/services/explore/advertDraft";
+import { haptics } from "../../../../../../Backend/services/feedbackService";
 import AdvertComposerFields from "../composer/AdvertComposerFields";
 import CompactComposer from "../composer/CompactComposer";
 import ComposerActions from "../composer/ComposerActions";
@@ -439,6 +440,7 @@ export default function FeedComposer({ profile, creating, onSubmit }) {
   const [isRecording, setIsRecording] = useState(false);
   const [recordingPaused, setRecordingPaused] = useState(false);
   const [recordingSeconds, setRecordingSeconds] = useState(0);
+  const [recordingStream, setRecordingStream] = useState(null);
   const [mediaMode, setMediaMode] = useState("image");
   const [attachmentMode, setAttachmentMode] = useState(() => (
     draft.video_url ? "video" : draft.image_url ? "image" : "text"
@@ -782,6 +784,7 @@ export default function FeedComposer({ profile, creating, onSubmit }) {
     stopRecordingTimer();
 
     if (recorderRef.current?.state === "recording" || recorderRef.current?.state === "paused") {
+      haptics.recordStop("explore");
       recorderRef.current.stop();
     }
 
@@ -789,6 +792,7 @@ export default function FeedComposer({ profile, creating, onSubmit }) {
     recorderRef.current = null;
     chunksRef.current = [];
 
+    setRecordingStream(null);
     setIsRecording(false);
     setRecordingPaused(false);
     clearAudioState();
@@ -1186,6 +1190,7 @@ export default function FeedComposer({ profile, creating, onSubmit }) {
       discardRecordingRef.current = false;
       stopRecordingTimer();
       setRecordingPaused(false);
+      haptics.recordStop("explore");
       recorderRef.current?.stop();
       return;
     }
@@ -1236,17 +1241,21 @@ export default function FeedComposer({ profile, creating, onSubmit }) {
         } finally {
           setIsRecording(false);
           setRecordingPaused(false);
+          setRecordingStream(null);
           stopRecordingTimer();
           stream.getTracks().forEach((track) => track.stop());
         }
       };
 
       recorder.start();
+      setRecordingStream(stream);
       setIsRecording(true);
       setRecordingPaused(false);
       setRecordingSeconds(0);
       startRecordingTimer();
-      setFeedback(i18nText("ui.literals.k9562768f373f"));
+      // The live capsule shows the recording state; no status text needed.
+      setFeedback("");
+      haptics.recordStart("explore");
     } catch (error) {
       setFeedback(inlineErrorMessage(error, i18nText("ui.literals.k6080e69708d6")));
       setIsRecording(false);
@@ -2512,6 +2521,7 @@ if (!isMobileVideoDevice) {
                   <VoiceCapsuleRecorder
                     isRecording={isRecording}
                     isPaused={recordingPaused}
+                    stream={recordingStream}
                     duration={recordingSeconds || audioDuration || 0}
                     audioPreview={audioPreview}
                     onStart={handleAudioClick}
@@ -2578,7 +2588,7 @@ if (!isMobileVideoDevice) {
               {postingStage ? <PostingProgress progress={postingProgress} stage={postingStage} /> : null}
 
               {feedback ? (
-                <p className={`text-sm font-semibold ${feedback === "Recording voice note..." ? "text-sky-700" : "text-rose-600"}`}>
+                <p className="text-sm font-semibold text-rose-600">
                   {translateUi(feedback)}
                 </p>
               ) : null}

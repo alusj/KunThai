@@ -1,14 +1,19 @@
-import { useRef, useState } from "react";
-import { HiOutlineMicrophone, HiOutlinePaperAirplane, HiOutlineXMark } from "react-icons/hi2";
+import { useEffect, useRef, useState } from "react";
+import { HiOutlineMicrophone, HiOutlinePaperAirplane, HiOutlineXMark, HiStop } from "react-icons/hi2";
 
 import { fileToDataUrl } from "../composer/composerUtils";
 import { MentionHashtagSuggestions } from "../../../../shared/MentionHashtagAutocomplete";
 import { useMentionHashtagAutocomplete } from "../../../../../../Backend/hooks/useMentionHashtagAutocomplete";
-import { pauseOtherExploreMedia } from "../../../../shared/singleMediaPlayback";
+import { duckExploreVideos, releaseExploreVideoDuck, voiceCommentAudioHandlers } from "../../../../shared/singleMediaPlayback";
+
+// Ducking key for the mic, shared by every comment composer instance.
+const RECORDING_DUCK_KEY = "comment-voice-recording";
 import { useI18n, t as translate } from "../../../../../../i18n";
 import ExploreAiButton from "../../../../shared/ExploreAiButton";
 import { getPostTitle } from "../../../../shared/advertUtils";
 import { EXPLORE_COMMENT_ACTIONS } from "../../../../../../Backend/services/ai/aiActionCatalog";
+import { haptics } from "../../../../../../Backend/services/feedbackService";
+import { LiveRecordingStrip } from "../../../../../shared/recording/LiveRecording";
 
 function getReplyName(comment) {
   const authorName = String(comment?.author_name || comment?.authorProfile?.displayName || "").trim();
@@ -24,36 +29,89 @@ export default function CommentDrawerComposer({ currentUserId, onSubmit, onSendP
   const [value, setValue] = useState("");
   const [audioPreview, setAudioPreview] = useState("");
   const [isRecording, setIsRecording] = useState(false);
+  const [recordingSeconds, setRecordingSeconds] = useState(0);
+  const [recordingStream, setRecordingStream] = useState(null);
+  const [recordError, setRecordError] = useState("");
   const [pendingSignature, setPendingSignature] = useState("");
   const recorderRef = useRef(null);
+  const discardRecordingRef = useRef(false);
   const chunksRef = useRef([]);
   const inputRef = useRef(null);
   const autocomplete = useMentionHashtagAutocomplete({ value, onValueChange: setValue, inputRef });
 
+  useEffect(() => {
+    if (!isRecording) return undefined;
+    const startedAt = Date.now();
+    const interval = window.setInterval(() => setRecordingSeconds(Math.floor((Date.now() - startedAt) / 1000)), 250);
+    return () => window.clearInterval(interval);
+  }, [isRecording]);
+
+  useEffect(() => {
+    return () => {
+      discardRecordingRef.current = true;
+      if (recorderRef.current?.state === "recording") recorderRef.current.stop();
+    };
+  }, []);
+
+  function stopRecording({ discard = false } = {}) {
+    if (recorderRef.current?.state !== "recording") return;
+    discardRecordingRef.current = discard;
+    haptics.recordStop("explore");
+    recorderRef.current.stop();
+  }
+
   async function toggleRecording() {
     if (isRecording) {
-      recorderRef.current?.stop();
+      stopRecording();
       return;
     }
 
-    const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
+    if (!navigator.mediaDevices?.getUserMedia || typeof MediaRecorder === "undefined") {
+      setRecordError(translate("ui.literals.k703ac149a63c"));
+      return;
+    }
+
+    let stream;
+    try {
+      stream = await navigator.mediaDevices.getUserMedia({ audio: true });
+    } catch {
+      setRecordError(translate("ui.literals.k616aa6d808cc"));
+      return;
+    }
+
     const recorder = new MediaRecorder(stream);
     chunksRef.current = [];
     recorderRef.current = recorder;
+    discardRecordingRef.current = false;
 
     recorder.ondataavailable = (event) => {
       if (event.data?.size) chunksRef.current.push(event.data);
     };
 
     recorder.onstop = async () => {
-      const blob = new Blob(chunksRef.current, { type: recorder.mimeType || "audio/webm" });
-      setAudioPreview(await fileToDataUrl(new File([blob], "comment-voice.webm", { type: blob.type })));
-      setIsRecording(false);
       stream.getTracks().forEach((track) => track.stop());
+      releaseExploreVideoDuck(RECORDING_DUCK_KEY);
+      recorderRef.current = null;
+      setIsRecording(false);
+      setRecordingStream(null);
+      if (discardRecordingRef.current) {
+        discardRecordingRef.current = false;
+        chunksRef.current = [];
+        return;
+      }
+      const blob = new Blob(chunksRef.current, { type: recorder.mimeType || "audio/webm" });
+      if (blob.size) setAudioPreview(await fileToDataUrl(new File([blob], "comment-voice.webm", { type: blob.type })));
     };
 
+    // Quiet (or pause) the video behind the drawer so the mic hears the voice.
+    duckExploreVideos(RECORDING_DUCK_KEY, "recording");
     recorder.start();
+    setRecordError("");
+    setAudioPreview("");
+    setRecordingSeconds(0);
+    setRecordingStream(stream);
     setIsRecording(true);
+    haptics.recordStart("explore");
   }
 
   // KAI only fills this input. Sending stays the person's own tap.
@@ -129,7 +187,7 @@ export default function CommentDrawerComposer({ currentUserId, onSubmit, onSendP
           <audio
             controls
             src={audioPreview}
-            onPlay={(event) => pauseOtherExploreMedia(event.currentTarget)}
+            {...voiceCommentAudioHandlers}
             className="h-10 min-w-0 flex-1"
           />
           <button type="button" onClick={() => setAudioPreview("")} className="text-slate-500" aria-label={t("post.removeVoiceComment")}>
@@ -138,6 +196,8 @@ export default function CommentDrawerComposer({ currentUserId, onSubmit, onSendP
         </div>
       ) : null}
 
+      {recordError ? <p className="mb-2 rounded-2xl bg-amber-50 px-3 py-2 text-xs font-bold text-amber-800">{recordError}</p> : null}
+
       <div className="kt-comment-composer-row relative flex min-w-0 items-center gap-2">
         <MentionHashtagSuggestions
           trigger={autocomplete.trigger}
@@ -145,6 +205,15 @@ export default function CommentDrawerComposer({ currentUserId, onSubmit, onSendP
           loading={autocomplete.loading}
           onSelect={autocomplete.selectSuggestion}
         />
+        {isRecording ? (
+          <LiveRecordingStrip
+            stream={recordingStream}
+            seconds={recordingSeconds}
+            label={t("explore.recordingVoice")}
+            onCancel={() => stopRecording({ discard: true })}
+            cancelLabel={t("post.removeVoiceComment")}
+          />
+        ) : (
         <input
           ref={inputRef}
           value={value}
@@ -153,18 +222,19 @@ export default function CommentDrawerComposer({ currentUserId, onSubmit, onSendP
           placeholder={t("post.commentPlaceholder")}
           className="h-11 min-w-0 flex-1 rounded-2xl bg-slate-100 px-4 text-sm font-semibold text-slate-900 outline-none transition-colors duration-150 focus:bg-slate-50 focus:ring-2 focus:ring-sky-100"
         />
-        <ExploreAiButton variant="icon" getRequest={buildAiRequest} label={t("ai.explore.commentAiLabel")} />
+        )}
+        {isRecording ? null : <ExploreAiButton variant="icon" getRequest={buildAiRequest} label={t("ai.explore.commentAiLabel")} />}
         <button
           type="button"
           onClick={toggleRecording}
-          className={`kt-pressable flex h-11 w-11 items-center justify-center rounded-2xl text-lg ${isRecording ? "bg-rose-100 text-rose-600" : "bg-slate-100 text-slate-600"}`}
+          className={`kt-pressable flex h-11 w-11 flex-none items-center justify-center rounded-2xl text-lg ${isRecording ? "kt-rec-button" : "bg-slate-100 text-slate-600"}`}
           aria-label={isRecording ? t("explore.stopRecording") : t("explore.recordVoiceComment")}
         >
-          <HiOutlineMicrophone />
+          {isRecording ? <HiStop /> : <HiOutlineMicrophone />}
         </button>
         <button
           type="submit"
-          disabled={(!value.trim() && !audioPreview) || pendingSignature === [replyingTo?.id || "", value.trim(), audioPreview || ""].join("|")}
+          disabled={isRecording || (!value.trim() && !audioPreview) || pendingSignature === [replyingTo?.id || "", value.trim(), audioPreview || ""].join("|")}
           className="kt-pressable flex h-11 w-11 items-center justify-center rounded-2xl bg-slate-950 text-white shadow-sm shadow-slate-950/10 disabled:bg-slate-200 disabled:text-slate-400 disabled:shadow-none"
           aria-label={t("post.sendComment")}
         >

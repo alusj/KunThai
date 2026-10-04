@@ -1,4 +1,6 @@
-import { HiOutlineMicrophone, HiOutlinePause, HiOutlinePlay, HiOutlineTrash, HiOutlineShieldCheck } from "react-icons/hi2";
+import { HiOutlineMicrophone, HiOutlinePause, HiOutlinePlay, HiOutlineTrash, HiOutlineShieldCheck, HiStop } from "react-icons/hi2";
+
+import { LiveWaveform } from "../../../../../shared/recording/LiveRecording";
 
 import { t } from "../../../../../../i18n";
 import { t as i18nText } from "../../../../../../i18n/index";
@@ -13,6 +15,7 @@ function formatTime(seconds = 0) {
 export default function VoiceCapsuleRecorder({
   isRecording,
   isPaused,
+  stream,
   duration,
   audioPreview,
   onStart,
@@ -41,23 +44,25 @@ export default function VoiceCapsuleRecorder({
         </span>
       </div>
 
-      <div className="mt-5 flex h-16 items-end gap-1.5 rounded-3xl bg-white/10 px-4 py-3">
-        {bars.map((_, index) => (
-          <span
-            key={index}
-            className={`w-full rounded-full bg-sky-300 transition-all ${
-              isRecording && !isPaused ? "animate-pulse" : "opacity-40"
-            }`}
-            style={{
-              height: `${18 + ((index * 13) % 42)}px`,
-              animationDelay: `${index * 70}ms`,
-            }}
-          />
-        ))}
-      </div>
+      {isRecording ? (
+        <div data-paused={isPaused ? "true" : "false"} className="kt-rec-strip mt-5 flex h-16 items-center gap-3 rounded-3xl px-4">
+          <span className="kt-rec-dot" />
+          <LiveWaveform stream={stream} paused={isPaused} bars={36} className="h-11 min-w-0 flex-1" />
+        </div>
+      ) : (
+        <div className="mt-5 flex h-16 items-center gap-1.5 rounded-3xl bg-white/10 px-4 py-3">
+          {bars.map((_, index) => (
+            <span
+              key={index}
+              className="w-full rounded-full bg-sky-300 opacity-40"
+              style={{ height: `${8 + ((index * 13) % 34)}px` }}
+            />
+          ))}
+        </div>
+      )}
 
       <div className="mt-4 flex items-center justify-between">
-        <span className="rounded-full bg-white/10 px-3 py-1 text-xs font-black text-sky-100">
+        <span className={`kt-rec-time rounded-full px-3 py-1 text-xs font-black ${isRecording && !isPaused ? "bg-rose-500/20 text-rose-100" : "bg-white/10 text-sky-100"}`}>
           {formatTime(duration)}
         </span>
 
@@ -86,9 +91,12 @@ export default function VoiceCapsuleRecorder({
           <button
             type="button"
             onClick={onStop}
-            className="col-span-2 h-12 rounded-2xl bg-emerald-400 text-sm font-black text-slate-950"
+            className={`col-span-2 h-12 rounded-2xl text-sm font-black ${isPaused ? "bg-emerald-400 text-slate-950" : "kt-rec-button"}`}
           >
-            {i18nText("ui.literals.kc6f7f44e5b6b")}
+            <span className="inline-flex items-center gap-2">
+              <HiStop />
+              {i18nText("ui.literals.kc6f7f44e5b6b")}
+            </span>
           </button>
         )}
 

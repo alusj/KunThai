@@ -8,6 +8,7 @@ import {
   HiOutlinePhoto,
   HiOutlineShieldCheck,
   HiOutlineXMark,
+  HiStop,
 } from "react-icons/hi2";
 
 import { readExploreSettings } from "../../../../Backend/services/explore/preferencesService";
@@ -17,6 +18,8 @@ import { useI18n } from "../../../../i18n";
 import { t as i18nText } from "../../../../i18n/index";
 import { uiText as translateUi } from "../../../../i18n/index.js";
 import { inlineErrorMessage } from "../../../../Backend/services/friendlyErrorService";
+import { haptics } from "../../../../Backend/services/feedbackService";
+import { LiveRecordingStrip } from "../../../shared/recording/LiveRecording";
 
 function formatRecordingTime(seconds) {
   const minutes = Math.floor(seconds / 60);
@@ -41,6 +44,7 @@ export default function MessageComposer({ focused = false, onAction, onActivity,
   const [value, setValue] = useState("");
   const [recording, setRecording] = useState(false);
   const [recordingSeconds, setRecordingSeconds] = useState(0);
+  const [recordingStream, setRecordingStream] = useState(null);
   const [attachment, setAttachment] = useState(null);
   const [notice, setNotice] = useState("");
   const [sending, setSending] = useState(false);
@@ -50,6 +54,7 @@ export default function MessageComposer({ focused = false, onAction, onActivity,
   const mediaStreamRef = useRef(null);
   const audioChunksRef = useRef([]);
   const recordingSecondsRef = useRef(0);
+  const discardRecordingRef = useRef(false);
 
   useEffect(() => {
     if (!recording) {
@@ -145,9 +150,11 @@ export default function MessageComposer({ focused = false, onAction, onActivity,
     }
   }
 
-  function stopRecording() {
+  function stopRecording({ discard = false } = {}) {
     const recorder = mediaRecorderRef.current;
     if (recorder?.state === "recording") {
+      discardRecordingRef.current = discard;
+      haptics.recordStop("messages");
       recorder.stop();
     }
   }
@@ -180,7 +187,14 @@ export default function MessageComposer({ focused = false, onAction, onActivity,
         mediaStreamRef.current = null;
         mediaRecorderRef.current = null;
         setRecording(false);
+        setRecordingStream(null);
         onActivity?.("active");
+
+        if (discardRecordingRef.current) {
+          discardRecordingRef.current = false;
+          audioChunksRef.current = [];
+          return;
+        }
 
         if (!blob.size) {
           setNotice(i18nText("ui.literals.k3b51ce823349"));
@@ -198,11 +212,14 @@ export default function MessageComposer({ focused = false, onAction, onActivity,
 
       setRecordingSeconds(0);
       recordingSecondsRef.current = 0;
+      discardRecordingRef.current = false;
       setAttachment(null);
       setNotice("");
+      setRecordingStream(stream);
       setRecording(true);
       onActivity?.("recording");
       recorder.start();
+      haptics.recordStart("messages");
     } catch {
       setNotice(i18nText("ui.literals.k616aa6d808cc"));
       onActivity?.("active");
@@ -239,16 +256,6 @@ export default function MessageComposer({ focused = false, onAction, onActivity,
       className="kt-message-composer border-t border-slate-200 bg-white px-3 pt-3 shadow-[0_-10px_30px_rgba(15,23,42,0.05)]"
       data-focused={focused ? "true" : "false"}
     >
-      {recording ? (
-        <div className="mb-2 flex items-center justify-between rounded-2xl bg-rose-50 px-3 py-2 text-sm font-black text-rose-700">
-          <span className="inline-flex items-center gap-2">
-            <span className="h-2.5 w-2.5 animate-pulse rounded-full bg-rose-600" />
-            {i18nText("ui.literals.k409a42143265")}
-          </span>
-          <span>{formatRecordingTime(recordingSeconds)}</span>
-        </div>
-      ) : null}
-
       {attachment ? (
         <div className="mb-2 flex items-center gap-3 rounded-2xl border border-slate-200 bg-slate-50 p-2">
           {attachment.type === "image" ? (
@@ -309,6 +316,15 @@ export default function MessageComposer({ focused = false, onAction, onActivity,
       >
         <HiOutlinePhoto />
       </button>
+      {recording ? (
+        <LiveRecordingStrip
+          stream={recordingStream}
+          seconds={recordingSeconds}
+          label={i18nText("ui.literals.k409a42143265")}
+          onCancel={() => stopRecording({ discard: true })}
+          cancelLabel={t("messages.removeAttachment")}
+        />
+      ) : (
       <input
         value={value}
         onChange={(event) => updateValue(event.target.value)}
@@ -320,14 +336,15 @@ export default function MessageComposer({ focused = false, onAction, onActivity,
         autoComplete="off"
         className="h-11 min-w-0 flex-1 rounded-2xl border border-transparent bg-slate-100 px-4 text-sm font-semibold text-slate-900 outline-none transition focus:border-sky-300 focus:bg-white focus:ring-4 focus:ring-sky-100"
       />
+      )}
       {allowVoiceNotes ? (
         <button
           type="button"
           onClick={toggleRecording}
-          className={`flex h-11 w-11 items-center justify-center rounded-2xl text-lg ${recording ? "bg-rose-50 text-rose-600" : "bg-slate-100 text-slate-500"}`}
+          className={`flex h-11 w-11 flex-none items-center justify-center rounded-2xl text-lg ${recording ? "kt-rec-button" : "bg-slate-100 text-slate-500"}`}
           aria-label={recording ? t("messages.stopRecording") : t("messages.recordVoice")}
         >
-          <HiOutlineMicrophone />
+          {recording ? <HiStop /> : <HiOutlineMicrophone />}
         </button>
       ) : null}
       <button

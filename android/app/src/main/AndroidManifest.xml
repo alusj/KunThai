@@ -52,4 +52,7 @@
     <uses-permission android:name="android.permission.DETECT_SCREEN_CAPTURE" />
     <!-- navigator.vibrate() in the WebView: haptics and the locked Area View double shake. -->
     <uses-permission android:name="android.permission.VIBRATE" />
+    <!-- getUserMedia({ audio }) in the WebView: voice notes in messages, comments and posts. -->
+    <uses-permission android:name="android.permission.RECORD_AUDIO" />
+    <uses-permission android:name="android.permission.MODIFY_AUDIO_SETTINGS" />
 </manifest>

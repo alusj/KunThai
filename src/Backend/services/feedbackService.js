@@ -55,6 +55,14 @@ export const haptics = {
   doubleShake(module) {
     vibrate([90, 80, 90], module, "doubleShake");
   },
+  // One crisp, strong tick the moment the microphone goes live.
+  recordStart(module) {
+    vibrate(55, module, "recordStart");
+  },
+  // Softer tap when a recording is stopped or discarded.
+  recordStop(module) {
+    vibrate(14, module, "recordStop");
+  },
 };
 
 let audioContext = null;

@@ -733,6 +733,7 @@ export default function VideoCard({
         ref={videoRef}
         src={post.video_url}
         autoPlay={active}
+        data-explore-active={active ? "true" : "false"}
         controls={false}
         muted={false}
         playsInline
