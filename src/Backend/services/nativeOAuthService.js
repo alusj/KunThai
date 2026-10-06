@@ -17,6 +17,7 @@ import { Browser } from "@capacitor/browser";
 
 import supabase from "../lib/supabaseClient";
 import { describeOAuthFailure } from "./oauthErrors";
+import { canUseNativeAppleSignIn, signInWithNativeApple } from "./appleNativeSignIn";
 
 // Custom scheme registered in iOS Info.plist and the Android manifest, and
 // allow-listed in Supabase Redirect URLs (app.kunthai.mobile://**).
@@ -198,12 +199,35 @@ export function initNativeOAuth() {
   devLog("native OAuth listeners bound", { platform: Capacitor.getPlatform() });
 }
 
+// Apple on iOS uses the system sheet instead of a browser. It settles through
+// the same OAUTH_SETTLED_EVENT so Login's loading/cancel/error handling is
+// shared with every other provider.
+async function startNativeAppleSheet() {
+  devLog("start Apple system sheet");
+  try {
+    const result = await signInWithNativeApple();
+    devLog(result.status === "cancelled" ? "Apple sheet cancelled" : "session established");
+    emitSettled({ status: result.status });
+  } catch (err) {
+    devLog("Apple sign-in failed");
+    emitSettled({
+      status: "error",
+      message: describeOAuthFailure({ code: err?.code || "", description: err?.message || "", provider: "apple" }),
+    });
+  }
+}
+
 // Kick off a native sign-in: create the PKCE authorize URL (without letting
 // supabase-js redirect the webview) and open it in the system browser.
 export async function startNativeOAuth({ provider, intent = "signin" }) {
   sawCallback = false;
   activeProvider = provider;
   devLog("start sign-in", { provider, intent, platform: Capacitor.getPlatform() });
+
+  if (provider === "apple" && canUseNativeAppleSignIn()) {
+    await startNativeAppleSheet();
+    return;
+  }
 
   const { data, error } = await supabase.auth.signInWithOAuth({
     provider,

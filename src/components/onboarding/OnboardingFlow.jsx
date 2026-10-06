@@ -13,15 +13,18 @@ import { inlineErrorMessage } from "../../Backend/services/friendlyErrorService"
 
 function normalizeProfile(profile) {
   const countryProfile = getActiveCountryProfile(profile?.country || profile?.countryCode);
-  // Name fields start empty with placeholders only. Provider-supplied names
-  // (Google full name, phone signup display name) never pre-fill the form;
-  // once the user saves their own names they are restored on return.
+  // Names the person saved always win. Otherwise an Apple, Google or Facebook
+  // sign-in pre-fills first/last name from the provider (still editable, and
+  // Apple requires not asking again for a name it already shared). Phone
+  // sign-ups still start empty. providerFirstName/LastName exist only on the
+  // raw account profile, so a field the person clears is not refilled.
   const hasUserEnteredName = Boolean(profile?.firstName || profile?.middleName || profile?.lastName);
+  const useProviderName = !hasUserEnteredName && Boolean(profile?.providerFirstName || profile?.providerLastName);
 
   return {
-    firstName: profile?.firstName || "",
+    firstName: profile?.firstName || (useProviderName ? profile.providerFirstName : ""),
     middleName: profile?.middleName || "",
-    lastName: profile?.lastName || "",
+    lastName: profile?.lastName || (useProviderName ? profile.providerLastName : ""),
     displayName: hasUserEnteredName ? profile?.displayName ?? "" : "",
     dateOfBirth: profile?.dateOfBirth ?? "",
     username: profile?.username ?? "",

@@ -5,6 +5,7 @@ import { normalizeSocialLinks } from "./explore/socialLinks";
 import { getActiveCountryProfile, storeCountryContext } from "../../data/globalCountryProfiles";
 import { consumeOAuthFlow } from "./sessionService";
 import { hasUsableReturningProfile } from "./returningProfileRules";
+import { NAME_PREFILL_PROVIDERS, providerNameParts } from "./providerNames";
 import { getStoredVisibilityInviteCode } from "./visibilityCreditService";
 import {
   checkKunThaiIdentityAvailability,
@@ -52,10 +53,17 @@ export function buildProfileFromUser(user) {
             : provider;
 
   const countryProfile = getActiveCountryProfile(metadata.country_code || metadata.country);
+  // Name from Apple/Google/Facebook, offered as an editable onboarding
+  // pre-fill only. Never stored as the person's own first/last name here.
+  const providerSuppliedName = NAME_PREFILL_PROVIDERS.includes(provider)
+    ? providerNameParts(metadata)
+    : { firstName: "", lastName: "" };
   const profile = {
     firstName: metadata.first_name ?? "",
     middleName: metadata.middle_name ?? "",
     lastName: metadata.last_name ?? "",
+    providerFirstName: providerSuppliedName.firstName,
+    providerLastName: providerSuppliedName.lastName,
     displayName: metadata.display_name ?? metadata.full_name ?? "",
     dateOfBirth: metadata.date_of_birth ?? "",
     username: metadata.username ?? "",
