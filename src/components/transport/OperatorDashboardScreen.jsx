@@ -342,6 +342,17 @@ export default function OperatorDashboardScreen({
     );
   }
 
+  function openOperatorEmergency(trip) {
+    onLocateArea?.(null, {
+      emergency: {
+        open: true,
+        source: "operator-live-trip",
+        tripId: trip?.id || "",
+        tripTitle: trip?.title || "",
+      },
+    });
+  }
+
   function openPassengerTripRoute(passenger) {
     if (!passenger?.pickup || !passenger?.destination) return;
 
@@ -713,6 +724,7 @@ export default function OperatorDashboardScreen({
             trip={liveTrip}
             fleetName={fleetName}
             onViewRoute={() => openPassengerTripRoute(liveTrip)}
+            onOpenEmergency={openOperatorEmergency}
           />
         ) : null}
 
@@ -1027,7 +1039,7 @@ function LocateAreaIconButton({ label, onClick }) {
   );
 }
 
-export function OperatorLiveTripHeaderCard({ trip, fleetName, onViewRoute }) {
+export function OperatorLiveTripHeaderCard({ trip, fleetName, onViewRoute, onOpenEmergency }) {
   useI18n();
   const [menuOpen, setMenuOpen] = useState(false);
   const [menuClosing, setMenuClosing] = useState(false);
@@ -1228,7 +1240,18 @@ export function OperatorLiveTripHeaderCard({ trip, fleetName, onViewRoute }) {
             }} />
             <OperatorLiveAction icon={FiPhone} label={passengerPhone ? t("urride.opDash.callPassenger") : t("urride.opDash.passengerPhoneUnavailable")} href={passengerPhone ? `tel:${passengerPhone}` : ""} disabled={!passengerPhone} />
             <OperatorLiveAction icon={FiShare2} label={t("urride.opDash.shareRouteStatus")} onClick={shareRouteStatus} />
-            <OperatorLiveAction icon={FiAlertTriangle} label={t("urride.opDash.emergency112")} href="tel:112" danger />
+            {/* Same as the passenger's SOS: opens Nearby Area emergency mode,
+                which shows this country's emergency numbers and nearby help. */}
+            <OperatorLiveAction
+              icon={FiAlertTriangle}
+              label={t("urride.activeTrips.sosEmergency")}
+              onClick={() => {
+                closeMenu(true);
+                onOpenEmergency?.(trip);
+              }}
+              disabled={!onOpenEmergency}
+              danger
+            />
             <OperatorLiveAction icon={FiFlag} label={t("urride.opDash.reportConcern")} onClick={reportConcern} />
             <OperatorLiveAction icon={paused ? FiPlay : FiClock} label={paused ? t("urride.opDash.waitingPaused") : t("urride.opDash.liveTracking")} disabled />
           </div>

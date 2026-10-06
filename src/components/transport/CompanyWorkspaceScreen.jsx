@@ -935,6 +935,9 @@ export default function CompanyWorkspaceScreen({ company, initialTab = "Overview
                 onOpenBookings={visibleBookingQueue.length ? () => setBookingQueueOpen(true) : undefined}
                 onToggleAvailability={toggleOperatorAvailability}
                 onViewRoute={openCompanyTripRoute}
+                onOpenEmergency={(trip) => onLocateArea?.(null, {
+                  emergency: { open: true, source: "operator-live-trip", tripId: trip?.id || "", tripTitle: trip?.title || "" },
+                })}
               />
             ) : null}
           </section>
@@ -1605,7 +1608,7 @@ function Overview({ company, fleets, pendingRequests }) {
   );
 }
 
-function BasicOperatorCompanyDashboard({ assignment, available, availabilitySaving, bookingCount = 0, company, dashboard, onOpenBookings, onToggleAvailability, onViewRoute }) {
+function BasicOperatorCompanyDashboard({ assignment, available, availabilitySaving, bookingCount = 0, company, dashboard, onOpenBookings, onOpenEmergency, onToggleAvailability, onViewRoute }) {
   useUiLocale();
   const access = company?.access || {};
   const responsibilities = access.responsibilities || [];
@@ -1633,6 +1636,7 @@ function BasicOperatorCompanyDashboard({ assignment, available, availabilitySavi
           trip={liveTrip}
           fleetName={fleetName}
           onViewRoute={() => onViewRoute?.(liveTrip)}
+          onOpenEmergency={onOpenEmergency}
         />
       ) : null}
 
