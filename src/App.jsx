@@ -19,6 +19,7 @@ import TwoFactorGate from "./components/auth/TwoFactorGate";
 import GuestGateCard from "./components/shared/GuestGateCard";
 import NotificationBannerHost from "./components/shared/NotificationBannerHost";
 import DirectionCardHost from "./components/shared/directionCards/DirectionCardHost";
+import RecoveryPasswordSheet from "./components/auth/RecoveryPasswordSheet";
 import CampaignPresentationHost from "./components/shared/CampaignPresentationHost";
 import CrossServiceActivityHost from "./components/shared/CrossServiceActivityHost";
 import ScreenshotVoiceCard from "./components/shared/ScreenshotVoiceCard";
@@ -990,6 +991,8 @@ export default function App() {
       <NotificationBannerHost userId={userId} />
       {/* One-time tips pointing at key buttons; guests get GuestGateCard instead. */}
       {userId && !guestSession ? <DirectionCardHost userId={userId} /> : null}
+      {/* After an email recovery link: offer a new password once. */}
+      {userId && !guestSession ? <RecoveryPasswordSheet userId={userId} /> : null}
     </div>,
   );
 }

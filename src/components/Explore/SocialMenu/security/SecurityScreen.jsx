@@ -19,6 +19,8 @@ import {
 import { showToast } from "../../../../Backend/services/toastService";
 import SocialScreenHeader from "../shared/SocialScreenHeader";
 import LinkedAccountsSection from "./LinkedAccountsSection";
+import RecoveryEmailSection from "./RecoveryEmailSection";
+import { isGuestMode } from "../../../../Backend/services/guestModeService";
 import { t as i18nText, uiText } from "../../../../i18n/index";
 import { uiText as translateUi, useI18n as useUiLocale } from "../../../../i18n/index.js";
 import { shortErrorToast } from "../../../../Backend/services/friendlyErrorService";
@@ -155,6 +157,9 @@ export default function SecurityScreen({ currentProfile, hideHeader = false, onO
             );
           })}
         </section>
+
+        {/* Guests have no account to recover. */}
+        {currentUserId && !isGuestMode() ? <RecoveryEmailSection /> : null}
 
         <LinkedAccountsSection currentUserId={currentUserId} />
 

@@ -5,6 +5,7 @@ import { FaFacebookF, FaInstagram, FaTiktok, FaTwitter, FaWhatsapp, FaYoutube } 
 import { EMAIL_ALREADY_LINKED_CODE, PHONE_ALREADY_LINKED_CODE } from "../../Backend/services/accountIdentityService";
 import { detectSocialPlatform, normalizeSocialLinks } from "../../Backend/services/explore/socialLinks";
 import FindAccountModal from "../auth/FindAccountModal";
+import RecoveryEmailNote from "../auth/RecoveryEmailNote";
 import {
   constrainCountryPhoneInput,
   getActiveCountryProfile,
@@ -301,7 +302,7 @@ export default function ProfileStep({ values, saving = false, error, errorCode =
 
           <div className="mt-5 grid gap-4 sm:grid-cols-2">
             <label className="block" data-field-error={fieldErrors.email || emailConflict ? "true" : undefined}>
-              <span className="mb-2 block text-xs font-semibold uppercase tracking-[0.26em] text-slate-500">{t("onboarding.profile.emailOptional")}</span>
+              <span className="mb-2 block text-xs font-semibold uppercase tracking-[0.26em] text-slate-500">{t("onboarding.profile.email")}</span>
               <input
                 type="email"
                 value={values.email}
@@ -321,7 +322,7 @@ export default function ProfileStep({ values, saving = false, error, errorCode =
                 <span className="mt-2 block text-xs font-semibold text-rose-600">
                   {t("onboarding.profile.errEmail")}
                 </span>
-              ) : null}
+              ) : <RecoveryEmailNote />}
             </label>
 
             <label className="block" data-field-error={fieldErrors.phone || phoneConflict ? "true" : undefined}>

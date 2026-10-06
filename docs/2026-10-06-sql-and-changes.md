@@ -153,3 +153,28 @@ where not exists (
    - "Popular" filter (most-followed first).
    - Explore was checked: content is not limited by country; nearby is only
      boosted, every country is included.
+9. **Email account recovery (no phone access)**
+   - No SQL needed. It uses Supabase Auth and the existing identity tables.
+   - Onboarding email field: the "(optional)" wording is gone (the field is
+     still optional), and "For account recovery · Read more" explains why.
+   - Settings → Security → Recovery email shows Confirmed / Waiting for
+     confirmation / Not confirmed / Not added. People can add or change the
+     email there and send or resend the confirmation link.
+   - Login → "Can't access your phone? Recover with email" sends a one-time
+     sign-in link (and a code, if the email template includes it). It never
+     creates an account, and it shows the same answer for unknown emails so
+     nobody can find out who has an account.
+   - After that sign-in, KunThai asks for a new password, so phone number +
+     password works again without SMS.
+
+   **Supabase dashboard settings (one-time):**
+   - Authentication → Providers → Email: enabled, with "Confirm email" on.
+     Recovery only works for a confirmed email.
+   - Authentication → URL Configuration → Redirect URLs must include the web
+     origin (https://kunthai.app) and `app.kunthai.mobile://**`. Both are
+     already used by social sign-in.
+   - Authentication → Email Templates → Magic Link: add `{{ .Token }}` to the
+     template so a person who opens the email on another device can type the
+     code instead.
+   - Set up custom SMTP (Authentication → Emails). The built-in sender is
+     rate-limited to a few emails per hour, which is too few for production.

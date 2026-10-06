@@ -48,6 +48,8 @@ import {
   startNativeOAuth,
 } from "./Backend/services/nativeOAuthService";
 import FindAccountModal from "./components/auth/FindAccountModal";
+import EmailRecoveryModal from "./components/auth/EmailRecoveryModal";
+import { clearEmailRecoveryFlag, readEmailRecoveryFlag } from "./Backend/services/emailRecoveryService";
 import { t as i18nText } from "./i18n/index";
 import { inlineErrorMessage } from "./Backend/services/friendlyErrorService";
 import { takeOAuthReturnFailure } from "./Backend/services/oauthReturnService";
@@ -402,6 +404,7 @@ export default function Login() {
   const [noAccountNumber, setNoAccountNumber] = useState("");
   const [recoveryOpen, setRecoveryOpen] = useState(false);
   const [recoveryPhone, setRecoveryPhone] = useState("");
+  const [emailRecoveryOpen, setEmailRecoveryOpen] = useState(false);
 
   const [failedPhoneAttempts, setFailedPhoneAttempts] = useState({});
   const [forgotAvailable, setForgotAvailable] = useState(false);
@@ -438,11 +441,20 @@ export default function Login() {
     takeOAuthReturnFailure(supabase, flow?.provider).then((failure) => {
       if (!active || !failure) return;
       clearOAuthFlow();
+      // An email recovery link that could not be used (expired, or opened in
+      // another browser than the one that asked for it).
+      if (!flow && readEmailRecoveryFlag()) {
+        clearEmailRecoveryFlag();
+        setError(t("auth.emailRecovery.linkFailed"));
+        return;
+      }
       setError(failure);
     });
     return () => {
       active = false;
     };
+    // Once per page load; `t` only reads the current locale.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
   // Native OAuth completes asynchronously through the deep-link callback. This
@@ -453,7 +465,13 @@ export default function Login() {
       const detail = event.detail || {};
       setProviderLoading("");
       if (detail.status === "error") {
+        const emailLink = !peekOAuthFlow() && readEmailRecoveryFlag();
         clearOAuthFlow();
+        if (emailLink) {
+          clearEmailRecoveryFlag();
+          setError(t("auth.emailRecovery.linkFailed"));
+          return;
+        }
         setError(inlineErrorMessage(detail, t("auth.errUnableSignIn")));
       } else if (detail.status === "cancelled") {
         clearOAuthFlow();
@@ -890,6 +908,18 @@ export default function Login() {
               </button>
             ) : null}
 
+            <button
+              type="button"
+              onClick={() => {
+                resetMessages();
+                setEmailRecoveryOpen(true);
+              }}
+              disabled={isLoading}
+              className="block w-full text-center text-sm font-semibold text-blue-700 transition hover:text-blue-800 disabled:opacity-60"
+            >
+              {t("auth.emailRecovery.entry")}
+            </button>
+
             <AuthDivider />
 
             <SocialAuthButtons
@@ -1160,6 +1190,8 @@ export default function Login() {
           }}
         />
       ) : null}
+
+      {emailRecoveryOpen ? <EmailRecoveryModal onClose={() => setEmailRecoveryOpen(false)} /> : null}
 
       {guestPromptOpen ? (
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-slate-950/45 px-4 py-6 backdrop-blur-sm" role="presentation">
