@@ -27,9 +27,21 @@ import { useI18n } from "../../../../../../i18n";
 import ErrorState from "../../../../shared/ErrorState";
 import CommentDrawerComposer from "./CommentDrawerComposer";
 import CommentItem from "./CommentItem";
+import { fetchAccountDeactivation } from "../../../../../../Backend/services/accountLifecycleService";
 import { uiText as translateUi, useI18n as useUiLocale } from "../../../../../../i18n/index.js";
 
 const EXIT_MS = 260;
+const DEACTIVATION_CHECK_MS = 30_000;
+let deactivationCheck = { at: 0, promise: null };
+
+// Whether the signed-in account is deactivated. Shared and briefly cached so
+// opening comments stays instant; the database refuses the comment anyway.
+function checkOwnDeactivation() {
+  if (!deactivationCheck.promise || Date.now() - deactivationCheck.at > DEACTIVATION_CHECK_MS) {
+    deactivationCheck = { at: Date.now(), promise: fetchAccountDeactivation().then(Boolean).catch(() => false) };
+  }
+  return deactivationCheck.promise;
+}
 const SORT_LABEL_KEYS = { newest: "post.sortNewest", top: "post.sortTop", oldest: "post.sortOldest" };
 const SORT_HINT_KEYS = { newest: "post.sortNewestHint", top: "post.sortTopHint", oldest: "post.sortOldestHint" };
 
@@ -42,6 +54,7 @@ export default function CommentsDrawer({ currentUserId, onClose, onCountChange, 
   const [rendered, setRendered] = useState(open);
   const [closing, setClosing] = useState(false);
   const [sendPreview, setSendPreview] = useState(null);
+  const [ownAccountDeactivated, setOwnAccountDeactivated] = useState(false);
   const [sortMode, setSortMode] = useState(readCommentSort);
   const [sortMenuOpen, setSortMenuOpen] = useState(false);
   const listRef = useRef(null);
@@ -55,6 +68,17 @@ export default function CommentsDrawer({ currentUserId, onClose, onCountChange, 
     },
     [],
   );
+
+  useEffect(() => {
+    if (!open || isGuestMode()) return undefined;
+    let alive = true;
+    checkOwnDeactivation().then((deactivated) => {
+      if (alive) setOwnAccountDeactivated(deactivated);
+    });
+    return () => {
+      alive = false;
+    };
+  }, [open]);
 
   useEffect(() => {
     if (open) {
@@ -287,7 +311,15 @@ export default function CommentsDrawer({ currentUserId, onClose, onCountChange, 
           ))}
         </div>
 
-        {isGuestMode() ? (
+        {ownAccountDeactivated && !isGuestMode() ? (
+          // Deactivated accounts keep their old comments but cannot add new ones.
+          <div className="border-t border-slate-100 px-4 py-4">
+            <div className="rounded-[22px] border border-amber-200 bg-amber-50 p-4 text-center">
+              <p className="text-sm font-black text-slate-950">{t("post.deactivatedNoComment")}</p>
+              <p className="mt-1 text-sm font-semibold leading-6 text-slate-600">{t("post.deactivatedNoCommentDesc")}</p>
+            </div>
+          </div>
+        ) : isGuestMode() ? (
           <div className="border-t border-slate-100 px-4 py-4">
             <div className="rounded-[22px] border border-sky-200 bg-sky-50 p-4 text-center">
               <p className="text-sm font-black text-slate-950">{t("post.guestNoComment")}</p>

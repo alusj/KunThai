@@ -185,6 +185,7 @@ export async function fetchRecommendedPeople(userId, limit = 20) {
       chatted: Boolean(profile.chatted),
       nearby: Boolean(profile.is_nearby),
       isNew: Boolean(profile.is_new),
+      follower_count: Number(profile.follower_count) || 0,
     };
   });
 }

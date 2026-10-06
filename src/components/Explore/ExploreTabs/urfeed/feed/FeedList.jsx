@@ -15,6 +15,8 @@ import {
   applySuggestionFilter,
   readSuggestionFilter,
   suggestionReason,
+  suggestionSlotAfterPost,
+  suggestionsForSlot,
   writeSuggestionFilter,
 } from "../../../../../Backend/services/explore/suggestionFilters";
 import { t as i18nText } from "../../../../../i18n/index";
@@ -119,8 +121,9 @@ export default function FeedList({
             isOwner={Boolean(currentUserId && post.user_id === currentUserId)}
             />
           </ObservedFeedPost>
-          {postIndex === 2 && suggestionsEnabled ? (
+          {suggestionsEnabled && suggestionSlotAfterPost(postIndex) >= 0 ? (
             <SuggestedAccountsCard
+              slot={suggestionSlotAfterPost(postIndex)}
               currentUserId={currentUserId}
               followedUsers={followedUsers}
               onToggleFollow={toggleFollow}
@@ -159,9 +162,27 @@ export default function FeedList({
 }
 
 const SUGGESTIONS_PER_PAGE = 5;
+const SUGGESTIONS_CACHE_MS = 120_000;
+// Every suggestions card in the feed shares one request (per account, for
+// two minutes) instead of each card fetching the same list.
+let suggestionsCache = { userId: "", at: 0, promise: null };
+
+function loadSuggestions(currentUserId) {
+  const fresh = suggestionsCache.promise
+    && suggestionsCache.userId === currentUserId
+    && Date.now() - suggestionsCache.at < SUGGESTIONS_CACHE_MS;
+  if (!fresh) {
+    const promise = fetchExploreConnections("discover", currentUserId).catch((error) => {
+      if (suggestionsCache.promise === promise) suggestionsCache = { userId: "", at: 0, promise: null };
+      throw error;
+    });
+    suggestionsCache = { userId: currentUserId, at: Date.now(), promise };
+  }
+  return suggestionsCache.promise;
+}
 const SUGGESTIONS_AUTO_SLIDE_MS = 6000;
 
-function SuggestedAccountsCard({ currentUserId, followedUsers, onToggleFollow, onViewProfile }) {
+function SuggestedAccountsCard({ slot = 0, currentUserId, followedUsers, onToggleFollow, onViewProfile }) {
   const { t } = useI18n();
   const [profiles, setProfiles] = useState([]);
   const [pendingIds, setPendingIds] = useState(() => new Set());
@@ -179,7 +200,7 @@ function SuggestedAccountsCard({ currentUserId, followedUsers, onToggleFollow, o
   useEffect(() => {
     let alive = true;
 
-    fetchExploreConnections("discover", currentUserId)
+    loadSuggestions(currentUserId)
       .then((items) => {
         if (!alive) return;
         setProfiles(
@@ -197,6 +218,7 @@ function SuggestedAccountsCard({ currentUserId, followedUsers, onToggleFollow, o
               chatted: Boolean(item.chatted),
               nearby: Boolean(item.nearby),
               isNew: Boolean(item.isNew),
+              follower_count: Number(item.follower_count) || 0,
             })),
         );
       })
@@ -208,7 +230,8 @@ function SuggestedAccountsCard({ currentUserId, followedUsers, onToggleFollow, o
   }, [currentUserId]);
 
   const unfollowed = profiles.filter((profile) => !followedUsers.has(profile.user_id));
-  const candidates = applySuggestionFilter(unfollowed, filter);
+  // Later cards in the feed show the next group of people, not the same ones.
+  const candidates = suggestionsForSlot(applySuggestionFilter(unfollowed, filter), slot);
   const pages = [];
   for (let index = 0; index < candidates.length; index += SUGGESTIONS_PER_PAGE) {
     pages.push(candidates.slice(index, index + SUGGESTIONS_PER_PAGE));
@@ -240,7 +263,8 @@ function SuggestedAccountsCard({ currentUserId, followedUsers, onToggleFollow, o
 
   // Hide the card only when there is nobody to suggest at all; an empty
   // filter result keeps the card so the filter can be changed back.
-  if (!unfollowed.length) return null;
+  // Nobody to suggest, or a later card with nobody new left: no card.
+  if (!unfollowed.length || (slot > 0 && !suggestionsForSlot(unfollowed, slot).length)) return null;
 
   function changeFilter(next) {
     setFilter(next);

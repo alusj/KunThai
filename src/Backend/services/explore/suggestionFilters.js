@@ -2,7 +2,7 @@
 // Suggested). Items come from get_people_you_may_know_v2, already ranked:
 // follows you > mutual connections > chatted > near you > interests > new.
 
-export const SUGGESTION_FILTERS = ["recommended", "know", "nearby", "new"];
+export const SUGGESTION_FILTERS = ["recommended", "know", "nearby", "popular", "new"];
 export const DEFAULT_SUGGESTION_FILTER = "recommended";
 
 const STORAGE_KEY = "explore-suggestion-filter";
@@ -21,6 +21,13 @@ export function applySuggestionFilter(items = [], filter = DEFAULT_SUGGESTION_FI
       .map((entry) => entry.item);
   }
   if (filter === "nearby") return list.filter((item) => item.nearby);
+  // Most-followed first; ties keep the recommended order.
+  if (filter === "popular") {
+    return list
+      .map((item, index) => ({ item, index }))
+      .sort((a, b) => (Number(b.item.follower_count) || 0) - (Number(a.item.follower_count) || 0) || a.index - b.index)
+      .map((entry) => entry.item);
+  }
   if (filter === "new") return list.filter((item) => item.isNew);
   return list;
 }
@@ -55,4 +62,23 @@ export function writeSuggestionFilter(value) {
   } catch {
     // Storage can be unavailable; the choice lasts this session.
   }
+}
+
+// Where the suggestions card appears in UrFeed: after the 8th post, then
+// every 35 posts. Each appearance ("slot") shows the next group of people,
+// so the same accounts are not repeated down the feed.
+export const SUGGESTIONS_FIRST_AFTER = 8;
+export const SUGGESTIONS_EVERY = 35;
+export const SUGGESTIONS_PER_CARD = 15;
+
+// Slot number for the card after post `postIndex` (0-based), or -1.
+export function suggestionSlotAfterPost(postIndex) {
+  const position = Number(postIndex) + 1 - SUGGESTIONS_FIRST_AFTER;
+  if (!Number.isInteger(position) || position < 0 || position % SUGGESTIONS_EVERY !== 0) return -1;
+  return position / SUGGESTIONS_EVERY;
+}
+
+export function suggestionsForSlot(items = [], slot = 0) {
+  const start = Math.max(0, Number(slot) || 0) * SUGGESTIONS_PER_CARD;
+  return (Array.isArray(items) ? items : []).slice(start, start + SUGGESTIONS_PER_CARD);
 }

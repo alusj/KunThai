@@ -87,7 +87,12 @@ insert into public.explore_recommendation_privacy values
   ('00000000-0000-0000-0000-0000000000f0', true, 'Freetown', 'SL'),
   ('00000000-0000-0000-0000-0000000000f4', true, 'Freetown', 'SL');
 
+create table public.explore_post_comments(
+  id uuid primary key default gen_random_uuid(), post_id uuid, user_id uuid not null, body text not null
+);
+
 \ir ../migrations/20261006150000_explore_discovery_people_you_know.sql
+\ir ../migrations/20261006160000_explore_comments_deactivated_and_popular.sql
 
 select set_config('request.jwt.claim.sub', '00000000-0000-0000-0000-0000000000f0', false);
 
@@ -162,5 +167,39 @@ begin
   if n <> 2 then raise exception 'admins must still see every post, saw %', n; end if;
 end $$;
 reset role;
+
+-- Popular: follower counts come back with each suggestion.
+do $$
+declare
+  r record;
+begin
+  select * into r from public.get_people_you_may_know_v2('00000000-0000-0000-0000-0000000000f0', 20) where display_name = 'Mutual Friend';
+  if r.follower_count <> 2 then raise exception 'Mutual Friend has 2 followers, got %', r.follower_count; end if;
+  select * into r from public.get_people_you_may_know_v2('00000000-0000-0000-0000-0000000000f0', 20) where display_name = 'Chatted';
+  if r.follower_count <> 0 then raise exception 'Chatted has no followers, got %', r.follower_count; end if;
+end $$;
+
+-- Deactivated accounts keep old comments but cannot add new ones.
+insert into public.explore_post_comments(post_id, user_id, body)
+values ('bbbbbbbb-0000-0000-0000-000000000001', '00000000-0000-0000-0000-0000000000f1', 'active user comment');
+update public.explore_profiles set deactivated_at = null where user_id = '00000000-0000-0000-0000-0000000000f6';
+insert into public.explore_post_comments(post_id, user_id, body)
+values ('bbbbbbbb-0000-0000-0000-000000000001', '00000000-0000-0000-0000-0000000000f6', 'written before deactivating');
+update public.explore_profiles set deactivated_at = now() where user_id = '00000000-0000-0000-0000-0000000000f6';
+
+do $$
+declare
+  failed boolean := false;
+begin
+  begin
+    insert into public.explore_post_comments(post_id, user_id, body)
+    values ('bbbbbbbb-0000-0000-0000-000000000001', '00000000-0000-0000-0000-0000000000f6', 'after deactivating');
+  exception when others then failed := true;
+  end;
+  if not failed then raise exception 'a deactivated account must not be able to comment'; end if;
+  if not exists (select 1 from public.explore_post_comments where body = 'written before deactivating') then
+    raise exception 'old comments of a deactivated account must stay';
+  end if;
+end $$;
 
 \echo 'explore_discovery: all assertions passed'

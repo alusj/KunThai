@@ -12,6 +12,7 @@ safe to run more than once.
 | 2 | `supabase/migrations/20261006130000_transport_fleet_distances.sql` | Real distances in Book a Ride / Send Delivery lists and the radar |
 | 3 | `supabase/migrations/20261006140000_review_integrity.sql` | Completed-transaction reviews, edit once, owner/operator can't change ratings |
 | 4 | `supabase/migrations/20261006150000_explore_discovery_people_you_know.sql` | Suggestions ranked by who you likely know (with filter + reasons), "likely know" boost in UrFeed/Swip, deactivated accounts' posts hidden |
+| 5 | `supabase/migrations/20261006160000_explore_comments_deactivated_and_popular.sql` | Deactivated accounts can't comment (old comments stay); "Popular" suggestion filter |
 
 **Do not run anything in `supabase/tests/`.** Those files rebuild the schema
 for testing and are only for a throwaway local database.
@@ -144,3 +145,11 @@ where not exists (
      posts (Swip ~36): it continues with recent posts.
    - Deactivated accounts' posts hidden everywhere (owner and admins excepted);
      deactivated and guest accounts never suggested.
+8. **Comments, card schedule, Popular**
+   - Deactivated accounts keep old comments but cannot comment; the comment
+     box explains how to reactivate.
+   - Suggestions card after the 8th post, then every 35 posts, each showing
+     new people; one shared request for all cards.
+   - "Popular" filter (most-followed first).
+   - Explore was checked: content is not limited by country; nearby is only
+     boosted, every country is included.

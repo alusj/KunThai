@@ -8,6 +8,7 @@ const LABEL_KEYS = {
   recommended: "feed.filterRecommended",
   know: "feed.filterKnow",
   nearby: "feed.filterNearby",
+  popular: "feed.filterPopular",
   new: "feed.filterNew",
 };
 
