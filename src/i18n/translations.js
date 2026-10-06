@@ -35,6 +35,8 @@ export const TRANSLATIONS = {
       creatingAccount: "Creating Account...",
       signupWithPhone: "Sign up with Phone",
       forgotVerifyOtp: "Forgot password? Verify with OTP",
+      forgotPassword: "Forgot password?",
+      forgotChecking: "Checking...",
       emailRecovery: {
         entry: "Can't access your phone? Recover with email",
         title: "Recover with email",
@@ -3848,6 +3850,8 @@ export const TRANSLATIONS = {
       creatingAccount: "Création du compte...",
       signupWithPhone: "S'inscrire par téléphone",
       forgotVerifyOtp: "Mot de passe oublié ? Vérifier par OTP",
+      forgotPassword: "Mot de passe oublié ?",
+      forgotChecking: "Vérification...",
       emailRecovery: {
         entry: "Pas accès à votre téléphone ? Récupérer par e-mail",
         title: "Récupérer par e-mail",
@@ -7664,6 +7668,8 @@ export const TRANSLATIONS = {
       creatingAccount: "Creando cuenta...",
       signupWithPhone: "Regístrese con el teléfono",
       forgotVerifyOtp: "¿Olvidaste tu contraseña? Verificar con OTP",
+      forgotPassword: "¿Olvidaste tu contraseña?",
+      forgotChecking: "Comprobando...",
       emailRecovery: {
         entry: "¿Sin acceso a tu teléfono? Recupera con tu correo",
         title: "Recuperar con correo",
@@ -11512,6 +11518,8 @@ export const TRANSLATIONS = {
       creatingAccount: "创建帐户...",
       signupWithPhone: "使用手机注册",
       forgotVerifyOtp: "忘记密码？使用 OTP 验证",
+      forgotPassword: "忘记密码？",
+      forgotChecking: "正在检查...",
       emailRecovery: {
         entry: "无法使用手机？通过邮箱找回",
         title: "通过邮箱找回",
@@ -15361,6 +15369,8 @@ export const TRANSLATIONS = {
       creatingAccount: "جارٍ إنشاء الحساب...",
       signupWithPhone: "إنشاء حساب بالهاتف",
       forgotVerifyOtp: "نسيت كلمة المرور؟ تحقّق عبر رمز OTP",
+      forgotPassword: "نسيت كلمة المرور؟",
+      forgotChecking: "جارٍ التحقق...",
       emailRecovery: {
         entry: "لا يمكنك الوصول إلى هاتفك؟ استرجع حسابك بالبريد الإلكتروني",
         title: "الاسترجاع بالبريد الإلكتروني",
@@ -19257,6 +19267,8 @@ export const TRANSLATIONS = {
       "creatingAccount": "Criando conta...",
       "signupWithPhone": "Inscreva-se com telefone",
       "forgotVerifyOtp": "Esqueceu a senha? Verifique com OTP",
+      "forgotPassword": "Esqueceu a senha?",
+      "forgotChecking": "Verificando...",
       "emailRecovery": {
         "entry": "Sem acesso ao telefone? Recupere com e-mail",
         "title": "Recuperar com e-mail",
@@ -23101,6 +23113,8 @@ export const TRANSLATIONS = {
       "creatingAccount": "खाता बनाया जा रहा है...",
       "signupWithPhone": "फ़ोन से साइन अप करें",
       "forgotVerifyOtp": "पासवर्ड भूल गए? ओटीपी से सत्यापित करें",
+      "forgotPassword": "पासवर्ड भूल गए?",
+      "forgotChecking": "जाँच हो रही है...",
       "emailRecovery": {
         "entry": "फ़ोन तक पहुँच नहीं? ईमेल से रिकवर करें",
         "title": "ईमेल से रिकवर करें",
@@ -26945,6 +26959,8 @@ export const TRANSLATIONS = {
       "creatingAccount": "অ্যাকাউন্ট তৈরি করা হচ্ছে...",
       "signupWithPhone": "ফোন দিয়ে সাইন আপ করুন",
       "forgotVerifyOtp": "পাসওয়ার্ড ভুলে গেছেন? OTP দিয়ে যাচাই করুন",
+      "forgotPassword": "পাসওয়ার্ড ভুলে গেছেন?",
+      "forgotChecking": "যাচাই করা হচ্ছে...",
       "emailRecovery": {
         "entry": "ফোনে প্রবেশাধিকার নেই? ইমেল দিয়ে পুনরুদ্ধার করুন",
         "title": "ইমেল দিয়ে পুনরুদ্ধার",
@@ -30789,6 +30805,8 @@ export const TRANSLATIONS = {
       "creatingAccount": "Membuat Akun...",
       "signupWithPhone": "Daftar dengan Telepon",
       "forgotVerifyOtp": "Lupa kata sandi? Verifikasi dengan OTP",
+      "forgotPassword": "Lupa kata sandi?",
+      "forgotChecking": "Memeriksa...",
       "emailRecovery": {
         "entry": "Tidak bisa akses ponsel? Pulihkan lewat email",
         "title": "Pulihkan lewat email",
@@ -34633,6 +34651,8 @@ export const TRANSLATIONS = {
       "creatingAccount": "اکاؤنٹ بنایا جا رہا ہے...",
       "signupWithPhone": "فون کے ساتھ سائن اپ کریں۔",
       "forgotVerifyOtp": "پاس ورڈ بھول گئے؟ OTP کے ساتھ تصدیق کریں۔",
+      "forgotPassword": "پاس ورڈ بھول گئے؟",
+      "forgotChecking": "جانچ ہو رہی ہے...",
       "emailRecovery": {
         "entry": "فون تک رسائی نہیں؟ ای میل سے بحال کریں",
         "title": "ای میل سے بحال کریں",
@@ -38477,6 +38497,8 @@ export const TRANSLATIONS = {
       "creatingAccount": "Создание учетной записи...",
       "signupWithPhone": "Зарегистрируйтесь с помощью телефона",
       "forgotVerifyOtp": "Забыли пароль? Подтвердить с помощью OTP",
+      "forgotPassword": "Забыли пароль?",
+      "forgotChecking": "Проверка...",
       "emailRecovery": {
         "entry": "Нет доступа к телефону? Восстановите через почту",
         "title": "Восстановление по почте",
@@ -42322,6 +42344,8 @@ export const TRANSLATIONS = {
       "creatingAccount": "アカウントを作成しています...",
       "signupWithPhone": "電話でサインアップ",
       "forgotVerifyOtp": "パスワードをお忘れですか? OTPで確認する",
+      "forgotPassword": "パスワードをお忘れですか？",
+      "forgotChecking": "確認中...",
       "emailRecovery": {
         "entry": "電話にアクセスできませんか？メールで復旧",
         "title": "メールで復旧",
@@ -46166,6 +46190,8 @@ export const TRANSLATIONS = {
       "creatingAccount": "खाते तयार करत आहे...",
       "signupWithPhone": "फोनसह साइन अप करा",
       "forgotVerifyOtp": "पासवर्ड विसरलात? OTP सह पडताळणी करा",
+      "forgotPassword": "पासवर्ड विसरलात?",
+      "forgotChecking": "तपासत आहे...",
       "emailRecovery": {
         "entry": "फोनमध्ये प्रवेश नाही? ईमेलने पुनर्प्राप्त करा",
         "title": "ईमेलने पुनर्प्राप्त करा",
@@ -50010,6 +50036,8 @@ export const TRANSLATIONS = {
       "creatingAccount": "Đang tạo tài khoản...",
       "signupWithPhone": "Đăng ký bằng điện thoại",
       "forgotVerifyOtp": "Quên mật khẩu? Xác minh bằng OTP",
+      "forgotPassword": "Quên mật khẩu?",
+      "forgotChecking": "Đang kiểm tra...",
       "emailRecovery": {
         "entry": "Không truy cập được điện thoại? Khôi phục bằng email",
         "title": "Khôi phục bằng email",
@@ -53854,6 +53882,8 @@ export const TRANSLATIONS = {
       "creatingAccount": "Konto erstellen...",
       "signupWithPhone": "Melden Sie sich per Telefon an",
       "forgotVerifyOtp": "Passwort vergessen? Überprüfen Sie mit OTP",
+      "forgotPassword": "Passwort vergessen?",
+      "forgotChecking": "Wird geprüft...",
       "emailRecovery": {
         "entry": "Kein Zugriff auf dein Telefon? Per E-Mail wiederherstellen",
         "title": "Per E-Mail wiederherstellen",

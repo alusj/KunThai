@@ -406,8 +406,7 @@ export default function Login() {
   const [recoveryPhone, setRecoveryPhone] = useState("");
   const [emailRecoveryOpen, setEmailRecoveryOpen] = useState(false);
 
-  const [failedPhoneAttempts, setFailedPhoneAttempts] = useState({});
-  const [forgotAvailable, setForgotAvailable] = useState(false);
+  const [forgotChecking, setForgotChecking] = useState(false);
   const [recoveryStep, setRecoveryStep] = useState("password");
   const [recoveryActivePhone, setRecoveryActivePhone] = useState("");
   const [newPassword, setNewPassword] = useState("");
@@ -588,8 +587,6 @@ export default function Login() {
         throw response.error;
       }
 
-      setFailedPhoneAttempts((current) => ({ ...current, [authPhone]: 0 }));
-      setForgotAvailable(false);
       setMessage(t("auth.msgWelcomeBack"));
     } catch (err) {
       // New people often try "Log in" first. When the number has no account,
@@ -607,25 +604,35 @@ export default function Login() {
       }
 
       setError(inlineErrorMessage(err, t("auth.errUnableSignIn")));
-
-      // After more than one wrong password on a phone number that really has a
-      // KunThai account, offer OTP-verified password recovery. The signup
-      // preflight doubles as the existence check: a registered phone reports
-      // the phone_exists conflict.
-      const attempts = (failedPhoneAttempts[authPhone] || 0) + 1;
-      setFailedPhoneAttempts((current) => ({ ...current, [authPhone]: attempts }));
-      if (attempts >= 2 && !forgotAvailable) {
-        checkKunThaiIdentityAvailability({ phone: authPhone, country: selectedCountry })
-          .then(() => {
-            // Phone is free to register, so there is no account to recover.
-          })
-          .catch((lookupError) => {
-            if (isPhoneAlreadyLinkedError(lookupError)) setForgotAvailable(true);
-          });
-      }
     } finally {
       setLoading(false);
     }
+  }
+
+  // "Forgot password?" under the password field. Checks the number first:
+  // an unregistered number gets the "Sign up instead" notice, not an OTP.
+  async function handleForgotPassword() {
+    if (forgotChecking || isLoading) return;
+    resetMessages();
+    const account = signInAccount.trim();
+    if (!validatePhoneDigits(normalizePhoneDigits(account, selectedCountry), selectedCountry)) return;
+
+    setForgotChecking(true);
+    // The signup preflight is the existence check (phone_exists = registered).
+    const registered = await checkKunThaiIdentityAvailability({
+      phone: buildPhoneForAuth(account, selectedCountry),
+      country: selectedCountry,
+    })
+      .then(() => false)
+      .catch((lookupError) => (isPhoneAlreadyLinkedError(lookupError) ? true : null));
+    setForgotChecking(false);
+
+    if (registered === false) {
+      setNoAccountNumber(account);
+      return;
+    }
+    // Registered, or the check could not run: the OTP request decides.
+    beginPasswordRecovery();
   }
 
   function beginPasswordRecovery() {
@@ -821,6 +828,7 @@ export default function Login() {
   }
 
   const isLoading = providerLoading !== "" || loading;
+  const forgotVisible = Boolean(selectedCountry) && /\d/.test(signInAccount);
 
   return (
     <div className="kt-auth-shell flex flex-col items-center overflow-y-auto bg-slate-100 px-3 pt-[max(0.75rem,env(safe-area-inset-top))] pb-[max(0.75rem,env(safe-area-inset-bottom))] sm:px-4 sm:pt-[max(2rem,env(safe-area-inset-top))] sm:pb-[max(2rem,env(safe-area-inset-bottom))]">
@@ -849,6 +857,33 @@ export default function Login() {
               autoComplete="current-password"
               required
             />
+
+            {/* Slides in under the password once a country is chosen and the
+                number is being typed. */}
+            <div
+              className={`!mt-0 grid transition-[grid-template-rows] duration-300 ease-out motion-reduce:transition-none ${
+                forgotVisible ? "grid-rows-[1fr]" : "grid-rows-[0fr]"
+              }`}
+              aria-hidden={!forgotVisible}
+              inert={forgotVisible ? undefined : "true"}
+            >
+              <div className="overflow-hidden">
+                <div
+                  className={`flex justify-end pt-2 transition duration-300 ease-out motion-reduce:transition-none ${
+                    forgotVisible ? "translate-y-0 opacity-100" : "-translate-y-2 opacity-0"
+                  }`}
+                >
+                  <button
+                    type="button"
+                    onClick={handleForgotPassword}
+                    disabled={isLoading || forgotChecking}
+                    className="text-sm font-semibold text-blue-700 transition hover:text-blue-800 disabled:opacity-60"
+                  >
+                    {forgotChecking ? t("auth.forgotChecking") : t("auth.forgotPassword")}
+                  </button>
+                </div>
+              </div>
+            </div>
 
             <div>
               {/* Unregistered number: the notice opens above the button (pushing
@@ -896,17 +931,6 @@ export default function Login() {
                 </button>
               )}
             </div>
-
-            {forgotAvailable ? (
-              <button
-                type="button"
-                onClick={beginPasswordRecovery}
-                disabled={isLoading}
-                className="min-h-12 w-full rounded-xl border border-amber-300 bg-amber-50 px-4 py-3 text-sm font-semibold text-amber-800 transition hover:bg-amber-100 disabled:opacity-60"
-              >
-                {t("auth.forgotVerifyOtp")}
-              </button>
-            ) : null}
 
             <button
               type="button"
