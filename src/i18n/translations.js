@@ -9,6 +9,12 @@ import { ADDRESS_BOOK } from "./addressBook";
 
 export const TRANSLATIONS = {
   en: {
+    messagingNotice: {
+      supervised: "Supervised",
+      readMore: "Read more",
+      privateHint: "Only you two can read these.",
+      supervisedHint: "Reviewed only for safety.",
+    },
     auth: {
       welcomeTitle: "Welcome to KunThai",
       chooseCountry: "Choose country",
@@ -1365,6 +1371,10 @@ export const TRANSLATIONS = {
         resultsFor: "Results for “{query}”",
         resultsInCategory: "Category: {category}",
         showingCategory: "Showing {category} first",
+        marketNearbyTitle: "No sellers in {country} yet",
+        marketNearbyBody: "Showing products from nearby countries ({countries}). Prices may be in another currency and cross-border delivery is not guaranteed, so confirm with the seller before ordering.",
+        marketNewTitle: "UrMall is new in {country}",
+        marketNewBody: "No sellers have listed products here yet. Open your store to be among the first, or invite local businesses to join.",
         showAll: "Show all",
         filtersBtn: "Filters",
         minPrice: "Min price",
@@ -3743,6 +3753,12 @@ export const TRANSLATIONS = {
   },
 
   fr: {
+    messagingNotice: {
+      supervised: "Supervisé",
+      readMore: "En savoir plus",
+      privateHint: "Seuls vous et l'autre personne pouvez lire ces messages.",
+      supervisedHint: "Peuvent être examinés pour la sécurité et les litiges.",
+    },
     auth: {
       welcomeTitle: "Bienvenue sur KunThai",
       chooseCountry: "Choisir le pays",
@@ -5098,6 +5114,10 @@ export const TRANSLATIONS = {
         resultsFor: "Résultats pour « {query} »",
         resultsInCategory: "Catégorie : {category}",
         showingCategory: "{category} en premier",
+        marketNearbyTitle: "Aucun vendeur en {country} pour l'instant",
+        marketNearbyBody: "Produits de pays voisins ({countries}). Les prix peuvent être dans une autre devise et la livraison transfrontalière n'est pas garantie : confirmez avec le vendeur avant de commander.",
+        marketNewTitle: "UrMall est nouveau en {country}",
+        marketNewBody: "Aucun vendeur n'a encore publié de produits ici. Ouvrez votre boutique pour être parmi les premiers ou invitez des entreprises locales.",
         showAll: "Tout afficher",
         seeResultsFor: "Voir les résultats pour « {query} »",
         filtersBtn: "Filtres",
@@ -7480,6 +7500,12 @@ export const TRANSLATIONS = {
   },
 
   es: {
+    messagingNotice: {
+      supervised: "Supervisado",
+      readMore: "Leer más",
+      privateHint: "Solo tú y la otra persona pueden leer estos mensajes.",
+      supervisedHint: "Pueden revisarse por seguridad y disputas.",
+    },
     auth: {
       welcomeTitle: "Bienvenido a KunThai",
       chooseCountry: "Elige pais",
@@ -8837,6 +8863,10 @@ export const TRANSLATIONS = {
         resultsFor: "Resultados para “{query}”",
         resultsInCategory: "Categoría: {category}",
         showingCategory: "Mostrando {category} primero",
+        marketNearbyTitle: "Aún no hay vendedores en {country}",
+        marketNearbyBody: "Mostrando productos de países cercanos ({countries}). Los precios pueden estar en otra moneda y el envío transfronterizo no está garantizado; confirma con el vendedor antes de pedir.",
+        marketNewTitle: "UrMall es nuevo en {country}",
+        marketNewBody: "Aún no hay productos publicados aquí. Abre tu tienda para ser de los primeros o invita a negocios locales.",
         showAll: "Mostrar todo",
         filtersBtn: "Filtros",
         minPrice: "precio mínimo",
@@ -11249,6 +11279,12 @@ export const TRANSLATIONS = {
   },
 
   zh: {
+    messagingNotice: {
+      supervised: "受监管",
+      readMore: "了解更多",
+      privateHint: "只有您和对方可以阅读这些消息。",
+      supervisedHint: "可能会因安全和纠纷处理而被审核。",
+    },
     auth: {
       welcomeTitle: "欢迎来到KunThai",
       chooseCountry: "选择国家",
@@ -12606,6 +12642,10 @@ export const TRANSLATIONS = {
         resultsFor: "“{query}”的结果",
         resultsInCategory: "类别： {category}",
         showingCategory: "首先显示 {category}",
+        marketNearbyTitle: "{country} 暂无卖家",
+        marketNearbyBody: "正在显示邻近国家（{countries}）的商品。价格可能使用其他货币，跨境配送无法保证，下单前请与卖家确认。",
+        marketNewTitle: "UrMall 刚进入 {country}",
+        marketNewBody: "这里还没有卖家上架商品。开设您的店铺成为首批卖家，或邀请本地商家加入。",
         showAll: "显示全部",
         filtersBtn: "过滤器",
         minPrice: "最低价格",
@@ -15019,6 +15059,12 @@ export const TRANSLATIONS = {
 
 
   ar: {
+    messagingNotice: {
+      supervised: "خاضعة للإشراف",
+      readMore: "اقرأ المزيد",
+      privateHint: "أنت والطرف الآخر فقط يمكنكما قراءة هذه الرسائل.",
+      supervisedHint: "قد تُراجع لأغراض السلامة وحل النزاعات.",
+    },
     auth: {
       welcomeTitle: "مرحبًا بك في KunThai",
       chooseCountry: "اختر الدولة",
@@ -16375,6 +16421,10 @@ export const TRANSLATIONS = {
         resultsFor: "نتائج «{query}»",
         resultsInCategory: "الفئة: {category}",
         showingCategory: "عرض {category} أولاً",
+        marketNearbyTitle: "لا يوجد بائعون في {country} بعد",
+        marketNearbyBody: "نعرض منتجات من دول مجاورة ({countries}). قد تكون الأسعار بعملة أخرى والتوصيل عبر الحدود غير مضمون، لذا تأكد مع البائع قبل الطلب.",
+        marketNewTitle: "UrMall جديد في {country}",
+        marketNewBody: "لم يعرض أي بائع منتجات هنا بعد. افتح متجرك لتكون من الأوائل، أو ادعُ الأعمال المحلية للانضمام.",
         showAll: "عرض الكل",
         filtersBtn: "عوامل التصفية",
         minPrice: "أدنى سعر",
@@ -18836,6 +18886,12 @@ export const TRANSLATIONS = {
   },
 
   pt: {
+    messagingNotice: {
+      supervised: "Supervisionado",
+      readMore: "Saiba mais",
+      privateHint: "Só você e a outra pessoa podem ler estas mensagens.",
+      supervisedHint: "Podem ser analisadas por segurança e disputas.",
+    },
     "auth": {
       "welcomeTitle": "Bem-vindo ao KunThai",
       "chooseCountry": "Escolha o país",
@@ -20192,6 +20248,10 @@ export const TRANSLATIONS = {
         "resultsFor": "Resultados para “{query}”",
         "resultsInCategory": "Categoria: {category}",
         "showingCategory": "Mostrando {category} primeiro",
+        "marketNearbyTitle": "Ainda não há vendedores em {country}",
+        "marketNearbyBody": "Mostrando produtos de países vizinhos ({countries}). Os preços podem estar em outra moeda e a entrega internacional não é garantida; confirme com o vendedor antes de pedir.",
+        "marketNewTitle": "A UrMall é nova em {country}",
+        "marketNewBody": "Ainda não há produtos anunciados aqui. Abra sua loja para estar entre os primeiros ou convide negócios locais.",
         "showAll": "Mostrar tudo",
         "filtersBtn": "Filtros",
         "minPrice": "Preço mínimo",
@@ -22601,6 +22661,12 @@ export const TRANSLATIONS = {
   },
 
   hi: {
+    messagingNotice: {
+      supervised: "निगरानी में",
+      readMore: "और पढ़ें",
+      privateHint: "केवल आप और दूसरा व्यक्ति ये संदेश पढ़ सकते हैं।",
+      supervisedHint: "सुरक्षा और विवादों के लिए इनकी समीक्षा हो सकती है।",
+    },
     "auth": {
       "welcomeTitle": "KunThai में आपका स्वागत है",
       "chooseCountry": "देश चुनें",
@@ -23957,6 +24023,10 @@ export const TRANSLATIONS = {
         "resultsFor": "\"{query}\" के लिए परिणाम",
         "resultsInCategory": "श्रेणी: {category}",
         "showingCategory": "सबसे पहले {category} दिखा रहा हूँ",
+        "marketNearbyTitle": "{country} में अभी कोई विक्रेता नहीं",
+        "marketNearbyBody": "पास के देशों ({countries}) के उत्पाद दिखाए जा रहे हैं। कीमतें दूसरी मुद्रा में हो सकती हैं और सीमा-पार डिलीवरी की गारंटी नहीं है, इसलिए ऑर्डर से पहले विक्रेता से पुष्टि करें।",
+        "marketNewTitle": "UrMall {country} में नया है",
+        "marketNewBody": "यहाँ अभी किसी विक्रेता ने उत्पाद नहीं डाले हैं। पहले विक्रेताओं में शामिल होने के लिए अपनी दुकान खोलें या स्थानीय व्यवसायों को आमंत्रित करें।",
         "showAll": "सब दिखाओ",
         "filtersBtn": "फिल्टर",
         "minPrice": "न्यूनतम कीमत",
@@ -26366,6 +26436,12 @@ export const TRANSLATIONS = {
   },
 
   bn: {
+    messagingNotice: {
+      supervised: "তত্ত্বাবধানে",
+      readMore: "আরও পড়ুন",
+      privateHint: "শুধু আপনি এবং অন্যজন এই বার্তাগুলো পড়তে পারেন।",
+      supervisedHint: "নিরাপত্তা ও বিরোধ নিষ্পত্তির জন্য পর্যালোচনা হতে পারে।",
+    },
     "auth": {
       "welcomeTitle": "KunThai এ স্বাগতম",
       "chooseCountry": "দেশ বেছে নিন",
@@ -27722,6 +27798,10 @@ export const TRANSLATIONS = {
         "resultsFor": "\"{query}\" এর জন্য ফলাফল",
         "resultsInCategory": "বিভাগ: {category}",
         "showingCategory": "প্রথমে {category} দেখানো হচ্ছে",
+        "marketNearbyTitle": "{country}-এ এখনো কোনো বিক্রেতা নেই",
+        "marketNearbyBody": "কাছের দেশগুলোর ({countries}) পণ্য দেখানো হচ্ছে। দাম অন্য মুদ্রায় হতে পারে এবং সীমান্ত পেরিয়ে ডেলিভারির নিশ্চয়তা নেই, তাই অর্ডারের আগে বিক্রেতার সঙ্গে নিশ্চিত হন।",
+        "marketNewTitle": "UrMall {country}-এ নতুন",
+        "marketNewBody": "এখানে এখনো কোনো বিক্রেতা পণ্য দেননি। প্রথমদের একজন হতে আপনার দোকান খুলুন বা স্থানীয় ব্যবসাকে আমন্ত্রণ জানান।",
         "showAll": "সব দেখান",
         "filtersBtn": "ফিল্টার",
         "minPrice": "সর্বনিম্ন মূল্য",
@@ -30131,6 +30211,12 @@ export const TRANSLATIONS = {
   },
 
   id: {
+    messagingNotice: {
+      supervised: "Diawasi",
+      readMore: "Baca selengkapnya",
+      privateHint: "Hanya Anda dan orang lain ini yang dapat membaca pesan ini.",
+      supervisedHint: "Dapat ditinjau untuk keamanan dan sengketa.",
+    },
     "auth": {
       "welcomeTitle": "Selamat datang di KunThai",
       "chooseCountry": "Pilih negara",
@@ -31487,6 +31573,10 @@ export const TRANSLATIONS = {
         "resultsFor": "Hasil untuk “{query}”",
         "resultsInCategory": "Kategori: {category}",
         "showingCategory": "Menampilkan {category} terlebih dahulu",
+        "marketNearbyTitle": "Belum ada penjual di {country}",
+        "marketNearbyBody": "Menampilkan produk dari negara terdekat ({countries}). Harga bisa dalam mata uang lain dan pengiriman lintas negara tidak dijamin, jadi konfirmasikan dengan penjual sebelum memesan.",
+        "marketNewTitle": "UrMall baru di {country}",
+        "marketNewBody": "Belum ada penjual yang memasang produk di sini. Buka toko Anda untuk menjadi yang pertama, atau undang bisnis lokal.",
         "showAll": "Tunjukkan semuanya",
         "filtersBtn": "Filter",
         "minPrice": "Harga minimal",
@@ -33896,6 +33986,12 @@ export const TRANSLATIONS = {
   },
 
   ur: {
+    messagingNotice: {
+      supervised: "زیرِ نگرانی",
+      readMore: "مزید پڑھیں",
+      privateHint: "صرف آپ اور دوسرا شخص یہ پیغامات پڑھ سکتے ہیں۔",
+      supervisedHint: "حفاظت اور تنازعات کے لیے ان کا جائزہ لیا جا سکتا ہے۔",
+    },
     "auth": {
       "welcomeTitle": "KunThai میں خوش آمدید",
       "chooseCountry": "ملک کا انتخاب کریں۔",
@@ -35252,6 +35348,10 @@ export const TRANSLATIONS = {
         "resultsFor": "\"{query}\" کے نتائج",
         "resultsInCategory": "زمرہ: {category}",
         "showingCategory": "پہلے {category} دکھا رہا ہے۔",
+        "marketNearbyTitle": "{country} میں ابھی کوئی فروخت کنندہ نہیں",
+        "marketNearbyBody": "قریبی ممالک ({countries}) کی مصنوعات دکھائی جا رہی ہیں۔ قیمتیں دوسری کرنسی میں ہو سکتی ہیں اور سرحد پار ترسیل کی ضمانت نہیں، اس لیے آرڈر سے پہلے فروخت کنندہ سے تصدیق کریں۔",
+        "marketNewTitle": "UrMall {country} میں نیا ہے",
+        "marketNewBody": "یہاں ابھی کسی فروخت کنندہ نے مصنوعات شامل نہیں کیں۔ پہلے فروخت کنندگان میں شامل ہونے کے لیے اپنی دکان کھولیں یا مقامی کاروباروں کو مدعو کریں۔",
         "showAll": "سب دکھائیں۔",
         "filtersBtn": "فلٹرز",
         "minPrice": "کم از کم قیمت",
@@ -37661,6 +37761,12 @@ export const TRANSLATIONS = {
   },
 
   ru: {
+    messagingNotice: {
+      supervised: "Под надзором",
+      readMore: "Подробнее",
+      privateHint: "Эти сообщения можете читать только вы и собеседник.",
+      supervisedHint: "Могут проверяться для безопасности и разрешения споров.",
+    },
     "auth": {
       "welcomeTitle": "Добро пожаловать в KunThai",
       "chooseCountry": "Выберите страну",
@@ -39017,6 +39123,10 @@ export const TRANSLATIONS = {
         "resultsFor": "Результаты для «{query}»",
         "resultsInCategory": "Категория: {category}",
         "showingCategory": "Первым показывается {category}",
+        "marketNearbyTitle": "В стране {country} пока нет продавцов",
+        "marketNearbyBody": "Показаны товары из соседних стран ({countries}). Цены могут быть в другой валюте, а доставка через границу не гарантирована — уточните у продавца перед заказом.",
+        "marketNewTitle": "UrMall — новинка в стране {country}",
+        "marketNewBody": "Здесь пока никто не выставил товары. Откройте свой магазин одним из первых или пригласите местный бизнес.",
         "showAll": "Показать все",
         "filtersBtn": "Фильтры",
         "minPrice": "Минимальная цена",
@@ -41427,6 +41537,12 @@ export const TRANSLATIONS = {
 
 
   ja: {
+    messagingNotice: {
+      supervised: "監督あり",
+      readMore: "詳しく見る",
+      privateHint: "このメッセージを読めるのはあなたと相手だけです。",
+      supervisedHint: "安全確保や紛争対応のために確認される場合があります。",
+    },
     "auth": {
       "welcomeTitle": "KunThai へようこそ",
       "chooseCountry": "国を選択してください",
@@ -42783,6 +42899,10 @@ export const TRANSLATIONS = {
         "resultsFor": "「{query}」の結果",
         "resultsInCategory": "カテゴリ: {category}",
         "showingCategory": "{category} を最初に表示しています",
+        "marketNearbyTitle": "{country} にはまだ出品者がいません",
+        "marketNearbyBody": "近隣の国（{countries}）の商品を表示しています。価格が別の通貨の場合があり、国境を越える配送は保証されません。注文前に出品者に確認してください。",
+        "marketNewTitle": "UrMall は {country} で始まったばかりです",
+        "marketNewBody": "ここにはまだ商品が出品されていません。最初の出品者としてストアを開くか、地元の事業者を招待してください。",
         "showAll": "すべて表示",
         "filtersBtn": "フィルター",
         "minPrice": "最低価格",
@@ -45192,6 +45312,12 @@ export const TRANSLATIONS = {
   },
 
   mr: {
+    messagingNotice: {
+      supervised: "देखरेखीखाली",
+      readMore: "अधिक वाचा",
+      privateHint: "हे संदेश फक्त तुम्ही आणि समोरची व्यक्ती वाचू शकता.",
+      supervisedHint: "सुरक्षा आणि वादांसाठी यांचे पुनरावलोकन होऊ शकते.",
+    },
     "auth": {
       "welcomeTitle": "KunThai मध्ये आपले स्वागत आहे",
       "chooseCountry": "देश निवडा",
@@ -46548,6 +46674,10 @@ export const TRANSLATIONS = {
         "resultsFor": "\"{query}\" साठी परिणाम",
         "resultsInCategory": "श्रेणी: {category}",
         "showingCategory": "प्रथम {category} दर्शवित आहे",
+        "marketNearbyTitle": "{country} मध्ये अजून विक्रेते नाहीत",
+        "marketNearbyBody": "जवळच्या देशांतील ({countries}) उत्पादने दाखवत आहे. किंमती दुसऱ्या चलनात असू शकतात आणि सीमापार डिलिव्हरीची हमी नाही, त्यामुळे ऑर्डरपूर्वी विक्रेत्याशी खात्री करा.",
+        "marketNewTitle": "UrMall {country} मध्ये नवीन आहे",
+        "marketNewBody": "येथे अजून कोणत्याही विक्रेत्याने उत्पादने टाकलेली नाहीत. पहिल्यांपैकी एक होण्यासाठी तुमचे दुकान उघडा किंवा स्थानिक व्यवसायांना आमंत्रित करा.",
         "showAll": "सर्व दाखवा",
         "filtersBtn": "फिल्टर",
         "minPrice": "किमान किंमत",
@@ -48957,6 +49087,12 @@ export const TRANSLATIONS = {
   },
 
   vi: {
+    messagingNotice: {
+      supervised: "Có giám sát",
+      readMore: "Đọc thêm",
+      privateHint: "Chỉ bạn và người kia có thể đọc các tin nhắn này.",
+      supervisedHint: "Có thể được xem xét vì an toàn và tranh chấp.",
+    },
     "auth": {
       "welcomeTitle": "Chào mừng đến với KunThai",
       "chooseCountry": "Chọn quốc gia",
@@ -50313,6 +50449,10 @@ export const TRANSLATIONS = {
         "resultsFor": "Kết quả cho “{query}”",
         "resultsInCategory": "Chuyên mục: {category}",
         "showingCategory": "Hiển thị {category} đầu tiên",
+        "marketNearbyTitle": "Chưa có người bán ở {country}",
+        "marketNearbyBody": "Đang hiển thị sản phẩm từ các nước lân cận ({countries}). Giá có thể bằng tiền tệ khác và giao hàng xuyên biên giới không được đảm bảo, hãy xác nhận với người bán trước khi đặt.",
+        "marketNewTitle": "UrMall mới có mặt ở {country}",
+        "marketNewBody": "Chưa có người bán nào đăng sản phẩm ở đây. Mở cửa hàng để trở thành một trong những người đầu tiên, hoặc mời doanh nghiệp địa phương tham gia.",
         "showAll": "Hiển thị tất cả",
         "filtersBtn": "Bộ lọc",
         "minPrice": "Giá tối thiểu",
@@ -52722,6 +52862,12 @@ export const TRANSLATIONS = {
   },
 
   de: {
+    messagingNotice: {
+      supervised: "Überwacht",
+      readMore: "Mehr lesen",
+      privateHint: "Nur du und die andere Person können diese Nachrichten lesen.",
+      supervisedHint: "Können aus Sicherheitsgründen und bei Streitfällen geprüft werden.",
+    },
     "auth": {
       "welcomeTitle": "Willkommen bei KunThai",
       "chooseCountry": "Wählen Sie ein Land",
@@ -54078,6 +54224,10 @@ export const TRANSLATIONS = {
         "resultsFor": "Ergebnisse für „{query}“",
         "resultsInCategory": "Kategorie: {category}",
         "showingCategory": "Zuerst wird {category} angezeigt",
+        "marketNearbyTitle": "Noch keine Verkäufer in {country}",
+        "marketNearbyBody": "Es werden Produkte aus Nachbarländern ({countries}) angezeigt. Preise können in einer anderen Währung sein und grenzüberschreitende Lieferung ist nicht garantiert – kläre das vor der Bestellung mit dem Verkäufer.",
+        "marketNewTitle": "UrMall ist neu in {country}",
+        "marketNewBody": "Hier hat noch niemand Produkte eingestellt. Eröffne deinen Shop als einer der Ersten oder lade lokale Unternehmen ein.",
         "showAll": "Alle anzeigen",
         "filtersBtn": "Filter",
         "minPrice": "Mindestpreis",

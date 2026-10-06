@@ -1,7 +1,7 @@
 // src/components/Marketplace/Browse/Browse.jsx
 
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
-import { ArrowLeft, Search, X } from "lucide-react";
+import { ArrowLeft, Globe, Search, Store, X } from "lucide-react";
 import {
   addBuyerCartItem,
   createBuyerProductOrder,
@@ -593,6 +593,11 @@ export default function Browse({ activeTab = "new", onProductModeChange, onClose
         </div>
       ) : null}
 
+      <MarketCoverageBanner
+        catalog={catalog}
+        visible={!filters.search && filters.category === "all" && !priorityCategory}
+      />
+
       {notice && (
         <div className="rounded-lg border border-emerald-100 bg-emerald-50 px-4 py-3 text-sm font-black text-emerald-800">
           {translateUi(notice)}
@@ -671,6 +676,39 @@ export default function Browse({ activeTab = "new", onProductModeChange, onClose
         sellerSaved={selectedSeller ? savedSellerIds.has(selectedSeller.id) : false}
       />
 
+    </div>
+  );
+}
+
+// Explains what the buyer sees when their country has no UrMall sellers yet:
+// products from neighbouring countries (currency and delivery may differ), or
+// nothing at all.
+function MarketCoverageBanner({ catalog, visible }) {
+  const { t } = useI18n();
+  const scope = catalog?.countryScope;
+  if (!visible || !["nearby", "no-country-data", "empty"].includes(scope)) return null;
+
+  const country = catalog.country?.name || getActiveCountryProfile().name;
+  if (scope === "nearby") {
+    const countries = (catalog.fallbackCountries || []).map((profile) => profile?.name).filter(Boolean).slice(0, 3).join(", ");
+    return (
+      <div className="flex items-start gap-3 rounded-2xl border border-amber-200 bg-amber-50 px-4 py-3 text-amber-950">
+        <Globe size={18} className="mt-0.5 shrink-0 text-amber-700" />
+        <div className="min-w-0">
+          <p className="text-sm font-black">{t("urmall.browse.marketNearbyTitle", { country })}</p>
+          <p className="mt-0.5 text-xs font-semibold leading-5 text-amber-900">{t("urmall.browse.marketNearbyBody", { countries })}</p>
+        </div>
+      </div>
+    );
+  }
+
+  return (
+    <div className="flex items-start gap-3 rounded-2xl border border-emerald-200 bg-emerald-50 px-4 py-3 text-emerald-950">
+      <Store size={18} className="mt-0.5 shrink-0 text-emerald-700" />
+      <div className="min-w-0">
+        <p className="text-sm font-black">{t("urmall.browse.marketNewTitle", { country })}</p>
+        <p className="mt-0.5 text-xs font-semibold leading-5 text-emerald-900">{t("urmall.browse.marketNewBody")}</p>
+      </div>
     </div>
   );
 }
