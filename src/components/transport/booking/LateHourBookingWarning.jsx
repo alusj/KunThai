@@ -33,14 +33,24 @@ const PHASES = {
   },
 };
 
+// Wording per reader. Passengers see it before booking; operators see it
+// before accepting a trip (`urride.lateHourOperator.*`). Same design.
+const COPY_ROOT = {
+  passenger: "urride.lateHour",
+  operator: "urride.lateHourOperator",
+};
+
 // Floating safety card shown before a ride or delivery is booked late in the
 // evening, at night or early in the morning (local time of the booking
-// country). The passenger must confirm they have read it before booking.
-export default function LateHourBookingWarning({ phase, localTime = "", countryName = "", onConfirm, onCancel }) {
+// country). The reader must confirm they have read it before going on.
+export default function LateHourBookingWarning({ phase, localTime = "", countryName = "", audience = "passenger", onConfirm, onCancel }) {
   useI18n();
   const [acknowledged, setAcknowledged] = useState(false);
   const meta = PHASES[phase] || PHASES.night;
   const Icon = meta.icon;
+  const root = COPY_ROOT[audience] || COPY_ROOT.passenger;
+  // Phase texts (eyebrow, title, lead) come from the reader's own copy.
+  const phaseKey = (key) => `${root}.${key.split(".").pop()}`;
 
   useEffect(() => {
     function onKey(event) { if (event.key === "Escape") onCancel?.(); }
@@ -66,8 +76,8 @@ export default function LateHourBookingWarning({ phase, localTime = "", countryN
                   <Icon aria-hidden="true" />
                 </span>
                 <div className="min-w-0">
-                  <p className={`text-[11px] font-black uppercase tracking-[0.18em] ${meta.text}`}>{t(meta.eyebrow)}</p>
-                  <h2 id="late-hour-title" className="mt-1 text-xl font-black leading-tight text-slate-950">{t(meta.title)}</h2>
+                  <p className={`text-[11px] font-black uppercase tracking-[0.18em] ${meta.text}`}>{t(phaseKey(meta.eyebrow))}</p>
+                  <h2 id="late-hour-title" className="mt-1 text-xl font-black leading-tight text-slate-950">{t(phaseKey(meta.title))}</h2>
                   {localTime ? (
                     <p className="mt-1 inline-flex items-center gap-1.5 text-xs font-black text-slate-500">
                       <FiClock aria-hidden="true" />
@@ -77,14 +87,14 @@ export default function LateHourBookingWarning({ phase, localTime = "", countryN
                 </div>
               </div>
 
-              <p id="late-hour-lead" className={`mt-4 text-sm font-bold leading-6 ${phase === "night" ? "text-red-800" : "text-slate-700"}`}>{t(meta.lead)}</p>
+              <p id="late-hour-lead" className={`mt-4 text-sm font-bold leading-6 ${phase === "night" ? "text-red-800" : "text-slate-700"}`}>{t(phaseKey(meta.lead))}</p>
 
               <div className="mt-4 rounded-2xl border-2 border-slate-900/10 bg-slate-950 p-4 text-white">
                 <p className="flex items-center gap-2 text-sm font-black uppercase tracking-wide">
                   <FiAlertOctagon className="shrink-0 text-amber-300" aria-hidden="true" />
-                  {t("urride.lateHour.roleTitle")}
+                  {t(`${root}.roleTitle`)}
                 </p>
-                <p className="mt-2 text-sm font-semibold leading-6 text-slate-200">{t("urride.lateHour.roleBody")}</p>
+                <p className="mt-2 text-sm font-semibold leading-6 text-slate-200">{t(`${root}.roleBody`)}</p>
                 <p className="mt-3 text-xs font-black uppercase tracking-wide text-emerald-300">{t("urride.lateHour.canTitle")}</p>
                 <ul className="mt-2 grid gap-1.5 text-sm font-semibold text-slate-100">
                   <li className="flex items-start gap-2"><FiNavigation className="mt-0.5 shrink-0 text-emerald-300" aria-hidden="true" />{t("urride.lateHour.can1")}</li>
@@ -93,12 +103,12 @@ export default function LateHourBookingWarning({ phase, localTime = "", countryN
                 </ul>
               </div>
 
-              <p className="mt-4 text-xs font-black uppercase tracking-wide text-slate-500">{t("urride.lateHour.checkTitle")}</p>
+              <p className="mt-4 text-xs font-black uppercase tracking-wide text-slate-500">{t(`${root}.checkTitle`)}</p>
               <ol className="mt-2 grid gap-2">
                 {["check1", "check2", "check3"].map((key, index) => (
                   <li key={key} className="flex items-start gap-3 rounded-2xl bg-slate-50 px-3 py-2.5 text-sm font-semibold leading-5 text-slate-700">
                     <span className={`grid h-6 w-6 shrink-0 place-items-center rounded-full text-xs font-black text-white ${meta.badge}`}>{index + 1}</span>
-                    {t(`urride.lateHour.${key}`)}
+                    {t(`${root}.${key}`)}
                   </li>
                 ))}
               </ol>
@@ -112,7 +122,7 @@ export default function LateHourBookingWarning({ phase, localTime = "", countryN
                   onChange={(event) => setAcknowledged(event.target.checked)}
                   className="mt-0.5 h-5 w-5 shrink-0 accent-emerald-600"
                 />
-                <span className="text-sm font-bold leading-5 text-slate-800">{t("urride.lateHour.acknowledge")}</span>
+                <span className="text-sm font-bold leading-5 text-slate-800">{t(`${root}.acknowledge`)}</span>
               </label>
               <button
                 type="button"
@@ -125,10 +135,10 @@ export default function LateHourBookingWarning({ phase, localTime = "", countryN
                 }`}
               >
                 <FiCheck aria-hidden="true" />
-                {t("urride.lateHour.confirm")}
+                {t(`${root}.confirm`)}
               </button>
               <button type="button" onClick={onCancel} className="mt-2 h-11 w-full rounded-2xl text-sm font-black text-slate-600 hover:bg-slate-100">
-                {t("urride.lateHour.cancel")}
+                {t(`${root}.cancel`)}
               </button>
             </div>
           </div>

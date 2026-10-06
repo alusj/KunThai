@@ -1,5 +1,6 @@
 import { createElement, useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { formatTripPickupTime } from "./shared/pickupTime";
+import { useLateHourGate } from "./booking/useLateHourGate";
 import {
   FiAlertTriangle,
   FiBell,
@@ -1939,6 +1940,7 @@ export function OperatorTripRequestCard({ passenger, account, isActive, readOnly
   useI18n();
   const [fareAmount, setFareAmount] = useState("");
   const [busy, setBusy] = useState(false);
+  const { confirmLateHour, lateHourWarning } = useLateHourGate({ audience: "operator" });
   const status = passenger.status || "requested";
   const passengerPhone = passenger.contactPhone || passenger.raw?.contact_phone || "";
   const isWaiting = ["requested", "waiting_operator", "pending_confirmation"].includes(status);
@@ -1963,6 +1965,15 @@ export function OperatorTripRequestCard({ passenger, account, isActive, readOnly
   async function runAction(nextStatus, patch = {}) {
     setBusy(true);
     try {
+      // Accepting a trip in the evening, at night or early morning (local time
+      // where the pickup is) shows the operator's safety card first.
+      if (nextStatus === "accepted") {
+        const proceed = await confirmLateHour({
+          country: passenger.raw?.country_iso || account?.form?.countryCode || account?.form?.country || "",
+          longitude: passenger.raw?.pickup_longitude ?? null,
+        });
+        if (!proceed) return;
+      }
       await onUpdateTrip(passenger, nextStatus, patch);
     } finally {
       setBusy(false);
@@ -1971,6 +1982,7 @@ export function OperatorTripRequestCard({ passenger, account, isActive, readOnly
 
   return (
     <article className="rounded-2xl border border-gray-100 bg-gray-50 px-4 py-4">
+      {lateHourWarning}
       <div className="flex items-start justify-between gap-3">
         <div className="min-w-0">
           <h3 className="truncate text-base font-black text-gray-950">{passenger.name}</h3>

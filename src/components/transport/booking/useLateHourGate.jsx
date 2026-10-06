@@ -8,7 +8,9 @@ import { lateHourStatus } from "./lateHourBooking";
 // sent. Outside the late-hour windows it resolves true at once; inside them it
 // shows the warning and resolves true only when the passenger confirms
 // "I understand and want to book". Render `lateHourWarning` in the screen.
-export function useLateHourGate() {
+// Operators use the same gate with `audience: "operator"` before accepting a
+// trip; the card then speaks to the operator.
+export function useLateHourGate({ audience = "passenger" } = {}) {
   const [request, setRequest] = useState(null);
 
   const confirmLateHour = useCallback(async ({ country = "", longitude = null } = {}) => {
@@ -30,6 +32,7 @@ export function useLateHourGate() {
       phase={request.phase}
       localTime={request.localTime}
       countryName={request.countryName}
+      audience={audience}
       onConfirm={() => settle(true)}
       onCancel={() => settle(false)}
     />
