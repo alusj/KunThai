@@ -1,10 +1,12 @@
 import { createElement, useEffect, useRef, useState } from "react";
 import { FiBriefcase, FiClock, FiMapPin, FiNavigation, FiStar } from "react-icons/fi";
 import {
+  fetchTopRatedNearby,
   fetchTransportFleets,
   getTransportFleets,
   subscribeToFleetUpdates,
 } from "../services/transportFleetService";
+import { getPassengerPosition } from "../services/passengerPosition";
 import { formatCountryMoney } from "../../data/globalCountryProfiles";
 import AppBackTab from "../shared/AppBackTab";
 import VerificationBadge from "./verification/VerificationBadge";
@@ -27,6 +29,11 @@ export default function FleetListScreen({ selection, onBack, onViewCompany, onVi
   const [loading, setLoading] = useState(() => initialFleets.length === 0);
   const [refreshing, setRefreshing] = useState(false);
   const [error, setError] = useState("");
+  // Top Rated is ranked around the passenger. status: "locating" | "nearby" |
+  // "country" (no position yet, or ranking unavailable).
+  const isTopRated = selection.mode === "topRated" && !selection.includeOffline;
+  const [nearby, setNearby] = useState({ status: isTopRated ? "locating" : "", radiusKm: null, place: "", fresh: [] });
+  const [locationRequest, setLocationRequest] = useState(0);
   const fleetsRef = useRef(fleets);
 
   useEffect(() => {
@@ -39,7 +46,15 @@ export default function FleetListScreen({ selection, onBack, onViewCompany, onVi
   const helperText =
     selection.includeOffline
       ? t("urride.fleetList.helperOffline")
-      : t("urride.fleetList.helperLive");
+      : nearby.status === "nearby"
+        ? nearby.place
+          ? t("urride.fleetList.helperNearbyPlace", { km: nearby.radiusKm, place: nearby.place })
+          : t("urride.fleetList.helperNearby", { km: nearby.radiusKm })
+        : nearby.status === "locating"
+          ? t("urride.fleetList.locating")
+          : isTopRated
+            ? t("urride.fleetList.helperCountry")
+            : t("urride.fleetList.helperLive");
 
   useEffect(() => {
     let alive = true;
@@ -61,6 +76,33 @@ export default function FleetListScreen({ selection, onBack, onViewCompany, onVi
           setRefreshing(false);
         }
         setError("");
+
+        if (isTopRated) {
+          const position = await getPassengerPosition({ prompt: locationRequest > 0 });
+          if (position) {
+            try {
+              const ranked = await fetchTopRatedNearby({
+                latitude: position.latitude,
+                longitude: position.longitude,
+                countryIso: selection.countryIso || selection.countryCode || selection.country || "",
+                fleetType: selection.fleetType || null,
+              });
+              if (!alive) return;
+              setFleets(filterFleetsForSelection(ranked.rated, selection));
+              setNearby({
+                status: "nearby",
+                radiusKm: ranked.radiusKm || 50,
+                place: position.place || "",
+                fresh: filterFleetsForSelection(ranked.fresh, selection),
+              });
+              return;
+            } catch {
+              // Ranking unavailable (e.g. not deployed yet): country list below.
+            }
+          }
+          if (alive) setNearby({ status: "country", radiusKm: null, place: "", fresh: [] });
+        }
+
         const items = await fetchTransportFleets(selection);
         const visibleItems = filterFleetsForSelection(items, selection);
         if (alive) setFleets(visibleItems);
@@ -89,7 +131,9 @@ export default function FleetListScreen({ selection, onBack, onViewCompany, onVi
       alive = false;
       unsubscribe?.();
     };
-  }, [selection]);
+    // isTopRated derives from selection; locationRequest re-runs after "Use my location".
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [selection, locationRequest]);
 
   return (
     <div className="kt-mobile-viewport kt-safe-screen bg-gray-50" data-back-swipe-scope>
@@ -127,11 +171,24 @@ export default function FleetListScreen({ selection, onBack, onViewCompany, onVi
         <div className="mb-4 grid gap-3 rounded-2xl border border-gray-100 bg-white p-4 shadow-sm md:grid-cols-3">
           <SummaryItem
             label={t("urride.fleetList.sortLabel")}
-            value={selection.mode === "topRated" ? t("urride.fleetList.sortTopRated") : t("urride.fleetList.sortOther")}
+            value={nearby.status === "nearby" ? t("urride.fleetList.sortNearby") : selection.mode === "topRated" ? t("urride.fleetList.sortTopRated") : t("urride.fleetList.sortOther")}
           />
           <SummaryItem label={t("urride.fleetList.typeLabel")} value={selection.mode === "topRated" ? t("urride.fleetList.typeAll") : selection.label} />
           <SummaryItem label={t("urride.fleetList.modeLabel")} value={selection.verifiedOnly ? t("urride.fleetList.modeVerifiedOnly") : modeLabel} />
         </div>
+        {nearby.status === "country" ? (
+          <div className="mb-3 flex flex-wrap items-center justify-between gap-3 rounded-2xl border border-amber-200 bg-amber-50 px-4 py-3">
+            <p className="min-w-0 flex-1 text-sm font-semibold text-amber-900">{t("urride.fleetList.helperCountry")}</p>
+            <button
+              type="button"
+              onClick={() => setLocationRequest((value) => value + 1)}
+              className="inline-flex h-10 items-center gap-2 rounded-full bg-slate-950 px-4 text-sm font-black text-white"
+            >
+              <FiNavigation size={15} />
+              {t("urride.fleetList.useMyLocation")}
+            </button>
+          </div>
+        ) : null}
         {refreshing && fleets.length ? (
           <p className="mb-3 rounded-xl border border-sky-100 bg-sky-50 px-3 py-2 text-xs font-bold text-sky-700">
             {t("urride.fleetList.refreshing")}
@@ -142,7 +199,9 @@ export default function FleetListScreen({ selection, onBack, onViewCompany, onVi
           <EmptyState title={t("urride.fleetList.loadErrorTitle")} body={error} />
         ) : loading && !fleets.length ? (
           <EmptyState title={t("urride.fleetList.loadingTitle")} body={t("urride.fleetList.loadingBody")} />
-        ) : fleets.length === 0 ? (
+        ) : fleets.length === 0 && nearby.status === "nearby" && !nearby.fresh.length ? (
+          <EmptyState title={t("urride.fleetList.noNearbyTitle")} body={t("urride.fleetList.noNearbyBody")} />
+        ) : fleets.length === 0 && !nearby.fresh.length ? (
           <EmptyState title={t("urride.fleetList.emptyTitle")} body={t("urride.fleetList.emptyBody")} />
         ) : (
           <div className="grid gap-3 2xl:grid-cols-2">
@@ -158,6 +217,25 @@ export default function FleetListScreen({ selection, onBack, onViewCompany, onVi
             ))}
           </div>
         )}
+
+        {nearby.status === "nearby" && nearby.fresh.length ? (
+          <section className="mt-6">
+            <h2 className="text-base font-black text-gray-950">{t("urride.fleetList.newNearYou")}</h2>
+            <p className="mb-3 text-xs font-semibold text-gray-500">{t("urride.fleetList.newNearYouHint")}</p>
+            <div className="grid gap-3 2xl:grid-cols-2">
+              {nearby.fresh.map((fleet) => (
+                <FleetListCard
+                  key={fleet.id}
+                  fleet={fleet}
+                  onViewCompany={() => onViewCompany?.(fleet.companyId)}
+                  onViewFleet={() => onViewFleet(fleet.id)}
+                  onShowVerification={() => onShowVerification(fleet)}
+                  onOpenBooking={() => onOpenBooking?.({ fleet, selection })}
+                />
+              ))}
+            </div>
+          </section>
+        ) : null}
       </main>
     </div>
   );
@@ -212,7 +290,13 @@ function FleetListCard({ fleet, onViewCompany, onViewFleet, onShowVerification, 
       <div className="grid gap-2 text-sm text-gray-600">
         {isActive ? (
           <>
-            <InfoLine icon={FiNavigation} text={t("urride.fleetList.kmAwayEta", { distance: fleet.distanceKm || 0, eta: fleet.etaMinutes || t("urride.fleetList.etaNA") })} />
+            {/* Only a distance measured from the passenger is shown; other
+                lists have none, so no "0 km away" placeholder. */}
+            {fleet.distanceSource === "live" ? (
+              <InfoLine icon={FiNavigation} text={t("urride.fleetList.distanceLive", { distance: fleet.distanceKm, eta: fleet.etaMinutes })} />
+            ) : fleet.distanceSource === "recent" ? (
+              <InfoLine icon={FiNavigation} text={t("urride.fleetList.distanceRecent", { distance: fleet.distanceKm })} />
+            ) : null}
             <InfoLine icon={FiMapPin} text={fleet.currentLocation} />
           </>
         ) : (

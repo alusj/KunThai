@@ -3,6 +3,7 @@ import { ArrowRight, BadgeCheck, Heart, MapPin, PackageSearch, Share2, ShoppingC
 import { formatCurrency } from "../../../Backend/utils/formatCurrency";
 import { shareUrMallLink } from "../../../Backend/services/shareCtaService";
 import { getProductCardLocation, buildCardSellerLocation } from "../../../Backend/utils/productCardLocation";
+import { distanceLabelFromKm } from "../../../Backend/utils/distance";
 import { ensureBuyerLocation, useBuyerLocation } from "../../../Backend/utils/buyerLocationContext";
 import { resizedImageUrl } from "../../../Backend/lib/imageProxy";
 import { useI18n, t } from "../../../i18n";
@@ -136,7 +137,11 @@ export function BuyerProductCard({ product, onProductSelect, onAddToCart, onTogg
         <div className="grid gap-0.5 text-[11px] font-bold text-gray-500">
           <span className="flex min-w-0 items-center gap-1.5 leading-5">
             <MapPin size={13} className="shrink-0 text-emerald-600" />
-            <span className="truncate">{cardLocation}</span>
+            <span className="truncate">
+              {Number.isFinite(product.distanceKm)
+                ? `${cardLocation} · ${distanceLabelFromKm(product.distanceKm, t)}`
+                : cardLocation}
+            </span>
           </span>
           <span className="flex min-w-0 items-center gap-1.5 leading-5">
             <Truck size={13} className="shrink-0 text-emerald-600" />

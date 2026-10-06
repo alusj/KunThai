@@ -71,7 +71,11 @@ export function formatDistanceKm(km, { unavailableLabel = "Distance unavailable"
 // validated before anything is shown. Returns the "distance unavailable" label
 // (never a guess) when either pair is invalid.
 export function resolveDistanceLabel(currentUserCoordinates, targetCoordinates, t) {
-  const km = haversineKm(currentUserCoordinates, targetCoordinates);
+  return distanceLabelFromKm(haversineKm(currentUserCoordinates, targetCoordinates), t);
+}
+
+// Same labels for a distance already known (e.g. computed by the database).
+export function distanceLabelFromKm(km, t) {
   const band = distanceBand(km);
   switch (band) {
     case "nearby":

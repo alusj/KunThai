@@ -1,3 +1,4 @@
+import { applyNearbyRanking } from "./topRatedNearby";
 import supabase from "../../Backend/lib/supabaseClient";
 import { friendlyErrorMessage } from "../../Backend/services/friendlyErrorService";
 import {
@@ -361,11 +362,14 @@ export function getTransportFleets(selection = { mode: "topRated", fleetType: nu
 
 export function getTransportFleetById(id) {
   if (!id) return null;
+  let match = null;
   for (const fleets of TRANSPORT_FLEET_MEMORY.values()) {
     const fleet = fleets.find((item) => item.id === id);
-    if (fleet) return fleet;
+    // Prefer the copy that carries a distance measured from the passenger.
+    if (fleet?.distanceSource) return fleet;
+    if (fleet && !match) match = fleet;
   }
-  return null;
+  return match;
 }
 
 async function runFleetListQuery(countryIsos = null) {
@@ -489,6 +493,47 @@ export async function fetchTransportFleets(selection = { mode: "topRated", fleet
     20_000,
     { force: selection.forceRefresh === true },
   );
+}
+
+// "Top Rated near you": the database ranks active fleets around the
+// passenger (live or recent operator position, widening radius, weighted
+// rating); the rows are then hydrated and passed through the same client
+// safety filters as every other list. Throws when the ranking is unavailable
+// (e.g. migration not applied yet) so the caller can fall back to the
+// country-wide list.
+export async function fetchTopRatedNearby({ latitude, longitude, countryIso = "", fleetType = null, includeOffline = false } = {}) {
+  const currentIso = normalizeCountryIso(countryIso) || getActiveCountryProfile(countryIso).iso2;
+  if (!currentIso || !Number.isFinite(Number(latitude)) || !Number.isFinite(Number(longitude))) {
+    return { rated: [], fresh: [], radiusKm: null };
+  }
+
+  const { data: rankingRows, error } = await supabase.rpc("transport_top_rated_nearby", {
+    p_lat: Number(latitude),
+    p_lng: Number(longitude),
+    p_country: currentIso,
+    p_fleet_type: fleetType || null,
+    p_limit: 30,
+  });
+  if (error) throw error;
+  const ids = (rankingRows || []).map((row) => row.fleet_id).filter(Boolean);
+  if (!ids.length) return { rated: [], fresh: [], radiusKm: null };
+
+  const { data: rows, error: rowsError } = await supabase
+    .from("transport_fleets")
+    .select("*, transport_operators(id, full_name, phone, city, operator_code, display_code, verification_status)")
+    .in("id", ids);
+  if (rowsError) throw rowsError;
+
+  const liveFleets = await hydrateLiveFleets(rows || []);
+  const { items: sameCountryFleets } = filterStrictSameCountry(liveFleets, currentIso);
+  const selection = { mode: "topRated", fleetType, includeOffline };
+  const allowed = sameCountryFleets.filter((fleet) =>
+    isFleetAllowedForTransportMode(fleet, "topRated", currentIso) &&
+    passengerVisibilityFilters(fleet, selection, includeOffline),
+  );
+  const ranked = applyNearbyRanking(allowed, rankingRows);
+  rememberTransportFleets("top-rated-nearby", [...ranked.rated, ...ranked.fresh]);
+  return ranked;
 }
 
 export async function fetchTransportFleetById(id) {

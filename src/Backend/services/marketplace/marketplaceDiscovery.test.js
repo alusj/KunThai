@@ -39,6 +39,21 @@ test("nearby discovery ranks distance before popularity", () => {
   assert.ok(ranked[0].distanceKm < ranked[1].distanceKm);
 });
 
+test("a nearby branch beats a closer-looking main address", () => {
+  // Main store is far away, but its branch is 1 km from the buyer.
+  const chain = product("chain", { storeDistanceKm: 1, seller: { id: "chain", latitude: 9.5, longitude: -12.0, countryCode: "SL" } });
+  const local = product("local", { seller: { id: "local", latitude: 8.52, longitude: -13.234, countryCode: "SL" } });
+
+  const ranked = rankMarketplaceProductsNearby([local, chain], { latitude: 8.484, longitude: -13.234, countryCode: "SL" });
+  assert.deepEqual(ranked.map((item) => item.id), ["chain", "local"]);
+  assert.equal(ranked[0].distanceKm, 1);
+});
+
+test("a store distance is ignored when the buyer has no position", () => {
+  const ranked = rankMarketplaceProductsNearby([product("a", { storeDistanceKm: 1 })], { city: "Freetown", countryCode: "SL" });
+  assert.equal(ranked[0].distanceKm, undefined);
+});
+
 test("nearby discovery falls back to same city when coordinates are unavailable", () => {
   const sameCountry = product("country", { seller: { id: "country", city: "Bo", countryCode: "SL" } });
   const sameCity = product("city", { seller: { id: "city", city: "Freetown", countryCode: "SL" } });

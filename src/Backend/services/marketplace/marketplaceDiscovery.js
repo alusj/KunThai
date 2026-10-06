@@ -70,9 +70,18 @@ export function rankMarketplaceProductsNearby(products = [], buyerContext = {}) 
   return products
     .map((product, originalIndex) => {
       const sellerCoordinates = productCoordinates(product);
-      const distance = buyerHasCoordinates && sellerCoordinates
-        ? haversineKm(buyerCoordinates, sellerCoordinates)
-        : null;
+      // storeDistanceKm: distance to the store's NEAREST location (main store
+      // or branch), worked out by the database; otherwise the main address.
+      const storeDistance = product.storeDistanceKm === null || product.storeDistanceKm === undefined
+        ? NaN
+        : Number(product.storeDistanceKm);
+      const distance = !buyerHasCoordinates
+        ? null
+        : Number.isFinite(storeDistance)
+          ? storeDistance
+          : sellerCoordinates
+            ? haversineKm(buyerCoordinates, sellerCoordinates)
+            : null;
       const sellerCity = productCity(product);
       const sellerCountry = productCountry(product);
       const sameCity = Boolean(buyerCity && sellerCity && (sellerCity === buyerCity || sellerCity.includes(buyerCity) || buyerCity.includes(sellerCity)));

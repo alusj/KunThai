@@ -157,6 +157,14 @@ export async function ensureBuyerLocation() {
   emit({ status: "ready", location });
 }
 
+// Last known device location (with city), or null when none or older than
+// the cache window. No prompt, no network.
+export function readCachedBuyerLocation() {
+  const cached = state.location || readCache();
+  if (!cached || !cached.ts || Date.now() - cached.ts > MAX_AGE_MS) return null;
+  return cached;
+}
+
 // Read-only hook for cards. Returns the normalized buyerLocation or null.
 export function useBuyerLocation() {
   return useSyncExternalStore(subscribe, getSnapshot, getSnapshot).location;

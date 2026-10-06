@@ -1,7 +1,9 @@
 import supabase from "../../Backend/lib/supabaseClient";
 
 // Publishes the signed-in operator's live position into
-// public.transport_operator_locations while they are online. The Area View
+// public.transport_operator_locations while they are online: on movement
+// (12 m+), every 60 s as a heartbeat, and straight away when the app returns
+// to the foreground (phones pause timers in the background). The Area View
 // reads this table (getLiveOperators + realtime) to show moving operators with
 // an AVAILABLE / BOOKED badge. RLS: operator_id must equal auth.uid().
 
@@ -106,6 +108,7 @@ export async function startOperatorLiveLocation({ displayName = "", fleetType = 
     lastError: "",
     watchId: null,
     heartbeatId: null,
+    onVisible: null,
   };
   activePublisher = publisher;
 
@@ -119,6 +122,18 @@ export async function startOperatorLiveLocation({ displayName = "", fleetType = 
 
   publisher.heartbeatId = window.setInterval(() => publishRow(publisher, null, { force: true }), HEARTBEAT_INTERVAL_MS);
 
+  // Back from the background: send a fresh fix now instead of waiting for
+  // the next movement or heartbeat, so passengers see an up-to-date position.
+  publisher.onVisible = () => {
+    if (document.visibilityState !== "visible" || activePublisher !== publisher) return;
+    navigator.geolocation.getCurrentPosition(
+      (position) => publishRow(publisher, position, { force: true }),
+      () => publishRow(publisher, null, { force: true }),
+      { enableHighAccuracy: true, maximumAge: 15_000, timeout: 15_000 },
+    );
+  };
+  document.addEventListener("visibilitychange", publisher.onVisible);
+
   return () => {
     if (activePublisher === publisher) stopOperatorLiveLocation();
   };
@@ -130,6 +145,7 @@ export function stopOperatorLiveLocation() {
   activePublisher = null;
   if (publisher.watchId != null) navigator.geolocation?.clearWatch?.(publisher.watchId);
   if (publisher.heartbeatId != null) window.clearInterval(publisher.heartbeatId);
+  if (publisher.onVisible) document.removeEventListener("visibilitychange", publisher.onVisible);
   markOffline(publisher.userId);
 }
 

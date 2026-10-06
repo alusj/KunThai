@@ -637,7 +637,12 @@ function LocationCard({ fleet, fleetAreaDestination, isActive, onLocateArea }) {
           {isActive ? (
             <>
               <InfoLine icon={FiMapPin} text={fleet.currentLocation} />
-              <InfoLine icon={FiClock} text={t("urride.fleetProfile.kmAwayEta", { distance: fleet.distanceKm, eta: fleet.etaMinutes ?? t("urride.fleetProfile.etaPending") })} />
+              {/* Only a distance measured from the passenger (Top Rated near you). */}
+              {fleet.distanceSource === "live" ? (
+                <InfoLine icon={FiClock} text={t("urride.fleetList.distanceLive", { distance: fleet.distanceKm, eta: fleet.etaMinutes })} />
+              ) : fleet.distanceSource === "recent" ? (
+                <InfoLine icon={FiClock} text={t("urride.fleetList.distanceRecent", { distance: fleet.distanceKm })} />
+              ) : null}
             </>
           ) : (
             <>

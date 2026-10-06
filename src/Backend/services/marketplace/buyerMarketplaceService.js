@@ -667,6 +667,34 @@ export async function fetchBuyerMarketplaceProducts(filters = {}) {
   );
 }
 
+// Distance from the buyer to each store's NEAREST location (main store or
+// branch), computed in the database. Best-effort: without it, ranking uses
+// the store's main address as before.
+async function attachStoreDistances(products, buyerContext = {}) {
+  const latitude = Number(buyerContext.latitude);
+  const longitude = Number(buyerContext.longitude);
+  if (buyerContext.latitude == null || buyerContext.longitude == null) return products;
+  if (!Number.isFinite(latitude) || !Number.isFinite(longitude)) return products;
+
+  const businessIds = Array.from(new Set(products.map((product) => product.businessId).filter(Boolean))).slice(0, 500);
+  if (!businessIds.length) return products;
+
+  try {
+    const { data, error } = await supabase.rpc("marketplace_nearest_store_distances", {
+      p_lat: latitude,
+      p_lng: longitude,
+      p_business_ids: businessIds,
+    });
+    if (error || !Array.isArray(data)) return products;
+    const distances = new Map(data.map((row) => [row.business_id, Number(row.distance_km)]));
+    return products.map((product) => (
+      distances.has(product.businessId) ? { ...product, storeDistanceKm: distances.get(product.businessId) } : product
+    ));
+  } catch {
+    return products;
+  }
+}
+
 async function loadBuyerMarketplaceProducts(filters = {}) {
   const searchTerm = String(filters.search || "").trim();
   const buyerContext = filters.sort === "nearby" && !searchTerm
@@ -685,6 +713,7 @@ async function loadBuyerMarketplaceProducts(filters = {}) {
   }
 
   let { scoped, scopedItems } = await loadScoped(filters);
+  if (filters.sort === "nearby" && !searchTerm) scopedItems = await attachStoreDistances(scopedItems, buyerContext);
 
   // When a strict search recalls nothing, retry once with the looser
   // prefix-based recall so typos and partial words still surface products. Only
