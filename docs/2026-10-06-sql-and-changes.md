@@ -178,3 +178,19 @@ where not exists (
      code instead.
    - Set up custom SMTP (Authentication → Emails). The built-in sender is
      rate-limited to a few emails per hour, which is too few for production.
+10. **"Forgot password?" appears early** (no SQL)
+    - The link slides in under the password once a country is chosen and
+      the first digit is typed. It checks the number first; an unregistered
+      number gets "Sign up instead".
+11. **Nearby Area: fleets, camera, quiet reroute** (no SQL)
+    - Fleets chip zooms to the live operators within 15 km; every fleet icon
+      shows BOOKED or EMPTY.
+    - The camera follows you only while you are moving; a searched place, a
+      pan or the fleets view stays put until you move or tap locate.
+    - Off the drawn route shows "Checking route" and a new route is worked
+      out in the background; the red wrong-route card appears only when no
+      route exists.
+12. **Operator late-hour safety card** (no SQL)
+    - Accepting a trip in the evening, at night or early morning shows the
+      operator version of the passenger's safety card first. The passenger
+      card is unchanged.
