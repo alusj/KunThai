@@ -31,22 +31,64 @@ function getCommentMediaType(post) {
 
 const COMMENTS_MEMORY = new Map();
 const COMMENTS_MEMORY_TTL = 120_000;
+// Recently opened threads are also kept on the device so comments still show
+// after a restart or with no connection, the same way the feed does.
+const COMMENTS_STORAGE_KEY = "explore-comments-v1";
+const COMMENTS_STORAGE_POSTS = 30;
+const COMMENTS_STORAGE_PER_POST = 120;
+
+function readStoredComments() {
+  try {
+    const value = JSON.parse(localStorage.getItem(COMMENTS_STORAGE_KEY) || "{}");
+    return value && typeof value === "object" && !Array.isArray(value) ? value : {};
+  } catch {
+    return {};
+  }
+}
+
+function writeStoredComments(postId, entry) {
+  try {
+    const stored = readStoredComments();
+    stored[postId] = {
+      // Unsent comments and inline voice clips (data: URLs) only exist until
+      // the send finishes, so they are never kept.
+      comments: (entry.comments || [])
+        .filter((comment) => !comment.pending && !String(comment.audio_url || "").startsWith("data:"))
+        .slice(-COMMENTS_STORAGE_PER_POST),
+      likedIds: entry.likedIds || [],
+      savedAt: entry.savedAt,
+    };
+    const newestFirst = Object.entries(stored)
+      .sort(([, a], [, b]) => (b?.savedAt || 0) - (a?.savedAt || 0))
+      .slice(0, COMMENTS_STORAGE_POSTS);
+    localStorage.setItem(COMMENTS_STORAGE_KEY, JSON.stringify(Object.fromEntries(newestFirst)));
+  } catch {
+    // Storage can be full or unavailable; the in-memory copy still works.
+  }
+}
 
 function readCommentMemory(postId) {
-  const cached = COMMENTS_MEMORY.get(postId);
+  let cached = COMMENTS_MEMORY.get(postId);
+  if (!cached && postId) {
+    cached = readStoredComments()[postId];
+    // A stored copy shows instantly but is always refreshed from the network.
+    if (cached) COMMENTS_MEMORY.set(postId, { ...cached, savedAt: 0 });
+  }
   if (!cached) return { comments: [], likedIds: [], fresh: false };
 
   return {
     comments: cached.comments || [],
     likedIds: cached.likedIds || [],
-    fresh: Date.now() - cached.savedAt < COMMENTS_MEMORY_TTL,
+    fresh: Date.now() - (cached.savedAt || 0) < COMMENTS_MEMORY_TTL,
   };
 }
 
 function writeCommentMemory(postId, patch) {
   if (!postId) return;
   const current = COMMENTS_MEMORY.get(postId) || { comments: [], likedIds: [], savedAt: 0 };
-  COMMENTS_MEMORY.set(postId, { ...current, ...patch, savedAt: Date.now() });
+  const next = { ...current, ...patch, savedAt: Date.now() };
+  COMMENTS_MEMORY.set(postId, next);
+  writeStoredComments(postId, next);
 }
 
 function isPlaceholderName(value) {
@@ -101,7 +143,8 @@ export function useExploreComments(postId, currentUserId = "", post = null, enab
       setLikedComments(new Set(likedIds));
       writeCommentMemory(postId, { comments: nextComments, likedIds });
     } catch (err) {
-      setError(inlineErrorMessage(err, "Unable to load comments."));
+      // Offline or a failed refresh: keep showing the saved comments quietly.
+      if (!cached.comments.length) setError(inlineErrorMessage(err, "Unable to load comments."));
     } finally {
       setLoading(false);
     }

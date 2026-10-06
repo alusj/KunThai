@@ -1,8 +1,20 @@
-import { useEffect, useRef, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import { createPortal } from "react-dom";
-import { HiOutlineChatBubbleLeftRight, HiOutlineSparkles, HiOutlineXMark } from "react-icons/hi2";
+import {
+  HiCheck,
+  HiOutlineArrowsUpDown,
+  HiOutlineChatBubbleLeftRight,
+  HiOutlineSparkles,
+  HiOutlineXMark,
+} from "react-icons/hi2";
 
 import { useExploreComments } from "../../../../../../Backend/hooks/useExploreComments";
+import {
+  COMMENT_SORTS,
+  readCommentSort,
+  sortCommentThread,
+  writeCommentSort,
+} from "../../../../../../Backend/services/explore/commentSort";
 import { useAiAvailability, useAiTask } from "../../../../../../Backend/hooks/useAiTask";
 import {
   collectDiscussionComments,
@@ -18,6 +30,8 @@ import CommentItem from "./CommentItem";
 import { uiText as translateUi, useI18n as useUiLocale } from "../../../../../../i18n/index.js";
 
 const EXIT_MS = 260;
+const SORT_LABEL_KEYS = { newest: "post.sortNewest", top: "post.sortTop", oldest: "post.sortOldest" };
+const SORT_HINT_KEYS = { newest: "post.sortNewestHint", top: "post.sortTopHint", oldest: "post.sortOldestHint" };
 
 export default function CommentsDrawer({ currentUserId, onClose, onCountChange, onViewProfile, open, post }) {
   const { t, locale } = useI18n();
@@ -28,10 +42,13 @@ export default function CommentsDrawer({ currentUserId, onClose, onCountChange, 
   const [rendered, setRendered] = useState(open);
   const [closing, setClosing] = useState(false);
   const [sendPreview, setSendPreview] = useState(null);
+  const [sortMode, setSortMode] = useState(readCommentSort);
+  const [sortMenuOpen, setSortMenuOpen] = useState(false);
   const listRef = useRef(null);
   const sendPreviewTimerRef = useRef(null);
   const comments = useExploreComments(post?.id, currentUserId, post, open || rendered);
   const isSwip = Boolean(post?.video_url || String(post?.feed_scope || "").toLowerCase() === "swip");
+  const sortedThread = useMemo(() => sortCommentThread(comments.thread, sortMode), [comments.thread, sortMode]);
   useEffect(
     () => () => {
       window.clearTimeout(sendPreviewTimerRef.current);
@@ -56,6 +73,7 @@ export default function CommentsDrawer({ currentUserId, onClose, onCountChange, 
       setClosing(false);
       setReplyingTo(null);
       setSummaryOpen(false);
+      setSortMenuOpen(false);
     }, EXIT_MS);
 
     return () => window.clearTimeout(timeoutId);
@@ -65,8 +83,10 @@ export default function CommentsDrawer({ currentUserId, onClose, onCountChange, 
     if (!rendered || closing) return;
     const node = listRef.current;
     if (!node) return;
-    node.scrollTo({ top: node.scrollHeight, behavior: "smooth" });
-  }, [comments.comments.length, rendered, closing]);
+    // New comments land at the bottom only in posted order; every other sort
+    // shows the latest activity from the top.
+    node.scrollTo({ top: sortMode === "oldest" ? node.scrollHeight : 0, behavior: "smooth" });
+  }, [comments.comments.length, rendered, closing, sortMode]);
 
   if (!rendered) {
     return null;
@@ -119,11 +139,18 @@ export default function CommentsDrawer({ currentUserId, onClose, onCountChange, 
     setSummaryOpen(false);
   }
 
+  function chooseSort(mode) {
+    setSortMode(mode);
+    writeCommentSort(mode);
+    setSortMenuOpen(false);
+  }
+
   function viewProfile(profile) {
     requestClose();
     onViewProfile?.(profile);
   }
 
+  const responseCount = post?.comments_count || comments.comments.length || 0;
   const shellClass = isSwip
     ? "fixed inset-0 z-[1000] flex h-dvh w-full min-w-0 items-end justify-end overflow-hidden overscroll-none [contain:strict] sm:items-stretch"
     : "fixed inset-0 z-[1000] flex h-dvh w-full min-w-0 items-end justify-center overflow-hidden overscroll-none [contain:strict]";
@@ -147,9 +174,56 @@ export default function CommentsDrawer({ currentUserId, onClose, onCountChange, 
         <div className="flex min-w-0 items-center justify-between gap-3 border-b border-slate-200 px-4 py-4">
           <div className="min-w-0">
             <p className="text-xs font-black uppercase tracking-[0.18em] text-sky-700">{isSwip ? t("post.swipComments") : t("post.comments")}</p>
-            <h3 className="truncate text-lg font-black text-slate-950">{t("post.responses", { count: post?.comments_count || comments.comments.length || 0 })}</h3>
+            <h3 className="truncate text-lg font-black text-slate-950">{t(responseCount === 1 ? "post.responseOne" : "post.responses", { count: responseCount })}</h3>
           </div>
           <div className="flex flex-none items-center gap-2">
+            {comments.thread.length ? (
+              <div className="relative">
+                <button
+                  type="button"
+                  onClick={() => setSortMenuOpen((current) => !current)}
+                  className="kt-pressable inline-flex h-10 items-center gap-1.5 rounded-2xl bg-slate-100 px-3 text-xs font-black text-slate-700 hover:bg-slate-200"
+                  aria-haspopup="menu"
+                  aria-expanded={sortMenuOpen}
+                  aria-label={t("post.sortComments")}
+                >
+                  <HiOutlineArrowsUpDown className="text-base" />
+                  {t(SORT_LABEL_KEYS[sortMode])}
+                </button>
+                {sortMenuOpen ? (
+                  <>
+                    <button
+                      type="button"
+                      className="fixed inset-0 z-20 cursor-default"
+                      onClick={() => setSortMenuOpen(false)}
+                      aria-label={t("post.sortComments")}
+                      tabIndex={-1}
+                    />
+                    <div
+                      role="menu"
+                      className="kt-toast-expand-in absolute right-0 top-12 z-30 w-64 overflow-hidden rounded-[20px] border border-slate-200 bg-white p-1.5 shadow-2xl"
+                    >
+                      {COMMENT_SORTS.map((mode) => (
+                        <button
+                          key={mode}
+                          type="button"
+                          role="menuitemradio"
+                          aria-checked={sortMode === mode}
+                          onClick={() => chooseSort(mode)}
+                          className={`flex w-full items-center gap-3 rounded-2xl px-3 py-2.5 text-left hover:bg-slate-100 ${sortMode === mode ? "bg-slate-100" : ""}`}
+                        >
+                          <span className="min-w-0 flex-1">
+                            <span className="block text-sm font-black text-slate-950">{t(SORT_LABEL_KEYS[mode])}</span>
+                            <span className="block text-xs font-semibold text-slate-500">{t(SORT_HINT_KEYS[mode])}</span>
+                          </span>
+                          {sortMode === mode ? <HiCheck className="flex-none text-base text-sky-700" /> : null}
+                        </button>
+                      ))}
+                    </div>
+                  </>
+                ) : null}
+              </div>
+            ) : null}
             {canSummarize ? (
               <button
                 type="button"
@@ -195,7 +269,7 @@ export default function CommentsDrawer({ currentUserId, onClose, onCountChange, 
             </div>
           ) : null}
 
-          {comments.thread.map((comment) => (
+          {sortedThread.map((comment) => (
             <CommentItem
               key={comment.id}
               comment={comment}

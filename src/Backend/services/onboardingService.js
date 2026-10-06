@@ -298,11 +298,27 @@ function chooseReturningProfile(authProfile, records) {
   return exploreProfile || transportProfile || marketplaceProfile || null;
 }
 
+// With a saved session already on the device, a weak connection must not hold
+// the app on its startup skeleton: past this wait the saved session is used,
+// exactly as when the device is offline.
+const SAVED_SESSION_USER_WAIT_MS = 2500;
+
+function fetchAuthUser(hasSavedUser) {
+  const request = supabase.auth.getUser();
+  if (!hasSavedUser) return request;
+
+  let timeoutId;
+  const timeout = new Promise((_, reject) => {
+    timeoutId = setTimeout(() => reject(new Error("Account check timed out")), SAVED_SESSION_USER_WAIT_MS);
+  });
+  return Promise.race([request, timeout]).finally(() => clearTimeout(timeoutId));
+}
+
 export async function getOnboardingProfile(sessionUser = null) {
   let user = sessionUser;
 
   try {
-    const { data, error } = await supabase.auth.getUser();
+    const { data, error } = await fetchAuthUser(Boolean(sessionUser));
     if (error) throw error;
     user = data?.user || user;
   } catch (error) {

@@ -39,7 +39,8 @@ import { getTransportSavedPlaces, TRANSPORT_SAVED_PLACES_EVENT } from "../../ser
 import { fetchTransportFleets } from "../../services/transportFleetService";
 import { calculateBookingRoute, formatBookingDistance } from "../../services/transportPricingService";
 import { buildFareOffers, createOpenBooking, maxPassengersForVehicle, roundOfferAmount } from "../../services/openBookingService";
-import { AddressSuggestionInput, FormInput, getBookingPickerLabels } from "./TransportBookingDrawer";
+import { AddressSuggestionInput, FormInput } from "./TransportBookingDrawer";
+import { getBookingPickerLabels } from "./bookingPickerLabels";
 import { PassengerCountSelect, PickupTimeFields } from "./bookingFields";
 import { getBookingLocationInputValue, normalizeBookingLocationPoint } from "./bookingLocationPreferences";
 import { useI18n, t } from "../../../i18n";

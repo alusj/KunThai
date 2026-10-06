@@ -903,8 +903,7 @@ export default function VideoCard({
           >
             <div className="flex items-center justify-between gap-3">
               <div>
-                <p className="text-xs font-black uppercase tracking-[0.2em] text-white/55">{t("swip.holdTools")}</p>
-                <h3 className="mt-1 text-lg font-black">{t("swip.quickDeck")}</h3>
+                <h3 className="text-lg font-black">{t("swip.quickDeck")}</h3>
               </div>
               <button
                 type="button"

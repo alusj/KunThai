@@ -1,7 +1,7 @@
 import AppPortal from "../../shared/AppPortal";
 import { normalizeAreaLocation } from "../../shared/AddressAreaValidation";
 import NearbyAreaScreen from "../../transport/NearbyAreaScreen";
-import { getBookingPickerLabels } from "../../transport/booking/TransportBookingDrawer";
+import { getBookingPickerLabels } from "../../transport/booking/bookingPickerLabels";
 import { normalizeBookingLocationPoint } from "../../transport/booking/bookingLocationPreferences";
 import { t } from "../../../i18n";
 
