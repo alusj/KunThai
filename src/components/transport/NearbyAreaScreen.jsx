@@ -20,6 +20,7 @@ import {
   FiShield,
   FiUnlock,
   FiX,
+  FiActivity,
 } from "react-icons/fi";
 import AppBackTab from "../shared/AppBackTab";
 import { useAutoCollapseCard } from "../shared/motionHooks";
@@ -68,6 +69,7 @@ import EmergencySheet from "../emergency/EmergencySheet";
 import { isLateRouteHour } from "./areaViewSafety";
 import { useI18n, t } from "../../i18n";
 import { t as i18nText } from "../../i18n/index";
+import { buildTrafficIntelligence } from "../../Backend/services/trafficSignals";
 import { uiText as translateUi, useI18n as useUiLocale } from "../../i18n/index.js";
 import AppPortal from "../shared/AppPortal";
 import TransportCautionSheet from "./shared/TransportCautionSheet";
@@ -77,6 +79,7 @@ const DROP_PIN_CARD_REVEAL_DELAY_MS = 4_000;
 const AREA_VIEW_GUIDE_ITEMS = [
   { icon: FiSearch, titleKey: "urride.areaView.guideAddressTitle", bodyKey: "urride.areaView.guideAddressBody" },
   { icon: FiAlertTriangle, titleKey: "urride.areaView.guideNetworkTitle", bodyKey: "urride.areaView.guideNetworkBody" },
+  { icon: FiActivity, titleKey: "urride.areaView.guideTrafficTitle", bodyKey: "urride.areaView.guideTrafficBody" },
   { icon: FiNavigation, titleKey: "urride.areaView.guideSmartTitle", bodyKey: "urride.areaView.guideSmartBody" },
   { icon: FiCrosshair, titleKey: "urride.areaView.guideSaveMeTitle", bodyKey: "urride.areaView.guideSaveMeBody" },
   { icon: FiClock, titleKey: "urride.areaView.guideLateTitle", bodyKey: "urride.areaView.guideLateBody" },
@@ -798,101 +801,6 @@ function isFutureOrMissing(value) {
   return !Number.isFinite(timestamp) || timestamp > Date.now();
 }
 
-function uniqueById(items) {
-  const seen = new Set();
-  return items.filter((item) => {
-    if (!item?.id || seen.has(item.id)) return false;
-    seen.add(item.id);
-    return true;
-  });
-}
-
-function getTrafficStatusFromReport(report) {
-  const severity = String(report?.severity || "").toLowerCase();
-  if (["critical", "high", "danger", "red"].includes(severity)) return "red";
-  if (["medium", "moderate", "warning", "yellow"].includes(severity)) return "yellow";
-  return report?.type === "traffic" ? "yellow" : "green";
-}
-
-function getReportRadius(report) {
-  if (report?.type === "accident" || report?.type === "road_block" || report?.type === "emergency") return 520;
-  if (report?.type === "traffic" || report?.type === "flooding" || report?.type === "bad_road") return 420;
-  return 320;
-}
-
-function buildReportTrafficSignals(reports = []) {
-  return reports
-    .filter((report) => report?.lat != null && report?.lng != null && isFutureOrMissing(report.expiresAt))
-    .map((report) => ({
-      id: `report-traffic-${report.id}`,
-      status: getTrafficStatusFromReport(report),
-      source: "report",
-      roadName: report.roadName || report.areaName || "",
-      areaName: report.areaName || "",
-      message: report.title || report.description || "Road report",
-      lat: report.lat,
-      lng: report.lng,
-      radiusMeters: getReportRadius(report),
-      confidenceScore: report.verified ? 0.86 : 0.62,
-      expiresAt: report.expiresAt,
-      linkedReportId: report.id,
-    }))
-    .filter((snapshot) => snapshot.status !== "green");
-}
-
-function buildOperatorTrafficSignals(operators = []) {
-  const slowOperators = operators.filter((operator) => {
-    const speed = Number(operator?.speedMps);
-    return operator?.lat != null && operator?.lng != null && Number.isFinite(speed) && speed >= 0 && speed <= 3.8;
-  });
-  const visited = new Set();
-  const clusters = [];
-
-  slowOperators.forEach((operator) => {
-    if (visited.has(operator.id)) return;
-    const cluster = slowOperators.filter((candidate) => {
-      if (visited.has(candidate.id)) return false;
-      return distanceInMeters(operator, candidate) <= 180;
-    });
-
-    if (cluster.length < 3) return;
-    cluster.forEach((item) => visited.add(item.id));
-
-    const avgSpeed =
-      cluster.reduce((sum, item) => sum + Math.max(0, Number(item.speedMps || 0)), 0) / Math.max(cluster.length, 1);
-    const center = cluster.reduce(
-      (sum, item) => ({ lat: sum.lat + item.lat / cluster.length, lng: sum.lng + item.lng / cluster.length }),
-      { lat: 0, lng: 0 },
-    );
-
-    clusters.push({
-      id: `operator-slow-${cluster.map((item) => item.id).sort().join("-")}`,
-      status: cluster.length >= 5 || avgSpeed <= 1.8 ? "red" : "yellow",
-      source: "operators",
-      roadName: "",
-      areaName: "Live operator movement",
-      message: i18nText("ui.literals.k314679313007", { value0: cluster.length }),
-      averageSpeedMps: avgSpeed,
-      confidenceScore: Math.min(0.9, 0.48 + cluster.length * 0.08),
-      lat: center.lat,
-      lng: center.lng,
-      radiusMeters: cluster.length >= 5 ? 620 : 460,
-      expiresAt: new Date(Date.now() + 1000 * 60 * 8).toISOString(),
-    });
-  });
-
-  return clusters.slice(0, 12);
-}
-
-function buildTrafficIntelligence({ snapshots = [], reports = [], operators = [] }) {
-  return uniqueById([
-    ...snapshots.filter((snapshot) => isFutureOrMissing(snapshot.expiresAt)),
-    ...buildReportTrafficSignals(reports),
-    ...buildOperatorTrafficSignals(operators),
-  ]).slice(0, 120);
-}
-
-
 export default function NearbyAreaScreen({
   active = true,
   onBack,
@@ -1110,6 +1018,7 @@ export default function NearbyAreaScreen({
   const smartTrafficSnapshots = useMemo(
     () =>
       buildTrafficIntelligence({
+        slowOperatorsMessage: (count) => i18nText("ui.literals.k314679313007", { value0: count }),
         snapshots: trafficSnapshots,
         reports: liveReports,
         operators: liveOperators,

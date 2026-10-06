@@ -7,7 +7,8 @@ import { MapPin, Radio, Target, X } from "lucide-react";
 import AppPortal from "../../shared/AppPortal";
 import { PremiumHeaderButton } from "../../shared/PremiumHeader";
 import useBodyScrollLock from "../../shared/useBodyScrollLock";
-import { fetchTransportFleets } from "../../services/transportFleetService";
+import { attachFleetDistances, fetchTransportFleets } from "../../services/transportFleetService";
+import { getPassengerPosition } from "../../services/passengerPosition";
 import VerificationBadge from "../verification/VerificationBadge";
 import { useI18n, t } from "../../../i18n";
 import RentalCatalogue from "../rentals/RentalCatalogue";
@@ -58,7 +59,10 @@ export default function Radar({ onOpenChange, onViewFleet }) {
     const startedAt = Date.now();
 
     try {
-      const fleets = await fetchTransportFleets({ mode: "topRated", fleetType: null });
+      const listed = await fetchTransportFleets({ mode: "topRated", fleetType: null });
+      // Real distances when the passenger's location is already available.
+      const position = await getPassengerPosition().catch(() => null);
+      const fleets = position ? await attachFleetDistances(listed, position) : listed;
       const remainingAnimation = Math.max(0, 900 - (Date.now() - startedAt));
 
       window.setTimeout(() => {

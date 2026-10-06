@@ -1,4 +1,4 @@
-import { applyNearbyRanking } from "./topRatedNearby";
+import { applyFleetDistances, applyNearbyRanking } from "./topRatedNearby";
 import supabase from "../../Backend/lib/supabaseClient";
 import { friendlyErrorMessage } from "../../Backend/services/friendlyErrorService";
 import {
@@ -260,7 +260,10 @@ function mapLiveFleet(row, companyAffiliation = null, publicStats = null, public
     currentLocation: row.current_location || row.home_base_location || row.operating_area || operator.city || "Location pending",
     lastKnownLocation: row.last_known_location || row.home_base_location || row.operating_area || operator.city || "Location pending",
     lastActive: isActive ? "Active now" : formatLastActive(row.last_active_at || row.updated_at),
-    distanceKm: Number(row.distance_km || row.max_distance_km || 0),
+    // Only ever a distance measured from the passenger (attachFleetDistances /
+    // fetchTopRatedNearby). max_distance_km is the operator's service range,
+    // not how far away they are, so it must never be shown as a distance.
+    distanceKm: null,
     etaMinutes: row.eta_minutes ? Number(row.eta_minutes) : null,
     rating: rating || null,
     reviewCount: Number(publicStats?.review_count || 0),
@@ -348,7 +351,7 @@ function sortFleets(fleets, mode) {
       return a.activeStatus === "active" ? -1 : 1;
     }
 
-    if (a.activeStatus === "active" && a.distanceKm !== b.distanceKm) {
+    if (a.activeStatus === "active" && Number.isFinite(a.distanceKm) && Number.isFinite(b.distanceKm) && a.distanceKm !== b.distanceKm) {
       return a.distanceKm - b.distanceKm;
     }
 
@@ -534,6 +537,29 @@ export async function fetchTopRatedNearby({ latitude, longitude, countryIso = ""
   const ranked = applyNearbyRanking(allowed, rankingRows);
   rememberTransportFleets("top-rated-nearby", [...ranked.rated, ...ranked.fresh]);
   return ranked;
+}
+
+// Book a Ride / Send Delivery lists: measured distance from the passenger to
+// each listed fleet (live or recent operator position), active fleets nearest
+// first. Best-effort: on any failure the list is returned unchanged, with no
+// distance shown.
+export async function attachFleetDistances(fleets = [], position = null) {
+  const latitude = Number(position?.latitude);
+  const longitude = Number(position?.longitude);
+  const ids = (fleets || []).map((fleet) => fleet.id).filter(Boolean).slice(0, 200);
+  if (!ids.length || !Number.isFinite(latitude) || !Number.isFinite(longitude)) return fleets;
+
+  try {
+    const { data, error } = await supabase.rpc("transport_fleet_distances", {
+      p_lat: latitude,
+      p_lng: longitude,
+      p_fleet_ids: ids,
+    });
+    if (error || !Array.isArray(data)) return fleets;
+    return applyFleetDistances(fleets, data);
+  } catch {
+    return fleets;
+  }
 }
 
 export async function fetchTransportFleetById(id) {

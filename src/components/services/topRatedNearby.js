@@ -45,3 +45,40 @@ export function applyNearbyRanking(fleets = [], rankingRows = []) {
 
   return { rated, fresh, radiusKm };
 }
+
+// Category lists (Book a Ride / Send Delivery): attach measured distances and
+// put ACTIVE fleets nearest first. Fleets without a usable position keep
+// their place after the measured ones; offline fleets stay last, as before.
+export function applyFleetDistances(fleets = [], distanceRows = []) {
+  const byId = new Map((distanceRows || []).map((row) => [row?.fleet_id, row]));
+  const withDistance = (fleets || []).map((fleet, index) => {
+    const row = byId.get(fleet.id);
+    const distanceKm = row && row.distance_km !== null && row.distance_km !== undefined ? Number(row.distance_km) : NaN;
+    if (!Number.isFinite(distanceKm)) return { fleet: { ...fleet, distanceSource: null }, index, distanceKm: null };
+    const live = row.location_source === "live";
+    return {
+      fleet: {
+        ...fleet,
+        distanceKm,
+        distanceSource: live ? "live" : "recent",
+        etaMinutes: live ? estimateTravelMinutes(distanceKm, fleet.fleetType) : null,
+      },
+      index,
+      distanceKm,
+    };
+  });
+
+  return withDistance
+    .sort((a, b) => {
+      const aActive = a.fleet.activeStatus === "active";
+      const bActive = b.fleet.activeStatus === "active";
+      if (aActive !== bActive) return aActive ? -1 : 1;
+      if (aActive && a.distanceKm !== b.distanceKm) {
+        if (a.distanceKm === null) return 1;
+        if (b.distanceKm === null) return -1;
+        return a.distanceKm - b.distanceKm;
+      }
+      return a.index - b.index;
+    })
+    .map((entry) => entry.fleet);
+}

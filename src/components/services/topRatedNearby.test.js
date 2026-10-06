@@ -1,7 +1,7 @@
 import assert from "node:assert/strict";
 import test from "node:test";
 
-import { applyNearbyRanking, estimateTravelMinutes } from "./topRatedNearby.js";
+import { applyFleetDistances, applyNearbyRanking, estimateTravelMinutes } from "./topRatedNearby.js";
 
 test("travel time uses the vehicle's city speed plus a pickup buffer", () => {
   assert.equal(estimateTravelMinutes(5, "motorcycle"), 14); // 12 min + 2
@@ -36,4 +36,28 @@ test("fleets follow the database order and split into rated and new", () => {
 
 test("no ranking rows means no nearby results", () => {
   assert.deepEqual(applyNearbyRanking([{ id: "a" }], []), { rated: [], fresh: [], radiusKm: null });
+});
+
+test("category lists put active fleets nearest first and keep offline last", () => {
+  const fleets = [
+    { id: "far", activeStatus: "active", fleetType: "motorcycle" },
+    { id: "unknown", activeStatus: "active" },
+    { id: "offline", activeStatus: "offline" },
+    { id: "near", activeStatus: "active", fleetType: "car" },
+  ];
+  const rows = [
+    { fleet_id: "far", distance_km: 4.2, location_source: "live" },
+    { fleet_id: "near", distance_km: 0.8, location_source: "recent" },
+    { fleet_id: "offline", distance_km: 0.1, location_source: "recent" },
+  ];
+  const ordered = applyFleetDistances(fleets, rows);
+  assert.deepEqual(ordered.map((fleet) => fleet.id), ["near", "far", "unknown", "offline"]);
+  assert.equal(ordered[0].etaMinutes, null, "no travel time from an earlier position");
+  assert.equal(ordered[1].etaMinutes, 13);
+  assert.equal(ordered[2].distanceSource, null, "no row means no distance shown");
+});
+
+test("without distances the original order is kept", () => {
+  const fleets = [{ id: "a", activeStatus: "active" }, { id: "b", activeStatus: "active" }];
+  assert.deepEqual(applyFleetDistances(fleets, []).map((fleet) => fleet.id), ["a", "b"]);
 });

@@ -46,6 +46,7 @@ returns double precision language sql immutable as $$
 $$;
 
 \ir ../migrations/20261006120000_nearby_top_rated_and_urmall_distance.sql
+\ir ../migrations/20261006130000_transport_fleet_distances.sql
 
 -- Passenger in central Freetown. 0.009 deg latitude ~= 1 km.
 -- f1: 1 km, one 5-star review (live)          -> pulled toward the area mean
@@ -133,6 +134,27 @@ begin
   if rows_seen <> 0 then raise exception 'invalid latitude must return nothing'; end if;
   select count(*) into rows_seen from public.transport_top_rated_nearby(8.484, -13.234, 'Sierra Leone');
   if rows_seen <> 0 then raise exception 'a non-ISO country must return nothing'; end if;
+end $$;
+
+-- Category lists: distances for chosen fleets only.
+do $$
+declare
+  r record;
+  n int;
+begin
+  select * into r from public.transport_fleet_distances(8.484, -13.234, array['00000000-0000-0000-0000-000000000002']::uuid[]);
+  if r.distance_km <> 2.0 or r.location_source <> 'live' then raise exception 'f2 should be 2 km live: %', r; end if;
+
+  select * into r from public.transport_fleet_distances(8.484, -13.234, array['00000000-0000-0000-0000-000000000003']::uuid[]);
+  if r.location_source <> 'recent' then raise exception 'f3 should be recent: %', r; end if;
+
+  -- Offline fleets still get a distance in category lists (they show "last seen"),
+  -- but stale positions, hidden company fleets and empty input do not.
+  select count(*) into n from public.transport_fleet_distances(8.484, -13.234, array[
+    '00000000-0000-0000-0000-000000000008','00000000-0000-0000-0000-000000000009']::uuid[]);
+  if n <> 0 then raise exception 'stale or hidden fleets must get no distance, got %', n; end if;
+  select count(*) into n from public.transport_fleet_distances(8.484, -13.234, array[]::uuid[]);
+  if n <> 0 then raise exception 'empty input must return nothing'; end if;
 end $$;
 
 -- Dense area: 12 rated fleets within 5 km -> radius shrinks to 5 km.

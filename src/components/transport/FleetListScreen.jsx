@@ -1,6 +1,7 @@
 import { createElement, useEffect, useRef, useState } from "react";
 import { FiBriefcase, FiClock, FiMapPin, FiNavigation, FiStar } from "react-icons/fi";
 import {
+  attachFleetDistances,
   fetchTopRatedNearby,
   fetchTransportFleets,
   getTransportFleets,
@@ -106,6 +107,16 @@ export default function FleetListScreen({ selection, onBack, onViewCompany, onVi
         const items = await fetchTransportFleets(selection);
         const visibleItems = filterFleetsForSelection(items, selection);
         if (alive) setFleets(visibleItems);
+
+        // Category lists: add real distances when the passenger's location is
+        // already available (never prompts here).
+        if (!isTopRated && visibleItems.length) {
+          const position = await getPassengerPosition();
+          if (position && alive) {
+            const measured = await attachFleetDistances(visibleItems, position);
+            if (alive) setFleets(measured);
+          }
+        }
       } catch (err) {
         if (alive) {
           setError(hasExistingFleets ? "" : inlineErrorMessage(err, t("urride.fleetList.loadError")));
