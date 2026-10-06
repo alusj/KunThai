@@ -146,14 +146,51 @@ export function shouldAllowTravellerCameraRecovery({
   hasOperatorRoutePlan = false,
   smartCameraEnabled = true,
   userInteracting = false,
+  // Pulling the camera back is for travel. Someone standing still who looked
+  // elsewhere (a search, a pan, the fleets view) keeps that view and uses the
+  // locate button to come back.
+  travellerMoving = true,
 } = {}) {
   return !(
     pinSelectionActive ||
     viewTargetActive ||
     hasOperatorRoutePlan ||
     !smartCameraEnabled ||
-    userInteracting
+    userInteracting ||
+    !travellerMoving
   );
+}
+
+// GPS speed spikes on a single noisy fix while standing still, so the camera
+// only treats the traveller as moving after consecutive moving fixes.
+export const AREA_MOVEMENT = {
+  sustainedFixes: 2,
+  // A destination picked while standing still is previewed; the camera only
+  // goes back to following once the traveller has really left that spot.
+  previewReleaseMeters: 30,
+};
+
+export function nextMovingStreak(streak = 0, moving = false) {
+  return moving ? Math.min((Number(streak) || 0) + 1, 1_000) : 0;
+}
+
+export function isSustainedMovement(streak = 0) {
+  return (Number(streak) || 0) >= AREA_MOVEMENT.sustainedFixes;
+}
+
+export function shouldReleaseRoutePreview({ anchor, position, sustainedMoving = false } = {}) {
+  if (!sustainedMoving) return false;
+  if (!isPoint(anchor)) return true;
+  return areaLocationDistanceMeters(anchor, position) >= AREA_MOVEMENT.previewReleaseMeters;
+}
+
+// What the route card should show for the traveller's distance from the
+// route. Being off the drawn route is not "wrong" by itself: another road may
+// lead there too, so it reads as "checking" while a new route is worked out
+// from where they are, and only turns "wrong" when no route could be found.
+export function displayedRouteStatus(rawStatus, { rerouteFailed = false } = {}) {
+  if (rawStatus !== "wrong") return rawStatus;
+  return rerouteFailed ? "wrong" : "checking";
 }
 
 // A first GPS response can arrive after the user has already dragged the map.

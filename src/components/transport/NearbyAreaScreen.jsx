@@ -25,6 +25,7 @@ import {
 import AppBackTab from "../shared/AppBackTab";
 import { useAutoCollapseCard } from "../shared/motionHooks";
 import NearbyAreaMap from "./area/NearbyAreaMap";
+import { fleetFocusBounds, operatorsWithinFleetRadius } from "./area/fleetFocus";
 import { formatPlaceDistance, resolveAddressLocation, searchLocations, withDistancesFrom } from "../../Backend/services/locationSearchService";
 import { getRoadDistancesFrom, getRouteBetweenPoints } from "../../Backend/services/routeService";
 import {
@@ -884,6 +885,7 @@ export default function NearbyAreaScreen({
   const [selectedSearchLocation, setSelectedSearchLocation] = useState(null);
   const [operatorRoutePlan, setOperatorRoutePlan] = useState(null);
   const [recenterSignal, setRecenterSignal] = useState(0);
+  const [fleetFocusRequest, setFleetFocusRequest] = useState(null);
   const [liveLocations, setLiveLocations] = useState(() => initialAreaCache.locations);
   const [liveOperators, setLiveOperators] = useState(() => initialAreaCache.operators);
   const [liveReports, setLiveReports] = useState(() => initialAreaCache.reports);
@@ -1011,10 +1013,14 @@ export default function NearbyAreaScreen({
   }, [activeCategory, displayLocations]);
 
   const shouldShowFleetLayer = activeCategory === "All" || activeCategory === "Fleets";
-  const operatorLocations = useMemo(
-    () => (shouldShowFleetLayer ? liveOperators : []),
-    [liveOperators, shouldShowFleetLayer],
-  );
+  // "All" shows every live operator around; "Fleets" narrows it to the ones
+  // within 15 km of the passenger.
+  const operatorLocations = useMemo(() => {
+    if (!shouldShowFleetLayer) return [];
+    if (activeCategory !== "Fleets") return liveOperators;
+    const reference = getAreaReferencePoint(userLocation, mapCenter);
+    return operatorsWithinFleetRadius(liveOperators, reference);
+  }, [activeCategory, liveOperators, mapCenter, shouldShowFleetLayer, userLocation]);
   const smartTrafficSnapshots = useMemo(
     () =>
       buildTrafficIntelligence({
@@ -1077,13 +1083,19 @@ export default function NearbyAreaScreen({
     }
 
     if (category === "Fleets") {
-      if (!liveOperators.length) {
+      setLocationPanelOpen(false);
+      // Zoom to the passenger and the live operators within 15 km of them.
+      const reference = getAreaReferencePoint(userLocationRef.current, mapCenterRef.current, userLocation, mapCenter);
+      const nearbyFleet = operatorsWithinFleetRadius(liveOperators, reference);
+      const bounds = fleetFocusBounds(nearbyFleet, reference);
+      if (!bounds) {
         showToast("No nearby fleet found", "warning", {
           title: t("urride.areaView.toastAreaView"),
           duration: 5200,
         });
+        return;
       }
-      setLocationPanelOpen(false);
+      setFleetFocusRequest({ key: Date.now(), bounds });
       return;
     }
 
@@ -2250,6 +2262,7 @@ export default function NearbyAreaScreen({
           measurementPreview={oneKmMeasurementPreview}
           viewTarget={viewTarget}
           pinSelectionActive={isDropPinPositioning}
+          focusBoundsRequest={isSpecialMode ? null : fleetFocusRequest}
         >
           <div className="pointer-events-none absolute inset-0 z-10">
             {!isSpecialMode && !focusMode &&

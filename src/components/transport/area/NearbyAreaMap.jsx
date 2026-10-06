@@ -22,6 +22,10 @@ import {
   shortestBearingDelta,
   shouldAcceptAreaLocationAccuracy,
   smoothBearing,
+  displayedRouteStatus,
+  isSustainedMovement,
+  nextMovingStreak,
+  shouldReleaseRoutePreview,
 } from "./areaLocationTracking";
 import { getActiveCountryProfile } from "../../../data/globalCountryProfiles";
 import { useI18n, t } from "../../../i18n";
@@ -32,18 +36,21 @@ import { useDashboardResumeHold } from "../../../Backend/hooks/useDashboardResum
 const ROUTE_STATUS_LABEL_KEYS = {
   correct: "urride.areaMap.rsCorrectLabel",
   warning: "urride.areaMap.rsWarningLabel",
+  checking: "urride.areaMap.rsCheckingLabel",
   wrong: "urride.areaMap.rsWrongLabel",
 };
 
 const ROUTE_STATUS_MSG_KEYS = {
   correct: "urride.areaMap.rsCorrectMsg",
   warning: "urride.areaMap.rsWarningMsg",
+  checking: "urride.areaMap.rsCheckingMsg",
   wrong: "urride.areaMap.rsWrongMsg",
 };
 
 const ROUTE_STATUS_PILL_KEYS = {
   correct: "urride.areaMap.pillCorrect",
   warning: "urride.areaMap.pillWarning",
+  checking: "urride.areaMap.pillChecking",
   wrong: "urride.areaMap.pillWrong",
 };
 
@@ -59,6 +66,11 @@ const ROUTE_STATUS = {
     color: "#eab308",
     className: "bg-yellow-100 text-yellow-700",
   },
+  // Off the drawn route while another route is worked out in the background.
+  checking: {
+    color: "#0284c7",
+    className: "bg-sky-100 text-sky-700",
+  },
   wrong: {
     color: "#dc2626",
     className: "bg-red-100 text-red-700",
@@ -73,7 +85,11 @@ const GPS_SETTINGS = {
   rerouteRouteMeters: 165,
   arrivalMeters: 34,
   rerouteCooldownMs: 7000,
-  rerouteConfirmMs: 8000,
+  // Off the drawn route for this long (not one noisy fix) before a new route
+  // is worked out in the background from where the traveller is.
+  rerouteConfirmMs: 3000,
+  // While no route can be found, keep trying quietly at this pace.
+  rerouteRetryMs: 20000,
   cameraThrottleMs: 500,
   progressBacktrackSegments: 4,
   ignoreTinyMoveMeters: 0.8,
@@ -751,9 +767,11 @@ function updateLiveFleetOperatorMarkerElement(element, operator) {
       : "0 0 0 3px rgba(34,197,94,0.2)";
   }
 
+  // Every operator says whether it can take a trip: BOOKED or EMPTY.
   if (bookedBadge) {
-    bookedBadge.textContent = config.booked ? t("urride.areaMap.markerBooked") : "";
-    bookedBadge.style.display = config.booked ? "inline-flex" : "none";
+    bookedBadge.textContent = config.booked ? t("urride.areaMap.markerBooked") : t("urride.areaMap.markerEmpty");
+    bookedBadge.style.background = config.booked ? "#f97316" : "#16a34a";
+    bookedBadge.style.display = "inline-flex";
   }
 }
 
@@ -1614,6 +1632,9 @@ export default function NearbyAreaMap({
   measurementPreview = null,
   viewTarget = null,
   pinSelectionActive = false,
+  // { key, bounds: [[w, s], [e, n]] }: show this area (the Fleets chip) and
+  // stop following the traveller until they move or tap locate.
+  focusBoundsRequest = null,
 }) {
   useI18n();
   const initialAreaCacheRef = useRef(readAreaViewCache({ allowStale: true }));
@@ -1692,6 +1713,18 @@ export default function NearbyAreaMap({
   // the map slides underneath. A manual pan releases the lock; the recenter
   // button (recenterSignal) re-engages it.
   const followLockRef = useRef(true);
+  // Consecutive GPS fixes at moving speed. The camera only follows (or pulls
+  // the traveller back on screen) once this shows real movement.
+  const movingStreakRef = useRef(0);
+  // A destination picked while standing still is shown as a preview; the
+  // camera stays on it until the traveller leaves `routePreviewAnchorRef`.
+  const routePreviewHoldRef = useRef(false);
+  const routePreviewAnchorRef = useRef(null);
+  const lastDrawnDestinationKeyRef = useRef("");
+  // Background reroute when the traveller leaves the drawn route.
+  const routeRequestIdRef = useRef(0);
+  const backgroundRerouteBusyRef = useRef(false);
+  const rerouteFailedRef = useRef(false);
   // "Place view" mode: the map is centred on a tapped location (e.g. a UrFeed
   // post's location) rather than following the viewer. While active, the
   // viewer's own GPS must not steal the camera.
@@ -2090,6 +2123,7 @@ export default function NearbyAreaMap({
       hasOperatorRoutePlan: hasOperatorRoutePlanRef.current,
       smartCameraEnabled: smartCameraRef.current,
       userInteracting: isUserInteractingRef.current,
+      travellerMoving: isSustainedMovement(movingStreakRef.current) && !routePreviewHoldRef.current,
     })) return;
 
     const now = performance.now();
@@ -2147,33 +2181,94 @@ export default function NearbyAreaMap({
 
   function scheduleRerouteFrom(position, distanceFromRoute) {
     if (!selectedLocation?.lat || !selectedLocation?.lng || routeLoading || arrivalReachedRef.current) return;
+    if (backgroundRerouteBusyRef.current) return;
 
     const now = Date.now();
-    if (rerouteTimerRef.current || now - lastRerouteAtRef.current < GPS_SETTINGS.rerouteCooldownMs) return;
+    const waitMs = rerouteFailedRef.current ? GPS_SETTINGS.rerouteRetryMs : GPS_SETTINGS.rerouteCooldownMs;
+    if (rerouteTimerRef.current || now - lastRerouteAtRef.current < waitMs) return;
 
-    setNavigationSnap("half");
     setLocationStatus(i18nText("ui.literals.k45a626c3d212", { value0: Math.round(distanceFromRoute) }));
 
     rerouteTimerRef.current = window.setTimeout(() => {
       rerouteTimerRef.current = null;
-      lastRerouteAtRef.current = Date.now();
-      routeStartOverrideRef.current = position;
+      // Use the freshest fix, not the one that started the timer.
+      rerouteInBackground(lastRawPositionRef.current || position);
+    }, GPS_SETTINGS.rerouteConfirmMs);
+  }
+
+  // The traveller left the drawn route, maybe on purpose: another road can
+  // lead to the same place. Work out the route from where they are, quietly,
+  // without moving the camera or resetting the trip. The "wrong route" card
+  // only appears when no route could be found at all.
+  async function rerouteInBackground(position) {
+    const map = mapRef.current;
+    const routeTarget = operatorDropoff || selectedLocation;
+    if (!map || !position || !routeTarget?.lat || !routeTarget?.lng || arrivalReachedRef.current) return;
+    if (backgroundRerouteBusyRef.current) return;
+
+    backgroundRerouteBusyRef.current = true;
+    lastRerouteAtRef.current = Date.now();
+    const requestId = routeRequestIdRef.current;
+
+    try {
+      const route = hasOperatorRoutePlan
+        ? await getRouteThroughPoints([position, operatorPickup, routeTarget])
+        : await getRouteBetweenPoints(position, routeTarget);
+      // A new destination (or a full redraw) started meanwhile.
+      if (requestId !== routeRequestIdRef.current || !mapRef.current || arrivalReachedRef.current) return;
+      const coordinates = route?.geometry?.coordinates || [];
+      if (coordinates.length < 2) throw new Error("No route");
+
+      routeCoordinatesRef.current = coordinates;
+      originalRouteRef.current = route;
+      lastRouteSegmentIndexRef.current = 0;
+      routeSnappedRef.current = false;
+      rerouteFailedRef.current = false;
+      upsertRouteLayers(mapRef.current, route.geometry, ROUTE_STATUS.correct.color);
+      clearAlternativeRouteLayer(mapRef.current);
+      alternativeRouteRef.current = null;
+      setAlternativeRoute(null);
+      setAlternativeError("");
+
+      routeStatusRef.current = "correct";
+      setRouteStatusKey("correct");
+      setRouteLineColor(mapRef.current, ROUTE_STATUS.correct.color);
+      setRouteError("");
+      setRescueMessage("");
+      setNavigationSnap("collapsed");
+      setLocationStatus(t("urride.areaMap.routeUpdated"));
       setRouteInfo((current) =>
         current
           ? {
               ...current,
-              distance: t("urride.areaMap.rerouting"),
-              duration: "...",
+              distance: formatDistance(route.distanceMeters),
+              duration: hasOperatorRoutePlan ? formatDuration(route.durationSeconds) : current.duration,
+              legs: route.legs || current.legs || [],
+              totalMeters: route.distanceMeters,
+              remainingMeters: route.distanceMeters,
+              raw: route,
             }
           : current,
       );
-      setRerouteKey((value) => value + 1);
-    }, GPS_SETTINGS.rerouteConfirmMs);
+      setTrafficInsight(getLiveTrafficInsight(trafficSnapshotsRef.current, route, "correct"));
+      evaluateTrafficAhead({ force: true });
+    } catch {
+      if (requestId !== routeRequestIdRef.current || arrivalReachedRef.current) return;
+      // No other known way from here: now it is worth interrupting.
+      rerouteFailedRef.current = true;
+      routeStatusRef.current = "wrong";
+      setRouteStatusKey("wrong");
+      setRouteLineColor(mapRef.current, ROUTE_STATUS.wrong.color);
+      setNavigationSnap("half");
+    } finally {
+      backgroundRerouteBusyRef.current = false;
+    }
   }
 
   async function handleSaveMe() {
     if (rescueLoading) return;
     rescueActiveRef.current = true;
+    routePreviewHoldRef.current = false;
     setRescueLoading(true);
     setRescueMessage(t("urride.areaMap.saveMeLocating"));
     clearPendingReroute();
@@ -2762,9 +2857,32 @@ export default function NearbyAreaMap({
 
     // Tapping recenter re-locks the camera to the traveller.
     followLockRef.current = true;
+    routePreviewHoldRef.current = false;
     applySmartCamera(current, selectedLocation, lastRouteSegmentIndexRef.current, { force: true });
     // eslint-disable-next-line react-hooks/exhaustive-deps -- recenter should run only when the user taps the recenter button.
   }, [recenterSignal]);
+
+  // Fleets chip: show the passenger and the operators around them. Standing
+  // still, the camera stays on this view (GPS does not pull it back); moving
+  // or tapping locate returns to following.
+  useEffect(() => {
+    const map = mapRef.current;
+    const bounds = focusBoundsRequest?.bounds;
+    if (!map || !Array.isArray(bounds) || bounds.length !== 2) return;
+
+    // Same hold as a previewed destination: released once the traveller
+    // really moves away from here, or by the locate button.
+    followLockRef.current = false;
+    routePreviewHoldRef.current = true;
+    routePreviewAnchorRef.current = markerRenderedPositionRef.current || smoothedPositionRef.current || userLocationRef.current || null;
+    map.fitBounds(bounds, {
+      padding: { top: 170, bottom: 150, left: 70, right: 90 },
+      maxZoom: 16,
+      duration: 900,
+      essential: true,
+    });
+    // eslint-disable-next-line react-hooks/exhaustive-deps -- runs once per request key.
+  }, [focusBoundsRequest?.key]);
 
   // Place-view: centre and pin a tapped location (e.g. a UrFeed post's
   // location) instead of following the viewer. The viewer's GPS keeps updating
@@ -2912,7 +3030,16 @@ export default function NearbyAreaMap({
     }
 
     async function drawRoute() {
-      if (!selectedLocation || !mapRef.current) return;
+      if (!selectedLocation) {
+        // No destination: nothing to preview any more.
+        lastDrawnDestinationKeyRef.current = "";
+        routePreviewHoldRef.current = false;
+        routePreviewAnchorRef.current = null;
+        return;
+      }
+      if (!mapRef.current) return;
+      routeRequestIdRef.current += 1;
+      rerouteFailedRef.current = false;
 
       const routeStart =
         routeStartOverrideRef.current ||
@@ -2950,8 +3077,19 @@ export default function NearbyAreaMap({
       lastMovingSpeedRef.current = 0;
       liveSpeedRef.current = 0;
       lastProgressUiAtRef.current = 0;
-      followLockRef.current = true;
       routeSnappedRef.current = false;
+      // A new destination picked while standing still is a preview: the camera
+      // shows the route and stays there until the traveller sets off. A redraw
+      // for the same destination (Save me) keeps following as before.
+      const destinationKey = `${routeTarget.lat},${routeTarget.lng}`;
+      const isNewDestination = destinationKey !== lastDrawnDestinationKeyRef.current;
+      lastDrawnDestinationKeyRef.current = destinationKey;
+      const previewOnly = !isSustainedMovement(movingStreakRef.current)
+        && (isNewDestination || routePreviewHoldRef.current);
+      if (previewOnly && !routePreviewHoldRef.current) routePreviewAnchorRef.current = { ...routeStart };
+      if (!previewOnly) routePreviewAnchorRef.current = null;
+      routePreviewHoldRef.current = previewOnly;
+      followLockRef.current = !previewOnly;
 
       pickupMarkerRef.current?.remove();
       destinationMarkerRef.current?.remove();
@@ -3017,7 +3155,7 @@ export default function NearbyAreaMap({
       } else {
         fitRouteBounds();
         window.setTimeout(() => {
-          if (!cancelled) applySmartCamera(routeStart, routeTarget, 0, { force: true });
+          if (!cancelled && !routePreviewHoldRef.current) applySmartCamera(routeStart, routeTarget, 0, { force: true });
         }, 950);
       }
 
@@ -3157,6 +3295,7 @@ export default function NearbyAreaMap({
         // Either way it is smoothed circularly, so the camera follows a bend
         // instead of stepping around it.
         isTravellerMovingRef.current = instantSpeed >= HEADING_SETTINGS.movingSpeedMps;
+        movingStreakRef.current = nextMovingStreak(movingStreakRef.current, isTravellerMovingRef.current);
         const travelMeters = previousRawPosition
           ? distanceInMeters(previousRawPosition, rawLivePosition)
           : 0;
@@ -3274,9 +3413,23 @@ export default function NearbyAreaMap({
 
         smoothedPositionRef.current = livePosition;
 
+        // A destination previewed while standing still keeps the camera until
+        // the traveller actually sets off.
+        const sustainedMoving = isSustainedMovement(movingStreakRef.current);
+        if (routePreviewHoldRef.current && shouldReleaseRoutePreview({
+          anchor: routePreviewAnchorRef.current,
+          position: rawLivePosition,
+          sustainedMoving,
+        })) {
+          routePreviewHoldRef.current = false;
+          followLockRef.current = true;
+        }
+
         // Smoothly re-centre the map on the marker's target using the exact
         // same motion timeline, keeping the map gliding underneath the icon.
-        if (!isUserInteractingRef.current) {
+        // Only while moving: standing still, the camera stays wherever the
+        // person put it (a search, the fleets view) until they tap locate.
+        if (!isUserInteractingRef.current && sustainedMoving && !routePreviewHoldRef.current) {
           followTravellerCamera(markerTarget, navigationSegmentIndex, motionDuration);
         }
 
@@ -3332,7 +3485,10 @@ export default function NearbyAreaMap({
 
           // Judge "off route" on the GPS-uncertainty-discounted distance so a
           // noisy fix on the exact route is not wrongly flagged as off-route.
-          const nextStatusKey = getRouteStatus(effectiveRouteDistance, isMovingBackward);
+          const rawStatusKey = getRouteStatus(effectiveRouteDistance, isMovingBackward);
+          // Off the drawn route reads as "checking" while a new route is worked
+          // out in the background; "wrong" only when none could be found.
+          const nextStatusKey = displayedRouteStatus(rawStatusKey, { rerouteFailed: rerouteFailedRef.current });
 
           if (nextStatusKey !== routeStatusRef.current) {
             routeStatusRef.current = nextStatusKey;
@@ -3343,17 +3499,21 @@ export default function NearbyAreaMap({
             }
           }
 
-          if (nextStatusKey === "correct" || effectiveRouteDistance <= GPS_SETTINGS.warningRouteMeters) {
+          if (rawStatusKey === "correct") {
             clearPendingReroute();
-          } else if (effectiveRouteDistance >= GPS_SETTINGS.rerouteRouteMeters) {
+            rerouteFailedRef.current = false;
+          } else if (rawStatusKey === "wrong") {
             scheduleRerouteFrom(rawLivePosition, effectiveRouteDistance);
+          } else {
+            clearPendingReroute();
           }
 
           setRouteLineColor(mapRef.current, ROUTE_STATUS[nextStatusKey].color);
           if (nextStatusKey === "correct") {
             setNavigationSnap("collapsed");
             setRescueMessage("");
-          } else {
+          } else if (nextStatusKey !== "checking") {
+            // "Checking" works quietly; the card opens only for a real problem.
             setNavigationSnap("half");
           }
           setTrafficInsight((current) => {

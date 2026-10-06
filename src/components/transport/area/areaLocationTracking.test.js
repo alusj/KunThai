@@ -11,6 +11,10 @@ import {
   shortestBearingDelta,
   shouldAcceptAreaLocationAccuracy,
   smoothBearing,
+  displayedRouteStatus,
+  isSustainedMovement,
+  nextMovingStreak,
+  shouldReleaseRoutePreview,
 } from "./areaLocationTracking.js";
 
 test("the first live GPS fix is never rejected as a jump from a fallback marker", () => {
@@ -118,4 +122,35 @@ test("a late first GPS fix does not replace a map centre the user already moved"
   assert.equal(shouldAutoCenterInitialAreaLocation(), true);
   assert.equal(shouldAutoCenterInitialAreaLocation({ followLockActive: false }), false);
   assert.equal(shouldAutoCenterInitialAreaLocation({ viewTargetActive: true }), false);
+});
+
+test("a standing traveller is not pulled back to their position", () => {
+  assert.equal(shouldAllowTravellerCameraRecovery({ travellerMoving: false }), false);
+  assert.equal(shouldAllowTravellerCameraRecovery({ travellerMoving: true }), true);
+});
+
+test("one noisy moving fix is not movement; consecutive ones are", () => {
+  let streak = 0;
+  streak = nextMovingStreak(streak, true);
+  assert.equal(isSustainedMovement(streak), false);
+  streak = nextMovingStreak(streak, true);
+  assert.equal(isSustainedMovement(streak), true);
+  streak = nextMovingStreak(streak, false);
+  assert.equal(isSustainedMovement(streak), false);
+});
+
+test("a route preview stays until the traveller really leaves the spot", () => {
+  const anchor = { lat: 8.48, lng: -13.23 };
+  const near = { lat: 8.4801, lng: -13.23 }; // ~11 m
+  const far = { lat: 8.4805, lng: -13.23 }; // ~55 m
+  assert.equal(shouldReleaseRoutePreview({ anchor, position: far, sustainedMoving: false }), false);
+  assert.equal(shouldReleaseRoutePreview({ anchor, position: near, sustainedMoving: true }), false);
+  assert.equal(shouldReleaseRoutePreview({ anchor, position: far, sustainedMoving: true }), true);
+});
+
+test("off the drawn route reads as checking until no other route exists", () => {
+  assert.equal(displayedRouteStatus("correct"), "correct");
+  assert.equal(displayedRouteStatus("warning"), "warning");
+  assert.equal(displayedRouteStatus("wrong"), "checking");
+  assert.equal(displayedRouteStatus("wrong", { rerouteFailed: true }), "wrong");
 });
