@@ -11,6 +11,7 @@ safe to run more than once.
 | 1 | `supabase/migrations/20261006120000_nearby_top_rated_and_urmall_distance.sql` | Top Rated near you; UrMall nearest-branch distances |
 | 2 | `supabase/migrations/20261006130000_transport_fleet_distances.sql` | Real distances in Book a Ride / Send Delivery lists and the radar |
 | 3 | `supabase/migrations/20261006140000_review_integrity.sql` | Completed-transaction reviews, edit once, owner/operator can't change ratings |
+| 4 | `supabase/migrations/20261006150000_explore_discovery_people_you_know.sql` | Suggestions ranked by who you likely know (with filter + reasons), "likely know" boost in UrFeed/Swip, deactivated accounts' posts hidden |
 
 **Do not run anything in `supabase/tests/`.** Those files rebuild the schema
 for testing and are only for a throwaway local database.
@@ -50,7 +51,18 @@ with required(kind, name, ok) as (
     ('function', 'transport_open_booking_distance_km', to_regprocedure('public.transport_open_booking_distance_km(double precision,double precision,double precision,double precision)') is not null),
     ('function', 'can_manage_transport_rentals',    to_regprocedure('public.can_manage_transport_rentals(uuid)') is not null),
     ('function', 'submit_verified_transport_review', to_regprocedure('public.submit_verified_transport_review(uuid,integer,text,uuid)') is not null),
-    ('function', 'submit_verified_marketplace_review', to_regprocedure('public.submit_verified_marketplace_review(uuid,integer,text,uuid,text,text)') is not null)
+    ('function', 'submit_verified_marketplace_review', to_regprocedure('public.submit_verified_marketplace_review(uuid,integer,text,uuid,text,text)') is not null),
+    ('table',    'explore_posts',                   to_regclass('public.explore_posts') is not null),
+    ('table',    'explore_profiles',                to_regclass('public.explore_profiles') is not null),
+    ('table',    'explore_follows',                 to_regclass('public.explore_follows') is not null),
+    ('table',    'explore_content_signals',         to_regclass('public.explore_content_signals') is not null),
+    ('table',    'explore_conversation_members',    to_regclass('public.explore_conversation_members') is not null),
+    ('table',    'explore_recommendation_privacy',  to_regclass('public.explore_recommendation_privacy') is not null),
+    ('table',    'explore_user_blocks',             to_regclass('public.explore_user_blocks') is not null),
+    ('function', 'kunthai_user_is_guest',           to_regprocedure('public.kunthai_user_is_guest(uuid)') is not null),
+    ('function', 'is_kunthai_admin',                to_regprocedure('public.is_kunthai_admin(uuid)') is not null),
+    ('function', 'get_recommended_feed',            to_regprocedure('public.get_recommended_feed(uuid,integer,integer)') is not null),
+    ('function', 'get_recommended_swip',            to_regprocedure('public.get_recommended_swip(uuid,integer,integer)') is not null)
 ),
 required_columns(tbl, col) as (
   values
@@ -61,7 +73,8 @@ required_columns(tbl, col) as (
     ('marketplace_orders', 'updated_at'), ('marketplace_orders', 'seller_responded_at'),
     ('marketplace_reviews', 'buyer_id'), ('marketplace_reviews', 'order_id'), ('marketplace_reviews', 'product_id'), ('marketplace_reviews', 'review_type'),
     ('transport_operator_reviews', 'trip_id'), ('transport_operator_reviews', 'passenger_id'),
-    ('transport_rental_reservations', 'updated_at')
+    ('transport_rental_reservations', 'updated_at'),
+    ('explore_profiles', 'deactivated_at')
 )
 select kind, name as missing from required where not ok
 union all
@@ -122,3 +135,12 @@ where not exists (
 6. **4cf8a12 — Messaging notice, UrMall coverage**
    - "Private" / "Supervised" + Read more instead of the long card.
    - UrMall explains when a country has no sellers yet.
+7. **Explore discovery (this commit)**
+   - Suggested accounts ranked: follows you > mutual connections > chatted >
+     near you > similar interests > new; reason shown on each person; filter
+     (Recommended / People you may know / Near you / New) on the UrFeed card
+     and Connections → Suggested.
+   - UrFeed/Swip: "likely know" boost; the feed no longer stops after ~50
+     posts (Swip ~36): it continues with recent posts.
+   - Deactivated accounts' posts hidden everywhere (owner and admins excepted);
+     deactivated and guest accounts never suggested.

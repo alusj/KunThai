@@ -176,9 +176,15 @@ export async function fetchRecommendedPeople(userId, limit = 20) {
       verified: Boolean(profile.verified),
       status: reason || "Suggested for you",
       isFollowing: false,
-      followsYou: profile.reason === "Follows you" || profile.reason === "Connected with you",
+      followsYou: Boolean(profile.follows_you) || profile.reason === "Follows you" || profile.reason === "Connected with you",
       mutual_count: Number(profile.mutual_count) || 0,
       recommendation_score: Number(profile.score) || 0,
+      // Signals behind the suggestion (v2): drive the reason label and the
+      // suggestion filter. Absent on older databases, which is fine.
+      reasonKind: profile.reason_kind || "",
+      chatted: Boolean(profile.chatted),
+      nearby: Boolean(profile.is_nearby),
+      isNew: Boolean(profile.is_new),
     };
   });
 }

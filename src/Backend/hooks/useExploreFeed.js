@@ -369,6 +369,12 @@ export function useExploreFeed(scope = "feed") {
   // key `${type}:${postId}` -> { desired, synced, running } reaction sync state.
   const pendingReactionRef = useRef(new Map());
   const nextOffsetRef = useRef(initialPosts.filter((post) => !isLocalPost(post)).length);
+  // The ranked UrFeed/Swip lists are finite (the database ranks a limited
+  // pool). When they run out, scrolling continues with recent posts, skipping
+  // any already shown, so the feed never dead-ends.
+  const rankedScope = ["feed", "swip"].includes(scope);
+  const recentModeRef = useRef(false);
+  const recentOffsetRef = useRef(0);
 
   useEffect(() => {
     postsRef.current = posts;
@@ -476,7 +482,9 @@ export function useExploreFeed(scope = "feed") {
       const nextPosts = mergePosts(rawPosts, pinnedOwnPosts)
         .map((post) => applyCurrentProfileToPost(post, currentProfile));
       nextOffsetRef.current = rawPosts.length;
-      setHasMore(rawPosts.length === FEED_PAGE_SIZE);
+      recentModeRef.current = rankedScope && rawPosts.length < FEED_PAGE_SIZE;
+      recentOffsetRef.current = 0;
+      setHasMore(rankedScope || rawPosts.length === FEED_PAGE_SIZE);
       setCurrentUserId(currentProfile?.id || "");
 
       const nextLikedPosts = buildRemoteReactionSet(reactions.likes);
@@ -560,15 +568,34 @@ export function useExploreFeed(scope = "feed") {
     setLoadingMore(true);
 
     try {
-      const [rawPosts, currentProfile] = await Promise.all([
-        ["feed", "swip"].includes(scope)
-          ? fetchRecommendedExplorePosts(scope, { limit: FEED_PAGE_SIZE, offset })
-          : fetchExplorePosts(scope, { limit: FEED_PAGE_SIZE, offset }),
-        getCurrentUserProfile(),
-      ]);
+      let rawPosts = [];
+      let more = false;
+
+      if (rankedScope && !recentModeRef.current) {
+        rawPosts = await fetchRecommendedExplorePosts(scope, { limit: FEED_PAGE_SIZE, offset });
+        nextOffsetRef.current = offset + rawPosts.length;
+        if (rawPosts.length < FEED_PAGE_SIZE) recentModeRef.current = true;
+        more = true;
+      } else if (rankedScope) {
+        // Recent continuation: skip posts already in the feed; look ahead a
+        // few pages so a scroll never returns nothing while more exist.
+        const shownIds = new Set(postsRef.current.map((post) => post.id));
+        for (let attempt = 0; attempt < 3 && !rawPosts.length; attempt += 1) {
+          const page = await fetchExplorePosts(scope, { limit: FEED_PAGE_SIZE, offset: recentOffsetRef.current });
+          recentOffsetRef.current += page.length;
+          more = page.length === FEED_PAGE_SIZE;
+          rawPosts = page.filter((post) => !shownIds.has(post.id));
+          if (!more) break;
+        }
+      } else {
+        rawPosts = await fetchExplorePosts(scope, { limit: FEED_PAGE_SIZE, offset });
+        nextOffsetRef.current = offset + rawPosts.length;
+        more = rawPosts.length === FEED_PAGE_SIZE;
+      }
+
+      const currentProfile = await getCurrentUserProfile();
       const nextPosts = rawPosts.map((post) => applyCurrentProfileToPost(post, currentProfile));
-      nextOffsetRef.current = offset + rawPosts.length;
-      setHasMore(rawPosts.length === FEED_PAGE_SIZE);
+      setHasMore(more);
       setPosts((current) => {
         const mergedPosts = mergePosts(nextPosts, current);
         writeStoredPosts(scope, mergedPosts);

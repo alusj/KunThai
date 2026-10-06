@@ -10,6 +10,13 @@ import { useI18n } from "../../../../../i18n";
 import Avatar from "../../../shared/Avatar";
 import EmptyState from "../../../shared/EmptyState";
 import FeedPost from "./components/FeedPost";
+import SuggestionFilterMenu from "../../../shared/SuggestionFilterMenu";
+import {
+  applySuggestionFilter,
+  readSuggestionFilter,
+  suggestionReason,
+  writeSuggestionFilter,
+} from "../../../../../Backend/services/explore/suggestionFilters";
 import { t as i18nText } from "../../../../../i18n/index";
 import { useI18n as useUiLocale } from "../../../../../i18n/index.js";
 
@@ -159,6 +166,7 @@ function SuggestedAccountsCard({ currentUserId, followedUsers, onToggleFollow, o
   const [profiles, setProfiles] = useState([]);
   const [pendingIds, setPendingIds] = useState(() => new Set());
   const [pageIndex, setPageIndex] = useState(0);
+  const [filter, setFilter] = useState(readSuggestionFilter);
   const [dragX, setDragX] = useState(0);
   const [dragging, setDragging] = useState(false);
   const viewportRef = useRef(null);
@@ -183,6 +191,12 @@ function SuggestedAccountsCard({ currentUserId, followedUsers, onToggleFollow, o
               username: item.username || "user",
               avatar_url: item.avatar_url || "",
               account_type: item.account_type || "personal",
+              reasonKind: item.reasonKind || "",
+              mutual_count: Number(item.mutual_count) || 0,
+              followsYou: Boolean(item.followsYou),
+              chatted: Boolean(item.chatted),
+              nearby: Boolean(item.nearby),
+              isNew: Boolean(item.isNew),
             })),
         );
       })
@@ -193,7 +207,8 @@ function SuggestedAccountsCard({ currentUserId, followedUsers, onToggleFollow, o
     };
   }, [currentUserId]);
 
-  const candidates = profiles.filter((profile) => !followedUsers.has(profile.user_id));
+  const unfollowed = profiles.filter((profile) => !followedUsers.has(profile.user_id));
+  const candidates = applySuggestionFilter(unfollowed, filter);
   const pages = [];
   for (let index = 0; index < candidates.length; index += SUGGESTIONS_PER_PAGE) {
     pages.push(candidates.slice(index, index + SUGGESTIONS_PER_PAGE));
@@ -223,7 +238,15 @@ function SuggestedAccountsCard({ currentUserId, followedUsers, onToggleFollow, o
     return () => window.clearInterval(interval);
   }, [pages.length]);
 
-  if (!pages.length) return null;
+  // Hide the card only when there is nobody to suggest at all; an empty
+  // filter result keeps the card so the filter can be changed back.
+  if (!unfollowed.length) return null;
+
+  function changeFilter(next) {
+    setFilter(next);
+    writeSuggestionFilter(next);
+    setPageIndex(0);
+  }
 
   function goToPage(nextIndex) {
     setPageIndex(Math.min(pages.length - 1, Math.max(0, nextIndex)));
@@ -302,8 +325,12 @@ function SuggestedAccountsCard({ currentUserId, followedUsers, onToggleFollow, o
         <span className="grid h-9 w-9 place-items-center rounded-2xl bg-sky-50 text-sky-700">
           <UserRoundPlus size={17} />
         </span>
-        <h3 className="text-sm font-black text-slate-950">{t("feed.suggestedAccounts")}</h3>
+        <h3 className="min-w-0 flex-1 truncate text-sm font-black text-slate-950">{t("feed.suggestedAccounts")}</h3>
+        <SuggestionFilterMenu value={filter} onChange={changeFilter} />
       </div>
+      {!pages.length ? (
+        <p className="mt-3 rounded-2xl bg-slate-50 px-4 py-6 text-center text-sm font-semibold text-slate-500">{t("feed.filterEmpty")}</p>
+      ) : null}
       <div
         ref={viewportRef}
         // Own the horizontal gesture: this carousel slides its own cards, so the
@@ -344,6 +371,11 @@ function SuggestedAccountsCard({ currentUserId, followedUsers, onToggleFollow, o
                     <span className="min-w-0">
                       <span className="block truncate text-sm font-black text-slate-950">{profile.display_name || t("feed.profileFallback")}</span>
                       <span className="block truncate text-xs font-bold text-slate-500">@{profile.username || i18nText("ui.literals.k12dea96fec20")}</span>
+                      {suggestionReason(profile) ? (
+                        <span className="block truncate text-[11px] font-black text-sky-700">
+                          {t(suggestionReason(profile).key, suggestionReason(profile).vars)}
+                        </span>
+                      ) : null}
                     </span>
                   </button>
                   <button

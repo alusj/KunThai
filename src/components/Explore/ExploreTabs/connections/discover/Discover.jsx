@@ -1,4 +1,14 @@
+import { useMemo, useState } from "react";
+
 import EmptyState from "../../../shared/EmptyState";
+import SuggestionFilterMenu from "../../../shared/SuggestionFilterMenu";
+import {
+  applySuggestionFilter,
+  readSuggestionFilter,
+  suggestionReason,
+  writeSuggestionFilter,
+} from "../../../../../Backend/services/explore/suggestionFilters";
+import { useI18n } from "../../../../../i18n";
 import ErrorState from "../../../shared/ErrorState";
 import DiscoverList from "./DiscoverList";
 import ImportContactsPanel from "./ImportContactsPanel";
@@ -7,7 +17,24 @@ import { uiText as translateUi, useI18n as useUiLocale } from "../../../../../i1
 
 export default function Discover({ connectionState, onViewProfile }) {
   useUiLocale();
+  const { t } = useI18n();
   const { items = [], loading = false, error = "", blockUser, followUser, removeUser, reload } = connectionState || {};
+  const [filter, setFilter] = useState(readSuggestionFilter);
+  // Same filter as the UrFeed suggestions card; the status chip shows why
+  // each person is suggested, in the viewer's language.
+  const visibleItems = useMemo(
+    () =>
+      applySuggestionFilter(items, filter).map((item) => {
+        const reason = suggestionReason(item);
+        return reason ? { ...item, status: t(reason.key, reason.vars) } : item;
+      }),
+    [items, filter, t],
+  );
+
+  function changeFilter(next) {
+    setFilter(next);
+    writeSuggestionFilter(next);
+  }
 
   if (error) {
     return <ErrorState message={translateUi(error)} onRetry={reload} />;
@@ -29,8 +56,16 @@ export default function Discover({ connectionState, onViewProfile }) {
   return (
     <>
       <ImportContactsPanel onFollow={followUser} onViewProfile={onViewProfile} />
+      <div className="mb-3 flex justify-end">
+        <SuggestionFilterMenu value={filter} onChange={changeFilter} />
+      </div>
+      {!visibleItems.length ? (
+        <p className="rounded-[24px] border border-dashed border-slate-300 bg-slate-50 px-4 py-8 text-center text-sm font-semibold text-slate-500">
+          {t("feed.filterEmpty")}
+        </p>
+      ) : null}
       <DiscoverList
-        users={items}
+        users={visibleItems}
         onBlock={blockUser}
         onFollow={followUser}
         onRemove={removeUser}
