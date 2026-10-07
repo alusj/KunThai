@@ -39,6 +39,7 @@ export default function ComposerActions({
   onTool,
   privacyOnly = false,
   toolsOnly = false,
+  compact = false,
 }) {
   useUiLocale();
   const [privacyMenuOpen, setPrivacyMenuOpen] = useState(false);
@@ -118,7 +119,7 @@ export default function ComposerActions({
           }}
           aria-expanded={privacyMenuOpen}
           aria-haspopup="menu"
-          className="inline-flex h-11 items-center gap-2 rounded-2xl bg-slate-950 px-4 text-sm font-black text-white"
+          className={`inline-flex items-center gap-2 bg-slate-950 font-black text-white ${compact ? "h-9 rounded-xl px-3 text-xs shadow-md" : "h-11 rounded-2xl px-4 text-sm"}`}
         >
           <PrivacyIcon className="text-base" /> {t(selectedPrivacy.label)} <HiOutlineChevronDown className={`transition ${privacyMenuOpen ? "rotate-180" : ""}`} />
         </button>

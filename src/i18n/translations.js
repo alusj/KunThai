@@ -9,6 +9,14 @@ import { ADDRESS_BOOK } from "./addressBook";
 
 export const TRANSLATIONS = {
   en: {
+    postCard: {
+      cautionTitle: "Posting rules",
+      caution: "Upload a video of up to 15 seconds and 50 MB, or a photo.",
+      addMedia: "Add photo or video",
+      trim: "Trim",
+      remove: "Remove media",
+      change: "Change",
+    },
     growLocal: {
       eyebrowUrMall: "Grow UrMall near you",
       eyebrowUrRide: "Grow UrRide near you",
@@ -3838,6 +3846,14 @@ export const TRANSLATIONS = {
   },
 
   fr: {
+    postCard: {
+      cautionTitle: "Règles de publication",
+      caution: "Ajoutez une vidéo de 15 secondes et 50 Mo maximum, ou une photo.",
+      addMedia: "Ajouter photo ou vidéo",
+      trim: "Couper",
+      remove: "Retirer le média",
+      change: "Changer",
+    },
     growLocal: {
       eyebrowUrMall: "Développez UrMall près de chez vous",
       eyebrowUrRide: "Développez UrRide près de chez vous",
@@ -7670,6 +7686,14 @@ export const TRANSLATIONS = {
   },
 
   es: {
+    postCard: {
+      cautionTitle: "Reglas para publicar",
+      caution: "Sube un video de hasta 15 segundos y 50 MB, o una foto.",
+      addMedia: "Añadir foto o video",
+      trim: "Recortar",
+      remove: "Quitar archivo",
+      change: "Cambiar",
+    },
     growLocal: {
       eyebrowUrMall: "Haz crecer UrMall cerca de ti",
       eyebrowUrRide: "Haz crecer UrRide cerca de ti",
@@ -11534,6 +11558,14 @@ export const TRANSLATIONS = {
   },
 
   zh: {
+    postCard: {
+      cautionTitle: "发布规则",
+      caution: "上传不超过 15 秒、50 MB 的视频，或一张照片。",
+      addMedia: "添加照片或视频",
+      trim: "剪辑",
+      remove: "移除媒体",
+      change: "更换",
+    },
     growLocal: {
       eyebrowUrMall: "让 UrMall 在你身边成长",
       eyebrowUrRide: "让 UrRide 在你身边成长",
@@ -15399,6 +15431,14 @@ export const TRANSLATIONS = {
 
 
   ar: {
+    postCard: {
+      cautionTitle: "قواعد النشر",
+      caution: "ارفع فيديو لا تتجاوز مدته 15 ثانية وحجمه 50 ميغابايت، أو صورة.",
+      addMedia: "إضافة صورة أو فيديو",
+      trim: "قص",
+      remove: "إزالة الوسائط",
+      change: "تغيير",
+    },
     growLocal: {
       eyebrowUrMall: "وسّع UrMall من حولك",
       eyebrowUrRide: "وسّع UrRide من حولك",
@@ -19311,6 +19351,14 @@ export const TRANSLATIONS = {
   },
 
   pt: {
+    postCard: {
+      cautionTitle: "Regras para publicar",
+      caution: "Envie um vídeo de até 15 segundos e 50 MB, ou uma foto.",
+      addMedia: "Adicionar foto ou vídeo",
+      trim: "Cortar",
+      remove: "Remover mídia",
+      change: "Trocar",
+    },
     growLocal: {
       eyebrowUrMall: "Faça o UrMall crescer perto de você",
       eyebrowUrRide: "Faça o UrRide crescer perto de você",
@@ -23171,6 +23219,14 @@ export const TRANSLATIONS = {
   },
 
   hi: {
+    postCard: {
+      cautionTitle: "पोस्ट करने के नियम",
+      caution: "15 सेकंड और 50 MB तक का वीडियो, या एक फ़ोटो अपलोड करें।",
+      addMedia: "फ़ोटो या वीडियो जोड़ें",
+      trim: "ट्रिम",
+      remove: "मीडिया हटाएँ",
+      change: "बदलें",
+    },
     growLocal: {
       eyebrowUrMall: "अपने आस-पास UrMall बढ़ाएँ",
       eyebrowUrRide: "अपने आस-पास UrRide बढ़ाएँ",
@@ -27031,6 +27087,14 @@ export const TRANSLATIONS = {
   },
 
   bn: {
+    postCard: {
+      cautionTitle: "পোস্ট করার নিয়ম",
+      caution: "সর্বোচ্চ ১৫ সেকেন্ড ও ৫০ MB-এর ভিডিও, অথবা একটি ছবি আপলোড করুন।",
+      addMedia: "ছবি বা ভিডিও যোগ করুন",
+      trim: "ট্রিম",
+      remove: "মিডিয়া সরান",
+      change: "বদলান",
+    },
     growLocal: {
       eyebrowUrMall: "আপনার কাছে UrMall বাড়ান",
       eyebrowUrRide: "আপনার কাছে UrRide বাড়ান",
@@ -30891,6 +30955,14 @@ export const TRANSLATIONS = {
   },
 
   id: {
+    postCard: {
+      cautionTitle: "Aturan posting",
+      caution: "Unggah video maksimal 15 detik dan 50 MB, atau sebuah foto.",
+      addMedia: "Tambah foto atau video",
+      trim: "Potong",
+      remove: "Hapus media",
+      change: "Ganti",
+    },
     growLocal: {
       eyebrowUrMall: "Kembangkan UrMall di sekitar Anda",
       eyebrowUrRide: "Kembangkan UrRide di sekitar Anda",
@@ -34751,6 +34823,14 @@ export const TRANSLATIONS = {
   },
 
   ur: {
+    postCard: {
+      cautionTitle: "پوسٹ کرنے کے اصول",
+      caution: "زیادہ سے زیادہ 15 سیکنڈ اور 50 MB کی ویڈیو، یا ایک تصویر اپ لوڈ کریں۔",
+      addMedia: "تصویر یا ویڈیو شامل کریں",
+      trim: "ٹرم",
+      remove: "میڈیا ہٹائیں",
+      change: "تبدیل کریں",
+    },
     growLocal: {
       eyebrowUrMall: "اپنے قریب UrMall بڑھائیں",
       eyebrowUrRide: "اپنے قریب UrRide بڑھائیں",
@@ -38611,6 +38691,14 @@ export const TRANSLATIONS = {
   },
 
   ru: {
+    postCard: {
+      cautionTitle: "Правила публикации",
+      caution: "Загрузите видео до 15 секунд и 50 МБ или фото.",
+      addMedia: "Добавить фото или видео",
+      trim: "Обрезать",
+      remove: "Убрать медиа",
+      change: "Заменить",
+    },
     growLocal: {
       eyebrowUrMall: "Развивайте UrMall рядом с вами",
       eyebrowUrRide: "Развивайте UrRide рядом с вами",
@@ -42472,6 +42560,14 @@ export const TRANSLATIONS = {
 
 
   ja: {
+    postCard: {
+      cautionTitle: "投稿のルール",
+      caution: "15秒・50MB以内の動画、または写真をアップロードしてください。",
+      addMedia: "写真・動画を追加",
+      trim: "トリミング",
+      remove: "メディアを削除",
+      change: "変更",
+    },
     growLocal: {
       eyebrowUrMall: "身近な UrMall を広げよう",
       eyebrowUrRide: "身近な UrRide を広げよう",
@@ -46332,6 +46428,14 @@ export const TRANSLATIONS = {
   },
 
   mr: {
+    postCard: {
+      cautionTitle: "पोस्ट करण्याचे नियम",
+      caution: "15 सेकंद आणि 50 MB पर्यंतचा व्हिडिओ, किंवा एक फोटो अपलोड करा.",
+      addMedia: "फोटो किंवा व्हिडिओ जोडा",
+      trim: "ट्रिम",
+      remove: "मीडिया काढा",
+      change: "बदला",
+    },
     growLocal: {
       eyebrowUrMall: "तुमच्या जवळ UrMall वाढवा",
       eyebrowUrRide: "तुमच्या जवळ UrRide वाढवा",
@@ -50192,6 +50296,14 @@ export const TRANSLATIONS = {
   },
 
   vi: {
+    postCard: {
+      cautionTitle: "Quy tắc đăng bài",
+      caution: "Tải lên video tối đa 15 giây và 50 MB, hoặc một ảnh.",
+      addMedia: "Thêm ảnh hoặc video",
+      trim: "Cắt",
+      remove: "Gỡ tệp",
+      change: "Đổi",
+    },
     growLocal: {
       eyebrowUrMall: "Phát triển UrMall quanh bạn",
       eyebrowUrRide: "Phát triển UrRide quanh bạn",
@@ -54052,6 +54164,14 @@ export const TRANSLATIONS = {
   },
 
   de: {
+    postCard: {
+      cautionTitle: "Regeln zum Posten",
+      caution: "Lade ein Video mit höchstens 15 Sekunden und 50 MB oder ein Foto hoch.",
+      addMedia: "Foto oder Video hinzufügen",
+      trim: "Kürzen",
+      remove: "Medium entfernen",
+      change: "Ändern",
+    },
     growLocal: {
       eyebrowUrMall: "Lass UrMall in deiner Nähe wachsen",
       eyebrowUrRide: "Lass UrRide in deiner Nähe wachsen",

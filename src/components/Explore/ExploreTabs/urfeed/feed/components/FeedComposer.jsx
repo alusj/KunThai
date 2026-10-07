@@ -44,6 +44,7 @@ import { upgradeNearbyAdvertDraft } from "../../../../../../Backend/services/exp
 import { haptics } from "../../../../../../Backend/services/feedbackService";
 import AdvertComposerFields from "../composer/AdvertComposerFields";
 import CompactComposer from "../composer/CompactComposer";
+import PostMediaTile from "../composer/PostMediaTile";
 import ComposerActions from "../composer/ComposerActions";
 import MediaPreview from "../composer/MediaPreview";
 import PostingProgress from "../composer/PostingProgress";
@@ -83,6 +84,9 @@ const SUPPORTED_VIDEO_TYPES = ["video/mp4", "video/webm", "video/quicktime", "vi
 // Reading a video's length is normally instant; when it is not, the trimmer
 // opens right away instead of keeping the person waiting.
 const VIDEO_DURATION_PROBE_TIMEOUT_MS = 2500;
+// A video is attached at once; if its length is not known this fast, the
+// check finishes in the background (and opens the trimmer if it is too long).
+const VIDEO_INSTANT_PROBE_MS = 400;
 // Some Android galleries hand over videos without a MIME type.
 const VIDEO_FILE_NAME_PATTERN = /\.(mp4|m4v|mov|webm|3gp|3g2|mkv|avi)$/i;
 const MAX_EXPLORE_VIDEO_MB = Math.round(MAX_EXPLORE_VIDEO_BYTES / (1024 * 1024));
@@ -324,65 +328,6 @@ async function uploadVideoWithProgress(file, onProgress, onResume) {
   }
 }
 
-function VideoLimitNotice() {
-  useUiLocale();
-  return (
-    <div className="flex items-start gap-3 rounded-[24px] border border-amber-200 bg-amber-50 px-4 py-3 text-amber-950 shadow-sm">
-      <span className="mt-0.5 grid h-10 w-10 flex-none place-items-center rounded-2xl bg-white text-amber-700 shadow-sm">
-        <HiOutlineExclamationTriangle className="text-xl" />
-      </span>
-      <div className="min-w-0">
-        <p className="text-sm font-black">{i18nText("ui.literals.kbb597c878c4a")}</p>
-        <p className="mt-1 text-sm font-semibold leading-6 text-amber-800">
-          {i18nText("ui.literals.k748ee7c9d7d2")} {MAX_VIDEO_SECONDS} {i18nText("ui.literals.k670a4c7dbda8")} {MAX_EXPLORE_VIDEO_MB}{i18nText("ui.literals.kfb71709f94c7")}
-        </p>
-      </div>
-    </div>
-  );
-}
-
-function MediaPickerCallout({ refNode, type, onPick }) {
-  useUiLocale();
-  const isVideo = type === "video";
-  const Icon = isVideo ? HiOutlineVideoCamera : HiOutlinePhoto;
-
-  return (
-    <div
-      ref={refNode}
-      className="rounded-[24px] border border-slate-200 bg-white p-4 shadow-sm"
-    >
-      <div className="flex items-start gap-3">
-        <span className={`grid h-11 w-11 flex-none place-items-center rounded-2xl ${
-          isVideo ? "bg-rose-50 text-rose-700 ring-1 ring-rose-100" : "bg-emerald-50 text-emerald-700 ring-1 ring-emerald-100"
-        }`}
-        >
-          <Icon className="text-xl" />
-        </span>
-        <div className="min-w-0 flex-1">
-          <p className="text-sm font-black text-slate-950">
-            {isVideo ? i18nText("ui.literals.k1954c26eee2f") : i18nText("ui.literals.k67b2f988c992")}
-          </p>
-          <p className="mt-1 text-xs font-semibold leading-5 text-slate-500">
-            {isVideo
-              ? i18nText("ui.literals.kf98e69a85341")
-              : i18nText("ui.literals.k57619ccb8138")}
-          </p>
-        </div>
-      </div>
-      <button
-        type="button"
-        onClick={onPick}
-        className={`mt-4 flex h-11 w-full items-center justify-center gap-2 rounded-2xl text-sm font-black text-white transition ${
-          isVideo ? "bg-rose-600 hover:bg-rose-700" : "bg-emerald-700 hover:bg-emerald-800"
-        }`}
-      >
-        <Icon className="text-lg" />
-        {isVideo ? i18nText("ui.literals.k547ac09ad6cd") : i18nText("ui.literals.k4a7eded8ed3a")}
-      </button>
-    </div>
-  );
-}
-
 // A raw "Failed to fetch"/"Load failed" is a browser network error (the request
 // never completed) - not a moderation or quota result. Show the traveller a
 // clear, reassuring message instead of the raw string.
@@ -490,6 +435,8 @@ export default function FeedComposer({ profile, creating, onSubmit }) {
   // attached untrimmed), so it can be trimmed again.
   const sourceVideoFileRef = useRef(null);
   const originalImageFileRef = useRef(null);
+  // The photo being prepared for posting (see handleMediaChange).
+  const imagePrepRef = useRef(null);
   const openComposerRef = useRef(null);
   const composerCloseTimerRef = useRef(null);
   const composerAfterCloseRef = useRef(null);
@@ -902,7 +849,10 @@ export default function FeedComposer({ profile, creating, onSubmit }) {
 
   async function processVideoFile(file) {
     setAttachmentMode("video");
-    if (!isAdvertMode) originalImageFileRef.current = null;
+    if (!isAdvertMode) {
+      originalImageFileRef.current = null;
+      imagePrepRef.current = null;
+    }
     trimRequestRef.current += 1;
     trimmedVideoMetaRef.current = null;
     cancelVoiceRecording();
@@ -923,17 +873,38 @@ export default function FeedComposer({ profile, creating, onSubmit }) {
 
     // A length the phone cannot read (or that never arrives) also goes to the
     // trimmer, which handles unknown lengths and explains an undecodable file.
-    const duration = await Promise.race([
+    const durationPromise = Promise.race([
       getVideoDuration(file).catch(() => Number.NaN),
       new Promise((resolve) => window.setTimeout(() => resolve(Number.NaN), VIDEO_DURATION_PROBE_TIMEOUT_MS)),
     ]);
-    if (!Number.isFinite(duration) || duration <= 0 || duration > MAX_VIDEO_SECONDS + 0.5) {
-      openVideoTrimmer(file);
+    const quickDuration = await Promise.race([
+      durationPromise,
+      new Promise((resolve) => window.setTimeout(() => resolve(undefined), VIDEO_INSTANT_PROBE_MS)),
+    ]);
+    const fitsClip = (seconds) => Number.isFinite(seconds) && seconds > 0 && seconds <= MAX_VIDEO_SECONDS + 0.5;
+
+    if (quickDuration !== undefined) {
+      if (!fitsClip(quickDuration)) {
+        openVideoTrimmer(file);
+        return;
+      }
+      sourceVideoFileRef.current = file;
+      acceptVideoClip(file, quickDuration);
       return;
     }
 
+    // Slow to read: show the video now and finish the check behind it.
     sourceVideoFileRef.current = file;
-    acceptVideoClip(file, duration);
+    acceptVideoClip(file, MAX_VIDEO_SECONDS);
+    const request = trimRequestRef.current;
+    durationPromise.then((duration) => {
+      if (trimRequestRef.current !== request || originalVideoFileRef.current !== file) return;
+      if (!fitsClip(duration)) {
+        openVideoTrimmer(file);
+        return;
+      }
+      acceptVideoClip(file, duration);
+    });
   }
 
   // Opens the freeform trimmer for a picked video. The picked file is kept as
@@ -998,22 +969,47 @@ export default function FeedComposer({ profile, creating, onSubmit }) {
     if (!file) return;
 
     try {
-      if (file.type.startsWith("video/") || mediaMode === "video") {
+      const pickedVideo = file.type.startsWith("video/") ||
+        (!file.type && VIDEO_FILE_NAME_PATTERN.test(file.name || "")) ||
+        (mediaMode === "video" && !file.type.startsWith("image/"));
+      if (pickedVideo) {
         await processVideoFile(file);
         return;
       } else {
         setAttachmentMode("image");
-        const nextPreview = await prepareImageReviewDataUrl(file);
-        if (!nextPreview) throw new Error("Unable to prepare this image. Please choose it again.");
-        // Upload a display-sized photo rather than the multi-megabyte original:
-        // KunThai never shows it larger, and posting finishes far sooner on a
-        // slow connection.
-        const uploadFile = await optimizeImageFile(file);
-        originalImageFileRef.current = uploadFile;
+        // The photo shows at once from the picked file; the review copy and
+        // the display-sized upload (KunThai never shows it larger, and posting
+        // finishes far sooner on a slow connection) are made behind it.
+        // Posting waits for them (imagePrepRef).
+        const blobUrl = URL.createObjectURL(file);
+        const prep = (async () => {
+          const nextPreview = await prepareImageReviewDataUrl(file);
+          if (!nextPreview) throw new Error("Unable to prepare this image. Please choose it again.");
+          const uploadFile = await optimizeImageFile(file);
+          return { blobUrl, nextPreview, uploadFile };
+        })();
+        imagePrepRef.current = prep;
+        prep.then(({ nextPreview, uploadFile }) => {
+          if (imagePrepRef.current !== prep) return;
+          originalImageFileRef.current = uploadFile;
+          setImagePreview((current) => (current === blobUrl ? nextPreview : current));
+          setMediaMeta((current) => ({ ...current, imageName: uploadFile.name, imageType: uploadFile.type, imageSize: uploadFile.size }));
+        }).catch((prepError) => {
+          if (imagePrepRef.current !== prep) return;
+          imagePrepRef.current = null;
+          originalImageFileRef.current = null;
+          setImagePreview((current) => (current === blobUrl ? "" : current));
+          showToast(shortErrorToast(prepError, "Couldn't attach media"), "danger", {
+            title: i18nText("ui.literals.ke248170a3849"),
+            duration: 6200,
+          });
+        });
+        originalImageFileRef.current = file;
+        const nextPreview = blobUrl;
         const imageMetaPatch = {
-          imageName: uploadFile.name,
-          imageType: uploadFile.type,
-          imageSize: uploadFile.size,
+          imageName: file.name,
+          imageType: file.type,
+          imageSize: file.size,
         };
 
         if (!isAdvertMode) {
@@ -1419,6 +1415,14 @@ export default function FeedComposer({ profile, creating, onSubmit }) {
   }
 
   function handleTool(type) {
+    // The post card's media box: one gallery for photos and videos.
+    if (type === "media") {
+      setMediaMode("any");
+      suppressScreenshotPrompt();
+      fileInputRef.current?.click();
+      return;
+    }
+
     if (type === "image" || type === "video") {
       setAttachmentMode(type);
       setMediaMode(type);
@@ -1467,6 +1471,7 @@ export default function FeedComposer({ profile, creating, onSubmit }) {
   }
 
   function clearImageAttachment() {
+    imagePrepRef.current = null;
     setImagePreview("");
     originalImageFileRef.current = null;
     setMediaMeta((current) => ({ ...current, imageName: "", imageType: "", imageSize: 0 }));
@@ -1764,6 +1769,17 @@ export default function FeedComposer({ profile, creating, onSubmit }) {
     try {
       let finalVideoPreview = videoPreview;
 
+      // A just-picked photo may still be getting ready (handleMediaChange).
+      let readyImagePreview = imagePreview;
+      if (imagePrepRef.current) {
+        const prepared = await imagePrepRef.current.catch(() => null);
+        if (!prepared && imagePreview?.startsWith?.("blob:")) {
+          showComposer();
+          return;
+        }
+        if (prepared?.blobUrl === imagePreview) readyImagePreview = prepared.nextPreview;
+      }
+
       if (pendingVideoFile && !finalVideoPreview) {
         finalVideoPreview = await trimPendingVideo(pendingVideoFile, videoTrimStart, videoTrimEnd);
 
@@ -1800,7 +1816,7 @@ export default function FeedComposer({ profile, creating, onSubmit }) {
         actor_id: actorId || "",
         space_id: actorType === SPACE_IDENTITY_TYPE ? profile?.spaceId || actorId || "" : null,
         actor_metadata: actorType === SPACE_IDENTITY_TYPE ? { spaceRole: profile?.memberRole || "" } : {},
-        image_url: isAdvertMode ? imagePreview : finalVideoPreview ? "" : imagePreview,
+        image_url: isAdvertMode ? readyImagePreview : finalVideoPreview ? "" : readyImagePreview,
         image_file: isAdvertMode || !finalVideoPreview ? originalImageFileRef.current : null,
         audio_url: finalAudioPreview,
         video_url: finalVideoPreview,
@@ -2246,6 +2262,7 @@ if (!isMobileVideoDevice) {
             </div>
 
             <div ref={composerScrollRef} data-explore-composer-scroll className="min-h-0 flex-1 space-y-4 overflow-y-auto px-4 py-4 sm:px-5">
+              {isAdvertMode ? (
               <div className="flex items-center gap-3">
                 <Avatar name={profile?.displayName || "KunThai"} src={profile?.avatarUrl} size="md" />
                 <div className="min-w-0">
@@ -2253,8 +2270,7 @@ if (!isMobileVideoDevice) {
                   <p className="truncate text-sm font-semibold text-slate-500">@{profile?.username || i18nText("ui.literals.k12dea96fec20")}</p>
                 </div>
               </div>
-
-              {!isAdvertMode && attachmentMode === "video" ? <VideoLimitNotice /> : null}
+              ) : null}
 
               {isAdvertMode ? (
                 <AdvertComposerFields
@@ -2271,7 +2287,17 @@ if (!isMobileVideoDevice) {
               {!isAdvertMode || advertForm.setupComplete ? (
               <div ref={textPanelRef} className="rounded-[24px] border border-slate-200 bg-slate-50 p-4">
                 {!isAdvertMode ? (
-                  <label className="mb-4 block border-b border-slate-200 pb-4">
+                <div className="-mx-1 -mt-1 mb-4 flex items-start gap-2.5 rounded-[18px] border border-amber-200 bg-amber-50 px-3 py-2.5">
+                  <HiOutlineExclamationTriangle className="mt-0.5 flex-none text-base text-amber-600" />
+                  <p className="min-w-0 text-xs font-semibold leading-5 text-amber-900">
+                    <span className="mr-1 font-black uppercase tracking-[0.12em] text-amber-700">{i18nText("postCard.cautionTitle")}</span>
+                    {i18nText("postCard.caution")}
+                  </p>
+                </div>
+                ) : null}
+                {!isAdvertMode ? (
+                  <div className="mb-4 flex items-start gap-3 border-b border-slate-200 pb-4">
+                  <label className="block min-w-0 flex-1">
                     <span className="flex items-center justify-between gap-3 text-xs font-bold uppercase tracking-[0.16em] text-slate-400">
                       <span>{i18nText("ui.literals.ka1cf7235e7ac")}</span>
                       <span>{postTitle.length}/{MAX_POST_TITLE_LENGTH}</span>
@@ -2284,9 +2310,20 @@ if (!isMobileVideoDevice) {
                         setFeedback("");
                       }}
                       placeholder={i18nText("ui.literals.k339d70639f12")}
-                      className="mt-2 h-11 w-full bg-transparent text-lg font-black text-slate-950 outline-none placeholder:text-slate-400"
+                      className="mt-2 h-11 w-full bg-transparent text-base font-black text-slate-950 outline-none placeholder:text-sm placeholder:text-slate-400"
                     />
                   </label>
+                  <div className="w-24 flex-none sm:w-28">
+                    <PostMediaTile
+                      imagePreview={imagePreview}
+                      videoPreview={videoPreview}
+                      trimStart={videoTrimStart}
+                      onPick={() => handleTool("media")}
+                      onRemove={videoPreview ? clearVideoAttachment : clearImageAttachment}
+                      onTrim={() => openVideoTrimmer(sourceVideoFileRef.current || originalVideoFileRef.current)}
+                    />
+                  </div>
+                  </div>
                 ) : null}
 
                 <div className="mb-3 flex items-center gap-2 text-xs font-bold uppercase tracking-[0.16em] text-slate-400">
@@ -2294,6 +2331,7 @@ if (!isMobileVideoDevice) {
                   {isAdvertMode ? i18nText("ui.literals.kdd6abeb58ed1") : i18nText("ui.literals.k237000e69a9e")}
                 </div>
 
+                <div className="relative">
                 <textarea
                   ref={textareaRef}
                   value={value}
@@ -2301,20 +2339,17 @@ if (!isMobileVideoDevice) {
                   autoFocus={!isAdvertMode && attachmentMode === "text"}
                   placeholder={isAdvertMode ? i18nText("ui.literals.k72de600888e0") : i18nText("ui.literals.ka244e4a7b0d2")}
                   className={`w-full resize-none bg-transparent text-xl font-semibold leading-8 text-slate-900 outline-none placeholder:text-slate-400 ${
-                    isAdvertMode ? "min-h-[96px] sm:min-h-[130px]" : "min-h-[112px] sm:min-h-[150px]"
+                    isAdvertMode ? "min-h-[96px] sm:min-h-[130px]" : "min-h-[140px] pb-12 sm:min-h-[170px]"
                   }`}
                 />
                 {!isAdvertMode ? (
+                  <div className="absolute bottom-1 right-0">
+                    <ComposerActions compact privacyOnly privacy={privacy} setPrivacy={setPrivacy} onTool={handleTool} />
+                  </div>
+                ) : null}
+                </div>
+                {!isAdvertMode ? (
                   <div className="mt-3 flex flex-wrap items-center gap-2 border-t border-slate-200 pt-3">
-                    <button
-                      type="button"
-                      onClick={() => handleTool("mention")}
-                      className={`inline-flex h-9 items-center gap-1.5 rounded-xl px-3 text-xs font-black transition ${
-                        mentionPickerOpen ? "bg-violet-600 text-white" : "bg-white text-violet-700 shadow-sm ring-1 ring-violet-100 hover:bg-violet-50"
-                      }`}
-                    >
-                      <HiOutlineAtSymbol className="text-base" /> {i18nText("ui.literals.k512580218163")}
-                    </button>
                     <button
                       type="button"
                       onClick={() => handleTool("tag")}
@@ -2326,6 +2361,25 @@ if (!isMobileVideoDevice) {
                     </button>
                     <button
                       type="button"
+                      onClick={() => handleTool("mention")}
+                      className={`inline-flex h-9 items-center gap-1.5 rounded-xl px-3 text-xs font-black transition ${
+                        mentionPickerOpen ? "bg-violet-600 text-white" : "bg-white text-violet-700 shadow-sm ring-1 ring-violet-100 hover:bg-violet-50"
+                      }`}
+                    >
+                      <HiOutlineAtSymbol className="text-base" /> {i18nText("ui.literals.k512580218163")}
+                    </button>
+                    <ExploreAiButton getRequest={buildAiComposerRequest} />
+                    <button
+                      type="button"
+                      onClick={() => handleTool("location")}
+                      className={`inline-flex h-9 min-w-0 max-w-full items-center gap-1.5 rounded-xl px-3 text-xs font-black transition ${
+                        mediaMeta.location ? "bg-teal-700 text-white" : "bg-white text-teal-700 shadow-sm ring-1 ring-teal-100 hover:bg-teal-50"
+                      }`}
+                    >
+                      <HiOutlineMapPin className="flex-none text-base" /> <span className="truncate">{i18nText("explore.cLocation")}</span>
+                    </button>
+                    <button
+                      type="button"
                       onClick={() => handleTool("topic")}
                       className={`inline-flex h-9 min-w-0 max-w-full items-center gap-1.5 rounded-xl px-3 text-xs font-black transition ${
                         topicPickerOpen ? "bg-emerald-700 text-white" : "bg-white text-emerald-700 shadow-sm ring-1 ring-emerald-100 hover:bg-emerald-50"
@@ -2333,7 +2387,6 @@ if (!isMobileVideoDevice) {
                     >
                       <HiOutlineTag className="flex-none text-base" /> <span className="truncate">{selectedPrimaryTopic?.name || i18nText("ui.literals.k7e13bd176f89")}</span>
                     </button>
-                    <ExploreAiButton getRequest={buildAiComposerRequest} />
                   </div>
                 ) : null}
               </div>
@@ -2381,16 +2434,6 @@ if (!isMobileVideoDevice) {
                 </div>
               ) : null}
 
-              {!isAdvertMode ? (
-                <ComposerActions
-                  toolsOnly
-                  privacy={privacy}
-                  setPrivacy={setPrivacy}
-                  isRecording={isRecording}
-                  hasVideoAttachment={hasVideoAttachment}
-                  onTool={handleTool}
-                />
-              ) : null}
 
               {!isAdvertMode && tagPickerOpen ? (
                 <div className="rounded-[24px] border border-sky-100 bg-sky-50/70 p-4">
@@ -2530,15 +2573,10 @@ if (!isMobileVideoDevice) {
                 </div>
               ) : null}
 
-              {!isAdvertMode && (attachmentMode === "image" || attachmentMode === "video") && !imagePreview && !videoPreview && !pendingVideoFile ? (
-                <MediaPickerCallout
-                  refNode={mediaPickerRef}
-                  type={attachmentMode}
-                  onPick={() => handleTool(attachmentMode)}
-                />
-              ) : null}
-
-              {!isAdvertMode || advertForm.setupComplete ? (
+              {/* A post shows its photo or video in the card's media box; the
+                  full preview stays for adverts, voice notes and the older
+                  inline trimmer. */}
+              {(isAdvertMode ? advertForm.setupComplete : audioPreview || pendingVideoUrl || pendingVideoFile) ? (
               <div ref={mediaPanelRef}>
                 <MediaPreview
                   imagePreview={imagePreview}
@@ -2591,6 +2629,7 @@ if (!isMobileVideoDevice) {
               ) : null}
             </div>
 
+            {isAdvertMode ? (
             <div className="flex-none space-y-3 border-t border-slate-100 bg-white px-3 py-2.5 sm:px-5 sm:py-3">
               <ComposerActions
                 privacyOnly={!isAdvertMode}
@@ -2605,11 +2644,12 @@ if (!isMobileVideoDevice) {
                 onTool={handleTool}
               />
             </div>
+            ) : null}
 
             <input
               ref={fileInputRef}
               type="file"
-              accept={mediaMode === "video" ? "video/*" : "image/*"}
+              accept={mediaMode === "video" ? "video/*" : mediaMode === "image" ? "image/*" : "image/*,video/*"}
               onChange={handleMediaChange}
               className="hidden"
             />
