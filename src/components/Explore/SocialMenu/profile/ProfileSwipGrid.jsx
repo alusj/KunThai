@@ -63,7 +63,7 @@ export default function ProfileSwipGrid({ posts = [], feed, currentUserId = "", 
               // "#t=0.1" makes mobile browsers paint the first frame as a poster
               // while only the metadata range is fetched.
               <video
-                src={`${post.video_url}#t=0.1`}
+                src={`${post.video_url}#t=${(Number(post.video_trim_start) || 0) + 0.1}`}
                 muted
                 playsInline
                 preload="metadata"

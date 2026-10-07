@@ -30,6 +30,10 @@ export default function VideoTrimmerScreen({
   maxSeconds = 30,
   maxMb = 50,
   eyebrow = "Trim video",
+  // Explore: when the picked file is already within maxMb, "Trim" returns it
+  // untouched with the chosen start/end (players show only that part), so the
+  // trim is instant. Larger files still need the re-encode below.
+  instantRange = false,
 }) {
   useUiLocale();
   // Whether this engine can trim at all, checked once so the screen can say so
@@ -67,6 +71,7 @@ export default function VideoTrimmerScreen({
     };
   }, []);
 
+  const instantTrim = instantRange && Number(file?.size || 0) <= maxMb * 1024 * 1024;
   const clipSeconds = Math.max(0, range.end - range.start);
   const clipTooLong = clipSeconds > maxSeconds + 0.05;
   const ready = duration > 0;
@@ -187,6 +192,19 @@ export default function VideoTrimmerScreen({
 
     if (clipTooLong) {
       setError(i18nText("ui.literals.k95b847aafc04", { value0: maxSeconds }));
+      return;
+    }
+
+    if (instantTrim) {
+      const { start, end } = rangeRefValue();
+      stopPreview();
+      onComplete?.(file, {
+        durationSeconds: Math.max(0.5, end - start),
+        trimStart: start,
+        trimEnd: end,
+        sourceDurationSeconds: duration,
+        strategy: "range",
+      });
       return;
     }
 
@@ -340,7 +358,7 @@ export default function VideoTrimmerScreen({
             </div>
           ) : null}
 
-          {!trimmingAvailable ? (
+          {!trimmingAvailable && !instantTrim ? (
             <p className="mb-2 rounded-lg border border-amber-400/40 bg-amber-400/10 px-3 py-2 text-xs font-black text-amber-200">
               {i18nText("ui.literals.k2ce862fd1561")}
             </p>
@@ -359,7 +377,7 @@ export default function VideoTrimmerScreen({
             <button
               type="button"
               onClick={trimVideo}
-              disabled={!ready || trimming || clipTooLong || !trimmingAvailable}
+              disabled={!ready || trimming || clipTooLong || (!trimmingAvailable && !instantTrim)}
               className="inline-flex h-12 items-center justify-center gap-2 rounded-xl bg-emerald-500 px-4 text-sm font-black text-gray-950 transition hover:bg-emerald-400 disabled:opacity-40"
             >
               <Scissors size={17} />

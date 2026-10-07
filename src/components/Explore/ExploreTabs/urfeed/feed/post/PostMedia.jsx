@@ -5,6 +5,7 @@ import { useI18n } from "../../../../../../i18n";
 import { pauseOtherExploreMedia, stopAllExploreMedia } from "../../../../shared/singleMediaPlayback";
 import { isAdvertPost } from "../../../../shared/advertUtils";
 import ZoomableImage from "../../../../shared/ZoomableImage";
+import { clipWindowHandlers, postClipRange } from "../../../../shared/clipWindow";
 import { t as i18nText } from "../../../../../../i18n/index";
 import { uiText as translateUi, useI18n as useUiLocale } from "../../../../../../i18n/index.js";
 
@@ -15,6 +16,7 @@ export default function PostMedia({ post, imageOnly = false }) {
   const audioRef = useRef(null);
   const videoRef = useRef(null);
   const advertPost = isAdvertPost(post);
+  const clipRange = postClipRange(post);
 
   useEffect(() => () => {
     stopAllExploreMedia();
@@ -51,13 +53,18 @@ export default function PostMedia({ post, imageOnly = false }) {
                 loop
                 muted
                 onLoadedData={() => setVideoStatus("loaded")}
-                onLoadedMetadata={() => setVideoStatus("loaded")}
+                onLoadedMetadata={(event) => {
+                  setVideoStatus("loaded");
+                  clipWindowHandlers(clipRange.start, clipRange.end).onLoadedMetadata(event);
+                }}
                 onCanPlay={() => setVideoStatus("loaded")}
                 onError={() => setVideoStatus("error")}
                 onPlay={(event) => pauseOtherExploreMedia(event.currentTarget)}
                 playsInline
                 preload="metadata"
                 src={post.video_url}
+                // Only the trimmed part of the video is the post.
+                onTimeUpdate={clipWindowHandlers(clipRange.start, clipRange.end).onTimeUpdate}
                 className={`h-full max-h-[520px] w-full max-w-full object-cover transition-opacity duration-200 ${
                   videoStatus === "loaded" ? "opacity-100" : "opacity-0"
                 }`}

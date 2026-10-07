@@ -14,6 +14,7 @@ import { shouldSkipBrowserVideoProcessing } from "./composerUtils";
 import { t } from "../../../../../../i18n";
 import { t as i18nText } from "../../../../../../i18n/index";
 import { uiText as translateUi, useI18n as useUiLocale } from "../../../../../../i18n/index.js";
+import { clipWindowHandlers } from "../../../../shared/clipWindow";
 
 const MAX_THUMBNAIL_FRAMES = 4;
 
@@ -322,6 +323,7 @@ export default function MediaPreview({
             src={videoPreview}
             controls
             playsInline
+            {...clipWindowHandlers(videoTrimStart, videoTrimEnd, maxVideoSeconds)}
             onPlay={(event) => pauseOtherExploreMedia(event.currentTarget)}
             className="max-h-[420px] w-full object-contain"
           />

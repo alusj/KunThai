@@ -85,7 +85,9 @@ const VIDEO_UPLOAD_TIMEOUT_MS = 5 * 60 * 1000;
 const VIDEO_UPLOAD_MIN_BYTES_PER_SECOND = 20 * 1024;
 const VIDEO_UPLOAD_PROGRESS_INTERVAL_MS = 1500;
 const SUPPORTED_VIDEO_TYPES = ["video/mp4", "video/webm", "video/quicktime", "video/x-m4v"];
-const VIDEO_DURATION_PROBE_TIMEOUT_MS = 8000;
+// Reading a video's length is normally instant; when it is not, the trimmer
+// opens right away instead of keeping the person waiting.
+const VIDEO_DURATION_PROBE_TIMEOUT_MS = 2500;
 // Some Android galleries hand over videos without a MIME type.
 const VIDEO_FILE_NAME_PATTERN = /\.(mp4|m4v|mov|webm|3gp|3g2|mkv|avi)$/i;
 const MAX_EXPLORE_VIDEO_MB = Math.round(MAX_EXPLORE_VIDEO_BYTES / (1024 * 1024));
@@ -970,23 +972,28 @@ export default function FeedComposer({ profile, creating, onSubmit }) {
 
   // The clip already fits Explore's length and size limits (either as picked or
   // straight out of the trimmer), so it is attached exactly as it is.
-  function acceptVideoClip(file, duration) {
+  // `range` (instant trim): the file is the full original and only
+  // trimStart..trimEnd of it is the clip; players show just that part.
+  function acceptVideoClip(file, duration, range = null) {
     // Never leave a trimmer mounted behind an attached clip.
     setTrimmerVideoFile(null);
     if (pendingVideoUrl) URL.revokeObjectURL(pendingVideoUrl);
     if (videoPreview?.startsWith?.("blob:")) URL.revokeObjectURL(videoPreview);
 
     const clipSeconds = Math.max(0.5, Number(duration) || MAX_VIDEO_SECONDS);
+    const clipStart = range ? Math.max(0, Number(range.trimStart) || 0) : 0;
+    const clipEnd = range ? Math.max(clipStart + 0.5, Number(range.trimEnd) || clipStart + clipSeconds) : clipSeconds;
+    const sourceSeconds = range ? Math.max(clipEnd, Number(range.sourceDurationSeconds) || clipEnd) : clipSeconds;
     const nextVideoMeta = {
       ...mediaMeta,
       videoName: file.name || "swip-video.mp4",
       videoType: file.type || "video/mp4",
       videoSize: file.size || 0,
       videoDuration: clipSeconds,
-      videoTrimStart: 0,
-      videoTrimEnd: clipSeconds,
-      sourceVideoTrimStart: 0,
-      sourceVideoTrimEnd: clipSeconds,
+      videoTrimStart: clipStart,
+      videoTrimEnd: clipEnd,
+      sourceVideoTrimStart: clipStart,
+      sourceVideoTrimEnd: clipEnd,
       ...(!isAdvertMode ? { imageName: "", imageType: "", imageSize: 0 } : {}),
       audioName: "",
       audioType: "",
@@ -998,9 +1005,9 @@ export default function FeedComposer({ profile, creating, onSubmit }) {
     setMediaMeta(nextVideoMeta);
     setPendingVideoFile(null);
     setPendingVideoUrl("");
-    setVideoDuration(clipSeconds);
-    setVideoTrimStart(0);
-    setVideoTrimEnd(clipSeconds);
+    setVideoDuration(sourceSeconds);
+    setVideoTrimStart(clipStart);
+    setVideoTrimEnd(clipEnd);
     setVideoPreview(URL.createObjectURL(file));
     if (!isAdvertMode) setImagePreview("");
     clearAudioState();
@@ -2125,8 +2132,9 @@ if (!isMobileVideoDevice) {
           maxSeconds={MAX_VIDEO_SECONDS}
           maxMb={MAX_EXPLORE_VIDEO_MB}
           eyebrow={i18nText("ui.literals.k25866d0c0f6e")}
+          instantRange
           onCancel={() => setTrimmerVideoFile(null)}
-          onComplete={(trimmedFile, { durationSeconds } = {}) => {
+          onComplete={(trimmedFile, { durationSeconds, strategy, trimStart, trimEnd, sourceDurationSeconds } = {}) => {
             setTrimmerVideoFile(null);
             // The trimmer knows the clip length; a MediaRecorder WebM often
             // reports Infinity when measured, so it is not re-checked.
@@ -2136,7 +2144,11 @@ if (!isMobileVideoDevice) {
             }
             trimRequestRef.current += 1;
             cancelVoiceRecording();
-            acceptVideoClip(trimmedFile, durationSeconds);
+            acceptVideoClip(
+              trimmedFile,
+              durationSeconds,
+              strategy === "range" ? { trimStart, trimEnd, sourceDurationSeconds } : null,
+            );
           }}
         />
       ) : null}

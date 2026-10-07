@@ -48,14 +48,6 @@ function isRetryableUploadError(error) {
     message.includes("load failed") || message.includes("failed to fetch") || message.includes("network request failed") || message.includes("timeout");
 }
 
-// tus attaches the HTTP response to its errors; none means the request itself
-// failed (network, WebView or CORS level) rather than the server refusing it.
-function isResumableTransportFailure(error) {
-  const response = error?.originalResponse;
-  const status = Number(typeof response?.getStatus === "function" ? response.getStatus() : 0);
-  return !status;
-}
-
 function uploadDelay(ms) {
   return new Promise((resolve) => window.setTimeout(resolve, ms));
 }
@@ -66,30 +58,49 @@ function getDirectStorageEndpoint() {
   return `https://${projectId}.storage.supabase.co/storage/v1/upload/resumable`;
 }
 
+// The project's regular API host. Used when the direct storage host refuses
+// the upload (it answered some iPhones with a bare "400 Bad Request").
+function getProjectStorageEndpoint() {
+  return `${String(supabase.supabaseUrl).replace(/\/+$/, "")}/storage/v1/upload/resumable`;
+}
+
+function isSizeLimitError(error) {
+  const message = String(error?.message || error || "").toLowerCase();
+  const status = Number(error?.originalResponse?.getStatus?.() || error?.statusCode || error?.status || 0);
+  return status === 413 || message.includes("maximum allowed size") || message.includes("entity too large") || message.includes("accepts videos up to");
+}
+
 function normalizeUploadError(error, file) {
   const message = String(error?.message || error || "");
   const normalized = message.toLowerCase();
   if (normalized.includes("exceeded the maximum allowed size") || normalized.includes("maximum allowed size") || normalized.includes("entity too large")) {
     const sizeMb = Math.max(1, Math.ceil(Number(file?.size || 0) / (1024 * 1024)));
-    return new Error(`This video is ${sizeMb}MB. KunThai accepts videos up to 100MB; compress the file and try again.`);
+    return new Error(`This video is ${sizeMb}MB. KunThai accepts videos up to 50MB; trim or compress it and try again.`);
+  }
+  // Never show the raw upload-protocol text ("tus: unexpected response…").
+  if (normalized.startsWith("tus:") || normalized.includes("<html") || normalized.includes("bad request")) {
+    return new Error("The video could not be uploaded. Check your connection and try again.");
   }
   return error instanceof Error ? error : new Error(message || "Unable to upload media.");
 }
 
-async function uploadMediaFileResumable(file, filePath, options = {}) {
+async function uploadMediaFileResumable(file, filePath, options = {}, endpoint = getDirectStorageEndpoint()) {
   const { data, error } = await supabase.auth.getSession();
   const accessToken = data?.session?.access_token;
   if (error || !accessToken) throw error || new Error("Sign in again before uploading this video.");
 
   await new Promise((resolve, reject) => {
     const upload = new tus.Upload(file, {
-      endpoint: getDirectStorageEndpoint(),
+      endpoint,
       retryDelays: [0, 1_000, 3_000, 5_000, 10_000],
       headers: {
         authorization: `Bearer ${accessToken}`,
         "x-upsert": "false",
       },
-      uploadDataDuringCreation: true,
+      // The first request only creates the upload; the data follows in
+      // 6 MB chunks. Sending data with the creation request was refused with
+      // a plain "400 Bad Request" on some phones.
+      uploadDataDuringCreation: false,
       removeFingerprintOnSuccess: true,
       chunkSize: RESUMABLE_CHUNK_BYTES,
       metadata: {
@@ -98,7 +109,7 @@ async function uploadMediaFileResumable(file, filePath, options = {}) {
         contentType: file.type || "application/octet-stream",
         cacheControl: "31536000",
       },
-      onError: (uploadError) => reject(normalizeUploadError(uploadError, file)),
+      onError: (uploadError) => reject(uploadError),
       onProgress: (bytesUploaded, bytesTotal) => options.onProgress?.(bytesUploaded, bytesTotal),
       onSuccess: () => resolve(),
     });
@@ -143,17 +154,20 @@ export async function uploadMediaFile(file, mediaType, userId, options = {}) {
   }
 
   if (Number(file.size || 0) > RESUMABLE_UPLOAD_THRESHOLD_BYTES) {
-    try {
-      await uploadMediaFileResumable(file, filePath, options);
-      const { data } = supabase.storage.from(EXPLORE_MEDIA_BUCKET).getPublicUrl(filePath);
-      return data?.publicUrl || "";
-    } catch (resumableError) {
-      // A resumable request that never got an HTTP response (the Android
-      // WebView reports "failed to create upload … response code: n/a") is a
-      // transport failure, not a rejection. Fall back to the single-request
-      // upload below, the same path UrMall media uses.
-      if (!isResumableTransportFailure(resumableError)) throw resumableError;
-      options.onProgress?.(0, Number(file.size || 0));
+    // Resumable upload on the direct storage host, then on the project host.
+    // A size limit is final; any other refusal or a lost request (the Android
+    // WebView reports "response code: n/a") moves on to the next way, ending
+    // with the single-request upload below, the same path UrMall media uses.
+    for (const endpoint of [getDirectStorageEndpoint(), getProjectStorageEndpoint()]) {
+      try {
+        await uploadMediaFileResumable(file, filePath, options, endpoint);
+        const { data } = supabase.storage.from(EXPLORE_MEDIA_BUCKET).getPublicUrl(filePath);
+        return data?.publicUrl || "";
+      } catch (resumableError) {
+        if (isSizeLimitError(resumableError)) throw normalizeUploadError(resumableError, file);
+        if (!navigator.onLine) throw normalizeUploadError(resumableError, file);
+        options.onProgress?.(0, Number(file.size || 0));
+      }
     }
   }
 
