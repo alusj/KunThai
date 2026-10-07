@@ -24,9 +24,20 @@ class AppDelegate: UIResponder, UIApplicationDelegate {
         }
     }
 
+    // With the UIScene lifecycle the window belongs to the scene (SceneDelegate),
+    // not to this delegate, so look it up from the foreground scene.
+    private var activeWindow: UIWindow? {
+        let windowScenes = UIApplication.shared.connectedScenes.compactMap { $0 as? UIWindowScene }
+        let scene = windowScenes.first { $0.activationState == .foregroundActive } ?? windowScenes.first
+        return (scene?.delegate as? SceneDelegate)?.window
+            ?? scene?.windows.first { $0.isKeyWindow }
+            ?? window
+    }
+
     private func notifyWebAppOfScreenshot() {
-        guard let bridgeViewController = window?.rootViewController as? CAPBridgeViewController else { return }
-        let dataUrl = captureScreenshotDataUrl()
+        guard let window = activeWindow,
+              let bridgeViewController = window.rootViewController as? CAPBridgeViewController else { return }
+        let dataUrl = captureScreenshotDataUrl(of: window)
         let detail: [String: String] = dataUrl.map { ["dataUrl": $0] } ?? [:]
         guard let jsonData = try? JSONSerialization.data(withJSONObject: detail),
               let json = String(data: jsonData, encoding: .utf8) else { return }
@@ -35,8 +46,8 @@ class AppDelegate: UIResponder, UIApplicationDelegate {
         )
     }
 
-    private func captureScreenshotDataUrl() -> String? {
-        guard let window, !window.bounds.isEmpty else { return nil }
+    private func captureScreenshotDataUrl(of window: UIWindow) -> String? {
+        guard !window.bounds.isEmpty else { return nil }
         let screenScale = UIScreen.main.scale
         let widthScale = 1080 / max(window.bounds.width, 1)
         let heightScale = 1920 / max(window.bounds.height, 1)
