@@ -53,6 +53,8 @@ const TECHNICAL_NOISE_PATTERNS = [
   "service unavailable",
   "gateway timeout",
   "xmlhttprequest",
+  // Safari's wording for a SyntaxError (bad JSON, base64 or URL).
+  "did not match the expected pattern",
 ];
 
 function errorText(error) {

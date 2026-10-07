@@ -5,6 +5,16 @@ import { EXPLORE_MEDIA_BUCKET } from "./constants";
 export const MAX_EXPLORE_VIDEO_BYTES = 50 * 1024 * 1024;
 const RESUMABLE_UPLOAD_THRESHOLD_BYTES = 6 * 1024 * 1024;
 const RESUMABLE_CHUNK_BYTES = 6 * 1024 * 1024;
+// No bytes moving for this long while the app is on screen means the request
+// is stuck (common on iPhones after a network switch or a moment in the
+// background). The upload is stopped and continued from the last saved chunk.
+export const UPLOAD_STALL_MS = 40_000;
+// Continuing a stopped upload is retried this many times in a row without new
+// progress before the person is asked to post again.
+const MAX_RESUMES_WITHOUT_PROGRESS = 5;
+const RESUME_DELAYS_MS = [1_000, 3_000, 6_000, 10_000, 15_000];
+// Longest wait for the connection or the screen to come back between resumes.
+const RESUME_WAIT_LIMIT_MS = 2 * 60 * 1000;
 
 function getFileExtensionFromMime(mimeType, fallback = "bin") {
   const map = {
@@ -104,8 +114,19 @@ async function uploadMediaFileResumable(file, filePath, options = {}, endpoint =
 
   let objectName = filePath;
   let bytesSent = 0;
+  let lastProgressAt = Date.now();
+  let watchdogId = null;
+  const markActive = () => { lastProgressAt = Date.now(); };
 
   await new Promise((resolve, reject) => {
+    let settled = false;
+    const finish = (callback, value) => {
+      if (settled) return;
+      settled = true;
+      window.clearInterval(watchdogId);
+      document.removeEventListener("visibilitychange", markActive);
+      callback(value);
+    };
     const upload = new tus.Upload(file, {
       endpoint,
       // Mobile connections drop for a while; keep retrying a chunk for about
@@ -135,14 +156,34 @@ async function uploadMediaFileResumable(file, filePath, options = {}, endpoint =
       },
       onError: (uploadError) => {
         if (uploadError && typeof uploadError === "object") uploadError.bytesUploaded = bytesSent;
-        reject(uploadError);
+        finish(reject, uploadError);
       },
       onProgress: (bytesUploaded, bytesTotal) => {
         bytesSent = bytesUploaded;
+        markActive();
         options.onProgress?.(bytesUploaded, bytesTotal);
       },
-      onSuccess: () => resolve(),
+      onChunkComplete: markActive,
+      onSuccess: () => finish(resolve),
     });
+
+    // Time in the background does not count as a stall: iOS pauses requests
+    // there, and the clock restarts when the app is back on screen.
+    document.addEventListener("visibilitychange", markActive);
+    watchdogId = window.setInterval(() => {
+      if (document.visibilityState === "hidden") {
+        markActive();
+        return;
+      }
+      if (Date.now() - lastProgressAt < UPLOAD_STALL_MS) return;
+      // abort() without terminating keeps the server copy, so the next
+      // attempt continues from the last chunk the server saved.
+      Promise.resolve().then(() => upload.abort(false)).catch(() => {});
+      const stalled = new Error("The upload stopped moving.");
+      stalled.code = "UPLOAD_STALLED";
+      stalled.bytesUploaded = bytesSent;
+      finish(reject, stalled);
+    }, 5_000);
 
     upload.findPreviousUploads()
       .then((previousUploads) => {
@@ -156,9 +197,9 @@ async function uploadMediaFileResumable(file, filePath, options = {}, endpoint =
           objectName = previous.metadata.objectName;
           upload.resumeFromPreviousUpload(previous);
         }
-        upload.start();
+        if (!settled) upload.start();
       })
-      .catch(reject);
+      .catch((findError) => finish(reject, findError));
   });
 
   return objectName;
@@ -170,6 +211,23 @@ function hadNoServerResponse(error) {
   const response = error?.originalResponse;
   const status = Number(typeof response?.getStatus === "function" ? response.getStatus() : 0);
   return !status;
+}
+
+// Waits before continuing a stopped upload, and for as long as the phone is
+// offline or KunThai is in the background (up to a limit).
+export function waitToResume(delayMs, limitMs = RESUME_WAIT_LIMIT_MS) {
+  return new Promise((resolve) => {
+    const startedAt = Date.now();
+    const ready = () => navigator.onLine !== false && document.visibilityState !== "hidden";
+    const check = () => {
+      const waited = Date.now() - startedAt;
+      if ((waited >= delayMs && ready()) || waited >= limitMs) {
+        window.clearInterval(timerId);
+        resolve();
+      }
+    };
+    const timerId = window.setInterval(check, 500);
+  });
 }
 
 export async function uploadMediaDataUrl(dataUrl, mediaType, userId) {
@@ -209,21 +267,38 @@ export async function uploadMediaFile(file, mediaType, userId, options = {}) {
     // with the single-request upload below, the same path UrMall media uses.
     let neverReachedServer = true;
     for (const endpoint of [getDirectStorageEndpoint(), getProjectStorageEndpoint()]) {
-      try {
-        const savedPath = await uploadMediaFileResumable(file, filePath, options, endpoint);
-        const { data } = supabase.storage.from(EXPLORE_MEDIA_BUCKET).getPublicUrl(savedPath);
-        return data?.publicUrl || "";
-      } catch (resumableError) {
-        if (isSizeLimitError(resumableError)) throw normalizeUploadError(resumableError, file);
-        // Part of the video is already up: starting over elsewhere would
-        // waste it. Stop; posting again continues from where it stopped.
-        if (Number(resumableError?.bytesUploaded || 0) > 0 || !navigator.onLine) {
-          const interrupted = new Error("The upload was interrupted. Check your connection and post again; it continues where it stopped.");
-          interrupted.code = "UPLOAD_INTERRUPTED";
-          throw interrupted;
+      let resumesWithoutProgress = 0;
+      let furthestBytes = 0;
+      for (;;) {
+        try {
+          const savedPath = await uploadMediaFileResumable(file, filePath, options, endpoint);
+          const { data } = supabase.storage.from(EXPLORE_MEDIA_BUCKET).getPublicUrl(savedPath);
+          return data?.publicUrl || "";
+        } catch (resumableError) {
+          if (isSizeLimitError(resumableError)) throw normalizeUploadError(resumableError, file);
+          const bytesUploaded = Number(resumableError?.bytesUploaded || 0);
+          const interrupted = bytesUploaded > 0 || resumableError?.code === "UPLOAD_STALLED" || navigator.onLine === false;
+          if (!interrupted) {
+            if (!hadNoServerResponse(resumableError)) neverReachedServer = false;
+            options.onProgress?.(0, Number(file.size || 0));
+            break;
+          }
+          // Part of the video is already up (or the request is stuck): keep
+          // it and continue on this same host, never start over elsewhere.
+          neverReachedServer = false;
+          if (bytesUploaded > furthestBytes) {
+            furthestBytes = bytesUploaded;
+            resumesWithoutProgress = 0;
+          }
+          if (resumesWithoutProgress >= MAX_RESUMES_WITHOUT_PROGRESS) {
+            const stopped = new Error("The upload was interrupted. Check your connection and post again; it continues where it stopped.");
+            stopped.code = "UPLOAD_INTERRUPTED";
+            throw stopped;
+          }
+          options.onResume?.(resumesWithoutProgress + 1);
+          await waitToResume(RESUME_DELAYS_MS[Math.min(resumesWithoutProgress, RESUME_DELAYS_MS.length - 1)]);
+          resumesWithoutProgress += 1;
         }
-        if (!hadNoServerResponse(resumableError)) neverReachedServer = false;
-        options.onProgress?.(0, Number(file.size || 0));
       }
     }
     // A large video in one request is refused by the storage proxy, so the

@@ -79,11 +79,6 @@ import { uiText as translateUi, useI18n as useUiLocale } from "../../../../../..
 
 const LARGE_VIDEO_BACKGROUND_REVIEW_BYTES = 24 * 1024 * 1024;
 const LARGE_VIDEO_INITIAL_REVIEW_TIMEOUT_MS = 18_000;
-const VIDEO_UPLOAD_TIMEOUT_MS = 5 * 60 * 1000;
-// The timeout grows with the file for slow connections: at least 5 minutes,
-// and never less than the time needed at ~20 KB/s.
-const VIDEO_UPLOAD_MIN_BYTES_PER_SECOND = 20 * 1024;
-const VIDEO_UPLOAD_PROGRESS_INTERVAL_MS = 1500;
 const SUPPORTED_VIDEO_TYPES = ["video/mp4", "video/webm", "video/quicktime", "video/x-m4v"];
 // Reading a video's length is normally instant; when it is not, the trimmer
 // opens right away instead of keeping the person waiting.
@@ -309,41 +304,22 @@ function formatLocationLabel(lat, lng) {
   return `${safeLat.toFixed(6)}, ${safeLng.toFixed(6)}`;
 }
 
-async function uploadVideoWithProgress(file, onProgress) {
+// The upload owns 24-56% of the posting bar and follows the bytes the server
+// has confirmed, so the bar never runs ahead of the real upload. A stuck
+// request is detected and continued by the uploader itself (see
+// mediaService), so a slow but moving upload is never cut off here.
+async function uploadVideoWithProgress(file, onProgress, onResume) {
   const endHeavyUpload = beginHeavyUpload();
   let progress = 24;
-  let timedOut = false;
-  let timeoutId = null;
-
-  const uploadPromise = uploadExploreVideoForReview(file, (bytesUploaded, bytesTotal) => {
-    if (!bytesTotal) return;
-    const measuredProgress = 24 + Math.round((Math.min(bytesUploaded, bytesTotal) / bytesTotal) * 32);
-    progress = Math.max(progress, Math.min(56, measuredProgress));
-    onProgress?.(progress);
-  });
-  uploadPromise
-    .then((videoUrl) => {
-      if (timedOut && videoUrl) removeExploreVideoUpload(videoUrl).catch(() => {});
-    })
-    .catch(() => {});
-
-  const progressId = window.setInterval(() => {
-    progress = Math.min(56, progress + Math.max(1, Math.ceil((56 - progress) * 0.16)));
-    onProgress?.(progress);
-  }, VIDEO_UPLOAD_PROGRESS_INTERVAL_MS);
-
-  const timeoutPromise = new Promise((_, reject) => {
-    timeoutId = window.setTimeout(() => {
-      timedOut = true;
-      reject(new Error("The media upload stopped responding. Check your connection and try publishing again."));
-    }, Math.max(VIDEO_UPLOAD_TIMEOUT_MS, Math.ceil((Number(file?.size || 0) / VIDEO_UPLOAD_MIN_BYTES_PER_SECOND) * 1000)));
-  });
-
   try {
-    return await Promise.race([uploadPromise, timeoutPromise]);
+    return await uploadExploreVideoForReview(file, (bytesUploaded, bytesTotal) => {
+      if (!bytesTotal) return;
+      const measuredProgress = 24 + Math.floor((Math.min(bytesUploaded, bytesTotal) / bytesTotal) * 32);
+      if (measuredProgress <= progress) return;
+      progress = Math.min(56, measuredProgress);
+      onProgress?.(progress);
+    }, onResume);
   } finally {
-    window.clearInterval(progressId);
-    window.clearTimeout(timeoutId);
     endHeavyUpload();
   }
 }
@@ -1902,13 +1878,22 @@ if (!isMobileVideoDevice) {
               ? "Uploading your original video securely before the safety scan."
               : "Uploading your video securely before publishing.",
           });
+          let uploadProgress = 24;
           uploadedReviewVideoUrl = await uploadVideoWithProgress(originalVideoFileRef.current, (progress) => {
+            uploadProgress = progress;
             setPostingProgress(progress);
             publishPostingUpdate({
               status: "posting",
               stage: "uploading-media",
               progress,
               message: i18nText("ui.literals.k7020c2243106"),
+            });
+          }, () => {
+            publishPostingUpdate({
+              status: "posting",
+              stage: "uploading-media",
+              progress: uploadProgress,
+              message: "Connection slowed down. Continuing your upload from where it stopped.",
             });
           });
         }
@@ -2095,7 +2080,7 @@ if (!isMobileVideoDevice) {
         return;
       }
 
-      const message = result?.error || (isAdvertMode ? "Unable to publish this advertisement." : "Unable to publish post.");
+      const message = friendlyPublishError(result?.error, isAdvertMode ? "Unable to publish this advertisement." : "Unable to publish post.");
       await removeExploreVideoUpload(uploadedReviewVideoUrl).catch(() => {});
       setPostingStage("");
       setPostingProgress(0);

@@ -132,14 +132,14 @@ async function getCurrentUserId() {
 
 export { MAX_EXPLORE_VIDEO_BYTES };
 
-export async function uploadExploreVideoForReview(file, onProgress) {
+export async function uploadExploreVideoForReview(file, onProgress, onResume) {
   const userId = await getCurrentUserId();
 
   if (!userId) {
     throw new Error("No active session.");
   }
 
-  return uploadMediaFile(file, "video", userId, { onProgress });
+  return uploadMediaFile(file, "video", userId, { onProgress, onResume });
 }
 
 export async function removeExploreVideoUpload(videoUrl) {
