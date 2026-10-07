@@ -138,6 +138,10 @@ export function getTransportPassengerSettings() {
   };
 }
 
+// Fired with the new settings whenever they are saved, so screens that use a
+// setting (map operators, booking suggestions, trip alerts) follow at once.
+export const TRANSPORT_SETTINGS_EVENT = "kunthai-transport-settings-changed";
+
 export function saveTransportPassengerSettings(settings) {
   const nextSettings = {
     ...getTransportPassengerSettings(),
@@ -145,6 +149,9 @@ export function saveTransportPassengerSettings(settings) {
     updatedAt: new Date().toISOString(),
   };
   writeLocalJson(TRANSPORT_SETTINGS_KEY, nextSettings);
+  if (typeof window !== "undefined") {
+    window.dispatchEvent(new CustomEvent(TRANSPORT_SETTINGS_EVENT, { detail: nextSettings }));
+  }
   return nextSettings;
 }
 

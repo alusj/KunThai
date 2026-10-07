@@ -7,7 +7,7 @@ import {
   getActiveCountryProfile,
   getCountryCurrencyCode,
   normalizeCountryIso,
-  storeCountryContext,
+  storeDetectedCountryContext,
 } from "../../data/globalCountryProfiles";
 import {
   getTransportUploadFile,
@@ -419,7 +419,7 @@ async function saveOperatorDocumentRows(operatorId, uploads = {}) {
 function buildCountryContext(form = {}) {
   const countryProfile = getActiveCountryProfile(form.countryCode || form.country);
   const country = form.country || countryProfile.name;
-  storeCountryContext(countryProfile.iso2);
+  storeDetectedCountryContext(countryProfile.iso2);
   return {
     country,
     country_iso: countryProfile.iso2,

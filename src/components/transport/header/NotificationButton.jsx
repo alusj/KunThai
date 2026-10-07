@@ -17,7 +17,7 @@ import {
   fetchTransportNotifications,
   markTransportPassengerNotificationRead,
 } from "../../services/transportHeaderService";
-import { subscribePassengerTrips } from "../../services/passengerTransportService";
+import { getTransportPassengerSettings, subscribePassengerTrips } from "../../services/passengerTransportService";
 import { useI18n, t } from "../../../i18n";
 import {
   fetchSurfacePlatformNotifications,
@@ -103,7 +103,9 @@ export default function NotificationButton({ companyAccount, openRequest = 0, op
       lastAnnouncedUnread = 0;
       return;
     }
-    if (unreadCount > lastAnnouncedUnread) {
+    // Settings → UrRide → Trip alerts off: the bell badge still counts, but
+    // no toast pops up.
+    if (unreadCount > lastAnnouncedUnread && getTransportPassengerSettings().tripAlerts !== false) {
       showToast("New notification", "info", {
         title: t("urride.notifications.eyebrow"),
         actionLabel: t("common.open"),

@@ -4,6 +4,7 @@ import { canonicalBusinessType } from "./businessTypePolicy";
 import {
   getActiveCountryProfile,
   storeCountryContext,
+  storeDetectedCountryContext,
 } from "../../../data/globalCountryProfiles";
 import {
   formatDocumentRequirementLabel,
@@ -545,7 +546,7 @@ export async function readRegisteredBusiness({ fresh = false } = {}) {
   const business = businesses.find((item) => item.id === activeId) || businesses[0];
   if (business.id !== activeId) localStorage.setItem(activeBusinessStorageKey(userId), business.id);
   cacheActiveRegisteredBusinessId(business.id);
-  storeCountryContext(business.location.country);
+  storeDetectedCountryContext(business.location.country);
   return business;
 }
 

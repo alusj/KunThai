@@ -19,7 +19,7 @@ import { lookupCountryIso } from "../../utils/detectCountry.js";
 import {
   getCountryProfile,
   normalizeCountryIso,
-  storeCountryContext,
+  storeDetectedCountryContext,
 } from "../../../data/globalCountryProfiles.js";
 import { resolveCountryFromReading } from "./countryBoundary.js";
 import {
@@ -187,7 +187,7 @@ export async function resolveCurrentCountry({
   // formatting) in sync ONLY when we have a confident physical fix — never from
   // a weak fallback, and never a border-uncertain guess.
   if (result.countryCode && !result.requiresConfirmation && result.source === "gps") {
-    storeCountryContext(result.countryCode);
+    storeDetectedCountryContext(result.countryCode);
   }
 
   return result;

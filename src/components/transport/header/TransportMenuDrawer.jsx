@@ -1110,7 +1110,6 @@ function SupportPage({ seed }) {
 function TransportSettingsPage() {
   useI18n();
   const [settings, setSettings] = useState(() => getTransportPassengerSettings());
-  const [message, setMessage] = useState("");
   // Values stay stable (stored + compared); only the two non-fleet-type entries
   // get a localized display label below (fleet-type names are brand/data).
   const defaultRideTypeOptions = useMemo(
@@ -1123,18 +1122,28 @@ function TransportSettingsPage() {
     updateSettings({ defaultRideType: "Any available" });
   }, [defaultRideTypeOptions, settings.defaultRideType]);
 
+  // Every change saves at once (no separate Save button to miss).
   function updateSettings(patch) {
-    setSettings((current) => ({ ...current, ...patch }));
+    setSettings(saveTransportPassengerSettings(patch));
   }
 
-  function saveSettings() {
-    setSettings(saveTransportPassengerSettings(settings));
-    setMessage(t("urride.menu.settings.saved"));
+  function toggleSetting(key) {
+    const next = !settings[key];
+    updateSettings({ [key]: next });
+    const tone = next ? "success" : "info";
+    if (key === "tripAlerts") showToast(next ? t("urride.menu.settings.tripAlertsOn") : t("urride.menu.settings.tripAlertsOff"), tone);
+    if (key === "nearbyOperators") showToast(next ? t("urride.menu.settings.nearbyOn") : t("urride.menu.settings.nearbyOff"), tone);
+    if (key === "safetyReminders") showToast(next ? t("urride.menu.settings.safetyOn") : t("urride.menu.settings.safetyOff"), tone);
+    if (key === "savedPlaceSuggestions") showToast(next ? t("urride.menu.settings.suggestionsOn") : t("urride.menu.settings.suggestionsOff"), tone);
+  }
+
+  function chooseSetting(patch) {
+    updateSettings(patch);
+    showToast(t("urride.menu.settings.saved"), "success");
   }
 
   return (
     <div className="space-y-4">
-      {message ? <p className="rounded-xl bg-emerald-50 p-3 text-sm font-bold text-emerald-700">{translateUi(message)}</p> : null}
 
       <InfoPanel
         icon={Settings}
@@ -1148,25 +1157,25 @@ function TransportSettingsPage() {
           label={t("urride.menu.settings.tripAlerts")}
           description={t("urride.menu.settings.tripAlertsDesc")}
           checked={settings.tripAlerts}
-          onChange={() => updateSettings({ tripAlerts: !settings.tripAlerts })}
+          onChange={() => toggleSetting("tripAlerts")}
         />
         <SettingToggle
           label={t("urride.menu.settings.nearby")}
           description={t("urride.menu.settings.nearbyDesc")}
           checked={settings.nearbyOperators}
-          onChange={() => updateSettings({ nearbyOperators: !settings.nearbyOperators })}
+          onChange={() => toggleSetting("nearbyOperators")}
         />
         <SettingToggle
           label={t("urride.menu.settings.safetyReminders")}
           description={t("urride.menu.settings.safetyRemindersDesc")}
           checked={settings.safetyReminders}
-          onChange={() => updateSettings({ safetyReminders: !settings.safetyReminders })}
+          onChange={() => toggleSetting("safetyReminders")}
         />
         <SettingToggle
           label={t("urride.menu.settings.savedSuggestions")}
           description={t("urride.menu.settings.savedSuggestionsDesc")}
           checked={settings.savedPlaceSuggestions}
-          onChange={() => updateSettings({ savedPlaceSuggestions: !settings.savedPlaceSuggestions })}
+          onChange={() => toggleSetting("savedPlaceSuggestions")}
         />
       </section>
 
@@ -1177,7 +1186,7 @@ function TransportSettingsPage() {
           <span className="text-xs font-black uppercase text-gray-500">{t("urride.menu.settings.languageLabel")}</span>
           <select
             value={settings.language}
-            onChange={(event) => updateSettings({ language: event.target.value })}
+            onChange={(event) => chooseSetting({ language: event.target.value })}
             className="h-12 w-full rounded-xl border border-gray-200 bg-gray-50 px-3 text-sm font-black text-gray-950 outline-none focus:border-emerald-500"
           >
             <option value="English">{i18nText("ui.literals.k649df08a448e")}</option>
@@ -1190,7 +1199,7 @@ function TransportSettingsPage() {
           <span className="text-xs font-black uppercase text-gray-500">{t("urride.menu.settings.defaultRideTypeLabel")}</span>
           <select
             value={settings.defaultRideType}
-            onChange={(event) => updateSettings({ defaultRideType: event.target.value })}
+            onChange={(event) => chooseSetting({ defaultRideType: event.target.value })}
             className="h-12 w-full rounded-xl border border-gray-200 bg-gray-50 px-3 text-sm font-black text-gray-950 outline-none focus:border-emerald-500"
           >
             {defaultRideTypeOptions.map((option) => (
@@ -1209,7 +1218,7 @@ function TransportSettingsPage() {
           <span className="text-xs font-black uppercase text-gray-500">{t("urride.menu.settings.privacyLabel")}</span>
           <select
             value={settings.privacyMode}
-            onChange={(event) => updateSettings({ privacyMode: event.target.value })}
+            onChange={(event) => chooseSetting({ privacyMode: event.target.value })}
             className="h-12 w-full rounded-xl border border-gray-200 bg-gray-50 px-3 text-sm font-black text-gray-950 outline-none focus:border-emerald-500"
           >
             <option value="Balanced">{t("urride.menu.settings.privacyBalanced")}</option>
@@ -1232,14 +1241,6 @@ function TransportSettingsPage() {
           </div>
         </div>
       </section>
-
-      <button
-        type="button"
-        onClick={saveSettings}
-        className="h-12 w-full rounded-xl bg-emerald-600 px-4 text-sm font-black text-white shadow-sm hover:bg-emerald-700"
-      >
-        {t("urride.menu.settings.save")}
-      </button>
     </div>
   );
 }

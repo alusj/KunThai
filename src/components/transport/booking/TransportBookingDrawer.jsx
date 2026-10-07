@@ -60,6 +60,7 @@ import {
 import { uiText as translateUi, useI18n as useUiLocale } from "../../../i18n/index.js";
 import { inlineErrorMessage } from "../../../Backend/services/friendlyErrorService";
 import { useLateHourGate } from "./useLateHourGate";
+import { useTransportPassengerSetting } from "../shared/useTransportPassengerSetting";
 
 const PASSENGER_CAUTION_KEY = "kunthai-passenger-booking-caution-accepted";
 
@@ -136,7 +137,10 @@ export default function TransportBookingDrawer({ open, target, onClose, onCreate
   // translated strings never need pattern matching for styling.
   const [statusSuccess, setStatusSuccess] = useState(false);
   const [searchCenter, setSearchCenter] = useState(null);
-  const [savedPlaces, setSavedPlaces] = useState(getTransportSavedPlaces);
+  const [storedSavedPlaces, setSavedPlaces] = useState(getTransportSavedPlaces);
+  // Settings → UrRide → Saved place suggestions: off hides them in the form.
+  const savedPlaceSuggestions = useTransportPassengerSetting("savedPlaceSuggestions");
+  const savedPlaces = savedPlaceSuggestions ? storedSavedPlaces : [];
   // Remounts the pickup / drop-off fields each time the drawer opens, so the
   // addresses it opens with do not count as the passenger starting to type.
   const [locationSession, setLocationSession] = useState(0);

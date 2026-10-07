@@ -17,7 +17,7 @@ import { regionLabel } from "./regionHooks";
  * the country changes (e.g. during onboarding) a choice from another country
  * is cleared.
  */
-export default function MyRegionCard({ country = "", className = "" }) {
+export default function MyRegionCard({ country = "", className = "", clearForeignChoice = true }) {
   useI18n();
   const [choice, setChoice] = useState({ loading: true, country: "", selection: [] });
   const [matched, setMatched] = useState(null);
@@ -70,13 +70,17 @@ export default function MyRegionCard({ country = "", className = "" }) {
 
   useEffect(() => () => retrySaveRef.current?.(), []);
 
-  // A choice from a different country no longer applies.
+  // A choice from a different country no longer applies — but only clear it
+  // when the person changed the country (clearForeignChoice). Otherwise a
+  // stale country on this device would silently erase a saved district.
   useEffect(() => {
+    if (!clearForeignChoice) return;
     const chosen = choice.selection[0];
     if (index?.countryIso && chosen?.countryIso && chosen.countryIso !== index.countryIso) {
       persist([]);
     }
-  }, [index, choice.selection]);
+    // eslint-disable-next-line react-hooks/exhaustive-deps -- persist is recreated each render.
+  }, [index, choice.selection, clearForeignChoice]);
 
   const singular = regionLabel(index?.label || "District").toLowerCase();
 

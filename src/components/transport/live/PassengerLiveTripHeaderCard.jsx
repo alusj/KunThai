@@ -23,6 +23,7 @@ import {
   subscribePassengerTrips,
 } from "../../services/passengerTransportService";
 import LiveTripMetric from "./LiveTripMetric";
+import { useTransportPassengerSetting } from "../shared/useTransportPassengerSetting";
 import { useI18n, t } from "../../../i18n";
 import { uiText as translateUi, useI18n as useUiLocale } from "../../../i18n/index.js";
 import { shortErrorToast } from "../../../Backend/services/friendlyErrorService";
@@ -38,6 +39,7 @@ export default function PassengerLiveTripHeaderCard({ onOpenTrips }) {
   const [menuOpen, setMenuOpen] = useState(false);
   const [menuClosing, setMenuClosing] = useState(false);
   const [busy, setBusy] = useState(false);
+  const safetyReminders = useTransportPassengerSetting("safetyReminders");
   const menuRef = useRef(null);
   const menuButtonRef = useRef(null);
   const closeTimerRef = useRef(null);
@@ -157,6 +159,17 @@ export default function PassengerLiveTripHeaderCard({ onOpenTrips }) {
             </p>
             <h2 className="mt-1 text-base font-black text-slate-950">{t("urride.liveTrip.wantsToStart", { operator: operatorName })}</h2>
             <p className="mt-1 text-xs font-bold text-slate-500">{t("urride.liveTrip.confirmHint")}</p>
+            {/* Settings → UrRide → Safety reminders. */}
+            {safetyReminders ? (
+              <div className="mt-3 rounded-2xl border border-amber-200 bg-amber-50 px-3 py-2.5">
+                <p className="text-[11px] font-black uppercase tracking-[0.14em] text-amber-800">{t("urride.liveTrip.reminderTitle")}</p>
+                <ul className="mt-1.5 grid gap-1 text-xs font-bold leading-5 text-amber-900">
+                  <li>• {t("urride.liveTrip.reminderPlate")}</li>
+                  <li>• {t("urride.liveTrip.reminderFare")}</li>
+                  <li>• {t("urride.liveTrip.reminderProof")}</li>
+                </ul>
+              </div>
+            ) : null}
           </div>
           <div className="grid grid-cols-2 gap-2">
             <button

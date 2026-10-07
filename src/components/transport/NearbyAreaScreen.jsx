@@ -26,6 +26,7 @@ import AppBackTab from "../shared/AppBackTab";
 import { useAutoCollapseCard } from "../shared/motionHooks";
 import NearbyAreaMap from "./area/NearbyAreaMap";
 import { fleetFocusBounds, operatorsWithinFleetRadius } from "./area/fleetFocus";
+import { useTransportPassengerSetting } from "./shared/useTransportPassengerSetting";
 import { formatPlaceDistance, resolveAddressLocation, searchLocations, withDistancesFrom } from "../../Backend/services/locationSearchService";
 import { getRoadDistancesFrom, getRouteBetweenPoints } from "../../Backend/services/routeService";
 import {
@@ -48,7 +49,7 @@ import {
   getActiveCountryProfile,
   getCountryPhoneHint,
   normalizeCountryIso,
-  storeCountryContext,
+  storeDetectedCountryContext,
 } from "../../data/globalCountryProfiles";
 import { getEmergencyContacts } from "../../data/emergencyContacts";
 import { isMapFleetTypeVisible } from "../../data/globalTransportCapabilities";
@@ -1015,12 +1016,15 @@ export default function NearbyAreaScreen({
   const shouldShowFleetLayer = activeCategory === "All" || activeCategory === "Fleets";
   // "All" shows every live operator around; "Fleets" narrows it to the ones
   // within 15 km of the passenger.
+  // Settings → UrRide → Nearby operator alerts off: "All" leaves operators
+  // off the map. Tapping Fleets still shows them, since that is asked for.
+  const showOperatorsOnAll = useTransportPassengerSetting("nearbyOperators");
   const operatorLocations = useMemo(() => {
     if (!shouldShowFleetLayer) return [];
-    if (activeCategory !== "Fleets") return liveOperators;
+    if (activeCategory !== "Fleets") return showOperatorsOnAll ? liveOperators : [];
     const reference = getAreaReferencePoint(userLocation, mapCenter);
     return operatorsWithinFleetRadius(liveOperators, reference);
-  }, [activeCategory, liveOperators, mapCenter, shouldShowFleetLayer, userLocation]);
+  }, [activeCategory, liveOperators, mapCenter, shouldShowFleetLayer, showOperatorsOnAll, userLocation]);
   const smartTrafficSnapshots = useMemo(
     () =>
       buildTrafficIntelligence({
@@ -1156,7 +1160,8 @@ export default function NearbyAreaScreen({
     setAreaCountryCode(nextCountryCode);
     setDetectedCountryCode(nextCountryCode);
     cacheSosCountryCode(nextCountryCode);
-    storeCountryContext(nextCountryCode);
+    // Records where the passenger is, but keeps a country picked in Settings.
+    storeDetectedCountryContext(nextCountryCode);
   }, []);
 
   useEffect(() => {

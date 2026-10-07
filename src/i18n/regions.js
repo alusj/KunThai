@@ -48,6 +48,7 @@ export const REGIONS = {
     profile: {
       hint: "Adverts, UrMall promotions and announcements meant for your {singular} reach you. Only the {singular} is saved, never your exact location.",
       matched: "Matched from your city: {name}. Choose it to confirm or pick another.",
+      countryReset: "Back to your country",
     },
     target: {
       title: "Where should it appear?",
@@ -103,6 +104,7 @@ export const REGIONS = {
     profile: {
       hint: "Les publicités, promotions UrMall et annonces destinées à votre {singular} vous parviennent. Seul(e) le/la {singular} est enregistré(e), jamais votre position exacte.",
       matched: "Déduit de votre ville : {name}. Choisissez-le pour confirmer ou choisissez-en un autre.",
+      countryReset: "Retour à votre pays",
     },
     target: {
       title: "Où doit-elle apparaître ?",
@@ -158,6 +160,7 @@ export const REGIONS = {
     profile: {
       hint: "Te llegan los anuncios, promociones de UrMall y avisos para tu {singular}. Solo se guarda el/la {singular}, nunca tu ubicación exacta.",
       matched: "Según tu ciudad: {name}. Elígelo para confirmar o escoge otro.",
+      countryReset: "De vuelta a tu país",
     },
     target: {
       title: "¿Dónde debe aparecer?",
@@ -213,6 +216,7 @@ export const REGIONS = {
     profile: {
       hint: "面向您所在{singular}的广告、UrMall 推广和公告会送达给您。只保存{singular}，绝不保存您的精确位置。",
       matched: "根据您的城市匹配：{name}。选择它以确认，或选择其他。",
+      countryReset: "已切换回你所在的国家",
     },
     target: {
       title: "在哪里展示？",
@@ -268,6 +272,7 @@ export const REGIONS = {
     profile: {
       hint: "تصلك الإعلانات وعروض UrMall والإشعارات الموجّهة إلى {singular} الخاصة بك. نحفظ {singular} فقط، وليس موقعك الدقيق أبدًا.",
       matched: "مطابقة من مدينتك: {name}. اخترها للتأكيد أو اختر غيرها.",
+      countryReset: "عدت إلى بلدك",
     },
     target: {
       title: "أين يجب أن يظهر؟",
@@ -357,7 +362,8 @@ export const REGIONS = {
     },
     "profile": {
       "hint": "Anúncios, promoções UrMall e anúncios destinados ao seu {singular} chegam até você. Apenas o {singular} é salvo, nunca a sua localização exata.",
-      "matched": "Correspondente da sua cidade: {name}. Escolha-o para confirmar ou escolha outro."
+      "matched": "Correspondente da sua cidade: {name}. Escolha-o para confirmar ou escolha outro.",
+      "countryReset": "De volta ao seu país",
     },
     "target": {
       "title": "Onde deveria aparecer?",
@@ -447,7 +453,8 @@ export const REGIONS = {
     },
     "profile": {
       "hint": "आपके {singular} के लिए विज्ञापन, UrMall प्रचार और घोषणाएँ आप तक पहुँचती हैं। केवल {singular} सहेजा गया है, आपका सटीक स्थान कभी नहीं।",
-      "matched": "आपके शहर से मिलान: {name}। पुष्टि करने के लिए इसे चुनें या दूसरा चुनें।"
+      "matched": "आपके शहर से मिलान: {name}। पुष्टि करने के लिए इसे चुनें या दूसरा चुनें।",
+      "countryReset": "आपके देश पर वापस",
     },
     "target": {
       "title": "यह कहां दिखना चाहिए?",
@@ -537,7 +544,8 @@ export const REGIONS = {
     },
     "profile": {
       "hint": "আপনার {singular} এর জন্য বিজ্ঞাপন, UrMall প্রচার এবং ঘোষণা আপনার কাছে পৌঁছায়। শুধুমাত্র {singular} সংরক্ষিত হয়, আপনার সঠিক অবস্থান কখনই নয়।",
-      "matched": "আপনার শহর থেকে মিলেছে: {name}। নিশ্চিত করতে বা অন্য বাছাই করতে এটি বেছে নিন।"
+      "matched": "আপনার শহর থেকে মিলেছে: {name}। নিশ্চিত করতে বা অন্য বাছাই করতে এটি বেছে নিন।",
+      "countryReset": "আপনার দেশে ফিরে এসেছেন",
     },
     "target": {
       "title": "এটা কোথায় প্রদর্শিত হবে?",
@@ -627,7 +635,8 @@ export const REGIONS = {
     },
     "profile": {
       "hint": "Iklan, promosi UrMall, dan pengumuman yang dimaksudkan agar {singular} menjangkau Anda. Hanya {singular} yang disimpan, bukan lokasi persis Anda.",
-      "matched": "Cocok dari kota Anda: {name}. Pilih untuk mengonfirmasi atau pilih yang lain."
+      "matched": "Cocok dari kota Anda: {name}. Pilih untuk mengonfirmasi atau pilih yang lain.",
+      "countryReset": "Kembali ke negara Anda",
     },
     "target": {
       "title": "Dimana seharusnya itu muncul?",
@@ -717,7 +726,8 @@ export const REGIONS = {
     },
     "profile": {
       "hint": "آپ کے {singular} کے لیے اشتہارات، UrMall پروموشنز اور اعلانات آپ تک پہنچتے ہیں۔ صرف {singular} کو محفوظ کیا گیا ہے، آپ کا صحیح مقام کبھی نہیں۔",
-      "matched": "آپ کے شہر سے مماثل: {name}۔ تصدیق کرنے کے لیے اسے منتخب کریں یا دوسرا چنیں۔"
+      "matched": "آپ کے شہر سے مماثل: {name}۔ تصدیق کرنے کے لیے اسے منتخب کریں یا دوسرا چنیں۔",
+      "countryReset": "آپ کے ملک پر واپس",
     },
     "target": {
       "title": "یہ کہاں ظاہر ہونا چاہئے؟",
@@ -807,7 +817,8 @@ export const REGIONS = {
     },
     "profile": {
       "hint": "Рекламные объявления, рекламные акции UrMall и объявления, предназначенные для вашего {singular}, доходят до вас. Сохраняется только {singular}, а не ваше точное местоположение.",
-      "matched": "Соответствует вашему городу: {name}. Выберите его для подтверждения или выберите другой."
+      "matched": "Соответствует вашему городу: {name}. Выберите его для подтверждения или выберите другой.",
+      "countryReset": "Снова ваша страна",
     },
     "target": {
       "title": "Где оно должно появиться?",
@@ -898,7 +909,8 @@ export const REGIONS = {
     },
     "profile": {
       "hint": "{singular} 向けの広告、UrMall プロモーション、お知らせが届きます。 {singular} のみが保存され、正確な場所は保存されません。",
-      "matched": "あなたの都市から一致しました: {name}。それを選択して確認するか、別のものを選択します。"
+      "matched": "あなたの都市から一致しました: {name}。それを選択して確認するか、別のものを選択します。",
+      "countryReset": "現在地の国に戻しました",
     },
     "target": {
       "title": "どこに表示されるべきですか?",
@@ -988,7 +1000,8 @@ export const REGIONS = {
     },
     "profile": {
       "hint": "तुमच्या {singular} साठी असलेल्या जाहिराती, UrMall जाहिराती आणि घोषणा तुमच्यापर्यंत पोहोचतात. फक्त {singular} जतन केले आहे, तुमचे अचूक स्थान कधीही नाही.",
-      "matched": "तुमच्या शहरातून जुळले: {name}. पुष्टी करण्यासाठी ते निवडा किंवा दुसरा निवडा."
+      "matched": "तुमच्या शहरातून जुळले: {name}. पुष्टी करण्यासाठी ते निवडा किंवा दुसरा निवडा.",
+      "countryReset": "तुमच्या देशावर परत",
     },
     "target": {
       "title": "ते कुठे दिसावे?",
@@ -1078,7 +1091,8 @@ export const REGIONS = {
     },
     "profile": {
       "hint": "Quảng cáo, UrMall khuyến mãi và thông báo dành cho {singular} sẽ đến với bạn. Chỉ {singular} được lưu, không bao giờ lưu vị trí chính xác của bạn.",
-      "matched": "Phù hợp với thành phố của bạn: {name}. Chọn nó để xác nhận hoặc chọn cái khác."
+      "matched": "Phù hợp với thành phố của bạn: {name}. Chọn nó để xác nhận hoặc chọn cái khác.",
+      "countryReset": "Đã về quốc gia của bạn",
     },
     "target": {
       "title": "Nó nên xuất hiện ở đâu?",
@@ -1168,7 +1182,8 @@ export const REGIONS = {
     },
     "profile": {
       "hint": "Anzeigen, UrMall-Aktionen und Ankündigungen, die für Ihr {singular} bestimmt sind, erreichen Sie. Es wird nur der {singular} gespeichert, niemals Ihr genauer Standort.",
-      "matched": "Übereinstimmung aus Ihrer Stadt: {name}. Wählen Sie es zur Bestätigung aus oder wählen Sie ein anderes aus."
+      "matched": "Übereinstimmung aus Ihrer Stadt: {name}. Wählen Sie es zur Bestätigung aus oder wählen Sie ein anderes aus.",
+      "countryReset": "Zurück zu deinem Land",
     },
     "target": {
       "title": "Wo soll es erscheinen?",

@@ -1,8 +1,10 @@
-import { useMemo, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { Check, Globe2, LoaderCircle } from "lucide-react";
 
 import { GLOBAL_COUNTRY_PROFILES, getActiveCountryProfile, storeCountryContext } from "../../../data/globalCountryProfiles";
-import { saveAccountCountry } from "../../../Backend/services/onboardingService";
+import { ACCOUNT_COUNTRY_CHANGED_EVENT, saveAccountCountry } from "../../../Backend/services/onboardingService";
+import { rememberCountryChoice } from "../../../data/countryChoice";
+import supabase from "../../../Backend/lib/supabaseClient";
 import { isGuestMode } from "../../../Backend/services/guestModeService";
 import { shortErrorToast } from "../../../Backend/services/friendlyErrorService";
 import { showToast } from "../../../Backend/services/toastService";
@@ -28,7 +30,30 @@ export default function CountryRegionSettings() {
   useI18n();
   const [iso, setIso] = useState(() => getActiveCountryProfile().iso2);
   const [status, setStatus] = useState("idle");
+  // Only a country changed here may clear a district from another country;
+  // a mismatch on opening (an old device value) must never erase it.
+  const [changedHere, setChangedHere] = useState(false);
   const { served, others } = useMemo(buildCountryOptions, []);
+
+  // Show the account's saved country, not a device value that background
+  // detection may have changed.
+  useEffect(() => {
+    if (isGuestMode()) return undefined;
+    let alive = true;
+    supabase.auth.getUser().then(({ data }) => {
+      const saved = getActiveCountryProfile(data?.user?.user_metadata?.country_code || "")?.iso2;
+      if (alive && data?.user?.user_metadata?.country_code && saved) setIso(saved);
+    }).catch(() => {});
+    function onCountryChanged(event) {
+      const next = event?.detail?.iso2;
+      if (next) setIso(next);
+    }
+    window.addEventListener(ACCOUNT_COUNTRY_CHANGED_EVENT, onCountryChanged);
+    return () => {
+      alive = false;
+      window.removeEventListener(ACCOUNT_COUNTRY_CHANGED_EVENT, onCountryChanged);
+    };
+  }, []);
 
   async function changeCountry(nextIso) {
     if (!nextIso || nextIso === iso) return;
@@ -43,6 +68,9 @@ export default function CountryRegionSettings() {
       } else {
         await saveAccountCountry(nextIso);
       }
+      // Kept until KunThai has been unused for a while (see countryChoice.js).
+      rememberCountryChoice(nextIso);
+      setChangedHere(true);
       setStatus("saved");
       showToast("Country has been updated", "success");
     } catch (error) {
@@ -98,7 +126,7 @@ export default function CountryRegionSettings() {
 
       {/* Remounts on a country change so the district list follows it (a
           district from the old country is cleared by the card itself). */}
-      {isGuestMode() ? null : <MyRegionCard key={iso} country={iso} />}
+      {isGuestMode() ? null : <MyRegionCard key={iso} country={iso} clearForeignChoice={changedHere} />}
     </div>
   );
 }

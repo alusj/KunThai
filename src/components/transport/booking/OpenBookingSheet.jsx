@@ -46,6 +46,7 @@ import { getBookingLocationInputValue, normalizeBookingLocationPoint } from "./b
 import { useI18n, t } from "../../../i18n";
 import { uiText as translateUi } from "../../../i18n/index.js";
 import { useLateHourGate } from "./useLateHourGate";
+import { useTransportPassengerSetting } from "../shared/useTransportPassengerSetting";
 
 const RIDE_ICONS = { Motorcycle: FaMotorcycle, Tricycle: MdElectricRickshaw, Car: FaCarSide };
 const DELIVERY_ICONS = { Motorcycle: FaMotorcycle, Tricycle: MdElectricRickshaw, Car: FaShuttleVan };
@@ -140,7 +141,10 @@ export default function OpenBookingSheet({ open, draft = null, onClose, onOpenTr
   const [routeLoading, setRouteLoading] = useState(false);
   const [routeMessage, setRouteMessage] = useState("");
   const [searchCenter, setSearchCenter] = useState(null);
-  const [savedPlaces, setSavedPlaces] = useState(getTransportSavedPlaces);
+  const [storedSavedPlaces, setSavedPlaces] = useState(getTransportSavedPlaces);
+  // Settings → UrRide → Saved place suggestions: off hides them in the form.
+  const savedPlaceSuggestions = useTransportPassengerSetting("savedPlaceSuggestions");
+  const savedPlaces = savedPlaceSuggestions ? storedSavedPlaces : [];
   const [areaPicker, setAreaPicker] = useState(null);
   const [priceFleets, setPriceFleets] = useState([]);
   const [pricesLoading, setPricesLoading] = useState(false);

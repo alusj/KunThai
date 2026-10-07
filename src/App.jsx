@@ -2,6 +2,7 @@ import { Suspense, useCallback, useEffect, useLayoutEffect, useMemo, useRef, use
 import { HiOutlineCamera, HiOutlineLightBulb, HiOutlineXMark } from "react-icons/hi2";
 
 import { useAuth } from "./Backend/hooks/useAuth";
+import { useCountryChoiceExpiry } from "./Backend/hooks/useCountryChoiceExpiry";
 import { useOnboarding } from "./Backend/hooks/useOnboarding";
 import BottomTabs from "./components/BottomTabs";
 import OnboardingFlow from "./components/onboarding/OnboardingFlow";
@@ -607,6 +608,10 @@ export default function App() {
     const timeout = window.setTimeout(() => setOnboardingReveal(null), 900);
     return () => window.clearTimeout(timeout);
   }, [onboardingComplete, onboardingReveal]);
+
+  // A country picked in Settings resets after KunThai has been unused for a
+  // while (countryChoice.js).
+  useCountryChoiceExpiry({ ready: !loading, signedIn: Boolean(user) && !guestSession });
 
   // Bind the native OAuth deep-link handlers once for the whole app session
   // (no-op on the web). Registering here — not in Login — means the callback is

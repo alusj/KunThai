@@ -12,7 +12,7 @@ import {
   uploadTransportPublicImage,
   uploadTransportVerificationDocument,
 } from "./transportPublicMediaService";
-import { storeCountryContext } from "../../data/globalCountryProfiles";
+import { storeDetectedCountryContext } from "../../data/globalCountryProfiles";
 import {
   BusinessPlanLimitError,
   assertBusinessCapacity,
@@ -649,7 +649,7 @@ function normalizeCompanyAccount(input = {}, userId = "") {
     savedAt: company.savedAt || company.updated_at || company.created_at || new Date().toISOString(),
     storageMode: input.storageMode || company.storageMode || "local",
   };
-  if (normalized.country) storeCountryContext(normalized.country);
+  if (normalized.country) storeDetectedCountryContext(normalized.country);
   return normalized;
 }
 

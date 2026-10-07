@@ -9,6 +9,7 @@ export const DEFAULT_COUNTRY_ISO = "US";
 import { getEmergencyContacts } from "./emergencyContacts.js";
 import { INTERNATIONAL_COUNTRY_DIALING_PROFILES } from "./internationalCountryDialingProfiles.js";
 import { TIMEZONE_COUNTRIES } from "./timezoneCountries.js";
+import { hasCountryChoice, rememberDetectedCountry } from "./countryChoice.js";
 
 const CURATED_GLOBAL_COUNTRY_PROFILES = [
   {
@@ -797,6 +798,17 @@ export function storeCountryContext(value) {
   }
 
   return iso2;
+}
+
+// For background detection (GPS, reverse geocoding, loaded records): records
+// where the person is, but never replaces a country they picked by hand in
+// Settings. Returns the stored ISO, or "" when the hand-picked one was kept.
+export function storeDetectedCountryContext(value) {
+  const iso2 = normalizeCountryIso(value);
+  if (!iso2) return "";
+  rememberDetectedCountry(iso2);
+  if (hasCountryChoice()) return "";
+  return storeCountryContext(iso2);
 }
 
 // The browser's language region is deliberately NOT used as a country: most

@@ -1,4 +1,4 @@
-import { normalizeCountryIso, storeCountryContext } from "../../data/globalCountryProfiles";
+import { normalizeCountryIso, storeDetectedCountryContext } from "../../data/globalCountryProfiles";
 
 // Country-only reverse lookup for a single coordinate, returning a normalized
 // ISO-2 (or "" when it cannot be determined). This is the primitive the border
@@ -52,7 +52,7 @@ export async function detectCountryFromCoords(lat, lng) {
 
     const countryCode = String(countryFeature?.properties?.country_code || "").toUpperCase() || "";
     const westAfricaCountryCode = normalizeCountryIso(countryCode);
-    if (westAfricaCountryCode) storeCountryContext(westAfricaCountryCode);
+    if (westAfricaCountryCode) storeDetectedCountryContext(westAfricaCountryCode);
 
     return {
       countryCode,
