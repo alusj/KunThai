@@ -4,7 +4,10 @@ import test from "node:test";
 import { decodeTokenPayload, isOversizedToken, oversizedMetadataPatch } from "./sessionSize.js";
 
 function token(payload) {
-  const encode = (value) => Buffer.from(JSON.stringify(value)).toString("base64url");
+  const encode = (value) => {
+    const binary = String.fromCharCode(...new TextEncoder().encode(JSON.stringify(value)));
+    return btoa(binary).replace(/\+/g, "-").replace(/\//g, "_").replace(/=+$/, "");
+  };
   return `${encode({ alg: "HS256" })}.${encode(payload)}.sig`;
 }
 
