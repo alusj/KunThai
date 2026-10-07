@@ -1,6 +1,7 @@
 import supabase from "../../lib/supabaseClient";
 import * as tus from "tus-js-client";
 import { EXPLORE_MEDIA_BUCKET } from "./constants";
+import { apiUrl } from "../../lib/apiUrl";
 
 export const MAX_EXPLORE_VIDEO_BYTES = 50 * 1024 * 1024;
 const RESUMABLE_UPLOAD_THRESHOLD_BYTES = 6 * 1024 * 1024;
@@ -282,16 +283,55 @@ async function secureFileBytes(file) {
   }
 }
 
+// A one-time signed upload URL from KunThai's server (api/explore-upload).
+// Storage checks the ticket instead of the person's own token, which it
+// refused on some accounts ("Invalid Compact JWS").
+async function requestUploadTicket(file, mediaType) {
+  const { data } = await supabase.auth.getSession();
+  const accessToken = data?.session?.access_token;
+  if (!accessToken) throw new Error("Sign in again before uploading this video.");
+  let response;
+  try {
+    response = await fetch(apiUrl("/api/explore-upload"), {
+      method: "POST",
+      headers: { "content-type": "application/json", authorization: `Bearer ${accessToken}` },
+      body: JSON.stringify({ mediaType, contentType: file.type || "", size: Number(file.size || 0) }),
+    });
+  } catch {
+    throw Object.assign(new Error("Load failed"), { status: 0 });
+  }
+  const text = await response.text().catch(() => "");
+  let body = null;
+  try {
+    body = JSON.parse(text);
+  } catch {
+    body = null;
+  }
+  if (!response.ok || !body?.ok || !body?.token || !body?.path) {
+    throw Object.assign(new Error(String(body?.message || `ticket refused (${response.status})`)), {
+      status: Number(response.status || 0),
+      ticketCode: String(body?.code || ""),
+    });
+  }
+  return body;
+}
+
 // One-request upload with real progress, used for small videos and when the
 // resumable upload cannot start. Reads the answer as text, so an HTML error
 // page is reported by its status instead of Safari's "did not match the
 // expected pattern".
-async function uploadMediaFileDirect(file, filePath, options = {}) {
-  const { data, error } = await supabase.auth.getSession();
-  const accessToken = data?.session?.access_token;
-  if (error || !accessToken) throw error || new Error("Sign in again before uploading this video.");
+async function uploadMediaFileDirect(file, filePath, options = {}, ticket = null) {
+  let accessToken = "";
+  if (!ticket) {
+    const { data, error } = await supabase.auth.getSession();
+    accessToken = data?.session?.access_token;
+    if (error || !accessToken) throw error || new Error("Sign in again before uploading this video.");
+  }
   const base = String(supabase.supabaseUrl).replace(/\/+$/, "");
   const objectPath = filePath.split("/").map(encodeURIComponent).join("/");
+  const target = ticket
+    ? `${base}/storage/v1/object/upload/sign/${EXPLORE_MEDIA_BUCKET}/${objectPath}?token=${encodeURIComponent(ticket.token)}`
+    : `${base}/storage/v1/object/${EXPLORE_MEDIA_BUCKET}/${objectPath}`;
 
   return new Promise((resolve, reject) => {
     const xhr = new XMLHttpRequest();
@@ -315,8 +355,8 @@ async function uploadMediaFileDirect(file, filePath, options = {}) {
       finish(reject, stalled);
     }, 5_000);
 
-    xhr.open("POST", `${base}/storage/v1/object/${EXPLORE_MEDIA_BUCKET}/${objectPath}`);
-    xhr.setRequestHeader("authorization", `Bearer ${accessToken}`);
+    xhr.open(ticket ? "PUT" : "POST", target);
+    if (accessToken) xhr.setRequestHeader("authorization", `Bearer ${accessToken}`);
     if (supabase.supabaseKey) xhr.setRequestHeader("apikey", supabase.supabaseKey);
     xhr.setRequestHeader("x-upsert", "false");
     xhr.setRequestHeader("cache-control", "max-age=31536000");
@@ -370,9 +410,43 @@ export async function uploadMediaDataUrl(dataUrl, mediaType, userId) {
   return uploadMediaFile(blob, mediaType, userId);
 }
 
-// Videos: resumable upload for anything over 6 MB (continues after drops and
-// stalls), and the one-request upload for small videos or when the resumable
-// one cannot start at all.
+// Upload with a server ticket. Resolves with the public URL, or with "" when
+// this way is not available (the caller then tries the other ways); the
+// failure codes are added to `codes`.
+async function uploadWithTicket(file, mediaType, options, codes) {
+  let ticket;
+  try {
+    ticket = await requestUploadTicket(file, mediaType);
+  } catch (ticketError) {
+    if (ticketError?.ticketCode === "too_large") throw normalizeUploadError(new Error("maximum allowed size"), file);
+    codes.push(uploadFailureCode("A", ticketError));
+    return { url: "", reason: "" };
+  }
+  let reason = "";
+  for (let attempt = 0; attempt < 3; attempt += 1) {
+    try {
+      await uploadMediaFileDirect(file, ticket.path, options, ticket);
+      return { url: ticket.publicUrl || supabase.storage.from(EXPLORE_MEDIA_BUCKET).getPublicUrl(ticket.path)?.data?.publicUrl || "", reason: "" };
+    } catch (uploadError) {
+      codes.push(uploadFailureCode("S", uploadError));
+      if (isSizeLimitError(uploadError)) throw normalizeUploadError(uploadError, file);
+      const message = String(uploadError?.message || "");
+      if (uploadError?.status && !/^upload refused/.test(message)) reason = message.replace(/[^\w ./-]/g, "").slice(0, 80);
+      const status = Number(uploadError?.status || 0);
+      const retryable = !status || status === 408 || status === 429 || status >= 500 || uploadError?.code === "UPLOAD_STALLED";
+      if (!retryable || attempt === 2) break;
+      options.onProgress?.(0, Number(file.size || 0));
+      options.onResume?.(attempt + 1);
+      await waitToResume(RESUME_DELAYS_MS[attempt]);
+    }
+  }
+  options.onProgress?.(0, Number(file.size || 0));
+  return { url: "", reason };
+}
+
+// Videos: a server ticket first; then the resumable upload for anything over
+// 6 MB (continues after drops and stalls), and the one-request upload for
+// small videos or when the resumable one cannot start at all.
 async function uploadVideoFile(file, filePath, options = {}) {
   const codes = [];
   let serverReason = "";
@@ -386,6 +460,10 @@ async function uploadVideoFile(file, filePath, options = {}) {
     friendly.code = "UPLOAD_FAILED";
     throw friendly;
   };
+
+  const viaTicket = await uploadWithTicket(file, "video", options, codes);
+  if (viaTicket.url) return viaTicket.url;
+  serverReason = viaTicket.reason;
 
   if (Number(file.size || 0) > RESUMABLE_UPLOAD_THRESHOLD_BYTES) {
     for (const endpoint of [getDirectStorageEndpoint(), getProjectStorageEndpoint()].filter(Boolean)) {
@@ -463,6 +541,9 @@ export async function uploadMediaFile(file, mediaType, userId, options = {}) {
   if (mediaType === "video") {
     return uploadVideoFile(await secureFileBytes(file), filePath, options);
   }
+
+  const viaTicket = await uploadWithTicket(file, mediaType, options, []);
+  if (viaTicket.url) return viaTicket.url;
 
   let lastError = null;
   for (let attempt = 0; attempt < 3; attempt += 1) {
