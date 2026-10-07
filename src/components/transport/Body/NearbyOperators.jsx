@@ -15,6 +15,7 @@ import SaveOperatorButton from "../SaveOperatorButton";
 import { t as i18nText } from "../../../i18n/index";
 import { uiText as translateUi, useI18n as useUiLocale } from "../../../i18n/index.js";
 import { inlineErrorMessage } from "../../../Backend/services/friendlyErrorService";
+import GrowLocalShareCard from "../../shared/GrowLocalShareCard";
 
 function matchesQuery(operator, query) {
   const term = String(query || "").trim().toLowerCase();
@@ -161,7 +162,10 @@ export default function NearbyOperators({
       ) : loading && !operators.length ? (
         <EmptyState title={t("urride.operators.loadingTitle")} body={t("urride.operators.loadingBody")} />
       ) : operators.length === 0 ? (
-        <EmptyState title={t("urride.operators.emptyTitle")} body={t("urride.operators.emptyBody")} />
+        <div className="grid gap-3">
+          <EmptyState title={t("urride.operators.emptyTitle")} body={t("urride.operators.emptyBody")} />
+          <GrowLocalShareCard service="urride" />
+        </div>
       ) : (
       <>
       <div className="grid gap-3 lg:grid-cols-3 2xl:grid-cols-6">

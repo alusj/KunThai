@@ -9,6 +9,20 @@ import { ADDRESS_BOOK } from "./addressBook";
 
 export const TRANSLATIONS = {
   en: {
+    growLocal: {
+      eyebrowUrMall: "Grow UrMall near you",
+      eyebrowUrRide: "Grow UrRide near you",
+      badge: "+5 credits each",
+      titleUrMall: "Bring {country} onto UrMall",
+      titleUrRide: "Bring operators near you onto UrRide",
+      titleUrRideDelivery: "Bring delivery riders near you onto UrRide",
+      body: "Share your invite link with friends, sellers and operators around you. Every verified person who joins through it earns you 5 Visibility Credits, and your area gets more useful for everyone.",
+      step1: "Share your link",
+      step2: "They join and verify",
+      step3: "You get 5 credits",
+      share: "Share invite link",
+      copied: "Invite link copied",
+    },
     messagingNotice: {
       supervised: "Supervised",
       readMore: "Read more",
@@ -3824,6 +3838,20 @@ export const TRANSLATIONS = {
   },
 
   fr: {
+    growLocal: {
+      eyebrowUrMall: "Développez UrMall près de chez vous",
+      eyebrowUrRide: "Développez UrRide près de chez vous",
+      badge: "+5 crédits chacun",
+      titleUrMall: "Faites venir {country} sur UrMall",
+      titleUrRide: "Faites venir les opérateurs proches sur UrRide",
+      titleUrRideDelivery: "Faites venir les livreurs proches sur UrRide",
+      body: "Partagez votre lien d'invitation avec vos amis, vendeurs et opérateurs autour de vous. Chaque personne vérifiée qui s'inscrit grâce à lui vous rapporte 5 crédits de visibilité, et votre quartier devient plus utile pour tous.",
+      step1: "Partagez votre lien",
+      step2: "Ils s'inscrivent et se vérifient",
+      step3: "Vous recevez 5 crédits",
+      share: "Partager le lien d'invitation",
+      copied: "Lien d'invitation copié",
+    },
     messagingNotice: {
       supervised: "Supervisé",
       readMore: "En savoir plus",
@@ -7642,6 +7670,20 @@ export const TRANSLATIONS = {
   },
 
   es: {
+    growLocal: {
+      eyebrowUrMall: "Haz crecer UrMall cerca de ti",
+      eyebrowUrRide: "Haz crecer UrRide cerca de ti",
+      badge: "+5 créditos cada uno",
+      titleUrMall: "Trae a {country} a UrMall",
+      titleUrRide: "Trae a los operadores cercanos a UrRide",
+      titleUrRideDelivery: "Trae a los repartidores cercanos a UrRide",
+      body: "Comparte tu enlace de invitación con amigos, vendedores y operadores a tu alrededor. Cada persona verificada que se une con él te da 5 créditos de visibilidad, y tu zona se vuelve más útil para todos.",
+      step1: "Comparte tu enlace",
+      step2: "Se unen y se verifican",
+      step3: "Recibes 5 créditos",
+      share: "Compartir enlace de invitación",
+      copied: "Enlace de invitación copiado",
+    },
     messagingNotice: {
       supervised: "Supervisado",
       readMore: "Leer más",
@@ -11492,6 +11534,20 @@ export const TRANSLATIONS = {
   },
 
   zh: {
+    growLocal: {
+      eyebrowUrMall: "让 UrMall 在你身边成长",
+      eyebrowUrRide: "让 UrRide 在你身边成长",
+      badge: "每人 +5 积分",
+      titleUrMall: "邀请 {country} 加入 UrMall",
+      titleUrRide: "邀请你附近的司机加入 UrRide",
+      titleUrRideDelivery: "邀请你附近的配送员加入 UrRide",
+      body: "把你的邀请链接分享给身边的朋友、卖家和司机。每有一位通过链接加入并完成验证的人，你就获得 5 个曝光积分，你所在的地区也会对大家更有用。",
+      step1: "分享你的链接",
+      step2: "他们加入并验证",
+      step3: "你获得 5 个积分",
+      share: "分享邀请链接",
+      copied: "邀请链接已复制",
+    },
     messagingNotice: {
       supervised: "受监管",
       readMore: "了解更多",
@@ -15343,6 +15399,20 @@ export const TRANSLATIONS = {
 
 
   ar: {
+    growLocal: {
+      eyebrowUrMall: "وسّع UrMall من حولك",
+      eyebrowUrRide: "وسّع UrRide من حولك",
+      badge: "+5 أرصدة لكل شخص",
+      titleUrMall: "ادعُ {country} إلى UrMall",
+      titleUrRide: "ادعُ المشغّلين القريبين إلى UrRide",
+      titleUrRideDelivery: "ادعُ مندوبي التوصيل القريبين إلى UrRide",
+      body: "شارك رابط دعوتك مع أصدقائك والبائعين والمشغّلين من حولك. كل شخص موثّق ينضم عبره يمنحك 5 أرصدة ظهور، وتصبح منطقتك أكثر فائدة للجميع.",
+      step1: "شارك رابطك",
+      step2: "ينضمون ويوثّقون حساباتهم",
+      step3: "تحصل على 5 أرصدة",
+      share: "مشاركة رابط الدعوة",
+      copied: "تم نسخ رابط الدعوة",
+    },
     messagingNotice: {
       supervised: "خاضعة للإشراف",
       readMore: "اقرأ المزيد",
@@ -19241,6 +19311,20 @@ export const TRANSLATIONS = {
   },
 
   pt: {
+    growLocal: {
+      eyebrowUrMall: "Faça o UrMall crescer perto de você",
+      eyebrowUrRide: "Faça o UrRide crescer perto de você",
+      badge: "+5 créditos cada",
+      titleUrMall: "Traga {country} para o UrMall",
+      titleUrRide: "Traga os operadores próximos para o UrRide",
+      titleUrRideDelivery: "Traga os entregadores próximos para o UrRide",
+      body: "Compartilhe seu link de convite com amigos, vendedores e operadores ao seu redor. Cada pessoa verificada que entrar por ele rende 5 créditos de visibilidade, e sua região fica mais útil para todos.",
+      step1: "Compartilhe seu link",
+      step2: "Eles entram e se verificam",
+      step3: "Você ganha 5 créditos",
+      share: "Compartilhar link de convite",
+      copied: "Link de convite copiado",
+    },
     messagingNotice: {
       supervised: "Supervisionado",
       readMore: "Saiba mais",
@@ -23087,6 +23171,20 @@ export const TRANSLATIONS = {
   },
 
   hi: {
+    growLocal: {
+      eyebrowUrMall: "अपने आस-पास UrMall बढ़ाएँ",
+      eyebrowUrRide: "अपने आस-पास UrRide बढ़ाएँ",
+      badge: "हर व्यक्ति पर +5 क्रेडिट",
+      titleUrMall: "{country} को UrMall पर लाएँ",
+      titleUrRide: "आस-पास के ऑपरेटरों को UrRide पर लाएँ",
+      titleUrRideDelivery: "आस-पास के डिलीवरी राइडरों को UrRide पर लाएँ",
+      body: "अपना इनवाइट लिंक आस-पास के दोस्तों, विक्रेताओं और ऑपरेटरों के साथ शेयर करें। इससे जुड़ने वाला हर सत्यापित व्यक्ति आपको 5 विज़िबिलिटी क्रेडिट दिलाता है, और आपका इलाका सबके लिए ज़्यादा उपयोगी बनता है।",
+      step1: "अपना लिंक शेयर करें",
+      step2: "वे जुड़ते और सत्यापित होते हैं",
+      step3: "आपको 5 क्रेडिट मिलते हैं",
+      share: "इनवाइट लिंक शेयर करें",
+      copied: "इनवाइट लिंक कॉपी हुआ",
+    },
     messagingNotice: {
       supervised: "निगरानी में",
       readMore: "और पढ़ें",
@@ -26933,6 +27031,20 @@ export const TRANSLATIONS = {
   },
 
   bn: {
+    growLocal: {
+      eyebrowUrMall: "আপনার কাছে UrMall বাড়ান",
+      eyebrowUrRide: "আপনার কাছে UrRide বাড়ান",
+      badge: "প্রতিজনে +5 ক্রেডিট",
+      titleUrMall: "{country}-কে UrMall-এ আনুন",
+      titleUrRide: "কাছের অপারেটরদের UrRide-এ আনুন",
+      titleUrRideDelivery: "কাছের ডেলিভারি রাইডারদের UrRide-এ আনুন",
+      body: "আশেপাশের বন্ধু, বিক্রেতা ও অপারেটরদের সাথে আপনার আমন্ত্রণ লিংক শেয়ার করুন। এর মাধ্যমে যোগ দেওয়া প্রতিটি যাচাইকৃত ব্যক্তির জন্য আপনি 5 ভিজিবিলিটি ক্রেডিট পাবেন, আর আপনার এলাকা সবার জন্য আরও কাজের হবে।",
+      step1: "আপনার লিংক শেয়ার করুন",
+      step2: "তারা যোগ দিয়ে যাচাই করেন",
+      step3: "আপনি 5 ক্রেডিট পান",
+      share: "আমন্ত্রণ লিংক শেয়ার করুন",
+      copied: "আমন্ত্রণ লিংক কপি হয়েছে",
+    },
     messagingNotice: {
       supervised: "তত্ত্বাবধানে",
       readMore: "আরও পড়ুন",
@@ -30779,6 +30891,20 @@ export const TRANSLATIONS = {
   },
 
   id: {
+    growLocal: {
+      eyebrowUrMall: "Kembangkan UrMall di sekitar Anda",
+      eyebrowUrRide: "Kembangkan UrRide di sekitar Anda",
+      badge: "+5 kredit per orang",
+      titleUrMall: "Ajak {country} ke UrMall",
+      titleUrRide: "Ajak operator di sekitar Anda ke UrRide",
+      titleUrRideDelivery: "Ajak kurir di sekitar Anda ke UrRide",
+      body: "Bagikan tautan undangan Anda kepada teman, penjual, dan operator di sekitar. Setiap orang terverifikasi yang bergabung lewat tautan itu memberi Anda 5 Kredit Visibilitas, dan area Anda jadi lebih berguna bagi semua.",
+      step1: "Bagikan tautan Anda",
+      step2: "Mereka bergabung dan verifikasi",
+      step3: "Anda dapat 5 kredit",
+      share: "Bagikan tautan undangan",
+      copied: "Tautan undangan disalin",
+    },
     messagingNotice: {
       supervised: "Diawasi",
       readMore: "Baca selengkapnya",
@@ -34625,6 +34751,20 @@ export const TRANSLATIONS = {
   },
 
   ur: {
+    growLocal: {
+      eyebrowUrMall: "اپنے قریب UrMall بڑھائیں",
+      eyebrowUrRide: "اپنے قریب UrRide بڑھائیں",
+      badge: "ہر شخص پر +5 کریڈٹ",
+      titleUrMall: "{country} کو UrMall پر لائیں",
+      titleUrRide: "قریبی آپریٹرز کو UrRide پر لائیں",
+      titleUrRideDelivery: "قریبی ڈیلیوری رائیڈرز کو UrRide پر لائیں",
+      body: "اپنا دعوتی لنک آس پاس کے دوستوں، فروخت کنندگان اور آپریٹرز کے ساتھ شیئر کریں۔ اس کے ذریعے شامل ہونے والا ہر تصدیق شدہ شخص آپ کو 5 وزیبلٹی کریڈٹ دلاتا ہے، اور آپ کا علاقہ سب کے لیے زیادہ مفید بنتا ہے۔",
+      step1: "اپنا لنک شیئر کریں",
+      step2: "وہ شامل ہو کر تصدیق کرتے ہیں",
+      step3: "آپ کو 5 کریڈٹ ملتے ہیں",
+      share: "دعوتی لنک شیئر کریں",
+      copied: "دعوتی لنک کاپی ہو گیا",
+    },
     messagingNotice: {
       supervised: "زیرِ نگرانی",
       readMore: "مزید پڑھیں",
@@ -38471,6 +38611,20 @@ export const TRANSLATIONS = {
   },
 
   ru: {
+    growLocal: {
+      eyebrowUrMall: "Развивайте UrMall рядом с вами",
+      eyebrowUrRide: "Развивайте UrRide рядом с вами",
+      badge: "+5 кредитов за каждого",
+      titleUrMall: "Приведите {country} в UrMall",
+      titleUrRide: "Приведите водителей рядом в UrRide",
+      titleUrRideDelivery: "Приведите курьеров рядом в UrRide",
+      body: "Поделитесь пригласительной ссылкой с друзьями, продавцами и водителями вокруг. Каждый подтверждённый человек, присоединившийся по ней, приносит вам 5 кредитов видимости, а ваш район становится полезнее для всех.",
+      step1: "Поделитесь ссылкой",
+      step2: "Они регистрируются и подтверждают",
+      step3: "Вы получаете 5 кредитов",
+      share: "Поделиться приглашением",
+      copied: "Ссылка скопирована",
+    },
     messagingNotice: {
       supervised: "Под надзором",
       readMore: "Подробнее",
@@ -42318,6 +42472,20 @@ export const TRANSLATIONS = {
 
 
   ja: {
+    growLocal: {
+      eyebrowUrMall: "身近な UrMall を広げよう",
+      eyebrowUrRide: "身近な UrRide を広げよう",
+      badge: "1人ごとに+5クレジット",
+      titleUrMall: "{country} を UrMall に呼ぼう",
+      titleUrRide: "近くのオペレーターを UrRide に呼ぼう",
+      titleUrRideDelivery: "近くの配達員を UrRide に呼ぼう",
+      body: "招待リンクを周りの友達、販売者、オペレーターに共有しましょう。リンクから参加して認証を済ませた人ごとに5ビジビリティクレジットがもらえ、あなたの地域がみんなにとってより便利になります。",
+      step1: "リンクを共有",
+      step2: "相手が参加して認証",
+      step3: "5クレジット獲得",
+      share: "招待リンクを共有",
+      copied: "招待リンクをコピーしました",
+    },
     messagingNotice: {
       supervised: "監督あり",
       readMore: "詳しく見る",
@@ -46164,6 +46332,20 @@ export const TRANSLATIONS = {
   },
 
   mr: {
+    growLocal: {
+      eyebrowUrMall: "तुमच्या जवळ UrMall वाढवा",
+      eyebrowUrRide: "तुमच्या जवळ UrRide वाढवा",
+      badge: "प्रत्येकी +5 क्रेडिट",
+      titleUrMall: "{country} ला UrMall वर आणा",
+      titleUrRide: "जवळच्या ऑपरेटरना UrRide वर आणा",
+      titleUrRideDelivery: "जवळच्या डिलिव्हरी रायडरना UrRide वर आणा",
+      body: "तुमची आमंत्रण लिंक आसपासचे मित्र, विक्रेते आणि ऑपरेटर यांच्याशी शेअर करा. तिच्यामार्फत जोडलेल्या प्रत्येक सत्यापित व्यक्तीमागे तुम्हाला 5 व्हिजिबिलिटी क्रेडिट मिळतात, आणि तुमचा भाग सर्वांसाठी अधिक उपयोगी होतो.",
+      step1: "तुमची लिंक शेअर करा",
+      step2: "ते जोडले जाऊन सत्यापित होतात",
+      step3: "तुम्हाला 5 क्रेडिट मिळतात",
+      share: "आमंत्रण लिंक शेअर करा",
+      copied: "आमंत्रण लिंक कॉपी झाली",
+    },
     messagingNotice: {
       supervised: "देखरेखीखाली",
       readMore: "अधिक वाचा",
@@ -50010,6 +50192,20 @@ export const TRANSLATIONS = {
   },
 
   vi: {
+    growLocal: {
+      eyebrowUrMall: "Phát triển UrMall quanh bạn",
+      eyebrowUrRide: "Phát triển UrRide quanh bạn",
+      badge: "+5 tín dụng mỗi người",
+      titleUrMall: "Đưa {country} lên UrMall",
+      titleUrRide: "Đưa tài xế gần bạn lên UrRide",
+      titleUrRideDelivery: "Đưa tài xế giao hàng gần bạn lên UrRide",
+      body: "Chia sẻ liên kết mời với bạn bè, người bán và tài xế quanh bạn. Mỗi người đã xác minh tham gia qua liên kết giúp bạn nhận 5 tín dụng hiển thị, và khu vực của bạn trở nên hữu ích hơn cho mọi người.",
+      step1: "Chia sẻ liên kết",
+      step2: "Họ tham gia và xác minh",
+      step3: "Bạn nhận 5 tín dụng",
+      share: "Chia sẻ liên kết mời",
+      copied: "Đã sao chép liên kết mời",
+    },
     messagingNotice: {
       supervised: "Có giám sát",
       readMore: "Đọc thêm",
@@ -53856,6 +54052,20 @@ export const TRANSLATIONS = {
   },
 
   de: {
+    growLocal: {
+      eyebrowUrMall: "Lass UrMall in deiner Nähe wachsen",
+      eyebrowUrRide: "Lass UrRide in deiner Nähe wachsen",
+      badge: "+5 Credits pro Person",
+      titleUrMall: "Hol {country} zu UrMall",
+      titleUrRide: "Hol Fahrer in deiner Nähe zu UrRide",
+      titleUrRideDelivery: "Hol Lieferfahrer in deiner Nähe zu UrRide",
+      body: "Teile deinen Einladungslink mit Freunden, Verkäufern und Fahrern in deiner Umgebung. Jede verifizierte Person, die darüber beitritt, bringt dir 5 Visibility Credits, und deine Gegend wird für alle nützlicher.",
+      step1: "Teile deinen Link",
+      step2: "Sie treten bei und verifizieren sich",
+      step3: "Du bekommst 5 Credits",
+      share: "Einladungslink teilen",
+      copied: "Einladungslink kopiert",
+    },
     messagingNotice: {
       supervised: "Überwacht",
       readMore: "Mehr lesen",

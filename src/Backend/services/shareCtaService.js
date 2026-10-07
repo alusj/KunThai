@@ -73,6 +73,22 @@ export async function shareUrMallLink() {
   });
 }
 
+export function getUrRideShareUrl() {
+  return appendVisibilityReferral(getAppUrl("transport"));
+}
+
+// UrRide invite (empty operator / fleet lists). The copied-link message comes
+// from the caller so it is translated.
+export async function shareUrRideLink(fallbackMessage = "UrRide link copied") {
+  await ensureVisibilityInviteCode();
+  return shareLink({
+    title: "UrRide on KunThai",
+    text: "Book rides and deliveries, or join as an operator, on UrRide by KunThai.",
+    url: getUrRideShareUrl(),
+    fallbackMessage,
+  });
+}
+
 export function kunThaiShareToastOptions(overrides = {}) {
   return {
     title: overrides.title || "Share KunThai",

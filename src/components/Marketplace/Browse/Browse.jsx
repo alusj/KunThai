@@ -43,6 +43,7 @@ import HighDemand from "./tabs/HighDemand";
 import TopRated from "./tabs/TopRated";
 import { uiText as translateUi } from "../../../i18n/index.js";
 import { inlineErrorMessage, shortErrorToast } from "../../../Backend/services/friendlyErrorService";
+import GrowLocalShareCard from "../../shared/GrowLocalShareCard";
 
 const DEFAULT_FILTERS = {
   search: "",
@@ -703,12 +704,16 @@ function MarketCoverageBanner({ catalog, visible }) {
   }
 
   return (
-    <div className="flex items-start gap-3 rounded-2xl border border-emerald-200 bg-emerald-50 px-4 py-3 text-emerald-950">
-      <Store size={18} className="mt-0.5 shrink-0 text-emerald-700" />
-      <div className="min-w-0">
-        <p className="text-sm font-black">{t("urmall.browse.marketNewTitle", { country })}</p>
-        <p className="mt-0.5 text-xs font-semibold leading-5 text-emerald-900">{t("urmall.browse.marketNewBody")}</p>
+    <div className="grid gap-3">
+      <div className="flex items-start gap-3 rounded-2xl border border-emerald-200 bg-emerald-50 px-4 py-3 text-emerald-950">
+        <Store size={18} className="mt-0.5 shrink-0 text-emerald-700" />
+        <div className="min-w-0">
+          <p className="text-sm font-black">{t("urmall.browse.marketNewTitle", { country })}</p>
+          <p className="mt-0.5 text-xs font-semibold leading-5 text-emerald-900">{t("urmall.browse.marketNewBody")}</p>
+        </div>
       </div>
+      {/* No sellers here yet: invite people, earn credits. */}
+      <GrowLocalShareCard service="urmall" country={country} />
     </div>
   );
 }

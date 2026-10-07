@@ -16,6 +16,7 @@ import { useI18n, t } from "../../i18n";
 import SaveOperatorButton from "./SaveOperatorButton";
 import { uiText as translateUi, useI18n as useUiLocale } from "../../i18n/index.js";
 import { inlineErrorMessage } from "../../Backend/services/friendlyErrorService";
+import GrowLocalShareCard from "../shared/GrowLocalShareCard";
 
 function filterFleetsForSelection(items, selection) {
   return selection.verifiedOnly
@@ -211,9 +212,15 @@ export default function FleetListScreen({ selection, onBack, onViewCompany, onVi
         ) : loading && !fleets.length ? (
           <EmptyState title={t("urride.fleetList.loadingTitle")} body={t("urride.fleetList.loadingBody")} />
         ) : fleets.length === 0 && nearby.status === "nearby" && !nearby.fresh.length ? (
-          <EmptyState title={t("urride.fleetList.noNearbyTitle")} body={t("urride.fleetList.noNearbyBody")} />
+          <div className="grid gap-3">
+            <EmptyState title={t("urride.fleetList.noNearbyTitle")} body={t("urride.fleetList.noNearbyBody")} />
+            <GrowLocalShareCard service="urride" delivery={selection.mode === "delivery"} />
+          </div>
         ) : fleets.length === 0 && !nearby.fresh.length ? (
-          <EmptyState title={t("urride.fleetList.emptyTitle")} body={t("urride.fleetList.emptyBody")} />
+          <div className="grid gap-3">
+            <EmptyState title={t("urride.fleetList.emptyTitle")} body={t("urride.fleetList.emptyBody")} />
+            <GrowLocalShareCard service="urride" delivery={selection.mode === "delivery"} />
+          </div>
         ) : (
           <div className="grid gap-3 2xl:grid-cols-2">
             {fleets.map((fleet) => (
