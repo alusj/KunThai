@@ -9,6 +9,11 @@ import { ADDRESS_BOOK } from "./addressBook";
 
 export const TRANSLATIONS = {
   en: {
+    sellerGuard: {
+      orderChanged: "This order has changed or you can't edit it. Refresh and try again.",
+      deleteOrderConfirm: "Delete this cancelled order? This can't be undone.",
+      productNotDeleted: "This product wasn't deleted. Only the owner or an admin with product access can delete it.",
+    },
     postCard: {
       cautionTitle: "Posting rules",
       caution: "Upload a video of up to 15 seconds and 50 MB, or a photo.",
@@ -3846,6 +3851,11 @@ export const TRANSLATIONS = {
   },
 
   fr: {
+    sellerGuard: {
+      orderChanged: "Cette commande a changé ou vous ne pouvez pas la modifier. Actualisez et réessayez.",
+      deleteOrderConfirm: "Supprimer cette commande annulée ? Cette action est définitive.",
+      productNotDeleted: "Ce produit n'a pas été supprimé. Seul le propriétaire ou un admin avec l'accès aux produits peut le supprimer.",
+    },
     postCard: {
       cautionTitle: "Règles de publication",
       caution: "Ajoutez une vidéo de 15 secondes et 50 Mo maximum, ou une photo.",
@@ -7686,6 +7696,11 @@ export const TRANSLATIONS = {
   },
 
   es: {
+    sellerGuard: {
+      orderChanged: "Este pedido cambió o no puedes editarlo. Actualiza e inténtalo de nuevo.",
+      deleteOrderConfirm: "¿Eliminar este pedido cancelado? No se puede deshacer.",
+      productNotDeleted: "Este producto no se eliminó. Solo el propietario o un admin con acceso a productos puede eliminarlo.",
+    },
     postCard: {
       cautionTitle: "Reglas para publicar",
       caution: "Sube un video de hasta 15 segundos y 50 MB, o una foto.",
@@ -11558,6 +11573,11 @@ export const TRANSLATIONS = {
   },
 
   zh: {
+    sellerGuard: {
+      orderChanged: "该订单已变更或您无权编辑。请刷新后重试。",
+      deleteOrderConfirm: "删除这个已取消的订单？此操作无法撤销。",
+      productNotDeleted: "产品未删除。只有店主或拥有产品权限的管理员可以删除。",
+    },
     postCard: {
       cautionTitle: "发布规则",
       caution: "上传不超过 15 秒、50 MB 的视频，或一张照片。",
@@ -15431,6 +15451,11 @@ export const TRANSLATIONS = {
 
 
   ar: {
+    sellerGuard: {
+      orderChanged: "تغيّر هذا الطلب أو لا يمكنك تعديله. حدّث الصفحة وحاول مرة أخرى.",
+      deleteOrderConfirm: "حذف هذا الطلب الملغى؟ لا يمكن التراجع عن ذلك.",
+      productNotDeleted: "لم يُحذف هذا المنتج. يمكن للمالك فقط أو لمشرف لديه صلاحية المنتجات حذفه.",
+    },
     postCard: {
       cautionTitle: "قواعد النشر",
       caution: "ارفع فيديو لا تتجاوز مدته 15 ثانية وحجمه 50 ميغابايت، أو صورة.",
@@ -19351,6 +19376,11 @@ export const TRANSLATIONS = {
   },
 
   pt: {
+    sellerGuard: {
+      orderChanged: "Este pedido mudou ou você não pode editá-lo. Atualize e tente novamente.",
+      deleteOrderConfirm: "Excluir este pedido cancelado? Isso não pode ser desfeito.",
+      productNotDeleted: "Este produto não foi excluído. Só o dono ou um admin com acesso a produtos pode excluí-lo.",
+    },
     postCard: {
       cautionTitle: "Regras para publicar",
       caution: "Envie um vídeo de até 15 segundos e 50 MB, ou uma foto.",
@@ -23219,6 +23249,11 @@ export const TRANSLATIONS = {
   },
 
   hi: {
+    sellerGuard: {
+      orderChanged: "यह ऑर्डर बदल गया है या आप इसे संपादित नहीं कर सकते। रीफ़्रेश करके फिर कोशिश करें।",
+      deleteOrderConfirm: "यह रद्द ऑर्डर हटाएँ? इसे वापस नहीं किया जा सकता।",
+      productNotDeleted: "यह उत्पाद नहीं हटाया गया। केवल मालिक या उत्पाद अनुमति वाला एडमिन इसे हटा सकता है।",
+    },
     postCard: {
       cautionTitle: "पोस्ट करने के नियम",
       caution: "15 सेकंड और 50 MB तक का वीडियो, या एक फ़ोटो अपलोड करें।",
@@ -27087,6 +27122,11 @@ export const TRANSLATIONS = {
   },
 
   bn: {
+    sellerGuard: {
+      orderChanged: "এই অর্ডারটি বদলে গেছে বা আপনি এটি সম্পাদনা করতে পারবেন না। রিফ্রেশ করে আবার চেষ্টা করুন।",
+      deleteOrderConfirm: "এই বাতিল অর্ডারটি মুছবেন? এটি আর ফেরানো যাবে না।",
+      productNotDeleted: "এই পণ্যটি মোছা হয়নি। শুধু মালিক বা পণ্য অনুমতিসহ অ্যাডমিন এটি মুছতে পারেন।",
+    },
     postCard: {
       cautionTitle: "পোস্ট করার নিয়ম",
       caution: "সর্বোচ্চ ১৫ সেকেন্ড ও ৫০ MB-এর ভিডিও, অথবা একটি ছবি আপলোড করুন।",
@@ -30955,6 +30995,11 @@ export const TRANSLATIONS = {
   },
 
   id: {
+    sellerGuard: {
+      orderChanged: "Pesanan ini sudah berubah atau Anda tidak dapat mengeditnya. Muat ulang lalu coba lagi.",
+      deleteOrderConfirm: "Hapus pesanan yang dibatalkan ini? Tindakan ini tidak bisa dibatalkan.",
+      productNotDeleted: "Produk ini tidak dihapus. Hanya pemilik atau admin dengan akses produk yang dapat menghapusnya.",
+    },
     postCard: {
       cautionTitle: "Aturan posting",
       caution: "Unggah video maksimal 15 detik dan 50 MB, atau sebuah foto.",
@@ -34823,6 +34868,11 @@ export const TRANSLATIONS = {
   },
 
   ur: {
+    sellerGuard: {
+      orderChanged: "یہ آرڈر بدل چکا ہے یا آپ اس میں ترمیم نہیں کر سکتے۔ ریفریش کر کے دوبارہ کوشش کریں۔",
+      deleteOrderConfirm: "یہ منسوخ آرڈر حذف کریں؟ یہ واپس نہیں ہو سکتا۔",
+      productNotDeleted: "یہ پروڈکٹ حذف نہیں ہوئی۔ صرف مالک یا پروڈکٹ اجازت والا ایڈمن اسے حذف کر سکتا ہے۔",
+    },
     postCard: {
       cautionTitle: "پوسٹ کرنے کے اصول",
       caution: "زیادہ سے زیادہ 15 سیکنڈ اور 50 MB کی ویڈیو، یا ایک تصویر اپ لوڈ کریں۔",
@@ -38691,6 +38741,11 @@ export const TRANSLATIONS = {
   },
 
   ru: {
+    sellerGuard: {
+      orderChanged: "Этот заказ изменился, или у вас нет прав на его изменение. Обновите и попробуйте снова.",
+      deleteOrderConfirm: "Удалить этот отменённый заказ? Это действие нельзя отменить.",
+      productNotDeleted: "Товар не удалён. Удалить его может только владелец или админ с доступом к товарам.",
+    },
     postCard: {
       cautionTitle: "Правила публикации",
       caution: "Загрузите видео до 15 секунд и 50 МБ или фото.",
@@ -42560,6 +42615,11 @@ export const TRANSLATIONS = {
 
 
   ja: {
+    sellerGuard: {
+      orderChanged: "この注文は変更されたか、編集する権限がありません。更新してもう一度お試しください。",
+      deleteOrderConfirm: "キャンセル済みのこの注文を削除しますか？元に戻せません。",
+      productNotDeleted: "この商品は削除されませんでした。削除できるのはオーナーか商品権限のある管理者だけです。",
+    },
     postCard: {
       cautionTitle: "投稿のルール",
       caution: "15秒・50MB以内の動画、または写真をアップロードしてください。",
@@ -46428,6 +46488,11 @@ export const TRANSLATIONS = {
   },
 
   mr: {
+    sellerGuard: {
+      orderChanged: "ही ऑर्डर बदलली आहे किंवा तुम्ही ती संपादित करू शकत नाही. रिफ्रेश करून पुन्हा प्रयत्न करा.",
+      deleteOrderConfirm: "ही रद्द ऑर्डर हटवायची? हे पूर्ववत करता येणार नाही.",
+      productNotDeleted: "हे उत्पादन हटवले गेले नाही. फक्त मालक किंवा उत्पादन परवानगी असलेला अ‍ॅडमिन ते हटवू शकतो.",
+    },
     postCard: {
       cautionTitle: "पोस्ट करण्याचे नियम",
       caution: "15 सेकंद आणि 50 MB पर्यंतचा व्हिडिओ, किंवा एक फोटो अपलोड करा.",
@@ -50296,6 +50361,11 @@ export const TRANSLATIONS = {
   },
 
   vi: {
+    sellerGuard: {
+      orderChanged: "Đơn hàng này đã thay đổi hoặc bạn không thể chỉnh sửa. Hãy tải lại rồi thử lại.",
+      deleteOrderConfirm: "Xóa đơn hàng đã hủy này? Không thể hoàn tác.",
+      productNotDeleted: "Sản phẩm chưa bị xóa. Chỉ chủ cửa hàng hoặc quản trị viên có quyền sản phẩm mới xóa được.",
+    },
     postCard: {
       cautionTitle: "Quy tắc đăng bài",
       caution: "Tải lên video tối đa 15 giây và 50 MB, hoặc một ảnh.",
@@ -54164,6 +54234,11 @@ export const TRANSLATIONS = {
   },
 
   de: {
+    sellerGuard: {
+      orderChanged: "Diese Bestellung hat sich geändert oder du darfst sie nicht bearbeiten. Aktualisiere und versuche es erneut.",
+      deleteOrderConfirm: "Diese stornierte Bestellung löschen? Das lässt sich nicht rückgängig machen.",
+      productNotDeleted: "Dieses Produkt wurde nicht gelöscht. Nur der Inhaber oder ein Admin mit Produktzugriff kann es löschen.",
+    },
     postCard: {
       cautionTitle: "Regeln zum Posten",
       caution: "Lade ein Video mit höchstens 15 Sekunden und 50 MB oder ein Foto hoch.",

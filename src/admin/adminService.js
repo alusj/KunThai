@@ -320,11 +320,13 @@ function collectCaseEvidence(value, path = [], collected = []) {
 
   if (typeof value !== "object") return collected;
 
-  const bucket = value.bucket || value.storageBucket || "";
-  const storagePath = value.path || value.storagePath || "";
+  // UrMall seller documents are rows with storage_bucket / storage_path
+  // (private bucket), opened with a signed link like the others.
+  const bucket = value.bucket || value.storageBucket || value.storage_bucket || "";
+  const storagePath = value.path || value.storagePath || value.storage_path || "";
   if (bucket && storagePath) {
     collected.push({
-      label: value.fileName || value.name || path.join(" / ") || "Verification document",
+      label: value.fileName || value.file_name || value.name || path.join(" / ") || "Verification document",
       bucket,
       path: storagePath,
       contentType: value.contentType || "",
@@ -333,7 +335,7 @@ function collectCaseEvidence(value, path = [], collected = []) {
   }
 
   Object.entries(value).forEach(([key, child]) => {
-    if (["bucket", "storageBucket", "path", "storagePath"].includes(key)) return;
+    if (["bucket", "storageBucket", "storage_bucket", "path", "storagePath", "storage_path"].includes(key)) return;
     collectCaseEvidence(child, [...path, key], collected);
   });
   return collected;

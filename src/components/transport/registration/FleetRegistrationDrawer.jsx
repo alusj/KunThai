@@ -228,7 +228,12 @@ export default function FleetRegistrationDrawer({ onClose, onComplete, onSaveExi
           setMaxStepReached(draft.maxStepReached || draft.step || 0);
           setOperatorId(draft.operatorId || generateOperatorId());
           setAnswers(draft.answers || {});
-          setUploads(draft.uploads || {});
+          // A saved draft keeps only file names; the files themselves are gone
+          // after a reload. Only uploads with a stored copy are restored, so
+          // the form asks again instead of failing on submit.
+          setUploads(Object.fromEntries(Object.entries(draft.uploads || {}).filter(([, value]) =>
+            value && typeof value === "object" && (value.fileUrl || value.publicUrl || value.url || (value.bucket && value.path)),
+          )));
           setDocumentsSkipped(Boolean(draft.documentsSkipped));
           setForm({
             ...defaultForm,
@@ -434,10 +439,11 @@ export default function FleetRegistrationDrawer({ onClose, onComplete, onSaveExi
     );
 
   const buildPayload = (status = "draft") => {
-    const verificationDocumentsComplete = documents.every((requirement) =>
+    // Every document is "if applicable": any one uploaded is a submission.
+    const hasVerificationDocument = documents.some((requirement) =>
       getRequirementUpload(uploads, "doc", requirement)
     );
-    const verificationDeferred = documentsSkipped || !verificationDocumentsComplete;
+    const verificationDeferred = documentsSkipped || !hasVerificationDocument;
     return {
       operatorId,
       displayCode: `KT-${operatorId}`,

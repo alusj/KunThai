@@ -608,6 +608,8 @@ function attachInvitesToFleets(fleets = [], invites = []) {
   });
 }
 
+const UUID_PATTERN = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
+
 function normalizeCompanyAccount(input = {}, userId = "") {
   const company = input.company || input;
   const companyCode = company.companyCode || company.company_code || generateCode("KTC");
@@ -1389,6 +1391,11 @@ export async function saveTransportCompanyAccount(account) {
     savedAt: new Date().toISOString(),
   }, user.id);
 
+  // Only a saved company has a database id (uuid). A new registration's
+  // normalized id is its local KTC code, which must never reach a uuid column
+  // or the plan check: that made every first company registration fail.
+  const savedCompanyId = UUID_PATTERN.test(String(normalized.id || "")) ? normalized.id : "";
+
   const requestedOperatorKeys = uniqueValues(normalized.fleets.flatMap((fleet) =>
     (fleet.operators || []).map((operator) => {
       const invite = normalizeInvite(operator);
@@ -1396,13 +1403,13 @@ export async function saveTransportCompanyAccount(account) {
     }),
   ));
 
-  if (normalized.id) {
+  if (savedCompanyId) {
     const [{ data: existingFleets }, { data: existingInvites }] = await Promise.all([
-      supabase.from("transport_company_fleets").select("fleet_code").eq("company_id", normalized.id),
+      supabase.from("transport_company_fleets").select("fleet_code").eq("company_id", savedCompanyId),
       supabase
         .from("transport_company_operator_invites")
         .select("operator_user_id,operator_id,operator_public_id")
-        .eq("company_id", normalized.id)
+        .eq("company_id", savedCompanyId)
         .in("status", ["pending", "accepted"]),
     ]);
     const existingFleetCodes = new Set((existingFleets || []).map((fleet) => fleet.fleet_code));
@@ -1412,12 +1419,12 @@ export async function saveTransportCompanyAccount(account) {
     const additionalFleets = normalized.fleets.filter((fleet) => !existingFleetCodes.has(fleet.fleetCode)).length;
     const additionalOperators = requestedOperatorKeys.filter((key) => !existingOperatorKeys.has(key)).length;
     if (additionalFleets > 0) {
-      await assertBusinessCapacity("urride", normalized.id, "vehicles", additionalFleets);
+      await assertBusinessCapacity("urride", savedCompanyId, "vehicles", additionalFleets);
     }
     if (additionalOperators > 0) {
-      await assertBusinessCapacity("urride", normalized.id, "operators", additionalOperators);
+      await assertBusinessCapacity("urride", savedCompanyId, "operators", additionalOperators);
     }
-  } else if (!normalized.id) {
+  } else {
     // A new company starts on Free. Reject an oversized first submission
     // before any documents are uploaded or partial company rows are written.
     if (normalized.fleets.length > 5) {
@@ -1469,10 +1476,10 @@ export async function saveTransportCompanyAccount(account) {
     };
 
     // Adding a fleet must not rewrite company ownership or the acting admin's membership.
-    const company = incrementalFleetMode && normalized.id ? { id: normalized.id } : await saveSelectSingleByMatch(
+    const company = incrementalFleetMode && savedCompanyId ? { id: savedCompanyId } : await saveSelectSingleByMatch(
       "transport_companies",
       companyPayload,
-      normalized.id ? { id: normalized.id } : { owner_user_id: user.id },
+      savedCompanyId ? { id: savedCompanyId } : { owner_user_id: user.id },
       [
         "owner_public_id",
         "company_type",

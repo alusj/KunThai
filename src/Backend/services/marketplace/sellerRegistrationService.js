@@ -158,27 +158,57 @@ async function uploadBusinessFile(userId, file, folder) {
   return data.publicUrl;
 }
 
+// Identity and registration documents go to the private documents bucket and
+// are referenced by path: only the owner and KunThai admins (signed links) can
+// open them. Until the bucket exists (migration not run yet) the old public
+// upload is used so registration keeps working.
+export const BUSINESS_DOCUMENTS_BUCKET = "marketplace-business-documents";
+
+async function uploadBusinessDocument(userId, file) {
+  if (!file) return null;
+  const extension = file.name.split(".").pop() || "bin";
+  const path = `${userId}/documents/${Date.now()}-${crypto.randomUUID()}.${extension}`;
+  const { error } = await supabase.storage.from(BUSINESS_DOCUMENTS_BUCKET).upload(path, file, {
+    cacheControl: "3600",
+    upsert: false,
+    contentType: file.type || undefined,
+  });
+  if (!error) return { bucket: BUSINESS_DOCUMENTS_BUCKET, path, url: "" };
+  if (/bucket not found/i.test(String(error.message || ""))) {
+    return { bucket: "", path: "", url: await uploadBusinessFile(userId, file, "documents") };
+  }
+  throw new Error(error.message || "Unable to upload business file.");
+}
+
 async function uploadBusinessDocumentRequirements(userId, trustPayout, requirements) {
   return Promise.all(
     requirements.map(async (requirement) => ({
       requirement,
       fileName: trustPayout[requirement.nameField] || "",
-      fileUrl: await uploadBusinessFile(userId, trustPayout[requirement.fileField], "documents"),
+      stored: await uploadBusinessDocument(userId, trustPayout[requirement.fileField]),
     })),
   );
 }
 
 function buildBusinessDocumentRows(businessId, documentUploads) {
   return documentUploads
-    .map(({ requirement, fileName, fileUrl }) => fileUrl
+    .map(({ requirement, fileName, stored }) => stored
       ? {
           business_id: businessId,
           document_type: requirement.legacyDocumentType || requirement.key,
           file_name: fileName,
-          file_url: fileUrl,
+          file_url: stored.url || "",
+          ...(stored.path ? { storage_bucket: stored.bucket, storage_path: stored.path } : {}),
         }
       : null)
     .filter(Boolean);
+}
+
+async function insertBusinessDocumentRows(documentRows) {
+  if (!documentRows.length) return;
+  const { error } = await supabase.from("marketplace_business_documents").insert(documentRows);
+  if (!error) return;
+  throw new Error(error.message);
 }
 
 export const MAX_BUSINESS_LOCATIONS = 10;
@@ -509,11 +539,66 @@ export async function readUsedBusinessKinds() {
   return (data || []).map((row) => ({ id: row.id, kind: canonicalBusinessType(row.business_kind) }));
 }
 
+// The files a business leaves in storage: its documents (private bucket), logo,
+// banner and product media. Read before the rows are deleted; removed only
+// after the deletion succeeded. Best effort: a cleanup failure never blocks or
+// undoes the deletion itself.
+const MEDIA_PUBLIC_MARKER = "/object/public/marketplace-business-media/";
+
+function mediaPathFromPublicUrl(url) {
+  const text = String(url || "");
+  const index = text.indexOf(MEDIA_PUBLIC_MARKER);
+  if (index < 0) return "";
+  try {
+    return decodeURIComponent(text.slice(index + MEDIA_PUBLIC_MARKER.length).split("?")[0]);
+  } catch {
+    return "";
+  }
+}
+
+async function collectBusinessStorageFiles(businessId) {
+  const [businessResult, documentsResult, productsResult] = await Promise.all([
+    supabase.from("marketplace_businesses").select("logo_url, banner_url").eq("id", businessId).maybeSingle(),
+    supabase.from("marketplace_business_documents").select("*").eq("business_id", businessId),
+    supabase.from("marketplace_products").select("main_image_url, image_urls, video_url").eq("business_id", businessId),
+  ]);
+  const media = new Set();
+  const documents = new Set();
+  const addMedia = (url) => {
+    const path = mediaPathFromPublicUrl(url);
+    if (path) media.add(path);
+  };
+  addMedia(businessResult.data?.logo_url);
+  addMedia(businessResult.data?.banner_url);
+  (documentsResult.data || []).forEach((row) => {
+    if (row.storage_bucket === BUSINESS_DOCUMENTS_BUCKET && row.storage_path) documents.add(row.storage_path);
+    addMedia(row.file_url);
+  });
+  (productsResult.data || []).forEach((row) => {
+    addMedia(row.main_image_url);
+    addMedia(row.video_url);
+    (Array.isArray(row.image_urls) ? row.image_urls : []).forEach(addMedia);
+  });
+  return { media: [...media], documents: [...documents] };
+}
+
+async function removeBusinessStorageFiles(files) {
+  if (!files) return;
+  const chunks = (paths) => Array.from({ length: Math.ceil(paths.length / 100) }, (_, index) => paths.slice(index * 100, index * 100 + 100));
+  for (const batch of chunks(files.documents)) {
+    await supabase.storage.from(BUSINESS_DOCUMENTS_BUCKET).remove(batch).catch(() => {});
+  }
+  for (const batch of chunks(files.media)) {
+    await supabase.storage.from("marketplace-business-media").remove(batch).catch(() => {});
+  }
+}
+
 export async function deleteRegisteredBusiness(businessId) {
   invalidateRegisteredBusinessesCache();
   const userId = await getCurrentUserId();
   if (!businessId) throw new Error("Choose a business to delete.");
 
+  const storageFiles = await collectBusinessStorageFiles(businessId).catch(() => null);
   const { error } = await supabase.rpc("delete_my_marketplace_business", {
     target_business_id: businessId,
   });
@@ -521,6 +606,7 @@ export async function deleteRegisteredBusiness(businessId) {
   if (error) {
     throw new Error("KunThai could not delete this business right now. Please try again.");
   }
+  removeBusinessStorageFiles(storageFiles).catch(() => {});
 
   // Reads started during the RPC may have cached the business being deleted.
   // Drop that result before other seller surfaces react to the change.
@@ -572,7 +658,7 @@ export async function submitSellerRegistration(registration) {
     uploadBusinessDocumentRequirements(userId, registration.trustPayout, documentRequirements),
   ]);
 
-  const submittedDocuments = documentUploads.some((document) => document.fileUrl);
+  const submittedDocuments = documentUploads.some((document) => document.stored);
   const businessPayload = {
     user_id: userId,
     business_kind: registration.identity.businessKind || "retail",
@@ -676,12 +762,7 @@ export async function submitSellerRegistration(registration) {
     .upsert(payoutPayload, { onConflict: "business_id" });
   if (payoutError) throw new Error(payoutError.message);
 
-  const documentRows = buildBusinessDocumentRows(business.id, documentUploads);
-
-  if (documentRows.length) {
-    const { error: documentError } = await supabase.from("marketplace_business_documents").insert(documentRows);
-    if (documentError) throw new Error(documentError.message);
-  }
+  await insertBusinessDocumentRows(buildBusinessDocumentRows(business.id, documentUploads));
 
   await supabase.from("marketplace_activities").insert({
     business_id: business.id,
@@ -855,12 +936,7 @@ export async function updateRegisteredBusinessProfile(updates) {
     .upsert(payoutPayload, { onConflict: "business_id" });
   if (payoutError) throw new Error(payoutError.message);
 
-  const documentRows = buildBusinessDocumentRows(currentBusiness.id, documentUploads);
-
-  if (documentRows.length) {
-    const { error: documentError } = await supabase.from("marketplace_business_documents").insert(documentRows);
-    if (documentError) throw new Error(documentError.message);
-  }
+  await insertBusinessDocumentRows(buildBusinessDocumentRows(currentBusiness.id, documentUploads));
 
   return readRegisteredBusiness({ fresh: true });
 }

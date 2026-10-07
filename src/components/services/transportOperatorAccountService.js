@@ -851,8 +851,6 @@ export async function saveOperatorAccount(account) {
   const form = account.form || {};
   const requestedOperatorCode = normalizeOperatorCode(account.operatorId || account.displayCode);
   const plateNumber = normalizePlateNumber(form.plateNumber);
-  const documentsSkipped = Boolean(account.documentsSkipped);
-  const verificationStatus = documentsSkipped ? "not_verified" : "verification_pending";
   const countryContext = buildCountryContext(form);
 
   if (!plateNumber) {
@@ -873,6 +871,26 @@ export async function saveOperatorAccount(account) {
     .maybeSingle();
 
   if (existingOperatorError) throw new Error(existingOperatorError.message);
+
+  // Documents count as submitted when at least one was actually uploaded now
+  // or is already on file. Every document is optional ("if applicable"), so
+  // requiring all of them treated nearly every operator as having skipped,
+  // and their uploads were never saved.
+  const storedUploads = Object.fromEntries(Object.entries(publicMedia.uploads || {}).filter(([, value]) =>
+    value && typeof value === "object" && (value.path || value.fileUrl),
+  ));
+  const newDocumentCount = Object.keys(storedUploads)
+    .filter((key) => !key.startsWith("fleet-") && !URRIDE_OPERATOR_PHOTO_KEYS.has(key)).length;
+  let existingDocumentCount = 0;
+  if (existingOperator?.id && !newDocumentCount) {
+    const { count } = await supabase
+      .from("transport_operator_documents")
+      .select("id", { count: "exact", head: true })
+      .eq("operator_id", existingOperator.id);
+    existingDocumentCount = Number(count || 0);
+  }
+  const documentsSkipped = newDocumentCount + existingDocumentCount === 0;
+  const verificationStatus = documentsSkipped ? "not_verified" : "verification_pending";
 
   const operatorPayload = {
     user_id: userId,
@@ -1048,9 +1066,9 @@ export async function saveOperatorAccount(account) {
 
   if (fleetError) throw new Error(fleetError.message);
 
-  if (!documentsSkipped) {
+  if (Object.keys(storedUploads).length) {
     try {
-      await saveOperatorDocumentRows(operator.id, publicMedia.uploads);
+      await saveOperatorDocumentRows(operator.id, storedUploads);
     } catch (error) {
       if (!isMissingTable(error)) throw new Error(friendlyErrorMessage(error, "Unable to save operator documents."));
     }

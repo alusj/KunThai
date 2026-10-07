@@ -1,5 +1,6 @@
 import supabase from "../../lib/supabaseClient";
 import { readRegisteredBusiness } from "./sellerRegistrationService";
+import { t } from "../../../i18n";
 
 function startOfDay(date) {
   const next = new Date(date);
@@ -68,35 +69,47 @@ export async function fetchSellerSales() {
   };
 }
 
-export async function updateSellerOrderStatus(orderId, status) {
+// `expectedStatus` is the status the seller was looking at: the change only
+// applies if the order is still in it, so a buyer's cancellation (or another
+// admin's change) made meanwhile is never overwritten. Zero changed rows means
+// the order moved on or this account may not change it.
+export async function updateSellerOrderStatus(orderId, status, expectedStatus = "") {
   const business = await readRegisteredBusiness();
   if (!business) {
     throw new Error("Register a business before managing orders.");
   }
 
-  const { error } = await supabase
+  let query = supabase
     .from("marketplace_orders")
     .update({ status })
     .eq("id", orderId)
     .eq("business_id", business.id);
+  if (expectedStatus) query = query.eq("status", expectedStatus);
+  const { data, error } = await query.select("id");
 
   if (error) throw new Error(error.message);
+  if (!data?.length) throw new Error(t("sellerGuard.orderChanged"));
   window.dispatchEvent(new CustomEvent("marketplace-orders-updated"));
 }
 
+// Only a cancelled order can be deleted: completed orders are the buyer's
+// purchase history and what verified reviews are tied to.
 export async function deleteSellerOrder(orderId) {
   const business = await readRegisteredBusiness();
   if (!business) {
     throw new Error("Register a business before managing orders.");
   }
 
-  const { error } = await supabase
+  const { data, error } = await supabase
     .from("marketplace_orders")
     .delete()
     .eq("id", orderId)
-    .eq("business_id", business.id);
+    .eq("business_id", business.id)
+    .eq("status", "cancelled")
+    .select("id");
 
   if (error) throw new Error(error.message);
+  if (!data?.length) throw new Error(t("sellerGuard.orderChanged"));
   window.dispatchEvent(new CustomEvent("marketplace-orders-updated"));
 }
 

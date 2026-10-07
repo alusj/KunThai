@@ -1,5 +1,7 @@
 import { createClient } from "@supabase/supabase-js";
 
+import { secureSellerDocuments } from "./secure-seller-documents.js";
+
 function json(res, status, payload) {
   return res.status(status).json(payload);
 }
@@ -26,10 +28,17 @@ export default async function handler(req, res) {
   });
   const { data, error } = await adminClient.rpc("process_kunthai_business_subscriptions");
 
+  // Daily housekeeping that shares this cron slot: older seller documents
+  // still in the public bucket are moved to the private one. Never fails
+  // the renewal run.
+  const documents = await secureSellerDocuments(adminClient).catch((documentError) => ({
+    error: documentError?.message || "Moving documents failed.",
+  }));
+
   if (error) {
-    return json(res, 500, { ok: false, message: error.message || "Business subscription renewal failed." });
+    return json(res, 500, { ok: false, message: error.message || "Business subscription renewal failed.", documents });
   }
 
-  return json(res, 200, { ok: true, ...(data || {}) });
+  return json(res, 200, { ok: true, ...(data || {}), documents });
 }
 

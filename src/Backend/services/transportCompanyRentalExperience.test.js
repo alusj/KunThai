@@ -85,7 +85,9 @@ test("rental service selection removes operator assignment and uses rental readi
 
 test("rental saves update the selected company without resetting verification", () => {
   assert.match(companyServiceSource, /const addRentalMode = account\?\.actionMode === "add_rental"/);
-  assert.match(companyServiceSource, /normalized\.id \? \{ id: normalized\.id \} : \{ owner_user_id: user\.id \}/);
+  assert.match(companyServiceSource, /savedCompanyId \? \{ id: savedCompanyId \} : \{ owner_user_id: user\.id \}/);
+  // A new registration has no database id yet: its local KTC code never reaches the uuid lookups.
+  assert.match(companyServiceSource, /const savedCompanyId = UUID_PATTERN\.test\(String\(normalized\.id \|\| ""\)\) \? normalized\.id : ""/);
   assert.match(companyServiceSource, /verification_status: normalized\.verificationStatus \|\| "pending"/);
   assert.match(companyServiceSource, /activity_type: addRentalMode \? "rental_fleet_added"/);
   assert.match(companyServiceSource, /savedId \? \{ \.\.\.fleet, id: savedId, localId: savedId \} : fleet/);

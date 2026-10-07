@@ -397,7 +397,7 @@ export default function CompanyRegistrationScreen({ existingCompany = null, mode
         ]);
         if (!alive) return;
 
-        const source = existingCompany || draft;
+        const source = existingCompany || restorableCompanyDraft(draft);
         if (source?.companyName || source?.company?.companyName) {
           const company = source.company || source;
           const nextForm = {
@@ -500,12 +500,15 @@ export default function CompanyRegistrationScreen({ existingCompany = null, mode
     clearStatus();
   }
 
+  // The picked file itself is kept so it is uploaded on submit; a cancelled
+  // picker (no file) leaves the field as it was.
   function markCompanyDocument(document, file) {
+    if (!file) return;
     setForm((current) => ({
       ...current,
       documents: {
         ...current.documents,
-        [document]: file?.name || "Selected",
+        [document]: { file, fileName: file.name },
       },
     }));
     clearStatus();
@@ -535,6 +538,7 @@ export default function CompanyRegistrationScreen({ existingCompany = null, mode
   }
 
   function markFleetDocument(fleetId, document, file) {
+    if (!file) return;
     setFleets((items) =>
       items.map((fleet) =>
         fleet.localId === fleetId
@@ -542,9 +546,7 @@ export default function CompanyRegistrationScreen({ existingCompany = null, mode
               ...fleet,
               documents: {
                 ...fleet.documents,
-                [document]: document.startsWith("Fleet image -") && file
-                  ? { file, fileName: file.name }
-                  : file?.name || "Selected",
+                [document]: { file, fileName: file.name },
               },
             }
           : fleet,
@@ -1897,6 +1899,23 @@ function CompanyReviewStep({ fleets, form }) {
   );
 }
 
+// A saved draft keeps only file names: the files themselves cannot be stored.
+// Uploads that were never sent (no stored copy) are cleared, so the form asks
+// for them again instead of failing on submit or saving a bare name.
+function keepStoredUpload(documents = {}) {
+  return Object.fromEntries(Object.entries(documents || {}).filter(([, value]) =>
+    value && typeof value === "object" && (value.fileUrl || value.publicUrl || value.url || (value.bucket && value.path)),
+  ));
+}
+
+function restorableCompanyDraft(draft) {
+  if (!draft) return draft;
+  const company = draft.company || draft;
+  const cleanCompany = { ...company, documents: keepStoredUpload(company.documents) };
+  const fleets = (draft.fleets || company.fleets || []).map((fleet) => ({ ...fleet, documents: keepStoredUpload(fleet.documents) }));
+  return draft.company ? { ...draft, company: cleanCompany, fleets } : { ...cleanCompany, fleets };
+}
+
 function DocumentGrid({ compact = false, documents, errors = {}, onUpload, uploads = {} }) {
   useUiLocale();
   return (
@@ -1910,6 +1929,7 @@ function DocumentGrid({ compact = false, documents, errors = {}, onUpload, uploa
             label={translateUi(label)}
             value={uploads?.[key]}
             error={errors[key]}
+            accept={String(key).startsWith("Fleet image -") ? "image/*" : undefined}
             onChange={(file) => onUpload(key, file)}
           />
         );
@@ -1918,14 +1938,14 @@ function DocumentGrid({ compact = false, documents, errors = {}, onUpload, uploa
   );
 }
 
-function UploadField({ error = "", label, onChange, value }) {
+function UploadField({ accept, error = "", label, onChange, value }) {
   useUiLocale();
   const displayLabel = String(label || "").replace(/^Fleet image - /, "");
   const selectedName = typeof value === "string" ? value : value?.fileName || value?.name || "";
   return (
     <label data-field-error={error ? "true" : undefined} className={`block rounded-2xl border border-dashed bg-white p-3 ${error ? "border-rose-300" : "border-slate-200"}`}>
       <span className="flex items-center gap-2 text-sm font-black text-slate-800"><FiFileText /> {displayLabel}</span>
-      <input type="file" className="mt-3 block w-full text-xs font-semibold text-slate-500 file:mr-3 file:rounded-full file:border-0 file:bg-slate-950 file:px-3 file:py-2 file:text-xs file:font-black file:text-white" onChange={(event) => onChange(event.target.files?.[0])} />
+      <input type="file" accept={accept} className="mt-3 block w-full text-xs font-semibold text-slate-500 file:mr-3 file:rounded-full file:border-0 file:bg-slate-950 file:px-3 file:py-2 file:text-xs file:font-black file:text-white" onChange={(event) => onChange(event.target.files?.[0])} />
       {selectedName ? <span className="mt-2 block truncate text-xs font-black text-emerald-700">{selectedName}</span> : null}
       {error ? <span className="mt-2 block text-xs font-bold text-rose-700" role="alert">{translateUi(error)}</span> : null}
     </label>

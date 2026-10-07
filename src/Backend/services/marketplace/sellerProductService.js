@@ -1,4 +1,5 @@
 import supabase from "../../lib/supabaseClient";
+import { t } from "../../../i18n";
 import { getActiveCountryProfile } from "../../../data/globalCountryProfiles";
 import { isMissingColumn } from "../explore/errors";
 import {
@@ -743,13 +744,16 @@ export async function deleteSellerProduct(productId) {
   const business = await readRegisteredBusiness();
   if (!business) throw new Error("Register a business before managing products.");
 
-  const { error } = await supabase
+  const { data, error } = await supabase
     .from("marketplace_products")
     .delete()
     .eq("id", productId)
-    .eq("business_id", business.id);
+    .eq("business_id", business.id)
+    .select("id");
 
   if (error) throw new Error(error.message);
+  // Zero deleted rows: this account may not delete it (or it is already gone).
+  if (!data?.length) throw new Error(t("sellerGuard.productNotDeleted"));
 }
 
 export function createSellerProductShareLink(product) {

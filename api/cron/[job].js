@@ -8,11 +8,13 @@
 
 import adminPublishScheduled from "../../server/cron/admin-publish-scheduled.js";
 import processBusinessSubscriptions from "../../server/cron/process-business-subscriptions.js";
+import secureSellerDocuments from "../../server/cron/secure-seller-documents.js";
 import { resolveRouteAction } from "../../server/routeAction.js";
 
 const JOBS = {
   "admin-publish-scheduled": adminPublishScheduled,
   "process-business-subscriptions": processBusinessSubscriptions,
+  "secure-seller-documents": secureSellerDocuments,
 };
 
 export default async function handler(req, res) {

@@ -76,7 +76,7 @@ export default function BusinessStats({ initialView = "revenue" }) {
 
   async function changeOrderStatus(order, status) {
     try {
-      await updateSellerOrderStatus(order.id, status);
+      await updateSellerOrderStatus(order.id, status, order.status);
       setOrderStatusPatches((current) => ({ ...current, [order.id]: status }));
       setFeedback(t("urmall.biz.stats.orderUpdated"));
     } catch (err) {
@@ -85,6 +85,7 @@ export default function BusinessStats({ initialView = "revenue" }) {
   }
 
   async function removeOrder(order) {
+    if (!window.confirm(t("sellerGuard.deleteOrderConfirm"))) return;
     try {
       await deleteSellerOrder(order.id);
       setDeletedOrderIds((current) => {
@@ -198,18 +199,24 @@ export default function BusinessStats({ initialView = "revenue" }) {
 
 function SellerOrderActionMenu({ order, onAction, onClose }) {
   useUiLocale();
+  // Seller moves: pending -> shipped / completed / cancelled, shipped ->
+  // completed / cancelled. Completed, cancelled and refunded orders are final
+  // (the database enforces the same), and only a cancelled order can be deleted.
+  const open = order.status === "pending" || order.status === "shipped";
   const actions = [
-    order.status !== "shipped" && order.status !== "completed" && order.status !== "cancelled"
+    order.status === "pending"
       ? { id: "shipped", label: t("urmall.biz.stats.markShipped"), icon: Truck, className: "text-blue-700 hover:bg-blue-50" }
       : null,
-    order.status !== "completed" && order.status !== "cancelled"
+    open
       ? { id: "completed", label: t("urmall.biz.stats.complete"), icon: CheckCircle2, className: "text-emerald-700 hover:bg-emerald-50" }
       : null,
-    order.status !== "cancelled" && order.status !== "completed"
+    open
       ? { id: "cancelled", label: t("urmall.biz.stats.cancel"), icon: XCircle, className: "text-amber-700 hover:bg-amber-50" }
       : null,
     { id: "locate", label: t("urmall.biz.stats.locateAddress"), icon: MapPin, className: "text-gray-700 hover:bg-gray-50" },
-    { id: "delete", label: t("urmall.biz.stats.delete"), icon: Trash2, className: "text-red-600 hover:bg-red-50" },
+    order.status === "cancelled"
+      ? { id: "delete", label: t("urmall.biz.stats.delete"), icon: Trash2, className: "text-red-600 hover:bg-red-50" }
+      : null,
   ].filter(Boolean);
 
   return (
