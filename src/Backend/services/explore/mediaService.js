@@ -294,8 +294,9 @@ async function requestUploadTicket(file, mediaType) {
   try {
     response = await fetch(apiUrl("/api/explore-upload"), {
       method: "POST",
-      headers: { "content-type": "application/json", authorization: `Bearer ${accessToken}` },
-      body: JSON.stringify({ mediaType, contentType: file.type || "", size: Number(file.size || 0) }),
+      // The token goes in the body: a very large one was refused as a header.
+      headers: { "content-type": "application/json" },
+      body: JSON.stringify({ accessToken, mediaType, contentType: file.type || "", size: Number(file.size || 0) }),
     });
   } catch {
     throw Object.assign(new Error("Load failed"), { status: 0 });

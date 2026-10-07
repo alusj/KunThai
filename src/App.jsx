@@ -3,6 +3,7 @@ import { HiOutlineCamera, HiOutlineLightBulb, HiOutlineXMark } from "react-icons
 
 import { useAuth } from "./Backend/hooks/useAuth";
 import { useCountryChoiceExpiry } from "./Backend/hooks/useCountryChoiceExpiry";
+import { useSessionSizeGuard } from "./Backend/hooks/useSessionSizeGuard";
 import { useOnboarding } from "./Backend/hooks/useOnboarding";
 import BottomTabs from "./components/BottomTabs";
 import OnboardingFlow from "./components/onboarding/OnboardingFlow";
@@ -612,6 +613,10 @@ export default function App() {
   // A country picked in Settings resets after KunThai has been unused for a
   // while (countryChoice.js).
   useCountryChoiceExpiry({ ready: !loading, signedIn: Boolean(user) && !guestSession });
+
+  // An oversized sign-in token (large values in the account's metadata) was
+  // refused by uploads; shrink it once per sign-in (sessionSize.js).
+  useSessionSizeGuard({ ready: !loading, userId: !guestSession ? user?.id || "" : "" });
 
   // Bind the native OAuth deep-link handlers once for the whole app session
   // (no-op on the web). Registering here — not in Login — means the callback is

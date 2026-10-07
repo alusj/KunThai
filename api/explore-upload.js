@@ -12,8 +12,11 @@ function bearerToken(req) {
   return match ? match[1].trim() : "";
 }
 
+// The token can come in the body: an account with a very large token was
+// refused by the platform's header size limit (HTTP 494).
 async function authenticatedUser(req, url) {
-  const token = bearerToken(req);
+  const body = req.body && typeof req.body === "object" ? req.body : {};
+  const token = bearerToken(req) || String(body.accessToken || "").trim();
   const key = process.env.SUPABASE_ANON_KEY || process.env.VITE_SUPABASE_ANON_KEY || "";
   if (!token || !url || !key) return null;
   const client = createClient(url, key, { auth: { persistSession: false, autoRefreshToken: false } });
