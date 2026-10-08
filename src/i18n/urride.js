@@ -13,6 +13,11 @@
 
 export const URRIDE = {
   en: {
+    operatorFix: {
+      imageOnly: "Choose a photo (JPG, PNG or HEIC). PDFs can only be added as documents.",
+      plateInUse: "Plate {plate} is already registered to another fleet. Check the plate number.",
+      plateRepeated: "Plate {plate} is used by more than one fleet in this form. Each vehicle needs its own plate.",
+    },
     common: {
       loading: "Loading...",
     },
@@ -2609,6 +2614,11 @@ export const URRIDE = {
   },
 
   fr: {
+    operatorFix: {
+      imageOnly: "Choisissez une photo (JPG, PNG ou HEIC). Les PDF ne peuvent être ajoutés que comme documents.",
+      plateInUse: "La plaque {plate} est déjà enregistrée pour une autre flotte. Vérifiez le numéro de plaque.",
+      plateRepeated: "La plaque {plate} est utilisée par plusieurs flottes dans ce formulaire. Chaque véhicule doit avoir sa propre plaque.",
+    },
     common: {
       loading: "Chargement...",
     },
@@ -5205,6 +5215,11 @@ export const URRIDE = {
   },
 
   ar: {
+    operatorFix: {
+      imageOnly: "اختر صورة (JPG أو PNG أو HEIC). يمكن إضافة ملفات PDF كمستندات فقط.",
+      plateInUse: "اللوحة {plate} مسجلة بالفعل لأسطول آخر. تحقق من رقم اللوحة.",
+      plateRepeated: "اللوحة {plate} مستخدمة لأكثر من أسطول في هذا النموذج. يحتاج كل مركبة إلى لوحة خاصة بها.",
+    },
     common: {
       loading: "جارٍ التحميل...",
     },
@@ -7801,6 +7816,11 @@ export const URRIDE = {
   },
 
   es: {
+    operatorFix: {
+      imageOnly: "Elige una foto (JPG, PNG o HEIC). Los PDF solo se pueden añadir como documentos.",
+      plateInUse: "La matrícula {plate} ya está registrada en otra flota. Revisa el número de matrícula.",
+      plateRepeated: "La matrícula {plate} se usa en más de una flota de este formulario. Cada vehículo necesita su propia matrícula.",
+    },
     common: {
       loading: "Cargando..."
     },
@@ -10437,6 +10457,11 @@ export const URRIDE = {
   },
 
   zh: {
+    operatorFix: {
+      imageOnly: "请选择照片（JPG、PNG 或 HEIC）。PDF 只能作为文件添加。",
+      plateInUse: "车牌 {plate} 已注册在另一个车队。请检查车牌号。",
+      plateRepeated: "车牌 {plate} 在此表单中被多个车队使用。每辆车都需要自己的车牌。",
+    },
     common: {
       loading: "加载中..."
     },
@@ -13073,6 +13098,11 @@ export const URRIDE = {
   },
 
   pt: {
+    operatorFix: {
+      imageOnly: "Escolha uma foto (JPG, PNG ou HEIC). PDFs só podem ser adicionados como documentos.",
+      plateInUse: "A placa {plate} já está registrada em outra frota. Verifique o número da placa.",
+      plateRepeated: "A placa {plate} é usada por mais de uma frota neste formulário. Cada veículo precisa da sua própria placa.",
+    },
     "common": {
       "loading": "Carregando..."
     },
@@ -15707,6 +15737,11 @@ export const URRIDE = {
   },
 
   hi: {
+    operatorFix: {
+      imageOnly: "एक फ़ोटो चुनें (JPG, PNG या HEIC)। PDF केवल दस्तावेज़ों के रूप में जोड़े जा सकते हैं।",
+      plateInUse: "प्लेट {plate} पहले से किसी दूसरे फ़्लीट में पंजीकृत है। प्लेट नंबर जाँचें।",
+      plateRepeated: "प्लेट {plate} इस फ़ॉर्म में एक से अधिक फ़्लीट में उपयोग हुई है। हर वाहन की अपनी प्लेट होनी चाहिए।",
+    },
     "common": {
       "loading": "लोड हो रहा है..."
     },
@@ -18341,6 +18376,11 @@ export const URRIDE = {
   },
 
   bn: {
+    operatorFix: {
+      imageOnly: "একটি ছবি বেছে নিন (JPG, PNG বা HEIC)। PDF শুধু নথি হিসেবে যোগ করা যায়।",
+      plateInUse: "প্লেট {plate} ইতিমধ্যে অন্য একটি ফ্লিটে নিবন্ধিত। প্লেট নম্বর যাচাই করুন।",
+      plateRepeated: "প্লেট {plate} এই ফর্মে একাধিক ফ্লিটে ব্যবহৃত হয়েছে। প্রতিটি গাড়ির নিজস্ব প্লেট লাগবে।",
+    },
     "common": {
       "loading": "লোড হচ্ছে..."
     },
@@ -20975,6 +21015,11 @@ export const URRIDE = {
   },
 
   id: {
+    operatorFix: {
+      imageOnly: "Pilih foto (JPG, PNG, atau HEIC). PDF hanya dapat ditambahkan sebagai dokumen.",
+      plateInUse: "Pelat {plate} sudah terdaftar di armada lain. Periksa nomor pelat.",
+      plateRepeated: "Pelat {plate} dipakai oleh lebih dari satu armada di formulir ini. Setiap kendaraan perlu pelatnya sendiri.",
+    },
     "common": {
       "loading": "Memuat..."
     },
@@ -23609,6 +23654,11 @@ export const URRIDE = {
   },
 
   ur: {
+    operatorFix: {
+      imageOnly: "ایک تصویر منتخب کریں (JPG، PNG یا HEIC)۔ PDF صرف دستاویزات کے طور پر شامل کی جا سکتی ہیں۔",
+      plateInUse: "پلیٹ {plate} پہلے سے کسی دوسرے فلیٹ میں رجسٹرڈ ہے۔ پلیٹ نمبر چیک کریں۔",
+      plateRepeated: "پلیٹ {plate} اس فارم میں ایک سے زیادہ فلیٹس میں استعمال ہوئی ہے۔ ہر گاڑی کی اپنی پلیٹ ہونی چاہیے۔",
+    },
     "common": {
       "loading": "لوڈ ہو رہا ہے..."
     },
@@ -26243,6 +26293,11 @@ export const URRIDE = {
   },
 
   ru: {
+    operatorFix: {
+      imageOnly: "Выберите фото (JPG, PNG или HEIC). PDF можно добавлять только как документы.",
+      plateInUse: "Номер {plate} уже зарегистрирован в другом автопарке. Проверьте номерной знак.",
+      plateRepeated: "Номер {plate} указан у нескольких машин в этой форме. У каждого транспортного средства должен быть свой номер.",
+    },
     "common": {
       "loading": "Загрузка..."
     },
@@ -28878,6 +28933,11 @@ export const URRIDE = {
 
 
   ja: {
+    operatorFix: {
+      imageOnly: "写真を選択してください（JPG、PNG、HEIC）。PDF は書類としてのみ追加できます。",
+      plateInUse: "ナンバー {plate} はすでに別のフリートに登録されています。ナンバーを確認してください。",
+      plateRepeated: "ナンバー {plate} がこのフォームの複数のフリートで使われています。車両ごとに別のナンバーが必要です。",
+    },
     "common": {
       "loading": "読み込み中..."
     },
@@ -31512,6 +31572,11 @@ export const URRIDE = {
   },
 
   mr: {
+    operatorFix: {
+      imageOnly: "एक फोटो निवडा (JPG, PNG किंवा HEIC). PDF फक्त कागदपत्रे म्हणून जोडता येतात.",
+      plateInUse: "प्लेट {plate} आधीच दुसऱ्या फ्लीटमध्ये नोंदणीकृत आहे. प्लेट क्रमांक तपासा.",
+      plateRepeated: "प्लेट {plate} या फॉर्ममध्ये एकापेक्षा जास्त फ्लीटसाठी वापरली आहे. प्रत्येक वाहनाला स्वतःची प्लेट हवी.",
+    },
     "common": {
       "loading": "लोड करत आहे..."
     },
@@ -34146,6 +34211,11 @@ export const URRIDE = {
   },
 
   vi: {
+    operatorFix: {
+      imageOnly: "Chọn một ảnh (JPG, PNG hoặc HEIC). PDF chỉ có thể thêm dưới dạng giấy tờ.",
+      plateInUse: "Biển số {plate} đã được đăng ký cho một đội xe khác. Hãy kiểm tra lại biển số.",
+      plateRepeated: "Biển số {plate} được dùng cho nhiều xe trong biểu mẫu này. Mỗi xe cần có biển số riêng.",
+    },
     "common": {
       "loading": "Đang tải..."
     },
@@ -36780,6 +36850,11 @@ export const URRIDE = {
   },
 
   de: {
+    operatorFix: {
+      imageOnly: "Wähle ein Foto (JPG, PNG oder HEIC). PDFs können nur als Dokumente hinzugefügt werden.",
+      plateInUse: "Das Kennzeichen {plate} ist bereits für eine andere Flotte registriert. Prüfe das Kennzeichen.",
+      plateRepeated: "Das Kennzeichen {plate} wird in diesem Formular für mehr als eine Flotte verwendet. Jedes Fahrzeug braucht ein eigenes Kennzeichen.",
+    },
     "common": {
       "loading": "Laden..."
     },

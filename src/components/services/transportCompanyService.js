@@ -1,4 +1,7 @@
 import supabase from "../../Backend/lib/supabaseClient";
+import { invalidateCache } from "../../Backend/lib/queryCache";
+import { t } from "../../i18n";
+import { isTransportPlateNumberInUse, normalizePlateNumber } from "./transportOperatorAccountService";
 import { getActiveCountryProfile } from "../../data/globalCountryProfiles";
 import { acceptCompanyInviteWithAccess } from "./operatorCompanyAccessService";
 import { friendlyErrorMessage } from "../../Backend/services/friendlyErrorService";
@@ -157,6 +160,18 @@ function isMissingColumn(error, columnName) {
     (message.includes(columnName) && message.includes("schema cache"));
 }
 
+// A generated column (transport_operators.display_code) cannot be written:
+// Postgres answers 428C9. Treated like a missing optional column so the write
+// is retried without it.
+function isGeneratedColumnError(error, columnName) {
+  const message = String(error?.message || "").toLowerCase();
+  return error?.code === "428C9" && (!columnName || message.includes(String(columnName).toLowerCase()));
+}
+
+function isUnwritableOptionalColumn(error, columnName) {
+  return isMissingColumn(error, columnName) || isGeneratedColumnError(error, columnName);
+}
+
 function isMissingTable(error) {
   const message = String(error?.message || "").toLowerCase();
   return error?.code === "42P01" ||
@@ -177,7 +192,7 @@ async function updateSelectSingle(tableName, payload, match = {}, optionalColumn
 
     if (!error) return data;
 
-    const missingColumn = optionalColumns.find((column) => nextPayload[column] !== undefined && isMissingColumn(error, column));
+    const missingColumn = optionalColumns.find((column) => nextPayload[column] !== undefined && isUnwritableOptionalColumn(error, column));
     if (!missingColumn) throw error;
 
     const { [missingColumn]: _removed, ...withoutMissingColumn } = nextPayload;
@@ -199,7 +214,7 @@ async function insertSelectSingle(tableName, payload, optionalColumns = []) {
 
     if (!error) return data;
 
-    const missingColumn = optionalColumns.find((column) => nextPayload[column] !== undefined && isMissingColumn(error, column));
+    const missingColumn = optionalColumns.find((column) => nextPayload[column] !== undefined && isUnwritableOptionalColumn(error, column));
     if (!missingColumn) throw error;
 
     const { [missingColumn]: _removed, ...withoutMissingColumn } = nextPayload;
@@ -1183,16 +1198,19 @@ function normalizeInviteDocumentEntries(documents = {}, invite = {}) {
     .filter(Boolean);
 }
 
-async function ensureInvitedOperatorRecord(user, profile = {}, invite = {}) {
+// documentsSubmitted: false when the operator only accepts the invitation (or
+// skips the documents step). Like the solo flow, such an operator is recorded
+// as having skipped documents and not verified, never as "submitted/pending".
+async function ensureInvitedOperatorRecord(user, profile = {}, invite = {}, { documentsSubmitted = false } = {}) {
   const now = new Date().toISOString();
-  const publicId = invite.publicId || invite.lookupValue || getKunThaiPublicUserId({ ...(profile || {}), userId: user.id });
   const displayName = invite.name || getAccountDisplayName(profile, user);
   const phone = invite.phone || profile?.phone || profile?.phone_number || "";
   const city = invite.city || profile?.city || profile?.address || "";
+  // display_code is generated from operator_code ('KT-' || operator_code), so
+  // it is read but never written.
   const optionalColumns = [
     "phone",
     "city",
-    "display_code",
     "documents_skipped",
     "verification_status",
     "account_status",
@@ -1213,10 +1231,13 @@ async function ensureInvitedOperatorRecord(user, profile = {}, invite = {}) {
       full_name: existing.full_name || displayName || "Operator",
       phone: existing.phone || phone,
       city: existing.city || city,
-      display_code: existing.display_code || publicId,
-      documents_skipped: false,
-      verification_status: keepReviewedOperatorStatus(existing.verification_status),
-      account_status: existing.account_status === "approved" ? existing.account_status : "documents_submitted",
+      ...(documentsSubmitted
+        ? {
+            documents_skipped: false,
+            verification_status: keepReviewedOperatorStatus(existing.verification_status),
+            account_status: existing.account_status === "approved" ? existing.account_status : "documents_submitted",
+          }
+        : {}),
       profile_completed_at: existing.profile_completed_at || now,
       updated_at: now,
     };
@@ -1235,13 +1256,12 @@ async function ensureInvitedOperatorRecord(user, profile = {}, invite = {}) {
         {
           user_id: user.id,
           operator_code: operatorCode,
-          display_code: publicId,
           full_name: displayName || "Operator",
           phone,
           city,
-          documents_skipped: false,
-          verification_status: "verification_pending",
-          account_status: "documents_submitted",
+          documents_skipped: !documentsSubmitted,
+          verification_status: documentsSubmitted ? "verification_pending" : "not_verified",
+          account_status: documentsSubmitted ? "documents_submitted" : "submitted",
           profile_completed_at: now,
           updated_at: now,
         },
@@ -1321,7 +1341,10 @@ export async function submitOperatorCompanyInviteDocuments(invite, documents = {
   let operator = null;
 
   try {
-    operator = await ensureInvitedOperatorRecord(user, profile || {}, invite || {});
+    // Only real documents count; the selfie alone is a public photo.
+    const documentsSubmitted = Object.entries(documents || {})
+      .some(([key, value]) => key !== "operatorPhoto" && Boolean(getTransportUploadName(value)));
+    operator = await ensureInvitedOperatorRecord(user, profile || {}, invite || {}, { documentsSubmitted });
     const preparedDocuments = { ...documents };
     const operatorPhoto = documents.operatorPhoto;
     const operatorPhotoFile = getTransportUploadFile(operatorPhoto);
@@ -1374,6 +1397,25 @@ export async function submitOperatorCompanyInviteDocuments(invite, documents = {
   }
 }
 
+const PLACEHOLDER_PLATES = new Set(["NO-PLATE", "PLATE PENDING", "PENDING"]);
+
+async function assertCompanyFleetPlatesAvailable(fleets = [], { companyId = "", submittedFleetCodes = null } = {}) {
+  const usable = (fleet) => fleet.plateNumber && !PLACEHOLDER_PLATES.has(fleet.plateNumber);
+  const submitted = fleets.filter((fleet) => usable(fleet) && (!submittedFleetCodes || submittedFleetCodes.has(fleet.fleetCode)));
+  const repeated = submitted.find((fleet) => fleets.some((other) =>
+    other.fleetCode !== fleet.fleetCode && other.plateNumber === fleet.plateNumber));
+  if (repeated) throw new Error(t("urride.operatorFix.plateRepeated", { plate: repeated.plateNumber }));
+
+  for (const fleet of submitted) {
+    const inUse = await isTransportPlateNumberInUse(fleet.plateNumber, {
+      companyId: companyId || null,
+      fleetCode: fleet.fleetCode,
+      forCompany: true,
+    });
+    if (inUse) throw new Error(t("urride.operatorFix.plateInUse", { plate: fleet.plateNumber }));
+  }
+}
+
 export async function saveTransportCompanyAccount(account) {
   const user = await getCurrentUser("Sign in before submitting your company registration.");
   const addOperatorMode = account?.actionMode === "add_operator";
@@ -1395,6 +1437,17 @@ export async function saveTransportCompanyAccount(account) {
   // normalized id is its local KTC code, which must never reach a uuid column
   // or the plan check: that made every first company registration fail.
   const savedCompanyId = UUID_PATTERN.test(String(normalized.id || "")) ? normalized.id : "";
+
+  // Plates are written exactly like solo fleets, and one vehicle can only be
+  // registered once: across this form, other companies and solo fleets.
+  normalized = {
+    ...normalized,
+    fleets: normalized.fleets.map((fleet) => ({ ...fleet, plateNumber: normalizePlateNumber(fleet.plateNumber) })),
+  };
+  await assertCompanyFleetPlatesAvailable(normalized.fleets, {
+    companyId: savedCompanyId,
+    submittedFleetCodes,
+  });
 
   const requestedOperatorKeys = uniqueValues(normalized.fleets.flatMap((fleet) =>
     (fleet.operators || []).map((operator) => {
@@ -1690,6 +1743,7 @@ export async function updateTransportCompanyOperatorAvailability(assignment, act
     active: Boolean(active),
   });
   if (error) throw new Error(friendlyErrorMessage(error, "Unable to update company fleet availability."));
+  invalidateCache("operator-dashboard");
 
   return Array.isArray(data) ? data[0] || null : data || null;
 }
