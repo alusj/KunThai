@@ -71,13 +71,15 @@ export default function HealthScoreCard({ health, onEditProfile }) {
               {t("urmall.biz.dash.moreDetails", { count: missingItems.length - 7 })}
             </p>
           ) : null}
-          <button
-            type="button"
-            onClick={onEditProfile}
-            className="mt-3 h-10 w-full rounded-lg bg-emerald-600 px-4 text-sm font-black text-white transition hover:bg-emerald-700"
-          >
-            {t("urmall.biz.dash.fixNow")}
-          </button>
+          {onEditProfile ? (
+            <button
+              type="button"
+              onClick={onEditProfile}
+              className="mt-3 h-10 w-full rounded-lg bg-emerald-600 px-4 text-sm font-black text-white transition hover:bg-emerald-700"
+            >
+              {t("urmall.biz.dash.fixNow")}
+            </button>
+          ) : null}
         </div>
       ) : null}
     </section>

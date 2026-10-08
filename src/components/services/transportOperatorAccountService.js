@@ -274,6 +274,9 @@ async function selectLatestPersonalFleet(operatorId) {
     .select("*")
     .eq("operator_id", operatorId)
     .is("company_fleet_id", null)
+    // A deleted company fleet's vehicle keeps company_id for its trip
+    // history; it is never the operator's own fleet.
+    .is("company_id", null)
     .order("updated_at", { ascending: false })
     .limit(1);
 

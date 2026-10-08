@@ -16,15 +16,55 @@ export const deleteRentalFleet = (id) => rentalRpc("delete_transport_rental_flee
 export const checkRentalAvailability = (id, startsAt, endsAt) => rentalRpc("check_transport_rental_availability", { p_rental_id: id, p_starts_at: new Date(startsAt).toISOString(), p_ends_at: new Date(endsAt).toISOString() });
 export const listRentalReviews = (id) => rentalRpc("list_transport_rental_reviews", { p_rental_id: id });
 export const saveRentalReview = (id, rating, body) => rentalRpc("save_transport_rental_review", { p_rental_id: id, p_rating: rating, p_body: body });
+const REVIEW_WINDOW_MS = 30 * 24 * 60 * 60 * 1000;
+
+// Whether the signed-in renter may post (or once edit) a review, using the
+// server's own rules. Before that function is deployed, fall back to the same
+// 30-day completed-rental window from the renter's reservations.
+export async function getRentalReviewEligibility(rentalId) {
+  const { data, error } = await supabase.rpc("get_transport_rental_review_eligibility", { p_rental_id: rentalId });
+  if (!error) {
+    const row = Array.isArray(data) ? data[0] : data;
+    return { eligible: Boolean(row?.eligible), mode: row?.mode || "" };
+  }
+  if (!["PGRST202", "42883"].includes(error.code)) throw new Error(error.message);
+  const rows = await listRentalReservations(rentalId);
+  const now = Date.now();
+  const recent = rows.some((row) => row.status === "completed"
+    && now - new Date(row.completed_at || row.updated_at).getTime() < REVIEW_WINDOW_MS);
+  return { eligible: recent, mode: recent ? "new" : "" };
+}
 export const proposeRentalPrice = (id, total) => rentalRpc("propose_transport_rental_price", { p_reservation_id: id, p_total: total });
 export const acceptRentalPrice = (id, total) => rentalRpc("accept_transport_rental_price", { p_reservation_id: id, p_total: total });
 
-export async function listTransportRentals({ rentalId = null, companyId = null, country = null } = {}) {
-  const { data, error } = await supabase.rpc("list_transport_rentals", { p_rental_id: rentalId, p_company_id: companyId, p_country: country });
-  if (error) throw new Error(["PGRST202", "42883"].includes(error.code)
+const RENTAL_PAGE_SIZE = 200;
+const RENTAL_MAX_PAGES = 10;
+
+function rentalListError(error) {
+  return new Error(["PGRST202", "42883"].includes(error.code)
     ? "Rental listings are being prepared. Please try again shortly."
     : "Rental listings could not be loaded. Check your connection and try again.");
-  return data || [];
+}
+
+// Reads every page of listings (the server returns at most one page per call).
+export async function listTransportRentals({ rentalId = null, companyId = null, country = null } = {}) {
+  const base = { p_rental_id: rentalId, p_company_id: companyId, p_country: country };
+  const rows = [];
+  for (let page = 0; page < RENTAL_MAX_PAGES; page += 1) {
+    const { data, error } = await supabase.rpc("list_transport_rentals", { ...base, p_limit: RENTAL_PAGE_SIZE, p_offset: page * RENTAL_PAGE_SIZE });
+    if (error) {
+      // Older servers have no paging parameters; they return a single page.
+      if (page === 0 && ["PGRST202", "42883"].includes(error.code)) {
+        const legacy = await supabase.rpc("list_transport_rentals", base);
+        if (legacy.error) throw rentalListError(legacy.error);
+        return legacy.data || [];
+      }
+      throw rentalListError(error);
+    }
+    rows.push(...(data || []));
+    if (!data || data.length < RENTAL_PAGE_SIZE) break;
+  }
+  return rows;
 }
 
 export async function saveTransportRental(fleetId, details) {

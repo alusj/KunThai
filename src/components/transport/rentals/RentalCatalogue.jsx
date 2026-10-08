@@ -5,6 +5,7 @@ import { cachedRentalCatalogue, loadRentalCatalogue } from "../../services/trans
 import { rentalDistanceKm } from "../../services/transportRentalPricing";
 import RentalActions from "./RentalActions";
 import RentalReservations from "./RentalReservations";
+import { rentalDisplayStatus, rentalStatusKey } from "./rentalDashboardSummary";
 import { t as i18nText } from "../../../i18n/index";
 import { uiText as translateUi, useI18n as useUiLocale } from "../../../i18n/index.js";
 import { inlineErrorMessage } from "../../../Backend/services/friendlyErrorService";
@@ -48,7 +49,7 @@ export default function RentalCatalogue({ radar = false, onOpenRental }) {
         {rental.photos?.[0] && <img src={rental.photos[0]} alt={rental.title} loading="lazy" className="h-40 w-full rounded-t-2xl object-cover" />}</div>
         <div className="pointer-events-none relative space-y-2 p-4"><h3 className="block text-left font-black text-slate-950">{rental.title}</h3><p className="text-xs font-semibold text-slate-600">{i18nText("ui.literals.k8babd56798a8")} {rental.company_name}</p>
           <p className="flex items-center gap-1 text-sm text-slate-600"><MapPin size={16} className="shrink-0 text-amber-600" />{rental.distance != null ? i18nText("ui.literals.kc3b7ba563848", { value0: rental.distance.toFixed(1) }) : ""}{rental.pickup_address}</p>
-          <div className="flex flex-wrap gap-1.5 text-xs font-black"><span className="rounded-lg bg-emerald-50 px-2 py-1 text-emerald-800">{rate ? `${rental.currency} ${Number(rate).toLocaleString()} / ${unit}` : rental.time_negotiable ? i18nText("ui.literals.kaad009d04a67") : i18nText("ui.literals.k3b92d9613e20")}</span>{Number(rental.distance_rate) > 0 && !rental.distance_negotiable ? <span className="rounded-lg bg-blue-50 px-2 py-1 text-blue-800">{rental.currency} {Number(rental.distance_rate).toLocaleString()} {i18nText("ui.literals.k7d05e34847ca")}</span> : rental.distance_negotiable ? <span className="rounded-lg bg-amber-50 px-2 py-1 text-amber-900">{i18nText("ui.literals.ka44855937fb1")}</span> : null}</div><p className="text-xs font-semibold capitalize text-slate-600">{rental.status.replaceAll("_", " ")} {i18nText("ui.literals.kda4bdaf77ad3")}</p>
+          <div className="flex flex-wrap gap-1.5 text-xs font-black"><span className="rounded-lg bg-emerald-50 px-2 py-1 text-emerald-800">{rate ? `${rental.currency} ${Number(rate).toLocaleString()} / ${unit}` : rental.time_negotiable ? i18nText("ui.literals.kaad009d04a67") : i18nText("ui.literals.k3b92d9613e20")}</span>{Number(rental.distance_rate) > 0 && !rental.distance_negotiable ? <span className="rounded-lg bg-blue-50 px-2 py-1 text-blue-800">{rental.currency} {Number(rental.distance_rate).toLocaleString()} {i18nText("ui.literals.k7d05e34847ca")}</span> : rental.distance_negotiable ? <span className="rounded-lg bg-amber-50 px-2 py-1 text-amber-900">{i18nText("ui.literals.ka44855937fb1")}</span> : null}</div><p className="text-xs font-semibold text-slate-600">{i18nText(rentalStatusKey(rentalDisplayStatus(rental)))} {i18nText("ui.literals.kda4bdaf77ad3")}</p>
         </div>
       </article>;
     })}</div>

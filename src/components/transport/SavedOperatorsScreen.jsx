@@ -106,7 +106,19 @@ export default function SavedOperatorsScreen({ onBack, onViewFleet, onShowVerifi
           <EmptyState title={t("urride.saved.emptyTitle")} body={t("urride.saved.emptyBody")} />
         ) : (
         <div className="grid gap-3 xl:grid-cols-2">
-          {savedOperators.map((saved) => (
+          {savedOperators.map((saved) => saved.unavailable ? (
+            <article key={saved.id} className="flex flex-wrap items-center justify-between gap-3 rounded-2xl border border-gray-100 bg-white p-4 shadow-sm">
+              <div className="min-w-0">
+                <p className="text-xs font-bold uppercase tracking-wide text-gray-500">{translateUi(saved.savedAs)}</p>
+                <h2 className="mt-1 text-base font-black text-gray-950">{t("urride.companyFix.savedUnavailableTitle")}</h2>
+                <p className="mt-1 text-xs font-semibold text-gray-500">{t("urride.companyFix.savedUnavailableBody")}</p>
+              </div>
+              <button type="button" onClick={() => removeSavedOperator(saved)} className="flex items-center justify-center gap-2 text-sm font-bold text-red-600">
+                <FiTrash2 size={15} />
+                {t("urride.saved.remove")}
+              </button>
+            </article>
+          ) : (
             <article key={saved.id} className="grid gap-4 rounded-2xl border border-gray-100 bg-white p-4 shadow-sm lg:grid-cols-[minmax(260px,1fr)_minmax(240px,1fr)_auto] lg:items-center">
               <div className="min-w-0">
                 <p className="text-xs font-bold uppercase tracking-wide text-green-700">{saved.savedAs}</p>

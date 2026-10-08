@@ -365,7 +365,10 @@ export async function fetchSavedOperators() {
   }
 
   const savedRows = data || [];
-  const fleets = await Promise.all(savedRows.map((row) => fetchTransportFleetById(row.fleet_id)));
+  // A saved fleet the passenger can no longer see (removed or hidden) stays in
+  // the list as "no longer available" so it can be removed and the badge
+  // count always matches what the list shows.
+  const fleets = await Promise.all(savedRows.map((row) => fetchTransportFleetById(row.fleet_id).catch(() => null)));
 
   const savedOperators = savedRows.map((row, index) => {
     const fleet = fleets[index];
@@ -376,10 +379,32 @@ export async function fetchSavedOperators() {
       savedAs: row.saved_as || row.label || (fleet?.serviceCategory === "Delivery" ? "Saved delivery operator" : "Saved ride operator"),
       lastUsed: row.updated_at ? `Saved ${new Date(row.updated_at).toLocaleDateString()}` : "Saved operator",
       fleet,
+      unavailable: !fleet,
     };
-  }).filter((saved) => saved.fleet);
+  });
   transportSavedOperatorsMemory = savedOperators;
   return savedOperators;
+}
+
+// The fleet ids this passenger has saved. One shared, briefly cached query
+// serves every Save button on a list.
+export async function fetchSavedOperatorFleetIds({ force = false } = {}) {
+  const passengerId = await getCurrentPassengerId();
+  if (!passengerId) return new Set();
+  const ids = await cachedQuery(
+    `transport-dashboard:saved-operator-ids:${passengerId}`,
+    async () => {
+      const { data, error } = await supabase
+        .from("transport_saved_operators")
+        .select("fleet_id")
+        .eq("passenger_id", passengerId);
+      if (error) throw error;
+      return (data || []).map((row) => row.fleet_id);
+    },
+    30_000,
+    { force },
+  );
+  return new Set(ids);
 }
 
 function notifySavedOperatorChange(detail = {}) {
@@ -392,22 +417,21 @@ export async function saveTransportOperator(fleet, savedAs = "Saved operator") {
   if (!passengerId) throw new Error("Sign in before saving an operator.");
   if (!fleet?.id) throw new Error("This operator profile is unavailable.");
 
-  const { data, error } = await supabase
+  // Saving again keeps the existing entry and the name it was saved as.
+  const { error } = await supabase
     .from("transport_saved_operators")
     .upsert({
       passenger_id: passengerId,
       fleet_id: fleet.id,
       saved_as: savedAs,
       updated_at: new Date().toISOString(),
-    }, { onConflict: "passenger_id,fleet_id" })
-    .select()
-    .single();
+    }, { onConflict: "passenger_id,fleet_id", ignoreDuplicates: true });
 
   if (error) throw error;
   invalidateTransportPassengerDashboardCache();
   const items = await fetchSavedOperators();
   notifySavedOperatorChange({ action: "saved", fleetId: fleet.id });
-  return items.find((item) => item.id === data?.id || item.fleetId === fleet.id) || data;
+  return items.find((item) => item.fleetId === fleet.id) || null;
 }
 
 export async function removeSavedTransportOperator(savedId) {

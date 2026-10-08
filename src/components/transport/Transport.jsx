@@ -1331,6 +1331,7 @@ export default function Transport({
         style={registrationRevealStyle("company")}
       >
         <CompanyWorkspaceScreen
+          key={companyAccount?.id || "no-company"}
           company={companyAccount}
           initialTab={companyWorkspaceInitialTab}
           operatorAccount={operatorAccount}
@@ -2039,12 +2040,15 @@ function CompanyOperatorInviteCard({ invite, onAccept, onCompleteRegistration, o
   const needsDocuments = invite.status === "accepted_pending_documents" || invite.documents?.operatorDocumentsRequired;
   const accepted = invite.status === "accepted" && !needsDocuments;
   const rejected = invite.status === "rejected";
-  const statusLabel = needsDocuments ? t("urride.transport.inviteCard.statusAccepted") : accepted ? t("urride.transport.inviteCard.statusAccepted") : rejected ? t("urride.transport.inviteCard.statusDeclined") : t("urride.transport.inviteCard.statusPending");
+  const expired = Boolean(invite.expired) && !accepted && !needsDocuments;
+  const statusLabel = needsDocuments ? t("urride.transport.inviteCard.statusAccepted") : accepted ? t("urride.transport.inviteCard.statusAccepted") : rejected ? t("urride.transport.inviteCard.statusDeclined") : expired ? t("urride.companyFix.inviteExpired") : t("urride.transport.inviteCard.statusPending");
   const statusTone = needsDocuments || accepted
     ? "bg-blue-100 text-blue-700"
     : rejected
       ? "bg-rose-100 text-rose-700"
-      : "bg-amber-100 text-amber-800";
+      : expired
+        ? "bg-slate-200 text-slate-600"
+        : "bg-amber-100 text-amber-800";
   return (
     <article className="rounded-2xl border border-slate-100 bg-slate-50 p-4">
       <div className="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
@@ -2070,9 +2074,11 @@ function CompanyOperatorInviteCard({ invite, onAccept, onCompleteRegistration, o
               : t("urride.transport.inviteCard.bodyAccepted")
             : rejected
               ? t("urride.transport.inviteCard.bodyRejected")
-              : t("urride.transport.inviteCard.bodyPending")}
+              : expired
+                ? t("urride.companyFix.inviteExpiredBody")
+                : t("urride.transport.inviteCard.bodyPending")}
       </p>
-      {!accepted && !rejected ? (
+      {!accepted && !rejected && !expired ? (
         <div className="mt-4 grid gap-2 sm:grid-cols-2">
         <button
           type="button"
