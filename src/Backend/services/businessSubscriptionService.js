@@ -266,6 +266,15 @@ export async function fetchBusinessSubscription(surface, entityId, { sync = fals
   return data ? normalizeBusinessSubscriptionState(data, surface, entityId) : fallbackState(surface, entityId);
 }
 
+// The auto-renew value to send with a plan change: keep the seller's choice
+// on an existing paid subscription; only a first paid plan (none yet, or
+// Free, where the toggle is not shown) starts with auto-renew on.
+export function planChangeAutoRenew(subscription) {
+  const planCode = String(subscription?.planCode || subscription?.plan_code || "free").toLowerCase();
+  if (!subscription?.id || planCode === "free") return true;
+  return Boolean(subscription.autoRenew ?? subscription.auto_renew);
+}
+
 export async function changeBusinessPlan(surface, entityId, planCode, autoRenew = true, billingInterval = "monthly") {
   const interval = String(billingInterval).toLowerCase() === "yearly" ? "yearly" : "monthly";
   const params = {

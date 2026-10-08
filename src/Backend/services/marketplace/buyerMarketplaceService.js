@@ -8,6 +8,7 @@ import {
   normalizeCountryIso,
 } from "../../../data/globalCountryProfiles";
 import { getTierUnitPrice, normalizeTierPricing } from "./tierPricingUtils";
+import { t } from "../../../i18n";
 import {
   getProductMinimumOrderQuantity,
   normalizeProductOrderQuantity,
@@ -454,6 +455,12 @@ async function insertMarketplaceOrder(payload) {
       .maybeSingle();
     data = fallback.data;
     error = fallback.error;
+  }
+
+  // The database recomputes the total from the product rows and refuses a
+  // total that no longer matches (a price, discount or tier changed).
+  if (error && /KUNTHAI_ORDER_PRICE_CHANGED/.test(String(error.message || ""))) {
+    error = { ...error, message: t("promoFix.orderPriceChanged") };
   }
 
   return { data, error };

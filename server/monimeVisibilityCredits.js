@@ -57,6 +57,16 @@ export function parseCardUsdAmount(raw) {
   return value;
 }
 
+// Why a caller-supplied USD amount was refused ("" when it is valid), so the
+// buyer is not told the amount is out of range when it only has sub-cent
+// precision (for example "7.505").
+export function cardUsdAmountError(raw) {
+  const text = String(raw ?? "").trim();
+  if (/^\d+\.\d{3,}$/.test(text)) return "Enter a dollar amount with at most two decimal places, for example 7.50.";
+  if (parseCardUsdAmount(text) === null) return "Enter an amount between $1 and $1,000.";
+  return "";
+}
+
 // Server-authoritative card price: credits from the USD amount, and the SLE
 // amount Monime actually collects at the given live rate. USD cents and SLE
 // cents are both x100 units, so the conversion is a multiply (rounded up).

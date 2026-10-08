@@ -90,6 +90,10 @@ export function getRequestOrigin(req) {
   return new URL(`${protocol}://${forwardedHost}`).origin;
 }
 
+function isUniqueViolation(error) {
+  return error?.code === "23505" || /duplicate key value/i.test(String(error?.message || ""));
+}
+
 // Tells the buyer, in their notifications, that the money went through and the
 // credits are on their balance.
 //
@@ -103,17 +107,11 @@ export async function notifyVisibilityCreditPurchase({ adminClient, purchase, me
   const actionTarget = `visibility-credit-purchase:${purchase.id}`;
 
   try {
-    // No unique index covers this notification type, so the duplicate check is
-    // done here — the same purchase can legitimately be confirmed twice.
-    const { data: existing } = await adminClient
-      .from("platform_notifications")
-      .select("id")
-      .eq("user_id", purchase.user_id)
-      .eq("notification_type", "visibility_credit_purchase")
-      .eq("action_target", actionTarget)
-      .maybeSingle();
-    if (existing) return;
-
+    // The same purchase can legitimately be confirmed twice (poll, webhook and
+    // settle-on-return can race). A unique index on (user_id, action_target)
+    // for this notification type (20261008120000) plus the dedupe key make the
+    // insert itself idempotent: a second insert is a unique violation, which
+    // means the buyer was already told.
     const credits = Number(purchase.credits || 0);
     // Card purchases are chosen in USD and only settled in another currency,
     // so the buyer is told the amount they actually picked.
@@ -124,7 +122,7 @@ export async function notifyVisibilityCreditPurchase({ adminClient, purchase, me
       Number(amountMinor || 0) / 10 ** currencyExponent(currency)
     ).toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 });
 
-    await adminClient.from("platform_notifications").insert({
+    const { error } = await adminClient.from("platform_notifications").insert({
       user_id: purchase.user_id,
       sector: "platform",
       notification_type: "visibility_credit_purchase",
@@ -133,7 +131,9 @@ export async function notifyVisibilityCreditPurchase({ adminClient, purchase, me
       priority: "normal",
       status: "unread",
       action_target: actionTarget,
+      dedupe_key: actionTarget,
     });
+    if (error && !isUniqueViolation(error)) throw error;
   } catch (notifyError) {
     console.error("[Visibility credit purchase notification failed]", purchase.id, notifyError.message);
   }

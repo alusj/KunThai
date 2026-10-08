@@ -1,6 +1,7 @@
 import supabase from "../lib/supabaseClient";
 import { friendlyErrorMessage } from "./friendlyErrorService";
 import { apiUrl } from "../lib/apiUrl.js";
+import { t } from "../../i18n";
 
 export {
   getMarketplacePromotionDurationDays,
@@ -451,10 +452,27 @@ export const CARD_CREDITS_PER_USD = 15;
 export const CARD_MIN_USD = 1;
 export const CARD_MAX_USD = 1000;
 
-// Credits for a USD amount (dollars, cents allowed). 0 when out of range.
+// Keep a typed dollar amount to digits with at most one point and two
+// decimals (whole cents, as the server requires).
+export function sanitizeCardUsdInput(raw) {
+  const [whole = "", ...rest] = String(raw ?? "").replace(/[^\d.]/g, "").split(".");
+  return rest.length ? `${whole.slice(0, 4)}.${rest.join("").slice(0, 2)}` : whole.slice(0, 4);
+}
+
+// Whole cents for a USD amount, or null when it is not a plain amount with at
+// most two decimals. Never rounds: the server refuses sub-cent amounts.
+export function cardUsdToCents(usd) {
+  const text = typeof usd === "number" ? String(usd) : String(usd ?? "").trim();
+  if (!/^\d+(?:\.\d{0,2})?$/.test(text)) return null;
+  const [whole, fraction = ""] = text.split(".");
+  return Number(whole) * 100 + Number(fraction.padEnd(2, "0"));
+}
+
+// Credits for a USD amount (dollars, cents allowed). 0 when out of range or
+// more precise than a cent.
 export function cardCreditsForUsd(usd) {
-  const cents = Math.round(Number(usd) * 100);
-  if (!Number.isFinite(cents) || cents < CARD_MIN_USD * 100 || cents > CARD_MAX_USD * 100) return 0;
+  const cents = cardUsdToCents(usd);
+  if (cents === null || cents < CARD_MIN_USD * 100 || cents > CARD_MAX_USD * 100) return 0;
   return Math.floor((cents * CARD_CREDITS_PER_USD) / 100);
 }
 
@@ -462,11 +480,13 @@ export function cardCreditsForUsd(usd) {
 // card-only hosted checkout and returns its redirectUrl. Credits are granted
 // only after the server confirms the payment.
 export async function startMonimeCardPurchase({ usdAmount, spaceId = "" } = {}) {
+  const cents = cardUsdToCents(usdAmount);
+  if (cents === null) throw new Error(t("promoFix.cardAmountDecimals"));
   return authenticatedPaymentRequest(
     "/api/monime-create-payment",
     {
       method: "card",
-      usdAmount: String(usdAmount),
+      usdAmount: (cents / 100).toFixed(2),
       ...(spaceId ? { spaceId } : {}),
     },
     "Card payment is temporarily unavailable. Please try again.",

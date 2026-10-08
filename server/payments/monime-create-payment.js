@@ -2,6 +2,7 @@ import { randomUUID } from "node:crypto";
 
 import {
   authenticatePaymentRequest,
+  cardUsdAmountError,
   createAdminClient,
   createMonimeCheckout,
   createMonimePaymentCode,
@@ -181,7 +182,10 @@ export default async function handler(req, res) {
     if (String(req.body?.method || "").trim().toLowerCase() === "card") {
       const usdAmountMinor = parseCardUsdAmount(req.body?.usdAmount);
       if (usdAmountMinor === null) {
-        return json(res, 400, { ok: false, message: "Enter an amount between $1 and $1,000." });
+        return json(res, 400, {
+          ok: false,
+          message: cardUsdAmountError(req.body?.usdAmount) || "Enter an amount between $1 and $1,000.",
+        });
       }
       return startCardCheckout({ req, res, config, adminClient, user, creditSpace, usdAmountMinor });
     }
