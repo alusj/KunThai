@@ -71,8 +71,20 @@ function SellerPolicyCenter({ onBack }) {
   );
 }
 
-export default function SellerBoard({ onBack }) {
+// Which board sections a person may open, following businessPermissions (as
+// Business.jsx does): an invited admin only sees what the owner delegated.
+function canOpenBoardItem(key, permissions) {
+  if (!permissions) return true;
+  if (key === "messages") return permissions.canReplyMessages;
+  if (key === "products") return permissions.canAddProducts;
+  if (key === "delivery" || key === "verification") return permissions.isOwner || permissions.canEditBusiness;
+  if (key === "reports") return permissions.isOwner;
+  return permissions.canAccessDashboard;
+}
+
+export default function SellerBoard({ onBack, permissions = null }) {
   useI18n();
+  const boardItems = BOARD_ITEMS.filter((item) => item.key === "policy" || canOpenBoardItem(item.key, permissions));
   const boardNavigation = useNavigationStack("menu");
   const currentView = boardNavigation.current.screen;
   const promotionProduct = boardNavigation.current.state.promotionProduct || null;
@@ -103,7 +115,7 @@ export default function SellerBoard({ onBack }) {
         </section>
 
         <section className="grid gap-3 lg:grid-cols-2">
-          {BOARD_ITEMS.map((item) => (
+          {boardItems.map((item) => (
             <SettingsSubMenuItem
               key={item.key}
               icon={item.icon}
@@ -117,6 +129,7 @@ export default function SellerBoard({ onBack }) {
 
       <SellerSubPagePanel currentView={currentView}>
         {(view) => {
+          if (view !== "policy" && view !== "productPromotion" && !canOpenBoardItem(view, permissions)) return null;
           if (view === "verification") return <VerificationCenter onBack={goBackBoardView} />;
           if (view === "orders") {
             return (

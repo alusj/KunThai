@@ -10,6 +10,12 @@ import { useI18n, t } from "../../../../../../../../../i18n";
 import SellerMenuPageHeader from "../../SellerMenuPageHeader";
 import { uiText as translateUi, useI18n as useUiLocale } from "../../../../../../../../../i18n/index.js";
 import { inlineErrorMessage } from "../../../../../../../../../Backend/services/friendlyErrorService";
+import {
+  supportsMarketplaceFulfillment,
+  usesMarketplaceCategories,
+} from "../../../../../../../../../Backend/services/marketplace/marketplaceBusinessKinds";
+import { CountrySelect } from "../../settingsFields";
+import { countryFormValue, validateContactFields } from "../../settingsContact";
 
 const inputClass =
   "mt-2 w-full rounded-xl border border-gray-200 bg-white px-4 py-3 text-sm font-semibold text-gray-950 outline-none transition focus:border-gray-950 focus:ring-4 focus:ring-gray-950/10";
@@ -29,7 +35,7 @@ function buildForm(business) {
   return {
     categories: business?.identity?.categories || [],
     customCategory: "",
-    country: business?.location?.country || "",
+    country: countryFormValue(business?.location?.country || business?.location?.countryIso),
     city: business?.location?.city || "",
     address: business?.location?.address || "",
     discoverableNearby: business?.location?.discoverableNearby ?? true,
@@ -64,6 +70,11 @@ export default function BusinessInfo({ onBack }) {
   const [saving, setSaving] = useState(false);
   const [status, setStatus] = useState("");
   const [error, setError] = useState("");
+  // Retail categories and delivery/pickup only apply to the kinds that use
+  // them; restaurants, hotels and property agents are not held to them.
+  const businessKind = business?.businessKind || "retail";
+  const usesCategories = usesMarketplaceCategories(businessKind);
+  const usesFulfillment = supportsMarketplaceFulfillment(businessKind);
 
   useEffect(() => {
     let mounted = true;
@@ -133,7 +144,7 @@ export default function BusinessInfo({ onBack }) {
   async function saveBusinessInfo(event) {
     event.preventDefault();
 
-    if (!form.categories.length) {
+    if (usesCategories && !form.categories.length) {
       setError(t("urmall.biz.profile.chooseBizCategory"));
       return;
     }
@@ -143,7 +154,13 @@ export default function BusinessInfo({ onBack }) {
       return;
     }
 
-    if (!form.deliveryEnabled && !form.pickupEnabled) {
+    const countryError = validateContactFields({ country: form.country });
+    if (countryError) {
+      setError(countryError);
+      return;
+    }
+
+    if (usesFulfillment && !form.deliveryEnabled && !form.pickupEnabled) {
       setError(t("urmall.biz.settings.enableDeliveryPickup"));
       return;
     }
@@ -153,9 +170,7 @@ export default function BusinessInfo({ onBack }) {
     setStatus("");
     try {
       const updated = await updateRegisteredBusinessProfile({
-        identity: {
-          categories: form.categories,
-        },
+        identity: usesCategories ? { categories: form.categories } : {},
         location: {
           country: form.country,
           city: form.city,
@@ -216,6 +231,7 @@ export default function BusinessInfo({ onBack }) {
             />
           </div>
 
+          {usesCategories ? (
           <section className="rounded-2xl border border-gray-200 bg-white p-4 shadow-sm sm:p-6">
             <div className="flex flex-wrap items-start justify-between gap-3">
               <div>
@@ -265,6 +281,7 @@ export default function BusinessInfo({ onBack }) {
               </button>
             </div>
           </section>
+          ) : null}
 
           <section className="grid gap-5 lg:grid-cols-[1.1fr_0.9fr]">
             <div className="rounded-2xl border border-gray-200 bg-white p-4 shadow-sm sm:p-6">
@@ -275,10 +292,10 @@ export default function BusinessInfo({ onBack }) {
 
               <div className="mt-5 grid gap-4 md:grid-cols-2">
                 <Field label={t("urmall.biz.settings.country")}>
-                  <input
+                  <CountrySelect
                     className={inputClass}
                     value={form.country}
-                    onChange={(event) => updateField("country", event.target.value)}
+                    onChange={(value) => updateField("country", value)}
                   />
                 </Field>
                 <Field label={t("urmall.biz.settings.city")}>
@@ -334,6 +351,7 @@ export default function BusinessInfo({ onBack }) {
                   </select>
                 </Field>
 
+                {usesFulfillment ? (
                 <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-1 xl:grid-cols-2">
                   <label className="flex items-center justify-between gap-3 rounded-xl border border-gray-200 bg-gray-50 px-4 py-3">
                     <span className="text-sm font-black text-gray-950">{t("urmall.browse.deliveryChip")}</span>
@@ -354,6 +372,7 @@ export default function BusinessInfo({ onBack }) {
                     />
                   </label>
                 </div>
+                ) : null}
 
                 <div className="grid gap-4 sm:grid-cols-2">
                   <Field label={t("urmall.biz.settings.openTime")}>

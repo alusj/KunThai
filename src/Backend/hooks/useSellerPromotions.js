@@ -1,4 +1,4 @@
-import { useEffect, useState } from "react";
+import { useCallback, useEffect, useState } from "react";
 import { registerSellerMemory } from "./sellerMemoryRegistry";
 
 import { fetchSellerPromotions } from "../services/marketplace/sellerPromotionService";
@@ -24,6 +24,11 @@ export function useSellerPromotions() {
   const [promotions, setPromotions] = useState(() => SELLER_PROMOTIONS_MEMORY.promotions);
   const [loading, setLoading] = useState(() => !SELLER_PROMOTIONS_MEMORY.loaded);
   const [refreshing, setRefreshing] = useState(false);
+  // Set only when nothing could be shown, so the screen offers a retry
+  // instead of an endless skeleton.
+  const [error, setError] = useState(false);
+  const [attempt, setAttempt] = useState(0);
+  const retry = useCallback(() => setAttempt((current) => current + 1), []);
 
   useEffect(() => {
     let active = true;
@@ -37,6 +42,7 @@ export function useSellerPromotions() {
       setLoading(true);
       setRefreshing(false);
     }
+    setError(false);
 
     fetchSellerPromotions()
       .then((nextPromotions) => {
@@ -48,7 +54,9 @@ export function useSellerPromotions() {
           setPromotions(normalizedPromotions);
         }
       })
-      .catch(() => {})
+      .catch(() => {
+        if (active && !SELLER_PROMOTIONS_MEMORY.loaded) setError(true);
+      })
       .finally(() => {
         if (active) {
           setLoading(false);
@@ -59,7 +67,7 @@ export function useSellerPromotions() {
     return () => {
       active = false;
     };
-  }, []);
+  }, [attempt]);
 
   return {
     ...promotions,
@@ -67,5 +75,7 @@ export function useSellerPromotions() {
     isInitialLoading: loading && !SELLER_PROMOTIONS_MEMORY.loaded,
     refreshing,
     isRefreshing: refreshing,
+    error,
+    retry,
   };
 }

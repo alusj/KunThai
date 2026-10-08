@@ -54,7 +54,7 @@ function getDrawerScreen(key, props = {}) {
     component: <Privacy onBack={props.onBack} />,
   },
   board: {
-    component: <SellerBoard onBack={props.onBack} />,
+    component: <SellerBoard onBack={props.onBack} permissions={props.permissions} />,
   },
   admins: {
     component: <BusinessAdmins onBack={props.onBack} onOpenPlans={props.onOpenPlans} />,
@@ -192,6 +192,7 @@ export default function MyBizMenu({
         profileInitialView,
         onBack: goBackActiveScreen,
         onOpenPlans: canManagePlans ? () => openActiveScreen("plans") : undefined,
+        permissions,
       })
     : null;
 

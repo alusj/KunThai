@@ -5,6 +5,7 @@ import ActivePromotions from "./ActivePromotions";
 import CampaignOpportunities from "./CampaignOpportunities";
 import PromotionPerformance from "./PromotionPerformance";
 import SuggestedProducts from "./SuggestedProducts";
+import SellerLoadError from "../SellerLoadError";
 
 export default function BusinessPromotions() {
   useI18n();
@@ -14,7 +15,11 @@ export default function BusinessPromotions() {
     performance,
     opportunities,
     loading,
+    error,
+    retry,
   } = useSellerPromotions();
+
+  if (!loading && (error || !performance)) return <SellerLoadError onRetry={retry} />;
 
   if (loading || !performance) {
     return (

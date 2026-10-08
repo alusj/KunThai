@@ -4,7 +4,7 @@
 import { ArrowLeft, Bell, Menu, MessageSquare, PackageCheck, Plus, ShieldCheck, Store } from "lucide-react";
 
 import MyBizHeader from "./BusinessHeader/MyBizHeader";
-import { clearSellerMemories } from "../../../../Backend/hooks/sellerMemoryRegistry";
+import { clearSellerMemories, registerSellerAccountReset } from "../../../../Backend/hooks/sellerMemoryRegistry";
 import MyBizMenu from "./BusinessHeader/MyBizMenu/MyBizMenu";
 
 
@@ -50,8 +50,10 @@ import useBodyScrollLock from "../../../shared/useBodyScrollLock";
 import VerticalSellerDashboard from "./VerticalSellerDashboard";
 import UrMallExpiryNotice from "./UrMallExpiryNotice";
 import VendorOperationsCard from "./VendorOperationsCard";
+import SellerLoadError from "./SellerLoadError";
 import {
   MARKETPLACE_BUSINESS_CHANGED_EVENT,
+  MARKETPLACE_BUSINESS_UPDATED_EVENT,
   readCachedActiveRegisteredBusinessId,
   readRegisteredBusinesses,
   setActiveRegisteredBusiness,
@@ -70,6 +72,14 @@ import { uiText as translateUi, useI18n as useUiLocale } from "../../../../i18n/
 import { shortErrorToast } from "../../../../Backend/services/friendlyErrorService";
 
 const SELLER_SCREEN_ANIMATION_MS = 360;
+
+// The last business list (with this account's role in each), so reopening the
+// dashboard knows the permissions at once. Permissions stay least-privileged
+// until a list is known; it belongs to the signed-in account.
+const SELLER_BUSINESSES_MEMORY = { businesses: null };
+registerSellerAccountReset(() => {
+  SELLER_BUSINESSES_MEMORY.businesses = null;
+});
 
 function SellerFullScreen({ animation = "stack", children, hideHeader = false, eyebrow, onBack, open, subtitle, title }) {
   useUiLocale();
@@ -120,7 +130,7 @@ export default function Business({ initialScreen = "", onBack, onInitialScreenHa
   // While the seller workspace is open, KAI in UrMall acts as the
   // seller's business assistant rather than a shopping assistant.
   useAiRoleContext("urmall", "seller", { screen: "seller workspace" });
-  const { loading, hasBusiness, setHasBusiness } = useSellerBusinessStatus();
+  const { loading, hasBusiness, setHasBusiness, error: businessStatusError, retry: retryBusinessStatus } = useSellerBusinessStatus();
   // Personal accounts never register (header "+", "Add business" are hidden).
   const { canRegister, loading: accountTypeLoading } = useAccountType();
   const { capacity: typeCapacity, loading: typeCapacityLoading, refresh: refreshTypeCapacity } = useBusinessTypeCapacity(hasBusiness);
@@ -143,7 +153,10 @@ export default function Business({ initialScreen = "", onBack, onInitialScreenHa
   const [visibleScreen, setVisibleScreen] = useState("dashboard");
   const [screenPanelOpen, setScreenPanelOpen] = useState(false);
   const [dashboardReveal, setDashboardReveal] = useState(null);
-  const [businesses, setBusinesses] = useState([]);
+  const [businesses, setBusinesses] = useState(() => SELLER_BUSINESSES_MEMORY.businesses || []);
+  const [businessesLoaded, setBusinessesLoaded] = useState(() => Boolean(SELLER_BUSINESSES_MEMORY.businesses));
+  const [businessesError, setBusinessesError] = useState(false);
+  const [businessesAttempt, setBusinessesAttempt] = useState(0);
   const [selectedBusinessId, setSelectedBusinessId] = useState(() => readCachedActiveRegisteredBusinessId());
   const [sellerPlan, setSellerPlan] = useState({ planCode: "free", planName: "Free", available: false });
   const [switchingBusiness, setSwitchingBusiness] = useState(false);
@@ -256,21 +269,30 @@ export default function Business({ initialScreen = "", onBack, onInitialScreenHa
     let active = true;
     const loadBusinesses = () => readRegisteredBusinesses().then((items) => {
       if (!active) return;
+      SELLER_BUSINESSES_MEMORY.businesses = items;
       setBusinesses(items);
+      setBusinessesLoaded(true);
+      setBusinessesError(false);
       const cachedActiveId = readCachedActiveRegisteredBusinessId();
       const nextActiveId = items.find((item) => item.id === cachedActiveId)?.id
         || items.find((item) => item.id === sellerOverview.business?.id)?.id
         || items[0]?.id
         || "";
       if (nextActiveId) setSelectedBusinessId(nextActiveId);
-    }).catch(() => {});
+    }).catch(() => {
+      if (active && !SELLER_BUSINESSES_MEMORY.businesses) setBusinessesError(true);
+    });
     loadBusinesses();
     window.addEventListener(MARKETPLACE_BUSINESS_CHANGED_EVENT, loadBusinesses);
+    // A saved profile/settings change: refresh names, kinds and roles in the
+    // header and switcher without the business-switch flow.
+    window.addEventListener(MARKETPLACE_BUSINESS_UPDATED_EVENT, loadBusinesses);
     return () => {
       active = false;
       window.removeEventListener(MARKETPLACE_BUSINESS_CHANGED_EVENT, loadBusinesses);
+      window.removeEventListener(MARKETPLACE_BUSINESS_UPDATED_EVENT, loadBusinesses);
     };
-  }, [hasBusiness, sellerOverview.business?.id]);
+  }, [hasBusiness, sellerOverview.business?.id, businessesAttempt]);
 
   useEffect(() => {
     if (sellerScreenTimerRef.current) {
@@ -386,12 +408,38 @@ export default function Business({ initialScreen = "", onBack, onInitialScreenHa
   }
 
   async function openProductFromActivity(activity) {
-    const product = await resolveSellerActivityProduct(activity);
+    let product = null;
+    try {
+      product = await resolveSellerActivityProduct(activity);
+    } catch (error) {
+      showToast(shortErrorToast(error, t("sellerFix.productOpenFailed")), "danger");
+      return;
+    }
+    // The product may have been deleted since the activity was recorded.
+    if (!product) {
+      showToast(t("sellerFix.productGone"), "info");
+      return;
+    }
     if (activity?.actionTarget === "seller-product-insights") {
       openProductInsights(product);
       return;
     }
     openSellerProductDetail(product);
+  }
+
+  // The header "+" and the "Add your first listing" alert open the same
+  // editor: retail/vendor products, or the restaurant/hotel/property editor.
+  function startAddListing() {
+    if (!permissions.canAddProducts) {
+      showToast("No listing permission", "info");
+      return;
+    }
+    if (!isProductBusinessKind(businessKind)) {
+      requestOpenVerticalEditor();
+      return;
+    }
+    setEditingProduct(null);
+    openSellerScreen("addProduct");
   }
 
   function renderSellerScreen() {
@@ -631,7 +679,7 @@ export default function Business({ initialScreen = "", onBack, onInitialScreenHa
           <div className="kt-seller-screen-content mx-auto w-full max-w-5xl space-y-5">
             <BusinessAttention
               onAction={(item) => {
-                if (item.id === "add-first-product") openSellerScreen("addProduct");
+                if (item.id === "add-first-product") startAddListing();
                 if (item.type === "profile") openSellerScreen("editBusiness");
               }}
             />
@@ -689,7 +737,7 @@ export default function Business({ initialScreen = "", onBack, onInitialScreenHa
             <CampaignInboxSection inbox="urmall.seller" onNavigate={goBackSellerScreen} />
             <BusinessAttention
               onAction={(item) => {
-                if (item.id === "add-first-product") openSellerScreen("addProduct");
+                if (item.id === "add-first-product") startAddListing();
                 if (item.type === "payout") replaceSellerScreen("dashboard");
                 if (item.type === "profile") replaceSellerScreen("dashboard");
               }}
@@ -723,7 +771,10 @@ export default function Business({ initialScreen = "", onBack, onInitialScreenHa
     : undefined;
 
   const activeBusinessId = selectedBusinessId || sellerOverview.business?.id || businesses[0]?.id || "";
-  const activeRegisteredBusiness = businesses.find((business) => business.id === activeBusinessId) || businesses[0];
+  // No fallback to another business: until the active one is in the loaded
+  // list its role is unknown, and permissions stay least-privileged.
+  const activeRegisteredBusiness = businesses.find((business) => business.id === activeBusinessId)
+    || businesses.find((business) => business.id === sellerOverview.business?.id);
   const businessKind = sellerOverview.business?.kind || activeRegisteredBusiness?.businessKind || "retail";
   // Admin campaigns aimed at the seller dashboard (optionally by business type) appear here.
   useCampaignSurfaceRole("marketplace", "seller", { businessKind: hasBusiness ? businessKind : "" });
@@ -731,8 +782,30 @@ export default function Business({ initialScreen = "", onBack, onInitialScreenHa
   const permissions = getBusinessPermissions(activeRegisteredBusiness);
   const allowedTabs = getAllowedWorkspaceTabs(permissions);
   const effectiveTab = allowedTabs.includes(activeTab) ? activeTab : (allowedTabs[0] || "");
+  const businessesFailed = hasBusiness && !businessesLoaded && businessesError;
+  const businessesPending = hasBusiness && !businessesLoaded && !businessesError;
 
-  if (loading || sellerDashboardInitialLoading) {
+  if (!loading && (businessStatusError || businessesFailed)) {
+    // The business (or the person's role in it) could not be read: offer a
+    // retry rather than the registration wizard or an owner's dashboard.
+    return (
+      <div className="kt-mobile-viewport kt-safe-screen bg-gray-50">
+        <header className="sticky top-0 z-30 flex h-16 items-center border-b border-gray-200 bg-white px-4 sm:px-6 lg:px-8">
+          <AppBackTab onBack={onBack} label={t("common.back")} historyKey="marketplace-seller-load-error" useHistoryLayer={false} />
+        </header>
+        <div className="w-full px-4 py-5 sm:px-6 lg:px-8">
+          <SellerLoadError
+            onRetry={() => {
+              if (businessStatusError) retryBusinessStatus();
+              else setBusinessesAttempt((current) => current + 1);
+            }}
+          />
+        </div>
+      </div>
+    );
+  }
+
+  if (loading || sellerDashboardInitialLoading || businessesPending) {
     // The overview cache keeps stats persistent across visits. On the first
     // dashboard open, keep all controls static and reserve shimmer exclusively
     // for the changing inventory/media cards.
@@ -768,18 +841,7 @@ export default function Business({ initialScreen = "", onBack, onInitialScreenHa
           addBusinessPlanLabel={addBusinessPlanLabel}
           addBusinessLoading={addBusinessLoading}
           onBack={onBack}
-          onAddProduct={() => {
-            if (!permissions.canAddProducts) {
-              showToast("No listing permission", "info");
-              return;
-            }
-            if (!isProductBusinessKind(businessKind)) {
-              requestOpenVerticalEditor();
-              return;
-            }
-            setEditingProduct(null);
-            openSellerScreen("addProduct");
-          }}
+          onAddProduct={startAddListing}
           onOrders={() => {
             if (!permissions.canAccessDashboard) {
               showToast("No dashboard permission", "info");
@@ -795,7 +857,10 @@ export default function Business({ initialScreen = "", onBack, onInitialScreenHa
             openSellerScreen("messages");
           }}
           onAlerts={() => {
-            if (!permissions.canAccessDashboard) return;
+            if (!permissions.canAccessDashboard) {
+              showToast("No dashboard permission", "info");
+              return;
+            }
             openSellerScreen("notifications");
           }}
           onMenu={openSellerMenu}

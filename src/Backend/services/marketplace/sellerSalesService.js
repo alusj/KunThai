@@ -33,12 +33,16 @@ export async function fetchSellerSales() {
   const monthStart = new Date(now.getFullYear(), now.getMonth(), 1);
   const completedOrders = orders.filter((order) => order.status === "completed");
   const totalRevenue = (items) => items.reduce((sum, order) => sum + Number(order.total_amount || 0), 0);
+  // Revenue lands when the order is completed, not when it was placed.
+  const completedAt = (order) => new Date(order.completed_at || order.updated_at || order.created_at);
 
   return {
+    // Totals are in the business's currency (orders carry their own below).
+    currency: business.location?.currency || business.location?.countryIso || "",
     revenue: {
-      today: totalRevenue(completedOrders.filter((order) => new Date(order.created_at) >= todayStart)),
-      weekly: totalRevenue(completedOrders.filter((order) => new Date(order.created_at) >= weekStart)),
-      monthly: totalRevenue(completedOrders.filter((order) => new Date(order.created_at) >= monthStart)),
+      today: totalRevenue(completedOrders.filter((order) => completedAt(order) >= todayStart)),
+      weekly: totalRevenue(completedOrders.filter((order) => completedAt(order) >= weekStart)),
+      monthly: totalRevenue(completedOrders.filter((order) => completedAt(order) >= monthStart)),
     },
     orders: {
       total: orders.length,

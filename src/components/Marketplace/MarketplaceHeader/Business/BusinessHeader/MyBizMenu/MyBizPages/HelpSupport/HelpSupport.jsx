@@ -1,5 +1,5 @@
 import { CircleHelp, Headphones, LifeBuoy } from "lucide-react";
-import { useState } from "react";
+import { useSellerSubScreens } from "../useSellerSubScreens";
 
 import { useI18n, t } from "../../../../../../../../i18n";
 import SellerMenuPageHeader from "../SellerMenuPageHeader";
@@ -11,7 +11,7 @@ import HelpHome from "./HelpHome/HelpHome";
 
 export default function HelpSupport({ onBack }) {
   useI18n();
-  const [currentView, setCurrentView] = useState("menu");
+  const { currentView, open: setCurrentView, goBack: goBackSubView } = useSellerSubScreens("support");
 
   return (
     <div className="relative min-h-full bg-white">
@@ -39,9 +39,9 @@ export default function HelpSupport({ onBack }) {
 
       <SellerSubPagePanel currentView={currentView}>
         {(view) => {
-          if (view === "contact") return <ContactSupport onBack={() => setCurrentView("menu")} />;
-          if (view === "help") return <HelpHome onBack={() => setCurrentView("menu")} />;
-          if (view === "faq") return <FAQ onBack={() => setCurrentView("menu")} />;
+          if (view === "contact") return <ContactSupport onBack={goBackSubView} />;
+          if (view === "help") return <HelpHome onBack={goBackSubView} />;
+          if (view === "faq") return <FAQ onBack={goBackSubView} />;
           return null;
         }}
       </SellerSubPagePanel>

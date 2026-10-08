@@ -185,22 +185,31 @@ export default function BusinessProfileCard({ business, status, onEditProfile, o
           </div>
 
           <div className="mt-2 flex flex-wrap items-center gap-2 text-sm">
-            <span className="font-bold text-gray-900">
-              {business.rating.toFixed(1)}
-            </span>
-            <span className="text-yellow-500">{t("urmall.biz.dash.star")}</span>
-            <span className="text-gray-500">
-              {t("urmall.biz.dash.reviews", { count: business.reviewCount })}
-            </span>
+            {Number(business.reviewCount) > 0 ? (
+              <>
+                <span className="font-bold text-gray-900">
+                  {Number(business.rating || 0).toFixed(1)}
+                </span>
+                <span className="text-yellow-500">{t("urmall.biz.dash.star")}</span>
+                <span className="text-gray-500">
+                  {t("urmall.biz.dash.reviews", { count: business.reviewCount })}
+                </span>
+              </>
+            ) : (
+              <span className="text-gray-500">{t("sellerFix.noReviewsYet")}</span>
+            )}
           </div>
 
           {status ? (
             <div className="mt-3 flex gap-2 overflow-x-auto pb-1 [-ms-overflow-style:none] [scrollbar-width:none] [&::-webkit-scrollbar]:hidden">
-              <StatusPill
-                icon={Clock}
-                label={status.open ? t("urmall.biz.dash.openNow") : t("urmall.biz.dash.closed")}
-                active={status.open}
-              />
+              {/* No open/closed badge when the business has no hours saved. */}
+              {typeof status.open === "boolean" ? (
+                <StatusPill
+                  icon={Clock}
+                  label={status.open ? t("urmall.biz.dash.openNow") : t("urmall.biz.dash.closed")}
+                  active={status.open}
+                />
+              ) : null}
               <StatusPill
                 icon={Bike}
                 label={t("urmall.browse.deliveryChip")}

@@ -41,3 +41,11 @@ test("UrMall admins edit public business information only when delegated", () =>
   assert.equal(editor.canManageBusiness, false);
   assert.equal(editor.hasAnyAccess, true);
 });
+
+test("UrMall grants nothing until the business and role are known", () => {
+  const loading = getBusinessPermissions(undefined);
+  assert.equal(loading.isOwner, false);
+  assert.equal(loading.canAddProducts, false);
+  assert.equal(loading.canManageBusiness, false);
+  assert.equal(loading.hasAnyAccess, false);
+});

@@ -124,8 +124,9 @@ export async function fetchSellerActivities() {
 
   if (activityResult.error) throw new Error(activityResult.error.message);
 
+  const locallyDismissed = new Set(readDismissedActivityIds(await dismissedActivitiesKey(business.id)));
   const persistedActivities = (activityResult.data || [])
-    .filter((activity) => !activity.dismissed_at)
+    .filter((activity) => !activity.dismissed_at && !locallyDismissed.has(String(activity.id)))
     .filter((activity) => !["payment", "payout", "refund", "transaction"].includes(String(activity.activity_type || "").toLowerCase()))
     .map((activity) => ({
     id: activity.id,
@@ -158,9 +159,43 @@ export async function fetchSellerActivities() {
     .slice(0, 30);
 }
 
+// Dismissed activities are also remembered on this device, per user and
+// business: an invited admin may not be allowed to update the shared row
+// (RLS then changes nothing), and the item must not come back after reload.
+const DISMISSED_ACTIVITY_PREFIX = "kunthai.urmall.dismissed-activities.v1";
+const MAX_REMEMBERED_DISMISSALS = 200;
+
+async function dismissedActivitiesKey(businessId) {
+  const { data } = await supabase.auth.getSession().catch(() => ({ data: null }));
+  const userId = data?.session?.user?.id || "";
+  return userId && businessId ? `${DISMISSED_ACTIVITY_PREFIX}:${userId}:${businessId}` : "";
+}
+
+function readDismissedActivityIds(key) {
+  if (!key) return [];
+  try {
+    const ids = JSON.parse(localStorage.getItem(key) || "[]");
+    return Array.isArray(ids) ? ids.map(String) : [];
+  } catch {
+    return [];
+  }
+}
+
+function rememberDismissedActivity(key, activityId) {
+  if (!key) return;
+  try {
+    const ids = readDismissedActivityIds(key).filter((id) => id !== String(activityId));
+    ids.push(String(activityId));
+    localStorage.setItem(key, JSON.stringify(ids.slice(-MAX_REMEMBERED_DISMISSALS)));
+  } catch {
+    // Storage may be unavailable; the server-side dismissal still applies.
+  }
+}
+
 export async function dismissSellerActivity(activityId) {
   const business = await readRegisteredBusiness();
   if (!business || !activityId) return;
+  rememberDismissedActivity(await dismissedActivitiesKey(business.id), activityId);
 
   const { error } = await supabase
     .from("marketplace_activities")

@@ -3,6 +3,18 @@ import ActivityIcon from "./ActivityIcon";
 import ActivityStatusBadge from "./ActivityStatusBadge";
 import { uiText as translateUi } from "../../../../../i18n/index.js";
 
+// Activity buttons are stored in English ("View product"); show them in the
+// seller's language.
+const ACTION_LABEL_KEYS = {
+  "view product": "urmall.biz.cat.viewProduct",
+  "view insights": "sellerFix.viewInsights",
+};
+
+function actionLabelText(label) {
+  const key = ACTION_LABEL_KEYS[String(label || "").trim().toLowerCase()];
+  return key ? t(key) : translateUi(label);
+}
+
 export default function ActivityItem({ actionBusy = false, activity, dismissing = false, onAction, onDone }) {
   useI18n();
   function handleDone(event) {
@@ -48,7 +60,7 @@ export default function ActivityItem({ actionBusy = false, activity, dismissing 
               disabled={actionBusy}
               onClick={handleAction}
             >
-              {actionBusy ? t("urmall.biz.actv.opening") : activity.actionLabel}
+              {actionBusy ? t("urmall.biz.actv.opening") : actionLabelText(activity.actionLabel)}
             </button>
           ) : null}
         </div>

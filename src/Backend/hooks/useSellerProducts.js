@@ -1,4 +1,4 @@
-import { useEffect, useState } from "react";
+import { useCallback, useEffect, useState } from "react";
 import { registerSellerMemory } from "./sellerMemoryRegistry";
 import { inlineErrorMessage } from "../services/friendlyErrorService";
 import { notifyActionDone, notifyActionFailed } from "../services/actionFeedbackService";
@@ -37,6 +37,11 @@ export function useSellerProducts() {
   const [refreshing, setRefreshing] = useState(false);
   const [actionMessage, setActionMessage] = useState("");
   const [actionError, setActionError] = useState("");
+  // Set only when nothing could be shown, so the catalog offers a retry
+  // instead of an endless skeleton.
+  const [error, setError] = useState(false);
+  const [attempt, setAttempt] = useState(0);
+  const retry = useCallback(() => setAttempt((current) => current + 1), []);
 
   async function loadProducts(isActive = () => true) {
     const cachedProductState = SELLER_PRODUCTS_MEMORY.productState;
@@ -53,6 +58,7 @@ export function useSellerProducts() {
       setLoading(true);
       setRefreshing(false);
     }
+    if (isActive()) setError(false);
 
     try {
       const nextProductState = normalizeProducts(await fetchSellerProducts());
@@ -61,6 +67,9 @@ export function useSellerProducts() {
       if (isActive()) {
         setProductState(nextProductState);
       }
+    } catch (loadError) {
+      if (isActive() && !hasCachedProducts) setError(true);
+      throw loadError;
     } finally {
       if (isActive()) {
         setLoading(false);
@@ -80,7 +89,8 @@ export function useSellerProducts() {
       active = false;
       window.removeEventListener("marketplace-products-updated", refresh);
     };
-  }, []);
+  // attempt re-runs the load after a failure (retry).
+  }, [attempt]);
 
   async function handleProductAction(product, action) {
     setActionError("");
@@ -163,5 +173,7 @@ export function useSellerProducts() {
     isInitialLoading: loading && !hasProductStateData(productState),
     refreshing,
     isRefreshing: refreshing,
+    error,
+    retry,
   };
 }

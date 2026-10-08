@@ -29,7 +29,7 @@ const PRODUCT_MENU_MARGIN = 12;
 const PRODUCT_MENU_ROW_HEIGHT = 48;
 const PRODUCT_MENU_VERTICAL_PADDING = 12;
 
-export default function ProductManagementRow({ product, onAction, onViewProduct, mode = "store", insightsLocked = false }) {
+export default function ProductManagementRow({ product, onAction, onViewProduct, mode = "store", insightsLocked = false, canView = true, canEdit = true, canViewInsights = true }) {
   useI18n();
   const [menuOpen, setMenuOpen] = useState(false);
   const [menuClosing, setMenuClosing] = useState(false);
@@ -47,9 +47,10 @@ export default function ProductManagementRow({ product, onAction, onViewProduct,
     product.deliveryAvailable ? t("urmall.browse.deliveryChip") : "",
     product.pickupAvailable ? t("urmall.browse.pickupChip") : "",
   ].filter(Boolean).join(" - ");
-  const menuActionCount = isDraft
+  const hiddenActionCount = (canView ? 0 : 1) + (canEdit ? 0 : 1) + (!isDraft && !canViewInsights ? 1 : 0);
+  const menuActionCount = (isDraft
     ? 4
-    : 5 + (isCatalog ? 1 : 0) + (needsRestock ? 1 : 0) + (!isCatalog ? 1 : 0);
+    : 5 + (isCatalog ? 1 : 0) + (needsRestock ? 1 : 0) + (!isCatalog ? 1 : 0)) - hiddenActionCount;
 
   const clearMenuTimer = useCallback(() => {
     if (menuTimerRef.current) {
@@ -162,11 +163,11 @@ export default function ProductManagementRow({ product, onAction, onViewProduct,
 
   return (
     <article
-      role="button"
-      tabIndex={0}
-      onClick={openProduct}
-      onKeyDown={handleKeyDown}
-      className="group relative grid cursor-pointer grid-cols-[4.75rem_minmax(0,1fr)_auto] gap-3 border-t border-gray-100 px-4 py-4 text-left transition hover:bg-gray-50 sm:grid-cols-[5.75rem_minmax(0,1fr)_auto] sm:gap-4"
+      role={canView ? "button" : undefined}
+      tabIndex={canView ? 0 : undefined}
+      onClick={canView ? openProduct : undefined}
+      onKeyDown={canView ? handleKeyDown : undefined}
+      className={`group relative grid ${canView ? "cursor-pointer" : ""} grid-cols-[4.75rem_minmax(0,1fr)_auto] gap-3 border-t border-gray-100 px-4 py-4 text-left transition hover:bg-gray-50 sm:grid-cols-[5.75rem_minmax(0,1fr)_auto] sm:gap-4`}
     >
       <div className="h-[4.75rem] w-[4.75rem] overflow-hidden rounded-xl border border-gray-200 bg-gray-100 sm:h-[5.75rem] sm:w-[5.75rem]">
         {primaryImage ? (
@@ -195,7 +196,7 @@ export default function ProductManagementRow({ product, onAction, onViewProduct,
         ) : null}
 
         <div className="mt-3 grid grid-cols-3 gap-2">
-          <Metric label={t("urmall.biz.cat.price")} value={formatCurrency(product.price)} />
+          <Metric label={t("urmall.biz.cat.price")} value={formatCurrency(product.price, product.currency || product.countryIso)} />
           <Metric label={t("urmall.biz.cat.stock")} value={product.stock} />
           <Metric label={t("urmall.biz.cat.sales")} value={product.sales} />
         </div>
@@ -247,22 +248,22 @@ export default function ProductManagementRow({ product, onAction, onViewProduct,
             >
               {isDraft ? (
                 <>
-                  <MenuAction icon={Eye} label={t("urmall.biz.cat.viewDraft")} onClick={() => runAction("view-product")} />
-                  <MenuAction icon={Pencil} label={t("urmall.biz.cat.editListing")} onClick={() => runAction("edit-listing")} />
+                  {canView ? <MenuAction icon={Eye} label={t("urmall.biz.cat.viewDraft")} onClick={() => runAction("view-product")} /> : null}
+                  {canEdit ? <MenuAction icon={Pencil} label={t("urmall.biz.cat.editListing")} onClick={() => runAction("edit-listing")} /> : null}
                   <MenuAction icon={Upload} label={t("urmall.biz.cat.publish")} onClick={() => runAction("publish")} />
                   <MenuAction icon={Trash2} label={t("urmall.biz.cat.delete")} tone="danger" onClick={() => runAction("delete")} />
                 </>
               ) : (
                 <>
-                  <MenuAction icon={Eye} label={t("urmall.biz.cat.viewProduct")} onClick={() => runAction("view-product")} />
-                  <MenuAction icon={BarChart3} label={t("urmall.biz.intel.insightsTab")} badge={insightsLocked ? "Pro" : null} onClick={() => runAction("insights")} />
+                  {canView ? <MenuAction icon={Eye} label={t("urmall.biz.cat.viewProduct")} onClick={() => runAction("view-product")} /> : null}
+                  {canViewInsights ? <MenuAction icon={BarChart3} label={t("urmall.biz.intel.insightsTab")} badge={insightsLocked ? "Pro" : null} onClick={() => runAction("insights")} /> : null}
                   {isCatalog ? (
                     <MenuAction icon={Share2} label={t("urmall.biz.cat.shareLink")} onClick={() => runAction("share")} />
                   ) : null}
                   {needsRestock ? (
                     <MenuAction icon={RotateCcw} label={t("urmall.biz.cat.restock")} onClick={() => runAction("restock")} />
                   ) : null}
-                  <MenuAction icon={Pencil} label={t("urmall.biz.cat.editListing")} onClick={() => runAction("edit-listing")} />
+                  {canEdit ? <MenuAction icon={Pencil} label={t("urmall.biz.cat.editListing")} onClick={() => runAction("edit-listing")} /> : null}
                   <MenuAction icon={Megaphone} label={t("urmall.biz.cat.promote")} onClick={() => runAction("promote")} />
                   <MenuAction
                     icon={product.status === "paused" ? PlayCircle : PauseCircle}

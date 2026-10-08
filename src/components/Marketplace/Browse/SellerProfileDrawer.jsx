@@ -918,8 +918,13 @@ export default function SellerProfileDrawer({
   const onNoticeRef = useRef(onNotice);
   const safeSeller = useMemo(() => asObject(seller), [seller]);
   const sellerWhatsAppUrl = useMemo(
-    () => buildWhatsAppUrl(safeSeller.whatsapp, t("urmall.seller.whatsappGreeting", { name: safeSeller.name || t("urmall.seller.thereFallback") })),
-    [safeSeller.whatsapp, safeSeller.name, memoLocale],
+    () => buildWhatsAppUrl(
+      safeSeller.whatsapp,
+      t("urmall.seller.whatsappGreeting", { name: safeSeller.name || t("urmall.seller.thereFallback") }),
+      // A local number is dialled from the seller's country, not the buyer's.
+      safeSeller.countryCode || safeSeller.country_iso || safeSeller.country,
+    ),
+    [safeSeller.whatsapp, safeSeller.name, safeSeller.countryCode, safeSeller.country_iso, safeSeller.country, memoLocale],
   );
   const safeCatalog = useMemo(() => asArray(catalog).filter((item) => item && typeof item === "object"), [catalog]);
   const sellerVertical = useMemo(() => getSellerVertical(safeSeller), [safeSeller]);

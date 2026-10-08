@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useState } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
 import { isHeavyUploadActive } from "../services/uploadActivity";
 
 import {
@@ -9,7 +9,6 @@ import {
 } from "../services/notificationSeenStore";
 import {
   fetchSellerHeaderState,
-  searchSellerWorkspace,
   subscribeSellerHeaderChanges,
 } from "../services/marketplace/sellerHeaderService";
 import { MARKETPLACE_BUSINESS_CHANGED_EVENT } from "../services/marketplace/sellerRegistrationService";
@@ -27,7 +26,6 @@ const DEFAULT_HEADER_STATE = {
   orderItems: [],
   messageItems: [],
   notificationItems: [],
-  searchSuggestions: [],
 };
 
 const SELLER_HEADER_MEMORY = {
@@ -42,25 +40,31 @@ function normalizeHeaderState(headerState) {
 
 export function useSellerHeader() {
   const [headerState, setHeaderState] = useState(() => SELLER_HEADER_MEMORY.headerState);
-  const [query, setQuery] = useState("");
-  const [searchResults, setSearchResults] = useState([]);
   const [loading, setLoading] = useState(() => !SELLER_HEADER_MEMORY.loaded);
   const [refreshing, setRefreshing] = useState(false);
   const [, setSeenVersion] = useState(0);
+  // Bumped whenever the active business changes: the live subscription below
+  // is rebuilt for the new business, and loads started for the previous one
+  // are ignored when they finish.
+  const [businessVersion, setBusinessVersion] = useState(0);
+  const businessVersionRef = useRef(0);
 
   async function loadHeaderState(isActive = () => true) {
+    const startedFor = businessVersionRef.current;
+    const isCurrent = () => isActive() && businessVersionRef.current === startedFor;
     const hasCachedHeader = SELLER_HEADER_MEMORY.loaded;
 
-    if (hasCachedHeader && isActive()) {
+    if (hasCachedHeader && isCurrent()) {
       setHeaderState(SELLER_HEADER_MEMORY.headerState);
       setLoading(false);
       setRefreshing(true);
-    } else {
+    } else if (isCurrent()) {
       setLoading(true);
       setRefreshing(false);
     }
 
     const fetchedState = normalizeHeaderState(await fetchSellerHeaderState());
+    if (businessVersionRef.current !== startedFor) return;
     // Keep the previous object identity when a poll returns identical data,
     // so consumers depending on headerState (or callbacks built from it)
     // don't churn every 20 seconds.
@@ -93,6 +97,7 @@ export function useSellerHeader() {
       if (isHeavyUploadActive()) return;
       loadHeaderState(() => active).catch(() => {});
     }, 20000);
+    // Live changes for the business active now; re-run on every switch.
     subscribeSellerHeaderChanges(() => loadHeaderState(() => active).catch(() => {}))
       .then((unsubscribe) => { if (active) unsubscribeRealtime = unsubscribe; else unsubscribe(); })
       .catch(() => {});
@@ -102,7 +107,8 @@ export function useSellerHeader() {
       window.clearInterval(interval);
       unsubscribeRealtime();
     };
-  }, []);
+  // businessVersion re-runs it (and resubscribes) for a newly active business.
+  }, [businessVersion]);
 
   useEffect(() => {
     function handleMessagesUpdated() {
@@ -110,10 +116,11 @@ export function useSellerHeader() {
     }
 
     function handleBusinessChanged() {
+      businessVersionRef.current += 1;
       SELLER_HEADER_MEMORY.loaded = false;
       SELLER_HEADER_MEMORY.headerState = DEFAULT_HEADER_STATE;
       setHeaderState(DEFAULT_HEADER_STATE);
-      loadHeaderState(() => true).catch(() => {});
+      setBusinessVersion((version) => version + 1);
     }
 
     window.addEventListener("marketplace-message-sent", handleMessagesUpdated);
@@ -133,20 +140,6 @@ export function useSellerHeader() {
   useEffect(() => {
     return subscribeNotificationSeen(() => setSeenVersion((version) => version + 1));
   }, []);
-
-  useEffect(() => {
-    let active = true;
-
-    searchSellerWorkspace(query).then((results) => {
-      if (active) {
-        setSearchResults(results);
-      }
-    });
-
-    return () => {
-      active = false;
-    };
-  }, [query]);
 
   // Stable identity matters: Marketplace runs this from an effect, and the
   // seen-event it fires re-renders the owner. An unstable reference there
@@ -178,9 +171,6 @@ export function useSellerHeader() {
     // messages and only clears when the seller opens (reads) them.
     messageCount: headerState.messageCount,
     notificationCount: getUnseenNotificationCount(SELLER_SEEN_SCOPES.notifications, headerState.notificationItems, { unreadOnly: true }),
-    query,
-    setQuery,
-    searchResults,
     loading,
     isInitialLoading: loading && !SELLER_HEADER_MEMORY.loaded,
     refreshing,

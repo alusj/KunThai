@@ -22,11 +22,14 @@ export default function StoreStatusPills({ status }) {
   useI18n();
   return (
     <div className="flex flex-wrap gap-2">
-      <StatusPill
-        icon={Clock}
-        label={status.open ? t("urmall.biz.dash.openNow") : t("urmall.biz.dash.closed")}
-        active={status.open}
-      />
+      {/* No badge when the business has no operating hours saved. */}
+      {typeof status.open === "boolean" ? (
+        <StatusPill
+          icon={Clock}
+          label={status.open ? t("urmall.biz.dash.openNow") : t("urmall.biz.dash.closed")}
+          active={status.open}
+        />
+      ) : null}
       <StatusPill
         icon={Bike}
         label={t("urmall.browse.deliveryChip")}

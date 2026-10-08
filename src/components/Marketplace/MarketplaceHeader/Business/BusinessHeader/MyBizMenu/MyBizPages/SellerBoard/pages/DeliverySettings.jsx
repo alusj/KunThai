@@ -9,12 +9,14 @@ import { useI18n, t } from "../../../../../../../../../i18n";
 import SellerMenuPageHeader from "../../SellerMenuPageHeader";
 import { uiText as translateUi } from "../../../../../../../../../i18n/index.js";
 import { inlineErrorMessage } from "../../../../../../../../../Backend/services/friendlyErrorService";
+import { CountrySelect } from "../../settingsFields";
+import { countryFormValue, validateContactFields } from "../../settingsContact";
 
 function buildForm(business) {
   return {
     address: business?.location?.address || "",
     city: business?.location?.city || "",
-    country: business?.location?.country || "",
+    country: countryFormValue(business?.location?.country || business?.location?.countryIso),
     discoverableNearby: business?.location?.discoverableNearby ?? true,
     businessType: business?.operations?.businessType || "both",
     deliveryEnabled: business?.operations?.deliveryEnabled ?? true,
@@ -32,7 +34,7 @@ export default function DeliverySettings({ onBack }) {
     let active = true;
     readRegisteredBusiness().then((business) => {
       if (active) setForm(buildForm(business));
-    });
+    }).catch(() => {});
     return () => {
       active = false;
     };
@@ -45,6 +47,11 @@ export default function DeliverySettings({ onBack }) {
 
   async function save(event) {
     event.preventDefault();
+    const countryError = validateContactFields({ country: form.country });
+    if (countryError) {
+      setStatus(countryError);
+      return;
+    }
     setSaving(true);
     setStatus("");
     try {
@@ -110,10 +117,10 @@ export default function DeliverySettings({ onBack }) {
               </label>
               <label>
                 <span className="text-xs font-black uppercase tracking-[0.16em] text-gray-500">{t("urmall.biz.settings.country")}</span>
-                <input
+                <CountrySelect
                   value={form.country}
-                  onChange={(event) => update("country", event.target.value)}
-                  className="mt-2 w-full rounded-xl border border-gray-200 px-4 py-3 text-sm font-semibold outline-none focus:border-gray-950"
+                  onChange={(value) => update("country", value)}
+                  className="mt-2 w-full rounded-xl border border-gray-200 bg-white px-4 py-3 text-sm font-semibold outline-none focus:border-gray-950"
                 />
               </label>
               <label className="md:col-span-2">
