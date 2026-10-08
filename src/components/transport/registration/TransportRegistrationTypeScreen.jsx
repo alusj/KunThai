@@ -1,4 +1,4 @@
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import {
   Building2,
   CheckCircle2,
@@ -42,6 +42,10 @@ export default function TransportRegistrationTypeScreen({ onBack, onSelect }) {
   const [cautionAccepted, setCautionAccepted] = useState(false);
   const [selectedType, setSelectedType] = useState(null);
   const [leavingCaution, setLeavingCaution] = useState(false);
+  // Pending hand-offs: Back (or leaving the screen) cancels them, so a choice
+  // made just before Back never reopens the registration afterwards.
+  const selectTimerRef = useRef(null);
+  const cautionTimerRef = useRef(null);
 
   // While the caution card owns the viewport, lock the page behind it so the
   // background scrollbar can't scroll and hide/block the card.
@@ -59,12 +63,25 @@ export default function TransportRegistrationTypeScreen({ onBack, onSelect }) {
     return () => window.clearTimeout(timer);
   }, []);
 
+  useEffect(() => () => {
+    window.clearTimeout(selectTimerRef.current);
+    window.clearTimeout(cautionTimerRef.current);
+  }, []);
+
+  function handleBack() {
+    window.clearTimeout(selectTimerRef.current);
+    selectTimerRef.current = null;
+    onBack?.();
+  }
+
   function handleSelect(type) {
     setSelectedType(type);
     scrollViewportTop();
     setShowIntro(true);
 
-    window.setTimeout(() => {
+    window.clearTimeout(selectTimerRef.current);
+    selectTimerRef.current = window.setTimeout(() => {
+      selectTimerRef.current = null;
       scrollViewportTop();
       onSelect(type);
     }, 700);
@@ -73,7 +90,8 @@ export default function TransportRegistrationTypeScreen({ onBack, onSelect }) {
   function acceptTransportCaution() {
     setLeavingCaution(true);
 
-    window.setTimeout(() => {
+    window.clearTimeout(cautionTimerRef.current);
+    cautionTimerRef.current = window.setTimeout(() => {
       setCautionAccepted(true);
       setLeavingCaution(false);
       scrollViewportTop();
@@ -89,7 +107,7 @@ export default function TransportRegistrationTypeScreen({ onBack, onSelect }) {
           <header className="z-30 shrink-0 border-b border-slate-100 bg-white/95 px-3 py-3 shadow-sm backdrop-blur sm:px-5">
             <div className="flex items-center gap-3">
               <AppBackTab
-                onBack={onBack}
+                onBack={handleBack}
                 label={t("urride.registration.type.back")}
                 historyKey="transport-registration-policy"
                 className="rounded-full border border-slate-200 bg-white hover:bg-slate-50"
@@ -160,7 +178,7 @@ export default function TransportRegistrationTypeScreen({ onBack, onSelect }) {
         <header className="sticky top-0 z-30 border-b border-slate-100 bg-white/95 px-3 py-3 shadow-sm backdrop-blur sm:px-5">
           <div className="flex items-center gap-3">
             <AppBackTab
-              onBack={onBack}
+              onBack={handleBack}
               label={t("urride.registration.type.back")}
               historyKey="transport-registration-type"
               className="rounded-full border border-slate-200 bg-white hover:bg-slate-50"

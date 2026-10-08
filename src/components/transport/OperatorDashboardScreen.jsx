@@ -123,6 +123,10 @@ function isUsableAreaText(value) {
 // flashing empty "Not added" cards while the fetch runs (mirrors the header).
 const OPERATOR_DASHBOARD_MEMORY = new Map();
 
+// The Trip controls card on the dashboard; the menu and the tools card scroll
+// to it.
+const TRIP_CONTROLS_SECTION_ID = "operator-trip-controls";
+
 function operatorDashboardCacheKey(account) {
   return `${account?.id || ""}:${account?.fleetId || account?.companyFleetId || ""}`;
 }
@@ -158,7 +162,9 @@ export default function OperatorDashboardScreen({
   const [operatorAlertsOpen, setOperatorAlertsOpen] = useState(false);
   const [operatorSafetyOpen, setOperatorSafetyOpen] = useState(false);
   const [dashboard, setDashboard] = useState(
-    () => OPERATOR_DASHBOARD_MEMORY.get(operatorDashboardCacheKey(account)) || account?.dashboard || null,
+    () => (account?.companyFleetId && !account?.fleetId
+      ? null
+      : OPERATOR_DASHBOARD_MEMORY.get(operatorDashboardCacheKey(account)) || account?.dashboard || null),
   );
   const [dashboardError, setDashboardError] = useState("");
   const [dashboardLoading, setDashboardLoading] = useState(false);
@@ -192,6 +198,14 @@ export default function OperatorDashboardScreen({
     operatorNavigation.reset("dashboard");
   }
 
+  function openTripControls() {
+    resetDashboardView();
+    // After the menu closes and the dashboard view is back on screen.
+    window.setTimeout(() => {
+      document.getElementById(TRIP_CONTROLS_SECTION_ID)?.scrollIntoView({ behavior: "smooth", block: "start" });
+    }, 320);
+  }
+
   function goBackDashboardView() {
     if (operatorNavigation.canPop) {
       navigateBackDashboardView();
@@ -201,9 +215,14 @@ export default function OperatorDashboardScreen({
   }
 
   const form = useMemo(() => account?.form || {}, [account?.form]);
-  const verificationStatus = account?.documentsSkipped
+  // The refreshed dashboard carries the live verification state, so a review
+  // decision shows while the dashboard is open, not only after reopening it.
+  const documentsSkipped = dashboard?.operator
+    ? Boolean(dashboard.operator.documents_skipped)
+    : Boolean(account?.documentsSkipped);
+  const verificationStatus = documentsSkipped
     ? "notVerified"
-    : account?.verificationStatus || "pending";
+    : dashboard?.verificationCenter?.status || account?.verificationStatus || "pending";
 
   // Fleet setup completion, mirroring UrMall's store-setup widget so operators
   // can see and finish the details that improve trust and verification.
@@ -216,7 +235,7 @@ export default function OperatorDashboardScreen({
       { label: t("urride.opDash.health.plate"), complete: Boolean(form.plateNumber) },
       { label: t("urride.opDash.health.makeModel"), complete: Boolean(form.make && form.model) },
       { label: t("urride.opDash.health.pricing"), complete: [form.baseFare, form.pricePerKm, form.pricePerHour].some((value) => Number(value || 0) > 0) },
-      { label: t("urride.opDash.health.documents"), complete: !account?.documentsSkipped },
+      { label: t("urride.opDash.health.documents"), complete: !documentsSkipped },
       { label: t("urride.opDash.health.kunthaiVerification"), complete: verificationStatus === "verified" },
     ];
     const completeCount = checklist.filter((item) => item.complete).length;
@@ -227,7 +246,7 @@ export default function OperatorDashboardScreen({
       nextStep: score >= 100 ? t("urride.opDash.health.complete") : t("urride.opDash.health.nextStep"),
       missingItems: checklist.filter((item) => !item.complete).map((item) => item.label),
     };
-  }, [form, account?.documentsSkipped, verificationStatus, memoLocale]);
+  }, [form, documentsSkipped, verificationStatus, memoLocale]);
   const verification =
     operatorVerificationStatuses[verificationStatus] || operatorVerificationStatuses.pending;
   const hasCompanyAccount = Boolean(companyAccount?.companyName || companyAccount?.id);
@@ -401,7 +420,9 @@ export default function OperatorDashboardScreen({
   const refreshDashboard = useCallback(async () => {
     if (account?.companyFleetId && !account?.fleetId) {
       // The runtime fleet is provisioned automatically on the first "Go online",
-      // so an unlinked company fleet is a normal state, not an error.
+      // so an unlinked company fleet is a normal state, not an error. Show an
+      // empty company dashboard: never the solo fleet's trips or earnings.
+      setDashboard(null);
       setDashboardError("");
       return;
     }
@@ -836,6 +857,7 @@ export default function OperatorDashboardScreen({
             readOnly={dashboardReadOnly}
             onOpenWaiting={hasWaitingPassengers ? () => openDashboardView("waiting") : undefined}
             onOpenHistory={() => openDashboardView("history")}
+            onOpenTripControls={openTripControls}
           />
         </div>
           </>
@@ -888,7 +910,7 @@ export default function OperatorDashboardScreen({
         verification={verification}
         homeBase={homeBase}
         fleetType={form.fleetType || t("urride.opDash.notAdded")}
-        documents={account?.documentsSkipped ? t("urride.opDash.documentsSkipped") : t("urride.opDash.documentsSubmitted")}
+        documents={documentsSkipped ? t("urride.opDash.documentsSkipped") : t("urride.opDash.documentsSubmitted")}
         companyAccount={companyAccount}
         companyOperationBadgeCount={companyBadgeCount}
         companyLoading={companyLoading}
@@ -911,6 +933,10 @@ export default function OperatorDashboardScreen({
         onShowVerification={() => {
           setVerificationOpen(true);
           setOperatorMenuOpen(false);
+        }}
+        onOpenTripControls={() => {
+          setOperatorMenuOpen(false);
+          openTripControls();
         }}
         onOpenSafety={() => {
           setOperatorMenuOpen(false);
@@ -1372,10 +1398,10 @@ function OperatorLiveAction({ icon, label, href = "", danger = false, disabled =
   );
 }
 
-function DashboardContainer({ title, subtitle, icon, children, action }) {
+function DashboardContainer({ id, title, subtitle, icon, children, action }) {
   useUiLocale();
   return (
-    <section className="rounded-2xl border border-gray-100 bg-white p-4 shadow-sm">
+    <section id={id} className="scroll-mt-4 rounded-2xl border border-gray-100 bg-white p-4 shadow-sm">
       <div className="flex items-start justify-between gap-3">
         <div className="min-w-0">
           <div className="flex items-center gap-2">
@@ -1502,7 +1528,7 @@ function TripControlsContainer({ controls, saving, readOnly = false, onSave }) {
   };
 
   return (
-    <DashboardContainer title={t("urride.opDash.tripControls")} subtitle={t("urride.opDash.tripControlsSub")} icon={FiSliders}>
+    <DashboardContainer id={TRIP_CONTROLS_SECTION_ID} title={t("urride.opDash.tripControls")} subtitle={t("urride.opDash.tripControlsSub")} icon={FiSliders}>
       <div className="grid gap-3">
         {readOnly ? (
           <div className="rounded-2xl border border-blue-100 bg-blue-50 px-4 py-3 text-sm font-bold leading-6 text-blue-800">
@@ -1759,7 +1785,7 @@ function OperatorAlertsDrawer({
   );
 }
 
-function OperatorToolsContainer({ hasWaitingPassengers, readOnly = false, onOpenHistory, onOpenWaiting }) {
+function OperatorToolsContainer({ hasWaitingPassengers, readOnly = false, onOpenHistory, onOpenWaiting, onOpenTripControls }) {
   useUiLocale();
   return (
     <DashboardContainer title={t("urride.opDash.operatorTools")} subtitle={readOnly ? t("urride.opDash.toolsReadOnly") : t("urride.opDash.toolsSub")} icon={FiCalendar}>
@@ -1770,9 +1796,8 @@ function OperatorToolsContainer({ hasWaitingPassengers, readOnly = false, onOpen
           detail={hasWaitingPassengers ? t("urride.opDash.reviewRequests") : t("urride.opDash.noWaitingNow")}
           onClick={onOpenWaiting}
         />
-        <ActionRow icon={FiSliders} label={t("urride.opDash.controlsRow")} detail={readOnly ? t("urride.opDash.readOnlyRules") : t("urride.opDash.faresRules")} />
+        <ActionRow icon={FiSliders} label={t("urride.opDash.controlsRow")} detail={readOnly ? t("urride.opDash.readOnlyRules") : t("urride.opDash.faresRules")} onClick={onOpenTripControls} />
         <ActionRow icon={FiMap} label={t("urride.opDash.tripHistory")} detail={t("urride.opDash.areasWorked")} onClick={onOpenHistory} />
-        <ActionRow icon={FiCalendar} label={t("urride.opDash.schedule")} detail={readOnly ? t("urride.opDash.reviewHours") : t("urride.opDash.planShifts")} />
       </div>
     </DashboardContainer>
   );
@@ -2189,6 +2214,7 @@ function OperatorMenuDrawer({
   onStartSoloFleet,
   onOpenSafety,
   onShowVerification,
+  onOpenTripControls,
   onEditProfile,
   onLocateArea,
   onRequestDeletion,
@@ -2307,15 +2333,13 @@ function OperatorMenuDrawer({
           onClick: onEditProfile,
         }
       : null,
+    // Operating hours live in Trip controls, so there is no separate
+    // Schedule entry.
     {
       icon: FiSliders,
       label: t("urride.opDash.controlsRow"),
       detail: readOnly ? t("urride.opDash.readOnlyRules") : t("urride.opDash.fareHints"),
-    },
-    {
-      icon: FiCalendar,
-      label: t("urride.opDash.schedule"),
-      detail: readOnly ? t("urride.opDash.reviewHours") : t("urride.opDash.planShifts"),
+      onClick: onOpenTripControls,
     },
     !readOnly
       ? {

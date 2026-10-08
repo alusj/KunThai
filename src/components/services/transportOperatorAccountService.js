@@ -2,6 +2,7 @@ import supabase from "../../Backend/lib/supabaseClient";
 import { friendlyErrorMessage } from "../../Backend/services/friendlyErrorService";
 import { cachedQuery, invalidateCache } from "../../Backend/lib/queryCache";
 import { isMissingColumn, isMissingTable } from "../../Backend/services/explore/errors";
+import { t } from "../../i18n";
 import {
   formatCountryMoney,
   getActiveCountryProfile,
@@ -72,6 +73,14 @@ function normalizeCategory(value) {
   return String(value || "Transport").toLowerCase();
 }
 
+function categorySupportsRide(category) {
+  return ["transport", "both"].includes(category);
+}
+
+function categorySupportsDelivery(category) {
+  return ["delivery", "both"].includes(category);
+}
+
 function normalizeFleetType(value) {
   return String(value || "Car").toLowerCase();
 }
@@ -101,8 +110,36 @@ function generateOperatorCode() {
   return String(Math.floor(10000 + Math.random() * 90000));
 }
 
-function normalizePlateNumber(value) {
+// Shared with company fleets so one plate is written (and compared) the same
+// way everywhere.
+export function normalizePlateNumber(value) {
   return String(value || "").trim().replace(/\s+/g, " ").toUpperCase();
+}
+
+const PLACEHOLDER_PLATES = new Set(["NO-PLATE", "PLATE PENDING", "PENDING"]);
+
+function isMissingRpc(error) {
+  const text = String(error?.message || "").toLowerCase();
+  return error?.code === "PGRST202" || error?.code === "42883" || text.includes("could not find the function");
+}
+
+// True when another fleet (solo or company) already uses this plate. Checked by
+// the database because row security hides other operators' and companies'
+// fleets. Returns null when the check is not installed yet.
+export async function isTransportPlateNumberInUse(plateNumber, { companyId = null, fleetCode = null, forCompany = false } = {}) {
+  const plate = normalizePlateNumber(plateNumber);
+  if (!plate || PLACEHOLDER_PLATES.has(plate)) return false;
+  const { data, error } = await supabase.rpc("transport_plate_number_in_use", {
+    p_plate_number: plate,
+    p_company_id: companyId || null,
+    p_fleet_code: fleetCode || null,
+    p_for_company: Boolean(forCompany),
+  });
+  if (error) {
+    if (isMissingRpc(error)) return null;
+    throw new Error(friendlyErrorMessage(error, "The plate number could not be checked."));
+  }
+  return Boolean(data);
 }
 
 function getDraftKey(userId) {
@@ -715,6 +752,9 @@ async function loadOperatorDashboard(operatorId = null, preferredFleetId = null,
   if (operatorError) throw new Error(operatorError.message);
   if (!operator) return null;
 
+  // A company-scoped dashboard without a runtime fleet yet (the operator has
+  // not gone online for the company) is empty: it must never fall back to the
+  // operator's own solo fleet and show its trips and earnings.
   const fleetResult = preferredFleetId
     ? await supabase
         .from("transport_fleets")
@@ -722,7 +762,9 @@ async function loadOperatorDashboard(operatorId = null, preferredFleetId = null,
         .eq("id", preferredFleetId)
         .eq("operator_id", operator.id)
         .limit(1)
-    : await selectLatestPersonalFleet(operator.id);
+    : fleetScoped
+      ? { data: [], error: null }
+      : await selectLatestPersonalFleet(operator.id);
   const { data: fleets, error: fleetError } = fleetResult;
   if (fleetError) throw new Error(fleetError.message);
 
@@ -735,6 +777,7 @@ async function loadOperatorDashboard(operatorId = null, preferredFleetId = null,
     { data: historyTrips, error: historyError },
     { data: alerts, error: alertsError },
     { data: reviews, error: reviewsError },
+    { data: reviewRatings, count: reviewTotal, error: reviewRatingsError },
     { data: transactions, error: transactionsError },
     { data: documents, error: documentsError },
   ] = await Promise.all([
@@ -751,7 +794,10 @@ async function loadOperatorDashboard(operatorId = null, preferredFleetId = null,
           .from("transport_trips")
           .select("*")
           .eq("fleet_id", fleetId)
-          .gte("created_at", new Date(new Date().setHours(0, 0, 0, 0)).toISOString())
+          .eq("status", "completed")
+          // Today's earnings count trips completed today, including ones
+          // booked before midnight.
+          .gte("completed_at", new Date(new Date().setHours(0, 0, 0, 0)).toISOString())
       : { data: [], error: null },
     fleetId
       ? supabase
@@ -778,6 +824,14 @@ async function loadOperatorDashboard(operatorId = null, preferredFleetId = null,
           .eq("operator_id", operator.id)
           .order("created_at", { ascending: false })
           .limit(6),
+    // The card lists the latest six reviews, but the total and average cover
+    // every review the operator has.
+    fleetScoped
+      ? { data: [], count: 0, error: null }
+      : supabase
+          .from("transport_operator_reviews")
+          .select("rating", { count: "exact" })
+          .eq("operator_id", operator.id),
     fleetScoped
       ? { data: [], error: null }
       : supabase
@@ -801,6 +855,7 @@ async function loadOperatorDashboard(operatorId = null, preferredFleetId = null,
     historyError,
     alertsError,
     reviewsError,
+    reviewRatingsError,
     transactionsError,
     documentsError && !isMissingTable(documentsError) ? documentsError : null,
   ].filter(Boolean);
@@ -809,8 +864,10 @@ async function loadOperatorDashboard(operatorId = null, preferredFleetId = null,
 
   const completedToday = (todayTrips || []).filter((trip) => trip.status === "completed");
   const earningsToday = completedToday.reduce((sum, trip) => sum + Number(trip.fare_amount || 0), 0);
-  const averageRating = reviews?.length
-    ? reviews.reduce((sum, review) => sum + Number(review.rating || 0), 0) / reviews.length
+  const ratedReviews = reviewRatings?.length ? reviewRatings : reviews || [];
+  const reviewCount = Math.max(Number(reviewTotal || 0), ratedReviews.length);
+  const averageRating = ratedReviews.length
+    ? ratedReviews.reduce((sum, review) => sum + Number(review.rating || 0), 0) / ratedReviews.length
     : Number(fleet?.rating || 0);
 
   return {
@@ -845,7 +902,7 @@ async function loadOperatorDashboard(operatorId = null, preferredFleetId = null,
     },
     reviews: {
       averageRating,
-      count: reviews?.length || 0,
+      count: reviewCount,
       items: (reviews || []).map(mapReview),
     },
     // Financial alerts remain hidden until KunThai's transport payment tools
@@ -886,16 +943,23 @@ export async function saveOperatorAccount(account) {
   if (existingOperatorError) throw new Error(existingOperatorError.message);
 
   // Checked before the operator profile is written, so a plate already in use
-  // never leaves a profile without a fleet behind.
-  let plateQuery = supabase
-    .from("transport_fleets")
-    .select("id, operator_id")
-    .eq("plate_number", plateNumber);
-  if (existingOperator?.id) plateQuery = plateQuery.neq("operator_id", existingOperator.id);
-  const { data: plateConflict, error: plateConflictError } = await plateQuery.limit(1);
-  if (plateConflictError) throw new Error(plateConflictError.message);
-  if (plateConflict?.length) {
-    throw new Error("This plate number is already registered to another operator.");
+  // never leaves a profile without a fleet behind. The database check also
+  // sees company fleets and fleets hidden by row security.
+  const plateInUse = await isTransportPlateNumberInUse(plateNumber);
+  if (plateInUse) {
+    throw new Error(t("urride.operatorFix.plateInUse", { plate: plateNumber }));
+  }
+  if (plateInUse === null) {
+    let plateQuery = supabase
+      .from("transport_fleets")
+      .select("id, operator_id")
+      .eq("plate_number", plateNumber);
+    if (existingOperator?.id) plateQuery = plateQuery.neq("operator_id", existingOperator.id);
+    const { data: plateConflict, error: plateConflictError } = await plateQuery.limit(1);
+    if (plateConflictError) throw new Error(plateConflictError.message);
+    if (plateConflict?.length) {
+      throw new Error(t("urride.operatorFix.plateInUse", { plate: plateNumber }));
+    }
   }
 
   // Documents count as submitted when at least one was actually uploaded now
@@ -1043,15 +1107,33 @@ export async function saveOperatorAccount(account) {
     ].filter(Boolean).join(" | "),
     safety_answers: account.answers || {},
     verification_status: verificationStatus,
-    accepts_ride: ["Transport", "Both"].includes(form.category),
-    accepts_delivery: ["Delivery", "Both"].includes(form.category),
-    is_visible_to_passengers: true,
     public_fleet_photos: publicMedia.fleetPhotos,
     public_operator_photo_url: publicMedia.operatorPhotoUrl || existingOperator?.public_selfie_url || null,
     updated_at: new Date().toISOString(),
   };
 
   const existingFleet = existingFleets?.[0];
+  const serviceCategory = fleetPayload.service_category;
+  if (existingFleet?.id) {
+    // Editing keeps the fleet's live state: its visibility/active status are
+    // owned by the availability toggle (writing them would fire the work
+    // context guard and take a live company fleet offline), and its Trip
+    // controls stay unless the service category changed.
+    delete fleetPayload.operator_id;
+    const previousCategory = normalizeCategory(existingFleet.service_category);
+    if (previousCategory !== serviceCategory) {
+      const nextRide = categorySupportsRide(serviceCategory);
+      const nextDelivery = categorySupportsDelivery(serviceCategory);
+      fleetPayload.accepts_ride = nextRide
+        && (categorySupportsRide(previousCategory) ? Boolean(existingFleet.accepts_ride) : true);
+      fleetPayload.accepts_delivery = nextDelivery
+        && (categorySupportsDelivery(previousCategory) ? Boolean(existingFleet.accepts_delivery) : true);
+    }
+  } else {
+    fleetPayload.accepts_ride = categorySupportsRide(serviceCategory);
+    fleetPayload.accepts_delivery = categorySupportsDelivery(serviceCategory);
+    fleetPayload.is_visible_to_passengers = true;
+  }
   const fleetQuery = existingFleet?.id
     ? supabase.from("transport_fleets").update(fleetPayload).eq("id", existingFleet.id)
     : supabase.from("transport_fleets").insert(fleetPayload);
@@ -1092,6 +1174,7 @@ export async function saveOperatorAccount(account) {
   localStorage.removeItem(getDraftKey(userId));
   localStorage.removeItem(LEGACY_ACCOUNT_KEY);
 
+  invalidateCache("operator-dashboard");
   const dashboard = await fetchOperatorDashboard(operator.id);
   return mapOperatorAccount(operator, fleet, { dashboard });
 }
@@ -1109,6 +1192,8 @@ export async function updateOperatorAvailability(fleetId, active, pauseReason = 
   const data = Array.isArray(rows) ? rows[0] : rows;
 
   const activeStatus = data?.active_status || (active ? "active" : "offline");
+  // A dashboard reopened within the cache window must show the new state.
+  invalidateCache("operator-dashboard");
   patchStoredOperatorAccount({
     activeStatus,
     isVisibleToPassengers: Boolean(data?.is_visible_to_passengers ?? active),
@@ -1140,6 +1225,7 @@ export async function updateTripControls(fleetId, controls) {
     .eq("id", fleetId);
 
   if (error) throw new Error(error.message);
+  invalidateCache("operator-dashboard");
 }
 
 export async function markOperatorAlertRead(alertId) {

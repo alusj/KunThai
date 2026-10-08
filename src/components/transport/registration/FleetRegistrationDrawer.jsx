@@ -844,6 +844,7 @@ export default function FleetRegistrationDrawer({ onClose, onComplete, onSaveExi
                       label={formatDocumentRequirementLabel(requirement)}
                       value={getRequirementUpload(uploads, "fleet", requirement)}
                       error={fieldErrors[requirementUploadKey("fleet", requirement)]}
+                      imageOnly
                       onChange={(file) => markUpload(requirementUploadKey("fleet", requirement), file)}
                     />
                   ))}
@@ -868,6 +869,7 @@ export default function FleetRegistrationDrawer({ onClose, onComplete, onSaveExi
                       label={formatDocumentRequirementLabel(requirement)}
                       value={getRequirementUpload(uploads, "doc", requirement)}
                       error={fieldErrors[requirementUploadKey("doc", requirement)]}
+                      imageOnly={requirement.publicMediaRole === "operator_photo"}
                       onChange={(file) => markUpload(requirementUploadKey("doc", requirement), file)}
                     />
                   ))}
@@ -1223,17 +1225,34 @@ function SelectField({ error = "", label, options, value, onChange, helper = "",
   );
 }
 
-function UploadField({ error = "", label, value, onChange }) {
+// Fleet photos and the operator selfie are shown to passengers, so they must
+// be images; only documents may be PDFs.
+function isImageFile(file) {
+  return !file || String(file.type || "").startsWith("image/");
+}
+
+function UploadField({ error = "", label, value, onChange, imageOnly = false }) {
   useUiLocale();
+  const [typeError, setTypeError] = useState("");
   const selectedName = typeof value === "string" ? value : value?.fileName || value?.name || "";
+  const shownError = typeError || error;
   return (
     <label data-field-error={error ? "true" : undefined} className={`block cursor-pointer rounded-2xl border border-dashed bg-gray-50 px-4 py-4 transition hover:border-green-300 hover:bg-green-50 ${error ? "border-red-300" : "border-gray-300"}`}>
       <input
         type="file"
-        accept="image/*,.pdf"
+        accept={imageOnly ? "image/*" : "image/*,.pdf"}
         className="sr-only"
-        aria-invalid={error ? "true" : undefined}
-        onChange={(event) => onChange(event.target.files?.[0])}
+        aria-invalid={shownError ? "true" : undefined}
+        onChange={(event) => {
+          const file = event.target.files?.[0];
+          if (imageOnly && !isImageFile(file)) {
+            event.target.value = "";
+            setTypeError(t("urride.operatorFix.imageOnly"));
+            return;
+          }
+          setTypeError("");
+          onChange(file);
+        }}
       />
       <span className="flex min-w-0 items-center gap-3">
         <span className="h-10 w-10 shrink-0 rounded-full bg-white text-gray-700 flex items-center justify-center">
@@ -1244,7 +1263,7 @@ function UploadField({ error = "", label, value, onChange }) {
           <span className="block truncate text-xs text-gray-500">{selectedName || t("urride.fleetEdit.uploadPhoto")}</span>
         </span>
       </span>
-      {error ? <span className="mt-3 block text-xs font-bold leading-5 text-red-600" role="alert">{translateUi(error)}</span> : null}
+      {shownError ? <span className="mt-3 block text-xs font-bold leading-5 text-red-600" role="alert">{translateUi(shownError)}</span> : null}
     </label>
   );
 }
