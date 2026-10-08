@@ -31,18 +31,26 @@ export default async function handler(req, res) {
   }
 
   // Scheduled campaigns are usually released by the database's own pg_cron
-  // job, so push is queued for every push campaign published since the last
-  // run (this cron is daily), not only the ones released by this request.
+  // job. admin_claim_campaign_push hands out every published push campaign
+  // whose push was never queued, exactly once. Databases without that RPC
+  // fall back to every push campaign published since the last daily run;
   // send-notification-push only sends to rows that have not been pushed yet.
-  const since = new Date(Date.now() - 26 * 60 * 60 * 1000).toISOString();
-  const { data: pushCampaigns } = await adminClient
-    .from("admin_notification_campaigns")
-    .select("id")
-    .eq("status", "completed")
-    .contains("channels", ["push"])
-    .gte("published_at", since);
-  const results = await Promise.allSettled((pushCampaigns || []).map((campaign) => (
-    adminClient.functions.invoke("send-notification-push", { body: { campaignId: campaign.id } })
+  let campaignIds = [];
+  const claimed = await adminClient.rpc("admin_claim_campaign_push", { result_limit: 100 });
+  if (!claimed.error) {
+    campaignIds = (claimed.data || []).map((row) => row.queued_campaign_id).filter(Boolean);
+  } else {
+    const since = new Date(Date.now() - 26 * 60 * 60 * 1000).toISOString();
+    const { data: pushCampaigns } = await adminClient
+      .from("admin_notification_campaigns")
+      .select("id")
+      .eq("status", "completed")
+      .contains("channels", ["push"])
+      .gte("published_at", since);
+    campaignIds = (pushCampaigns || []).map((campaign) => campaign.id);
+  }
+  const results = await Promise.allSettled(campaignIds.map((campaignId) => (
+    adminClient.functions.invoke("send-notification-push", { body: { campaignId } })
   )));
   const pushQueued = results.filter((result) => result.status === "fulfilled" && !result.value?.error).length;
 
