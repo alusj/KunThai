@@ -1,8 +1,9 @@
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { CheckCircle2, ClipboardCheck, ExternalLink, FileAudio, FileText, FileVideo, Image as ImageIcon, LoaderCircle, MessageSquareText, RotateCcw, ShieldCheck, ShieldOff, SlidersHorizontal, UserRoundCheck, X } from "lucide-react";
-import { ADMIN_SECTORS, CASE_DECISIONS, CASE_STATUSES, formatCaseNumber, formatDateTime, formatRelativeTime, titleCase } from "../adminConfig";
+import { ADMIN_SECTORS, CASE_DECISIONS, CASE_STATUSES, caseStatusLabel, formatCaseNumber, formatDateTime, formatRelativeTime, titleCase } from "../adminConfig";
+import { classifyDecisionResult, dateTimeLocalToIso, isSignedUrlStale, isoToDateTimeLocal, sectorAuthorityLevel } from "../adminCaseRules.js";
 import { ACCOUNT_CONTROL_REASON_SUGGESTIONS, INTERNAL_NOTE_SUGGESTIONS, applyCaseContext, getDecisionReasonSuggestions } from "../adminTextSuggestions";
-import { addCaseNote, applyCaseDecision, claimCase, getAdminAccountControl, getAdminCaseContent, getAdminCaseEvidence, getCaseActionHistory, getCaseActivity, getCaseCountryLabel, getCaseTypeLabel, reviewCaseApproval, setAdminUserStatus, transitionCase, undoCaseAction } from "../adminService";
+import { addCaseNote, applyCaseDecision, claimCase, getAdminAccountControl, getAdminCaseContent, getAdminCaseEvidence, getCaseActionHistory, getCaseActivity, getCaseCountryLabel, getCaseDecisionCapabilities, getCaseTypeLabel, resignEvidenceUrl, reviewCaseApproval, setAdminUserStatus, transitionCase, undoCaseAction } from "../adminService";
 import SuggestedTextSelect from "./SuggestedTextSelect";
 import AiAssistButton from "../../components/ai/AiAssistButton";
 import { caseFactsForAi } from "../adminAiModels";
@@ -11,7 +12,35 @@ import { t as i18nText } from "../../i18n/index";
 import { uiText as translateUi, useI18n as useUiLocale } from "../../i18n/index.js";
 import { inlineErrorMessage } from "../../Backend/services/friendlyErrorService";
 
-export default function CaseDrawer({ item, access, onClose, onUpdated }) {
+// Re-sign every stale private link in a list of evidence entries.
+async function refreshStaleLinks(entries = [], now = Date.now()) {
+  if (!entries.some((entry) => isSignedUrlStale(entry, now))) return entries;
+  return Promise.all(entries.map((entry) => (isSignedUrlStale(entry, now) ? resignEvidenceUrl(entry) : entry)));
+}
+
+async function refreshStaleContent(content = [], now = Date.now()) {
+  if (!content.some((entry) => entry.media?.some((media) => isSignedUrlStale(media, now)))) return content;
+  return Promise.all(content.map(async (entry) => (entry.media?.length ? { ...entry, media: await refreshStaleLinks(entry.media, now) } : entry)));
+}
+
+// Opens a private file, re-signing it first when the link may have expired.
+async function openFresh(entry, onOpenMedia) {
+  if (!isSignedUrlStale(entry)) {
+    if (onOpenMedia) onOpenMedia(entry); else window.open(entry.url, "_blank", "noopener,noreferrer");
+    return;
+  }
+  const pending = onOpenMedia ? null : window.open("about:blank", "_blank");
+  const fresh = await resignEvidenceUrl(entry);
+  if (!fresh?.url) {
+    pending?.close();
+    showToast(i18nText("adminCases.linkRefreshFailed"), "error");
+    return;
+  }
+  if (onOpenMedia) { onOpenMedia(fresh); return; }
+  if (pending) { pending.opener = null; pending.location.href = fresh.url; } else window.open(fresh.url, "_blank", "noopener,noreferrer");
+}
+
+export default function CaseDrawer({ item, access, currentUserId = "", onClose, onUpdated }) {
   useUiLocale();
   const [activity, setActivity] = useState({ events: [], notes: [], approvals: [] });
   const [status, setStatus] = useState(item?.status || "new");
@@ -22,6 +51,9 @@ export default function CaseDrawer({ item, access, onClose, onUpdated }) {
   const [error, setError] = useState("");
   const [evidence, setEvidence] = useState([]);
   const [caseContent, setCaseContent] = useState([]);
+  const evidenceRef = useRef([]);
+  const contentRef = useRef([]);
+  useEffect(() => { evidenceRef.current = evidence; contentRef.current = caseContent; }, [evidence, caseContent]);
   const [contentLoading, setContentLoading] = useState(false);
   const [selectedMedia, setSelectedMedia] = useState(null);
   const [caseActions, setCaseActions] = useState([]);
@@ -29,6 +61,28 @@ export default function CaseDrawer({ item, access, onClose, onUpdated }) {
   const [accountControl, setAccountControl] = useState(null);
   const [accountFormOpen, setAccountFormOpen] = useState(false);
   const [accountForm, setAccountForm] = useState({ status: "active", reason: "", sectors: ["all"], expiresAt: "" });
+  const [capabilities, setCapabilities] = useState(null);
+
+  useEffect(() => {
+    if (!item?.id) return undefined;
+    let active = true;
+    setCapabilities(null);
+    getCaseDecisionCapabilities(item.id, { access, item })
+      .then((value) => { if (active) setCapabilities(value); })
+      .catch(() => { if (active) setCapabilities(null); });
+    return () => { active = false; };
+    // Re-check when the case changes state (e.g. after an approval).
+  }, [access, item?.id, item?.status]); // eslint-disable-line react-hooks/exhaustive-deps
+
+  // Signed file links last an hour; refresh them before they expire while the drawer stays open.
+  useEffect(() => {
+    const timer = window.setInterval(() => {
+      const now = Date.now();
+      refreshStaleLinks(evidenceRef.current, now).then((next) => { if (next !== evidenceRef.current) setEvidence(next); }).catch(() => null);
+      refreshStaleContent(contentRef.current, now).then((next) => { if (next !== contentRef.current) setCaseContent(next); }).catch(() => null);
+    }, 60 * 1000);
+    return () => window.clearInterval(timer);
+  }, []);
 
   useEffect(() => {
     if (!item?.id) return;
@@ -52,7 +106,7 @@ export default function CaseDrawer({ item, access, onClose, onUpdated }) {
           status: value?.status || "active",
           reason: value?.reason || "",
           sectors: value?.restricted_sectors?.length ? value.restricted_sectors : ["all"],
-          expiresAt: value?.expires_at ? value.expires_at.slice(0, 16) : "",
+          expiresAt: isoToDateTimeLocal(value?.expires_at),
         });
       })
       .catch(() => {
@@ -99,7 +153,7 @@ export default function CaseDrawer({ item, access, onClose, onUpdated }) {
   }
 
   async function reviewApproval(approvalId, approved) {
-    const reviewReason = window.prompt(approved ? "Reason for approving this action:" : "Reason for rejecting this action:");
+    const reviewReason = window.prompt(i18nText(approved ? "adminCases.promptApprove" : "adminCases.promptReject"));
     if (!reviewReason?.trim()) return;
     await run("approval", async () => {
       const updated = await reviewCaseApproval(approvalId, approved, reviewReason.trim(), item.id);
@@ -148,14 +202,14 @@ export default function CaseDrawer({ item, access, onClose, onUpdated }) {
         status: next.status,
         reason: next.reason.trim(),
         sectors: next.status === "restricted" ? next.sectors : ["all"],
-        expiresAt: next.expiresAt || null,
+        expiresAt: dateTimeLocalToIso(next.expiresAt),
       });
       setAccountControl(updated);
       setAccountForm({
         status: updated.status || "active",
         reason: updated.reason || "",
         sectors: updated.restricted_sectors?.length ? updated.restricted_sectors : ["all"],
-        expiresAt: updated.expires_at ? updated.expires_at.slice(0, 16) : "",
+        expiresAt: isoToDateTimeLocal(updated.expires_at),
       });
       setAccountFormOpen(false);
       showToast(i18nText("ui.literals.k52eb365645a9"), "success", { title: i18nText("ui.literals.k98b29d844ce2") });
@@ -176,6 +230,36 @@ export default function CaseDrawer({ item, access, onClose, onUpdated }) {
   const source = item.metadata?.source || {};
   const canManage = access.permissions.includes("cases.manage");
   const canManageUsers = access.permissions.includes("users.manage");
+  // Approvals are reviewed with authority 4 in the case's own sector, by someone other than the requester.
+  const canReviewApprovals = access.permissions.includes("cases.approve") && sectorAuthorityLevel(access, item.sector) >= 4;
+  const decisionRules = capabilities?.decisions || {};
+  const allowedDecisions = CASE_DECISIONS.filter((entry) => decisionRules[entry.key]?.allowed);
+  const blockedDecisions = CASE_DECISIONS.filter((entry) => capabilities && !decisionRules[entry.key]?.allowed);
+  const activeDecision = allowedDecisions.some((entry) => entry.key === decision) ? decision : allowedDecisions[0]?.key || "";
+  const activeRule = decisionRules[activeDecision] || null;
+
+  function submitDecision() {
+    if (!activeDecision || !activeRule?.allowed) return;
+    const before = item.status;
+    run("decision", () => applyCaseDecision(item.id, activeDecision, reason.trim()), (updated) => {
+      const outcome = classifyDecisionResult(updated, activeDecision);
+      if (outcome === "approval") {
+        if (updated?.status) setStatus(updated.status);
+        showToast(i18nText("adminCases.sentForApproval"), "success", { title: i18nText("ui.literals.k04b53c130d83") });
+        getCaseActivity(item.id).then(setActivity).catch(() => null);
+        refreshCaseActions();
+        setReason("");
+        return;
+      }
+      if (outcome === "applied") {
+        showToast(i18nText("ui.literals.k2e72f0c36ebb"), "success", { title: i18nText("ui.literals.k04b53c130d83") });
+        onClose();
+        return;
+      }
+      if (updated?.status && updated.status !== before) setStatus(updated.status);
+      setError(i18nText("adminCases.decisionUnconfirmed"));
+    });
+  }
 
   return (
     <div className="fixed inset-0 z-[70]">
@@ -216,7 +300,7 @@ export default function CaseDrawer({ item, access, onClose, onUpdated }) {
             <p className="mt-2 text-sm font-medium leading-6 text-zinc-600">{item.description || i18nText("ui.literals.k18793984046d")}</p>
 
             <dl className="mt-5 grid gap-4 border-t border-zinc-100 pt-5 sm:grid-cols-2 lg:grid-cols-5">
-              <div><dt className="text-[11px] font-black uppercase text-zinc-400">{i18nText("ui.literals.kbae7d5be7082")}</dt><dd className="mt-1 text-sm font-bold text-zinc-800">{titleCase(item.status)}</dd></div>
+              <div><dt className="text-[11px] font-black uppercase text-zinc-400">{i18nText("ui.literals.kbae7d5be7082")}</dt><dd className="mt-1 text-sm font-bold text-zinc-800">{caseStatusLabel(item.status)}</dd></div>
               <div><dt className="text-[11px] font-black uppercase text-zinc-400">{i18nText("ui.literals.k3deb74565196")}</dt><dd className="mt-1 text-sm font-bold text-zinc-800">{getCaseTypeLabel(item)}</dd></div>
               <div><dt className="text-[11px] font-black uppercase text-zinc-400">{i18nText("ui.literals.kd523ebbd1014")}</dt><dd className="mt-1 text-sm font-bold text-zinc-800">{getCaseCountryLabel(item)}</dd></div>
               <div><dt className="text-[11px] font-black uppercase text-zinc-400">{i18nText("ui.literals.kc4f1f5b1d49f")}</dt><dd className="mt-1 text-sm font-bold text-zinc-800">{formatDateTime(item.created_at)}</dd></div>
@@ -269,7 +353,7 @@ export default function CaseDrawer({ item, access, onClose, onUpdated }) {
                   <article key={approval.id} className="rounded-lg border border-amber-200 bg-white p-3">
                     <div className="flex flex-wrap items-center justify-between gap-2"><p className="text-sm font-black text-zinc-900">{titleCase(approval.action_type?.replace("case_decision:", ""))}</p><span className="rounded-full bg-amber-50 px-2 py-1 text-[10px] font-black text-amber-800">{titleCase(approval.status)}</span></div>
                     <p className="mt-2 text-xs font-medium leading-5 text-zinc-600">{approval.request_note}</p>
-                    {approval.status === "pending" && access.permissions.includes("cases.approve") && access.authorityLevel >= 4 ? <div className="mt-3 flex gap-2"><button type="button" disabled={busy} onClick={() => reviewApproval(approval.id, true)} className="h-9 rounded-lg bg-emerald-700 px-3 text-xs font-black text-white hover:bg-emerald-800 disabled:opacity-50">{i18nText("ui.literals.k7b2c7f146aba")}</button><button type="button" disabled={busy} onClick={() => reviewApproval(approval.id, false)} className="h-9 rounded-lg border border-red-200 px-3 text-xs font-black text-red-700 hover:bg-red-50 disabled:opacity-50">{i18nText("ui.literals.k2b03b59293b6")}</button></div> : null}
+                    {approval.status === "pending" && canReviewApprovals && (!currentUserId || approval.requested_by !== currentUserId) ? <div className="mt-3 flex gap-2"><button type="button" disabled={busy} onClick={() => reviewApproval(approval.id, true)} className="h-9 rounded-lg bg-emerald-700 px-3 text-xs font-black text-white hover:bg-emerald-800 disabled:opacity-50">{i18nText("ui.literals.k7b2c7f146aba")}</button><button type="button" disabled={busy} onClick={() => reviewApproval(approval.id, false)} className="h-9 rounded-lg border border-red-200 px-3 text-xs font-black text-red-700 hover:bg-red-50 disabled:opacity-50">{i18nText("ui.literals.k2b03b59293b6")}</button></div> : null}
                   </article>
                 ))}
               </div>
@@ -281,7 +365,7 @@ export default function CaseDrawer({ item, access, onClose, onUpdated }) {
               <h3 className="text-sm font-black text-zinc-950">{i18nText("ui.literals.k373498b6b08f")}</h3>
               <div className="mt-4 grid gap-3 sm:grid-cols-[1fr_auto]">
                 <select value={status} onChange={(event) => setStatus(event.target.value)} className="h-11 rounded-lg border border-zinc-300 bg-white px-3 text-sm font-bold text-zinc-800 focus:border-emerald-600 focus:outline-none">
-                  {CASE_STATUSES.map((value) => <option key={value} value={value}>{titleCase(value)}</option>)}
+                  {CASE_STATUSES.map((value) => <option key={value} value={value}>{caseStatusLabel(value)}</option>)}
                 </select>
                 <button type="button" disabled={busy || status === item.status} onClick={() => run("status", () => transitionCase(item.id, status, reason), (updated) => { setStatus(updated.status); refreshCaseActions(); })} className="inline-flex h-11 items-center justify-center gap-2 rounded-lg border border-zinc-300 px-4 text-sm font-black text-zinc-800 hover:bg-zinc-50 disabled:opacity-50">
                   {busy === "status" ? <LoaderCircle className="animate-spin" size={17} /> : <ClipboardCheck size={17} />} {i18nText("ui.literals.keae1f5caf558")}
@@ -396,19 +480,31 @@ export default function CaseDrawer({ item, access, onClose, onUpdated }) {
 
               <div className="mt-6 border-t border-zinc-100 pt-5">
                 <p className="text-xs font-black uppercase text-zinc-500">{i18nText("ui.literals.k7f59a1f1d55a")}</p>
-                <div className="mt-3 grid gap-3 sm:grid-cols-2">
-                  <select value={decision} onChange={(event) => setDecision(event.target.value)} className="h-11 rounded-lg border border-zinc-300 bg-white px-3 text-sm font-bold text-zinc-800 focus:border-emerald-600 focus:outline-none">
-                    {CASE_DECISIONS.map((value) => <option key={value.key} value={value.key}>{translateUi(value.label)}</option>)}
-                  </select>
-                  <button type="button" disabled={busy || !reason.trim()} onClick={() => run("decision", () => applyCaseDecision(item.id, decision, reason.trim()), () => {
-                    showToast(i18nText("ui.literals.k2e72f0c36ebb"), "success", { title: i18nText("ui.literals.k04b53c130d83") });
-                    onClose();
-                  })} className="inline-flex h-11 items-center justify-center gap-2 rounded-lg bg-emerald-700 px-4 text-sm font-black text-white hover:bg-emerald-800 disabled:opacity-50">
-                    {busy === "decision" ? <LoaderCircle className="animate-spin" size={17} /> : <CheckCircle2 size={17} />} {i18nText("ui.literals.k76b63a8a45b1")}
-                  </button>
-                </div>
+                {!capabilities ? (
+                  <p className="mt-3 flex items-center gap-2 text-xs font-semibold text-zinc-500"><LoaderCircle className="animate-spin" size={14} /> {i18nText("adminCases.checkingDecisions")}</p>
+                ) : allowedDecisions.length ? (
+                  <div className="mt-3 grid gap-3 sm:grid-cols-2">
+                    <select value={activeDecision} onChange={(event) => setDecision(event.target.value)} className="h-11 rounded-lg border border-zinc-300 bg-white px-3 text-sm font-bold text-zinc-800 focus:border-emerald-600 focus:outline-none">
+                      {allowedDecisions.map((value) => <option key={value.key} value={value.key}>{translateUi(value.label)}</option>)}
+                    </select>
+                    <button type="button" disabled={busy || !reason.trim() || !activeRule?.allowed} onClick={submitDecision} className="inline-flex h-11 items-center justify-center gap-2 rounded-lg bg-emerald-700 px-4 text-sm font-black text-white hover:bg-emerald-800 disabled:opacity-50">
+                      {busy === "decision" ? <LoaderCircle className="animate-spin" size={17} /> : <CheckCircle2 size={17} />} {activeRule?.requiresApproval ? i18nText("adminCases.requestApproval") : i18nText("ui.literals.k76b63a8a45b1")}
+                    </button>
+                  </div>
+                ) : (
+                  <p className="mt-3 rounded-lg border border-dashed border-zinc-300 bg-zinc-50 p-3 text-xs font-semibold text-zinc-600">{i18nText("adminCases.noDecisions")}</p>
+                )}
+                {activeRule?.requiresApproval ? <p className="mt-2 rounded-lg bg-amber-50 px-3 py-2 text-xs font-semibold leading-5 text-amber-900">{i18nText("adminCases.needsApproval")}</p> : null}
+                {blockedDecisions.length && allowedDecisions.length ? (
+                  <div className="mt-2 text-xs font-medium leading-5 text-zinc-500">
+                    <p className="font-black text-zinc-600">{i18nText("adminCases.unavailableHeading")}</p>
+                    <ul className="mt-1 space-y-0.5">
+                      {blockedDecisions.map((entry) => <li key={entry.key}>{translateUi(entry.label)}{decisionRules[entry.key]?.reason ? ` — ${translateUi(decisionRules[entry.key].reason)}` : ""}</li>)}
+                    </ul>
+                  </div>
+                ) : null}
                 <div className="mt-3">
-                  <SuggestedTextSelect label={i18nText("ui.literals.k44c381fd4102", { value0: CASE_DECISIONS.find((entry) => entry.key === decision)?.label?.toLowerCase() || "decision" })} suggestions={getDecisionReasonSuggestions(decision)} onSelect={(text) => setReason(applyCaseContext(text, item))} />
+                  <SuggestedTextSelect label={i18nText("ui.literals.k44c381fd4102", { value0: translateUi(CASE_DECISIONS.find((entry) => entry.key === activeDecision)?.label || "Decision").toLowerCase() })} suggestions={getDecisionReasonSuggestions(activeDecision || decision)} onSelect={(text) => setReason(applyCaseContext(text, item))} />
                 </div>
                 <div className="mt-2 flex justify-end">
                   <AiAssistButton
@@ -424,7 +520,7 @@ export default function CaseDrawer({ item, access, onClose, onUpdated }) {
                       hidePrompts: true,
                       hideAsk: true,
                       actions: ["admin.decision_reason_draft", "text.improve", "text.shorten"],
-                      buildInput: () => ({ case: caseFactsForAi(item, activity), decision, notes: reason }),
+                      buildInput: () => ({ case: caseFactsForAi(item, activity), decision: activeDecision || decision, notes: reason }),
                       onInsert: (text) => setReason(String(text || "")),
                       insertLabel: "Use as reason",
                     })}
@@ -515,7 +611,7 @@ function MediaTile({ entry, compact = false, onOpenMedia }) {
   }
   if (kind === "image") {
     return (
-      <button type="button" onClick={() => onOpenMedia?.({ ...entry, kind })} className={`overflow-hidden rounded-xl border border-zinc-200 bg-white text-left shadow-sm ${compact ? "min-w-52" : ""}`}>
+      <button type="button" onClick={() => openFresh({ ...entry, kind }, onOpenMedia || (() => null))} className={`overflow-hidden rounded-xl border border-zinc-200 bg-white text-left shadow-sm ${compact ? "min-w-52" : ""}`}>
         <img src={entry.url} alt={translateUi(label)} className={`${compact ? "h-36" : "h-44"} w-full bg-zinc-100 object-cover`} />
         <p className="break-words p-3 text-xs font-black text-zinc-800">{titleCase(label)}</p>
       </button>
@@ -540,7 +636,7 @@ function MediaTile({ entry, compact = false, onOpenMedia }) {
   return (
     <article className="rounded-xl border border-zinc-200 bg-white p-3 shadow-sm">
       <div className="flex items-center gap-2 text-xs font-black text-zinc-800"><MediaIcon kind={kind} /> {titleCase(label)}</div>
-      <a href={entry.url} target="_blank" rel="noreferrer" className="mt-3 inline-flex items-center gap-1 text-xs font-black text-emerald-700 hover:text-emerald-800"><ExternalLink size={13} /> {i18nText("ui.literals.kf11b8781300b")}</a>
+      <a href={entry.url} target="_blank" rel="noreferrer" onClick={(event) => { if (isSignedUrlStale(entry)) { event.preventDefault(); openFresh(entry); } }} className="mt-3 inline-flex items-center gap-1 text-xs font-black text-emerald-700 hover:text-emerald-800"><ExternalLink size={13} /> {i18nText("ui.literals.kf11b8781300b")}</a>
     </article>
   );
 }

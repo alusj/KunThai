@@ -50,7 +50,9 @@ function AddStaffDialog({ access, onClose, onDone }) {
   const currentRank = Math.max(...(access.roles || []).map((role) => role.rank || 0), 0);
   const isSuper = access.roles?.some((role) => role.key === "super_admin");
   const roles = ADMIN_ROLES.filter((role) => isSuper || role.rank < currentRank);
-  const [form, setForm] = useState({ email: "", roleKey: roles.find((role) => role.key === "support_officer")?.key || roles[roles.length - 1]?.key || "", sectors: ["all"], authority: 2, expiresAt: "", reason: "" });
+  const initialRole = roles.find((role) => role.key === "support_officer") || roles[roles.length - 1] || null;
+  // The authority slider starts at the role's default (e.g. Verification Officers: 3).
+  const [form, setForm] = useState({ email: "", roleKey: initialRole?.key || "", sectors: ["all"], authority: Math.min(initialRole?.authority || 2, 5), expiresAt: "", reason: "" });
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState("");
 

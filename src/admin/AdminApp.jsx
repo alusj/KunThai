@@ -6,7 +6,8 @@ import AdminLogin from "./AdminLogin";
 import AdminMfaGate from "./AdminMfaGate";
 import AdminConsoleLock from "./AdminConsoleLock";
 import { ADMIN_NAV_GROUPS, canAccess } from "./adminConfig";
-import { enableAdminPreview, getAdminAccess, getAdminCases, getCaseSearchText, getCountryOptions, getDashboardSummary, isAdminPreview, matchesCaseCountry } from "./adminService";
+import { enableAdminPreview, getAdminAccess, getCaseSearchText, getCountryOptions, getDashboardSummary, getWorkspaceCases, isAdminPreview, matchesCaseCountry, searchAdminCasesRemote } from "./adminService";
+import { filterMyWork, isOpenCase, mergeCaseLists, resolveCaseSummary } from "./adminCaseRules.js";
 import { inlineErrorMessage } from "../Backend/services/friendlyErrorService";
 import AdminShell from "./components/AdminShell";
 import CaseDrawer from "./components/CaseDrawer";
@@ -80,19 +81,6 @@ function initialPage() {
   return page || "overview";
 }
 
-function buildCaseSummary(cases = [], fallback = {}) {
-  const open = cases.filter((item) => !["resolved", "closed"].includes(item.status));
-  return {
-    ...fallback,
-    openCases: open.length,
-    urgentCases: open.filter((item) => ["urgent", "critical"].includes(item.priority)).length,
-    unassignedCases: open.filter((item) => !item.assignee_user_id).length,
-    overdueCases: open.filter((item) => item.sla_due_at && new Date(item.sla_due_at) < new Date()).length,
-    bySector: Object.fromEntries(["explore", "marketplace", "transport"].map((sector) => [sector, open.filter((item) => item.sector === sector).length])),
-    byQueue: Object.fromEntries(["verification", "reports", "support", "finance"].map((queue) => [queue, open.filter((item) => item.queue === queue).length])),
-  };
-}
-
 function GlobalOperationsFilter({ countryFilter, countryOptions, onCountryFilterChange, totalCases, visibleCases }) {
   useUiLocale();
   return (
@@ -144,7 +132,10 @@ function AdminWorkspace({ access, user, preview }) {
     if (quiet) setRefreshing(true); else setLoading(true);
     setError("");
     try {
-      const [nextSummary, nextCases] = await Promise.all([getDashboardSummary(), getAdminCases({ limit: 250 })]);
+      const [nextSummary, nextCases] = await Promise.all([
+        getDashboardSummary().catch(() => null),
+        getWorkspaceCases(),
+      ]);
       setSummary(nextSummary || {});
       setCases(nextCases || []);
       setSelectedCase((current) => current ? nextCases.find((item) => item.id === current.id) || current : null);
@@ -184,14 +175,29 @@ function AdminWorkspace({ access, user, preview }) {
 
   const countryCases = useMemo(() => cases.filter((item) => matchesCaseCountry(item, countryFilter)), [cases, countryFilter]);
   const countryOptions = useMemo(() => getCountryOptions(cases), [cases]);
-  const searchedCases = globalSearch ? countryCases.filter((item) => getCaseSearchText(item).includes(globalSearch.toLowerCase())) : countryCases;
-  const visibleSummary = useMemo(() => buildCaseSummary(countryCases, summary), [countryCases, summary]);
+  const localSearchResults = useMemo(() => (globalSearch ? countryCases.filter((item) => getCaseSearchText(item).includes(globalSearch.toLowerCase())) : countryCases), [countryCases, globalSearch]);
+  const [remoteSearch, setRemoteSearch] = useState({ query: "", results: [] });
+  // Not found among the loaded cases: ask the server (title/description).
+  useEffect(() => {
+    if (!globalSearch || localSearchResults.length) return undefined;
+    let active = true;
+    searchAdminCasesRemote(globalSearch)
+      .then((rows) => { if (active) setRemoteSearch({ query: globalSearch, results: rows || [] }); })
+      .catch(() => { if (active) setRemoteSearch({ query: globalSearch, results: [] }); });
+    return () => { active = false; };
+  }, [globalSearch, localSearchResults.length]);
+  const searchedCases = useMemo(() => {
+    if (!globalSearch || localSearchResults.length || remoteSearch.query !== globalSearch) return localSearchResults;
+    return mergeCaseLists(remoteSearch.results.filter((item) => matchesCaseCountry(item, countryFilter)));
+  }, [countryFilter, globalSearch, localSearchResults, remoteSearch]);
+  const myWorkCases = useMemo(() => filterMyWork(countryCases, user?.id), [countryCases, user?.id]);
+  const visibleSummary = useMemo(() => resolveCaseSummary(summary, countryCases, { countryFiltered: countryFilter !== "all" }), [countryCases, countryFilter, summary]);
 
   if (loading) return <LoadingScreen message={i18nText("ui.literals.k02fc6db0216b")} />;
 
   let content;
   if (page === "overview") content = <OverviewView pulse={<PlatformPulse canOpen={(id) => visiblePages.has(id)} onOpen={setPage} />} summary={visibleSummary} cases={countryCases} onOpenCase={setSelectedCase} onNavigate={setPage} refreshing={refreshing} onRefresh={() => refresh(true)} />;
-  else if (page === "my-work") content = <QueueView title={globalSearch ? i18nText("ui.literals.kc7e7e82fe077", { value0: globalSearch }) : i18nText("ui.literals.k57a125343d6e")} description={globalSearch ? i18nText("ui.literals.k2d6c8f04b6bd") : i18nText("ui.literals.k2d21261b5279")} cases={searchedCases} onOpenCase={setSelectedCase} />;
+  else if (page === "my-work") content = <QueueView title={globalSearch ? i18nText("ui.literals.kc7e7e82fe077", { value0: globalSearch }) : i18nText("ui.literals.k57a125343d6e")} description={globalSearch ? i18nText("ui.literals.k2d6c8f04b6bd") : i18nText("ui.literals.k2d21261b5279")} cases={globalSearch ? searchedCases : myWorkCases} onOpenCase={setSelectedCase} />;
   else if (page === "users") content = <UsersView access={access} />;
   else if (page === "urmall-businesses") content = <DirectoryView key={`biz-${navKey}`} pageId={page} targetType="marketplace_business" access={access} />;
   else if (page === "urride-operators") content = <DirectoryView key={`op-${navKey}`} pageId={page} targetType="transport_operator" access={access} />;
@@ -216,7 +222,7 @@ function AdminWorkspace({ access, user, preview }) {
       user={user}
       page={page}
       setPage={setPage}
-      caseCount={countryCases.filter((item) => !["resolved", "closed"].includes(item.status)).length}
+      caseCount={countryFilter === "all" && typeof summary.openCases === "number" ? summary.openCases : countryCases.filter(isOpenCase).length}
       onActivity={handleAdminActivity}
       onSearch={(value) => { setGlobalSearch(value); setPage("my-work"); }}
     >
@@ -224,7 +230,7 @@ function AdminWorkspace({ access, user, preview }) {
       {error ? <div role="alert" className="mb-4 rounded-lg border border-red-200 bg-red-50 px-4 py-3 text-sm font-semibold text-red-700">{translateUi(error)}</div> : null}
       <GlobalOperationsFilter countryFilter={countryFilter} countryOptions={countryOptions} onCountryFilterChange={setCountryFilter} totalCases={cases.length} visibleCases={countryCases.length} />
       {content}
-      {selectedCase ? <CaseDrawer item={selectedCase} access={access} onClose={() => setSelectedCase(null)} onUpdated={updateCase} /> : null}
+      {selectedCase ? <CaseDrawer item={selectedCase} access={access} currentUserId={user?.id} onClose={() => setSelectedCase(null)} onUpdated={updateCase} /> : null}
       {preview ? null : <AiAssistantHost />}
       {preview ? null : <AiFloatingButton />}
     </AdminShell>

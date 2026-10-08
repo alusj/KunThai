@@ -22,6 +22,7 @@ import {
   getFeatureFlags,
   updateFeatureFlag,
 } from "../adminService";
+import { isMyWorkCase, openCases, sectorLaneCounts } from "../adminCaseRules.js";
 import CaseTable from "../components/CaseTable";
 import NotificationCampaignCenter from "../notifications/NotificationCampaignCenter";
 import { t as i18nText } from "../../i18n/index";
@@ -140,7 +141,7 @@ export function OverviewView({ summary, cases, onOpenCase, onNavigate, refreshin
   );
 }
 
-export function QueueView({ title, description, cases, onOpenCase, defaultQueue = "", defaultSector = "", assignee = "", hideHeading = false }) {
+export function QueueView({ title, description, cases, onOpenCase, defaultQueue = "", defaultSector = "", assignee = "", currentUserId = "", hideHeading = false }) {
   useUiLocale();
   const [status, setStatus] = useState("open");
   const [caseType, setCaseType] = useState("all");
@@ -158,13 +159,13 @@ export function QueueView({ title, description, cases, onOpenCase, defaultQueue 
   const visible = useMemo(() => cases.filter((item) => {
     if (defaultQueue && item.queue !== defaultQueue) return false;
     if (defaultSector && item.sector !== defaultSector) return false;
-    if (assignee === "me" && !item.assignee_user_id) return false;
+    if (assignee === "me" && !isMyWorkCase(item, currentUserId)) return false;
     if (status === "open" && ["resolved", "closed"].includes(item.status)) return false;
     if (status !== "open" && status !== "all" && item.status !== status) return false;
     if (caseType !== "all" && item.case_type !== caseType && item.resource_type !== caseType) return false;
     if (search && !getCaseSearchText(item).includes(search.toLowerCase())) return false;
     return true;
-  }), [assignee, caseType, cases, defaultQueue, defaultSector, search, status]);
+  }), [assignee, caseType, cases, currentUserId, defaultQueue, defaultSector, search, status]);
 
   return (
     <>
@@ -194,12 +195,13 @@ const sectorCopy = {
 export function SectorView({ sector, cases, onOpenCase }) {
   useUiLocale();
   const copy = sectorCopy[sector];
-  const sectorCases = cases.filter((item) => item.sector === sector);
+  // Lane counters show open work only; resolved and closed cases stay in the list below.
+  const laneCounts = sectorLaneCounts(cases, sector);
   return (
     <>
       <PageHeading eyebrow={copy.eyebrow} title={translateUi(copy.title)} description={translateUi(copy.description)} />
       <section className="mb-6 grid gap-3 sm:grid-cols-2 xl:grid-cols-4">
-        {copy.lanes.map((label, index) => <Metric key={label} label={translateUi(label)} value={index === 0 ? sectorCases.length : sectorCases.filter((item) => item.queue === ["verification", "reports", "support", "finance"][index - 1]).length} detail={i18nText("ui.literals.k6ddbd6552812")} tone={["zinc", "emerald", "amber", "sky"][index]} />)}
+        {copy.lanes.map((label, index) => <Metric key={label} label={translateUi(label)} value={laneCounts[index]} detail={i18nText("ui.literals.k6ddbd6552812")} tone={["zinc", "emerald", "amber", "sky"][index]} />)}
       </section>
       <QueueView title={i18nText("ui.literals.kc4396f66d55c", { value0: copy.title })} description={i18nText("ui.literals.kc1b2ab29fea6")} cases={cases} defaultSector={sector} onOpenCase={onOpenCase} hideHeading />
     </>
@@ -226,12 +228,13 @@ export function FinanceView({ cases, onOpenCase }) {
 export function AnalyticsView({ summary, cases }) {
   useUiLocale();
   const sectors = ["explore", "marketplace", "transport"];
-  const max = Math.max(1, ...sectors.map((sector) => cases.filter((item) => item.sector === sector).length));
+  const active = openCases(cases);
+  const max = Math.max(1, ...sectors.map((sector) => active.filter((item) => item.sector === sector).length));
   return (
     <>
       <PageHeading eyebrow="Operational intelligence" title={i18nText("ui.literals.k25bc96295797")} description={i18nText("ui.literals.kf47f755af8a8")} />
       <section className="grid gap-3 sm:grid-cols-2 lg:grid-cols-4"><Metric label={i18nText("ui.literals.kdb5aba313d08")} value={summary.openCases} detail={i18nText("ui.literals.k84c90dcaccc2")} /><Metric label={i18nText("ui.literals.k894fdb0eb6e8")} value={summary.overdueCases} detail={i18nText("ui.literals.k6eeca62582e8")} tone="red" /><Metric label={i18nText("ui.literals.kbeeb64d1c49d")} value={summary.resolvedToday} detail={i18nText("ui.literals.k57130ea5e877")} tone="emerald" /><Metric label={i18nText("ui.literals.kfa4ddda5fa52")} value={`${summary.openCases ? Math.round((summary.unassignedCases / summary.openCases) * 100) : 0}%`} detail={i18nText("ui.literals.k891dc228801b")} tone="amber" /></section>
-      <section className="mt-6 border-y border-zinc-200 bg-white p-5 sm:rounded-lg sm:border"><h2 className="text-base font-black text-zinc-950">{i18nText("ui.literals.k397d2b22bc4f")}</h2><div className="mt-6 space-y-5">{sectors.map((sector) => { const total = cases.filter((item) => item.sector === sector).length; return <div key={sector}><div className="mb-2 flex justify-between text-sm font-bold text-zinc-700"><span>{sector === "marketplace" ? "UrMall" : titleCase(sector)}</span><span>{total} {i18nText("ui.literals.kf9063c359f30")}</span></div><div className="h-3 overflow-hidden rounded-full bg-zinc-100"><div className={`h-full rounded-full ${sector === "explore" ? "bg-cyan-500" : sector === "marketplace" ? "bg-emerald-500" : "bg-violet-500"}`} style={{ width: `${(total / max) * 100}%` }} /></div></div>; })}</div></section>
+      <section className="mt-6 border-y border-zinc-200 bg-white p-5 sm:rounded-lg sm:border"><h2 className="text-base font-black text-zinc-950">{i18nText("ui.literals.k397d2b22bc4f")}</h2><div className="mt-6 space-y-5">{sectors.map((sector) => { const total = active.filter((item) => item.sector === sector).length; return <div key={sector}><div className="mb-2 flex justify-between text-sm font-bold text-zinc-700"><span>{sector === "marketplace" ? "UrMall" : titleCase(sector)}</span><span>{total} {i18nText("ui.literals.kf9063c359f30")}</span></div><div className="h-3 overflow-hidden rounded-full bg-zinc-100"><div className={`h-full rounded-full ${sector === "explore" ? "bg-cyan-500" : sector === "marketplace" ? "bg-emerald-500" : "bg-violet-500"}`} style={{ width: `${(total / max) * 100}%` }} /></div></div>; })}</div></section>
     </>
   );
 }
@@ -245,7 +248,7 @@ export function SettingsView({ access }) {
   function load() { getFeatureFlags().then(setFlags).catch((nextError) => setError(inlineErrorMessage(nextError))); }
   useEffect(load, []);
   async function toggle(item) {
-    const reason = window.prompt(`Reason for ${item.enabled ? "disabling" : "enabling"} ${item.name}?`);
+    const reason = window.prompt(i18nText(item.enabled ? "adminCases.promptDisableFlag" : "adminCases.promptEnableFlag", { name: item.name }));
     if (!reason?.trim()) return;
     setBusy(item.flag_key); setError("");
     try { const updated = await updateFeatureFlag(item.flag_key, !item.enabled, reason.trim()); setFlags((current) => current.map((flag) => flag.flag_key === item.flag_key ? { ...flag, ...updated } : flag)); }

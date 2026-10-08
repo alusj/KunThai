@@ -1,5 +1,5 @@
 import { ArrowUpRight, CircleUserRound } from "lucide-react";
-import { formatCaseNumber, formatRelativeTime, titleCase } from "../adminConfig";
+import { caseStatusLabel, formatCaseNumber, formatRelativeTime, titleCase } from "../adminConfig";
 import { getCaseCountryLabel, getCaseTypeLabel } from "../adminService";
 import { t as i18nText } from "../../i18n/index";
 import { uiText as translateUi, useI18n as useUiLocale } from "../../i18n/index.js";
@@ -58,7 +58,7 @@ export default function CaseTable({ cases = [], onOpen, emptyTitle = "No cases i
                 <td className="px-4 py-3"><span className={`inline-flex rounded-full px-2 py-1 text-[11px] font-black ${sectorStyles[item.sector] || sectorStyles.platform}`}>{item.sector === "marketplace" ? "UrMall" : titleCase(item.sector)}</span></td>
                 <td className="whitespace-nowrap px-4 py-3 text-xs font-bold text-zinc-600">{getCaseCountryLabel(item)}</td>
                 <td className="px-4 py-3"><span className={`inline-flex rounded-full px-2 py-1 text-[11px] font-black ${priorityStyles[item.priority] || priorityStyles.normal}`}>{titleCase(item.priority)}</span></td>
-                <td className="whitespace-nowrap px-4 py-3 text-xs font-bold text-zinc-700">{titleCase(item.status)}</td>
+                <td className="whitespace-nowrap px-4 py-3 text-xs font-bold text-zinc-700">{caseStatusLabel(item.status)}</td>
                 <td className="px-4 py-3">
                   <span className="inline-flex items-center gap-1.5 text-xs font-semibold text-zinc-600">
                     <CircleUserRound size={15} /> {item.assignee_user_id ? i18nText("ui.literals.ke24e824b6811") : i18nText("ui.literals.ke57016edceec")}
@@ -91,7 +91,7 @@ export default function CaseTable({ cases = [], onOpen, emptyTitle = "No cases i
               <span className="rounded-full bg-zinc-100 px-2 py-1 text-[11px] font-black text-zinc-700">{getCaseCountryLabel(item)}</span>
               <span className="rounded-full bg-zinc-100 px-2 py-1 text-[11px] font-black text-zinc-700">{getCaseTypeLabel(item)}</span>
               <span className={`rounded-full px-2 py-1 text-[11px] font-black ${priorityStyles[item.priority] || priorityStyles.normal}`}>{titleCase(item.priority)}</span>
-              <span className="rounded-full bg-zinc-100 px-2 py-1 text-[11px] font-black text-zinc-700">{titleCase(item.status)}</span>
+              <span className="rounded-full bg-zinc-100 px-2 py-1 text-[11px] font-black text-zinc-700">{caseStatusLabel(item.status)}</span>
             </div>
           </button>
         ))}

@@ -21,6 +21,7 @@ import {
   X,
 } from "lucide-react";
 import { ADMIN_SECTORS, formatCaseNumber, formatDateTime, formatRelativeTime, titleCase } from "../adminConfig";
+import { dateTimeLocalToIso, isoToDateTimeLocal } from "../adminCaseRules.js";
 import {
   ACCOUNT_CONTROL_REASON_SUGGESTIONS,
   NOTIFICATION_MESSAGE_SUGGESTIONS,
@@ -242,11 +243,11 @@ function CreditsPanel({ user, workspace, canGrant, busy, onGrant }) {
 
 function AccountSecurityPanel({ user, access, busy, onSaved }) {
   useUiLocale();
-  const [form, setForm] = useState({ status: user.account_status || "active", reason: user.status_reason || "", sectors: user.restricted_sectors?.length ? user.restricted_sectors : ["all"], expiresAt: user.status_expires_at ? user.status_expires_at.slice(0, 16) : "" });
+  const [form, setForm] = useState({ status: user.account_status || "active", reason: user.status_reason || "", sectors: user.restricted_sectors?.length ? user.restricted_sectors : ["all"], expiresAt: isoToDateTimeLocal(user.status_expires_at) });
   const canManage = access.permissions.includes("users.manage");
 
   useEffect(() => {
-    setForm({ status: user.account_status || "active", reason: user.status_reason || "", sectors: user.restricted_sectors?.length ? user.restricted_sectors : ["all"], expiresAt: user.status_expires_at ? user.status_expires_at.slice(0, 16) : "" });
+    setForm({ status: user.account_status || "active", reason: user.status_reason || "", sectors: user.restricted_sectors?.length ? user.restricted_sectors : ["all"], expiresAt: isoToDateTimeLocal(user.status_expires_at) });
   }, [user.account_status, user.restricted_sectors, user.status_expires_at, user.status_reason]);
 
   function toggleSector(value) {
@@ -329,7 +330,7 @@ function UserWorkspaceDrawer({ user, initialTab, access, onClose, onUserUpdated 
   async function saveControl(form) {
     setBusy(true); setError("");
     try {
-      const updated = await setAdminUserStatus({ userId: user.user_id, status: form.status, reason: form.reason.trim(), sectors: form.status === "restricted" ? form.sectors : ["all"], expiresAt: form.expiresAt || null });
+      const updated = await setAdminUserStatus({ userId: user.user_id, status: form.status, reason: form.reason.trim(), sectors: form.status === "restricted" ? form.sectors : ["all"], expiresAt: dateTimeLocalToIso(form.expiresAt) });
       const patch = { account_status: updated.status, status_reason: updated.reason, restricted_sectors: updated.restricted_sectors, status_expires_at: updated.expires_at };
       setWorkspace((current) => ({ ...current, user: { ...(current.user || user), ...patch } }));
       onUserUpdated(patch);

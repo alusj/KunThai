@@ -4,6 +4,8 @@
 // supabase/migrations/20261001150000_admin_operations_platform.sql — the UI
 // never invents a state the backend does not know about.
 
+import { sectorAuthorityLevel } from "./adminCaseRules.js";
+
 export const TARGET_TYPES = Object.freeze({
   marketplace_business: {
     key: "marketplace_business",
@@ -118,12 +120,14 @@ export function durationEndsAt(durationKey, from = new Date()) {
 }
 
 // Which actions an admin can take on a target right now, given their access
-// and the target's current status. The server re-checks every one of these.
+// and the target's current status. Authority is the admin's level in the
+// target's sector (admin_authority_level(sector)), not their highest level
+// anywhere. The server re-checks every one of these.
 export function availableEnforcementActions(access, targetType, currentStatus = "active") {
   const target = TARGET_TYPES[targetType];
   if (!target || !access) return [];
   const permissions = new Set(access.permissions || []);
-  const authority = Number(access.authorityLevel || 0);
+  const authority = sectorAuthorityLevel(access, target.sector);
   const can = (kind) => permissions.has(`${target.permissionPrefix}.${kind}`);
   const suspended = currentStatus === "suspended" || currentStatus === "temporarily_suspended";
 

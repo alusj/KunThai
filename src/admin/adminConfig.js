@@ -1,3 +1,5 @@
+import { getLocale, t as i18nText, uiText } from "../i18n/index.js";
+
 export const ADMIN_SECTORS = [
   { value: "all", label: "All sectors" },
   { value: "explore", label: "Explore" },
@@ -15,7 +17,7 @@ export const ADMIN_ROLES = [
   { key: "risk_officer", name: "Risk and Fraud Officer", rank: 50, authority: 3 },
   { key: "finance_officer", name: "Finance Officer", rank: 45, authority: 3 },
   { key: "reports_officer", name: "Reports and Safety Officer", rank: 40, authority: 2 },
-  { key: "verification_officer", name: "Verification Officer", rank: 40, authority: 2 },
+  { key: "verification_officer", name: "Verification Officer", rank: 40, authority: 3 },
   { key: "support_officer", name: "Support Officer", rank: 35, authority: 2 },
   { key: "notification_officer", name: "Notification Officer", rank: 35, authority: 2 },
   { key: "technical_admin", name: "Technical Admin", rank: 55, authority: 3 },
@@ -122,18 +124,39 @@ export function formatCaseNumber(value) {
   return `KT-${String(value || 0).padStart(6, "0")}`;
 }
 
+// Case statuses shown through the translation bundles (adminCases.status.*);
+// unknown statuses fall back to Title Case.
+export function caseStatusLabel(value = "") {
+  if (!value) return "";
+  const key = `adminCases.status.${value}`;
+  const label = i18nText(key);
+  return label === key ? titleCase(value) : label;
+}
+
+function intlLocale() {
+  try {
+    const locale = getLocale() || "en";
+    return Intl.DateTimeFormat.supportedLocalesOf([locale]).length ? locale : "en";
+  } catch {
+    return "en";
+  }
+}
+
 export function formatDateTime(value) {
-  if (!value) return "Not recorded";
-  return new Intl.DateTimeFormat("en", {
+  if (!value) return uiText("Not recorded");
+  const date = new Date(value);
+  if (Number.isNaN(date.getTime())) return uiText("Not recorded");
+  return new Intl.DateTimeFormat(intlLocale(), {
     dateStyle: "medium",
     timeStyle: "short",
-  }).format(new Date(value));
+  }).format(date);
 }
 
 export function formatRelativeTime(value) {
-  if (!value) return "Unknown";
+  if (!value) return i18nText("adminCases.unknown");
   const minutes = Math.round((new Date(value).getTime() - Date.now()) / 60000);
-  const formatter = new Intl.RelativeTimeFormat("en", { numeric: "auto" });
+  if (!Number.isFinite(minutes)) return i18nText("adminCases.unknown");
+  const formatter = new Intl.RelativeTimeFormat(intlLocale(), { numeric: "auto" });
   if (Math.abs(minutes) < 60) return formatter.format(minutes, "minute");
   const hours = Math.round(minutes / 60);
   if (Math.abs(hours) < 24) return formatter.format(hours, "hour");

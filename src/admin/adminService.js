@@ -11,6 +11,17 @@ import {
   updatePreviewCase,
   updatePreviewFlag,
 } from "./adminPreviewData";
+import {
+  SIGNED_URL_TTL_SECONDS,
+  allowAllDecisionCapabilities,
+  buildCaseSearchOrFilter,
+  dateTimeLocalToIso,
+  fallbackDecisionCapabilities,
+  fetchAllPages,
+  isMissingRpcError,
+  mergeCaseLists,
+  normalizeDecisionCapabilities,
+} from "./adminCaseRules.js";
 
 const previewDelay = (value) => new Promise((resolve) => window.setTimeout(() => resolve(structuredClone(value)), 120));
 const previewCreditWallets = new Map([
@@ -210,18 +221,66 @@ export async function getAdminCases(filters = {}) {
     return previewDelay(rows);
   }
 
-  let query = supabase.from("admin_cases").select("*").order("created_at", { ascending: false }).limit(filters.limit || 200);
+  let query = supabase.from("admin_cases").select("*");
+  if (filters.status === "closed") query = query.in("status", ["resolved", "closed"]).order("updated_at", { ascending: false });
+  else query = query.order("created_at", { ascending: false });
+  query = query.order("id", { ascending: true });
+  query = filters.range ? query.range(filters.range[0], filters.range[1]) : query.limit(filters.limit || 200);
   if (filters.sector) query = query.eq("sector", filters.sector);
   if (filters.queue) query = query.eq("queue", filters.queue);
   if (filters.status === "open") query = query.not("status", "in", "(resolved,closed)");
-  else if (filters.status) query = query.eq("status", filters.status);
+  else if (filters.status && filters.status !== "closed") query = query.eq("status", filters.status);
   if (filters.assignee === "me") {
     const { data } = await supabase.auth.getUser();
     if (data?.user?.id) query = query.eq("assignee_user_id", data.user.id);
   }
-  if (filters.search) query = query.or(`title.ilike.%${filters.search}%,description.ilike.%${filters.search}%`);
+  const searchFilter = buildCaseSearchOrFilter(filters.search);
+  if (searchFilter) query = query.or(searchFilter);
   const rows = unwrap(await query, "Unable to load admin cases.") || [];
   return filters.country ? rows.filter((item) => matchesCaseCountry(item, filters.country)) : rows;
+}
+
+const OPEN_CASE_PAGE_SIZE = 1000;
+const RECENT_CLOSED_CASES = 200;
+
+// The workspace needs every open case (counters, queues, My work) plus the
+// most recent closed ones for context. Open cases are paged with .range()
+// until exhausted so older open cases never drop off the list.
+export async function getWorkspaceCases() {
+  if (isAdminPreview()) return getAdminCases({});
+  const [open, closed] = await Promise.all([
+    fetchAllPages((from, to) => getAdminCases({ status: "open", range: [from, to] }), { pageSize: OPEN_CASE_PAGE_SIZE }),
+    getAdminCases({ status: "closed", limit: RECENT_CLOSED_CASES }),
+  ]);
+  return mergeCaseLists(closed, open);
+}
+
+// Server-side case search for the global search box, used when the query is
+// not found in the cases already loaded.
+export async function searchAdminCasesRemote(search, limit = 100) {
+  const text = String(search || "").trim();
+  if (!text) return [];
+  return getAdminCases({ search: text, limit });
+}
+
+// Which decisions the current admin can really apply to a case. Uses the
+// admin_case_decision_capabilities RPC; while it is missing (or errors) the
+// client-side mirror of admin_apply_case_decision answers instead, so the
+// console keeps working.
+export async function getCaseDecisionCapabilities(caseId, { access = null, item = null } = {}) {
+  if (isAdminPreview()) return allowAllDecisionCapabilities();
+  const fallback = fallbackDecisionCapabilities(access, item || {});
+  if (!caseId) return fallback;
+  try {
+    const { data, error } = await supabase.rpc("admin_case_decision_capabilities", { case_uuid: caseId });
+    if (error) {
+      if (!isMissingRpcError(error) && import.meta.env?.DEV) console.warn("Decision capabilities unavailable; using client rules.", error);
+      return fallback;
+    }
+    return normalizeDecisionCapabilities(data, fallback);
+  } catch {
+    return fallback;
+  }
 }
 
 export async function getCaseActivity(caseId) {
@@ -347,14 +406,22 @@ export async function getAdminCaseEvidence(item) {
 
   return Promise.all(deduped.map(async (entry) => {
     if (entry.url) return entry;
-    const { data, error } = await supabase.storage.from(entry.bucket).createSignedUrl(entry.path, 60 * 60);
-    return {
-      ...entry,
-      url: error ? "" : data?.signedUrl || "",
-      kind: entry.kind || inferMediaKind(entry.contentType || entry.path),
-      unavailable: error?.message || "",
-    };
+    return resignEvidenceUrl({ ...entry, kind: entry.kind || inferMediaKind(entry.contentType || entry.path) });
   }));
+}
+
+// Signs (or re-signs) a private storage link. Signed links expire after an
+// hour, so the case drawer calls this again when a link is opened late.
+export async function resignEvidenceUrl(entry) {
+  if (!entry?.bucket || !entry?.path) return entry;
+  if (isAdminPreview()) return { ...entry, signedAt: Date.now() };
+  const { data, error } = await supabase.storage.from(entry.bucket).createSignedUrl(entry.path, SIGNED_URL_TTL_SECONDS);
+  return {
+    ...entry,
+    url: error ? "" : data?.signedUrl || "",
+    signedAt: Date.now(),
+    unavailable: error?.message || "",
+  };
 }
 
 function inferMediaKind(value = "") {
@@ -372,8 +439,7 @@ function mediaItem(url, label, fallbackKind = "") {
 
 async function signedMedia(bucket, path, label, kind) {
   if (!bucket || !path) return null;
-  const { data, error } = await supabase.storage.from(bucket).createSignedUrl(path, 60 * 60);
-  return { label, kind, url: error ? "" : data?.signedUrl || "", unavailable: error?.message || "" };
+  return resignEvidenceUrl({ label, kind, bucket, path });
 }
 
 async function fetchSingle(table, column, value) {
@@ -882,13 +948,15 @@ export async function grantAdminVisibilityCredits(input) {
 }
 
 export async function setAdminUserStatus(input) {
-  if (isAdminPreview()) return runAdminMutation(() => previewDelay({ user_id: input.userId, status: input.status, reason: input.reason, restricted_sectors: input.sectors, expires_at: input.expiresAt || null }), { action: "user.status_changed", userId: input.userId });
+  // datetime-local values are local wall time; the server stores UTC.
+  const expiresAt = dateTimeLocalToIso(input.expiresAt);
+  if (isAdminPreview()) return runAdminMutation(() => previewDelay({ user_id: input.userId, status: input.status, reason: input.reason, restricted_sectors: input.sectors, expires_at: expiresAt }), { action: "user.status_changed", userId: input.userId });
   return runAdminMutation(async () => unwrap(await supabase.rpc("admin_set_user_status", {
     target_user_id: input.userId,
     next_status: input.status,
     action_reason: input.reason,
     target_sectors: input.sectors,
-    status_expires_at: input.expiresAt || null,
+    status_expires_at: expiresAt,
   }), "Unable to update the account status."), { action: "user.status_changed", userId: input.userId });
 }
 
