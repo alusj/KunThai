@@ -13,10 +13,6 @@
 
 export const URRIDE = {
   en: {
-    operatorFix: {
-      imageOnly: "Choose a photo (JPG, PNG or HEIC). PDFs can only be added as documents.",
-      plateInUse: "Plate {plate} is already registered to another fleet. Check the plate number.",
-      plateRepeated: "Plate {plate} is used by more than one fleet in this form. Each vehicle needs its own plate.",
     // 2026-10-08 company workspace, operator and rental fixes.
     companyFix: {
       tabRentals: "Rentals",
@@ -44,6 +40,11 @@ export const URRIDE = {
       accessPausedBody: "Your company access is suspended. You can see your own details, but company tools are paused until the company restores your access.",
       savedUnavailableTitle: "No longer available",
       savedUnavailableBody: "This operator's fleet was removed or is hidden. Remove it from your list.",
+    },
+    operatorFix: {
+      imageOnly: "Choose a photo (JPG, PNG or HEIC). PDFs can only be added as documents.",
+      plateInUse: "Plate {plate} is already registered to another fleet. Check the plate number.",
+      plateRepeated: "Plate {plate} is used by more than one fleet in this form. Each vehicle needs its own plate.",
     },
     common: {
       loading: "Loading...",
@@ -2641,10 +2642,6 @@ export const URRIDE = {
   },
 
   fr: {
-    operatorFix: {
-      imageOnly: "Choisissez une photo (JPG, PNG ou HEIC). Les PDF ne peuvent être ajoutés que comme documents.",
-      plateInUse: "La plaque {plate} est déjà enregistrée pour une autre flotte. Vérifiez le numéro de plaque.",
-      plateRepeated: "La plaque {plate} est utilisée par plusieurs flottes dans ce formulaire. Chaque véhicule doit avoir sa propre plaque.",
     // 2026-10-08 company workspace, operator and rental fixes.
     companyFix: {
       tabRentals: "Locations",
@@ -2672,6 +2669,11 @@ export const URRIDE = {
       accessPausedBody: "Votre accès à l'entreprise est suspendu. Vous voyez vos propres informations, mais les outils de l'entreprise sont en pause jusqu'au rétablissement de votre accès.",
       savedUnavailableTitle: "N'est plus disponible",
       savedUnavailableBody: "La flotte de cet opérateur a été supprimée ou est masquée. Retirez-la de votre liste.",
+    },
+    operatorFix: {
+      imageOnly: "Choisissez une photo (JPG, PNG ou HEIC). Les PDF ne peuvent être ajoutés que comme documents.",
+      plateInUse: "La plaque {plate} est déjà enregistrée pour une autre flotte. Vérifiez le numéro de plaque.",
+      plateRepeated: "La plaque {plate} est utilisée par plusieurs flottes dans ce formulaire. Chaque véhicule doit avoir sa propre plaque.",
     },
     common: {
       loading: "Chargement...",
@@ -5269,10 +5271,6 @@ export const URRIDE = {
   },
 
   ar: {
-    operatorFix: {
-      imageOnly: "اختر صورة (JPG أو PNG أو HEIC). يمكن إضافة ملفات PDF كمستندات فقط.",
-      plateInUse: "اللوحة {plate} مسجلة بالفعل لأسطول آخر. تحقق من رقم اللوحة.",
-      plateRepeated: "اللوحة {plate} مستخدمة لأكثر من أسطول في هذا النموذج. يحتاج كل مركبة إلى لوحة خاصة بها.",
     // 2026-10-08 company workspace, operator and rental fixes.
     companyFix: {
       tabRentals: "الإيجارات",
@@ -5300,6 +5298,11 @@ export const URRIDE = {
       accessPausedBody: "تم تعليق وصولك إلى الشركة. يمكنك رؤية بياناتك، لكن أدوات الشركة متوقفة حتى تعيد الشركة وصولك.",
       savedUnavailableTitle: "لم يعد متاحًا",
       savedUnavailableBody: "تمت إزالة أسطول هذا المشغّل أو إخفاؤه. أزله من قائمتك.",
+    },
+    operatorFix: {
+      imageOnly: "اختر صورة (JPG أو PNG أو HEIC). يمكن إضافة ملفات PDF كمستندات فقط.",
+      plateInUse: "اللوحة {plate} مسجلة بالفعل لأسطول آخر. تحقق من رقم اللوحة.",
+      plateRepeated: "اللوحة {plate} مستخدمة لأكثر من أسطول في هذا النموذج. يحتاج كل مركبة إلى لوحة خاصة بها.",
     },
     common: {
       loading: "جارٍ التحميل...",
@@ -7897,10 +7900,6 @@ export const URRIDE = {
   },
 
   es: {
-    operatorFix: {
-      imageOnly: "Elige una foto (JPG, PNG o HEIC). Los PDF solo se pueden añadir como documentos.",
-      plateInUse: "La matrícula {plate} ya está registrada en otra flota. Revisa el número de matrícula.",
-      plateRepeated: "La matrícula {plate} se usa en más de una flota de este formulario. Cada vehículo necesita su propia matrícula.",
     // 2026-10-08 company workspace, operator and rental fixes.
     companyFix: {
       tabRentals: "Alquileres",
@@ -7928,6 +7927,11 @@ export const URRIDE = {
       accessPausedBody: "Tu acceso a la empresa está suspendido. Puedes ver tus propios datos, pero las herramientas de la empresa están en pausa hasta que se restablezca tu acceso.",
       savedUnavailableTitle: "Ya no está disponible",
       savedUnavailableBody: "La flota de este operador se eliminó o está oculta. Quítala de tu lista.",
+    },
+    operatorFix: {
+      imageOnly: "Elige una foto (JPG, PNG o HEIC). Los PDF solo se pueden añadir como documentos.",
+      plateInUse: "La matrícula {plate} ya está registrada en otra flota. Revisa el número de matrícula.",
+      plateRepeated: "La matrícula {plate} se usa en más de una flota de este formulario. Cada vehículo necesita su propia matrícula.",
     },
     common: {
       loading: "Cargando..."
@@ -10565,10 +10569,6 @@ export const URRIDE = {
   },
 
   zh: {
-    operatorFix: {
-      imageOnly: "请选择照片（JPG、PNG 或 HEIC）。PDF 只能作为文件添加。",
-      plateInUse: "车牌 {plate} 已注册在另一个车队。请检查车牌号。",
-      plateRepeated: "车牌 {plate} 在此表单中被多个车队使用。每辆车都需要自己的车牌。",
     // 2026-10-08 company workspace, operator and rental fixes.
     companyFix: {
       tabRentals: "租赁",
@@ -10596,6 +10596,11 @@ export const URRIDE = {
       accessPausedBody: "您的公司访问已被暂停。您可以查看自己的信息，但在公司恢复您的访问之前，公司工具不可用。",
       savedUnavailableTitle: "已不可用",
       savedUnavailableBody: "该运营者的车队已被移除或隐藏。请将其从列表中移除。",
+    },
+    operatorFix: {
+      imageOnly: "请选择照片（JPG、PNG 或 HEIC）。PDF 只能作为文件添加。",
+      plateInUse: "车牌 {plate} 已注册在另一个车队。请检查车牌号。",
+      plateRepeated: "车牌 {plate} 在此表单中被多个车队使用。每辆车都需要自己的车牌。",
     },
     common: {
       loading: "加载中..."
@@ -13233,10 +13238,6 @@ export const URRIDE = {
   },
 
   pt: {
-    operatorFix: {
-      imageOnly: "Escolha uma foto (JPG, PNG ou HEIC). PDFs só podem ser adicionados como documentos.",
-      plateInUse: "A placa {plate} já está registrada em outra frota. Verifique o número da placa.",
-      plateRepeated: "A placa {plate} é usada por mais de uma frota neste formulário. Cada veículo precisa da sua própria placa.",
     // 2026-10-08 company workspace, operator and rental fixes.
     companyFix: {
       tabRentals: "Aluguéis",
@@ -13264,6 +13265,11 @@ export const URRIDE = {
       accessPausedBody: "Seu acesso à empresa está suspenso. Você pode ver seus próprios dados, mas as ferramentas da empresa ficam pausadas até que a empresa restaure seu acesso.",
       savedUnavailableTitle: "Não está mais disponível",
       savedUnavailableBody: "A frota deste operador foi removida ou está oculta. Remova-a da sua lista.",
+    },
+    operatorFix: {
+      imageOnly: "Escolha uma foto (JPG, PNG ou HEIC). PDFs só podem ser adicionados como documentos.",
+      plateInUse: "A placa {plate} já está registrada em outra frota. Verifique o número da placa.",
+      plateRepeated: "A placa {plate} é usada por mais de uma frota neste formulário. Cada veículo precisa da sua própria placa.",
     },
     "common": {
       "loading": "Carregando..."
@@ -15899,10 +15905,6 @@ export const URRIDE = {
   },
 
   hi: {
-    operatorFix: {
-      imageOnly: "एक फ़ोटो चुनें (JPG, PNG या HEIC)। PDF केवल दस्तावेज़ों के रूप में जोड़े जा सकते हैं।",
-      plateInUse: "प्लेट {plate} पहले से किसी दूसरे फ़्लीट में पंजीकृत है। प्लेट नंबर जाँचें।",
-      plateRepeated: "प्लेट {plate} इस फ़ॉर्म में एक से अधिक फ़्लीट में उपयोग हुई है। हर वाहन की अपनी प्लेट होनी चाहिए।",
     // 2026-10-08 company workspace, operator and rental fixes.
     companyFix: {
       tabRentals: "किराये",
@@ -15930,6 +15932,11 @@ export const URRIDE = {
       accessPausedBody: "आपका कंपनी एक्सेस निलंबित है। आप अपनी जानकारी देख सकते हैं, लेकिन कंपनी द्वारा एक्सेस बहाल होने तक कंपनी टूल रुके हैं।",
       savedUnavailableTitle: "अब उपलब्ध नहीं",
       savedUnavailableBody: "इस ऑपरेटर का फ़्लीट हटा दिया गया है या छिपा है। इसे अपनी सूची से हटाएँ।",
+    },
+    operatorFix: {
+      imageOnly: "एक फ़ोटो चुनें (JPG, PNG या HEIC)। PDF केवल दस्तावेज़ों के रूप में जोड़े जा सकते हैं।",
+      plateInUse: "प्लेट {plate} पहले से किसी दूसरे फ़्लीट में पंजीकृत है। प्लेट नंबर जाँचें।",
+      plateRepeated: "प्लेट {plate} इस फ़ॉर्म में एक से अधिक फ़्लीट में उपयोग हुई है। हर वाहन की अपनी प्लेट होनी चाहिए।",
     },
     "common": {
       "loading": "लोड हो रहा है..."
@@ -18565,10 +18572,6 @@ export const URRIDE = {
   },
 
   bn: {
-    operatorFix: {
-      imageOnly: "একটি ছবি বেছে নিন (JPG, PNG বা HEIC)। PDF শুধু নথি হিসেবে যোগ করা যায়।",
-      plateInUse: "প্লেট {plate} ইতিমধ্যে অন্য একটি ফ্লিটে নিবন্ধিত। প্লেট নম্বর যাচাই করুন।",
-      plateRepeated: "প্লেট {plate} এই ফর্মে একাধিক ফ্লিটে ব্যবহৃত হয়েছে। প্রতিটি গাড়ির নিজস্ব প্লেট লাগবে।",
     // 2026-10-08 company workspace, operator and rental fixes.
     companyFix: {
       tabRentals: "ভাড়া",
@@ -18596,6 +18599,11 @@ export const URRIDE = {
       accessPausedBody: "আপনার কোম্পানি অ্যাক্সেস স্থগিত। আপনি নিজের তথ্য দেখতে পারবেন, কিন্তু কোম্পানি অ্যাক্সেস ফিরিয়ে না দেওয়া পর্যন্ত কোম্পানির টুল বন্ধ থাকবে।",
       savedUnavailableTitle: "আর উপলব্ধ নয়",
       savedUnavailableBody: "এই অপারেটরের বহর সরানো হয়েছে বা লুকানো আছে। এটি আপনার তালিকা থেকে সরান।",
+    },
+    operatorFix: {
+      imageOnly: "একটি ছবি বেছে নিন (JPG, PNG বা HEIC)। PDF শুধু নথি হিসেবে যোগ করা যায়।",
+      plateInUse: "প্লেট {plate} ইতিমধ্যে অন্য একটি ফ্লিটে নিবন্ধিত। প্লেট নম্বর যাচাই করুন।",
+      plateRepeated: "প্লেট {plate} এই ফর্মে একাধিক ফ্লিটে ব্যবহৃত হয়েছে। প্রতিটি গাড়ির নিজস্ব প্লেট লাগবে।",
     },
     "common": {
       "loading": "লোড হচ্ছে..."
@@ -21231,10 +21239,6 @@ export const URRIDE = {
   },
 
   id: {
-    operatorFix: {
-      imageOnly: "Pilih foto (JPG, PNG, atau HEIC). PDF hanya dapat ditambahkan sebagai dokumen.",
-      plateInUse: "Pelat {plate} sudah terdaftar di armada lain. Periksa nomor pelat.",
-      plateRepeated: "Pelat {plate} dipakai oleh lebih dari satu armada di formulir ini. Setiap kendaraan perlu pelatnya sendiri.",
     // 2026-10-08 company workspace, operator and rental fixes.
     companyFix: {
       tabRentals: "Sewa",
@@ -21262,6 +21266,11 @@ export const URRIDE = {
       accessPausedBody: "Akses perusahaan Anda ditangguhkan. Anda dapat melihat data Anda sendiri, tetapi alat perusahaan dijeda sampai perusahaan memulihkan akses Anda.",
       savedUnavailableTitle: "Tidak tersedia lagi",
       savedUnavailableBody: "Armada operator ini telah dihapus atau disembunyikan. Hapus dari daftar Anda.",
+    },
+    operatorFix: {
+      imageOnly: "Pilih foto (JPG, PNG, atau HEIC). PDF hanya dapat ditambahkan sebagai dokumen.",
+      plateInUse: "Pelat {plate} sudah terdaftar di armada lain. Periksa nomor pelat.",
+      plateRepeated: "Pelat {plate} dipakai oleh lebih dari satu armada di formulir ini. Setiap kendaraan perlu pelatnya sendiri.",
     },
     "common": {
       "loading": "Memuat..."
@@ -23897,10 +23906,6 @@ export const URRIDE = {
   },
 
   ur: {
-    operatorFix: {
-      imageOnly: "ایک تصویر منتخب کریں (JPG، PNG یا HEIC)۔ PDF صرف دستاویزات کے طور پر شامل کی جا سکتی ہیں۔",
-      plateInUse: "پلیٹ {plate} پہلے سے کسی دوسرے فلیٹ میں رجسٹرڈ ہے۔ پلیٹ نمبر چیک کریں۔",
-      plateRepeated: "پلیٹ {plate} اس فارم میں ایک سے زیادہ فلیٹس میں استعمال ہوئی ہے۔ ہر گاڑی کی اپنی پلیٹ ہونی چاہیے۔",
     // 2026-10-08 company workspace, operator and rental fixes.
     companyFix: {
       tabRentals: "کرایے",
@@ -23928,6 +23933,11 @@ export const URRIDE = {
       accessPausedBody: "آپ کی کمپنی تک رسائی معطل ہے۔ آپ اپنی معلومات دیکھ سکتے ہیں، لیکن کمپنی کے رسائی بحال کرنے تک کمپنی کے ٹولز رکے ہوئے ہیں۔",
       savedUnavailableTitle: "اب دستیاب نہیں",
       savedUnavailableBody: "اس آپریٹر کا فلیٹ ہٹا دیا گیا ہے یا پوشیدہ ہے۔ اسے اپنی فہرست سے ہٹا دیں۔",
+    },
+    operatorFix: {
+      imageOnly: "ایک تصویر منتخب کریں (JPG، PNG یا HEIC)۔ PDF صرف دستاویزات کے طور پر شامل کی جا سکتی ہیں۔",
+      plateInUse: "پلیٹ {plate} پہلے سے کسی دوسرے فلیٹ میں رجسٹرڈ ہے۔ پلیٹ نمبر چیک کریں۔",
+      plateRepeated: "پلیٹ {plate} اس فارم میں ایک سے زیادہ فلیٹس میں استعمال ہوئی ہے۔ ہر گاڑی کی اپنی پلیٹ ہونی چاہیے۔",
     },
     "common": {
       "loading": "لوڈ ہو رہا ہے..."
@@ -26563,10 +26573,6 @@ export const URRIDE = {
   },
 
   ru: {
-    operatorFix: {
-      imageOnly: "Выберите фото (JPG, PNG или HEIC). PDF можно добавлять только как документы.",
-      plateInUse: "Номер {plate} уже зарегистрирован в другом автопарке. Проверьте номерной знак.",
-      plateRepeated: "Номер {plate} указан у нескольких машин в этой форме. У каждого транспортного средства должен быть свой номер.",
     // 2026-10-08 company workspace, operator and rental fixes.
     companyFix: {
       tabRentals: "Аренда",
@@ -26594,6 +26600,11 @@ export const URRIDE = {
       accessPausedBody: "Ваш доступ к компании приостановлен. Вы видите свои данные, но инструменты компании недоступны, пока компания не восстановит доступ.",
       savedUnavailableTitle: "Больше недоступно",
       savedUnavailableBody: "Автопарк этого оператора удалён или скрыт. Удалите его из своего списка.",
+    },
+    operatorFix: {
+      imageOnly: "Выберите фото (JPG, PNG или HEIC). PDF можно добавлять только как документы.",
+      plateInUse: "Номер {plate} уже зарегистрирован в другом автопарке. Проверьте номерной знак.",
+      plateRepeated: "Номер {plate} указан у нескольких машин в этой форме. У каждого транспортного средства должен быть свой номер.",
     },
     "common": {
       "loading": "Загрузка..."
@@ -29230,10 +29241,6 @@ export const URRIDE = {
 
 
   ja: {
-    operatorFix: {
-      imageOnly: "写真を選択してください（JPG、PNG、HEIC）。PDF は書類としてのみ追加できます。",
-      plateInUse: "ナンバー {plate} はすでに別のフリートに登録されています。ナンバーを確認してください。",
-      plateRepeated: "ナンバー {plate} がこのフォームの複数のフリートで使われています。車両ごとに別のナンバーが必要です。",
     // 2026-10-08 company workspace, operator and rental fixes.
     companyFix: {
       tabRentals: "レンタル",
@@ -29261,6 +29268,11 @@ export const URRIDE = {
       accessPausedBody: "会社へのアクセスが停止されています。自分の情報は見られますが、会社がアクセスを戻すまで会社のツールは使えません。",
       savedUnavailableTitle: "利用できなくなりました",
       savedUnavailableBody: "このオペレーターのフリートは削除されたか非表示です。リストから削除してください。",
+    },
+    operatorFix: {
+      imageOnly: "写真を選択してください（JPG、PNG、HEIC）。PDF は書類としてのみ追加できます。",
+      plateInUse: "ナンバー {plate} はすでに別のフリートに登録されています。ナンバーを確認してください。",
+      plateRepeated: "ナンバー {plate} がこのフォームの複数のフリートで使われています。車両ごとに別のナンバーが必要です。",
     },
     "common": {
       "loading": "読み込み中..."
@@ -31896,10 +31908,6 @@ export const URRIDE = {
   },
 
   mr: {
-    operatorFix: {
-      imageOnly: "एक फोटो निवडा (JPG, PNG किंवा HEIC). PDF फक्त कागदपत्रे म्हणून जोडता येतात.",
-      plateInUse: "प्लेट {plate} आधीच दुसऱ्या फ्लीटमध्ये नोंदणीकृत आहे. प्लेट क्रमांक तपासा.",
-      plateRepeated: "प्लेट {plate} या फॉर्ममध्ये एकापेक्षा जास्त फ्लीटसाठी वापरली आहे. प्रत्येक वाहनाला स्वतःची प्लेट हवी.",
     // 2026-10-08 company workspace, operator and rental fixes.
     companyFix: {
       tabRentals: "भाडे",
@@ -31927,6 +31935,11 @@ export const URRIDE = {
       accessPausedBody: "तुमचा कंपनी प्रवेश निलंबित आहे. तुम्ही तुमची माहिती पाहू शकता, पण कंपनी प्रवेश पुन्हा देईपर्यंत कंपनीची साधने थांबलेली आहेत.",
       savedUnavailableTitle: "आता उपलब्ध नाही",
       savedUnavailableBody: "या ऑपरेटरचा फ्लीट काढला गेला आहे किंवा लपवला आहे. तो तुमच्या यादीतून काढा.",
+    },
+    operatorFix: {
+      imageOnly: "एक फोटो निवडा (JPG, PNG किंवा HEIC). PDF फक्त कागदपत्रे म्हणून जोडता येतात.",
+      plateInUse: "प्लेट {plate} आधीच दुसऱ्या फ्लीटमध्ये नोंदणीकृत आहे. प्लेट क्रमांक तपासा.",
+      plateRepeated: "प्लेट {plate} या फॉर्ममध्ये एकापेक्षा जास्त फ्लीटसाठी वापरली आहे. प्रत्येक वाहनाला स्वतःची प्लेट हवी.",
     },
     "common": {
       "loading": "लोड करत आहे..."
@@ -34562,10 +34575,6 @@ export const URRIDE = {
   },
 
   vi: {
-    operatorFix: {
-      imageOnly: "Chọn một ảnh (JPG, PNG hoặc HEIC). PDF chỉ có thể thêm dưới dạng giấy tờ.",
-      plateInUse: "Biển số {plate} đã được đăng ký cho một đội xe khác. Hãy kiểm tra lại biển số.",
-      plateRepeated: "Biển số {plate} được dùng cho nhiều xe trong biểu mẫu này. Mỗi xe cần có biển số riêng.",
     // 2026-10-08 company workspace, operator and rental fixes.
     companyFix: {
       tabRentals: "Cho thuê",
@@ -34593,6 +34602,11 @@ export const URRIDE = {
       accessPausedBody: "Quyền truy cập công ty của bạn đã bị đình chỉ. Bạn vẫn xem được thông tin của mình, nhưng công cụ của công ty bị tạm dừng cho đến khi công ty khôi phục quyền truy cập.",
       savedUnavailableTitle: "Không còn khả dụng",
       savedUnavailableBody: "Đội xe của nhà vận hành này đã bị xóa hoặc bị ẩn. Hãy xóa khỏi danh sách của bạn.",
+    },
+    operatorFix: {
+      imageOnly: "Chọn một ảnh (JPG, PNG hoặc HEIC). PDF chỉ có thể thêm dưới dạng giấy tờ.",
+      plateInUse: "Biển số {plate} đã được đăng ký cho một đội xe khác. Hãy kiểm tra lại biển số.",
+      plateRepeated: "Biển số {plate} được dùng cho nhiều xe trong biểu mẫu này. Mỗi xe cần có biển số riêng.",
     },
     "common": {
       "loading": "Đang tải..."
@@ -37228,10 +37242,6 @@ export const URRIDE = {
   },
 
   de: {
-    operatorFix: {
-      imageOnly: "Wähle ein Foto (JPG, PNG oder HEIC). PDFs können nur als Dokumente hinzugefügt werden.",
-      plateInUse: "Das Kennzeichen {plate} ist bereits für eine andere Flotte registriert. Prüfe das Kennzeichen.",
-      plateRepeated: "Das Kennzeichen {plate} wird in diesem Formular für mehr als eine Flotte verwendet. Jedes Fahrzeug braucht ein eigenes Kennzeichen.",
     // 2026-10-08 company workspace, operator and rental fixes.
     companyFix: {
       tabRentals: "Vermietungen",
@@ -37259,6 +37269,11 @@ export const URRIDE = {
       accessPausedBody: "Ihr Unternehmenszugang ist gesperrt. Sie sehen Ihre eigenen Daten, aber die Unternehmenswerkzeuge sind pausiert, bis das Unternehmen Ihren Zugang wiederherstellt.",
       savedUnavailableTitle: "Nicht mehr verfügbar",
       savedUnavailableBody: "Die Flotte dieses Fahrers wurde entfernt oder ist ausgeblendet. Entfernen Sie sie aus Ihrer Liste.",
+    },
+    operatorFix: {
+      imageOnly: "Wähle ein Foto (JPG, PNG oder HEIC). PDFs können nur als Dokumente hinzugefügt werden.",
+      plateInUse: "Das Kennzeichen {plate} ist bereits für eine andere Flotte registriert. Prüfe das Kennzeichen.",
+      plateRepeated: "Das Kennzeichen {plate} wird in diesem Formular für mehr als eine Flotte verwendet. Jedes Fahrzeug braucht ein eigenes Kennzeichen.",
     },
     "common": {
       "loading": "Laden..."
