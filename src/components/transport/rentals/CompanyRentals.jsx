@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useState } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
 import supabase from "../../../Backend/lib/supabaseClient";
 import { getActiveCountryProfile } from "../../../data/globalCountryProfiles";
 import AddressLocationField from "../../shared/AddressLocationField";
@@ -25,16 +25,29 @@ export default function CompanyRentals({ company, onAddFleet }) {
   const [busy, setBusy] = useState(false);
   const [loading, setLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
-  const allowed = company.access?.isOwner || company.access?.role === "admin";
+  const allowed = company.access?.isOwner || (company.access?.role === "admin" && company.access?.isActiveMember !== false);
+  // Only the newest request may change the screen, so a slow response for the
+  // previously opened company never replaces this company's rentals.
+  const requestRef = useRef(0);
   const refresh = useCallback(async () => {
+    const request = ++requestRef.current;
+    const current = () => request === requestRef.current;
     setRefreshing(true);
     try {
       const rows = await listTransportRentals({ companyId: company.id });
+      if (!current()) return;
       setRentals(rows); setError(""); setLoading(false);
-      try { setActivity(await listCompanyRentalActivity(rows.map((row) => row.id))); setActivityError(""); }
-      catch (err) { setActivity(null); setActivityError(inlineErrorMessage(err)); }
-    } catch (err) { setError(inlineErrorMessage(err)); }
-    finally { setLoading(false); setRefreshing(false); }
+      try {
+        const nextActivity = await listCompanyRentalActivity(rows.map((row) => row.id));
+        if (current()) { setActivity(nextActivity); setActivityError(""); }
+      } catch (err) { if (current()) { setActivity(null); setActivityError(inlineErrorMessage(err)); } }
+    } catch (err) { if (current()) setError(inlineErrorMessage(err)); }
+    finally { if (current()) { setLoading(false); setRefreshing(false); } }
+  }, [company.id]);
+  useEffect(() => {
+    // A different company starts from an empty, loading list.
+    setRentals([]); setActivity(null); setActivityError(""); setError(""); setScreen(null); setLoading(true);
+    return () => { requestRef.current += 1; };
   }, [company.id]);
   useEffect(() => { if (allowed) refresh(); }, [allowed, refresh]);
   if (!allowed) return <p>{i18nText("ui.literals.k3b68bcdb317d")}</p>;
@@ -109,12 +122,27 @@ function RentalEditor({ company, fleet, existing, onSaved }) {
       const { data: { user } } = await supabase.auth.getUser();
       if (!user) throw new Error("Sign in to upload rental photos.");
       const remaining = 8 - form.photos.length;
+      // Keep every photo that uploaded even when a later one fails, and say
+      // which ones did not make it.
       const urls = [];
+      const failed = [];
       for (const file of Array.from(files || []).slice(0, remaining)) {
-        if (file.size > 10 * 1024 * 1024) throw new Error("Each rental photo must be 10 MB or smaller.");
-        urls.push(await uploadTransportPublicImage({ file, ownerUserId: user.id, scope: "rentals", label: fleet.fleetCode }));
+        try {
+          if (file.size > 10 * 1024 * 1024) throw new Error("Each rental photo must be 10 MB or smaller.");
+          urls.push(await uploadTransportPublicImage({ file, ownerUserId: user.id, scope: "rentals", label: fleet.fleetCode }));
+        } catch (err) {
+          failed.push({ name: file.name, reason: inlineErrorMessage(err) });
+        }
       }
-      setForm((current) => ({ ...current, photos: [...current.photos, ...urls] }));
+      if (urls.length) setForm((current) => ({ ...current, photos: [...current.photos, ...urls].slice(0, 8) }));
+      if (failed.length) {
+        setError(i18nText("urride.companyFix.photoUploadPartial", {
+          saved: urls.length,
+          failed: failed.length,
+          files: failed.map((item) => item.name).join(", "),
+          reason: translateUi(failed[0].reason),
+        }));
+      }
     } catch (err) { setError(inlineErrorMessage(err)); } finally { setBusy(false); }
   }
   async function save(event) {

@@ -97,6 +97,7 @@ const DRAWER_TRANSITION_MS = 300;
 const TAB_LABEL_KEYS = {
   Overview: "urride.companyWs.tabOverview",
   Fleets: "urride.companyWs.tabFleets",
+  Rentals: "urride.companyFix.tabRentals",
   Operators: "urride.companyWs.tabOperators",
   Requests: "urride.companyWs.tabRequests",
   Activity: "urride.companyWs.tabActivity",
@@ -184,7 +185,11 @@ export default function CompanyWorkspaceScreen({ company, initialTab = "Overview
     `transport-company-${companyNavigation.entries.length}-${activeMenuScreen || "dashboard"}`,
   );
   const { visibleKey: visibleMenuScreen, action: menuScreenAction } = useSlidePanel(activeMenuScreen);
-  const fleets = company?.fleets || [];
+  // A deleted rental fleet keeps its row for reservation history but is no
+  // longer part of the company. Rental vehicles are counted on their own.
+  const fleets = useMemo(() => (company?.fleets || []).filter((fleet) => !fleet.archivedAt), [company?.fleets]);
+  const operationalFleets = fleets.filter((fleet) => fleet.serviceCategory !== "Rental");
+  const rentalFleetCount = fleets.length - operationalFleets.length;
   const requests = fleets.flatMap((fleet) =>
     (fleet.operators || []).map((operator) => ({
       ...operator,
@@ -208,12 +213,13 @@ export default function CompanyWorkspaceScreen({ company, initialTab = "Overview
   );
   // Documents are optional: an accepted operator counts as active even before
   // any identity documents are submitted. Only outstanding registrations stay pending.
-  const acceptedOperators = requests.filter((request) =>
+  // One person accepted on two fleets is still one colleague.
+  const acceptedOperators = uniqueOperators(requests.filter((request) =>
     (request.status === "accepted" || request.status === "accepted_pending_documents") &&
       !request.documents?.registrationRequired
-  );
+  ));
   const pendingRequests = requests.filter((request) =>
-    request.status === "pending" || request.documents?.registrationRequired
+    (request.status === "pending" && !request.expired) || request.documents?.registrationRequired
   );
   const access = company?.access || {};
   const notificationPreferenceUserId = access.userId || company?.userId || "";
@@ -269,8 +275,10 @@ export default function CompanyWorkspaceScreen({ company, initialTab = "Overview
   // A booking is operational work, not a read receipt. Keep its badge until
   // the booking leaves the actionable queue through a status action.
   const bookingNotificationCount = bookingNotificationItems.length;
+  // "Fleets" matches the Fleets tab (no rental vehicles); rentals have their own count.
   const metrics = [
-      { label: t("urride.companyWs.metricFleets"), value: fleets.length, icon: Truck, onClick: () => switchCompanyTab("Fleets") },
+      { label: t("urride.companyWs.metricFleets"), value: operationalFleets.length, icon: Truck, onClick: () => switchCompanyTab("Fleets") },
+      ...(rentalFleetCount > 0 ? [{ label: t("urride.companyFix.metricRentals"), value: rentalFleetCount, icon: Truck, onClick: availableTabs.includes("Rentals") ? () => switchCompanyTab("Rentals") : undefined }] : []),
       { label: t("urride.companyWs.metricOperators"), value: acceptedOperators.length, icon: UsersRound, onClick: () => switchCompanyTab("Operators") },
       { label: t("urride.companyWs.metricRequests"), value: pendingRequests.length, icon: ClipboardList, onClick: () => switchCompanyTab("Requests") },
     ];
@@ -314,7 +322,7 @@ export default function CompanyWorkspaceScreen({ company, initialTab = "Overview
         label: t("urride.companyWs.fleetsLabel"),
         detail: t("urride.companyWs.fleetsDetail"),
         icon: Truck,
-        stat: `${fleets.length}`,
+        stat: `${operationalFleets.length}`,
       },
       {
         id: "operators",
@@ -352,7 +360,7 @@ export default function CompanyWorkspaceScreen({ company, initialTab = "Overview
         stat: planState?.entitlement?.planName || "Free",
       }] : []),
     ],
-    [acceptedOperators.length, canManagePlans, company?.activities?.length, company?.companyCode, company?.verificationStatus, fleets.length, pendingRequests.length, planState?.entitlement?.planName, memoLocale],
+    [acceptedOperators.length, canManagePlans, company?.activities?.length, company?.companyCode, company?.verificationStatus, operationalFleets.length, pendingRequests.length, planState?.entitlement?.planName, memoLocale],
   );
   const visibleMenuItem = menuItems.find((item) => item.id === visibleMenuScreen);
 
@@ -399,15 +407,19 @@ export default function CompanyWorkspaceScreen({ company, initialTab = "Overview
   }, [company?.id, notificationPreferenceUserId]);
 
   async function toggleCompanyNotificationPreference(key) {
+    const previous = companyNotificationPreferences;
     const next = {
-      ...companyNotificationPreferences,
-      [key]: companyNotificationPreferences[key] === false,
+      ...previous,
+      [key]: previous[key] === false,
     };
     setCompanyNotificationPreferences(next);
     try {
       await updateCompanyNotificationPreferences(company?.id, notificationPreferenceUserId, next);
       showToast("Alert settings updated", "success");
     } catch (error) {
+      // The device copy is only written after a successful save, so putting
+      // the toggle back is enough to match what is stored.
+      setCompanyNotificationPreferences(previous);
       showToast(shortErrorToast(error, "Alert settings not saved"), "danger");
     }
   }
@@ -714,7 +726,9 @@ export default function CompanyWorkspaceScreen({ company, initialTab = "Overview
     runAfterDrawerClose(() => companyNavigation.push({ screen: screenId, state: { activeTab } }));
   }
 
+  // Only the owner can save company details, so only the owner opens the editor.
   function openCompanyEditor() {
+    if (!access.isOwner) return;
     runAfterDrawerClose(() => (onEditCompany || onRegisterCompany)?.());
   }
 
@@ -751,7 +765,7 @@ export default function CompanyWorkspaceScreen({ company, initialTab = "Overview
       return (
         <FleetList
           canManage={canManageFleets || access.isOwner}
-          fleets={fleets.filter((fleet) => fleet.serviceCategory !== "Rental")}
+          fleets={operationalFleets}
           onManageFleet={setFleetAction}
         />
       );
@@ -892,7 +906,7 @@ export default function CompanyWorkspaceScreen({ company, initialTab = "Overview
           {!basicOperator ? <>
           {companyHealth.score < 100 ? (
             <div className="mb-4">
-              <HealthScoreCard health={companyHealth} onEditProfile={openCompanyEditor} />
+              <HealthScoreCard health={companyHealth} onEditProfile={access.isOwner ? openCompanyEditor : undefined} />
             </div>
           ) : null}
           <section className="rounded-3xl border border-blue-100 bg-white p-5 shadow-sm">
@@ -907,7 +921,7 @@ export default function CompanyWorkspaceScreen({ company, initialTab = "Overview
               <p className="text-xs font-semibold text-slate-500">{company.companyCode} · {company.verificationStatus || t("urride.companyWs.statusNotStarted")}</p>
               <p className="text-xs text-slate-500">{t("urride.companyWs.ownerId")}: {company.ownerPublicId}</p>
             </div>
-            <div className="mt-4 grid grid-cols-3 gap-2">
+            <div className={`mt-4 grid gap-2 ${metrics.length > 3 ? "grid-cols-2 sm:grid-cols-4" : "grid-cols-3"}`}>
               {metrics.map((metric) => (
                 <MetricCard key={metric.label} metric={metric} />
               ))}
@@ -1345,7 +1359,7 @@ function FleetHqMenuScreen({
           </header>
           <main className="min-h-0 flex-1 overflow-y-auto px-4 py-5 sm:px-6 lg:px-8">
             {screen === "profile" ? <CompanyProfilePanel company={company} /> : null}
-            {screen === "fleets" ? <FleetRecordsPanel fleets={fleets} onEdit={onEdit} /> : null}
+            {screen === "fleets" ? <FleetRecordsPanel fleets={fleets.filter((fleet) => fleet.serviceCategory !== "Rental")} onEdit={onEdit} /> : null}
             {screen === "operators" ? (
               <OperatorAccessPanel
                 canManageOperators={canManageOperators}
@@ -1613,7 +1627,7 @@ function BasicOperatorCompanyDashboard({ assignment, available, availabilitySavi
   const access = company?.access || {};
   const responsibilities = access.responsibilities || [];
   const operatorName = assignment?.operatorName || access.fullName || t("urride.companyWs.operatorFallbackName");
-  const fleetName = assignment?.fleetName || assignment?.fleetType || t("urride.companyWs.fleetPending");
+  const fleetName = assignment ? assignment.fleetName || assignment.fleetType || t("urride.companyWs.fleetPending") : t("urride.companyFix.noVehicleTitle");
   const verification = String(assignment?.verificationStatus || "pending").replaceAll("_", " ");
   const today = dashboard?.today || {};
   const reviews = dashboard?.reviews || {};
@@ -1629,8 +1643,22 @@ function BasicOperatorCompanyDashboard({ assignment, available, availabilitySavi
     return `${currency ? `${currency} ` : ""}${numeric.toLocaleString()}${suffix}`;
   };
 
+  // Removed from every fleet (or the fleet was deleted): say so plainly
+  // instead of showing an empty vehicle. A suspended member is told why.
+  const accessNotice = access.isActiveMember === false && !access.isOwner
+    ? { title: t("urride.companyFix.accessPausedTitle"), body: t("urride.companyFix.accessPausedBody") }
+    : !assignment
+      ? { title: t("urride.companyFix.noVehicleTitle"), body: t("urride.companyFix.noVehicleBody") }
+      : null;
+
   return (
     <div className="grid gap-4">
+      {accessNotice ? (
+        <section role="status" className="rounded-3xl border border-amber-200 bg-amber-50 p-5 shadow-sm">
+          <p className="text-sm font-black text-amber-900">{accessNotice.title}</p>
+          <p className="mt-1 text-sm font-semibold leading-6 text-amber-800">{accessNotice.body}</p>
+        </section>
+      ) : null}
       {liveTrip ? (
         <OperatorLiveTripHeaderCard
           trip={liveTrip}
@@ -1905,6 +1933,22 @@ function canInviteOperatorToFleet(fleet) {
   return String(fleet.activeStatus || "").toLowerCase() !== "active";
 }
 
+function operatorIdentity(operator = {}) {
+  return operator.operatorId || operator.userId || String(operator.publicId || "").trim().toLowerCase() || operator.requestId || "";
+}
+
+// Keep the first entry for each person (by operator, account or KunThai ID).
+function uniqueOperators(operators = []) {
+  const seen = new Set();
+  return operators.filter((operator) => {
+    const key = operatorIdentity(operator);
+    if (!key) return true;
+    if (seen.has(key)) return false;
+    seen.add(key);
+    return true;
+  });
+}
+
 function getFleetAssignedOperator(fleet = {}) {
   return (fleet.operators || []).find((operator) =>
     ["accepted", "accepted_pending_documents"].includes(String(operator.status || "").toLowerCase()),
@@ -1991,7 +2035,7 @@ function Colleagues({ canManageOperators, onAddOperator, onManageOperator, opera
         {operators.map((operator) => {
           const suspended = operator.serviceStatus === "suspended";
           return (
-            <section key={operator.operatorId || operator.requestId} className="rounded-3xl border border-slate-100 bg-white p-4 shadow-sm">
+            <section key={operatorIdentity(operator)} className="rounded-3xl border border-slate-100 bg-white p-4 shadow-sm">
               <div className="flex items-start gap-3">
                 <div className="min-w-0 flex-1">
                   <p className={`text-xs font-black uppercase tracking-wide ${suspended ? "text-amber-700" : "text-emerald-700"}`}>
@@ -2040,7 +2084,8 @@ function Requests({ requests }) {
         <section key={request.requestId} className="rounded-3xl border border-slate-100 bg-white p-4 shadow-sm">
           <div className="flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
             <div>
-              <p className="text-xs font-black uppercase tracking-wide text-slate-400">{translateUi(request.status)}</p>
+              <p className="text-xs font-black uppercase tracking-wide text-slate-400">{request.expired ? t("urride.companyFix.inviteExpired") : translateUi(request.status)}</p>
+              {request.expired ? <p className="mt-1 text-xs font-bold text-slate-500">{t("urride.companyFix.inviteExpiredCompanyBody")}</p> : null}
               <h3 className="mt-1 font-black text-slate-950">{request.name}</h3>
               <p className="mt-1 text-sm font-semibold text-slate-500">{request.publicId} - {request.fleetName || request.fleetType}</p>
               {request.status === "accepted_pending_documents" || request.documents?.operatorDocumentsRequired || request.documents?.registrationRequired ? (

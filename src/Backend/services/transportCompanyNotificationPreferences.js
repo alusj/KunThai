@@ -70,9 +70,11 @@ export async function fetchCompanyNotificationPreferences(companyId, userId) {
 }
 
 export async function updateCompanyNotificationPreferences(companyId, userId, settings) {
-  const next = writeLocalPreferences(companyId, userId, settings);
-  if (!companyId || !userId) return next;
+  if (!companyId || !userId) return writeLocalPreferences(companyId, userId, settings);
+  const next = normalizePreferences(settings);
 
+  // Save to the server first: a failed save must leave the device copy as it
+  // was, or the toggle would come back "on" after the next refresh.
   const { error } = await supabase.from(TABLE).upsert({
     company_id: companyId,
     user_id: userId,
@@ -81,7 +83,7 @@ export async function updateCompanyNotificationPreferences(companyId, userId, se
   }, { onConflict: "company_id,user_id" });
 
   if (error && !isMissingTable(error)) throw error;
-  return next;
+  return writeLocalPreferences(companyId, userId, next);
 }
 
 export function getCompanyActivityPreferenceKey(activity = {}) {

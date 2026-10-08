@@ -288,9 +288,30 @@ async function getCurrentUser(message = "Sign in to manage a transport company."
   return data.user;
 }
 
+// Invitations that still hold the operator's place (or an operator space).
+const OPEN_INVITE_STATUSES = ["pending", "accepted", "accepted_pending_documents"];
+export const COMPANY_INVITE_EXPIRY_DAYS = 30;
+
+function inviteExpiresAt(invite = {}) {
+  const explicit = invite.expiresAt || invite.expires_at;
+  if (explicit) return explicit;
+  const created = Date.parse(invite.createdAt || invite.created_at || "");
+  return Number.isFinite(created) ? new Date(created + COMPANY_INVITE_EXPIRY_DAYS * 86400000).toISOString() : "";
+}
+
+// A pending invitation can only be accepted within 30 days; the database
+// refuses older ones, so the app shows them as expired.
+export function isInviteExpired(invite = {}, now = Date.now()) {
+  if (String(invite.status || "").toLowerCase() !== "pending") return false;
+  const expiresAt = Date.parse(inviteExpiresAt(invite));
+  return Number.isFinite(expiresAt) && expiresAt <= now;
+}
+
 function normalizeInvite(invite = {}) {
   return {
     id: invite.id || "",
+    expiresAt: inviteExpiresAt(invite),
+    expired: isInviteExpired(invite),
     requestId: invite.requestId || invite.request_id || `invite-${compact(invite.operator_public_id || invite.publicId || Date.now())}`,
     companyId: invite.companyId || invite.company_id || "",
     companyOwnerUserId: invite.companyOwnerUserId || invite.company_owner_user_id || invite.owner_user_id || "",
@@ -368,7 +389,10 @@ function buildCompanyAccess(company = {}, member = null, userId = "") {
   return {
     isOwner,
     isActiveMember: Boolean(active),
-    role: isOwner ? "owner" : normalizedMember?.role || "operator",
+    // A suspended or removed admin/manager keeps their stored role for when
+    // they are restored, but meanwhile gets only a basic operator's view.
+    role: isOwner ? "owner" : active ? normalizedMember?.role || "operator" : "operator",
+    memberRole: isOwner ? "owner" : normalizedMember?.role || "operator",
     memberId: normalizedMember?.id || "",
     operatorId: normalizedMember?.operatorId || "",
     userId: normalizedMember?.userId || userId || "",
@@ -450,6 +474,8 @@ function normalizeFleet(fleet = {}, index = 0) {
     status: fleet.status || fleet.verification_status || "pending_review",
     activeStatus: fleet.activeStatus || fleet.active_status || "offline",
     isVisibleToPassengers: Boolean(fleet.isVisibleToPassengers ?? fleet.is_visible_to_passengers ?? false),
+    // Set when a rental fleet is deleted; the row stays for reservation history.
+    archivedAt: fleet.archivedAt || fleet.archived_at || "",
   };
 }
 
@@ -525,7 +551,11 @@ export function resolveTransportCompanyOperatorAssignment(company = {}, targetOp
 
   for (const fleetInput of company?.fleets || []) {
     const fleet = normalizeFleet(fleetInput);
-    const operators = (fleet.operators || []).map(normalizeInvite);
+    if (fleet.archivedAt) continue;
+    // A revoked, declined or expired invitation is history, not an assignment:
+    // an operator removed from every fleet gets the "no vehicle assigned" view.
+    const operators = (fleet.operators || []).map(normalizeInvite)
+      .filter((candidate) => OPEN_INVITE_STATUSES.includes(String(candidate.status || "").toLowerCase()) && !candidate.expired);
     const operator = operators.find((candidate) =>
       (target.id && candidate.id === target.id) ||
       (target.requestId && candidate.requestId === target.requestId) ||
@@ -1023,6 +1053,9 @@ export async function getOperatorCompanyInvites(operatorAccount = null) {
 
 export async function updateOperatorCompanyInvite(invite, patch = {}) {
   const user = await getCurrentUser("Sign in to respond to this company request.");
+  if (patch.status === "accepted" && isInviteExpired(invite)) {
+    throw new Error("This invitation has expired. Ask the company to send a new one.");
+  }
   const documents = {
     ...(invite.documents || {}),
     ...(patch.documents || {}),
@@ -1396,11 +1429,13 @@ export async function saveTransportCompanyAccount(account) {
   // or the plan check: that made every first company registration fail.
   const savedCompanyId = UUID_PATTERN.test(String(normalized.id || "")) ? normalized.id : "";
 
+  // Only invitations that still hold an operator space count: revoked,
+  // rejected or cancelled operators stay listed on the fleet as history.
   const requestedOperatorKeys = uniqueValues(normalized.fleets.flatMap((fleet) =>
-    (fleet.operators || []).map((operator) => {
-      const invite = normalizeInvite(operator);
-      return invite.userId || invite.operatorId || compact(invite.publicId || invite.lookupValue);
-    }),
+    (fleet.operators || [])
+      .map(normalizeInvite)
+      .filter((invite) => OPEN_INVITE_STATUSES.includes(String(invite.status || "").toLowerCase()) && !isInviteExpired(invite))
+      .map((invite) => invite.userId || invite.operatorId || compact(invite.publicId || invite.lookupValue)),
   ));
 
   if (savedCompanyId) {
@@ -1695,13 +1730,24 @@ export async function updateTransportCompanyOperatorAvailability(assignment, act
 }
 
 export async function inviteOperatorToCompanyFleet(company, fleet, publicId) {
-  await getCurrentUser("Sign in to invite an operator.");
+  const user = await getCurrentUser("Sign in to invite an operator.");
   if (!company?.id || !fleet?.id || !company.access?.canManageOperators) {
     throw new Error("You do not have permission to invite operators to this fleet.");
   }
   if (fleet.serviceCategory === "Rental") throw new Error("Rental fleets do not use operator invitations.");
+  const ownerPublicId = compact(company.ownerPublicId || company.owner_public_id || "");
+  if (ownerPublicId && compact(publicId) === ownerPublicId) {
+    throw new Error("The company owner cannot be invited as an operator. Use another operator's KunThai ID.");
+  }
   const operator = await lookupTransportOperatorByKunThaiId(publicId.trim());
   if (!operator?.userId) throw new Error("No account found. Check the KunThai ID and try again.");
+  const ownerUserId = company.userId || company.owner_user_id || company.ownerUserId || "";
+  if ((ownerUserId && operator.userId === ownerUserId) || (ownerPublicId && compact(operator.publicId) === ownerPublicId)) {
+    throw new Error("The company owner cannot be invited as an operator. Use another operator's KunThai ID.");
+  }
+  if (operator.userId === user.id) {
+    throw new Error("You cannot invite yourself as this fleet's operator. Use another operator's KunThai ID.");
+  }
   // Every earlier invite this company sent the same person, in any state. One
   // (company, operator ID, fleet) row may exist, so a previously rejected,
   // revoked or cancelled invite for this fleet is reopened instead of
@@ -2027,6 +2073,22 @@ export async function manageTransportCompanyOperator(companyAccount, operator, a
     throw new Error("Unsupported operator action.");
   }
 
+  // Suspending or removing runs as one checked database action: membership,
+  // every invitation in this company, fleet assignments and the live vehicle
+  // change together. The direct writes below remain only for databases
+  // without the 2026-10-08 migration.
+  if (["suspend", "remove"].includes(action)) {
+    const { error: rpcError } = await supabase.rpc("manage_transport_company_member", {
+      p_member_id: member.id,
+      p_action: action,
+    });
+    if (!rpcError) {
+      await recordCompanyManagementActivity(company.id, user.id, activity.type, activity.title, activity.body, activity.metadata).catch(() => null);
+      return getTransportCompanyAccount();
+    }
+    if (!isMissingFunction(rpcError)) throw new Error(friendlyErrorMessage(rpcError, "This operator could not be updated."));
+  }
+
   const { error: memberError } = await supabase
     .from("transport_company_members")
     .update(memberPatch)
@@ -2044,13 +2106,20 @@ export async function manageTransportCompanyOperator(companyAccount, operator, a
   }
 
   if (action === "remove") {
+    // Every open invitation this person has in the company, not only the one
+    // that was clicked.
+    const operatorId = operator.operatorId || member.operatorId;
+    const operatorUserId = operator.userId || member.userId;
+    const matches = [
+      operatorId ? `operator_id.eq.${operatorId}` : "",
+      operatorUserId ? `operator_user_id.eq.${operatorUserId}` : "",
+    ].filter(Boolean).join(",");
     let inviteQuery = supabase
       .from("transport_company_operator_invites")
       .update({ status: "revoked", updated_at: now })
-      .eq("company_id", company.id);
-    if (operator.id) inviteQuery = inviteQuery.eq("id", operator.id);
-    else if (operator.operatorId || member.operatorId) inviteQuery = inviteQuery.eq("operator_id", operator.operatorId || member.operatorId);
-    else inviteQuery = inviteQuery.eq("operator_user_id", operator.userId || member.userId);
+      .eq("company_id", company.id)
+      .in("status", ["pending", "accepted"]);
+    inviteQuery = matches ? inviteQuery.or(matches) : inviteQuery.eq("id", operator.id);
     const { error: inviteError } = await inviteQuery;
     if (inviteError) throw inviteError;
   }
