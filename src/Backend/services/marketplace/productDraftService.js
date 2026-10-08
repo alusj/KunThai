@@ -3,8 +3,8 @@
 // form instead of a blank one.
 //
 // Browser limitation: File objects a user picked cannot be serialized or
-// re-read after a reload, so selected photos/video must be re-attached. We keep
-// their names (and any already-uploaded URLs) so the seller sees what was there.
+// re-read after a reload, so selected photos/video must be re-attached. Only
+// already-uploaded (URL) media is restored; see restoreDraftMedia.
 
 const DRAFT_KEY = "kunthai.urmall.productDraft";
 const DRAFT_TTL_MS = 1000 * 60 * 60 * 24 * 3; // 3 days
@@ -64,14 +64,36 @@ export function clearProductDraft() {
   }
 }
 
-// True when the draft holds anything the seller actually typed.
+// Media for a restored draft. Picked File objects are gone after a reload, so
+// a file name without an uploaded URL would show a cover/video that is never
+// uploaded: keep only URL-backed media and clear the rest so the form asks for
+// it again.
+export function restoreDraftMedia(baseMedia = {}, mediaMeta = {}) {
+  const meta = mediaMeta || {};
+  const coverImageUrl = meta.coverImageUrl || baseMedia.coverImageUrl || "";
+  const videoUrl = meta.videoUrl || baseMedia.videoUrl || "";
+  return {
+    ...baseMedia,
+    coverImageFile: null,
+    coverImageUrl,
+    coverImageName: coverImageUrl ? meta.coverImageName || baseMedia.coverImageName || "" : "",
+    extraImageFiles: [],
+    extraImageUrls: meta.extraImageUrls?.length ? meta.extraImageUrls : baseMedia.extraImageUrls || [],
+    videoFile: null,
+    videoUrl,
+    videoName: videoUrl ? meta.videoName || baseMedia.videoName || "" : "",
+  };
+}
+
+// True when the draft holds anything the seller actually typed (picked files
+// do not survive a reload, so they do not count).
 export function productDraftHasContent(draft) {
   if (!draft) return false;
   return Boolean(
     draft.basics?.name?.trim() ||
     draft.basics?.description?.trim() ||
     draft.pricing?.price ||
-    draft.mediaMeta?.coverImageName ||
-    (draft.mediaMeta?.extraImageCount || 0) > 0,
+    draft.mediaMeta?.coverImageUrl ||
+    (draft.mediaMeta?.extraImageUrls?.length || 0) > 0,
   );
 }

@@ -8,13 +8,15 @@ import {
   normalizeVisibilityCreditSpend,
 } from "../visibilityCreditService";
 import { readRegisteredBusiness } from "./sellerRegistrationService";
-import { assertBusinessCapacity } from "../businessSubscriptionService";
+import { assertBusinessCapacity, parseBusinessPlanError } from "../businessSubscriptionService";
 import { normalizeTierPricing } from "./tierPricingUtils";
 import { optimizeImageFile } from "./imageOptimization";
 import { hasBusinessPlans } from "./marketplaceBusinessKinds";
 import { regionSelectionIds } from "../regions/regionModel";
 import { assertPromotionTargeting, normalizeCountrySelection } from "../regions/promotionTargeting";
 import { uiText } from "../../../i18n/index.js";
+import { getBusinessPermissions } from "./businessPermissions";
+import { isPromotionLive, liveProductPromotionMap, productHasLivePromotion } from "./productPromotionState";
 
 function withTimeout(promise, message, timeoutMs = 60000) {
   return Promise.race([
@@ -91,13 +93,69 @@ function countByStatus(products, status) {
   return products.filter((product) => product.status === status).length;
 }
 
-function normalizeSellerProduct(product) {
+// Live boosts of a business's products (product id -> { id, endsAt }), or
+// null when they cannot be read (callers then fall back to the stored flag).
+async function fetchLivePromotionMap(businessId) {
+  if (!businessId) return null;
+  const { data, error } = await supabase
+    .from("marketplace_promotions")
+    .select("id,product_id,status,ends_at")
+    .eq("business_id", businessId)
+    .eq("status", "active")
+    .not("product_id", "is", null)
+    .or(`ends_at.is.null,ends_at.gt.${new Date().toISOString()}`);
+  if (error) return null;
+  return liveProductPromotionMap(data || []);
+}
+
+// The live boost of one product, null when there is none, or undefined when
+// promotions cannot be read.
+async function fetchLiveProductPromotion(productId) {
+  if (!productId) return null;
+  const { data, error } = await supabase
+    .from("marketplace_promotions")
+    .select("id,product_id,status,ends_at")
+    .eq("product_id", productId)
+    .eq("status", "active")
+    .or(`ends_at.is.null,ends_at.gt.${new Date().toISOString()}`)
+    .order("created_at", { ascending: false })
+    .limit(1);
+  if (error) return undefined;
+  const row = (data || []).find((item) => isPromotionLive(item));
+  return row ? { id: row.id, endsAt: row.ends_at || null } : null;
+}
+
+function alreadyBoostedError(livePromotion) {
+  const endsAt = livePromotion?.endsAt ? new Date(livePromotion.endsAt) : null;
+  const error = new Error(
+    endsAt && !Number.isNaN(endsAt.getTime())
+      ? t("promoFix.alreadyBoosted", { date: endsAt.toLocaleString(undefined, { dateStyle: "medium", timeStyle: "short" }) })
+      : t("promoFix.alreadyBoostedNoEnd"),
+  );
+  error.code = "PROMO_ALREADY_ACTIVE";
+  return error;
+}
+
+// Boosts are paid from the caller's own wallet, also for a delegated admin.
+async function assertBoostCreditsAvailable(business, credits) {
+  try {
+    await assertVisibilityCreditsAvailable(credits);
+  } catch (error) {
+    if (business?.role === "admin" && credits >= MINIMUM_VISIBILITY_CREDITS) {
+      throw new Error(t("promoFix.adminOwnCredits"));
+    }
+    throw error;
+  }
+}
+
+function normalizeSellerProduct(product, livePromotions = null) {
   if (!product) return null;
 
   const attributes = product.product_attributes && typeof product.product_attributes === "object"
     ? product.product_attributes
     : {};
   const tierPricing = normalizeTierPricing(product.tier_pricing || attributes.tierPricing);
+  const livePromotion = livePromotions instanceof Map ? livePromotions.get(product.id) || null : undefined;
 
   return {
     id: product.id,
@@ -123,7 +181,10 @@ function normalizeSellerProduct(product) {
     mainImageUrl: product.main_image_url,
     imageUrls: Array.isArray(product.image_urls) ? product.image_urls : [],
     videoUrl: product.video_url,
-    promoted: Boolean(product.promoted),
+    // Derived from the live boost when known: the stored flag stays true after
+    // a boost ends.
+    livePromotion,
+    promoted: productHasLivePromotion({ promoted: product.promoted, livePromotion }),
     promotedAt: product.promoted_at || null,
     publishedAt: product.published_at,
     views: product.views,
@@ -147,7 +208,8 @@ export async function fetchSellerProducts() {
 
   if (error) throw new Error(error.message);
 
-  const products = (data || []).map(normalizeSellerProduct).filter(Boolean);
+  const livePromotions = await fetchLivePromotionMap(business.id);
+  const products = (data || []).map((product) => normalizeSellerProduct(product, livePromotions)).filter(Boolean);
 
   return {
     summary: {
@@ -180,7 +242,12 @@ export async function fetchSellerProductById(productId) {
     .maybeSingle();
 
   if (error) throw new Error(error.message);
-  return normalizeSellerProduct(data);
+  if (!data) return null;
+  const livePromotion = await fetchLiveProductPromotion(data.id);
+  return normalizeSellerProduct(
+    data,
+    livePromotion === undefined ? null : new Map(livePromotion ? [[data.id, livePromotion]] : []),
+  );
 }
 
 function extractProductNameFromActivity(activity = {}) {
@@ -405,7 +472,7 @@ export async function submitSellerProduct(form, onProgress) {
   }
 
   if (wantsPromotion) {
-    await assertVisibilityCreditsAvailable(promotionCredits);
+    await assertBoostCreditsAvailable(business, promotionCredits);
   }
 
   onProgress?.("cover");
@@ -468,7 +535,7 @@ export async function submitSellerProduct(form, onProgress) {
     "Product save timed out. Check that the marketplace_products table and policies exist.",
   );
 
-  if (error) throw new Error(error.message);
+  if (error) throw parseBusinessPlanError(error);
 
   // The listing is now saved. Promotion is a separate, best-effort step: if it
   // fails we keep the saved product and surface a specific, traceable reason
@@ -564,8 +631,15 @@ export async function updateSellerProductListing(product, form, onProgress) {
     await assertBusinessCapacity("urmall", business.id, "products", 1);
   }
 
-  if (wantsPromotion && !product.promoted) {
-    await assertVisibilityCreditsAvailable(promotionCredits);
+  // The stored promoted flag outlives the boost: ask for the live boost, so
+  // "Promote" on a product whose boost ended starts a new one.
+  const livePromotion = wantsPromotion ? await fetchLiveProductPromotion(product.id) : null;
+  const currentlyPromoted = livePromotion === undefined
+    ? productHasLivePromotion(product)
+    : Boolean(livePromotion);
+
+  if (wantsPromotion && !currentlyPromoted) {
+    await assertBoostCreditsAvailable(business, promotionCredits);
   }
 
   let coverUrl = product.mainImageUrl || null;
@@ -599,7 +673,7 @@ export async function updateSellerProductListing(product, form, onProgress) {
     }
   }
 
-  const keepExistingPromotion = Boolean(product.promoted && wantsPromotion);
+  const keepExistingPromotion = Boolean(currentlyPromoted && wantsPromotion);
   const countryProfile = getActiveCountryProfile(business.location.country);
   onProgress?.("save");
   const payload = {
@@ -639,7 +713,7 @@ export async function updateSellerProductListing(product, form, onProgress) {
     "Product update timed out. Check that the marketplace_products table and policies exist.",
   );
 
-  if (error) throw new Error(error.message);
+  if (error) throw parseBusinessPlanError(error);
   // No row came back: the listing moved to another business or this account
   // may not edit it. Never report that as saved.
   if (!data) throw new Error(t("sellerGuard.productNotSaved"));
@@ -647,7 +721,7 @@ export async function updateSellerProductListing(product, form, onProgress) {
   // Keep the saved update even if the boost cannot start; report the exact
   // reason instead of throwing an opaque error.
   let promotionWarning = "";
-  if (wantsPromotion && !product.promoted) {
+  if (wantsPromotion && !currentlyPromoted) {
     try {
       await promoteSellerProduct(
         { id: product.id, name: form.basics.name.trim() },
@@ -717,7 +791,7 @@ export async function updateSellerProduct(productId, patch) {
     .select()
     .maybeSingle();
 
-  if (error) throw new Error(error.message);
+  if (error) throw parseBusinessPlanError(error);
   if (!data) throw new Error(t("sellerGuard.productNotSaved"));
 
   const productName = data?.name || "Product";
@@ -791,6 +865,14 @@ export async function promoteSellerProduct(product, options = {}) {
   const business = await readRegisteredBusiness();
   if (!business) throw new Error("Register a business before promoting products. (code: PROMO_NO_BUSINESS)");
   if (!product?.id) throw new Error("Cannot promote: the listing has no saved ID yet. (code: PROMO_NO_ID)");
+  // Delegated admins need the "Add & manage products" responsibility (the
+  // database checks the same before spending the admin's own credits).
+  if (!getBusinessPermissions(business).canAddProducts) {
+    throw new Error(t("promoFix.needProductAccess"));
+  }
+  // A live boost is never changed or charged again; say until when it runs.
+  const livePromotion = await fetchLiveProductPromotion(product.id);
+  if (livePromotion) throw alreadyBoostedError(livePromotion);
   const creditBudget = normalizeVisibilityCreditSpend(
     options.credits || product.promotionCredits,
     MINIMUM_VISIBILITY_CREDITS,

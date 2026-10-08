@@ -9,6 +9,14 @@ import { ADDRESS_BOOK } from "./addressBook";
 
 export const TRANSLATIONS = {
   en: {
+    promoFix: {
+      needProductAccess: "You need product access for this business to promote its listings.",
+      adminOwnCredits: "Boosts are paid from your own Visibility Credits, and you don't have enough. Add credits or choose a smaller boost.",
+      alreadyBoosted: "This product is already boosted until {date}.",
+      alreadyBoostedNoEnd: "This product is already boosted.",
+      orderPriceChanged: "A price in this order changed. Refresh and try again.",
+      cardAmountDecimals: "Enter a dollar amount with at most two decimal places.",
+    },
     sellerGuard: {
       orderChanged: "This order has changed or you can't edit it. Refresh and try again.",
       deleteOrderConfirm: "Delete this cancelled order? This can't be undone.",
@@ -3853,6 +3861,14 @@ export const TRANSLATIONS = {
   },
 
   fr: {
+    promoFix: {
+      needProductAccess: "Vous avez besoin de l'accès aux produits de cette entreprise pour promouvoir ses annonces.",
+      adminOwnCredits: "Les boosts sont payés avec vos propres crédits de visibilité, et vous n'en avez pas assez. Ajoutez des crédits ou choisissez un boost plus petit.",
+      alreadyBoosted: "Ce produit est déjà boosté jusqu'au {date}.",
+      alreadyBoostedNoEnd: "Ce produit est déjà boosté.",
+      orderPriceChanged: "Un prix de cette commande a changé. Actualisez et réessayez.",
+      cardAmountDecimals: "Saisissez un montant en dollars avec au plus deux décimales.",
+    },
     sellerGuard: {
       orderChanged: "Cette commande a changé ou vous ne pouvez pas la modifier. Actualisez et réessayez.",
       deleteOrderConfirm: "Supprimer cette commande annulée ? Cette action est définitive.",
@@ -7700,6 +7716,14 @@ export const TRANSLATIONS = {
   },
 
   es: {
+    promoFix: {
+      needProductAccess: "Necesitas acceso a productos de este negocio para promocionar sus anuncios.",
+      adminOwnCredits: "Los impulsos se pagan con tus propios créditos de visibilidad y no tienes suficientes. Añade créditos o elige un impulso más pequeño.",
+      alreadyBoosted: "Este producto ya está impulsado hasta el {date}.",
+      alreadyBoostedNoEnd: "Este producto ya está impulsado.",
+      orderPriceChanged: "Un precio de este pedido cambió. Actualiza e inténtalo de nuevo.",
+      cardAmountDecimals: "Introduce un importe en dólares con dos decimales como máximo.",
+    },
     sellerGuard: {
       orderChanged: "Este pedido cambió o no puedes editarlo. Actualiza e inténtalo de nuevo.",
       deleteOrderConfirm: "¿Eliminar este pedido cancelado? No se puede deshacer.",
@@ -11579,6 +11603,14 @@ export const TRANSLATIONS = {
   },
 
   zh: {
+    promoFix: {
+      needProductAccess: "您需要此商家的商品权限才能推广其商品。",
+      adminOwnCredits: "推广使用您自己的曝光积分，而您的积分不足。请充值积分或选择较小的推广。",
+      alreadyBoosted: "该商品的推广已在进行中，直到 {date}。",
+      alreadyBoostedNoEnd: "该商品的推广已在进行中。",
+      orderPriceChanged: "此订单中的价格已变更。请刷新后重试。",
+      cardAmountDecimals: "请输入最多两位小数的美元金额。",
+    },
     sellerGuard: {
       orderChanged: "该订单已变更或您无权编辑。请刷新后重试。",
       deleteOrderConfirm: "删除这个已取消的订单？此操作无法撤销。",
@@ -15459,6 +15491,14 @@ export const TRANSLATIONS = {
 
 
   ar: {
+    promoFix: {
+      needProductAccess: "تحتاج إلى صلاحية المنتجات لهذا النشاط التجاري للترويج لإعلاناته.",
+      adminOwnCredits: "تُدفع عمليات الترويج من رصيد نقاط الظهور الخاص بك، ورصيدك غير كافٍ. أضف نقاطًا أو اختر ترويجًا أصغر.",
+      alreadyBoosted: "هذا المنتج مُروَّج بالفعل حتى {date}.",
+      alreadyBoostedNoEnd: "هذا المنتج مُروَّج بالفعل.",
+      orderPriceChanged: "تغيّر سعر في هذا الطلب. حدّث الصفحة وحاول مرة أخرى.",
+      cardAmountDecimals: "أدخل مبلغًا بالدولار بخانتين عشريتين على الأكثر.",
+    },
     sellerGuard: {
       orderChanged: "تغيّر هذا الطلب أو لا يمكنك تعديله. حدّث الصفحة وحاول مرة أخرى.",
       deleteOrderConfirm: "حذف هذا الطلب الملغى؟ لا يمكن التراجع عن ذلك.",
@@ -19386,6 +19426,14 @@ export const TRANSLATIONS = {
   },
 
   pt: {
+    promoFix: {
+      needProductAccess: "Você precisa de acesso aos produtos deste negócio para promover os anúncios dele.",
+      adminOwnCredits: "Os impulsos são pagos com seus próprios créditos de visibilidade, e você não tem o suficiente. Adicione créditos ou escolha um impulso menor.",
+      alreadyBoosted: "Este produto já está impulsionado até {date}.",
+      alreadyBoostedNoEnd: "Este produto já está impulsionado.",
+      orderPriceChanged: "Um preço deste pedido mudou. Atualize e tente novamente.",
+      cardAmountDecimals: "Digite um valor em dólares com no máximo duas casas decimais.",
+    },
     sellerGuard: {
       orderChanged: "Este pedido mudou ou você não pode editá-lo. Atualize e tente novamente.",
       deleteOrderConfirm: "Excluir este pedido cancelado? Isso não pode ser desfeito.",
@@ -23261,6 +23309,14 @@ export const TRANSLATIONS = {
   },
 
   hi: {
+    promoFix: {
+      needProductAccess: "इस व्यवसाय की लिस्टिंग का प्रचार करने के लिए आपको इसके उत्पाद एक्सेस की ज़रूरत है।",
+      adminOwnCredits: "बूस्ट का भुगतान आपके अपने विज़िबिलिटी क्रेडिट से होता है, और आपके पास पर्याप्त नहीं हैं। क्रेडिट जोड़ें या छोटा बूस्ट चुनें।",
+      alreadyBoosted: "यह उत्पाद {date} तक पहले से बूस्ट है।",
+      alreadyBoostedNoEnd: "यह उत्पाद पहले से बूस्ट है।",
+      orderPriceChanged: "इस ऑर्डर की एक कीमत बदल गई है। रीफ़्रेश करके फिर से कोशिश करें।",
+      cardAmountDecimals: "अधिकतम दो दशमलव स्थानों वाली डॉलर राशि दर्ज करें।",
+    },
     sellerGuard: {
       orderChanged: "यह ऑर्डर बदल गया है या आप इसे संपादित नहीं कर सकते। रीफ़्रेश करके फिर कोशिश करें।",
       deleteOrderConfirm: "यह रद्द ऑर्डर हटाएँ? इसे वापस नहीं किया जा सकता।",
@@ -27136,6 +27192,14 @@ export const TRANSLATIONS = {
   },
 
   bn: {
+    promoFix: {
+      needProductAccess: "এই ব্যবসার লিস্টিং প্রচার করতে আপনার এর পণ্য অ্যাক্সেস প্রয়োজন।",
+      adminOwnCredits: "বুস্টের খরচ আপনার নিজের ভিজিবিলিটি ক্রেডিট থেকে যায়, আর আপনার যথেষ্ট নেই। ক্রেডিট যোগ করুন বা ছোট বুস্ট বেছে নিন।",
+      alreadyBoosted: "এই পণ্যটি {date} পর্যন্ত ইতিমধ্যে বুস্ট করা আছে।",
+      alreadyBoostedNoEnd: "এই পণ্যটি ইতিমধ্যে বুস্ট করা আছে।",
+      orderPriceChanged: "এই অর্ডারের একটি দাম বদলে গেছে। রিফ্রেশ করে আবার চেষ্টা করুন।",
+      cardAmountDecimals: "সর্বোচ্চ দুই দশমিক ঘর সহ ডলারের পরিমাণ লিখুন।",
+    },
     sellerGuard: {
       orderChanged: "এই অর্ডারটি বদলে গেছে বা আপনি এটি সম্পাদনা করতে পারবেন না। রিফ্রেশ করে আবার চেষ্টা করুন।",
       deleteOrderConfirm: "এই বাতিল অর্ডারটি মুছবেন? এটি আর ফেরানো যাবে না।",
@@ -31011,6 +31075,14 @@ export const TRANSLATIONS = {
   },
 
   id: {
+    promoFix: {
+      needProductAccess: "Anda memerlukan akses produk bisnis ini untuk mempromosikan listingnya.",
+      adminOwnCredits: "Boost dibayar dari Kredit Visibilitas Anda sendiri, dan kredit Anda tidak cukup. Tambah kredit atau pilih boost yang lebih kecil.",
+      alreadyBoosted: "Produk ini sudah di-boost hingga {date}.",
+      alreadyBoostedNoEnd: "Produk ini sudah di-boost.",
+      orderPriceChanged: "Harga dalam pesanan ini berubah. Muat ulang dan coba lagi.",
+      cardAmountDecimals: "Masukkan jumlah dolar dengan paling banyak dua angka desimal.",
+    },
     sellerGuard: {
       orderChanged: "Pesanan ini sudah berubah atau Anda tidak dapat mengeditnya. Muat ulang lalu coba lagi.",
       deleteOrderConfirm: "Hapus pesanan yang dibatalkan ini? Tindakan ini tidak bisa dibatalkan.",
@@ -34886,6 +34958,14 @@ export const TRANSLATIONS = {
   },
 
   ur: {
+    promoFix: {
+      needProductAccess: "اس کاروبار کی لسٹنگز کی تشہیر کے لیے آپ کو اس کی پروڈکٹ رسائی درکار ہے۔",
+      adminOwnCredits: "بوسٹ کی ادائیگی آپ کے اپنے ویزیبلٹی کریڈٹس سے ہوتی ہے، اور آپ کے پاس کافی نہیں ہیں۔ کریڈٹس شامل کریں یا چھوٹا بوسٹ منتخب کریں۔",
+      alreadyBoosted: "یہ پروڈکٹ {date} تک پہلے سے بوسٹ ہے۔",
+      alreadyBoostedNoEnd: "یہ پروڈکٹ پہلے سے بوسٹ ہے۔",
+      orderPriceChanged: "اس آرڈر کی ایک قیمت بدل گئی ہے۔ ریفریش کر کے دوبارہ کوشش کریں۔",
+      cardAmountDecimals: "زیادہ سے زیادہ دو اعشاریہ مقامات کے ساتھ ڈالر کی رقم درج کریں۔",
+    },
     sellerGuard: {
       orderChanged: "یہ آرڈر بدل چکا ہے یا آپ اس میں ترمیم نہیں کر سکتے۔ ریفریش کر کے دوبارہ کوشش کریں۔",
       deleteOrderConfirm: "یہ منسوخ آرڈر حذف کریں؟ یہ واپس نہیں ہو سکتا۔",
@@ -38761,6 +38841,14 @@ export const TRANSLATIONS = {
   },
 
   ru: {
+    promoFix: {
+      needProductAccess: "Чтобы продвигать объявления этого бизнеса, нужен доступ к товарам.",
+      adminOwnCredits: "Продвижение оплачивается вашими собственными кредитами видимости, а их недостаточно. Пополните кредиты или выберите продвижение поменьше.",
+      alreadyBoosted: "Этот товар уже продвигается до {date}.",
+      alreadyBoostedNoEnd: "Этот товар уже продвигается.",
+      orderPriceChanged: "Цена в этом заказе изменилась. Обновите страницу и попробуйте снова.",
+      cardAmountDecimals: "Введите сумму в долларах не более чем с двумя знаками после запятой.",
+    },
     sellerGuard: {
       orderChanged: "Этот заказ изменился, или у вас нет прав на его изменение. Обновите и попробуйте снова.",
       deleteOrderConfirm: "Удалить этот отменённый заказ? Это действие нельзя отменить.",
@@ -42637,6 +42725,14 @@ export const TRANSLATIONS = {
 
 
   ja: {
+    promoFix: {
+      needProductAccess: "このビジネスの出品を宣伝するには、商品へのアクセス権が必要です。",
+      adminOwnCredits: "ブーストはご自身のビジビリティクレジットで支払われますが、残高が足りません。クレジットを追加するか、小さいブーストを選んでください。",
+      alreadyBoosted: "この商品は {date} までブースト中です。",
+      alreadyBoostedNoEnd: "この商品はすでにブースト中です。",
+      orderPriceChanged: "この注文の価格が変更されました。更新してもう一度お試しください。",
+      cardAmountDecimals: "小数点以下2桁までのドル金額を入力してください。",
+    },
     sellerGuard: {
       orderChanged: "この注文は変更されたか、編集する権限がありません。更新してもう一度お試しください。",
       deleteOrderConfirm: "キャンセル済みのこの注文を削除しますか？元に戻せません。",
@@ -46512,6 +46608,14 @@ export const TRANSLATIONS = {
   },
 
   mr: {
+    promoFix: {
+      needProductAccess: "या व्यवसायाच्या लिस्टिंगचा प्रचार करण्यासाठी तुम्हाला त्याच्या उत्पादनांचा प्रवेश हवा.",
+      adminOwnCredits: "बूस्टचे पैसे तुमच्या स्वतःच्या व्हिजिबिलिटी क्रेडिट्समधून जातात, आणि ते पुरेसे नाहीत. क्रेडिट्स जोडा किंवा लहान बूस्ट निवडा.",
+      alreadyBoosted: "हे उत्पादन {date} पर्यंत आधीच बूस्ट आहे.",
+      alreadyBoostedNoEnd: "हे उत्पादन आधीच बूस्ट आहे.",
+      orderPriceChanged: "या ऑर्डरमधील एक किंमत बदलली आहे. रिफ्रेश करून पुन्हा प्रयत्न करा.",
+      cardAmountDecimals: "जास्तीत जास्त दोन दशांश स्थानांसह डॉलर रक्कम टाका.",
+    },
     sellerGuard: {
       orderChanged: "ही ऑर्डर बदलली आहे किंवा तुम्ही ती संपादित करू शकत नाही. रिफ्रेश करून पुन्हा प्रयत्न करा.",
       deleteOrderConfirm: "ही रद्द ऑर्डर हटवायची? हे पूर्ववत करता येणार नाही.",
@@ -50387,6 +50491,14 @@ export const TRANSLATIONS = {
   },
 
   vi: {
+    promoFix: {
+      needProductAccess: "Bạn cần quyền sản phẩm của doanh nghiệp này để quảng bá các tin đăng của nó.",
+      adminOwnCredits: "Lượt đẩy được trả bằng Tín dụng Hiển thị của chính bạn, và bạn không đủ. Hãy nạp thêm tín dụng hoặc chọn lượt đẩy nhỏ hơn.",
+      alreadyBoosted: "Sản phẩm này đã được đẩy đến {date}.",
+      alreadyBoostedNoEnd: "Sản phẩm này đã được đẩy.",
+      orderPriceChanged: "Một mức giá trong đơn hàng này đã thay đổi. Hãy làm mới và thử lại.",
+      cardAmountDecimals: "Nhập số tiền đô la với tối đa hai chữ số thập phân.",
+    },
     sellerGuard: {
       orderChanged: "Đơn hàng này đã thay đổi hoặc bạn không thể chỉnh sửa. Hãy tải lại rồi thử lại.",
       deleteOrderConfirm: "Xóa đơn hàng đã hủy này? Không thể hoàn tác.",
@@ -54262,6 +54374,14 @@ export const TRANSLATIONS = {
   },
 
   de: {
+    promoFix: {
+      needProductAccess: "Du brauchst Produktzugriff für dieses Unternehmen, um seine Angebote zu bewerben.",
+      adminOwnCredits: "Boosts werden mit deinen eigenen Sichtbarkeits-Credits bezahlt, und du hast nicht genug. Lade Credits auf oder wähle einen kleineren Boost.",
+      alreadyBoosted: "Dieses Produkt ist bereits bis {date} geboostet.",
+      alreadyBoostedNoEnd: "Dieses Produkt ist bereits geboostet.",
+      orderPriceChanged: "Ein Preis in dieser Bestellung hat sich geändert. Aktualisiere und versuche es erneut.",
+      cardAmountDecimals: "Gib einen Dollarbetrag mit höchstens zwei Nachkommastellen ein.",
+    },
     sellerGuard: {
       orderChanged: "Diese Bestellung hat sich geändert oder du darfst sie nicht bearbeiten. Aktualisiere und versuche es erneut.",
       deleteOrderConfirm: "Diese stornierte Bestellung löschen? Das lässt sich nicht rückgängig machen.",

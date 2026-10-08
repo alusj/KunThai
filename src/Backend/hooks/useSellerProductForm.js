@@ -20,8 +20,10 @@ import {
   clearProductDraft,
   productDraftHasContent,
   readProductDraft,
+  restoreDraftMedia,
   writeProductDraft,
 } from "../services/marketplace/productDraftService";
+import { productHasLivePromotion } from "../services/marketplace/productPromotionState";
 
 function buildProductForm(product, options) {
   if (!product) {
@@ -82,7 +84,9 @@ function buildProductForm(product, options) {
       sku: product.sku || "",
       lowStockAlert: product.lowStockAlert === undefined ? "3" : String(product.lowStockAlert),
       allowNegotiation: Boolean(product.allowNegotiation),
-      publishStatus: product.promoted ? "promoted" : product.status || "active",
+      // Only a boost that is still running preselects "Promote"; the stored
+      // flag stays true after a boost ends.
+      publishStatus: productHasLivePromotion(product) ? "promoted" : product.status || "active",
       promotionCreditPackage: product.promotionCreditPackage || "small",
       promotionCredits: String(product.promotionCredits || MINIMUM_VISIBILITY_CREDITS),
       promotionAudience: product.promotionAudience || "countrywide",
@@ -128,16 +132,9 @@ export function useSellerProductForm({ onComplete, mode = "create", product = nu
             details: { ...baseForm.details, ...(draft.details || {}) },
             pricing: { ...baseForm.pricing, ...(draft.pricing || {}) },
             delivery: { ...baseForm.delivery, ...(draft.delivery || {}) },
-            media: {
-              ...baseForm.media,
-              // File objects cannot be restored by the browser; keep names/urls
-              // so the seller sees what to re-attach.
-              coverImageName: draft.mediaMeta?.coverImageName || baseForm.media.coverImageName,
-              coverImageUrl: draft.mediaMeta?.coverImageUrl || baseForm.media.coverImageUrl,
-              extraImageUrls: draft.mediaMeta?.extraImageUrls?.length ? draft.mediaMeta.extraImageUrls : baseForm.media.extraImageUrls,
-              videoName: draft.mediaMeta?.videoName || baseForm.media.videoName,
-              videoUrl: draft.mediaMeta?.videoUrl || baseForm.media.videoUrl,
-            },
+            // Picked files cannot survive a reload: only uploaded (URL) media
+            // is restored, so the form asks for the cover/video again.
+            media: restoreDraftMedia(baseForm.media, draft.mediaMeta),
           });
           setStep(Math.min(Math.max(Number(draft.step || 0), 0), 5));
           setDraftRestored(true);

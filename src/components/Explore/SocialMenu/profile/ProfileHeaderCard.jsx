@@ -39,6 +39,7 @@ import {
   MONIME_MIN_CREDITS,
   monimeCustomPriceMinor,
   cardCreditsForUsd,
+  sanitizeCardUsdInput,
   startMonimeCardPurchase,
   CARD_AMOUNTS_USD,
   CARD_MAX_USD,
@@ -967,7 +968,7 @@ export default function ProfileHeaderCard({
                       type="text"
                       inputMode="decimal"
                       value={cardCustomUsd}
-                      onChange={(event) => setCardCustomUsd(sanitizeUsdInput(event.target.value))}
+                      onChange={(event) => setCardCustomUsd(sanitizeCardUsdInput(event.target.value))}
                       placeholder="25"
                       className="h-11 w-28 rounded-xl border border-slate-300 pl-7 pr-3 text-sm font-black text-slate-950 focus:border-sky-400 focus:outline-none"
                     />
@@ -1389,12 +1390,6 @@ function formatUsd(amount) {
   } catch {
     return `${value}`;
   }
-}
-
-// Keep a typed dollar amount to digits with at most one point and two decimals.
-function sanitizeUsdInput(raw) {
-  const [whole = "", ...rest] = String(raw || "").replace(/[^\d.]/g, "").split(".");
-  return rest.length ? `${whole.slice(0, 4)}.${rest.join("").slice(0, 2)}` : whole.slice(0, 4);
 }
 
 function formatPackagePrice(item) {

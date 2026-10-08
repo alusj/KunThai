@@ -10,6 +10,7 @@ import {
   checkoutSessionTotal,
   createMonimeCheckout,
   cardCreditsForUsd,
+  cardUsdAmountError,
   getUsdToSleRate,
   isMonimeCardPurchase,
   MONIME_CARD_AMOUNTS_USD,
@@ -395,6 +396,8 @@ test("a settled purchase writes one notification naming the wallet and amount", 
   assert.equal(inserted[0].row.user_id, "u1");
   assert.equal(inserted[0].row.notification_type, "visibility_credit_purchase");
   assert.equal(inserted[0].row.action_target, "visibility-credit-purchase:p10");
+  // The insert itself is idempotent (unique index / dedupe key).
+  assert.equal(inserted[0].row.dedupe_key, "visibility-credit-purchase:p10");
   assert.match(inserted[0].row.title, /15 Visibility Credits added/);
   assert.match(inserted[0].row.body, /Afrimoney payment of SLE 20\.00/);
   assert.match(inserted[0].row.body, /credited to your balance/);
@@ -417,25 +420,38 @@ test("a notification failure never blocks the credit grant", async () => {
 });
 
 test("an already-notified purchase is not notified twice", async () => {
-  const inserted = [];
+  // Simulates the unique index: a second notification for the same purchase
+  // is a unique violation, which the insert treats as "already told".
+  const stored = new Map();
+  const logged = [];
+  const originalError = console.error;
+  console.error = (...args) => logged.push(args);
   const adminClient = {
     rpc: async () => ({ data: [{ balance: 15 }], error: null }),
     from: () => ({
-      select: () => ({
-        eq: function () { return this; },
-        maybeSingle: async () => ({ data: { id: "existing" } }),
-      }),
-      insert: async (row) => { inserted.push(row); return { error: null }; },
+      insert: async (row) => {
+        const key = `${row.user_id}|${row.action_target}`;
+        if (stored.has(key)) return { error: { code: "23505", message: "duplicate key value violates unique constraint" } };
+        stored.set(key, row);
+        return { error: null };
+      },
     }),
   };
 
-  await verifyAndGrantMonimePaymentCode({
+  const confirm = () => verifyAndGrantMonimePaymentCode({
     adminClient, config: {},
     purchase: { id: "p12", user_id: "u1", provider_reference: "p12", amount_minor: 2000, currency: "SLE", credits: 15 },
     paymentCode: { id: "pmc-12", status: "completed", amount: { currency: "SLE", value: 2000 } },
   });
+  try {
+    await Promise.all([confirm(), confirm()]);
+    await confirm();
+  } finally {
+    console.error = originalError;
+  }
 
-  assert.equal(inserted.length, 0);
+  assert.equal(stored.size, 1);
+  assert.equal(logged.length, 0);
 });
 
 // A paid code must never be stranded just because its status moved on: money
@@ -647,6 +663,13 @@ test("custom card amounts accept dollars and cents within $1–$1,000", () => {
   assert.equal(parseCardUsdAmount("abc"), null);
   assert.equal(parseCardUsdAmount(""), null);
   assert.equal(cardCreditsForUsd(750), 112);
+});
+
+test("a sub-cent card amount is refused with an accurate message", () => {
+  assert.match(cardUsdAmountError("7.505"), /at most two decimal places/);
+  assert.match(cardUsdAmountError("0.50"), /between \$1 and \$1,000/);
+  assert.match(cardUsdAmountError("abc"), /between \$1 and \$1,000/);
+  assert.equal(cardUsdAmountError("7.50"), "");
 });
 
 test("a card purchase converts USD to Leones at the rate given, rounding up", () => {

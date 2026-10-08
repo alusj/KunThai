@@ -21,10 +21,15 @@ export function getProductTierPricing(product = {}) {
   );
 }
 
+// fallbackPrice is the product's selling price (already discounted). A bulk
+// tier never costs more than that: the lowest applicable unit price wins.
+// Mirrored on the server by kunthai_marketplace_unit_price.
 export function getTierUnitPrice(tiers, quantity, fallbackPrice) {
   const qty = Math.max(1, Number(quantity || 1));
+  const basePrice = Number(fallbackPrice || 0);
   const match = normalizeTierPricing(tiers)
     .filter((tier) => qty >= Math.max(1, tier.minQty) && (tier.maxQty <= 0 || qty <= tier.maxQty))
     .sort((a, b) => b.minQty - a.minQty)[0];
-  return match ? match.price : Number(fallbackPrice || 0);
+  if (!match) return basePrice;
+  return basePrice > 0 ? Math.min(match.price, basePrice) : match.price;
 }

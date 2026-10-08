@@ -26,11 +26,12 @@ import {
   fetchBusinessSubscription,
   formatBusinessPlanDate,
   getCapacityStatus,
+  planChangeAutoRenew,
   setBusinessPlanAutoRenew,
 } from "../../Backend/services/businessSubscriptionService";
 import { showToast } from "../../Backend/services/toastService";
 import { t as i18nText } from "../../i18n/index";
-import { uiText as translateUi, useI18n as useUiLocale } from "../../i18n/index.js";
+import { uiText as translateUi, useI18n as useUiLocale } from "../../i18n/index.js";
 import AppPortal from "./AppPortal";
 
 const PLAN_ICONS = { free: Sparkles, pro: Crown, premium: Gem };
@@ -246,7 +247,14 @@ export default function BusinessPlanScreen({ surface, entityId, entityName = "Yo
     if (!selectedPlan || busy) return;
     setBusy(`plan:${selectedPlan.planCode}`);
     try {
-      const updated = await changeBusinessPlan(surface, entityId, selectedPlan.planCode, true, selectedInterval);
+      // Keep the seller's auto-renew choice instead of switching it back on.
+      const updated = await changeBusinessPlan(
+        surface,
+        entityId,
+        selectedPlan.planCode,
+        planChangeAutoRenew(state.subscription),
+        selectedInterval,
+      );
       setState(updated);
       const scheduled = isDeferredPlanChange(
         state.entitlement.planCode,
