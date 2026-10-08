@@ -1193,24 +1193,31 @@ export async function getNotificationCampaignLocationOptions() {
 
 /**
  * Release scheduled campaigns whose time has arrived. The database also does
- * this every minute (pg_cron); this call closes any gap when the campaign
- * center opens. Device push for anything released here is queued too.
+ * this every minute (pg_cron) but cannot send device push itself, so every
+ * published push campaign whose push was never queued is claimed here
+ * (admin_claim_campaign_push hands each one out once) and sent.
  */
 export async function runDueNotificationCampaigns() {
   if (isAdminPreview()) return 0;
   const startedAt = new Date(Date.now() - 5_000).toISOString();
   const published = Number(unwrap(await supabase.rpc("admin_run_due_campaigns"), "Unable to release scheduled campaigns.") || 0);
-  if (published > 0) {
+  let campaignIds = [];
+  const claimed = await supabase.rpc("admin_claim_campaign_push", { result_limit: 25 });
+  if (!claimed.error) {
+    campaignIds = (claimed.data || []).map((row) => row.queued_campaign_id).filter(Boolean);
+  } else if (published > 0) {
+    // Older database without the push queue: push what this call released.
     const { data } = await supabase
       .from("admin_notification_campaigns")
       .select("id")
       .eq("status", "completed")
       .contains("channels", ["push"])
       .gte("published_at", startedAt);
-    (data || []).forEach((campaign) => {
-      supabase.functions.invoke("send-notification-push", { body: { campaignId: campaign.id } }).catch(() => {});
-    });
+    campaignIds = (data || []).map((campaign) => campaign.id);
   }
+  campaignIds.forEach((campaignId) => {
+    supabase.functions.invoke("send-notification-push", { body: { campaignId } }).catch(() => {});
+  });
   return published;
 }
 
