@@ -11,24 +11,15 @@ export default function ReputationMetricsGrid({ metrics }) {
         helper={t("urmall.biz.dash.reviews", { count: metrics.reviewCount })}
         tone="green"
       />
-      <ReputationMetricCard
-        label={t("urmall.biz.intel.complaintRate")}
-        value={`${metrics.complaintRate}%`}
-        helper={t("urmall.biz.rep.lowerBetter")}
-        tone={metrics.complaintRate > 3 ? "red" : "green"}
-      />
-      <ReputationMetricCard
-        label={t("urmall.biz.intel.cancellationRate")}
-        value={`${metrics.cancellationRate}%`}
-        helper={t("urmall.biz.rep.cancelledByStore")}
-        tone={metrics.cancellationRate > 5 ? "red" : "amber"}
-      />
-      <ReputationMetricCard
-        label={t("urmall.biz.intel.onTimeDelivery")}
-        value={`${metrics.onTimeDeliveryRate}%`}
-        helper={t("urmall.biz.rep.deliveredOnSchedule")}
-        tone="blue"
-      />
+      {/* Measured figures only; a store without orders has no cancellation rate yet. */}
+      {metrics.cancellationRate == null ? null : (
+        <ReputationMetricCard
+          label={t("urmall.biz.intel.cancellationRate")}
+          value={`${metrics.cancellationRate}%`}
+          helper={t("urmall.biz.rep.cancelledByStore")}
+          tone={metrics.cancellationRate > 5 ? "red" : "amber"}
+        />
+      )}
       <ReputationMetricCard
         label={t("urmall.biz.rep.profileComplete")}
         value={`${metrics.profileCompleteness}%`}

@@ -1,4 +1,4 @@
-import { useI18n, t } from "../../../../../i18n";
+import { getLocale, useI18n, t } from "../../../../../i18n";
 import ReviewStars from "./ReviewStars";
 
 export default function ReviewItem({ onRespond, review, showRespond = false }) {
@@ -12,7 +12,9 @@ export default function ReviewItem({ onRespond, review, showRespond = false }) {
             {review.productName}
           </p>
         </div>
-        <span className="text-xs font-bold text-gray-400">{review.time}</span>
+        <span className="text-xs font-bold text-gray-400">
+          {review.createdAt ? new Date(review.createdAt).toLocaleDateString(getLocale()) : review.time}
+        </span>
       </div>
 
       <div className="mt-2">

@@ -9,6 +9,14 @@ import { ADDRESS_BOOK } from "./addressBook";
 
 export const TRANSLATIONS = {
   en: {
+    sellerReviews: {
+      menuTitle: "Reviews",
+      menuDesc: "What buyers say about your store",
+      title: "Your reviews",
+      eyebrow: "Reviews",
+      back: "Back to menu",
+      empty: "No reviews yet. Buyers can leave a review after a completed order.",
+    },
     sellerFix: {
       loadFailed: "We couldn't load this. Check your connection and try again.",
       retry: "Retry",
@@ -3884,6 +3892,14 @@ export const TRANSLATIONS = {
   },
 
   fr: {
+    sellerReviews: {
+      menuTitle: "Avis",
+      menuDesc: "Ce que les acheteurs disent de votre boutique",
+      title: "Vos avis",
+      eyebrow: "Avis",
+      back: "Retour au menu",
+      empty: "Aucun avis pour l'instant. Les acheteurs peuvent laisser un avis après une commande terminée.",
+    },
     sellerFix: {
       loadFailed: "Impossible de charger ceci. Vérifiez votre connexion et réessayez.",
       retry: "Réessayer",
@@ -7762,6 +7778,14 @@ export const TRANSLATIONS = {
   },
 
   es: {
+    sellerReviews: {
+      menuTitle: "Reseñas",
+      menuDesc: "Lo que los compradores dicen de tu tienda",
+      title: "Tus reseñas",
+      eyebrow: "Reseñas",
+      back: "Volver al menú",
+      empty: "Aún no hay reseñas. Los compradores pueden opinar después de un pedido completado.",
+    },
     sellerFix: {
       loadFailed: "No pudimos cargar esto. Revisa tu conexión e inténtalo de nuevo.",
       retry: "Reintentar",
@@ -11672,6 +11696,14 @@ export const TRANSLATIONS = {
   },
 
   zh: {
+    sellerReviews: {
+      menuTitle: "评价",
+      menuDesc: "买家对您店铺的评价",
+      title: "您的评价",
+      eyebrow: "评价",
+      back: "返回菜单",
+      empty: "暂无评价。买家可在订单完成后留下评价。",
+    },
     sellerFix: {
       loadFailed: "无法加载此内容。请检查网络连接后重试。",
       retry: "重试",
@@ -15583,6 +15615,14 @@ export const TRANSLATIONS = {
 
 
   ar: {
+    sellerReviews: {
+      menuTitle: "التقييمات",
+      menuDesc: "ما يقوله المشترون عن متجرك",
+      title: "تقييماتك",
+      eyebrow: "التقييمات",
+      back: "العودة إلى القائمة",
+      empty: "لا توجد تقييمات بعد. يمكن للمشترين التقييم بعد اكتمال الطلب.",
+    },
     sellerFix: {
       loadFailed: "تعذّر تحميل هذا. تحقق من اتصالك وحاول مرة أخرى.",
       retry: "إعادة المحاولة",
@@ -19541,6 +19581,14 @@ export const TRANSLATIONS = {
   },
 
   pt: {
+    sellerReviews: {
+      menuTitle: "Avaliações",
+      menuDesc: "O que os compradores dizem da sua loja",
+      title: "Suas avaliações",
+      eyebrow: "Avaliações",
+      back: "Voltar ao menu",
+      empty: "Ainda não há avaliações. Os compradores podem avaliar após um pedido concluído.",
+    },
     sellerFix: {
       loadFailed: "Não foi possível carregar isto. Verifique sua conexão e tente novamente.",
       retry: "Tentar novamente",
@@ -23447,6 +23495,14 @@ export const TRANSLATIONS = {
   },
 
   hi: {
+    sellerReviews: {
+      menuTitle: "समीक्षाएँ",
+      menuDesc: "खरीदार आपकी दुकान के बारे में क्या कहते हैं",
+      title: "आपकी समीक्षाएँ",
+      eyebrow: "समीक्षाएँ",
+      back: "मेनू पर वापस",
+      empty: "अभी कोई समीक्षा नहीं। खरीदार पूरा ऑर्डर होने के बाद समीक्षा दे सकते हैं।",
+    },
     sellerFix: {
       loadFailed: "यह लोड नहीं हो सका। अपना कनेक्शन जाँचें और फिर से कोशिश करें।",
       retry: "फिर से कोशिश करें",
@@ -27353,6 +27409,14 @@ export const TRANSLATIONS = {
   },
 
   bn: {
+    sellerReviews: {
+      menuTitle: "রিভিউ",
+      menuDesc: "ক্রেতারা আপনার দোকান সম্পর্কে কী বলেন",
+      title: "আপনার রিভিউ",
+      eyebrow: "রিভিউ",
+      back: "মেনুতে ফিরুন",
+      empty: "এখনও কোনো রিভিউ নেই। অর্ডার সম্পন্ন হওয়ার পর ক্রেতারা রিভিউ দিতে পারেন।",
+    },
     sellerFix: {
       loadFailed: "এটি লোড করা যায়নি। আপনার সংযোগ দেখে আবার চেষ্টা করুন।",
       retry: "আবার চেষ্টা করুন",
@@ -31259,6 +31323,14 @@ export const TRANSLATIONS = {
   },
 
   id: {
+    sellerReviews: {
+      menuTitle: "Ulasan",
+      menuDesc: "Apa kata pembeli tentang toko Anda",
+      title: "Ulasan Anda",
+      eyebrow: "Ulasan",
+      back: "Kembali ke menu",
+      empty: "Belum ada ulasan. Pembeli dapat memberi ulasan setelah pesanan selesai.",
+    },
     sellerFix: {
       loadFailed: "Tidak dapat memuat ini. Periksa koneksi Anda dan coba lagi.",
       retry: "Coba lagi",
@@ -35165,6 +35237,14 @@ export const TRANSLATIONS = {
   },
 
   ur: {
+    sellerReviews: {
+      menuTitle: "ریویوز",
+      menuDesc: "خریدار آپ کی دکان کے بارے میں کیا کہتے ہیں",
+      title: "آپ کے ریویوز",
+      eyebrow: "ریویوز",
+      back: "مینو پر واپس",
+      empty: "ابھی کوئی ریویو نہیں۔ خریدار مکمل آرڈر کے بعد ریویو دے سکتے ہیں۔",
+    },
     sellerFix: {
       loadFailed: "یہ لوڈ نہیں ہو سکا۔ اپنا کنکشن چیک کریں اور دوبارہ کوشش کریں۔",
       retry: "دوبارہ کوشش کریں",
@@ -39071,6 +39151,14 @@ export const TRANSLATIONS = {
   },
 
   ru: {
+    sellerReviews: {
+      menuTitle: "Отзывы",
+      menuDesc: "Что покупатели говорят о вашем магазине",
+      title: "Ваши отзывы",
+      eyebrow: "Отзывы",
+      back: "Назад в меню",
+      empty: "Отзывов пока нет. Покупатели могут оставить отзыв после выполненного заказа.",
+    },
     sellerFix: {
       loadFailed: "Не удалось загрузить. Проверьте подключение и попробуйте снова.",
       retry: "Повторить",
@@ -42978,6 +43066,14 @@ export const TRANSLATIONS = {
 
 
   ja: {
+    sellerReviews: {
+      menuTitle: "レビュー",
+      menuDesc: "購入者があなたのお店について語っていること",
+      title: "あなたのレビュー",
+      eyebrow: "レビュー",
+      back: "メニューに戻る",
+      empty: "まだレビューはありません。購入者は注文完了後にレビューできます。",
+    },
     sellerFix: {
       loadFailed: "読み込めませんでした。接続を確認してもう一度お試しください。",
       retry: "再試行",
@@ -46884,6 +46980,14 @@ export const TRANSLATIONS = {
   },
 
   mr: {
+    sellerReviews: {
+      menuTitle: "पुनरावलोकने",
+      menuDesc: "खरेदीदार तुमच्या दुकानाबद्दल काय म्हणतात",
+      title: "तुमची पुनरावलोकने",
+      eyebrow: "पुनरावलोकने",
+      back: "मेनूवर परत",
+      empty: "अद्याप पुनरावलोकने नाहीत. ऑर्डर पूर्ण झाल्यावर खरेदीदार पुनरावलोकन देऊ शकतात.",
+    },
     sellerFix: {
       loadFailed: "हे लोड करता आले नाही. तुमचे कनेक्शन तपासा आणि पुन्हा प्रयत्न करा.",
       retry: "पुन्हा प्रयत्न करा",
@@ -50790,6 +50894,14 @@ export const TRANSLATIONS = {
   },
 
   vi: {
+    sellerReviews: {
+      menuTitle: "Đánh giá",
+      menuDesc: "Người mua nói gì về cửa hàng của bạn",
+      title: "Đánh giá của bạn",
+      eyebrow: "Đánh giá",
+      back: "Quay lại menu",
+      empty: "Chưa có đánh giá. Người mua có thể đánh giá sau khi đơn hàng hoàn tất.",
+    },
     sellerFix: {
       loadFailed: "Không thể tải nội dung này. Hãy kiểm tra kết nối và thử lại.",
       retry: "Thử lại",
@@ -54696,6 +54808,14 @@ export const TRANSLATIONS = {
   },
 
   de: {
+    sellerReviews: {
+      menuTitle: "Bewertungen",
+      menuDesc: "Was Käufer über deinen Shop sagen",
+      title: "Deine Bewertungen",
+      eyebrow: "Bewertungen",
+      back: "Zurück zum Menü",
+      empty: "Noch keine Bewertungen. Käufer können nach einer abgeschlossenen Bestellung bewerten.",
+    },
     sellerFix: {
       loadFailed: "Das konnte nicht geladen werden. Prüfe deine Verbindung und versuche es erneut.",
       retry: "Erneut versuchen",

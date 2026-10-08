@@ -7,18 +7,22 @@ import ProfileCompletenessBar from "./ProfileCompletenessBar";
 import ReputationMetricsGrid from "./ReputationMetricsGrid";
 import ReviewList from "./ReviewList";
 import VerifiedBadgeList from "./VerifiedBadgeList";
+import SellerLoadError from "../SellerLoadError";
 
 export default function BusinessReputation() {
   useI18n();
-  const {
-    metrics,
-    badges,
-    reviewsNeedingResponse,
-    recentReviews,
-    loading,
-  } = useSellerReputation();
+  const { metrics, badges, reviews, loading, error, retry } = useSellerReputation();
 
-  if (loading || !metrics) return null;
+  if (error && !metrics) return <SellerLoadError onRetry={retry} />;
+  if (loading || !metrics) {
+    return (
+      <section aria-busy="true" className="space-y-3 rounded-xl border border-gray-200 bg-white p-5 shadow-sm">
+        <div className="h-5 w-40 animate-pulse rounded bg-gray-200" />
+        <div className="h-20 animate-pulse rounded-lg bg-gray-100" />
+        <div className="h-20 animate-pulse rounded-lg bg-gray-100" />
+      </section>
+    );
+  }
 
   return (
     <section className="space-y-4 rounded-xl border border-gray-200 bg-white p-5 shadow-sm">
@@ -55,12 +59,13 @@ export default function BusinessReputation() {
       <ReputationMetricsGrid metrics={metrics} />
       <VerifiedBadgeList badges={badges} />
       <ProfileCompletenessBar value={metrics.profileCompleteness} />
-      <ReviewList
-        title={t("urmall.biz.rep.responsesNeeded")}
-        reviews={reviewsNeedingResponse}
-        showRespond
-      />
-      <ReviewList title={t("urmall.biz.rep.recentReviews")} reviews={recentReviews} />
+      {reviews.length ? (
+        <ReviewList title={t("urmall.biz.rep.recentReviews")} reviews={reviews} />
+      ) : (
+        <p className="rounded-lg border border-dashed border-gray-200 p-4 text-center text-sm font-semibold text-gray-500">
+          {t("sellerReviews.empty")}
+        </p>
+      )}
     </section>
   );
 }

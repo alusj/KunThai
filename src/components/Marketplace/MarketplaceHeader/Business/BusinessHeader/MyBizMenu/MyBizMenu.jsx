@@ -1,15 +1,4 @@
-import {
-  BadgeHelp,
-  BriefcaseBusiness,
-  CreditCard,
-  Crown,
-  FileText,
-  LayoutDashboard,
-  Plus,
-  ShieldCheck,
-  Trash2,
-  UserRound,
-} from "lucide-react";
+import { BadgeHelp, BriefcaseBusiness, CreditCard, Crown, FileText, LayoutDashboard, Plus, ShieldCheck, Star, Trash2, UserRound } from "lucide-react";
 import { useEffect, useRef, useState } from "react";
 
 import { deleteRegisteredBusiness, readRegisteredBusiness } from "../../../../../../Backend/services/marketplace/sellerRegistrationService";
@@ -31,6 +20,7 @@ import Payments from "./MyBizPages/PaymentsPayouts/Payments";
 import ProfileSettings from "./MyBizPages/ProfileSettings/ProfileSettings";
 import SellerBoard from "./MyBizPages/SellerBoard/SellerBoard";
 import SubscriptionPlans from "./MyBizPages/SubscriptionPlans/SubscriptionPlans";
+import SellerReviews from "./MyBizPages/SellerReviews/SellerReviews";
 import { t as i18nText } from "../../../../../../i18n/index";
 import { shortErrorToast } from "../../../../../../Backend/services/friendlyErrorService";
 
@@ -61,6 +51,9 @@ function getDrawerScreen(key, props = {}) {
   },
   plans: {
     component: <SubscriptionPlans onBack={props.onBack} />,
+  },
+  reviews: {
+    component: <SellerReviews onBack={props.onBack} />,
   },
   };
 
@@ -279,6 +272,14 @@ export default function MyBizMenu({
                         title={t("urmall.biz.menu.boardTitle")}
                         description={t("urmall.biz.menu.boardDesc")}
                         onClick={() => openActiveScreen("board")}
+                      />
+                    ) : null}
+                    {canAccessDashboard ? (
+                      <SellerDrawerNavItem
+                        icon={Star}
+                        title={t("sellerReviews.menuTitle")}
+                        description={t("sellerReviews.menuDesc")}
+                        onClick={() => openActiveScreen("reviews")}
                       />
                     ) : null}
                     {canManagePlans ? (

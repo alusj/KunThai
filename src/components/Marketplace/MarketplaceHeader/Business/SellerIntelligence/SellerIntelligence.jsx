@@ -59,13 +59,7 @@ export default function SellerIntelligence() {
             value: reputationMetrics.reviewCount || 0,
             detail: t("urmall.biz.intel.totalReviewsDetail"),
           },
-          {
-            id: "response-needed",
-            label: t("urmall.biz.intel.needResponse"),
-            value: reputation.reviewsNeedingResponse.length,
-            detail: t("urmall.biz.intel.needResponseDetail"),
-          },
-          ...reputation.recentReviews.map((review) => ({
+          ...(reputation.reviews || []).slice(0, 3).map((review) => ({
             id: review.id,
             label: review.buyerName || t("urmall.biz.intel.buyerReview"),
             value: t("urmall.biz.intel.ratingN", { n: review.rating || 0 }),
@@ -188,24 +182,14 @@ export default function SellerIntelligence() {
             value: `${reputationMetrics.profileCompleteness || 0}%`,
             detail: t("urmall.biz.intel.profileCompletenessDetail"),
           },
-          {
-            id: "complaints",
-            label: t("urmall.biz.intel.complaintRate"),
-            value: `${reputationMetrics.complaintRate || 0}%`,
-            detail: t("urmall.biz.intel.complaintRateDetail"),
-          },
-          {
+          // Only measured figures: complaints and on-time delivery are not
+          // tracked yet, and a store with no orders has no cancellation rate.
+          ...(reputationMetrics.cancellationRate == null ? [] : [{
             id: "cancellations",
             label: t("urmall.biz.intel.cancellationRate"),
-            value: `${reputationMetrics.cancellationRate || 0}%`,
+            value: `${reputationMetrics.cancellationRate}%`,
             detail: t("urmall.biz.intel.cancellationRateDetail"),
-          },
-          {
-            id: "delivery",
-            label: t("urmall.biz.intel.onTimeDelivery"),
-            value: `${reputationMetrics.onTimeDeliveryRate || 0}%`,
-            detail: t("urmall.biz.intel.onTimeDeliveryDetail"),
-          },
+          }]),
           ...reputation.badges.map((badge) => ({
             id: badge.id,
             label: badge.label,
