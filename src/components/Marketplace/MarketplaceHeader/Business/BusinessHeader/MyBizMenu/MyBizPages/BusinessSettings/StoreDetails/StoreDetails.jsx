@@ -9,6 +9,9 @@ import { useI18n, t } from "../../../../../../../../../i18n";
 import SellerMenuPageHeader from "../../SellerMenuPageHeader";
 import { uiText as translateUi, useI18n as useUiLocale } from "../../../../../../../../../i18n/index.js";
 import { inlineErrorMessage } from "../../../../../../../../../Backend/services/friendlyErrorService";
+import { supportsMarketplaceFulfillment } from "../../../../../../../../../Backend/services/marketplace/marketplaceBusinessKinds";
+import { CountrySelect } from "../../settingsFields";
+import { countryFormValue, validateContactFields, whatsappToSave } from "../../settingsContact";
 
 const inputClass =
   "mt-2 w-full rounded-xl border border-gray-200 bg-white px-4 py-3 text-sm font-semibold text-gray-950 outline-none transition focus:border-gray-950 focus:ring-4 focus:ring-gray-950/10";
@@ -28,7 +31,8 @@ function buildForm(business) {
   return {
     businessName: business?.identity?.businessName || "",
     description: business?.identity?.description || "",
-    country: business?.location?.country || "",
+    businessKind: business?.businessKind || "retail",
+    country: countryFormValue(business?.location?.country || business?.location?.countryIso),
     city: business?.location?.city || "",
     address: business?.location?.address || "",
     phone: business?.location?.phone || "",
@@ -50,6 +54,7 @@ export default function StoreDetails({ onBack }) {
   const [saving, setSaving] = useState(false);
   const [status, setStatus] = useState("");
   const [error, setError] = useState("");
+  const usesFulfillment = supportsMarketplaceFulfillment(form.businessKind);
 
   useEffect(() => {
     let mounted = true;
@@ -83,7 +88,15 @@ export default function StoreDetails({ onBack }) {
       return;
     }
 
-    if (!form.deliveryEnabled && !form.pickupEnabled) {
+    const contactError = validateContactFields({ country: form.country, phone: form.phone, whatsapp: form.whatsapp });
+    if (contactError) {
+      setError(contactError);
+      return;
+    }
+
+    // Only kinds that deliver or offer pickup (retail, vendor, restaurant)
+    // must keep one of them; property agents and hotels have neither.
+    if (usesFulfillment && !form.deliveryEnabled && !form.pickupEnabled) {
       setError(t("urmall.biz.settings.enableDeliveryPickup"));
       return;
     }
@@ -105,7 +118,7 @@ export default function StoreDetails({ onBack }) {
           email: form.email,
           website: form.website,
           whatsappEnabled: form.whatsappEnabled,
-          whatsapp: form.whatsapp,
+          whatsapp: whatsappToSave(form.whatsapp, form.country),
           discoverableNearby: form.discoverableNearby,
         },
         operations: {
@@ -193,10 +206,10 @@ export default function StoreDetails({ onBack }) {
 
               <div className="grid gap-4 md:grid-cols-2">
                 <Field label={t("urmall.biz.settings.country")}>
-                  <input
+                  <CountrySelect
                     className={inputClass}
                     value={form.country}
-                    onChange={(event) => updateField("country", event.target.value)}
+                    onChange={(value) => updateField("country", value)}
                   />
                 </Field>
                 <Field label={t("urmall.biz.settings.city")}>
@@ -269,11 +282,11 @@ export default function StoreDetails({ onBack }) {
 
               <div className="space-y-3">
                 {[
-                  ["deliveryEnabled", t("urmall.biz.settings.deliveryAvailable"), t("urmall.biz.settings.deliveryAvailableHint")],
-                  ["pickupEnabled", t("urmall.biz.settings.pickupAvailable"), t("urmall.biz.settings.pickupAvailableHint")],
+                  usesFulfillment ? ["deliveryEnabled", t("urmall.biz.settings.deliveryAvailable"), t("urmall.biz.settings.deliveryAvailableHint")] : null,
+                  usesFulfillment ? ["pickupEnabled", t("urmall.biz.settings.pickupAvailable"), t("urmall.biz.settings.pickupAvailableHint")] : null,
                   ["whatsappEnabled", t("urmall.biz.settings.whatsappContact"), t("urmall.biz.settings.whatsappContactHint")],
                   ["discoverableNearby", t("urmall.biz.settings.nearbyDiscovery"), t("urmall.biz.settings.nearbyDiscoveryHint")],
-                ].map(([field, title, description]) => (
+                ].filter(Boolean).map(([field, title, description]) => (
                   <label
                     key={field}
                     className="flex items-center justify-between gap-3 rounded-xl border border-gray-200 bg-gray-50 px-4 py-3"

@@ -1,5 +1,7 @@
 import { Building2, UserRound } from "lucide-react";
-import { useEffect, useState } from "react";
+import { useEffect } from "react";
+
+import { useSellerSubScreens } from "../useSellerSubScreens";
 
 import { useI18n, t } from "../../../../../../../../i18n";
 import SellerMenuPageHeader from "../SellerMenuPageHeader";
@@ -10,11 +12,11 @@ import EditProfile from "./EditProfile/EditProfile";
 
 export default function ProfileSettings({ initialView = "menu", onBack }) {
   useI18n();
-  const [currentView, setCurrentView] = useState(initialView);
+  const { currentView, open: setCurrentView, goBack: goBackSubView } = useSellerSubScreens("profile");
 
   useEffect(() => {
     setCurrentView(initialView);
-  }, [initialView]);
+  }, [initialView, setCurrentView]);
 
   return (
     <div className="relative min-h-full bg-white">
@@ -36,8 +38,8 @@ export default function ProfileSettings({ initialView = "menu", onBack }) {
 
       <SellerSubPagePanel currentView={currentView}>
         {(view) => {
-          if (view === "edit") return <EditProfile onBack={() => setCurrentView("menu")} />;
-          if (view === "business") return <BusinessInfo onBack={() => setCurrentView("menu")} />;
+          if (view === "edit") return <EditProfile onBack={goBackSubView} />;
+          if (view === "business") return <BusinessInfo onBack={goBackSubView} />;
           return null;
         }}
       </SellerSubPagePanel>

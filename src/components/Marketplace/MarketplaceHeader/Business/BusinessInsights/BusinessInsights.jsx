@@ -12,6 +12,7 @@ import {
 import { useSellerInsights } from "../../../../../Backend/hooks/useSellerInsights";
 import { useI18n, t } from "../../../../../i18n";
 import AnimatedMetricValue from "./AnimatedMetricValue";
+import SellerLoadError from "../SellerLoadError";
 import AiAssistButton from "../../../../ai/AiAssistButton";
 import { uiText as translateUi, useI18n as useUiLocale } from "../../../../../i18n/index.js";
 
@@ -129,8 +130,9 @@ function InsightsSkeleton() {
 
 export default function BusinessInsights() {
   useI18n();
-  const { metrics, trafficSources, searchTerms, productSignals, loading } = useSellerInsights();
+  const { metrics, trafficSources, searchTerms, productSignals, loading, error, retry } = useSellerInsights();
 
+  if (!loading && (error || !metrics || !productSignals)) return <SellerLoadError onRetry={retry} />;
   if (loading || !metrics || !productSignals) return <InsightsSkeleton />;
 
   const opportunity = productSignals.mostAbandoned || {};

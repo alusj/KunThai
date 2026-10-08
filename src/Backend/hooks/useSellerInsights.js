@@ -1,4 +1,4 @@
-import { useEffect, useState } from "react";
+import { useCallback, useEffect, useState } from "react";
 import { registerSellerMemory } from "./sellerMemoryRegistry";
 
 import { fetchSellerInsights } from "../services/marketplace/sellerInsightService";
@@ -24,6 +24,11 @@ export function useSellerInsights() {
   const [insights, setInsights] = useState(() => SELLER_INSIGHTS_MEMORY.insights);
   const [loading, setLoading] = useState(() => !SELLER_INSIGHTS_MEMORY.loaded);
   const [refreshing, setRefreshing] = useState(false);
+  // Set only when nothing could be shown, so the screen offers a retry
+  // instead of an endless skeleton.
+  const [error, setError] = useState(false);
+  const [attempt, setAttempt] = useState(0);
+  const retry = useCallback(() => setAttempt((current) => current + 1), []);
 
   useEffect(() => {
     let active = true;
@@ -37,6 +42,7 @@ export function useSellerInsights() {
       setLoading(true);
       setRefreshing(false);
     }
+    setError(false);
 
     fetchSellerInsights()
       .then((nextInsights) => {
@@ -48,7 +54,9 @@ export function useSellerInsights() {
           setInsights(normalizedInsights);
         }
       })
-      .catch(() => {})
+      .catch(() => {
+        if (active && !SELLER_INSIGHTS_MEMORY.loaded) setError(true);
+      })
       .finally(() => {
         if (active) {
           setLoading(false);
@@ -59,7 +67,7 @@ export function useSellerInsights() {
     return () => {
       active = false;
     };
-  }, []);
+  }, [attempt]);
 
   return {
     ...insights,
@@ -67,5 +75,7 @@ export function useSellerInsights() {
     isInitialLoading: loading && !SELLER_INSIGHTS_MEMORY.loaded,
     refreshing,
     isRefreshing: refreshing,
+    error,
+    retry,
   };
 }

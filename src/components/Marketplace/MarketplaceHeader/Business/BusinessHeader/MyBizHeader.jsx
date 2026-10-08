@@ -2,7 +2,6 @@ import { useSellerHeader } from "../../../../../Backend/hooks/useSellerHeader";
 import { useI18n, t } from "../../../../../i18n";
 import SellerHeaderActions from "./SellerHeaderActions";
 import SellerHeaderTitle from "./SellerHeaderTitle";
-import SellerSearch from "./SellerSearch";
 import BusinessSwitcher from "./BusinessSwitcher";
 
 export default function MyBizHeader({ activeBusinessId, businesses, addBusinessPlanLabel = "", addBusinessLoading = false, onAddBusiness, onBack, onAddProduct, onOrders, onMessages, onAlerts, onMenu, onSwitchBusiness, primaryActionLabel = t("urmall.biz.header.addProduct"), showOrders = true, showAddProduct = true, showMessages = true }) {
@@ -14,12 +13,6 @@ export default function MyBizHeader({ activeBusinessId, businesses, addBusinessP
       <header className="sticky top-0 z-30 border-b bg-white">
         <div className="flex h-16 w-full items-center justify-between gap-3 px-4 sm:px-6 lg:px-8">
           <SellerHeaderTitle onBack={onBack} />
-
-          <SellerSearch
-            query={sellerHeader.query}
-            onQueryChange={sellerHeader.setQuery}
-            results={sellerHeader.searchResults}
-          />
 
           <BusinessSwitcher activeBusinessId={activeBusinessId} businesses={businesses} addBusinessPlanLabel={addBusinessPlanLabel} addBusinessLoading={addBusinessLoading} onAddBusiness={onAddBusiness} onSwitch={onSwitchBusiness} />
 

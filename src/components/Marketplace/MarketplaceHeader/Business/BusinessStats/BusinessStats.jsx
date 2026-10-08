@@ -28,6 +28,7 @@ import SalesMetricCard from "./SalesMetricCard";
 import { uiText as translateUi, useI18n as useUiLocale } from "../../../../../i18n/index.js";
 import { inlineErrorMessage } from "../../../../../Backend/services/friendlyErrorService";
 import AppPortal from "../../../../shared/AppPortal";
+import SellerLoadError from "../SellerLoadError";
 
 function orderStatusTone(status) {
   if (status === "completed") return "bg-emerald-50 text-emerald-700";
@@ -42,6 +43,11 @@ function formatOrderDate(value) {
   return new Date(value).toLocaleDateString(undefined, { month: "short", day: "numeric", year: "numeric" });
 }
 
+// An order is shown in the currency it was placed in, not the device's.
+function formatOrderAmount(order) {
+  return formatCurrency(order.totalAmount, order.currency || order.countryIso);
+}
+
 function getOrderAddress(order) {
   const details = parseOrderDeliveryDetails(order.deliveryLocation);
   return details.address || details.raw;
@@ -49,13 +55,17 @@ function getOrderAddress(order) {
 
 export default function BusinessStats({ initialView = "revenue" }) {
   useI18n();
-  const { revenue, orders, averageOrderValue, bestSalesWindow, recentOrders, loading } = useSellerSales();
+  const { revenue, orders, averageOrderValue, bestSalesWindow, recentOrders, currency, loading, error, retry } = useSellerSales();
   const [activeView, setActiveView] = useState(initialView);
   // Optimistic overlay on the fetched orders: status patches by id plus
   // tombstones for deletes, so an emptied list never falls back to stale rows.
   const [orderStatusPatches, setOrderStatusPatches] = useState({});
   const [deletedOrderIds, setDeletedOrderIds] = useState(() => new Set());
   const [feedback, setFeedback] = useState("");
+
+  if (!loading && (error || !revenue || !orders || !bestSalesWindow)) {
+    return <SellerLoadError onRetry={retry} />;
+  }
 
   if (loading || !revenue || !orders || !bestSalesWindow) {
     return (
@@ -165,13 +175,13 @@ export default function BusinessStats({ initialView = "revenue" }) {
       <div key={activeView} className="kt-seller-detail-swap space-y-4">
         {activeView === "revenue" ? (
           <>
-            <RevenueMetrics revenue={revenue} />
+            <RevenueMetrics revenue={revenue} currency={currency} />
 
             <div className="grid gap-3 lg:grid-cols-[320px_minmax(0,1fr)]">
               <SalesMetricCard
                 icon={ShoppingBag}
                 label={t("urmall.biz.stats.avgOrderValue")}
-                value={formatCurrency(averageOrderValue)}
+                value={formatCurrency(averageOrderValue, currency)}
                 helper={t("urmall.biz.stats.avgOrderValueHelper")}
               />
               <BestSalesWindowCard window={bestSalesWindow} />
@@ -302,7 +312,7 @@ function SellerOrderDetailSheet({ order, onClose, onStatusChange, onDelete, onLo
           <span className={`rounded-lg px-2.5 py-1 text-xs font-black capitalize ${orderStatusTone(order.status)}`}>
             {translateUi(order.status)}
           </span>
-          <p className="text-xl font-black text-gray-950">{formatCurrency(order.totalAmount)}</p>
+          <p className="text-xl font-black text-gray-950">{formatOrderAmount(order)}</p>
         </div>
 
         <div className="mt-4 space-y-2">
@@ -464,7 +474,7 @@ function SellerOrderQueue({ orders = [], onStatusChange, onDelete, onLocate }) {
                   >
                     <MoreHorizontal size={18} />
                   </button>
-                  <p className="text-base font-black text-gray-950">{formatCurrency(order.totalAmount)}</p>
+                  <p className="text-base font-black text-gray-950">{formatOrderAmount(order)}</p>
                   <p className={`rounded-lg px-2.5 py-1 text-xs font-black capitalize ${orderStatusTone(order.status)}`}>
                     {translateUi(order.status)}
                   </p>

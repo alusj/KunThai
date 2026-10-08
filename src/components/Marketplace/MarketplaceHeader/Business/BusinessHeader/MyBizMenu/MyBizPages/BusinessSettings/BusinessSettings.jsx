@@ -1,5 +1,5 @@
 import { Clock3, Layers3, Store } from "lucide-react";
-import { useState } from "react";
+import { useSellerSubScreens } from "../useSellerSubScreens";
 
 import { useI18n, t } from "../../../../../../../../i18n";
 import SellerMenuPageHeader from "../SellerMenuPageHeader";
@@ -11,7 +11,7 @@ import StoreDetails from "./StoreDetails/StoreDetails";
 
 export default function BusinessSettings({ onBack }) {
   useI18n();
-  const [currentView, setCurrentView] = useState("menu");
+  const { currentView, open: setCurrentView, goBack: goBackSubView } = useSellerSubScreens("settings");
 
   return (
     <div className="relative min-h-full bg-white">
@@ -39,9 +39,9 @@ export default function BusinessSettings({ onBack }) {
 
       <SellerSubPagePanel currentView={currentView}>
         {(view) => {
-          if (view === "details") return <StoreDetails onBack={() => setCurrentView("menu")} />;
-          if (view === "categories") return <Categories onBack={() => setCurrentView("menu")} />;
-          if (view === "hours") return <OperatingHours onBack={() => setCurrentView("menu")} />;
+          if (view === "details") return <StoreDetails onBack={goBackSubView} />;
+          if (view === "categories") return <Categories onBack={goBackSubView} />;
+          if (view === "hours") return <OperatingHours onBack={goBackSubView} />;
           return null;
         }}
       </SellerSubPagePanel>

@@ -1,7 +1,7 @@
 import { useI18n, t } from "../../../../../i18n";
 import ProductManagementRow from "./ProductManagementRow";
 
-export default function ProductManagementList({ mode = "store", products, onAction, onViewProduct, insightsLocked = false }) {
+export default function ProductManagementList({ mode = "store", products, onAction, onViewProduct, insightsLocked = false, canView = true, canEdit = true, canViewInsights = true }) {
   useI18n();
   return (
     <section className="overflow-hidden rounded-xl border border-gray-200 bg-white shadow-sm">
@@ -21,6 +21,9 @@ export default function ProductManagementList({ mode = "store", products, onActi
             insightsLocked={insightsLocked}
             onAction={onAction}
             onViewProduct={onViewProduct}
+            canView={canView}
+            canEdit={canEdit}
+            canViewInsights={canViewInsights}
           />
         ))}
       </div>

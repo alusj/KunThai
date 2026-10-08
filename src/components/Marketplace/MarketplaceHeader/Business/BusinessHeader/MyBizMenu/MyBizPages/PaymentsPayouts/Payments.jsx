@@ -1,5 +1,5 @@
 import { Landmark, ReceiptText, ShieldCheck, WalletCards } from "lucide-react";
-import { useState } from "react";
+import { useSellerSubScreens } from "../useSellerSubScreens";
 
 import { useI18n, t } from "../../../../../../../../i18n";
 import SellerMenuPageHeader from "../SellerMenuPageHeader";
@@ -11,7 +11,7 @@ import WithdrawalHistory from "./WithdrawalHistory/WithdrawalHistory";
 
 export default function Payments({ onBack }) {
   useI18n();
-  const [currentView, setCurrentView] = useState("menu");
+  const { currentView, open: setCurrentView, goBack: goBackSubView } = useSellerSubScreens("payments");
 
   return (
     <div className="relative min-h-full bg-white">
@@ -53,9 +53,9 @@ export default function Payments({ onBack }) {
 
       <SellerSubPagePanel currentView={currentView}>
         {(view) => {
-          if (view === "bank") return <BankDetails onBack={() => setCurrentView("menu")} />;
-          if (view === "transactions") return <Transactions onBack={() => setCurrentView("menu")} />;
-          if (view === "history") return <WithdrawalHistory onBack={() => setCurrentView("menu")} />;
+          if (view === "bank") return <BankDetails onBack={goBackSubView} />;
+          if (view === "transactions") return <Transactions onBack={goBackSubView} />;
+          if (view === "history") return <WithdrawalHistory onBack={goBackSubView} />;
           return null;
         }}
       </SellerSubPagePanel>

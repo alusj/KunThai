@@ -3,8 +3,10 @@ import { useCallback, useEffect, useRef, useState } from "react";
 import { fetchSellerOverview } from "../services/marketplace/sellerOverviewService";
 import {
   MARKETPLACE_BUSINESS_CHANGED_EVENT,
+  MARKETPLACE_BUSINESS_UPDATED_EVENT,
   readCachedActiveRegisteredBusinessId,
 } from "../services/marketplace/sellerRegistrationService";
+import { registerSellerAccountReset } from "./sellerMemoryRegistry";
 
 const DEFAULT_OVERVIEW = {
   business: null,
@@ -21,6 +23,14 @@ const SELLER_OVERVIEW_MEMORY = {
 };
 const OVERVIEW_STORAGE_KEY = "kunthai.sellerOverview";
 const MAX_CACHED_BUSINESSES = 8;
+
+// The stored overview (key above) is dropped by the registry on sign-out or
+// an account change; the in-memory copy goes with it.
+registerSellerAccountReset(() => {
+  SELLER_OVERVIEW_MEMORY.overview = null;
+  SELLER_OVERVIEW_MEMORY.savedAt = 0;
+  SELLER_OVERVIEW_MEMORY.byBusiness.clear();
+});
 
 // Rehydrate the last seller overview across reloads so the dashboard opens with
 // real numbers instead of a skeleton or zeroed stats; a silent refresh follows.
@@ -191,10 +201,15 @@ export function useSellerOverview({ enabled = true } = {}) {
 
     window.addEventListener("marketplace-message-sent", handleMessagesUpdated);
     window.addEventListener("marketplace-seller-messages-updated", handleMessagesUpdated);
+    window.addEventListener("marketplace-orders-updated", handleMessagesUpdated);
+    // A saved profile/settings change keeps the business: refresh in place.
+    window.addEventListener(MARKETPLACE_BUSINESS_UPDATED_EVENT, handleMessagesUpdated);
     window.addEventListener(MARKETPLACE_BUSINESS_CHANGED_EVENT, handleBusinessChanged);
     return () => {
       window.removeEventListener("marketplace-message-sent", handleMessagesUpdated);
       window.removeEventListener("marketplace-seller-messages-updated", handleMessagesUpdated);
+      window.removeEventListener("marketplace-orders-updated", handleMessagesUpdated);
+      window.removeEventListener(MARKETPLACE_BUSINESS_UPDATED_EVENT, handleMessagesUpdated);
       window.removeEventListener(MARKETPLACE_BUSINESS_CHANGED_EVENT, handleBusinessChanged);
     };
   }, [enabled, loadOverview]);

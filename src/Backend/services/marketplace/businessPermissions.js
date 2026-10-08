@@ -12,8 +12,25 @@
 // Every account may create its own business, and owners may explicitly delegate
 // profile editing or plans/capacity.
 
+// Until the business (and so the person's role in it) is known, nothing is
+// granted: an invited admin must never briefly hold owner rights while the
+// business list loads.
+const NO_PERMISSIONS = Object.freeze({
+  role: "",
+  isOwner: false,
+  isAdmin: false,
+  canAddProducts: false,
+  canReplyMessages: false,
+  canAccessDashboard: false,
+  canEditBusiness: false,
+  canManageBusiness: false,
+  canManagePlans: false,
+  hasAnyAccess: false,
+});
+
 export function getBusinessPermissions(business) {
-  const role = business?.role || "owner";
+  if (!business) return NO_PERMISSIONS;
+  const role = business.role || "owner";
   const isAdmin = role === "admin";
   const responsibilities = business?.adminResponsibilities || {};
 

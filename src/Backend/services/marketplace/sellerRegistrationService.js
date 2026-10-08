@@ -77,6 +77,10 @@ export const URMALL_BUSINESS_KIND_LABELS = {
 const ACTIVE_BUSINESS_PREFIX = "kunthai.marketplace.active-business.v1";
 const ACTIVE_BUSINESS_HINT_KEY = "kunthai.marketplace.active-business-hint.v1";
 export const MARKETPLACE_BUSINESS_CHANGED_EVENT = "kunthai-marketplace-business-changed";
+// The active business stayed the same but its profile/settings were saved.
+// Separate from the "changed" event so it refreshes the dashboard, header and
+// switcher without running the business-switch flow or clearing seller memory.
+export const MARKETPLACE_BUSINESS_UPDATED_EVENT = "kunthai-marketplace-business-updated";
 
 export const INITIAL_REGISTRATION = {
   identity: {
@@ -822,6 +826,16 @@ export async function updateRegisteredBusinessProfile(updates) {
       businessDocumentFile: updates.trustPayout?.businessDocumentFile || null,
     },
   };
+  // A new address, city or country moves the store, so the old map pin no
+  // longer matches it. Settings pages edit the text without a map: the pin is
+  // cleared (as the registration wizard's updateSection does) unless sent.
+  const nextLocation = updates.location || {};
+  const movedLocation = ["address", "city", "country"].some((field) =>
+    Object.prototype.hasOwnProperty.call(nextLocation, field)
+      && String(nextLocation[field] || "").trim() !== String(currentBusiness.location?.[field] || "").trim());
+  if (movedLocation && !Object.prototype.hasOwnProperty.call(nextLocation, "coordinates")) {
+    registration.location.coordinates = null;
+  }
   const countryProfile = getActiveCountryProfile(registration.location.country || registration.location.countryIso);
   const documentRequirements = getUrMallDocumentRequirements({
     country: registration.location.country,
@@ -917,7 +931,7 @@ export async function updateRegisteredBusinessProfile(updates) {
 
   // Delegated editors may change public business information, but financial
   // payout details and verification documents always remain owner-only.
-  if (delegatedAdmin) return readRegisteredBusiness({ fresh: true });
+  if (delegatedAdmin) return announceBusinessUpdated(await readRegisteredBusiness({ fresh: true }));
 
   const payoutPayload = registration.trustPayout.skipped
     ? {
@@ -948,7 +962,16 @@ export async function updateRegisteredBusinessProfile(updates) {
 
   await insertBusinessDocumentRows(buildBusinessDocumentRows(currentBusiness.id, documentUploads));
 
-  return readRegisteredBusiness({ fresh: true });
+  return announceBusinessUpdated(await readRegisteredBusiness({ fresh: true }));
+}
+
+// Tells the overview, dashboard business list, header and switcher to reload
+// the saved profile. Sent after the fresh read so listeners get the new data.
+function announceBusinessUpdated(business) {
+  if (typeof window !== "undefined" && business?.id) {
+    window.dispatchEvent(new CustomEvent(MARKETPLACE_BUSINESS_UPDATED_EVENT, { detail: { businessId: business.id } }));
+  }
+  return business;
 }
 
 function readinessItem(key, label, complete) {

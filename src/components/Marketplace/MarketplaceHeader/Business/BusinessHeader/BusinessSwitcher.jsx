@@ -6,7 +6,7 @@ import { resizedImageUrl } from "../../../../../Backend/lib/imageProxy";
 import { useI18n, t } from "../../../../../i18n";
 import CenteredModal from "../../../../shared/CenteredModal";
 import useBodyScrollLock from "../../../../shared/useBodyScrollLock";
-import { t as i18nText } from "../../../../../i18n/index";
+import { verificationStatusLabel } from "../../../../../Backend/services/marketplace/verificationStatusLabel";
 
 const ICONS = { retail: Store, restaurant: UtensilsCrossed, hotel: Hotel, property_agent: House };
 const BUSINESS_KIND_KEYS = {
@@ -14,6 +14,7 @@ const BUSINESS_KIND_KEYS = {
   restaurant: "urmall.biz.header.bizKindRestaurant",
   hotel: "urmall.biz.header.bizKindHotel",
   property_agent: "urmall.biz.header.bizKindRealEstate",
+  vendor: "sellerFix.bizKindVendor",
 };
 const labelBusinessKind = (kind = "retail") => BUSINESS_KIND_KEYS[kind] ? t(BUSINESS_KIND_KEYS[kind]) : kind.replaceAll("_", " ");
 
@@ -132,7 +133,7 @@ export default function BusinessSwitcher({ activeBusinessId, businesses = [], ad
                           ) : null}
                         </span>
                         <span className="mt-0.5 block text-xs font-bold capitalize text-gray-500">
-                          {labelBusinessKind(business.businessKind)} · {business.verificationStatus || i18nText("ui.literals.ke22586930a5b")}
+                          {labelBusinessKind(business.businessKind)} · {verificationStatusLabel(business.verificationStatus)}
                         </span>
                         {!active && attentionCount ? (
                           <span className="mt-1 block text-xs font-black text-red-600">

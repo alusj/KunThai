@@ -50,6 +50,44 @@ function getVerificationLabel(status) {
   return "Not verified";
 }
 
+const WEEKDAYS = ["Sun", "Mon", "Tue", "Wed", "Thu", "Fri", "Sat"];
+
+function minutesOfDay(value) {
+  const match = String(value || "").match(/^(\d{1,2}):(\d{2})/);
+  if (!match) return null;
+  return Number(match[1]) * 60 + Number(match[2]);
+}
+
+// Open/closed from the saved operating days and hours, in the device's local
+// time. null (no badge) when the business has no hours set.
+export function getStoreOpenState(operations = {}, now = new Date()) {
+  const open = minutesOfDay(operations.openTime);
+  const close = minutesOfDay(operations.closeTime);
+  if (open === null || close === null) return null;
+  const days = Array.isArray(operations.operatingDays) ? operations.operatingDays : [];
+  const current = now.getHours() * 60 + now.getMinutes();
+  const today = WEEKDAYS[now.getDay()];
+  const yesterday = WEEKDAYS[(now.getDay() + 6) % 7];
+  const worksOn = (day) => !days.length || days.some((item) => String(item).slice(0, 3).toLowerCase() === day.toLowerCase());
+  if (open === close) return worksOn(today);
+  if (open < close) return worksOn(today) && current >= open && current < close;
+  // Overnight hours (e.g. 18:00–02:00) run past midnight into the next day.
+  return (worksOn(today) && current >= open) || (worksOn(yesterday) && current < close);
+}
+
+// Average rating and count from the business's marketplace reviews. A
+// missing table or failed read shows no rating rather than failing the page.
+async function fetchBusinessRating(businessId) {
+  const { data, error } = await supabase
+    .from("marketplace_reviews")
+    .select("rating")
+    .eq("business_id", businessId);
+  if (error) return { rating: 0, reviewCount: 0 };
+  const ratings = (data || []).map((row) => Number(row.rating || 0)).filter((value) => value > 0);
+  const total = ratings.reduce((sum, value) => sum + value, 0);
+  return { rating: ratings.length ? total / ratings.length : 0, reviewCount: ratings.length };
+}
+
 export async function fetchSellerOverview() {
   const registeredBusiness = await readRegisteredBusiness();
 
@@ -81,7 +119,7 @@ export async function fetchSellerOverview() {
   // Load the active vertical's listings beside the overview queries. Retail
   // already reaches the dashboard with its product data warm; doing this in
   // the same request phase removes the second loading step for other kinds.
-  const [ordersResult, messagesResult, productsResult, bookingsResult, verticalWorkspace] = await Promise.all([
+  const [ordersResult, messagesResult, productsResult, bookingsResult, verticalWorkspace, ratingSummary] = await Promise.all([
     supabase
       .from("marketplace_orders")
       .select("*")
@@ -103,6 +141,7 @@ export async function fetchSellerOverview() {
       .eq("business_id", registeredBusiness.id)
       .order("created_at", { ascending: false }),
     verticalWorkspacePromise,
+    fetchBusinessRating(registeredBusiness.id).catch(() => ({ rating: 0, reviewCount: 0 })),
   ]);
 
   if (ordersResult.error) throw new Error(ordersResult.error.message);
@@ -116,7 +155,10 @@ export async function fetchSellerOverview() {
   const bookings = isMissingTable(bookingsResult.error) ? [] : bookingsResult.data || [];
   const todaysOrders = orders.filter((order) => new Date(order.created_at) >= todayStart);
   const todaysBookings = bookings.filter((booking) => new Date(booking.created_at) >= todayStart);
-  const todaysCompletedOrders = todaysOrders.filter((order) => order.status === "completed");
+  // Today's revenue is what was completed today, whenever it was ordered.
+  const completedAt = (order) => order.completed_at || order.updated_at || order.created_at;
+  const todaysCompletedOrders = orders.filter((order) => order.status === "completed" && new Date(completedAt(order)) >= todayStart);
+  const businessCurrency = registeredBusiness.location.currency || registeredBusiness.location.countryIso || "";
   const unreadMessages = messages.filter(
     (message) => message.unread && (message.sender_role || "buyer") === "buyer",
   );
@@ -130,6 +172,8 @@ export async function fetchSellerOverview() {
       id: order.id,
       title: `Order ${String(order.id).slice(0, 8)}`,
       value: Number(order.total_amount || 0),
+      money: true,
+      currency: order.currency || order.country_iso || businessCurrency,
       status: order.status,
       time: timeLabel(order.created_at),
       createdAt: order.created_at,
@@ -160,11 +204,12 @@ export async function fetchSellerOverview() {
       verified,
       verificationStatus,
       verificationLabel: getVerificationLabel(verificationStatus),
-      rating: 0,
-      reviewCount: 0,
+      rating: ratingSummary.rating,
+      reviewCount: ratingSummary.reviewCount,
     },
     storeStatus: {
-      open: true,
+      // null when no hours are saved: the dashboard then shows no badge.
+      open: getStoreOpenState(registeredBusiness.operations),
       deliveryEnabled: registeredBusiness.operations.deliveryEnabled,
       pickupEnabled: registeredBusiness.operations.pickupEnabled,
     },
@@ -181,6 +226,7 @@ export async function fetchSellerOverview() {
         ? "Booking and property requests created today."
         : "Orders created today, including pending and completed orders.",
       revenue: moneyTotal(todaysCompletedOrders),
+      currency: businessCurrency,
       pendingMessages: unreadMessages.length,
       lowStockAlerts: lowStockProducts.length,
       details: {
@@ -189,8 +235,10 @@ export async function fetchSellerOverview() {
           id: order.id,
           title: `Completed order ${String(order.id).slice(0, 8)}`,
           value: Number(order.total_amount || 0),
+          money: true,
+          currency: order.currency || order.country_iso || businessCurrency,
           status: order.status,
-          time: timeLabel(order.created_at),
+          time: timeLabel(completedAt(order)),
         })),
         messages: unreadMessages.slice(0, 8).map((message) => ({
           id: message.id,

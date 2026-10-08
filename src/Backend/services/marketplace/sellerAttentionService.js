@@ -1,4 +1,5 @@
 import supabase from "../../lib/supabaseClient";
+import { isProductBusinessKind } from "./marketplaceBusinessKinds";
 import { calculateReadinessScore, readRegisteredBusiness } from "./sellerRegistrationService";
 
 export async function fetchSellerAttentionItems() {
@@ -10,10 +11,16 @@ export async function fetchSellerAttentionItems() {
 
   const items = [];
   const readinessScore = calculateReadinessScore(registeredBusiness);
-  const { count: productCount } = await supabase
-    .from("marketplace_products")
-    .select("id", { count: "exact", head: true })
-    .eq("business_id", registeredBusiness.id);
+  // Only retail and vendor businesses list marketplace_products. Restaurants,
+  // hotels and property agents keep their inventory in their own editors, so
+  // a product count would never clear for them: they get no such item.
+  const usesProducts = isProductBusinessKind(registeredBusiness.businessKind);
+  const { count: productCount } = usesProducts
+    ? await supabase
+      .from("marketplace_products")
+      .select("id", { count: "exact", head: true })
+      .eq("business_id", registeredBusiness.id)
+    : { count: null };
 
   if (readinessScore < 100) {
     items.push({
@@ -28,7 +35,7 @@ export async function fetchSellerAttentionItems() {
     });
   }
 
-  if (!productCount) {
+  if (usesProducts && !productCount) {
     items.push({
       id: "add-first-product",
       type: "inventory",

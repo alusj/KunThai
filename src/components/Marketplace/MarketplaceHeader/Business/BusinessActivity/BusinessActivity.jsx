@@ -2,6 +2,8 @@ import { useEffect, useRef, useState } from "react";
 
 import { useSellerActivities } from "../../../../../Backend/hooks/useSellerActivities";
 import { useI18n, t } from "../../../../../i18n";
+import { showToast } from "../../../../../Backend/services/toastService";
+import { shortErrorToast } from "../../../../../Backend/services/friendlyErrorService";
 import ActivityItem from "./ActivityItem";
 import ActivitySummary from "./ActivitySummary";
 
@@ -42,6 +44,8 @@ export default function BusinessActivity({ onViewProduct }) {
     try {
       setActionBusyId(activity.id);
       await onViewProduct?.(activity);
+    } catch (error) {
+      showToast(shortErrorToast(error, t("sellerFix.productOpenFailed")), "danger");
     } finally {
       setActionBusyId("");
     }

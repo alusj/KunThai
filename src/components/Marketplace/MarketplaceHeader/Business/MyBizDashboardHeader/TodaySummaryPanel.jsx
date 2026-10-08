@@ -32,7 +32,8 @@ export default function TodaySummaryPanel({ item }) {
                 </p>
               </div>
               <p className="shrink-0 text-sm font-black text-gray-900">
-                {item.money ? formatCurrency(row.value) : row.value}
+                {/* Order amounts carry their own currency; other rows are text. */}
+                {item.money || row.money ? formatCurrency(row.value, row.currency || item.currency) : row.value}
               </p>
             </div>
           ))}

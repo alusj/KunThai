@@ -4,6 +4,7 @@ import EmptyCatalogState from "./EmptyCatalogState";
 import ProductManagementList from "./ProductManagementList";
 import ProductSummaryGrid from "./ProductSummaryGrid";
 import TopSellingProducts from "./TopSellingProducts";
+import SellerLoadError from "../SellerLoadError";
 import { uiText as translateUi, useI18n as useUiLocale } from "../../../../../i18n/index.js";
 
 export default function BusinessCatalog({ mode = "store", onEditProduct, onPromoteProduct, onViewInsights, onViewProduct, insightsLocked = false }) {
@@ -18,8 +19,11 @@ export default function BusinessCatalog({ mode = "store", onEditProduct, onPromo
     actionError,
     handleProductAction,
     loading,
+    error,
+    retry,
   } = useSellerProducts();
 
+  if (!loading && (error || !summary)) return <SellerLoadError onRetry={retry} />;
   if (loading || !summary) return <SectionSkeleton title={t("urmall.biz.cat.loadingCatalog")} />;
 
   const storeProducts = products.filter((product) => product.status !== "draft");
@@ -81,6 +85,11 @@ export default function BusinessCatalog({ mode = "store", onEditProduct, onPromo
           products={visibleProducts}
           insightsLocked={insightsLocked}
           onViewProduct={onViewProduct}
+          // Hosts without a product detail, editor or insights screen (the
+          // Seller Board) don't offer those actions rather than dead buttons.
+          canView={Boolean(onViewProduct)}
+          canEdit={Boolean(onEditProduct)}
+          canViewInsights={Boolean(onViewInsights)}
           onAction={(product, action) => {
             if (action === "view-product") {
               onViewProduct?.(product);

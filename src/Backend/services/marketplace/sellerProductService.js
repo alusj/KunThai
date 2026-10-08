@@ -164,6 +164,8 @@ function normalizeSellerProduct(product, livePromotions = null) {
     description: product.description,
     price: Number(product.price || 0),
     discountPrice: product.discount_price === null ? null : Number(product.discount_price || 0),
+    currency: product.currency || "",
+    countryIso: product.country_iso || "",
     condition: product.condition,
     brand: product.brand,
     model: product.model,

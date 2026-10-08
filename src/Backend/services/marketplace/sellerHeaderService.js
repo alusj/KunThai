@@ -11,13 +11,6 @@ const SELLER_HEADER_STATE = {
   orderItems: [],
   messageItems: [],
   notificationItems: [],
-  searchSuggestions: [
-    "Headphones",
-    "Pending orders",
-    "Low stock",
-    "Payouts",
-    "Store settings",
-  ],
 };
 
 export async function fetchSellerHeaderState() {
@@ -140,16 +133,4 @@ export async function fetchBusinessAttentionCounts(businessIds = []) {
 
   const total = Object.values(byBusiness).reduce((sum, item) => sum + item.orders + item.messages, 0);
   return { total, byBusiness };
-}
-
-export async function searchSellerWorkspace(query) {
-  const trimmedQuery = query.trim().toLowerCase();
-
-  if (!trimmedQuery) {
-    return [];
-  }
-
-  return SELLER_HEADER_STATE.searchSuggestions.filter((item) =>
-    item.toLowerCase().includes(trimmedQuery),
-  );
 }

@@ -7,10 +7,11 @@ import {
 } from "../../../../../../../../../Backend/services/marketplace/sellerRegistrationService";
 import { useI18n, t } from "../../../../../../../../../i18n";
 import SellerMenuPageHeader from "../../SellerMenuPageHeader";
-import { t as i18nText } from "../../../../../../../../../i18n/index";
 import { resizedImageUrl } from "../../../../../../../../../Backend/lib/imageProxy";
 import { uiText as translateUi, useI18n as useUiLocale } from "../../../../../../../../../i18n/index.js";
 import { inlineErrorMessage } from "../../../../../../../../../Backend/services/friendlyErrorService";
+import { verificationStatusLabel } from "../../../../../../../../../Backend/services/marketplace/verificationStatusLabel";
+import { validateContactFields, whatsappToSave } from "../../settingsContact";
 
 const inputClass =
   "mt-2 w-full rounded-xl border border-gray-200 bg-white px-4 py-3 text-sm font-semibold text-gray-950 outline-none transition focus:border-gray-950 focus:ring-4 focus:ring-gray-950/10";
@@ -89,6 +90,20 @@ export default function EditProfile({ onBack }) {
       return;
     }
 
+    // Numbers are checked against the business's saved country (edited in
+    // Store settings); WhatsApp must be a number or a wa.me link.
+    const businessCountry = business?.location?.country || business?.location?.countryIso;
+    const contactError = validateContactFields({
+      country: businessCountry,
+      phone: form.phone,
+      whatsapp: form.whatsapp,
+      editsCountry: false,
+    });
+    if (contactError) {
+      setError(contactError);
+      return;
+    }
+
     setSaving(true);
     setError("");
     setStatus("");
@@ -103,7 +118,7 @@ export default function EditProfile({ onBack }) {
         location: {
           phone: form.phone,
           whatsappEnabled: form.whatsappEnabled,
-          whatsapp: form.whatsapp,
+          whatsapp: whatsappToSave(form.whatsapp, businessCountry),
           email: form.email,
           website: form.website,
         },
@@ -156,7 +171,7 @@ export default function EditProfile({ onBack }) {
                   {business?.identity?.businessName || t("urmall.biz.profile.sellerProfileFallback")}
                 </p>
                 <p className="text-xs font-semibold text-gray-500">
-                  {t("urmall.biz.profile.verificationSuffix", { status: business?.verificationStatus || i18nText("ui.literals.ke22586930a5b") })}
+                  {t("urmall.biz.profile.verificationSuffix", { status: verificationStatusLabel(business?.verificationStatus) })}
                 </p>
               </div>
 

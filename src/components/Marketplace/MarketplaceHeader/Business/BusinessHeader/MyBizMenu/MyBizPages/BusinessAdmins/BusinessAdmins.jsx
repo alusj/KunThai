@@ -19,7 +19,7 @@ import { t as i18nText } from "../../../../../../../../i18n/index";
 import { fetchBusinessSubscription, getCapacityStatus } from "../../../../../../../../Backend/services/businessSubscriptionService";
 import { hasBusinessPlans } from "../../../../../../../../Backend/services/marketplace/marketplaceBusinessKinds";
 import { uiText as translateUi } from "../../../../../../../../i18n/index.js";
-import { shortErrorToast } from "../../../../../../../../Backend/services/friendlyErrorService";
+import { shortErrorToast } from "../../../../../../../../Backend/services/friendlyErrorService";
 import AppPortal from "../../../../../../../shared/AppPortal";
 
 const STATUS_STYLES = {
@@ -27,6 +27,21 @@ const STATUS_STYLES = {
   accepted: "bg-emerald-50 text-emerald-700 border-emerald-100",
   declined: "bg-rose-50 text-rose-700 border-rose-100",
 };
+
+// Every responsibility label and description is translated, including the
+// later-added "edit business" and "plans & billing" ones.
+const RESPONSIBILITY_KEYS = {
+  editBusiness: ["sellerFix.respEditBusinessLabel", "sellerFix.respEditBusinessDesc"],
+  manageBilling: ["sellerFix.respManageBillingLabel", "sellerFix.respManageBillingDesc"],
+};
+
+function responsibilityLabel(item) {
+  return t(RESPONSIBILITY_KEYS[item.key]?.[0] || `urmall.biz.admins.resp.${item.key}Label`);
+}
+
+function responsibilityDescription(item) {
+  return t(RESPONSIBILITY_KEYS[item.key]?.[1] || `urmall.biz.admins.resp.${item.key}Desc`);
+}
 
 export default function BusinessAdmins({ onBack, onOpenPlans }) {
   useI18n();
@@ -181,6 +196,11 @@ export default function BusinessAdmins({ onBack, onOpenPlans }) {
 
   async function removeAdmin(admin) {
     setActionAdmin(null);
+    // Removing an admin or cancelling an invite can't be undone with a tap.
+    const confirmMessage = admin.status === "pending"
+      ? t("sellerFix.cancelInviteConfirm")
+      : t("sellerFix.removeAdminConfirm");
+    if (!window.confirm(confirmMessage)) return;
     try {
       await removeBusinessAdmin(admin);
       haptics.medium("marketplace");
@@ -301,7 +321,7 @@ export default function BusinessAdmins({ onBack, onOpenPlans }) {
                     <div className="mt-3 flex flex-wrap gap-1.5 border-t border-gray-100 pt-3">
                       {availableResponsibilities.filter((item) => admin.responsibilities[item.key]).map((item) => (
                         <span key={item.key} className="rounded-full bg-emerald-50 px-2.5 py-1 text-[10px] font-black uppercase tracking-wide text-emerald-700">
-                          {translateUi(item.label)}
+                          {responsibilityLabel(item)}
                         </span>
                       ))}
                       {!availableResponsibilities.some((item) => admin.responsibilities[item.key]) ? (
@@ -361,8 +381,8 @@ export default function BusinessAdmins({ onBack, onOpenPlans }) {
                       <Check size={14} />
                     </span>
                     <span>
-                      <span className="block text-sm font-black text-gray-950">{["manageBilling", "editBusiness"].includes(item.key) ? item.label : t(`urmall.biz.admins.resp.${item.key}Label`)}</span>
-                      <span className="mt-0.5 block text-xs font-semibold leading-5 text-gray-500">{["manageBilling", "editBusiness"].includes(item.key) ? item.description : t(`urmall.biz.admins.resp.${item.key}Desc`)}</span>
+                      <span className="block text-sm font-black text-gray-950">{responsibilityLabel(item)}</span>
+                      <span className="mt-0.5 block text-xs font-semibold leading-5 text-gray-500">{responsibilityDescription(item)}</span>
                     </span>
                   </button>
                 );
