@@ -183,12 +183,18 @@ export function fallbackDecisionCapabilities(access, item = {}) {
 // fallback answer.
 export function normalizeDecisionCapabilities(raw, fallback) {
   const base = fallback || { decisions: {} };
-  const serverDecisions = raw && typeof raw === "object" && raw.decisions && typeof raw.decisions === "object" ? raw.decisions : null;
+  const rawDecisions = raw && typeof raw === "object" && raw.decisions && typeof raw.decisions === "object" ? raw.decisions : null;
+  // The RPC returns a list of { key, allowed, needsApproval, reason }; a map
+  // keyed by decision is accepted too.
+  const serverDecisions = Array.isArray(rawDecisions)
+    ? Object.fromEntries(rawDecisions.filter((entry) => entry?.key).map((entry) => [entry.key, entry]))
+    : rawDecisions;
   if (!serverDecisions) return { ...base, source: base.source || "fallback" };
   const decisions = Object.fromEntries(CASE_DECISION_KEYS.map((key) => {
     const entry = serverDecisions[key];
     if (!entry || typeof entry !== "object") return [key, base.decisions?.[key] || { allowed: false, requiresApproval: false, reason: null }];
-    return [key, { allowed: entry.allowed === true, requiresApproval: entry.requiresApproval === true, reason: entry.reason ? String(entry.reason) : null }];
+    const requiresApproval = entry.requiresApproval === true || entry.needsApproval === true;
+    return [key, { allowed: entry.allowed === true, requiresApproval, reason: entry.reason ? String(entry.reason) : null }];
   }));
   return { source: "server", decisions };
 }

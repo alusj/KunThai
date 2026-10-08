@@ -17,7 +17,7 @@ export const ADMIN_ROLES = [
   { key: "risk_officer", name: "Risk and Fraud Officer", rank: 50, authority: 3 },
   { key: "finance_officer", name: "Finance Officer", rank: 45, authority: 3 },
   { key: "reports_officer", name: "Reports and Safety Officer", rank: 40, authority: 2 },
-  { key: "verification_officer", name: "Verification Officer", rank: 40, authority: 3 },
+  { key: "verification_officer", name: "Verification Officer", rank: 40, authority: 2 },
   { key: "support_officer", name: "Support Officer", rank: 35, authority: 2 },
   { key: "notification_officer", name: "Notification Officer", rank: 35, authority: 2 },
   { key: "technical_admin", name: "Technical Admin", rank: 55, authority: 3 },

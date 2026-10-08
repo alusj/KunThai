@@ -133,6 +133,16 @@ test("server capabilities override the fallback; missing keys keep it", () => {
   assert.deepEqual(result.decisions.approve, { allowed: false, requiresApproval: false, reason: "Blocked" });
   assert.equal(result.decisions.resolve.allowed, true);
   assert.equal(normalizeDecisionCapabilities(null, fallback).source, "fallback");
+  // Shape returned by admin_case_decision_capabilities: a list with needsApproval.
+  const listed = normalizeDecisionCapabilities({ decisions: [
+    { key: "approve", allowed: true, needsApproval: false, reason: null },
+    { key: "suspend", allowed: true, needsApproval: true, reason: null },
+    { key: "remove", allowed: false, needsApproval: false, reason: "Restrict and Remove do not apply to verification cases." },
+  ] }, fallback);
+  assert.equal(listed.source, "server");
+  assert.deepEqual(listed.decisions.suspend, { allowed: true, requiresApproval: true, reason: null });
+  assert.equal(listed.decisions.remove.allowed, false);
+  assert.equal(listed.decisions.remove.reason, "Restrict and Remove do not apply to verification cases.");
   assert.ok(isMissingRpcError({ code: "PGRST202" }));
   assert.ok(!isMissingRpcError({ code: "42501", message: "permission denied" }));
 });
