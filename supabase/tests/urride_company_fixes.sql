@@ -51,7 +51,39 @@ create function public.get_public_transport_company_profile(p_company_id uuid) r
   left join public.transport_operators op on op.id = tf.operator_id
   where cf.company_id = p_company_id $$;
 
+-- Invite triggers as production had them before this migration. A legacy
+-- accepted invite with no linked operator made the old guard reject the
+-- expires_at backfill, which rolled the whole migration back.
+create table public.transport_operator_company_access(user_id uuid primary key, unlocked_at timestamptz, solo_started_at timestamptz, unlock_reason text, first_invite_id uuid);
+create function public.transport_company_invite_is_for_user(i uuid, u uuid default auth.uid()) returns boolean language sql stable as $$
+  select exists(select 1 from public.transport_company_operator_invites where id = i and operator_user_id = u) $$;
+create table public.legacy_member_sync_log(invite_id uuid);
+insert into public.transport_companies(id, owner_user_id) values ('00000000-0000-0000-0000-00000000c0de', '00000000-0000-0000-0000-00000000000a');
+insert into public.transport_company_operator_invites(id, company_id, status, operator_user_id, operator_id)
+values ('00000000-0000-0000-0000-0000000001e9', '00000000-0000-0000-0000-00000000c0de', 'accepted', null, null);
+create function public.transport_guard_company_invite_acceptance() returns trigger language plpgsql as $$
+begin
+  if new.status = 'accepted' and new.operator_user_id is null
+    and not exists (select 1 from public.transport_operators where id = new.operator_id and user_id is not null) then
+    raise exception 'Link your operator profile before accepting this invitation.';
+  end if;
+  return new;
+end $$;
+create trigger transport_guard_company_invite_acceptance_trigger before insert or update on public.transport_company_operator_invites
+  for each row execute function public.transport_guard_company_invite_acceptance();
+create function public.legacy_member_sync() returns trigger language plpgsql as $$
+begin insert into public.legacy_member_sync_log values (new.id); return new; end $$;
+create trigger legacy_member_sync_trigger after update on public.transport_company_operator_invites
+  for each row execute function public.legacy_member_sync();
+
 \ir ../migrations/20261008140000_urride_company_fixes.sql
+
+-- The backfill ran past the legacy invite without firing the invite triggers.
+do $$ begin
+  if (select expires_at is null from public.transport_company_operator_invites where id = '00000000-0000-0000-0000-0000000001e9') then
+    raise exception 'TEST FAILED: legacy accepted invite gets an expiry date'; end if;
+  if exists (select 1 from public.legacy_member_sync_log) then raise exception 'TEST FAILED: backfill does not fire member sync'; end if;
+end $$;
 
 create function public.test_assert(ok boolean, message text) returns void language plpgsql as $$ begin if ok is not true then raise exception 'TEST FAILED: %', message; end if; end $$;
 create function public.as_user(u text) returns void language sql as $$ select set_config('request.jwt.claim.sub', u, false) $$;
@@ -78,9 +110,19 @@ insert into public.transport_company_fleets(id, company_id, operator_id, operato
 insert into public.transport_fleets(id, operator_id, company_id, company_fleet_id) values
   ('60000000-0000-4000-8000-000000000001', '10000000-0000-4000-8000-0000000000a1', '20000000-0000-4000-8000-000000000001', '30000000-0000-4000-8000-000000000001'),
   ('60000000-0000-4000-8000-000000000002', '10000000-0000-4000-8000-0000000000a1', '20000000-0000-4000-8000-000000000001', '30000000-0000-4000-8000-000000000002');
+-- Seed accepted invites directly, as the app's earlier acceptance did.
+alter table public.transport_company_operator_invites disable trigger transport_guard_company_invite_acceptance_trigger;
 insert into public.transport_company_operator_invites(company_id, company_fleet_id, operator_id, operator_user_id, status) values
   ('20000000-0000-4000-8000-000000000001', '30000000-0000-4000-8000-000000000001', '10000000-0000-4000-8000-0000000000a1', '00000000-0000-4000-8000-000000000011', 'accepted'),
   ('20000000-0000-4000-8000-000000000001', '30000000-0000-4000-8000-000000000002', null, '00000000-0000-4000-8000-000000000011', 'accepted');
+
+alter table public.transport_company_operator_invites enable trigger transport_guard_company_invite_acceptance_trigger;
+
+-- 0. Editing an accepted legacy invite no longer trips the acceptance checks,
+--    but accepting an invite still needs a linked operator profile.
+update public.transport_company_operator_invites set updated_at = now() where id = '00000000-0000-0000-0000-0000000001e9';
+select public.expect_error($q$insert into public.transport_company_operator_invites(company_id, status) values ('00000000-0000-0000-0000-00000000c0de', 'accepted')$q$,
+  'Link your operator profile');
 
 -- 1. Invitations expire after 30 days and cannot be accepted
 insert into public.transport_company_operator_invites(id, company_id, operator_user_id, status, expires_at) values
@@ -92,7 +134,9 @@ alter table public.transport_company_operator_invites enable trigger guard_trans
 select expect_error($$update public.transport_company_operator_invites set status = 'accepted' where id = '50000000-0000-4000-8000-000000000001'$$, 'an expired invitation was accepted');
 update public.transport_company_operator_invites set status = 'revoked' where id = '50000000-0000-4000-8000-000000000001';
 update public.transport_company_operator_invites set status = 'pending' where id = '50000000-0000-4000-8000-000000000001';
+select public.as_user('00000000-0000-4000-8000-000000000021');
 update public.transport_company_operator_invites set status = 'accepted' where id = '50000000-0000-4000-8000-000000000001';
+select public.as_user('');
 select test_assert((select status = 'accepted' from public.transport_company_operator_invites where id = '50000000-0000-4000-8000-000000000001'), 'a reopened invitation gets a fresh 30 days');
 
 -- 1b. The owner cannot be invited as an operator

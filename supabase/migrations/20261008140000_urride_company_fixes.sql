@@ -28,9 +28,64 @@ begin;
 -- ---------------------------------------------------------------------------
 
 alter table public.transport_company_operator_invites add column if not exists expires_at timestamptz;
+-- Backfill without the invite triggers: older accepted invites with no linked
+-- operator profile would otherwise fail the acceptance guard, and the member
+-- sync must not re-create members for invites that are only being dated.
+alter table public.transport_company_operator_invites disable trigger user;
 update public.transport_company_operator_invites
 set expires_at = coalesce(created_at, now()) + interval '30 days'
 where expires_at is null;
+alter table public.transport_company_operator_invites enable trigger user;
+
+-- The acceptance checks (linked profile, rental fleet, access fee) apply when
+-- an invite becomes accepted, not to every later edit of an accepted invite.
+create or replace function public.transport_guard_company_invite_acceptance()
+returns trigger language plpgsql security definer set search_path = public as $$
+declare v_user uuid; v_access public.transport_operator_company_access;
+begin
+  if tg_op = 'UPDATE' then
+    if public.transport_company_invite_is_for_user(old.id, auth.uid()) then
+      if not (
+        (old.status = 'pending' and new.status in ('pending', 'accepted', 'rejected'))
+        or (old.status = 'accepted' and new.status in ('accepted', 'revoked'))
+        or (old.status in ('rejected', 'revoked', 'cancelled') and new.status = old.status)
+      ) then
+        raise exception 'This invitation cannot be reopened by its recipient. Ask the company for a new invitation.';
+      end if;
+      if new.operator_user_id is not null and new.operator_user_id is distinct from auth.uid() then
+        raise exception 'The recipient of this invitation cannot be changed.';
+      end if;
+    end if;
+    if public.transport_company_invite_is_for_user(old.id, auth.uid()) and (
+      new.company_id is distinct from old.company_id or new.company_fleet_id is distinct from old.company_fleet_id
+      or (old.operator_user_id is not null and new.operator_user_id is distinct from old.operator_user_id)
+      or (new.operator_id is not null and not exists (select 1 from public.transport_operators where id = new.operator_id and user_id = auth.uid()))
+    ) then raise exception 'The company and recipient of an invitation cannot be changed by its recipient.'; end if;
+  end if;
+  if new.status <> 'accepted' then return new; end if;
+  if tg_op = 'UPDATE' and old.status = 'accepted' then return new; end if;
+  if exists (select 1 from public.transport_company_fleets where id = new.company_fleet_id and lower(service_category) = 'rental') then
+    raise exception 'Rental fleets are managed by the company and cannot have assigned operators.';
+  end if;
+  select coalesce(new.operator_user_id, operator.user_id) into v_user
+  from (select 1) stub left join public.transport_operators operator on operator.id = new.operator_id;
+  if v_user is null then raise exception 'Link your operator profile before accepting this invitation.'; end if;
+  if auth.uid() is distinct from v_user then raise exception 'Only the invited operator may accept this invitation.'; end if;
+  select * into v_access from public.transport_operator_company_access where user_id = v_user for update;
+  if v_access.unlocked_at is null then
+    if v_access.solo_started_at is not null or exists (
+      select 1 from public.transport_fleets fleet join public.transport_operators operator on operator.id = fleet.operator_id
+      where operator.user_id = v_user and fleet.company_id is null and fleet.company_fleet_id is null
+    ) then
+      raise exception 'Confirm the one-time 150 Visibility Credit company access fee before accepting.';
+    end if;
+    insert into public.transport_operator_company_access (user_id, unlocked_at, unlock_reason, first_invite_id)
+    values (v_user, now(), 'company_first', case when tg_op = 'UPDATE' then new.id else null end)
+    on conflict (user_id) do update set unlocked_at = excluded.unlocked_at, unlock_reason = excluded.unlock_reason;
+  end if;
+  return new;
+end;
+$$;
 
 create or replace function public.guard_transport_company_invite_expiry()
 returns trigger
