@@ -1,4 +1,5 @@
 import supabase from "../../lib/supabaseClient";
+import { t } from "../../../i18n";
 import { readRegisteredBusiness } from "./sellerRegistrationService";
 import { uploadMediaDataUrl } from "../explore/mediaService";
 
@@ -109,6 +110,12 @@ export async function sendSellerMarketplaceMessage(conversation, message, { medi
   const business = await readRegisteredBusiness();
   if (!business) throw new Error("Register a business before replying to buyers.");
   if (!conversation?.conversationKey) throw new Error("Choose a conversation to reply to.");
+  // A reply always goes out from the store the buyer wrote to. If the seller
+  // switched business while this chat was open, stop instead of answering as
+  // the other store.
+  if (conversation.businessId && conversation.businessId !== business.id) {
+    throw new Error(t("sellerGuard.wrongBusinessReply"));
+  }
 
   let uploadedMediaUrl = "";
   if (mediaUrl) {

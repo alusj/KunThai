@@ -1,15 +1,16 @@
 import { useCallback, useEffect, useMemo, useState } from "react";
+import { registerSellerMemory } from "./sellerMemoryRegistry";
 
 import {
   dismissSellerActivity,
   fetchSellerActivities,
 } from "../services/marketplace/sellerActivityService";
 
-const SELLER_ACTIVITIES_MEMORY = {
+const SELLER_ACTIVITIES_MEMORY = registerSellerMemory({
   loaded: false,
   activities: [],
   savedAt: 0,
-};
+});
 
 export function useSellerActivities() {
   const [activities, setActivities] = useState(() => SELLER_ACTIVITIES_MEMORY.activities);

@@ -8,6 +8,9 @@ function startOfDay(date) {
   return next;
 }
 
+const OPEN_ORDER_STATUSES = new Set(["pending", "shipped"]);
+const RECENT_CLOSED_ORDERS = 30;
+
 export async function fetchSellerSales() {
   const business = await readRegisteredBusiness();
   if (!business) {
@@ -22,6 +25,7 @@ export async function fetchSellerSales() {
   if (error) throw new Error(error.message);
 
   const orders = data || [];
+  const sortedOrders = [...orders].sort((a, b) => new Date(b.created_at || 0) - new Date(a.created_at || 0));
   const now = new Date();
   const todayStart = startOfDay(now);
   const weekStart = new Date(todayStart);
@@ -49,9 +53,12 @@ export async function fetchSellerSales() {
       time: "Start selling to discover this",
       orderCount: 0,
     },
-    recentOrders: orders
-      .sort((a, b) => new Date(b.created_at || 0) - new Date(a.created_at || 0))
-      .slice(0, 20)
+    // Every order still waiting for the seller (pending or shipped) is listed,
+    // however old, then the 30 most recent finished ones.
+    recentOrders: [
+      ...sortedOrders.filter((order) => OPEN_ORDER_STATUSES.has(order.status || "pending")),
+      ...sortedOrders.filter((order) => !OPEN_ORDER_STATUSES.has(order.status || "pending")).slice(0, RECENT_CLOSED_ORDERS),
+    ]
       .map((order) => ({
         id: order.id,
         status: order.status || "pending",

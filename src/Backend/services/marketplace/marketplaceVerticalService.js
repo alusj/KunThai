@@ -5,7 +5,7 @@ import { COUNTRY_PRIMARY_TIMEZONES } from "../../../data/timezoneCountries";
 import { assertPromotionTargeting, normalizeCountrySelection, promotionReachesCountry } from "../regions/promotionTargeting";
 import { getActiveCountryProfile } from "../../../data/globalCountryProfiles";
 import { uiText } from "../../../i18n/index.js";
-import { validateVerticalMediaPackage } from "./verticalMediaValidation";
+import { MAX_EXTRA_IMAGE_COUNT, validateVerticalMediaPackage } from "./verticalMediaValidation";
 import { assertBusinessCapacity, parseBusinessPlanError } from "../businessSubscriptionService";
 import { invalidateRegisteredBusinessesCache } from "./sellerRegistrationService";
 import { regionSelectionIds } from "../regions/regionModel";
@@ -90,16 +90,24 @@ export async function uploadMarketplaceVerticalVideo(file, businessId, folder = 
   return supabase.storage.from("marketplace-business-media").getPublicUrl(path).data.publicUrl;
 }
 
-async function uploadVerticalMediaPackage(businessId, input, folders, onProgress) {
+// Uploads what the seller picked and keeps the rest of the listing's current
+// media (`existing`): a new gallery photo or video added while editing no
+// longer wipes the cover, the other photos or the video.
+async function uploadVerticalMediaPackage(businessId, input, folders, onProgress, existing = {}) {
   onProgress?.("cover");
-  const coverUrl = await uploadMarketplaceVerticalImage(input.coverImageFile, businessId, folders.cover);
+  const coverUrl = input.coverImageFile
+    ? await uploadMarketplaceVerticalImage(input.coverImageFile, businessId, folders.cover)
+    : existing.cover || "";
   onProgress?.("gallery");
-  const extraUrls = [];
+  const extraUrls = (existing.gallery || []).filter(Boolean).slice(0, MAX_EXTRA_IMAGE_COUNT);
   for (const file of Array.from(input.extraImageFiles || [])) {
+    if (extraUrls.length >= MAX_EXTRA_IMAGE_COUNT) break;
     extraUrls.push(await uploadMarketplaceVerticalImage(file, businessId, folders.gallery));
   }
   onProgress?.("video");
-  const videoUrl = await uploadMarketplaceVerticalVideo(input.videoFile, businessId, folders.video);
+  const videoUrl = input.videoFile
+    ? await uploadMarketplaceVerticalVideo(input.videoFile, businessId, folders.video)
+    : existing.video || "";
   return [coverUrl, extraUrls, videoUrl];
 }
 
@@ -144,9 +152,10 @@ export async function saveRestaurantMenuItem(businessId, input = {}, onProgress)
   onProgress?.("prepare");
   if (!input.id) await assertBusinessCapacity("urmall", businessId, "products", 1);
   const hasNewMedia = Boolean(input.coverImageFile || input.videoFile || Array.from(input.extraImageFiles || []).length);
-  if (!input.id || hasNewMedia) await validateVerticalMediaPackage(input);
+  const existingMeal = { cover: input.image_url || "", gallery: input.image_urls || [], video: input.video_url || "" };
+  if (!input.id || hasNewMedia) await validateVerticalMediaPackage({ ...input, coverImageUrl: input.coverImageUrl || existingMeal.cover });
   const [imageUrl, imageUrls, videoUrl] = hasNewMedia || !input.id
-    ? await uploadVerticalMediaPackage(businessId, input, { cover: "restaurant-menu/covers", gallery: "restaurant-menu/gallery", video: "restaurant-menu/videos" }, onProgress)
+    ? await uploadVerticalMediaPackage(businessId, input, { cover: "restaurant-menu/covers", gallery: "restaurant-menu/gallery", video: "restaurant-menu/videos" }, onProgress, input.id ? existingMeal : {})
     : [input.image_url || "", input.image_urls || [], input.video_url || ""];
   onProgress?.("save");
   const payload = {
@@ -288,9 +297,10 @@ export async function savePropertyListing(businessId, input = {}, onProgress) {
   onProgress?.("prepare");
   if (!input.id && input.published) await assertBusinessCapacity("urmall", businessId, "products", 1);
   const hasNewMedia = Boolean(input.coverImageFile || input.videoFile || Array.from(input.extraImageFiles || []).length);
-  if (!input.id || hasNewMedia) await validateVerticalMediaPackage(input);
+  const existingProperty = { cover: input.image_urls?.[0] || "", gallery: input.image_urls?.slice(1) || [], video: input.video_url || "" };
+  if (!input.id || hasNewMedia) await validateVerticalMediaPackage({ ...input, coverImageUrl: input.coverImageUrl || existingProperty.cover });
   const [coverUrl, extraUrls, videoUrl] = hasNewMedia || !input.id
-    ? await uploadVerticalMediaPackage(businessId, input, { cover: "properties/covers", gallery: "properties/gallery", video: "properties/videos" }, onProgress)
+    ? await uploadVerticalMediaPackage(businessId, input, { cover: "properties/covers", gallery: "properties/gallery", video: "properties/videos" }, onProgress, input.id ? existingProperty : {})
     : [input.image_urls?.[0] || "", input.image_urls?.slice(1) || [], input.video_url || ""];
   onProgress?.("save");
   const imageUrls = [coverUrl, ...extraUrls];

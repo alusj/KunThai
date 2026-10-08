@@ -53,7 +53,11 @@ export default function ProductMediaStep({ productForm }) {
   const [trimmerOpen, setTrimmerOpen] = useState(false);
   const [extraImagesNote, setExtraImagesNote] = useState("");
   const extraImages = form.media.extraImageFiles || [];
-  const extraImagesFull = extraImages.length >= MAX_EXTRA_IMAGES;
+  // When editing, the photos already in the gallery are kept unless removed,
+  // and they count toward the six.
+  const existingImageUrls = Array.isArray(form.media.extraImageUrls) ? form.media.extraImageUrls : [];
+  const galleryCount = existingImageUrls.length + extraImages.length;
+  const extraImagesFull = galleryCount >= MAX_EXTRA_IMAGES;
 
   return (
     <div className="space-y-5">
@@ -101,7 +105,7 @@ export default function ProductMediaStep({ productForm }) {
             const incoming = Array.from(event.target.files || []);
             event.target.value = "";
             if (!incoming.length) return;
-            const room = Math.max(MAX_EXTRA_IMAGES - extraImages.length, 0);
+            const room = Math.max(MAX_EXTRA_IMAGES - galleryCount, 0);
             const accepted = incoming.slice(0, room);
             // Six is a hard stop: extra selections are dropped and the seller is
             // told with a toast, whether they were already full or just went over.
@@ -122,9 +126,30 @@ export default function ProductMediaStep({ productForm }) {
           </p>
         ) : (
           <p className="mt-2 text-xs font-bold text-gray-500">
-            {t("urmall.biz.pform.nOfMSelected", { count: extraImages.length, max: MAX_EXTRA_IMAGES })}
+            {t("urmall.biz.pform.nOfMSelected", { count: galleryCount, max: MAX_EXTRA_IMAGES })}
           </p>
         )}
+        {existingImageUrls.length ? (
+          <div className="mt-2 flex flex-wrap gap-2">
+            {existingImageUrls.map((url, index) => (
+              <span key={url} className="relative h-14 w-14 overflow-hidden rounded-xl border border-gray-200 bg-gray-100">
+                <img src={url} alt="" className="h-full w-full object-cover" />
+                <button
+                  type="button"
+                  aria-label={t("postCard.remove")}
+                  onClick={(event) => {
+                    event.preventDefault();
+                    setExtraImagesNote("");
+                    updateSection("media", { extraImageUrls: existingImageUrls.filter((_, itemIndex) => itemIndex !== index) });
+                  }}
+                  className="absolute right-0.5 top-0.5 grid h-5 w-5 place-items-center rounded-full bg-white/95 text-xs font-black text-gray-700 shadow"
+                >
+                  ×
+                </button>
+              </span>
+            ))}
+          </div>
+        ) : null}
         {extraImages.length ? (
           <div className="mt-2 flex flex-wrap gap-2">
             {extraImages.map((file, index) => (

@@ -4,6 +4,8 @@ import { fetchBusinessTypeCapacity } from "../services/marketplace/businessTypeC
 
 export default function useBusinessTypeCapacity(enabled = true) {
   const [capacity, setCapacity] = useState(null);
+  // True until the first check has finished (succeeded or failed).
+  const [loading, setLoading] = useState(Boolean(enabled));
   const refresh = useCallback(async () => {
     const next = await fetchBusinessTypeCapacity();
     setCapacity(next);
@@ -14,7 +16,9 @@ export default function useBusinessTypeCapacity(enabled = true) {
     let alive = true;
     const load = () => fetchBusinessTypeCapacity().then((next) => {
       if (alive) setCapacity(next);
-    }).catch(() => {});
+    }).catch(() => {}).finally(() => {
+      if (alive) setLoading(false);
+    });
     load();
     window.addEventListener(BUSINESS_PLAN_UPDATED_EVENT, load);
     window.addEventListener("kunthai-marketplace-business-changed", load);
@@ -24,5 +28,5 @@ export default function useBusinessTypeCapacity(enabled = true) {
       window.removeEventListener("kunthai-marketplace-business-changed", load);
     };
   }, [enabled]);
-  return { capacity, refresh };
+  return { capacity, loading: Boolean(enabled) && loading, refresh };
 }

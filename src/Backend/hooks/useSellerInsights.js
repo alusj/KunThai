@@ -1,4 +1,5 @@
 import { useEffect, useState } from "react";
+import { registerSellerMemory } from "./sellerMemoryRegistry";
 
 import { fetchSellerInsights } from "../services/marketplace/sellerInsightService";
 
@@ -9,11 +10,11 @@ const DEFAULT_INSIGHTS = {
   productSignals: null,
 };
 
-const SELLER_INSIGHTS_MEMORY = {
+const SELLER_INSIGHTS_MEMORY = registerSellerMemory({
   loaded: false,
   insights: DEFAULT_INSIGHTS,
   savedAt: 0,
-};
+});
 
 function normalizeInsights(insights) {
   return { ...DEFAULT_INSIGHTS, ...insights };

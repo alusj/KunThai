@@ -2067,6 +2067,20 @@ export async function manageTransportCompanyOperator(companyAccount, operator, a
   return getTransportCompanyAccount();
 }
 
+function describeFleetAction(action, fleetLabel, options, companyFleetId, fleet) {
+  const metadata = { companyFleetId, fleetCode: fleet.fleetCode || "" };
+  return action === "removeOperator"
+    ? ["fleet_operator_removed", "Fleet operator removed",
+      `${options.operatorName || "The assigned operator"} was removed from ${fleetLabel}. The fleet is offline until a new operator is assigned.`, metadata]
+    : ["fleet_deleted", "Fleet deleted",
+      `${fleetLabel} was deleted from Fleet HQ. Its operator invitations were withdrawn and the fleet no longer serves passengers.`, metadata];
+}
+
+function isMissingFunction(error) {
+  const text = String(error?.message || "").toLowerCase();
+  return error?.code === "PGRST202" || error?.code === "42883" || text.includes("could not find the function");
+}
+
 export async function manageTransportCompanyFleet(companyAccount, fleet, action, options = {}) {
   const user = await getCurrentUser("Sign in to manage company fleets.");
   const company = companyAccount?.id ? companyAccount : await getTransportCompanyAccount();
@@ -2081,6 +2095,20 @@ export async function manageTransportCompanyFleet(companyAccount, fleet, action,
 
   const now = new Date().toISOString();
   const fleetLabel = fleet.fleetName || fleet.fleetType || fleet.fleetCode || "Company fleet";
+  if (!["removeOperator", "delete"].includes(action)) throw new Error("Unsupported fleet action.");
+
+  // One checked database action: the owner and fleet managers can both use
+  // it, and nothing is reported done unless it was. The direct writes below
+  // remain only for databases without the 2026-10-07 migration.
+  const { error: rpcError } = await supabase.rpc("manage_transport_company_fleet", {
+    p_company_fleet_id: companyFleetId,
+    p_action: action,
+  });
+  if (!rpcError) {
+    await recordCompanyManagementActivity(company.id, user.id, ...describeFleetAction(action, fleetLabel, options, companyFleetId, fleet)).catch(() => null);
+    return getTransportCompanyAccount();
+  }
+  if (!isMissingFunction(rpcError)) throw new Error(friendlyErrorMessage(rpcError, "This fleet could not be updated."));
 
   // Passenger-facing runtime fleet goes offline for both actions.
   const { error: runtimeError } = await supabase
@@ -2107,7 +2135,7 @@ export async function manageTransportCompanyFleet(companyAccount, fleet, action,
       updatedAt: now,
     }));
 
-    const { error: fleetError } = await supabase
+    const { data: updatedRows, error: fleetError } = await supabase
       .from("transport_company_fleets")
       .update({
         operator_id: null,
@@ -2116,8 +2144,10 @@ export async function manageTransportCompanyFleet(companyAccount, fleet, action,
         updated_at: now,
       })
       .eq("id", companyFleetId)
-      .eq("company_id", company.id);
+      .eq("company_id", company.id)
+      .select("id");
     if (fleetError) throw new Error(fleetError.message);
+    if (!updatedRows?.length) throw new Error("Only the company owner can remove this operator until Fleet HQ is updated.");
 
     activity = {
       type: "fleet_operator_removed",
@@ -2126,12 +2156,14 @@ export async function manageTransportCompanyFleet(companyAccount, fleet, action,
       metadata: { companyFleetId, fleetCode: fleet.fleetCode || "" },
     };
   } else if (action === "delete") {
-    const { error: deleteError } = await supabase
+    const { data: deletedRows, error: deleteError } = await supabase
       .from("transport_company_fleets")
       .delete()
       .eq("id", companyFleetId)
-      .eq("company_id", company.id);
+      .eq("company_id", company.id)
+      .select("id");
     if (deleteError) throw new Error(deleteError.message);
+    if (!deletedRows?.length) throw new Error("Only the company owner can delete this fleet until Fleet HQ is updated.");
 
     activity = {
       type: "fleet_deleted",

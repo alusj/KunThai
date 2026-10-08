@@ -635,6 +635,14 @@ export async function getOperatorAccount() {
     }
   }
 
+  // A solo registration that stopped after the profile was saved but before
+  // its fleet was (a failed submit) is unfinished: the app offers the
+  // registration again instead of an empty dashboard, and resubmitting
+  // completes this same profile.
+  if (!personalFleet && !availableAssignment && operator.account_status === "submitted") {
+    return null;
+  }
+
   const dashboard = await fetchOperatorDashboard(operator.id, fleet?.id || null, {
     fleetScoped: Boolean(companyAssignment),
   });
@@ -847,6 +855,11 @@ async function loadOperatorDashboard(operatorId = null, preferredFleetId = null,
 }
 
 export async function saveOperatorAccount(account) {
+  // In company mode the form holds the company vehicle; saving it here would
+  // overwrite (or duplicate) the operator's own solo fleet.
+  if (account?.workMode === "company") {
+    throw new Error("Company vehicles are edited by the company in Fleet HQ. Switch to Solo to edit your own fleet.");
+  }
   const userId = await getCurrentUserId("Sign in before submitting your fleet.");
   const form = account.form || {};
   const requestedOperatorCode = normalizeOperatorCode(account.operatorId || account.displayCode);
@@ -871,6 +884,19 @@ export async function saveOperatorAccount(account) {
     .maybeSingle();
 
   if (existingOperatorError) throw new Error(existingOperatorError.message);
+
+  // Checked before the operator profile is written, so a plate already in use
+  // never leaves a profile without a fleet behind.
+  let plateQuery = supabase
+    .from("transport_fleets")
+    .select("id, operator_id")
+    .eq("plate_number", plateNumber);
+  if (existingOperator?.id) plateQuery = plateQuery.neq("operator_id", existingOperator.id);
+  const { data: plateConflict, error: plateConflictError } = await plateQuery.limit(1);
+  if (plateConflictError) throw new Error(plateConflictError.message);
+  if (plateConflict?.length) {
+    throw new Error("This plate number is already registered to another operator.");
+  }
 
   // Documents count as submitted when at least one was actually uploaded now
   // or is already on file. Every document is optional ("if applicable"), so
@@ -984,18 +1010,6 @@ export async function saveOperatorAccount(account) {
       .eq("id", operator.id)
       .eq("user_id", userId);
     if (photoError && !isMissingColumn(photoError, "public_selfie_url")) throw new Error(photoError.message);
-  }
-
-  const { data: plateConflict, error: plateConflictError } = await supabase
-    .from("transport_fleets")
-    .select("id, operator_id")
-    .eq("plate_number", plateNumber)
-    .neq("operator_id", operator.id)
-    .limit(1);
-
-  if (plateConflictError) throw new Error(plateConflictError.message);
-  if (plateConflict?.length) {
-    throw new Error("This plate number is already registered to another operator.");
   }
 
   const { data: existingFleets, error: existingFleetError } = await selectLatestPersonalFleet(operator.id);

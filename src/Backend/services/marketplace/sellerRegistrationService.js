@@ -725,44 +725,54 @@ export async function submitSellerRegistration(registration) {
 
   if (error) throw new Error(error.message);
 
-  await supabase.from("marketplace_business_categories").delete().eq("business_id", business.id);
-  if (registration.identity.categories.length) {
-    const { error: categoryError } = await supabase.from("marketplace_business_categories").insert(
-      registration.identity.categories.map((category) => ({ business_id: business.id, category })),
-    );
-    if (categoryError) throw new Error(categoryError.message);
+  // The business row exists from here on. Categories, branches, payout and
+  // documents are separate writes: if any of them fails, the half-made
+  // business is removed again so the seller can simply submit once more
+  // (otherwise "You already have this business type" blocked the retry).
+  try {
+    await supabase.from("marketplace_business_categories").delete().eq("business_id", business.id);
+    if (registration.identity.categories.length) {
+      const { error: categoryError } = await supabase.from("marketplace_business_categories").insert(
+        registration.identity.categories.map((category) => ({ business_id: business.id, category })),
+      );
+      if (categoryError) throw new Error(categoryError.message);
+    }
+
+    await saveBusinessLocations(business.id, registration);
+
+    const payoutPayload = registration.trustPayout.skipped
+      ? {
+          business_id: business.id,
+          method_type: "skipped",
+          kunthai_money_connected: false,
+          bank_name: "",
+          account_number_mask: "",
+          account_name: "",
+          skipped: true,
+        }
+      : {
+          business_id: business.id,
+          method_type: registration.trustPayout.connectKunThaiMoney ? "kunthai_money" : "bank",
+          kunthai_money_connected: registration.trustPayout.connectKunThaiMoney,
+          bank_name: registration.trustPayout.bankName.trim(),
+          account_number_mask: registration.trustPayout.accountNumber
+            ? `**** ${registration.trustPayout.accountNumber.slice(-4)}`
+            : "",
+          account_name: registration.trustPayout.accountName.trim(),
+          skipped: false,
+        };
+
+    const { error: payoutError } = await supabase
+      .from("marketplace_payout_methods")
+      .upsert(payoutPayload, { onConflict: "business_id" });
+    if (payoutError) throw new Error(payoutError.message);
+
+    await insertBusinessDocumentRows(buildBusinessDocumentRows(business.id, documentUploads));
+  } catch (setupError) {
+    await Promise.resolve(supabase.rpc("delete_my_marketplace_business", { target_business_id: business.id })).catch(() => {});
+    invalidateRegisteredBusinessesCache();
+    throw setupError;
   }
-
-  await saveBusinessLocations(business.id, registration);
-
-  const payoutPayload = registration.trustPayout.skipped
-    ? {
-        business_id: business.id,
-        method_type: "skipped",
-        kunthai_money_connected: false,
-        bank_name: "",
-        account_number_mask: "",
-        account_name: "",
-        skipped: true,
-      }
-    : {
-        business_id: business.id,
-        method_type: registration.trustPayout.connectKunThaiMoney ? "kunthai_money" : "bank",
-        kunthai_money_connected: registration.trustPayout.connectKunThaiMoney,
-        bank_name: registration.trustPayout.bankName.trim(),
-        account_number_mask: registration.trustPayout.accountNumber
-          ? `**** ${registration.trustPayout.accountNumber.slice(-4)}`
-          : "",
-        account_name: registration.trustPayout.accountName.trim(),
-        skipped: false,
-      };
-
-  const { error: payoutError } = await supabase
-    .from("marketplace_payout_methods")
-    .upsert(payoutPayload, { onConflict: "business_id" });
-  if (payoutError) throw new Error(payoutError.message);
-
-  await insertBusinessDocumentRows(buildBusinessDocumentRows(business.id, documentUploads));
 
   await supabase.from("marketplace_activities").insert({
     business_id: business.id,

@@ -4,6 +4,7 @@
 import { ArrowLeft, Bell, Menu, MessageSquare, PackageCheck, Plus, ShieldCheck, Store } from "lucide-react";
 
 import MyBizHeader from "./BusinessHeader/MyBizHeader";
+import { clearSellerMemories } from "../../../../Backend/hooks/sellerMemoryRegistry";
 import MyBizMenu from "./BusinessHeader/MyBizMenu/MyBizMenu";
 
 
@@ -41,7 +42,7 @@ import { useAccountType } from "../../../../Backend/services/accountTypeService"
 import BusinessAccountRequired from "../../../shared/BusinessAccountRequired";
 import { useSellerOverview } from "../../../../Backend/hooks/useSellerOverview";
 import { useNavigationStack } from "../../../../Backend/hooks/useNavigationStack";
-import { useEffect, useRef, useState } from "react";
+import { useEffect, useRef, useState, Fragment } from "react";
 import { useBrowserBack } from "../../../../Backend/hooks/useBrowserBack";
 import AppBackTab from "../../../shared/AppBackTab";
 import AppPortal from "../../../shared/AppPortal";
@@ -122,12 +123,17 @@ export default function Business({ initialScreen = "", onBack, onInitialScreenHa
   const { loading, hasBusiness, setHasBusiness } = useSellerBusinessStatus();
   // Personal accounts never register (header "+", "Add business" are hidden).
   const { canRegister, loading: accountTypeLoading } = useAccountType();
-  const { capacity: typeCapacity, refresh: refreshTypeCapacity } = useBusinessTypeCapacity(hasBusiness);
+  const { capacity: typeCapacity, loading: typeCapacityLoading, refresh: refreshTypeCapacity } = useBusinessTypeCapacity(hasBusiness);
+  // "Add another business" waits for the account type and the plan check.
+  const addBusinessLoading = accountTypeLoading || typeCapacityLoading;
   const addBusinessPlanLabel = typeCapacity?.requiredPlan === "premium" ? "Premium" : typeCapacity?.requiredPlan === "pro" ? "Pro" : "";
   const sellerOverview = useSellerOverview({ enabled: hasBusiness });
   const sellerNavigation = useNavigationStack("dashboard");
   const activeScreen = sellerNavigation.current.screen;
   const [activeTab, setActiveTab] = useState("store");
+  // Bumped once a business switch has completed: the workspace below is
+  // rebuilt for the new business, so no screen keeps the previous one's data.
+  const [businessEpoch, setBusinessEpoch] = useState(0);
   const [toastMessage, setToastMessage] = useState("");
   const [menuOpen, setMenuOpen] = useState(false);
   const [menuInitialScreen, setMenuInitialScreen] = useState(null);
@@ -760,6 +766,7 @@ export default function Business({ initialScreen = "", onBack, onInitialScreenHa
           businesses={businesses}
           onAddBusiness={canRegister ? addAnotherBusiness : undefined}
           addBusinessPlanLabel={addBusinessPlanLabel}
+          addBusinessLoading={addBusinessLoading}
           onBack={onBack}
           onAddProduct={() => {
             if (!permissions.canAddProducts) {
@@ -802,6 +809,10 @@ export default function Business({ initialScreen = "", onBack, onInitialScreenHa
             }
             try {
               await setActiveRegisteredBusiness(businessId);
+              if (businessId && businessId !== previousBusinessId) {
+                clearSellerMemories();
+                setBusinessEpoch((epoch) => epoch + 1);
+              }
               setActiveTab("store");
             } catch (error) {
               setSelectedBusinessId(previousBusinessId);
@@ -848,7 +859,7 @@ export default function Business({ initialScreen = "", onBack, onInitialScreenHa
           onExit={onBack}
         />
       ) : (
-        <>
+        <Fragment key={`business-workspace-${businessEpoch}`}>
 
       {/* =========================
           Business content
@@ -961,10 +972,10 @@ export default function Business({ initialScreen = "", onBack, onInitialScreenHa
           </main>
         </div>
       </div>
-        </>
+        </Fragment>
       )}
 
-      {hasBusiness && visibleScreen !== "dashboard" ? renderSellerScreen() : null}
+      {hasBusiness && visibleScreen !== "dashboard" ? <Fragment key={`business-screen-${businessEpoch}`}>{renderSellerScreen()}</Fragment> : null}
 
     </div>
   );

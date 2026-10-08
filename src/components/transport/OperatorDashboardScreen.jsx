@@ -235,6 +235,9 @@ export default function OperatorDashboardScreen({
   const companyBadgeCount = Number(companyOperationBadgeCount || 0);
   const isCompanySuspended = companyAccount?.access?.serviceStatus === "suspended";
   const dashboardReadOnly = readOnly || isCompanySuspended;
+  // A company vehicle is edited by its company in Fleet HQ. The edit screen
+  // saves the operator's own solo fleet, so it is not offered in company mode.
+  const canEditOwnFleet = account?.workMode !== "company";
   const dashboardReadOnlyReason = isCompanySuspended
     ? t("urride.opDash.suspended", { company: companyAccount?.companyName || t("urride.opDash.yourCompany") })
     : (readOnlyReason || t("urride.opDash.readOnlyReasonDefault"));
@@ -729,7 +732,7 @@ export default function OperatorDashboardScreen({
           />
         ) : null}
 
-        {!dashboardReadOnly && operatorHealth.score < 100 ? (
+        {!dashboardReadOnly && canEditOwnFleet && operatorHealth.score < 100 ? (
           <div className="mb-4">
             <HealthScoreCard health={operatorHealth} onEditProfile={onEditRegistration} />
           </div>
@@ -776,7 +779,7 @@ export default function OperatorDashboardScreen({
             />
           </div>
 
-          {!dashboardReadOnly ? (
+          {!dashboardReadOnly && canEditOwnFleet ? (
             <button
               type="button"
               onClick={onEditRegistration}
@@ -913,10 +916,10 @@ export default function OperatorDashboardScreen({
           setOperatorMenuOpen(false);
           setOperatorSafetyOpen(true);
         }}
-        onEditProfile={() => {
+        onEditProfile={canEditOwnFleet ? () => {
           setOperatorMenuOpen(false);
           onEditRegistration?.();
-        }}
+        } : undefined}
         onOpenCompany={() => {
           setOperatorMenuOpen(false);
           onOpenCompany?.();
@@ -2296,7 +2299,7 @@ function OperatorMenuDrawer({
       detail: verification.shortText,
       onClick: onShowVerification,
     },
-    !readOnly
+    !readOnly && onEditProfile
       ? {
           icon: FiEdit3,
           label: t("urride.opDash.editFleetProfile"),

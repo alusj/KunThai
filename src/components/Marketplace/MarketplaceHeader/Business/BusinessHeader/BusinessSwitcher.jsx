@@ -63,7 +63,7 @@ function useOtherBusinessAttention(businesses, activeBusinessId) {
   return counts;
 }
 
-export default function BusinessSwitcher({ activeBusinessId, businesses = [], addBusinessPlanLabel = "", onAddBusiness, onSwitch }) {
+export default function BusinessSwitcher({ activeBusinessId, businesses = [], addBusinessPlanLabel = "", addBusinessLoading = false, onAddBusiness, onSwitch }) {
   useI18n();
   const [open, setOpen] = useState(false);
   const attention = useOtherBusinessAttention(businesses, activeBusinessId);
@@ -152,8 +152,11 @@ export default function BusinessSwitcher({ activeBusinessId, businesses = [], ad
                   );
                 })}
               </div>
-              {/* Absent for Personal accounts (no registration). */}
-              {onAddBusiness ? (
+              {/* Absent for Personal accounts (no registration). While the
+                  account type and plan check load, a skeleton holds its place. */}
+              {addBusinessLoading ? (
+                <div aria-busy="true" aria-label={t("urmall.biz.header.addAnotherBusiness")} className="mt-4 h-12 w-full animate-pulse rounded-2xl bg-gray-200" />
+              ) : onAddBusiness ? (
                 <button
                   type="button"
                   onClick={() => {

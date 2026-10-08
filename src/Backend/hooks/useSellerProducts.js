@@ -1,4 +1,5 @@
 import { useEffect, useState } from "react";
+import { registerSellerMemory } from "./sellerMemoryRegistry";
 import { inlineErrorMessage } from "../services/friendlyErrorService";
 import { notifyActionDone, notifyActionFailed } from "../services/actionFeedbackService";
 import { decorateShareUrl } from "../services/visibilityCreditService";
@@ -17,10 +18,10 @@ const DEFAULT_PRODUCTS = {
   topSellingProducts: [],
 };
 
-const SELLER_PRODUCTS_MEMORY = {
+const SELLER_PRODUCTS_MEMORY = registerSellerMemory({
   productState: null,
   savedAt: 0,
-};
+});
 
 function normalizeProducts(productState) {
   return { ...DEFAULT_PRODUCTS, ...productState };

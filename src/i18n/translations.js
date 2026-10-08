@@ -13,6 +13,8 @@ export const TRANSLATIONS = {
       orderChanged: "This order has changed or you can't edit it. Refresh and try again.",
       deleteOrderConfirm: "Delete this cancelled order? This can't be undone.",
       productNotDeleted: "This product wasn't deleted. Only the owner or an admin with product access can delete it.",
+      productNotSaved: "This product wasn't saved. It may belong to another business, or you may not have product access.",
+      wrongBusinessReply: "This chat belongs to another of your businesses. Switch to it to reply.",
     },
     postCard: {
       cautionTitle: "Posting rules",
@@ -3855,6 +3857,8 @@ export const TRANSLATIONS = {
       orderChanged: "Cette commande a changé ou vous ne pouvez pas la modifier. Actualisez et réessayez.",
       deleteOrderConfirm: "Supprimer cette commande annulée ? Cette action est définitive.",
       productNotDeleted: "Ce produit n'a pas été supprimé. Seul le propriétaire ou un admin avec l'accès aux produits peut le supprimer.",
+      productNotSaved: "Ce produit n'a pas été enregistré. Il appartient peut-être à une autre entreprise ou vous n'avez pas l'accès aux produits.",
+      wrongBusinessReply: "Cette discussion appartient à une autre de vos entreprises. Passez-y pour répondre.",
     },
     postCard: {
       cautionTitle: "Règles de publication",
@@ -7700,6 +7704,8 @@ export const TRANSLATIONS = {
       orderChanged: "Este pedido cambió o no puedes editarlo. Actualiza e inténtalo de nuevo.",
       deleteOrderConfirm: "¿Eliminar este pedido cancelado? No se puede deshacer.",
       productNotDeleted: "Este producto no se eliminó. Solo el propietario o un admin con acceso a productos puede eliminarlo.",
+      productNotSaved: "Este producto no se guardó. Puede pertenecer a otro negocio o no tienes acceso a productos.",
+      wrongBusinessReply: "Este chat pertenece a otro de tus negocios. Cambia a ese negocio para responder.",
     },
     postCard: {
       cautionTitle: "Reglas para publicar",
@@ -11577,6 +11583,8 @@ export const TRANSLATIONS = {
       orderChanged: "该订单已变更或您无权编辑。请刷新后重试。",
       deleteOrderConfirm: "删除这个已取消的订单？此操作无法撤销。",
       productNotDeleted: "产品未删除。只有店主或拥有产品权限的管理员可以删除。",
+      productNotSaved: "产品未保存。它可能属于另一个商家，或您没有产品权限。",
+      wrongBusinessReply: "此对话属于您的另一个商家。请切换到该商家后回复。",
     },
     postCard: {
       cautionTitle: "发布规则",
@@ -15455,6 +15463,8 @@ export const TRANSLATIONS = {
       orderChanged: "تغيّر هذا الطلب أو لا يمكنك تعديله. حدّث الصفحة وحاول مرة أخرى.",
       deleteOrderConfirm: "حذف هذا الطلب الملغى؟ لا يمكن التراجع عن ذلك.",
       productNotDeleted: "لم يُحذف هذا المنتج. يمكن للمالك فقط أو لمشرف لديه صلاحية المنتجات حذفه.",
+      productNotSaved: "لم يُحفظ هذا المنتج. ربما يتبع نشاطًا تجاريًا آخر أو ليست لديك صلاحية المنتجات.",
+      wrongBusinessReply: "هذه المحادثة تخص نشاطًا تجاريًا آخر لديك. انتقل إليه للرد.",
     },
     postCard: {
       cautionTitle: "قواعد النشر",
@@ -19380,6 +19390,8 @@ export const TRANSLATIONS = {
       orderChanged: "Este pedido mudou ou você não pode editá-lo. Atualize e tente novamente.",
       deleteOrderConfirm: "Excluir este pedido cancelado? Isso não pode ser desfeito.",
       productNotDeleted: "Este produto não foi excluído. Só o dono ou um admin com acesso a produtos pode excluí-lo.",
+      productNotSaved: "Este produto não foi salvo. Pode pertencer a outro negócio ou você não tem acesso a produtos.",
+      wrongBusinessReply: "Esta conversa pertence a outro dos seus negócios. Mude para ele para responder.",
     },
     postCard: {
       cautionTitle: "Regras para publicar",
@@ -23253,6 +23265,8 @@ export const TRANSLATIONS = {
       orderChanged: "यह ऑर्डर बदल गया है या आप इसे संपादित नहीं कर सकते। रीफ़्रेश करके फिर कोशिश करें।",
       deleteOrderConfirm: "यह रद्द ऑर्डर हटाएँ? इसे वापस नहीं किया जा सकता।",
       productNotDeleted: "यह उत्पाद नहीं हटाया गया। केवल मालिक या उत्पाद अनुमति वाला एडमिन इसे हटा सकता है।",
+      productNotSaved: "यह उत्पाद सहेजा नहीं गया। यह किसी दूसरे व्यवसाय का हो सकता है या आपके पास उत्पाद अनुमति नहीं है।",
+      wrongBusinessReply: "यह चैट आपके किसी दूसरे व्यवसाय की है। जवाब देने के लिए उस पर स्विच करें।",
     },
     postCard: {
       cautionTitle: "पोस्ट करने के नियम",
@@ -27126,6 +27140,8 @@ export const TRANSLATIONS = {
       orderChanged: "এই অর্ডারটি বদলে গেছে বা আপনি এটি সম্পাদনা করতে পারবেন না। রিফ্রেশ করে আবার চেষ্টা করুন।",
       deleteOrderConfirm: "এই বাতিল অর্ডারটি মুছবেন? এটি আর ফেরানো যাবে না।",
       productNotDeleted: "এই পণ্যটি মোছা হয়নি। শুধু মালিক বা পণ্য অনুমতিসহ অ্যাডমিন এটি মুছতে পারেন।",
+      productNotSaved: "এই পণ্যটি সংরক্ষিত হয়নি। এটি অন্য ব্যবসার হতে পারে বা আপনার পণ্য অনুমতি নেই।",
+      wrongBusinessReply: "এই চ্যাটটি আপনার অন্য একটি ব্যবসার। উত্তর দিতে সেটিতে যান।",
     },
     postCard: {
       cautionTitle: "পোস্ট করার নিয়ম",
@@ -30999,6 +31015,8 @@ export const TRANSLATIONS = {
       orderChanged: "Pesanan ini sudah berubah atau Anda tidak dapat mengeditnya. Muat ulang lalu coba lagi.",
       deleteOrderConfirm: "Hapus pesanan yang dibatalkan ini? Tindakan ini tidak bisa dibatalkan.",
       productNotDeleted: "Produk ini tidak dihapus. Hanya pemilik atau admin dengan akses produk yang dapat menghapusnya.",
+      productNotSaved: "Produk ini tidak tersimpan. Mungkin milik bisnis lain, atau Anda tidak punya akses produk.",
+      wrongBusinessReply: "Obrolan ini milik bisnis Anda yang lain. Beralih ke bisnis itu untuk membalas.",
     },
     postCard: {
       cautionTitle: "Aturan posting",
@@ -34872,6 +34890,8 @@ export const TRANSLATIONS = {
       orderChanged: "یہ آرڈر بدل چکا ہے یا آپ اس میں ترمیم نہیں کر سکتے۔ ریفریش کر کے دوبارہ کوشش کریں۔",
       deleteOrderConfirm: "یہ منسوخ آرڈر حذف کریں؟ یہ واپس نہیں ہو سکتا۔",
       productNotDeleted: "یہ پروڈکٹ حذف نہیں ہوئی۔ صرف مالک یا پروڈکٹ اجازت والا ایڈمن اسے حذف کر سکتا ہے۔",
+      productNotSaved: "یہ پروڈکٹ محفوظ نہیں ہوئی۔ ہو سکتا ہے یہ کسی اور کاروبار کی ہو یا آپ کے پاس پروڈکٹ اجازت نہ ہو۔",
+      wrongBusinessReply: "یہ چیٹ آپ کے کسی دوسرے کاروبار کی ہے۔ جواب دینے کے لیے اس پر سوئچ کریں۔",
     },
     postCard: {
       cautionTitle: "پوسٹ کرنے کے اصول",
@@ -38745,6 +38765,8 @@ export const TRANSLATIONS = {
       orderChanged: "Этот заказ изменился, или у вас нет прав на его изменение. Обновите и попробуйте снова.",
       deleteOrderConfirm: "Удалить этот отменённый заказ? Это действие нельзя отменить.",
       productNotDeleted: "Товар не удалён. Удалить его может только владелец или админ с доступом к товарам.",
+      productNotSaved: "Товар не сохранён. Возможно, он принадлежит другому бизнесу или у вас нет доступа к товарам.",
+      wrongBusinessReply: "Этот чат относится к другому вашему бизнесу. Переключитесь на него, чтобы ответить.",
     },
     postCard: {
       cautionTitle: "Правила публикации",
@@ -42619,6 +42641,8 @@ export const TRANSLATIONS = {
       orderChanged: "この注文は変更されたか、編集する権限がありません。更新してもう一度お試しください。",
       deleteOrderConfirm: "キャンセル済みのこの注文を削除しますか？元に戻せません。",
       productNotDeleted: "この商品は削除されませんでした。削除できるのはオーナーか商品権限のある管理者だけです。",
+      productNotSaved: "この商品は保存されませんでした。別のビジネスの商品か、商品の権限がない可能性があります。",
+      wrongBusinessReply: "このチャットは別のビジネスのものです。返信するにはそのビジネスに切り替えてください。",
     },
     postCard: {
       cautionTitle: "投稿のルール",
@@ -46492,6 +46516,8 @@ export const TRANSLATIONS = {
       orderChanged: "ही ऑर्डर बदलली आहे किंवा तुम्ही ती संपादित करू शकत नाही. रिफ्रेश करून पुन्हा प्रयत्न करा.",
       deleteOrderConfirm: "ही रद्द ऑर्डर हटवायची? हे पूर्ववत करता येणार नाही.",
       productNotDeleted: "हे उत्पादन हटवले गेले नाही. फक्त मालक किंवा उत्पादन परवानगी असलेला अ‍ॅडमिन ते हटवू शकतो.",
+      productNotSaved: "हे उत्पादन जतन झाले नाही. ते दुसऱ्या व्यवसायाचे असू शकते किंवा तुम्हाला उत्पादन परवानगी नाही.",
+      wrongBusinessReply: "ही चॅट तुमच्या दुसऱ्या व्यवसायाची आहे. उत्तर देण्यासाठी त्यावर स्विच करा.",
     },
     postCard: {
       cautionTitle: "पोस्ट करण्याचे नियम",
@@ -50365,6 +50391,8 @@ export const TRANSLATIONS = {
       orderChanged: "Đơn hàng này đã thay đổi hoặc bạn không thể chỉnh sửa. Hãy tải lại rồi thử lại.",
       deleteOrderConfirm: "Xóa đơn hàng đã hủy này? Không thể hoàn tác.",
       productNotDeleted: "Sản phẩm chưa bị xóa. Chỉ chủ cửa hàng hoặc quản trị viên có quyền sản phẩm mới xóa được.",
+      productNotSaved: "Sản phẩm chưa được lưu. Có thể nó thuộc doanh nghiệp khác hoặc bạn không có quyền sản phẩm.",
+      wrongBusinessReply: "Cuộc trò chuyện này thuộc doanh nghiệp khác của bạn. Hãy chuyển sang doanh nghiệp đó để trả lời.",
     },
     postCard: {
       cautionTitle: "Quy tắc đăng bài",
@@ -54238,6 +54266,8 @@ export const TRANSLATIONS = {
       orderChanged: "Diese Bestellung hat sich geändert oder du darfst sie nicht bearbeiten. Aktualisiere und versuche es erneut.",
       deleteOrderConfirm: "Diese stornierte Bestellung löschen? Das lässt sich nicht rückgängig machen.",
       productNotDeleted: "Dieses Produkt wurde nicht gelöscht. Nur der Inhaber oder ein Admin mit Produktzugriff kann es löschen.",
+      productNotSaved: "Dieses Produkt wurde nicht gespeichert. Es gehört vielleicht zu einem anderen Unternehmen, oder dir fehlt der Produktzugriff.",
+      wrongBusinessReply: "Dieser Chat gehört zu einem anderen deiner Unternehmen. Wechsle dorthin, um zu antworten.",
     },
     postCard: {
       cautionTitle: "Regeln zum Posten",

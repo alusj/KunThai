@@ -166,6 +166,7 @@ export default function FleetEditDrawer({ account, onBack, onSaved }) {
         answers: normalizedAnswers(),
         uploads,
         documentsSkipped: account.documentsSkipped,
+        workMode: account.workMode,
         verificationStatus: account.verificationStatus,
         status: account.status || "submitted",
         savedAt: new Date().toISOString(),

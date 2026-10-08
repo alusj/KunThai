@@ -532,6 +532,14 @@ export async function submitSellerProduct(form, onProgress) {
   };
 }
 
+export const MAX_PRODUCT_GALLERY_IMAGES = 6;
+
+// Mirrors kunthai_guard_urmall_inventory_capacity: every status except draft
+// and pending-review counts toward the plan's products.
+export function listingHoldsPlanSlot(status) {
+  return Boolean(status) && !["draft", "pending-review"].includes(String(status));
+}
+
 export async function updateSellerProductListing(product, form, onProgress) {
   onProgress?.("prepare");
   const [business, userId] = await Promise.all([readRegisteredBusiness(), getCurrentUserId()]);
@@ -544,7 +552,15 @@ export async function updateSellerProductListing(product, form, onProgress) {
     MINIMUM_VISIBILITY_CREDITS,
   );
 
-  if (willBeActive && product.status !== "active" && hasBusinessPlans(business.businessKind)) {
+  // Restocking an out-of-stock listing in the form puts it back on sale.
+  const nextStock = Number(form.pricing.stock || 0);
+  let status = wantsPromotion ? "active" : form.pricing.publishStatus;
+  if (status === "out-of-stock" && nextStock > 0) status = "active";
+
+  // Only drafts and listings in review are outside the plan's product count;
+  // a paused or out-of-stock listing already holds its slot (as the database
+  // counts it), so putting it back on sale needs no new slot.
+  if ((willBeActive || status === "active") && !listingHoldsPlanSlot(product.status) && hasBusinessPlans(business.businessKind)) {
     await assertBusinessCapacity("urmall", business.id, "products", 1);
   }
 
@@ -553,7 +569,10 @@ export async function updateSellerProductListing(product, form, onProgress) {
   }
 
   let coverUrl = product.mainImageUrl || null;
-  let extraImageUrls = product.imageUrls || [];
+  // The gallery photos the seller kept (they can remove some in the form),
+  // then the new ones, up to six.
+  const keptImageUrls = Array.isArray(form.media.extraImageUrls) ? form.media.extraImageUrls : product.imageUrls || [];
+  let extraImageUrls = keptImageUrls.slice(0, MAX_PRODUCT_GALLERY_IMAGES);
   let videoUrl = product.videoUrl || null;
   let videoWarning = "";
 
@@ -564,9 +583,11 @@ export async function updateSellerProductListing(product, form, onProgress) {
 
   if (form.media.extraImageFiles.length > 0) {
     onProgress?.("gallery");
-    extraImageUrls = await Promise.all(
-      form.media.extraImageFiles.map((file) => uploadProductFile(userId, file, "gallery")),
+    const room = Math.max(MAX_PRODUCT_GALLERY_IMAGES - extraImageUrls.length, 0);
+    const uploaded = await Promise.all(
+      form.media.extraImageFiles.slice(0, room).map((file) => uploadProductFile(userId, file, "gallery")),
     );
+    extraImageUrls = [...extraImageUrls, ...uploaded];
   }
 
   if (form.media.videoFile) {
@@ -578,7 +599,6 @@ export async function updateSellerProductListing(product, form, onProgress) {
     }
   }
 
-  const status = wantsPromotion ? "active" : form.pricing.publishStatus;
   const keepExistingPromotion = Boolean(product.promoted && wantsPromotion);
   const countryProfile = getActiveCountryProfile(business.location.country);
   onProgress?.("save");
@@ -620,6 +640,9 @@ export async function updateSellerProductListing(product, form, onProgress) {
   );
 
   if (error) throw new Error(error.message);
+  // No row came back: the listing moved to another business or this account
+  // may not edit it. Never report that as saved.
+  if (!data) throw new Error(t("sellerGuard.productNotSaved"));
 
   // Keep the saved update even if the boost cannot start; report the exact
   // reason instead of throwing an opaque error.
@@ -678,7 +701,7 @@ export async function updateSellerProduct(productId, patch) {
       .eq("id", productId)
       .eq("business_id", business.id)
       .maybeSingle();
-    if (currentProduct?.status !== "active") {
+    if (!listingHoldsPlanSlot(currentProduct?.status)) {
       await assertBusinessCapacity("urmall", business.id, "products", 1);
     }
   }
@@ -695,6 +718,7 @@ export async function updateSellerProduct(productId, patch) {
     .maybeSingle();
 
   if (error) throw new Error(error.message);
+  if (!data) throw new Error(t("sellerGuard.productNotSaved"));
 
   const productName = data?.name || "Product";
   let title = "Product updated";

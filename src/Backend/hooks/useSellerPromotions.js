@@ -1,4 +1,5 @@
 import { useEffect, useState } from "react";
+import { registerSellerMemory } from "./sellerMemoryRegistry";
 
 import { fetchSellerPromotions } from "../services/marketplace/sellerPromotionService";
 
@@ -9,11 +10,11 @@ const DEFAULT_PROMOTIONS = {
   opportunities: [],
 };
 
-const SELLER_PROMOTIONS_MEMORY = {
+const SELLER_PROMOTIONS_MEMORY = registerSellerMemory({
   loaded: false,
   promotions: DEFAULT_PROMOTIONS,
   savedAt: 0,
-};
+});
 
 function normalizePromotions(promotions) {
   return { ...DEFAULT_PROMOTIONS, ...promotions };

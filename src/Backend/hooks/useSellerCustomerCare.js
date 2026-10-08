@@ -1,4 +1,5 @@
 import { useCallback, useEffect, useRef, useState } from "react";
+import { registerSellerMemory } from "./sellerMemoryRegistry";
 
 import { fetchSellerCustomerCare } from "../services/marketplace/sellerCustomerCareService";
 
@@ -8,10 +9,10 @@ const DEFAULT_CUSTOMER_CARE = {
   supportThreads: [],
 };
 
-const SELLER_CUSTOMER_CARE_MEMORY = {
+const SELLER_CUSTOMER_CARE_MEMORY = registerSellerMemory({
   customerCare: null,
   savedAt: 0,
-};
+});
 
 function normalizeCustomerCare(customerCare) {
   return { ...DEFAULT_CUSTOMER_CARE, ...customerCare };
@@ -84,6 +85,7 @@ export function useSellerCustomerCare() {
           setCustomerCare(normalizedCustomerCare);
         }
       })
+      .catch(() => {})
       .finally(() => {
         if (active) {
           setLoading(false);

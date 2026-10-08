@@ -1374,7 +1374,16 @@ export default function Transport({
       <div className={`${routePanelClass} kt-mobile-viewport`}>
         <FleetEditDrawer
           account={operatorAccount}
-          onSaved={setOperatorAccount}
+          // A save returns the fleet itself; keep the account's work-mode
+          // details so the Solo/Company switch stays available.
+          onSaved={(updated) => setOperatorAccount((current) => ({
+            ...current,
+            ...updated,
+            workMode: current?.workMode || updated?.workMode,
+            hasSoloFleet: true,
+            hasCompanyFleet: current?.hasCompanyFleet ?? updated?.hasCompanyFleet,
+            companyFleetId: current?.companyFleetId ?? updated?.companyFleetId,
+          }))}
           onBack={() => {
             setRouteDirection("backward");
             setFleetEditOpen(false);

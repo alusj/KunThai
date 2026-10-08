@@ -1,4 +1,5 @@
 import { useEffect, useState } from "react";
+import { registerSellerMemory } from "./sellerMemoryRegistry";
 
 import { fetchSellerSales } from "../services/marketplace/sellerSalesService";
 
@@ -10,10 +11,10 @@ const DEFAULT_SALES = {
   recentOrders: [],
 };
 
-const SELLER_SALES_MEMORY = {
+const SELLER_SALES_MEMORY = registerSellerMemory({
   sales: null,
   savedAt: 0,
-};
+});
 
 function normalizeSales(sales) {
   return { ...DEFAULT_SALES, ...sales };

@@ -1,12 +1,13 @@
 import { useEffect, useMemo, useState } from "react";
+import { registerSellerMemory } from "./sellerMemoryRegistry";
 
 import { fetchSellerAttentionItems } from "../services/marketplace/sellerAttentionService";
 
-const SELLER_ATTENTION_MEMORY = {
+const SELLER_ATTENTION_MEMORY = registerSellerMemory({
   loaded: false,
   items: [],
   savedAt: 0,
-};
+});
 
 export function useSellerAttention() {
   const [items, setItems] = useState(() => SELLER_ATTENTION_MEMORY.items);
