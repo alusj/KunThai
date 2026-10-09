@@ -71,6 +71,8 @@ export const EXPLORE_TASKS = {
     surfaces: ["explore"],
     label: "Generate caption",
     cacheable: true,
+    // Drafts and photos before posting stay with their author.
+    cacheScope: "user",
     output: "json",
     maxOutputTokens: 500,
     temperature: 0.8,
@@ -131,6 +133,8 @@ export const EXPLORE_TASKS = {
     surfaces: ["explore"],
     label: "Suggest hashtags",
     cacheable: true,
+    // Built from an unpublished draft: kept for its author only.
+    cacheScope: "user",
     output: "json",
     maxOutputTokens: 220,
     temperature: 0.5,
@@ -179,6 +183,8 @@ export const EXPLORE_TASKS = {
     surfaces: ["explore"],
     label: "Suggest title",
     cacheable: true,
+    // Built from an unpublished draft: kept for its author only.
+    cacheScope: "user",
     output: "json",
     maxOutputTokens: 160,
     temperature: 0.7,
@@ -214,6 +220,8 @@ export const EXPLORE_TASKS = {
     surfaces: ["explore"],
     label: "Suggest topic",
     cacheable: true,
+    // Built from an unpublished draft: kept for its author only.
+    cacheScope: "user",
     output: "json",
     maxOutputTokens: 80,
     temperature: 0.1,

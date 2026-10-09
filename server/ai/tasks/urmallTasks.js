@@ -138,6 +138,8 @@ export const URMALL_BUYER_TASKS = {
     surfaces: ["urmall", "global"],
     label: "Search with a photo",
     cacheable: true,
+    // A photo the person took: its answer is kept for them only.
+    cacheScope: "user",
     output: "json",
     maxOutputTokens: 420,
     temperature: 0.2,

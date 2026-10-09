@@ -134,22 +134,130 @@ export function clearAdminAccessCache() {
 
 // Per-instance fallback used only when the usage table cannot be reached, so a
 // migration that has not landed yet degrades to weaker protection instead of
-// taking the whole feature down.
+// taking the whole feature down. Minute, hour and day windows all apply.
 const MEMORY_HITS = new Map();
+const MINUTE_MS = 60_000;
+const HOUR_MS = 60 * MINUTE_MS;
+const DAY_MS = 24 * HOUR_MS;
 
-function memoryRateCheck(userId) {
-  const now = Date.now();
-  const hits = (MEMORY_HITS.get(userId) || []).filter((at) => now - at < 60_000);
-  if (hits.length >= RATE_LIMITS.perMinute) {
-    throw aiError(AI_ERROR_CODES.rateLimited, { retryAfterSeconds: 30, details: "memory-limit" });
+export function memoryRateCheck(userId, { now = Date.now(), limits = RATE_LIMITS } = {}) {
+  const hits = (MEMORY_HITS.get(userId) || []).filter((at) => now - at < DAY_MS);
+  const minute = hits.filter((at) => now - at < MINUTE_MS).length;
+  const hour = hits.filter((at) => now - at < HOUR_MS).length;
+  if (minute >= limits.perMinute) {
+    throw aiError(AI_ERROR_CODES.rateLimited, { retryAfterSeconds: 30, details: "memory-minute-limit" });
+  }
+  if (hour >= limits.perHour) {
+    throw aiError(AI_ERROR_CODES.rateLimited, { retryAfterSeconds: 600, details: "memory-hour-limit" });
+  }
+  if (hits.length >= limits.perDay) {
+    throw aiError(AI_ERROR_CODES.budgetExceeded, { details: "memory-day-limit" });
   }
   hits.push(now);
   MEMORY_HITS.set(userId, hits);
   if (MEMORY_HITS.size > 500) {
     for (const [key, value] of MEMORY_HITS) {
-      if (!value.some((at) => now - at < 60_000)) MEMORY_HITS.delete(key);
+      if (!value.some((at) => now - at < HOUR_MS)) MEMORY_HITS.delete(key);
     }
   }
+}
+
+// --- Per-IP guard ------------------------------------------------------------
+//
+// Every model call needs a signed-in member, so there is no anonymous AI path.
+// This guard runs BEFORE the token is verified, to blunt floods of junk or
+// stolen tokens from one address. Per instance and in memory only: the IP is
+// never stored or logged.
+
+const IP_HITS = new Map();
+
+export function clientIp(req) {
+  const forwarded = String(req?.headers?.["x-forwarded-for"] || "").split(",")[0].trim();
+  return forwarded || String(req?.headers?.["x-real-ip"] || "").trim() || String(req?.socket?.remoteAddress || "");
+}
+
+export function enforceIpRateLimit(req, { now = Date.now(), perMinute = RATE_LIMITS.perIpPerMinute } = {}) {
+  if (!perMinute) return;
+  const ip = clientIp(req);
+  if (!ip) return;
+  const key = createHash("sha256").update(ip).digest("hex").slice(0, 24);
+  const hits = (IP_HITS.get(key) || []).filter((at) => now - at < MINUTE_MS);
+  if (hits.length >= perMinute) {
+    throw aiError(AI_ERROR_CODES.rateLimited, { retryAfterSeconds: 30, details: "ip-limit" });
+  }
+  hits.push(now);
+  IP_HITS.set(key, hits);
+  if (IP_HITS.size > 2_000) {
+    for (const [entry, value] of IP_HITS) {
+      if (!value.some((at) => now - at < MINUTE_MS)) IP_HITS.delete(entry);
+    }
+  }
+}
+
+// --- Global daily spend ceiling ---------------------------------------------
+//
+// One number protects the bill whatever happens elsewhere: everyone's
+// estimated spend over the last 24 hours together. Read from Postgres at most
+// every AI_GLOBAL_SNAPSHOT_TTL_SECONDS per instance; between reads the
+// instance adds its own spend so it cannot overshoot on a stale number.
+
+const GLOBAL_SPEND = { readAt: 0, costMicros: 0, localSinceRead: 0, source: "none", warned: false };
+// Used only when the database cannot answer: this instance's own spend.
+const LOCAL_SPEND = [];
+
+function localSpendLastDay(now) {
+  while (LOCAL_SPEND.length && now - LOCAL_SPEND[0].at >= DAY_MS) LOCAL_SPEND.shift();
+  return LOCAL_SPEND.reduce((sum, entry) => sum + entry.costMicros, 0);
+}
+
+/** Count spend this instance just caused toward the global ceiling. */
+export function recordGlobalSpend(costMicros, { now = Date.now() } = {}) {
+  const cost = Math.max(0, Math.round(Number(costMicros) || 0));
+  if (!cost) return;
+  GLOBAL_SPEND.localSinceRead += cost;
+  LOCAL_SPEND.push({ at: now, costMicros: cost });
+  if (LOCAL_SPEND.length > 20_000) LOCAL_SPEND.splice(0, LOCAL_SPEND.length - 20_000);
+}
+
+async function readGlobalSpend(now) {
+  const ttlMs = RATE_LIMITS.globalSnapshotTtlSeconds * 1_000;
+  if (GLOBAL_SPEND.source !== "none" && now - GLOBAL_SPEND.readAt < ttlMs) {
+    return GLOBAL_SPEND.costMicros + GLOBAL_SPEND.localSinceRead;
+  }
+  const client = getAdminClient();
+  if (client) {
+    try {
+      const { data, error } = await client.rpc("kunthai_ai_global_usage_snapshot");
+      if (!error) {
+        const row = Array.isArray(data) ? data[0] || {} : data || {};
+        Object.assign(GLOBAL_SPEND, { readAt: now, costMicros: Number(row.day_cost_micros || 0), localSinceRead: 0, source: "database" });
+        return GLOBAL_SPEND.costMicros;
+      }
+      if (!GLOBAL_SPEND.warned) console.warn(`[KAI] global usage snapshot unavailable (${error.code || "error"}); using this instance's spend`);
+    } catch {
+      if (!GLOBAL_SPEND.warned) console.warn("[KAI] global usage snapshot unavailable (exception); using this instance's spend");
+    }
+    GLOBAL_SPEND.warned = true;
+  }
+  return localSpendLastDay(now);
+}
+
+/**
+ * Refuse new model calls for everyone once the combined daily spend passes
+ * AI_GLOBAL_DAILY_COST_MICROS. Cached answers are still served.
+ */
+export async function enforceGlobalBudget({ now = Date.now(), ceiling = RATE_LIMITS.globalPerDayCostMicros } = {}) {
+  if (!ceiling) return { source: "off" };
+  const spent = await readGlobalSpend(now);
+  if (spent >= ceiling) {
+    throw aiError(AI_ERROR_CODES.aiResting, { retryAfterSeconds: 3_600, details: "global-day-cost-limit" });
+  }
+  return { spent };
+}
+
+export function resetGlobalSpend() {
+  Object.assign(GLOBAL_SPEND, { readAt: 0, costMicros: 0, localSinceRead: 0, source: "none", warned: false });
+  LOCAL_SPEND.length = 0;
 }
 
 /**
@@ -159,6 +267,9 @@ function memoryRateCheck(userId) {
  * counts plus today's estimated spend.
  */
 export async function enforceRateLimit(userId) {
+  // The shared ceiling first: when KAI is resting for everyone, say so.
+  await enforceGlobalBudget();
+
   const client = getAdminClient();
   if (!client) {
     memoryRateCheck(userId);
@@ -197,6 +308,12 @@ export async function enforceRateLimit(userId) {
 
 // --- Usage logging ----------------------------------------------------------
 
+const USAGE_COLUMNS = { cachedTokens: true };
+
+function isMissingColumn(error) {
+  return error?.code === "42703" || error?.code === "PGRST204" || /cached_tokens/.test(String(error?.message || ""));
+}
+
 /**
  * Record one AI call. Never throws: a logging failure must not fail a request
  * the user already paid latency for.
@@ -205,6 +322,9 @@ export async function enforceRateLimit(userId) {
  * the call (task, surface, model, tokens, cost, outcome).
  */
 export async function logAiUsage(entry) {
+  // Counted toward the global ceiling even when the log cannot be written.
+  recordGlobalSpend(entry?.costMicros);
+
   const client = getAdminClient();
   if (!client) return null;
 
@@ -222,9 +342,17 @@ export async function logAiUsage(entry) {
     duration_ms: Math.max(0, Math.round(Number(entry.durationMs) || 0)),
     cached: Boolean(entry.cached),
   };
+  if (USAGE_COLUMNS.cachedTokens) row.cached_tokens = Math.max(0, Math.round(Number(entry.cachedTokens) || 0));
 
   try {
-    const { data, error } = await client.from("ai_usage_events").insert(row).select("id").maybeSingle();
+    let { data, error } = await client.from("ai_usage_events").insert(row).select("id").maybeSingle();
+    // The cached_tokens column arrives with a later migration; until then the
+    // row is written without it rather than lost.
+    if (error && row.cached_tokens !== undefined && isMissingColumn(error)) {
+      USAGE_COLUMNS.cachedTokens = false;
+      delete row.cached_tokens;
+      ({ data, error } = await client.from("ai_usage_events").insert(row).select("id").maybeSingle());
+    }
     if (error) {
       console.warn(`[KAI] usage log failed (${error.code || "error"})`);
       return null;
@@ -264,9 +392,70 @@ export async function saveAiFeedback({ userId, usageId, rating, reason = "" }) {
 // instance map for the hot path, Postgres so warm instances share the win.
 
 const MEMORY_CACHE = new Map();
+const IN_FLIGHT = new Map();
+// Bump to invalidate every stored answer at once (prompt or parser changes).
+export const CACHE_KEY_VERSION = "v2";
 
 export function buildCacheKey(parts) {
   return createHash("sha256").update(parts.filter(Boolean).join("\u0000")).digest("hex");
+}
+
+/**
+ * Text as it should count for "the same request": Unicode-normalised, line
+ * endings unified, runs of spaces/tabs collapsed and lines trimmed. Words,
+ * case and line breaks are kept — they can change the answer.
+ */
+export function normalizeCacheText(value) {
+  return String(value ?? "")
+    .normalize("NFC")
+    .replace(/\r\n?/g, "\n")
+    .replace(/[ \t\u00a0]+/g, " ")
+    .split("\n")
+    .map((line) => line.trim())
+    .join("\n")
+    .replace(/\n{3,}/g, "\n\n")
+    .trim();
+}
+
+/**
+ * Key for one deterministic task answer. Built from exactly what reaches the
+ * model — task, model id, the full system instruction (which carries the
+ * section), the prompt (which carries the input and requested language), the
+ * response schema and any image — so two requests share an answer only when
+ * Gemini would see the same thing. `userId` scopes personal tasks to their
+ * owner. Only the hash is ever stored or logged, never the text.
+ */
+export function buildTaskCacheKey({ taskId, model, systemInstruction, prompt, schema = null, media = null, locale = "", userId = "" }) {
+  const hash = createHash("sha256");
+  [
+    CACHE_KEY_VERSION,
+    String(taskId || ""),
+    String(model || ""),
+    String(locale || ""),
+    userId ? `user:${userId}` : "shared",
+    normalizeCacheText(systemInstruction),
+    normalizeCacheText(prompt),
+    schema ? JSON.stringify(schema) : "",
+    ...(Array.isArray(media) ? media.map((item) => createHash("sha256").update(String(item?.data || "")).digest("hex")) : []),
+  ].forEach((part) => hash.update(part).update("\u0000"));
+  return hash.digest("hex");
+}
+
+/**
+ * Run `work` once per key per instance: identical requests that arrive while
+ * the first is still generating wait for its answer instead of paying again.
+ */
+// Returns { value, shared }: `shared` is true for the requests that joined.
+export async function shareInFlight(key, work) {
+  if (!key) return { value: await work(), shared: false };
+  if (IN_FLIGHT.has(key)) return { value: await IN_FLIGHT.get(key), shared: true };
+  const pending = Promise.resolve().then(work);
+  IN_FLIGHT.set(key, pending);
+  try {
+    return { value: await pending, shared: false };
+  } finally {
+    IN_FLIGHT.delete(key);
+  }
 }
 
 export async function readCachedResponse(key) {
@@ -298,10 +487,10 @@ export async function readCachedResponse(key) {
   }
 }
 
-export async function writeCachedResponse(key, value, { task = "", model = "" } = {}) {
+export async function writeCachedResponse(key, value, { task = "", model = "", ttlSeconds = CACHE.ttlSeconds } = {}) {
   if (!CACHE.enabled || !key || !value) return;
 
-  const expiresAt = Date.now() + CACHE.ttlSeconds * 1_000;
+  const expiresAt = Date.now() + Math.max(1, Number(ttlSeconds) || CACHE.ttlSeconds) * 1_000;
   MEMORY_CACHE.set(key, { value, expiresAt });
   if (MEMORY_CACHE.size > CACHE.memoryEntries) {
     // Cheapest possible eviction: drop the oldest inserted key.
@@ -322,6 +511,11 @@ export async function writeCachedResponse(key, value, { task = "", model = "" } 
       },
       { onConflict: "cache_key" },
     );
+    // No cron is spent on this: roughly one write in CACHE.cleanupEvery
+    // deletes expired rows so the table stays small.
+    if (CACHE.cleanupEvery > 0 && Math.random() * CACHE.cleanupEvery < 1) {
+      await client.rpc("kunthai_ai_cache_cleanup");
+    }
   } catch {
     // A cache miss next time is the only consequence.
   }
@@ -330,4 +524,7 @@ export async function writeCachedResponse(key, value, { task = "", model = "" } 
 export function clearAiMemoryCaches() {
   MEMORY_CACHE.clear();
   MEMORY_HITS.clear();
+  IP_HITS.clear();
+  IN_FLIGHT.clear();
+  resetGlobalSpend();
 }

@@ -11,6 +11,7 @@ import { GoogleGenAI } from "@google/genai";
 
 import { RETRY, estimateCostMicros, getApiKey, getModelTier, isAiConfigured } from "./aiConfig.js";
 import { AI_ERROR_CODES, AiError, aiError, fromProviderError } from "./aiErrors.js";
+import { forgetContextCache, getContextCacheName, isContextCacheFailure } from "./contextCache.js";
 
 let cachedClient = null;
 let cachedKey = "";
@@ -44,18 +45,21 @@ function thinkingConfigFor(tier) {
   return tier.thinking === "on" ? undefined : { thinkingLevel: "minimal" };
 }
 
+// promptTokenCount already includes the cached part; cached tokens bill at a
+// discount, which the cost estimate reflects.
 function readUsage(response, model) {
   const usage = response?.usageMetadata || {};
   const inputTokens = Number(usage.promptTokenCount || 0);
   const outputTokens = Number(usage.candidatesTokenCount || 0) + Number(usage.thoughtsTokenCount || 0);
+  const cachedTokens = Number(usage.cachedContentTokenCount || 0);
   return {
     model,
     inputTokens,
     outputTokens,
     thoughtTokens: Number(usage.thoughtsTokenCount || 0),
-    cachedTokens: Number(usage.cachedContentTokenCount || 0),
+    cachedTokens,
     totalTokens: Number(usage.totalTokenCount || inputTokens + outputTokens),
-    costMicros: estimateCostMicros({ model, inputTokens, outputTokens }),
+    costMicros: estimateCostMicros({ model, inputTokens, outputTokens, cachedTokens }),
   };
 }
 
@@ -112,6 +116,7 @@ async function callGemini({
   temperature,
   signal,
   thinkingConfig,
+  cachedContent = "",
 }) {
   const controller = new AbortController();
   // A caller-side cancel (the user pressed Stop) aborts the wait immediately.
@@ -129,13 +134,16 @@ async function callGemini({
       model: tier.model,
       contents: contents || buildContents(prompt, media),
       config: {
-        systemInstruction,
+        // With an explicit context cache the system instruction and tools live
+        // in the cache; Gemini rejects them being sent again.
+        ...(cachedContent ? { cachedContent } : { systemInstruction }),
         temperature: typeof temperature === "number" ? temperature : tier.temperature,
-        maxOutputTokens: maxOutputTokens || tier.maxOutputTokens,
+        // A task may ask for fewer output tokens than its tier, never more.
+        maxOutputTokens: capOutputTokens(maxOutputTokens, tier),
         abortSignal: controller.signal,
         thinkingConfig,
         ...(schema ? { responseMimeType: "application/json", responseSchema: schema } : {}),
-        ...(tools ? { tools } : {}),
+        ...(tools && !cachedContent ? { tools } : {}),
         ...(toolConfig ? { toolConfig } : {}),
       },
     });
@@ -164,6 +172,13 @@ async function callGemini({
     clearTimeout(timer);
     if (signal) signal.removeEventListener("abort", forwardAbort);
   }
+}
+
+export function capOutputTokens(requested, tier) {
+  const ceiling = Number(tier?.maxOutputTokens) || 0;
+  const wanted = Number(requested) || 0;
+  if (!wanted) return ceiling;
+  return ceiling ? Math.min(wanted, ceiling) : wanted;
 }
 
 // Retry only faults that a second attempt can actually fix. A rejected prompt
@@ -282,6 +297,7 @@ export async function generateAssistantTurn({
   maxOutputTokens = 0,
   temperature,
   signal,
+  cachePrefix = false,
 } = {}) {
   if (!Array.isArray(contents) || !contents.length) {
     throw aiError(AI_ERROR_CODES.invalidRequest, { details: "empty-contents" });
@@ -289,20 +305,37 @@ export async function generateAssistantTurn({
 
   // No tier fallback mid-conversation: thought signatures are tied to the model
   // that produced them, so a turn must be continued by the same model.
-  return runWithPolicy({ tierId, signal, allowFallback: false }, (tier, thinkingConfig) =>
-    callGemini({
-      tier,
-      systemInstruction,
-      contents,
-      tools,
-      toolConfig: forceText ? { functionCallingConfig: { mode: "NONE" } } : undefined,
-      allowToolCalls: !forceText,
-      maxOutputTokens,
-      temperature,
-      signal,
-      thinkingConfig,
-    }),
-  );
+  return runWithPolicy({ tierId, signal, allowFallback: false }, async (tier, thinkingConfig) => {
+    const call = (cachedContent = "") =>
+      callGemini({
+        tier,
+        systemInstruction,
+        contents,
+        tools,
+        toolConfig: forceText ? { functionCallingConfig: { mode: "NONE" } } : undefined,
+        allowToolCalls: !forceText,
+        maxOutputTokens,
+        temperature,
+        signal,
+        thinkingConfig,
+        cachedContent,
+      });
+
+    // A forced-text round needs its own toolConfig, which cannot be combined
+    // with a cache, so it always goes uncached.
+    const cachedContent = cachePrefix && !forceText
+      ? await getContextCacheName({ client: getClient(), model: tier.model, systemInstruction, tools })
+      : "";
+    if (!cachedContent) return call();
+    try {
+      return await call(cachedContent);
+    } catch (error) {
+      if (signal?.aborted || !isContextCacheFailure(error)) throw error;
+      // Expired or rejected cache: forget it everywhere and answer uncached.
+      await forgetContextCache(cachedContent);
+      return call();
+    }
+  });
 }
 
 export { buildContents, readUsage, thinkingConfigFor };

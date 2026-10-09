@@ -9,9 +9,17 @@
 // the response carries a signed copy of its turn; the follow-up request brings
 // that turn back with the tool results. At most MAX_TOOL_ROUNDS tool rounds run
 // per message, and the last permitted round forces a plain-text answer.
+//
+// Cost shape: the system instruction is the fixed rules first and the
+// section/role line last, and everything that varies per message (history
+// summary, screen data, registration rules, the message) travels in the
+// person's turn. That keeps the expensive prefix byte-identical across
+// requests, so Gemini's context cache (implicit, or explicit when enabled)
+// can reuse it.
 
+import { LIMITS } from "../aiConfig.js";
 import { AI_ERROR_CODES, aiError } from "../aiErrors.js";
-import { cleanHistory, cleanLine, cleanText, optionalChoice } from "../aiInput.js";
+import { cleanLine, cleanText, optionalChoice, trimHistory } from "../aiInput.js";
 import { generateAssistantTurn } from "../aiClient.js";
 import { KUNTHAI_GUARDRAILS } from "../aiTasks.js";
 import { MAX_TOOL_CALLS_PER_ROUND, functionDeclarationsFor, validateToolCall } from "./assistantTools.js";
@@ -21,11 +29,14 @@ import "./exploreTools.js";
 import "./adminTools.js";
 import { SCREEN_CAPABILITIES } from "./screenTools.js";
 import { signTurns, verifyTurns } from "./turnSigning.js";
+import { cleanFormMeta, enforceRegistrationPolicy, registrationGuidance } from "./businessRegistration.js";
 
-export const MAX_TOOL_ROUNDS = 2;
-const MAX_RESULT_CHARS = 7_000;
+// All three are environment-tunable in aiConfig.js (AI_MAX_TOOL_ROUNDS,
+// AI_MAX_TOOL_RESULT_CHARS, AI_MAX_FACTS_CHARS).
+export const MAX_TOOL_ROUNDS = LIMITS.maxToolRounds;
+const MAX_RESULT_CHARS = LIMITS.maxToolResultChars;
 // Screen data can hold a whole form or a conversation.
-const MAX_FACTS_CHARS = 6_000;
+const MAX_FACTS_CHARS = LIMITS.maxFactsChars;
 const ROLES = ["buyer", "seller", "passenger", "operator", "company", "admin"];
 
 const SECTION_LABELS = {
@@ -61,11 +72,12 @@ export const ASSISTANT_RULES = [
   "- Replying to a conversation: when the person asks you to reply or write a message, use suggest_message_replies with 1 to 3 ready-to-send replies based only on the conversation shown. You never send anything: the person chooses a reply and presses Send.",
 ].join("\n");
 
-function systemInstructionFor(surface, role) {
+// Fixed text first, the per-section line last (see the cost note at the top).
+export function systemInstructionFor(surface, role) {
   return [
     KUNTHAI_GUARDRAILS,
-    `You are chatting with a KunThai member in ${SECTION_LABELS[surface] || SECTION_LABELS.global}${ROLE_LABELS[role] ? `, ${ROLE_LABELS[role]}` : ""}.`,
     ASSISTANT_RULES,
+    `You are chatting with a KunThai member in ${SECTION_LABELS[surface] || SECTION_LABELS.global}${ROLE_LABELS[role] ? `, ${ROLE_LABELS[role]}` : ""}.`,
   ].join("\n\n");
 }
 
@@ -77,15 +89,17 @@ function cleanFacts(value) {
   return cleanText(raw, MAX_FACTS_CHARS);
 }
 
-function historyContents(history) {
-  return cleanHistory(history).map((turn) => ({ role: turn.role, parts: [{ text: turn.text }] }));
+function historyContents(turns) {
+  return turns.map((turn) => ({ role: turn.role, parts: [{ text: turn.text }] }));
 }
 
-function userTurn({ message, screen, facts, selection }) {
+export function userTurn({ message, screen, facts, selection, summary = "", guidance = "" }) {
   const lines = [];
+  if (summary) lines.push(summary);
   if (screen) lines.push(`Current screen: ${screen}.`);
   if (selection.length) lines.push(`Items the person selected on screen (KunThai ids): ${selection.join(", ")}`);
   if (facts) lines.push(`KunThai data from the current screen:\n---\n${facts}\n---`);
+  if (guidance) lines.push(guidance);
   lines.push(`Message:\n---\n${message}\n---`);
   return { role: "user", parts: [{ text: lines.join("\n\n") }] };
 }
@@ -144,7 +158,7 @@ export function functionResponseTurn(modelTurn, results, surface, role, capabili
  */
 export async function runAssistantChat({ user, surface, body }) {
   const input = body.input && typeof body.input === "object" ? body.input : {};
-  const message = cleanText(input.message, 1_500);
+  const message = cleanText(input.message, LIMITS.maxMessageChars);
   if (!message) {
     throw aiError(AI_ERROR_CODES.invalidRequest, { message: "Type a message for KAI.", details: "empty-message" });
   }
@@ -161,6 +175,10 @@ export async function runAssistantChat({ user, surface, body }) {
     .filter((id) => /^[0-9a-f-]{36}$/i.test(id))
     .slice(0, 3);
 
+  // The open form's own declaration (e.g. the business registration and its
+  // business kind) decides which fields the model may fill.
+  const formMeta = capabilities.includes("form") ? cleanFormMeta(input.formMeta) : null;
+
   const pending = input.pending && typeof input.pending === "object" ? input.pending : null;
   const modelTurns = pending ? (Array.isArray(pending.modelTurns) ? pending.modelTurns : []).map(sanitizeModelTurn) : [];
   const toolResults = Array.isArray(input.toolResults) ? input.toolResults : [];
@@ -172,7 +190,9 @@ export async function runAssistantChat({ user, surface, body }) {
     }
   }
 
-  const contents = [...historyContents(input.history), userTurn({ message, screen, facts, selection })];
+  const { turns: history, summary } = trimHistory(input.history);
+  const guidance = registrationGuidance(formMeta);
+  const contents = [...historyContents(history), userTurn({ message, screen, facts, selection, summary, guidance })];
   modelTurns.forEach((turn, index) => {
     contents.push(turn);
     contents.push(functionResponseTurn(turn, toolResults[index], surface, role, capabilities));
@@ -187,15 +207,17 @@ export async function runAssistantChat({ user, surface, body }) {
     contents,
     tools: declarations.length ? [{ functionDeclarations: declarations }] : undefined,
     forceText: forceText || !declarations.length,
-    maxOutputTokens: 1_000,
+    maxOutputTokens: LIMITS.assistantMaxOutputTokens,
     temperature: 0.3,
+    // The rules + tool declarations are the long, fixed part worth caching.
+    cachePrefix: true,
   });
 
   if (generation.functionCalls.length && !forceText) {
     const nextTurns = [...modelTurns, generation.content];
     const calls = generation.functionCalls
       .slice(0, MAX_TOOL_CALLS_PER_ROUND)
-      .map((call) => validateToolCall(call, surface, role, capabilities));
+      .map((call) => enforceRegistrationPolicy(validateToolCall(call, surface, role, capabilities), formMeta));
 
     return {
       generation,

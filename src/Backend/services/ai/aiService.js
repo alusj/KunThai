@@ -1,6 +1,8 @@
 import supabase from "../../lib/supabaseClient";
 import { friendlyErrorMessage } from "../friendlyErrorService";
 import { apiUrl } from "../../lib/apiUrl.js";
+import { t } from "../../../i18n";
+import { createRequestSharer, limitMessageKey } from "./aiRequestSharing.js";
 
 // KAI — browser service.
 //
@@ -26,6 +28,7 @@ export const AI_ERROR_CODES = {
   unknownTask: "unknown_task",
   rateLimited: "rate_limited",
   budgetExceeded: "budget_exceeded",
+  aiResting: "ai_resting",
   timeout: "timeout",
   providerUnavailable: "provider_unavailable",
   providerRejected: "provider_rejected",
@@ -140,18 +143,12 @@ export function resetAiStatusCache() {
 
 // --- Running a task ---------------------------------------------------------
 
-// Identical requests fired twice (double tap, a re-render, two components
-// asking for the same summary) share one network call instead of two billed
-// generations.
-const IN_FLIGHT = new Map();
-
-function requestKey(task, surface, input) {
-  try {
-    return `${task}|${surface}|${JSON.stringify(input)}`;
-  } catch {
-    return "";
-  }
-}
+// Identical requests fired while one is still running (a double tap, a
+// re-render, two components asking for the same summary, a Stop followed by the
+// same request again) share one network call instead of two billed
+// generations. Each caller keeps its own cancel: stopping only detaches that
+// caller, because the server keeps generating (and billing) anyway.
+const shareRequest = createRequestSharer();
 
 async function authHeaders() {
   const { data } = await supabase.auth.getSession();
@@ -186,8 +183,12 @@ async function postAi(body, signal) {
   const data = await response.json().catch(() => null);
 
   if (!response.ok || !data?.ok) {
-    throw new AiRequestError(data?.message || "KAI ran into a problem. Please try again.", {
-      code: data?.code || AI_ERROR_CODES.serverError,
+    const code = data?.code || AI_ERROR_CODES.serverError;
+    // Limit messages are shown in the person's own language.
+    const limitKey = limitMessageKey(code);
+    const translated = limitKey ? t(limitKey) : "";
+    throw new AiRequestError((translated && translated !== limitKey ? translated : "") || data?.message || "KAI ran into a problem. Please try again.", {
+      code,
       retryAfterSeconds: Number(data?.retryAfterSeconds || 0),
     });
   }
@@ -210,20 +211,7 @@ export async function runAiTask({ task, surface = "global", input = {}, context 
   if (!task) throw new AiRequestError("No KAI action was chosen.", { code: AI_ERROR_CODES.invalidRequest });
 
   const body = { task, surface, input, context };
-  const key = requestKey(task, surface, input);
-
-  // Only share a call when the caller is not driving its own cancellation:
-  // one component pressing Stop must not cancel another's request.
-  if (key && !signal && IN_FLIGHT.has(key)) return IN_FLIGHT.get(key);
-
-  const pending = postAi(body, signal);
-
-  if (key && !signal) {
-    IN_FLIGHT.set(key, pending);
-    pending.finally(() => IN_FLIGHT.delete(key)).catch(() => {});
-  }
-
-  return pending;
+  return shareRequest(body, () => postAi(body), signal);
 }
 
 /** Record a thumbs up/down on a result. Never throws — feedback is optional. */

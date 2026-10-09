@@ -49,6 +49,8 @@ export const AI_TASKS = {
     surfaces: ["*"],
     label: "Improve writing",
     cacheable: true,
+    // Writing help can be a private message: answers are kept per person.
+    cacheScope: "user",
     instruction:
       "Improve the text: fix grammar and spelling, make it clear and natural, and keep the writer's meaning, facts and voice. Do not add new claims, offers or details.",
     build(input) {
@@ -69,6 +71,8 @@ export const AI_TASKS = {
     surfaces: ["*"],
     label: "Rewrite",
     cacheable: true,
+    // Writing help can be a private message: answers are kept per person.
+    cacheScope: "user",
     instruction:
       "Rewrite the text so it says the same thing in a different way. Keep every fact identical. Do not invent details.",
     build(input) {
@@ -96,6 +100,8 @@ export const AI_TASKS = {
     surfaces: ["*"],
     label: "Make shorter",
     cacheable: true,
+    // Writing help can be a private message: answers are kept per person.
+    cacheScope: "user",
     instruction:
       "Shorten the text. Keep every important fact and drop filler. Never remove a price, date, place or condition that changes the meaning.",
     build(input) {
@@ -115,6 +121,8 @@ export const AI_TASKS = {
     surfaces: ["*"],
     label: "Add detail",
     cacheable: true,
+    // Writing help can be a private message: answers are kept per person.
+    cacheScope: "user",
     instruction:
       "Expand the text so it reads fuller and clearer, using ONLY the information already present. Do not invent facts, features, prices or promises. If there is too little to work with, say so in one sentence instead.",
     build(input) {
@@ -135,6 +143,8 @@ export const AI_TASKS = {
     surfaces: ["*"],
     label: "Fix grammar",
     cacheable: true,
+    // Writing help can be a private message: answers are kept per person.
+    cacheScope: "user",
     instruction:
       "Correct spelling, grammar and punctuation only. Keep the wording, tone, slang and structure as close to the original as possible. Change nothing that is already correct.",
     build(input) {
@@ -153,6 +163,8 @@ export const AI_TASKS = {
     surfaces: ["*"],
     label: "Translate",
     cacheable: true,
+    // Writing help can be a private message: answers are kept per person.
+    cacheScope: "user",
     instruction:
       "Translate the text faithfully. Keep names, brand words (KunThai, KAI, Explore, UrFeed, Swip, UrMall, UrRide, Spaces), prices, numbers and units exactly as written. Keep the same tone and formatting.",
     build(input) {
@@ -178,6 +190,8 @@ export const AI_TASKS = {
     surfaces: ["*"],
     label: "Summarise",
     cacheable: true,
+    // Writing help can be a private message: answers are kept per person.
+    cacheScope: "user",
     output: "json",
     schema: {
       type: "object",

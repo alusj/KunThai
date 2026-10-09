@@ -2,12 +2,13 @@
 //
 // One path for every AI call in the platform:
 //
-//   authenticate -> validate -> cache -> rate limit -> generate -> log -> reply
+//   ip guard -> authenticate -> validate -> cache -> rate limit (user + global)
+//     -> generate (identical in-flight requests share one call) -> log -> reply
 //
 // Keeping it in a single module means a new phase adds a task, not a new
 // security surface.
 
-import { CACHE, LIMITS, SURFACES, isAiConfigured, isKnownSurface } from "./aiConfig.js";
+import { CACHE, LIMITS, SURFACES, getModelTier, isAiConfigured, isKnownSurface } from "./aiConfig.js";
 import { AI_ERROR_CODES, aiError, logAiError, toClientError } from "./aiErrors.js";
 import { assertBodySize, cleanLine, cleanSlug } from "./aiInput.js";
 import { generateWithGemini, parseJsonResponse } from "./aiClient.js";
@@ -17,11 +18,13 @@ import { runAssistantChat } from "./assistant/assistantEngine.js";
 import {
   verifyAdminAccess,
   authenticateAiRequest,
-  buildCacheKey,
+  buildTaskCacheKey,
+  enforceIpRateLimit,
   enforceRateLimit,
   logAiUsage,
   readCachedResponse,
   saveAiFeedback,
+  shareInFlight,
   writeCachedResponse,
 } from "./aiUsage.js";
 
@@ -42,8 +45,32 @@ function surfaceLabel(surface) {
   return SURFACE_LABELS[surface] || SURFACE_LABELS.global;
 }
 
-function buildSystemInstruction(task, surface) {
-  return `${KUNTHAI_GUARDRAILS}\n\nCurrent KunThai section: ${surfaceLabel(surface)}.\n\nYour job for this request:\n${task.instruction}`;
+// Fixed text first (guardrails, then the task's own instruction), the section
+// last: requests for the same task then share the longest possible
+// byte-identical prefix, which Gemini's implicit context cache discounts.
+export function buildSystemInstruction(task, surface) {
+  return `${KUNTHAI_GUARDRAILS}\n\nYour job for this request:\n${task.instruction}\n\nCurrent KunThai section: ${surfaceLabel(surface)}.`;
+}
+
+/**
+ * Cache key for a task request, or "" when it must not be cached.
+ *
+ * Opt-in per task (`cacheable` and a non-null `cacheKey` from build). The key
+ * hashes what the model would actually receive. Tasks with
+ * `cacheScope: "user"` (writing help that may be a private message) are keyed
+ * to the person, so nobody else can ever be served that answer.
+ */
+export function taskCacheKey({ task, surface, built, systemInstruction, userId }) {
+  if (!task.cacheable || !CACHE.enabled || !Array.isArray(built?.cacheKey)) return "";
+  return buildTaskCacheKey({
+    taskId: `${task.id}@${surface}`,
+    model: getModelTier(task.tier).model,
+    systemInstruction,
+    prompt: built.prompt,
+    schema: task.output === "json" ? task.schema : null,
+    media: built.media || null,
+    userId: task.cacheScope === "user" ? userId : "",
+  });
 }
 
 /** GET /api/ai — what the browser is allowed to render, and whether AI is on. */
@@ -86,18 +113,20 @@ async function runTask({ user, body }) {
   // inside a labelled block.
   const built = task.build(input, context);
 
+  const systemInstruction = buildSystemInstruction(task, surface);
+
   // Cache lookup happens after validation so a malformed request never gets a
-  // cached answer, and the key includes the surface so context stays honest.
-  const cacheKey =
-    task.cacheable && CACHE.enabled && Array.isArray(built.cacheKey)
-      ? buildCacheKey([task.id, surface, ...built.cacheKey])
-      : "";
+  // cached answer, and the key covers the section and everything the model sees.
+  const cacheKey = taskCacheKey({ task, surface, built, systemInstruction, userId: user.id });
 
   if (cacheKey) {
     const cached = await readCachedResponse(cacheKey);
     // A cached answer costs nothing, so it is served even to someone who has
     // used up their budget — rate limits protect spend, not reuse.
     if (cached) {
+      // Logged (no tokens, no cost, cached=true) so the hit rate is visible;
+      // cached rows do not count toward rate limits.
+      await logAiUsage({ userId: user.id, surface, task: task.id, status: "cached", cached: true });
       return {
         ok: true,
         task: task.id,
@@ -110,12 +139,30 @@ async function runTask({ user, body }) {
 
   await enforceRateLimit(user.id);
 
+  // Identical requests already generating on this instance (a double tap, two
+  // components asking for the same summary) share that one call.
+  const { value: payload, shared } = await shareInFlight(cacheKey, () => generateTask({ user, task, surface, input, built, systemInstruction }));
+  if (shared) {
+    // Someone else's usage row paid for it; feedback stays with that row.
+    return { ...payload, meta: { ...payload.meta, usageId: null, shared: true } };
+  }
+  if (cacheKey) {
+    await writeCachedResponse(cacheKey, payload.result, {
+      task: task.id,
+      model: payload.meta.model,
+      ttlSeconds: task.cacheScope === "user" ? CACHE.personalTtlSeconds : task.cacheTtlSeconds || CACHE.ttlSeconds,
+    });
+  }
+  return payload;
+}
+
+async function generateTask({ user, task, surface, input, built, systemInstruction }) {
   const startedAt = Date.now();
   let generation;
   try {
     generation = await generateWithGemini({
       tierId: task.tier,
-      systemInstruction: buildSystemInstruction(task, surface),
+      systemInstruction,
       prompt: built.prompt,
       media: built.media || null,
       schema: task.output === "json" ? task.schema : null,
@@ -138,6 +185,22 @@ async function runTask({ user, body }) {
     throw known;
   }
 
+  // Logged before the answer is checked: tokens were spent either way, and
+  // the spend must count toward the budgets.
+  const usageId = await logAiUsage({
+    userId: user.id,
+    surface,
+    task: task.id,
+    model: generation.model,
+    status: generation.degraded ? "degraded" : "ok",
+    inputTokens: generation.usage.inputTokens,
+    outputTokens: generation.usage.outputTokens,
+    cachedTokens: generation.usage.cachedTokens,
+    totalTokens: generation.usage.totalTokens,
+    costMicros: generation.usage.costMicros,
+    durationMs: generation.durationMs,
+  });
+
   // Tasks get the original input back so they can validate the model's answer
   // against what the browser offered (e.g. a topic slug must be one it sent).
   const result = task.output === "json"
@@ -148,24 +211,7 @@ async function runTask({ user, body }) {
     throw aiError(AI_ERROR_CODES.emptyResponse, { details: `empty-${task.id}` });
   }
 
-  const usageId = await logAiUsage({
-    userId: user.id,
-    surface,
-    task: task.id,
-    model: generation.model,
-    status: generation.degraded ? "degraded" : "ok",
-    inputTokens: generation.usage.inputTokens,
-    outputTokens: generation.usage.outputTokens,
-    totalTokens: generation.usage.totalTokens,
-    costMicros: generation.usage.costMicros,
-    durationMs: generation.durationMs,
-  });
-
-  if (cacheKey) {
-    await writeCachedResponse(cacheKey, result, { task: task.id, model: generation.model });
-  }
-
-  return {
+  const payload = {
     ok: true,
     task: task.id,
     surface,
@@ -184,6 +230,7 @@ async function runTask({ user, body }) {
       },
     },
   };
+  return payload;
 }
 
 export const ASSISTANT_TASK_ID = "assistant.chat";
@@ -225,6 +272,7 @@ async function runAssistant({ user, body }) {
     status: "ok",
     inputTokens: generation.usage.inputTokens,
     outputTokens: generation.usage.outputTokens,
+    cachedTokens: generation.usage.cachedTokens,
     totalTokens: generation.usage.totalTokens,
     costMicros: generation.usage.costMicros,
     durationMs: generation.durationMs,
@@ -273,6 +321,8 @@ export async function handleAiRequest(req, res) {
     }
 
     assertBodySize(req, LIMITS.maxBodyBytes);
+    // Before the token check: a flood of bad tokens from one address stops here.
+    enforceIpRateLimit(req);
 
     const body = req.body && typeof req.body === "object" ? req.body : {};
     const user = await authenticateAiRequest(req);

@@ -89,6 +89,62 @@ export function cleanHistory(value) {
   return kept;
 }
 
+/**
+ * Conversation history for a multi-turn model call, trimmed for cost.
+ *
+ * Keeps the last `maxTurns` turns verbatim (KAI's own replies cut shorter than
+ * the person's), within a total character budget, starting on a person's turn.
+ * Older turns are not resent: the person's earlier questions are folded into
+ * one short `summary` line instead, so the model keeps the thread without
+ * paying for every old answer again.
+ *
+ * Returns { turns: [{ role, text }], summary }.
+ */
+export function trimHistory(value, {
+  maxTurns = LIMITS.maxHistoryTurns,
+  maxChars = LIMITS.maxHistoryChars,
+  maxTurnChars = LIMITS.maxHistoryTurnChars,
+  maxModelTurnChars = LIMITS.maxHistoryModelTurnChars,
+  summaryChars = LIMITS.historySummaryChars,
+} = {}) {
+  if (!Array.isArray(value) || !value.length) return { turns: [], summary: "" };
+
+  const all = value
+    .slice(-60)
+    .map((turn) => {
+      const role = turn?.role === "model" || turn?.role === "assistant" ? "model" : "user";
+      return { role, text: cleanText(turn?.text ?? turn?.content, role === "model" ? maxModelTurnChars : maxTurnChars) };
+    })
+    .filter((turn) => turn.text);
+
+  const recent = all.slice(-Math.max(0, maxTurns));
+  let budget = maxChars;
+  const kept = [];
+  for (let index = recent.length - 1; index >= 0; index -= 1) {
+    budget -= recent[index].text.length;
+    if (budget < 0) break;
+    kept.unshift(recent[index]);
+  }
+  // Gemini expects a conversation to open with the person.
+  while (kept.length && kept[0].role === "model") kept.shift();
+
+  const older = all.slice(0, all.length - kept.length).filter((turn) => turn.role === "user");
+  let summary = "";
+  if (older.length && summaryChars > 0) {
+    const prefix = "Earlier in this chat the person asked about: ";
+    const topics = [];
+    let room = summaryChars - prefix.length;
+    for (let index = older.length - 1; index >= 0 && room > 0; index -= 1) {
+      const topic = older[index].text.replace(/\s+/g, " ").slice(0, 120);
+      if (topic.length + 3 > room) break;
+      topics.unshift(topic);
+      room -= topic.length + 3;
+    }
+    if (topics.length) summary = `${prefix}${topics.join(" | ")}.`;
+  }
+  return { turns: kept, summary };
+}
+
 export function requireText(value, field, { min = 1, max = LIMITS.maxTextChars } = {}) {
   const text = cleanText(value, max);
   if (text.length < min) {

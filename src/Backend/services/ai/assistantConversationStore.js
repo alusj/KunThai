@@ -13,7 +13,10 @@ import { snapshotAiScreen } from "./aiScreenContext";
 // the last few plain-text turns from the SAME section are sent as history:
 // tool data is never resent, which keeps every request small and cheap.
 
-const HISTORY_TURNS = 6;
+// The server keeps only the most recent turns verbatim (AI_MAX_HISTORY_TURNS)
+// and folds the person's earlier questions into one short summary line, so a
+// few extra turns here cost bytes, not tokens.
+const HISTORY_TURNS = 12;
 const MAX_MESSAGES = 40;
 
 let state = { messages: [], busy: false, progress: "" };
