@@ -123,7 +123,7 @@ export function BuyerProductCard({ product, onProductSelect, onAddToCart, onTogg
           <p className="mt-0.5 truncate text-[11px] font-semibold text-gray-500">
             {isVertical
               ? `${product.category} | ${product.seller?.name || t("urmall.browse.sellerFallback")}`
-              : t("urmall.browse.retailMeta", { category: product.category, seller: product.seller?.name || t("urmall.browse.sellerFallback") })}
+              : t(vendorProduct ? "kaiListingFix.vendorMeta" : "urmall.browse.retailMeta", { category: product.category, seller: product.seller?.name || t("urmall.browse.sellerFallback") })}
           </p>
         </div>
 

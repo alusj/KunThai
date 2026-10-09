@@ -138,7 +138,7 @@ export function verticalName(type, item) {
 }
 
 export function verticalSearchText(type, item) {
-  return [verticalName(type, item), item.description, item.businessName, item.meal_period, item.purpose, item.property_type, item.city, item.address]
+  return [verticalName(type, item), item.listingDescription, item.description, item.businessName, item.meal_period, item.purpose, item.property_type, item.city, item.address]
     .filter(Boolean)
     .join(" ")
     .toLowerCase();
@@ -165,6 +165,151 @@ export function verticalFactsForAi(type, item, { buyer = null } = {}) {
     ...(distanceTo(buyer, item.latitude, item.longitude) !== null ? { distanceKm: distanceTo(buyer, item.latitude, item.longitude) } : {}),
     description: clip(item.description, 240) || undefined,
   };
+}
+
+const WEEKDAY_NAMES = ["Sunday", "Monday", "Tuesday", "Wednesday", "Thursday", "Friday", "Saturday"];
+
+const VERTICAL_KIND_LABEL = {
+  restaurant: "restaurant meal",
+  room: "hotel room",
+  hotel: "hotel",
+  property: "real-estate property",
+};
+
+function compact(object) {
+  return Object.fromEntries(
+    Object.entries(object).filter(([, value]) => value !== undefined && value !== null && value !== "" && !(Array.isArray(value) && !value.length)),
+  );
+}
+
+function servedDaysLabel(days) {
+  const list = Array.isArray(days) ? days.map(Number).filter((day) => Number.isInteger(day) && day >= 0 && day <= 6) : [];
+  if (!list.length) return undefined;
+  if (list.length === 7) return "every day";
+  return list.map((day) => WEEKDAY_NAMES[day]).join(", ");
+}
+
+/**
+ * What KAI may know about a meal, room, hotel or property open on a buyer
+ * detail screen. Built from the mapped listing (mapVerticalProduct) with
+ * exact price labels; no seller phone, email or WhatsApp.
+ */
+export function verticalDetailFactsForAi(product, { buyer = null } = {}) {
+  if (!product?.id || !product.isVertical) return null;
+  const type = product.verticalType;
+  const facts = product.listingFacts || {};
+  const currency = product.currency || product.seller?.currency || "";
+  const price = Number(product.price || 0);
+  const label = price > 0 ? moneyLabel(price, currency) : "";
+  const perNight = type === "room" || type === "hotel";
+  const rentPeriod = type === "property" ? facts.rentPeriod : "";
+  const priceLabel = !label
+    ? undefined
+    : type === "hotel"
+      ? `from ${label} per night`
+      : perNight
+        ? `${label} per night`
+        : rentPeriod
+          ? `${label} per ${rentPeriod}`
+          : label;
+  const distance = distanceTo(buyer, product.seller?.latitude, product.seller?.longitude);
+  const base = {
+    id: product.id,
+    listingKind: VERTICAL_KIND_LABEL[type] || "listing",
+    name: clip(product.name, 120),
+    priceLabel,
+    seller: clip(product.seller?.name, 80) || undefined,
+    sellerVerified: ["verified", "approved"].includes(String(product.seller?.verificationStatus || "").toLowerCase()),
+    city: product.seller?.city || undefined,
+    country: product.seller?.country || product.country || undefined,
+    ...(Number(product.reviewCount) > 0 ? { rating: Number(product.rating), reviewCount: Number(product.reviewCount) } : {}),
+    ...(distance !== null ? { distanceKm: distance } : {}),
+    description: clip(product.description, 1_200) || undefined,
+  };
+
+  if (type === "restaurant") {
+    return compact({
+      ...base,
+      restaurant: base.seller,
+      seller: undefined,
+      mealPeriod: facts.mealPeriod ? String(facts.mealPeriod).replaceAll("_", " ") : undefined,
+      cuisine: facts.cuisine,
+      preparationMinutesStatedBySeller: facts.preparationMinutes,
+      daysAvailable: servedDaysLabel(facts.servedDays),
+      delivery: Boolean(product.deliveryAvailable),
+      pickup: Boolean(product.pickupAvailable),
+    });
+  }
+  if (type === "property") {
+    return compact({
+      ...base,
+      agent: base.seller,
+      seller: undefined,
+      propertyType: facts.propertyType,
+      forRentOrSale: facts.purpose,
+      bedrooms: facts.bedrooms,
+      bathrooms: facts.bathrooms,
+      parkingSpaces: facts.parkingSpaces,
+      furnished: facts.furnished,
+      landSize: facts.landSize,
+      floorArea: facts.floorArea,
+      rooms: facts.rooms,
+      starRating: facts.starRating,
+      location: clip([facts.address, facts.city].filter(Boolean).join(", "), 140) || clip(product.location, 140) || undefined,
+      priceNegotiable: Boolean(product.allowNegotiation),
+    });
+  }
+  if (type === "room") {
+    return compact({
+      ...base,
+      hotel: base.seller,
+      seller: undefined,
+      guestsPerRoom: facts.capacity,
+      roomsAvailable: facts.roomsAvailable,
+      amenities: Array.isArray(facts.amenities) ? facts.amenities.map((amenity) => clip(amenity, 40)).join(", ") : undefined,
+    });
+  }
+  if (type === "hotel") {
+    return compact({
+      ...base,
+      roomTypes: (facts.roomTypes || [])
+        .map((room) => compact({
+          name: clip(room.name, 60) || undefined,
+          priceLabel: Number(room.nightlyRate) > 0 ? `${moneyLabel(room.nightlyRate, currency)} per night` : undefined,
+          guests: room.capacity,
+        }))
+        .filter((room) => Object.keys(room).length),
+    });
+  }
+  return compact(base);
+}
+
+/**
+ * Plain "key: value" lines for a listing, for KAI's screen context (the
+ * floating KAI chat reads them while the detail screen is open).
+ */
+export function describeListingForAi(facts, heading = "Listing open on screen") {
+  if (!facts || typeof facts !== "object") return "";
+  const lines = [`${heading} (KunThai data; quote prices exactly):`];
+  Object.entries(facts).forEach(([key, value]) => {
+    if (key === "id" || value === undefined || value === null || value === "") return;
+    let text;
+    if (Array.isArray(value)) {
+      text = value
+        .map((entry) => (entry && typeof entry === "object"
+          ? Object.entries(entry).map(([innerKey, innerValue]) => `${innerKey} ${innerValue}`).join(", ")
+          : String(entry)))
+        .join("; ");
+    } else if (typeof value === "object") {
+      text = Object.entries(value).map(([innerKey, innerValue]) => `${innerKey} ${innerValue}`).join(", ");
+    } else if (typeof value === "boolean") {
+      text = value ? "yes" : "no";
+    } else {
+      text = String(value);
+    }
+    if (text) lines.push(`- ${key}: ${clip(text, key === "description" ? 900 : 200)}`);
+  });
+  return lines.join("\n");
 }
 
 /** Sort by real distance when the buyer's location is known; unknowns last. */

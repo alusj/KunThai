@@ -5,6 +5,36 @@ import { showToast } from "../../Backend/services/toastService";
 import { t } from "../../i18n";
 import ProductDetailDrawer from "./Browse/ProductDetailDrawer";
 import { useI18n as useUiLocale } from "../../i18n/index.js";
+import { openAiAssistant } from "../../Backend/services/ai/aiSurfaceService";
+import { describeListingForAi, readBuyerCoordinates, verticalDetailFactsForAi } from "../../Backend/services/ai/urmallAiModels";
+
+// KAI on a meal, room, hotel or property detail: the same header pill as a
+// shop product, answering only from this listing's facts.
+const KAI_COPY = {
+  restaurant: { title: "kaiListingFix.titleMeal", ask: "kaiListingFix.askMeal", askSeller: "kaiListingFix.promptAskRestaurant", screen: "restaurant meal detail" },
+  room: { title: "kaiListingFix.titleRoom", ask: "kaiListingFix.askStay", askSeller: "kaiListingFix.promptAskHotel", screen: "hotel room detail" },
+  hotel: { title: "kaiListingFix.titleHotel", ask: "kaiListingFix.askStay", askSeller: "kaiListingFix.promptAskHotel", screen: "hotel detail" },
+  property: { title: "kaiListingFix.titleProperty", ask: "kaiListingFix.askProperty", askSeller: "kaiListingFix.promptAskAgent", screen: "property detail" },
+};
+
+function listingFacts(product) {
+  return verticalDetailFactsForAi(product, { buyer: readBuyerCoordinates() });
+}
+
+function openListingAi(product, type) {
+  const copy = KAI_COPY[type] || KAI_COPY.property;
+  openAiAssistant({
+    surface: "urmall",
+    screen: copy.screen,
+    title: t(copy.title),
+    // Questions only: no text-editing actions apply to someone else's listing.
+    actions: [],
+    prompts: [t("kaiListingFix.promptValue"), t("kaiListingFix.promptSummary"), t(copy.askSeller)],
+    askTask: "urmall.product_question",
+    askPlaceholder: t(copy.ask),
+    buildAskInput: () => ({ listing: listingFacts(product) }),
+  });
+}
 
 // The buyer-facing detail for a meal, hotel or property listing. Shared by the
 // vertical discovery feed and a vertical seller's profile so a listing opens
@@ -62,6 +92,12 @@ export default function VerticalBuyerDetail({ onClose, onMessage, onOpenSeller, 
       messageLabel={t("urmall.vertical.message")}
       serviceLabel={type === "restaurant" ? t("urmall.vertical.fulfilment") : isStay ? t("urmall.vertical.stay") : t("urmall.vertical.viewing")}
       serviceValue={serviceValue}
+      onAskAi={() => openListingAi(product, type)}
+      aiScreen={() => ({
+        id: `urmall-${type}-detail-${product.id}`,
+        title: `UrMall ${(KAI_COPY[type] || KAI_COPY.property).screen} — ${String(product.name || "").slice(0, 50)}`,
+        describe: () => describeListingForAi(listingFacts(product)),
+      })}
     />
   );
 }

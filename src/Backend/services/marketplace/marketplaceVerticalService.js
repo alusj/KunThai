@@ -37,6 +37,10 @@ function normalizeBusinessRow(row = {}) {
   const business = nestedBusiness(row);
   return {
     ...row,
+    // `description` below is the business's own; the meal, room or property
+    // keeps its listing description here so buyers and KAI see what the
+    // seller wrote for that listing.
+    listingDescription: typeof row.description === "string" ? row.description : "",
     businessId: row.business_id,
     businessName: business.business_name || "UrMall business",
     businessKind: business.business_kind || "retail",

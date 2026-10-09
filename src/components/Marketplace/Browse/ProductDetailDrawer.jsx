@@ -18,7 +18,8 @@ import AppBackTab from "../../shared/AppBackTab";
 import { useI18n, t } from "../../../i18n";
 import { useAiAvailability } from "../../../Backend/hooks/useAiTask";
 import { openAiAssistant, openAiChat } from "../../../Backend/services/ai/aiSurfaceService";
-import { productFactsForAi, readBuyerCoordinates, reviewFactsForAi } from "../../../Backend/services/ai/urmallAiModels";
+import { describeListingForAi, productFactsForAi, readBuyerCoordinates, reviewFactsForAi, verticalDetailFactsForAi } from "../../../Backend/services/ai/urmallAiModels";
+import { useAiScreen } from "../../../Backend/services/ai/aiScreenContext";
 import { ensureBuyerLocation, useBuyerLocation } from "../../../Backend/utils/buyerLocationContext";
 import { resizedImageUrl } from "../../../Backend/lib/imageProxy";
 import { BuyerProductCard } from "./BuyerProductGrid";
@@ -523,6 +524,11 @@ export default function ProductDetailDrawer({
   relatedProducts = [],
   relatedSavedIds = new Set(),
   onRelatedProductSelect,
+  // KAI for listings that are not shop products (meals, rooms, property):
+  // `onAskAi` opens KAI from the header pill, `aiScreen` builds the screen
+  // context the floating KAI chat reads while this detail is open.
+  onAskAi,
+  aiScreen,
 }) {
   useI18n();
   const buyerLocation = useBuyerLocation();
@@ -551,6 +557,26 @@ export default function ProductDetailDrawer({
   const [activeImageIndex, setActiveImageIndex] = useState(-1);
   const detailScrollRef = useRef(null);
   const aiAvailability = useAiAvailability();
+
+  // The floating KAI chat reads this while the detail is open, so it talks
+  // about the same listing as the header KAI pill.
+  useAiScreen(
+    () => {
+      if (!product?.id) return null;
+      if (typeof aiScreen === "function") return aiScreen();
+      return {
+        id: `urmall-product-detail-${product.id}`,
+        title: `UrMall product detail — ${String(product.name || "").slice(0, 50)}`,
+        describe: () => {
+          const buyer = readBuyerCoordinates();
+          return product.isVertical
+            ? describeListingForAi(verticalDetailFactsForAi(product, { buyer }))
+            : describeListingForAi(productFactsForAi(product, { buyer, detail: true }), "Product open on screen");
+        },
+      };
+    },
+    { enabled: Boolean(open && product?.id) },
+  );
 
   useEffect(() => {
     if (!open) return;
@@ -873,7 +899,7 @@ export default function ProductDetailDrawer({
 
   // KAI works only from this real listing: the facts below are built
   // from the loaded product record, and the model may not add to them.
-  const productAiReady = aiAvailability.available && actionMode === "order" && !product.isVertical;
+  const productAiReady = aiAvailability.available && (typeof onAskAi === "function" || (actionMode === "order" && !product.isVertical));
 
   function openProductAi() {
     const listing = productFactsForAi(product, { buyer: readBuyerCoordinates(), detail: true });
@@ -930,7 +956,7 @@ export default function ProductDetailDrawer({
           {productAiReady ? (
             <button
               type="button"
-              onClick={openProductAi}
+              onClick={typeof onAskAi === "function" ? () => onAskAi() : openProductAi}
               className="ml-auto inline-flex h-9 flex-none items-center gap-1.5 rounded-lg bg-indigo-50 px-3 text-xs font-black text-indigo-700 transition hover:bg-indigo-100"
             >
               <Sparkles size={14} />

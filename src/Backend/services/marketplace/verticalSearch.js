@@ -40,12 +40,12 @@ export function verticalListingPrice(type, item) {
 /** A product-shaped view of a meal / hotel / property for productSearch's scorer. */
 export function toSearchableVertical(type, item) {
   const roomText = Array.isArray(item?.rooms)
-    ? item.rooms.map((room) => [room.name, room.room_type, room.description].filter(Boolean).join(" ")).join(" ")
+    ? item.rooms.map((room) => [room.name, room.room_type, room.listingDescription ?? room.description].filter(Boolean).join(" ")).join(" ")
     : "";
   return {
     id: item?.id,
     name: verticalListingName(type, item),
-    description: [item?.description, roomText].filter(Boolean).join(" "),
+    description: [item?.listingDescription, item?.description, roomText].filter(Boolean).join(" "),
     category: [TYPE_WORDS[type], item?.meal_period, item?.property_type, item?.purpose].filter(Boolean).join(" "),
     details: { keywords: [item?.city, item?.address, item?.amenities].flat().filter(Boolean).join(" ") },
     seller: { name: item?.businessName || "" },

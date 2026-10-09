@@ -6,6 +6,7 @@ import { urMallShareToastOptions } from "../../Backend/services/shareCtaService"
 import { showToast } from "../../Backend/services/toastService";
 import { t } from "../../i18n";
 import { shortErrorToast } from "../../Backend/services/friendlyErrorService";
+import { mealServedDays } from "../../Backend/services/marketplace/restaurantMealDays";
 
 // Shared vertical-listing model + buyer actions. The discovery feed
 // (VerticalMarketplace) and a vertical seller's own profile
@@ -47,6 +48,56 @@ export function buildPropertySpecifications(item) {
 // bookable room type inside it. Both belong to the same hotel business.
 function isHotelVerticalType(type) {
   return type === "hotel" || type === "room";
+}
+
+const numberOrUndefined = (value) => (Number(value) > 0 ? Number(value) : undefined);
+
+// The facts of a meal, room, hotel or property that the mapped product does
+// not keep in a structured form. Only what the buyer can already see on the
+// listing; never the seller's phone, email or WhatsApp.
+export function verticalListingFacts(type, item = {}) {
+  if (type === "restaurant") {
+    return {
+      mealPeriod: item.meal_period || undefined,
+      cuisine: item.cuisine || item.cuisine_type || undefined,
+      preparationMinutes: numberOrUndefined(item.preparation_minutes),
+      servedDays: mealServedDays(item),
+    };
+  }
+  if (type === "room") {
+    return {
+      capacity: numberOrUndefined(item.capacity),
+      roomsAvailable: Number(item.rooms_available || 0),
+      amenities: Array.isArray(item.amenities) ? item.amenities.filter(Boolean).slice(0, 15) : undefined,
+    };
+  }
+  if (type === "hotel") {
+    return {
+      roomTypes: (item.rooms || []).slice(0, 10).map((room) => ({
+        name: room.name || room.room_type || "",
+        nightlyRate: Number(room.nightly_rate || 0),
+        capacity: numberOrUndefined(room.capacity),
+      })),
+    };
+  }
+  if (type === "property") {
+    return {
+      propertyType: item.property_type || undefined,
+      purpose: item.purpose || undefined,
+      rentPeriod: item.purpose === "rent" ? item.rent_period || "month" : undefined,
+      bedrooms: numberOrUndefined(item.bedrooms),
+      bathrooms: numberOrUndefined(item.bathrooms),
+      parkingSpaces: numberOrUndefined(item.parking_spaces),
+      furnished: item.property_type === "land" ? undefined : Boolean(item.furnished),
+      landSize: numberOrUndefined(item.land_size) ? `${Number(item.land_size)} ${item.land_size_unit || ""}`.trim() : undefined,
+      floorArea: numberOrUndefined(item.floor_area) ? `${Number(item.floor_area)} ${item.floor_area_unit || ""}`.trim() : undefined,
+      rooms: numberOrUndefined(item.rooms),
+      starRating: numberOrUndefined(item.star_rating),
+      address: item.address || undefined,
+      city: item.city || undefined,
+    };
+  }
+  return {};
 }
 
 export function mapVerticalProduct({ item, type }) {
@@ -93,6 +144,8 @@ export function mapVerticalProduct({ item, type }) {
     allowNegotiation: false,
     deliveryAvailable: Boolean(item.deliveryEnabled),
     pickupAvailable: Boolean(item.pickupEnabled),
+    // Plain listing facts for KAI (see verticalDetailFactsForAi).
+    listingFacts: verticalListingFacts(type, item),
   };
 
   if (type === "restaurant") return {
@@ -102,7 +155,7 @@ export function mapVerticalProduct({ item, type }) {
     badgePrimary: t("urmall.vertical.catRestaurant"),
     badgeSecondary: mealPeriodLabel(item.meal_period),
     price: Number(item.price || 0),
-    description: item.description || t("urmall.vertical.mealDescription", { name: seller.name }),
+    description: item.listingDescription || item.description || t("urmall.vertical.mealDescription", { name: seller.name }),
     imageUrl: item.image_url || item.bannerUrl || "",
     imageUrls: [item.image_url, ...(item.image_urls || [])].filter(Boolean),
     videoUrl: item.video_url || "",
@@ -144,7 +197,7 @@ export function mapVerticalProduct({ item, type }) {
       badgePrimary: t("urmall.vertical.catHotel"),
       badgeSecondary: t("urmall.vertical.perNightSuffix"),
       price: Number(item.nightly_rate || 0),
-      description: item.description || t("urmall.vertical.roomDescription", { name: seller.name }),
+      description: item.listingDescription || item.description || t("urmall.vertical.roomDescription", { name: seller.name }),
       imageUrl: item.image_urls?.[0] || item.bannerUrl || "",
       imageUrls: item.image_urls || [],
       videoUrl: item.video_url || "",
@@ -169,7 +222,7 @@ export function mapVerticalProduct({ item, type }) {
     badgePrimary: t("urmall.vertical.catProperty"),
     badgeSecondary: t("urmall.vertical.forPurpose", { purpose: item.purpose || "viewing" }),
     price: Number(item.price || 0),
-    description: item.description || t("urmall.vertical.propertyDescription", { name: seller.name }),
+    description: item.listingDescription || item.description || t("urmall.vertical.propertyDescription", { name: seller.name }),
     imageUrl: item.image_urls?.[0] || item.bannerUrl || "",
     imageUrls: item.image_urls || [],
     videoUrl: item.video_url || "",

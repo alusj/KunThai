@@ -60,12 +60,15 @@ export const URMALL_BUYER_TASKS = {
     surfaces: ["urmall", "global"],
     label: "Ask about this product",
     cacheable: false,
-    maxOutputTokens: 260,
+    maxOutputTokens: 320,
     temperature: 0.2,
     instruction: [
-      "Answer the shopper's question about this UrMall listing.",
+      "Answer the shopper's question about this UrMall listing. It may be a shop product, a restaurant meal, a hotel room or a real-estate property (see listingKind).",
       GROUNDING_RULE,
       "If the listing does not answer it, reply that the listing doesn't say and suggest they message the seller. Two or three sentences at most.",
+      "Asked to summarise: give the key facts in a few short lines.",
+      "Asked whether it is good value: weigh only what the listing includes for its price label (size, rooms, extras, delivery, condition); say plainly that KunThai has no market prices to compare with, and never estimate one.",
+      "Asked what to ask the seller, restaurant, hotel or agent: list 3 to 5 short questions about things the listing does not state.",
     ].join(" "),
     build(input) {
       const question = cleanLine(input.question, 400);
