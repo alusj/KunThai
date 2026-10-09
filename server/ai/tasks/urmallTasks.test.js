@@ -56,7 +56,7 @@ test("photo search sends the shopper's photo and refuses anything that is not an
   const built = task.build({ image: `data:image/png;base64,${PNG_1PX}`, language: "fr" });
   assert.equal(built.media.length, 1);
   assert.equal(built.media[0].mimeType, "image/png");
-  assert.match(built.prompt, /Keep searchTerms in English/);
+  assert.match(built.prompt, /Keep searchTerms, objectType and category in English/);
   assert.throws(() => task.build({}), (error) => error.code === AI_ERROR_CODES.invalidRequest);
   const fake = Buffer.from("not an image").toString("base64");
   assert.throws(() => task.build({ image: `data:image/png;base64,${fake}` }), (error) => error.code === AI_ERROR_CODES.invalidRequest);
@@ -72,7 +72,7 @@ test("photo identification keeps only clean search words", () => {
   assert.equal(result.kind, "json");
   assert.equal(result.text, "A budget Android smartphone.");
   assert.deepEqual(result.searchTerms.slice(0, 3), ["Tecno Spark 20", "smartphone", "phone"]);
-  assert.ok(result.searchTerms.length <= 6);
+  assert.ok(result.searchTerms.length <= 10);
   assert.equal(getTask("urmall.image_identify").parse({ found: false, name: "", explanation: "A selfie.", searchTerms: [] }).found, false);
 });
 

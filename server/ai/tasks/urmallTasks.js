@@ -8,6 +8,7 @@
 import { AI_ERROR_CODES, aiError } from "../aiErrors.js";
 import { cleanImageDataUrl, cleanLanguage, cleanLine, cleanText } from "../aiInput.js";
 import { joinPrompt, jsonResult, labelledInput, languageLine, stripWrappingQuotes } from "../taskHelpers.js";
+import { IMAGE_IDENTIFY_INSTRUCTION, IMAGE_IDENTIFY_SCHEMA, normalizeIdentifiedPhoto } from "./imageSearchRules.js";
 
 const LISTING_MAX_CHARS = 3_500;
 
@@ -137,34 +138,19 @@ export const URMALL_BUYER_TASKS = {
   // names a price, seller or stock level.
   "urmall.image_identify": {
     id: "urmall.image_identify",
-    tier: "fast",
     surfaces: ["urmall", "global"],
     label: "Search with a photo",
+    // Reading a photo is the step that decides whether anything is found at
+    // all, so it uses the stronger model (the light one falls back in).
+    tier: "standard",
     cacheable: true,
     // A photo the person took: its answer is kept for them only.
     cacheScope: "user",
     output: "json",
-    maxOutputTokens: 420,
+    maxOutputTokens: 520,
     temperature: 0.2,
-    schema: {
-      type: "object",
-      properties: {
-        found: { type: "boolean" },
-        name: { type: "string" },
-        category: { type: "string" },
-        brand: { type: "string" },
-        explanation: { type: "string" },
-        searchTerms: { type: "array", items: { type: "string" } },
-      },
-      required: ["found", "name", "explanation", "searchTerms"],
-    },
-    instruction: [
-      "A shopper photographed something they want to buy on UrMall, KunThai's marketplace, which sells shop and vendor products, restaurant meals, hotel rooms and property. Identify the main product, meal or place in the photo.",
-      "name: the most specific product name you can honestly tell from the photo (brand and model only when clearly visible, e.g. printed on it); otherwise a plain generic name like 'men's leather sandals'.",
-      "explanation: two or three plain sentences for the shopper: what the product is, its visible features (colour, material, size, style) and what it is typically used for. Never state or estimate a price, and never claim where it is sold.",
-      "searchTerms: 3 to 6 short shopping keywords a seller would use in a listing, most specific first, then more general (e.g. 'iPhone 13', 'iPhone', 'smartphone', 'phone'). For food, use the dish's common name and its usual alternative spellings (e.g. 'shawarma', 'shwarma', 'wrap'). For rooms or buildings, use words like 'hotel room', 'apartment', 'house'. Always write searchTerms in English.",
-      "If the photo shows no product (a person, a blank or dark image, a document), set found to false and use the explanation to say briefly what is in the photo.",
-    ].join(" "),
+    schema: IMAGE_IDENTIFY_SCHEMA,
+    instruction: IMAGE_IDENTIFY_INSTRUCTION,
     build(input) {
       const image = cleanImageDataUrl(input.image);
       if (!image) {
@@ -177,25 +163,16 @@ export const URMALL_BUYER_TASKS = {
       return {
         prompt: joinPrompt([
           "The attached photo was taken by the shopper.",
-          language ? `Write name and explanation in this language: ${language}. Keep searchTerms in English.` : "",
+          language
+            ? `Write name and explanation in this language: ${language}. Keep searchTerms, objectType and category in English.`
+            : "Keep searchTerms, objectType and category in English.",
           "Return JSON only.",
         ]),
         media: [image],
         cacheKey: ["image-identify", language, image.data],
       };
     },
-    parse: (parsed) =>
-      jsonResult({
-        found: parsed?.found !== false,
-        name: cleanLine(parsed?.name, 120),
-        category: cleanLine(parsed?.category, 80),
-        brand: cleanLine(parsed?.brand, 80),
-        text: cleanText(parsed?.explanation, 700),
-        searchTerms: (Array.isArray(parsed?.searchTerms) ? parsed.searchTerms : [])
-          .map((term) => cleanLine(term, 60))
-          .filter(Boolean)
-          .slice(0, 6),
-      }),
+    parse: (parsed) => normalizeIdentifiedPhoto(parsed),
   },
 
   // Photo search, step 2: rank real listings (found with step 1's words)
@@ -230,6 +207,7 @@ export const URMALL_BUYER_TASKS = {
     instruction: [
       "A shopper photographed a product. You get what was identified in the photo and a list of real UrMall listings.",
       "Pick the listings that match, best first, at most 8. level 'exact' means the same product (same kind, and the same brand/model when those are known); 'similar' means the same kind of product or a close alternative. Leave out listings that are not a reasonable match.",
+      "Sellers often use short generic titles and their own category names: a listing called 'Computer' in 'Electricals' IS a match for a photographed laptop, and 'Mobile' matches a smartphone. Judge by what the item is (name, category and description together), not by exact wording.",
       "reason: one short sentence for the shopper saying why it matches or how it differs.",
       GROUNDING_RULE,
       "Use only ids from the listings given.",
@@ -245,6 +223,7 @@ export const URMALL_BUYER_TASKS = {
         prompt: joinPrompt([
           recordBlock("Identified in the photo", {
             name: cleanLine(product.name, 120),
+            objectType: cleanLine(product.objectType, 60) || undefined,
             category: cleanLine(product.category, 80),
             brand: cleanLine(product.brand, 80),
             description: cleanText(product.explanation, 500),
