@@ -18,11 +18,11 @@ export default function Connections({ currentUserId = "", onViewProfile }) {
 
   const counts = useMemo(
     () => ({
-      circle: circle.items.length,
-      followers: followers.items.length,
-      discover: discover.items.length,
+      circle: circle.totalCount ?? circle.items.length,
+      followers: followers.totalCount ?? followers.items.length,
+      discover: discover.totalCount ?? discover.items.length,
     }),
-    [circle.items.length, discover.items.length, followers.items.length],
+    [circle.items.length, circle.totalCount, discover.items.length, discover.totalCount, followers.items.length, followers.totalCount],
   );
   const loading = circle.loading || followers.loading || discover.loading;
 

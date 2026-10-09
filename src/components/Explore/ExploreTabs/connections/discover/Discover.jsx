@@ -11,6 +11,7 @@ import {
 import { useI18n } from "../../../../../i18n";
 import ErrorState from "../../../shared/ErrorState";
 import DiscoverList from "./DiscoverList";
+import ShowMoreButton from "../components/ShowMoreButton";
 import ImportContactsPanel from "./ImportContactsPanel";
 import { t as i18nText } from "../../../../../i18n/index";
 import { uiText as translateUi, useI18n as useUiLocale } from "../../../../../i18n/index.js";
@@ -71,6 +72,7 @@ export default function Discover({ connectionState, onViewProfile }) {
         onRemove={removeUser}
         onViewProfile={onViewProfile}
       />
+      <ShowMoreButton connectionState={connectionState} />
     </>
   );
 }
