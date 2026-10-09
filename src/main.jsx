@@ -7,7 +7,7 @@ import "./styles/bankTheme.css";
 import "./styles/appearance.css";
 import ToastProvider from "./components/Explore/shared/ToastProvider.jsx";
 import { AppearanceProvider } from "./components/AppearanceProvider.jsx";
-import { registerKunThaiServiceWorker } from "./Backend/services/pushService.js";
+import { initNativePushNotifications, registerKunThaiServiceWorker } from "./Backend/services/pushService.js";
 import { initCountryConfig } from "./Backend/services/countryConfigService.js";
 import { t as i18nText } from "./i18n/index";
 import { installMobileViewportVariables } from "./Backend/services/mobileViewportService";
@@ -15,6 +15,7 @@ import { lazyWithRetry } from "./Backend/utils/lazyWithRetry";
 import { useI18n as useUiLocale } from "./i18n/index.js";
 
 registerKunThaiServiceWorker();
+initNativePushNotifications();
 initCountryConfig();
 installMobileViewportVariables();
 

@@ -1,6 +1,5 @@
 import { Capacitor } from "@capacitor/core";
 
-import { t as i18nText } from "../../i18n/index";
 
 // Biometric unlock. In the iOS / Android app (bundled, served from
 // capacitor://localhost, where WebAuthn can never work) it uses the system
@@ -57,11 +56,17 @@ function isNativeApp() {
   }
 }
 
+// The plugin and the translations load only in the app (the first time a
+// native function runs), which also keeps this module importable by tests.
+let i18nText = (key) => key;
 let nativePluginPromise = null;
 function loadNativeBiometricPlugin() {
-  nativePluginPromise ??= import("@aparajita/capacitor-biometric-auth")
-    .then((module) => module.BiometricAuth || null)
-    .catch(() => null);
+  nativePluginPromise ??= Promise.all([
+    import("@aparajita/capacitor-biometric-auth").then((module) => module.BiometricAuth || null).catch(() => null),
+    import("../../i18n/index.js").then((module) => {
+      i18nText = module.t;
+    }).catch(() => {}),
+  ]).then(([plugin]) => plugin);
   return nativePluginPromise;
 }
 

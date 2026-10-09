@@ -1,6 +1,7 @@
 import supabase from "../lib/supabaseClient";
 import { clearExploreMessageCache } from "./explore/messageService";
 import { claimExploreAccountCache, clearExploreAccountCache } from "./explore/accountCache.js";
+import { forgetNativePushDevice } from "./pushService";
 
 const SOCIAL_CACHE_KEYS = [
   "explore-liked-posts",
@@ -223,6 +224,10 @@ export async function signOutSocialSession({ allDevices = false } = {}) {
     // Vault cleanup is best-effort; sign-out must still proceed.
   }
 
+  // While the session still works: this phone stops getting the account's
+  // pushes (the app only; quick and best-effort).
+  await forgetNativePushDevice();
+
   clearExploreMessageCache();
   clearSocialSessionCache();
   clearExploreAccountCache();
@@ -243,6 +248,8 @@ export async function signOutSocialSession({ allDevices = false } = {}) {
 export async function startAddSocialAccount() {
   const { data } = await supabase.auth.getSession();
   if (data?.session) vaultSessionSnapshot(data.session);
+  // The next account on this phone turns push on for itself.
+  await forgetNativePushDevice();
   clearExploreMessageCache();
   clearSocialSessionCache();
   clearExploreAccountCache();

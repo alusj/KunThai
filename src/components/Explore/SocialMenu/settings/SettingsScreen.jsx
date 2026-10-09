@@ -34,6 +34,7 @@ import AccountTypeSettings from "../../../shared/AccountTypeSettings";
 import { t as i18nText } from "../../../../i18n/index";
 import { uiText as translateUi, useI18n as useUiLocale } from "../../../../i18n/index.js";
 import { shortErrorToast } from "../../../../Backend/services/friendlyErrorService";
+import { isNativePlatform } from "../../../../Backend/services/nativeOAuthService";
 
 function Toggle({ active, label, onChange }) {
   useUiLocale();
@@ -105,6 +106,8 @@ export default function SettingsScreen({ hideHeader = false, onOpenDataMobile, o
   const { notifications, video, feed, messages, feedbackFx } = settings;
   const [pushStatus, setPushStatus] = useState("loading");
   const [pushBusy, setPushBusy] = useState(false);
+  const [pushError, setPushError] = useState("");
+  const nativeApp = isNativePlatform();
   const [defaultDashboard, setDefaultDashboard] = useState(() => readDefaultMainPage() || "auto");
 
   const [signOutBusy, setSignOutBusy] = useState("");
@@ -138,8 +141,9 @@ export default function SettingsScreen({ hideHeader = false, onOpenDataMobile, o
   }, []);
 
   async function togglePushNotifications() {
-    if (pushBusy || ["unsupported", "loading", "native"].includes(pushStatus)) return;
+    if (pushBusy || ["unsupported", "loading"].includes(pushStatus)) return;
     setPushBusy(true);
+    setPushError("");
     try {
       const next = pushStatus === "enabled" ? await disablePushNotifications() : await enablePushNotifications();
       // Delivery also checks the account's push preference (as in the
@@ -152,6 +156,9 @@ export default function SettingsScreen({ hideHeader = false, onOpenDataMobile, o
       showToast(next === "enabled" ? "Push alerts are on" : "Push alerts are off", "success");
     } catch (error) {
       showToast(shortErrorToast(error, "Push alerts not updated"), "danger");
+      // In the app the reason is worth reading in full (permission off, or
+      // this build has no push set up yet), so it stays under the switch.
+      if (nativeApp && error?.message) setPushError(error.message);
       setPushStatus(await getPushStatus());
     } finally {
       setPushBusy(false);
@@ -249,25 +256,24 @@ export default function SettingsScreen({ hideHeader = false, onOpenDataMobile, o
               icon={HiOutlineDevicePhoneMobile}
               title={i18n.t("settings.pushTitle")}
               description={
-                pushStatus === "native"
-                  ? i18n.t("exploreSettingsFix.pushNativeDesc")
-                  : pushStatus === "unsupported"
-                    ? i18n.t("settings.pushUnsupported")
-                    : pushStatus === "denied"
-                      ? i18n.t("settings.pushDenied")
+                pushStatus === "unsupported"
+                  ? i18n.t("settings.pushUnsupported")
+                  : pushStatus === "denied"
+                    ? nativeApp ? i18n.t("exploreNativeFix.pushDeniedNative") : i18n.t("settings.pushDenied")
+                    : nativeApp
+                      ? i18n.t("exploreNativeFix.pushNativeDescription")
                       : i18n.t("exploreSettingsFix.pushAnnouncementsDesc")
               }
             >
-              {pushStatus === "native" ? (
-                <span className="flex h-11 items-center rounded-2xl bg-slate-100 px-4 text-sm font-black text-slate-500">{i18n.t("exploreSettingsFix.notAvailableYet")}</span>
-              ) : (
-                <Toggle
-                  active={pushStatus === "enabled"}
-                  label={pushBusy || pushStatus === "loading" ? "..." : pushStatus === "enabled" ? i18n.t("settings.on") : i18n.t("settings.off")}
-                  onChange={togglePushNotifications}
-                />
-              )}
+              <Toggle
+                active={pushStatus === "enabled"}
+                label={pushBusy || pushStatus === "loading" ? "..." : pushStatus === "enabled" ? i18n.t("settings.on") : i18n.t("settings.off")}
+                onChange={togglePushNotifications}
+              />
             </SettingRow>
+            {pushError ? (
+              <p className="rounded-2xl bg-amber-50 px-4 py-3 text-sm font-bold leading-6 text-amber-800" role="alert">{pushError}</p>
+            ) : null}
             {/* The same switches as the Notifications panel, so both places match. */}
             <div className="rounded-[24px] border border-slate-200 bg-white p-3 shadow-sm">
               <p className="px-1 pb-2 text-sm font-semibold leading-6 text-slate-500">{i18n.t("exploreSettingsFix.inAppAlertsDesc")}</p>
