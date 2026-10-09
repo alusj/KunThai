@@ -12,6 +12,14 @@
 			"hidden": false,
 			"animation": "NONE"
 		},
+		"PushNotifications": {
+			"presentationOptions": [
+				"badge",
+				"sound",
+				"banner",
+				"list"
+			]
+		},
 		"Keyboard": {
 			"resize": "native",
 			"resizeOnFullScreen": true,
@@ -19,9 +27,11 @@
 		}
 	},
 	"packageClassList": [
+		"BiometricAuthNative",
 		"AppPlugin",
 		"CAPBrowserPlugin",
 		"KeyboardPlugin",
+		"PushNotificationsPlugin",
 		"StatusBarPlugin"
 	]
 }
