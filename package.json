@@ -14,12 +14,14 @@
     "ai:smoke": "node --env-file=.env scripts/ai-smoke.mjs"
   },
   "dependencies": {
+    "@aparajita/capacitor-biometric-auth": "^10.0.0",
     "@capacitor/android": "^8.4.2",
     "@capacitor/app": "^8.1.1",
     "@capacitor/browser": "^8.0.4",
     "@capacitor/core": "^8.4.2",
     "@capacitor/ios": "^8.4.2",
     "@capacitor/keyboard": "^8.0.5",
+    "@capacitor/push-notifications": "^8.1.3",
     "@capacitor/status-bar": "^8.0.1",
     "@google/genai": "^2.22.0",
     "@supabase/auth-ui-react": "^0.4.7",
