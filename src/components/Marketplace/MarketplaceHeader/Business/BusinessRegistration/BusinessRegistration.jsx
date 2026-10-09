@@ -19,6 +19,8 @@ import TrustPayoutStep from "./TrustPayoutStep";
 import UrMallCautionCard from "../../../shared/UrMallCautionCard";
 import { useBusinessRegistrationAi } from "./useBusinessRegistrationAi";
 import { useI18n, t } from "../../../../../i18n";
+import { REGISTRATION_KINDS } from "../../../../../Backend/services/registration/registrationTaskCore";
+import { getAdoptableRegistrationTask } from "../../../../../Backend/services/registration/registrationTaskRunner";
 
 const STEP_TITLE_KEYS = [
   "stepIdentity",
@@ -31,8 +33,12 @@ const STEP_TITLE_KEYS = [
 export default function BusinessRegistration({ mode = "create", onComplete, onExit }) {
   useI18n();
   const editing = mode === "edit";
-  const [showIntro, setShowIntro] = useState(!editing);
-  const [acceptedCaution, setAcceptedCaution] = useState(editing);
+  // A business already saving (or one that failed while the user was
+  // elsewhere) reopens straight on its saving screen / its entered details,
+  // never on the intro and caution again.
+  const [resuming] = useState(() => !editing && Boolean(getAdoptableRegistrationTask(REGISTRATION_KINDS.URMALL)));
+  const [showIntro, setShowIntro] = useState(!editing && !resuming);
+  const [acceptedCaution, setAcceptedCaution] = useState(editing || resuming);
   const [leavingCaution, setLeavingCaution] = useState(false);
   const [finishing, setFinishing] = useState(false);
   const [transitionOrigin, setTransitionOrigin] = useState({ x: "50%", y: "70%" });
@@ -66,7 +72,18 @@ export default function BusinessRegistration({ mode = "create", onComplete, onEx
     registration.submit();
   }
 
+  // Back while the business is saving leaves the screen; the save carries on
+  // in the background and a toast reports it.
+  function leaveWhileSaving() {
+    onExit?.();
+  }
+
   function handleRegistrationBack() {
+    if (!editing && registration.submitting) {
+      leaveWhileSaving();
+      return;
+    }
+
     // Edit mode is a single accordion screen, so Back always leaves to the
     // dashboard rather than walking wizard steps.
     if (!editing && registration.step > 0) {
@@ -108,14 +125,14 @@ export default function BusinessRegistration({ mode = "create", onComplete, onEx
   ][enhancedRegistration.step];
 
   useEffect(() => {
-    if (editing) return undefined;
+    if (editing || resuming) return undefined;
 
     const timer = window.setTimeout(() => {
       setShowIntro(false);
     }, 2200);
 
     return () => window.clearTimeout(timer);
-  }, [editing]);
+  }, [editing, resuming]);
 
   useEffect(() => {
     if (acceptedCaution) {
@@ -229,7 +246,13 @@ export default function BusinessRegistration({ mode = "create", onComplete, onEx
       className={`${finishing ? "kt-onboarding-collapse-out" : ""} min-h-full bg-gray-50`}
       style={{ "--kt-transition-x": transitionOrigin.x, "--kt-transition-y": transitionOrigin.y }}
     >
-      <AccountSetupLoader open={!editing && (registration.submitting || finishing)} sector="urmall" />
+      <AccountSetupLoader
+        open={!editing && (registration.submitting || finishing)}
+        sector="urmall"
+        kind={REGISTRATION_KINDS.URMALL}
+        progress={registration.saveProgress}
+        onBack={!editing && registration.submitting && !finishing && onExit ? leaveWhileSaving : undefined}
+      />
       <div className="w-full px-4 py-6 sm:px-6 lg:px-10 xl:px-14">
         <div className="mb-6 flex items-start gap-3">
           <AppBackTab

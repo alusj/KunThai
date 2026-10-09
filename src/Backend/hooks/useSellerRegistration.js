@@ -1,6 +1,13 @@
 import { useEffect, useMemo, useState } from "react";
 import { getPreciseCurrentPosition } from "../utils/precisePosition";
 import { inlineErrorMessage } from "../services/friendlyErrorService";
+import { useRegistrationTask } from "./useRegistrationTask";
+import { REGISTRATION_KINDS } from "../services/registration/registrationTaskCore";
+import {
+  consumeRegistrationRecoveryNotice,
+  startRegistrationTask,
+} from "../services/registration/registrationTaskRunner";
+import { t } from "../../i18n";
 
 import {
   BUSINESS_CATEGORIES,
@@ -83,6 +90,28 @@ function sanitizeDraftForm(form) {
       businessDocumentName: "",
     },
   };
+}
+
+// Kept at submit time so a save cut short (reload, app closed) can be
+// restored. Files cannot be stored; the form asks for them again.
+function writeDraft(step, form) {
+  const payload = {
+    step,
+    form: sanitizeDraftForm(form),
+    savedAt: new Date().toISOString(),
+  };
+  try {
+    localStorage.setItem(DRAFT_KEY, JSON.stringify(payload));
+  } catch {
+    // Storage full or blocked: the save itself still runs.
+  }
+  return payload;
+}
+
+function countPickedFiles(form) {
+  if (typeof Blob === "undefined") return 0;
+  return [...Object.values(form.identity || {}), ...Object.values(form.trustPayout || {})]
+    .filter((value) => value instanceof Blob).length;
 }
 
 function readDraft() {
@@ -187,22 +216,57 @@ async function reverseGeocode(latitude, longitude) {
 
 export function useSellerRegistration({ mode = "create", onComplete } = {}) {
   const editing = mode === "edit";
-  const draft = editing ? null : readDraft();
-  const [step, setStep] = useState(draft?.step ?? 0);
-  const [form, setForm] = useState(draft?.form ?? cloneInitialRegistration());
-  const [errors, setErrors] = useState({});
+  // A new business is saved by a background task: leaving this screen never
+  // cancels it, and reopening shows it (or, after a failure elsewhere, the
+  // entered details and picked files) instead of a fresh form.
+  const backgroundTask = useRegistrationTask(REGISTRATION_KINDS.URMALL, {
+    enabled: !editing,
+    onSettled: handleBackgroundSettled,
+  });
+  const adopted = backgroundTask.adopted;
+  const draft = editing || adopted?.restore ? null : readDraft();
+  const [step, setStep] = useState(adopted?.restore?.step ?? draft?.step ?? 0);
+  const [form, setForm] = useState(adopted?.restore?.form ?? draft?.form ?? cloneInitialRegistration());
+  const [errors, setErrors] = useState(() => (
+    adopted?.status === "failed"
+      ? {
+          submit: t("registrationSaving.failedInline", {
+            reason: inlineErrorMessage(adopted.error, "Unable to submit business. Please try again."),
+          }),
+        }
+      : {}
+  ));
   const [locationStatus, setLocationStatus] = useState("");
   const [locationPromptOpen, setLocationPromptOpen] = useState(false);
   const [locationCandidate, setLocationCandidate] = useState(null);
   // Which address the next picked location applies to: "main" or a branch index.
   const [locationTarget, setLocationTarget] = useState("main");
   const [locating, setLocating] = useState(false);
-  const [submitting, setSubmitting] = useState(false);
+  const [savingEdits, setSavingEdits] = useState(false);
+  const submitting = editing ? savingEdits : backgroundTask.running;
   const [loadingExisting, setLoadingExisting] = useState(editing);
   const [draftStatus, setDraftStatus] = useState(draft?.savedAt ? `Draft saved ${new Date(draft.savedAt).toLocaleString()}` : "");
   const [usedBusinessKinds, setUsedBusinessKinds] = useState([]);
 
   const readinessScore = useMemo(() => calculateReadinessScore(form), [form]);
+
+  // Opened from "Review" after a save was cut short (reload, app closed):
+  // say why the details came back and that the files are needed again.
+  useEffect(() => {
+    if (editing || !consumeRegistrationRecoveryNotice(REGISTRATION_KINDS.URMALL)) return;
+    setErrors((current) => ({ ...current, submit: t("registrationSaving.interruptedInline") }));
+  }, [editing]);
+
+  function handleBackgroundSettled(task) {
+    if (task.status === "succeeded") {
+      onComplete?.(task.result);
+      return;
+    }
+    setErrors((current) => ({
+      ...current,
+      submit: inlineErrorMessage(task.error, "Unable to submit business. Please try again."),
+    }));
+  }
 
   // Each business type can be registered only once per account. When creating
   // a new business, kinds the seller already runs are removed from the list;
@@ -471,13 +535,7 @@ export function useSellerRegistration({ mode = "create", onComplete } = {}) {
   }
 
   function saveDraft() {
-    const payload = {
-      step,
-      form: sanitizeDraftForm(form),
-      savedAt: new Date().toISOString(),
-    };
-
-    localStorage.setItem(DRAFT_KEY, JSON.stringify(payload));
+    const payload = writeDraft(step, form);
     setDraftStatus(`Draft saved ${new Date(payload.savedAt).toLocaleString()}`);
     setErrors((current) => ({ ...current, submit: "" }));
     return payload;
@@ -682,7 +740,7 @@ export function useSellerRegistration({ mode = "create", onComplete } = {}) {
     }
 
     setErrors((current) => ({ ...current, submit: "" }));
-    setSubmitting(true);
+    setSavingEdits(true);
     try {
       const business = await updateRegisteredBusinessProfile(form);
       setForm(formFromRegisteredBusiness(business));
@@ -695,7 +753,7 @@ export function useSellerRegistration({ mode = "create", onComplete } = {}) {
       }));
       return { ok: false };
     } finally {
-      setSubmitting(false);
+      setSavingEdits(false);
     }
   }
 
@@ -709,21 +767,41 @@ export function useSellerRegistration({ mode = "create", onComplete } = {}) {
     }
 
     setErrors((current) => ({ ...current, submit: "" }));
-    setSubmitting(true);
-    try {
-      const business = editing
-        ? await updateRegisteredBusinessProfile(form)
-        : await submitSellerRegistration(form);
-      if (!editing) localStorage.removeItem(DRAFT_KEY);
-      onComplete?.(business);
-    } catch (error) {
-      setErrors((current) => ({
-        ...current,
-        submit: inlineErrorMessage(error, "Unable to submit business. Please try again."),
-      }));
-    } finally {
-      setSubmitting(false);
+
+    if (editing) {
+      setSavingEdits(true);
+      try {
+        const business = await updateRegisteredBusinessProfile(form);
+        onComplete?.(business);
+      } catch (error) {
+        setErrors((current) => ({
+          ...current,
+          submit: inlineErrorMessage(error, "Unable to submit business. Please try again."),
+        }));
+      } finally {
+        setSavingEdits(false);
+      }
+      return;
     }
+
+    // The save runs outside this screen; a second tap while it runs joins it.
+    const submittedForm = form;
+    const submittedStep = step;
+    writeDraft(submittedStep, submittedForm);
+    startRegistrationTask(REGISTRATION_KINDS.URMALL, {
+      restore: { form: submittedForm, step: submittedStep },
+      matchHint: submittedForm.identity.businessName,
+      expectedUploads: countPickedFiles(submittedForm),
+      run: async (report) => {
+        const business = await submitSellerRegistration(submittedForm, { onProgress: report });
+        try {
+          localStorage.removeItem(DRAFT_KEY);
+        } catch {
+          // Nothing to clean up.
+        }
+        return business;
+      },
+    });
   }
 
   return {
@@ -741,6 +819,7 @@ export function useSellerRegistration({ mode = "create", onComplete } = {}) {
     loadingExisting,
     mode,
     submitting,
+    saveProgress: backgroundTask.progress,
     maxBusinessLocations: MAX_BUSINESS_LOCATIONS,
     updateSection,
     toggleCategory,

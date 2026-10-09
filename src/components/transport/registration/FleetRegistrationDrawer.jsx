@@ -48,6 +48,12 @@ import { t as i18nText } from "../../../i18n/index";
 import { uiText as translateUi, useI18n as useUiLocale } from "../../../i18n/index.js";
 import { inlineErrorMessage } from "../../../Backend/services/friendlyErrorService";
 import DeferredVerificationNotice from "../../shared/DeferredVerificationNotice";
+import { useRegistrationTask } from "../../../Backend/hooks/useRegistrationTask";
+import { REGISTRATION_KINDS } from "../../../Backend/services/registration/registrationTaskCore";
+import {
+  consumeRegistrationRecoveryNotice,
+  startRegistrationTask,
+} from "../../../Backend/services/registration/registrationTaskRunner";
 
 // Stored enum values stay English; display localized via urride.fleetEdit.enum.
 const availabilityOptions = ["Full-time", "Part-time", "Scheduled", "Weekends only", "Night service"];
@@ -172,14 +178,21 @@ function clearFieldError(errors, field) {
   return next;
 }
 
-export default function FleetRegistrationDrawer({ onClose, onComplete, onSaveExit, onViewOneKmPreview }) {
+export default function FleetRegistrationDrawer({ onClose, onComplete, onSaveExit, onViewOneKmPreview, backgroundAllowed = true }) {
   useI18n();
-  const [step, setStep] = useState(0);
-  const [maxStepReached, setMaxStepReached] = useState(0);
-  const [operatorId, setOperatorId] = useState(generateOperatorId);
-  const [answers, setAnswers] = useState({});
-  const [uploads, setUploads] = useState({});
-  const [documentsSkipped, setDocumentsSkipped] = useState(false);
+  // The fleet is saved by a background task: leaving this screen never
+  // cancels it, and reopening shows it (or, after a failure elsewhere, the
+  // entered details and picked photos/documents) instead of a fresh form.
+  const backgroundTask = useRegistrationTask(REGISTRATION_KINDS.URRIDE_SOLO, { onSettled: handleBackgroundSettled });
+  const restored = backgroundTask.adopted?.restore || null;
+  const skipDraftLoadRef = useRef(Boolean(restored));
+  const submitOriginRef = useRef(null);
+  const [step, setStep] = useState(restored?.step ?? 0);
+  const [maxStepReached, setMaxStepReached] = useState(restored?.maxStepReached ?? 0);
+  const [operatorId, setOperatorId] = useState(() => restored?.operatorId || generateOperatorId());
+  const [answers, setAnswers] = useState(restored?.answers || {});
+  const [uploads, setUploads] = useState(restored?.uploads || {});
+  const [documentsSkipped, setDocumentsSkipped] = useState(Boolean(restored?.documentsSkipped));
   const [showSkipWarning, setShowSkipWarning] = useState(false);
   const [showSafetyWarning, setShowSafetyWarning] = useState(false);
   const [showReviewSaveWarning, setShowReviewSaveWarning] = useState(false);
@@ -188,12 +201,18 @@ export default function FleetRegistrationDrawer({ onClose, onComplete, onSaveExi
   const [savedMessage, setSavedMessage] = useState("");
   const [stepError, setStepError] = useState("");
   const [fieldErrors, setFieldErrors] = useState({});
-  const [submitError, setSubmitError] = useState("");
+  const [submitError, setSubmitError] = useState(() => (
+    backgroundTask.adopted?.status === "failed"
+      ? t("registrationSaving.failedInline", {
+          reason: inlineErrorMessage(backgroundTask.adopted.error, t("urride.fleetReg.submitError")),
+        })
+      : ""
+  ));
   const [savingDraft, setSavingDraft] = useState(false);
-  const [submitting, setSubmitting] = useState(false);
+  const submitting = backgroundTask.running;
   const [finishing, setFinishing] = useState(false);
   const [transitionOrigin, setTransitionOrigin] = useState({ x: "50%", y: "70%" });
-  const [form, setForm] = useState(defaultForm);
+  const [form, setForm] = useState(restored?.form || defaultForm);
   const formTopRef = useRef(null);
 
   useEffect(() => {
@@ -209,8 +228,19 @@ export default function FleetRegistrationDrawer({ onClose, onComplete, onSaveExi
     return () => window.cancelAnimationFrame(frame);
   }, [step]);
 
+  // Opened from "Review" after a save was cut short (reload, app closed):
+  // say why the details came back and that the files are needed again.
+  useEffect(() => {
+    if (consumeRegistrationRecoveryNotice(REGISTRATION_KINDS.URRIDE_SOLO)) {
+      setSubmitError(t("registrationSaving.interruptedInline"));
+    }
+  }, []);
+
   useEffect(() => {
     let alive = true;
+    // A save in progress (or one that failed elsewhere) already brought the
+    // entered details back; a saved draft must not replace them.
+    if (skipDraftLoadRef.current) return undefined;
 
     async function loadRegistrationContext() {
       const profile = await getOnboardingProfile().catch(() => null);
@@ -500,22 +530,41 @@ export default function FleetRegistrationDrawer({ onClose, onComplete, onSaveExi
     }
   };
 
+  // The save runs outside this screen; a second tap while it runs joins it.
   const handleSubmit = async (origin = { x: "50%", y: "70%" }) => {
     if (!requireCurrentStep()) return;
 
-    try {
-      setSubmitting(true);
-      setSubmitError("");
-      const account = await saveOperatorAccount(buildPayload("submitted"));
-      setTransitionOrigin(origin);
-      setFinishing(true);
-      await new Promise((resolve) => window.setTimeout(resolve, 480));
-      onComplete?.(account, origin);
-    } catch (error) {
-      setSubmitError(inlineErrorMessage(error, t("urride.fleetReg.submitError")));
-    } finally {
-      setSubmitting(false);
+    setSubmitError("");
+    submitOriginRef.current = origin;
+    const payload = buildPayload("submitted");
+    startRegistrationTask(REGISTRATION_KINDS.URRIDE_SOLO, {
+      restore: { step, maxStepReached, operatorId, answers, uploads, documentsSkipped, form },
+      matchHint: form.plateNumber,
+      expectedUploads: Object.values(uploads).filter((value) => value && typeof value === "object" && value.file).length,
+      run: (report) => saveOperatorAccount(payload, { onProgress: report }),
+    });
+  };
+
+  async function handleBackgroundSettled(task) {
+    if (task.status !== "succeeded") {
+      setSubmitError(inlineErrorMessage(task.error, t("urride.fleetReg.submitError")));
+      return;
     }
+    const origin = submitOriginRef.current || { x: "50%", y: "70%" };
+    setTransitionOrigin(origin);
+    setFinishing(true);
+    await new Promise((resolve) => window.setTimeout(resolve, 480));
+    onComplete?.(task.result, origin);
+  }
+
+  // Back while the fleet is saving leaves the screen; the save carries on in
+  // the background and a toast reports it.
+  const leaveWhileSaving = () => {
+    if (onSaveExit) {
+      onSaveExit();
+      return;
+    }
+    onClose?.();
   };
 
   const handleSkipDocuments = () => {
@@ -575,6 +624,11 @@ export default function FleetRegistrationDrawer({ onClose, onComplete, onSaveExi
   };
   const prevStep = () => setStep((current) => Math.max(current - 1, 0));
   const handleRegistrationBack = () => {
+    if (submitting) {
+      if (backgroundAllowed) leaveWhileSaving();
+      return;
+    }
+
     if (step > 0) {
       prevStep();
       return;
@@ -594,7 +648,13 @@ export default function FleetRegistrationDrawer({ onClose, onComplete, onSaveExi
       className={`${finishing ? "kt-onboarding-collapse-out" : ""} kt-mobile-viewport kt-safe-screen bg-gray-50 [transform:translateZ(0)]`}
       style={{ "--kt-transition-x": transitionOrigin.x, "--kt-transition-y": transitionOrigin.y }}
     >
-      <AccountSetupLoader open={submitting || finishing} sector="urride" />
+      <AccountSetupLoader
+        open={submitting || finishing}
+        sector="urride"
+        kind={REGISTRATION_KINDS.URRIDE_SOLO}
+        progress={backgroundTask.progress}
+        onBack={backgroundAllowed && submitting && !finishing ? leaveWhileSaving : undefined}
+      />
       <header className="sticky top-0 z-30 border-b border-gray-100 bg-white px-3 py-3 shadow-sm sm:px-4 lg:px-8">
         <div className="flex w-full items-center gap-3 sm:gap-4">
           <AppBackTab
