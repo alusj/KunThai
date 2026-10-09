@@ -95,7 +95,10 @@ export function applyProgress(task, progress) {
   const nextIndex = stageIndex(next.stage);
   if (nextIndex < currentIndex) return task;
   const total = next.total || current.total;
-  const done = nextIndex === currentIndex ? Math.max(current.done, next.done) : next.done;
+  // Past the upload step every file is up, whatever the report says.
+  const done = nextIndex === currentIndex
+    ? Math.max(current.done, next.done)
+    : nextIndex > stageIndex("uploading") ? total : next.done;
   const merged = { stage: next.stage, total, done: Math.min(done, total) };
   if (merged.stage === current.stage && merged.total === current.total && merged.done === current.done) return task;
   return { ...task, progress: merged };

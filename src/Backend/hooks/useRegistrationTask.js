@@ -1,10 +1,12 @@
 import { useEffect, useRef, useState } from "react";
 
 import {
+  REGISTRATION_RECOVERY_NOTICE_EVENT,
   attachRegistrationViewer,
   clearRegistrationTask,
   getAdoptableRegistrationTask,
   getRegistrationTask,
+  hasRegistrationRecoveryNotice,
   subscribeRegistrationTasks,
 } from "../services/registration/registrationTaskRunner";
 
@@ -66,4 +68,23 @@ export function useRegistrationTask(kind, { enabled = true, onSettled } = {}) {
     running,
     progress: running ? task.progress : null,
   };
+}
+
+// "Review" after a save was cut short (reload, app closed): calls `onNotice`
+// when the screen opens with that notice pending, or when it arrives while
+// the screen is already open, so the screen can say why the details came
+// back and that the files are needed again.
+export function useRegistrationRecoveryNotice(kind, { enabled = true, onNotice } = {}) {
+  const onNoticeRef = useRef(onNotice);
+  onNoticeRef.current = onNotice;
+
+  useEffect(() => {
+    if (!enabled) return undefined;
+    if (hasRegistrationRecoveryNotice(kind)) onNoticeRef.current?.();
+    function handleNotice(event) {
+      if (event.detail?.kind === kind) onNoticeRef.current?.();
+    }
+    window.addEventListener(REGISTRATION_RECOVERY_NOTICE_EVENT, handleNotice);
+    return () => window.removeEventListener(REGISTRATION_RECOVERY_NOTICE_EVENT, handleNotice);
+  }, [kind, enabled]);
 }

@@ -152,6 +152,7 @@ export function startRegistrationTask(kind, { run, restore = null, matchHint = "
   const existing = tasks.get(kind);
   if (!canStartTask(existing)) return { task: existing, started: false };
 
+  recoveryNotices.delete(kind);
   let task = createTask(kind, { userId: currentUserId, restore, matchHint, expectedUploads });
   tasks.set(kind, task);
   writePendingRecords(addPendingRecord(readPendingRecords(), pendingRecordFromTask(task)));
@@ -194,15 +195,20 @@ export function startRegistrationTask(kind, { run, restore = null, matchHint = "
 }
 
 // "Review" after an interrupted save: the screen explains why the details
-// came back and asks for the files again.
+// came back and asks for the files again. It stays until the registration is
+// submitted again, so a screen that opens more than once still explains it.
+export const REGISTRATION_RECOVERY_NOTICE_EVENT = "kunthai-registration-recovery-notice";
+
 export function markRegistrationRecoveryNotice(kind) {
   recoveryNotices.add(kind);
+  // A registration screen that is already open hears it too.
+  if (typeof window !== "undefined") {
+    window.dispatchEvent(new CustomEvent(REGISTRATION_RECOVERY_NOTICE_EVENT, { detail: { kind } }));
+  }
 }
 
-export function consumeRegistrationRecoveryNotice(kind) {
-  const had = recoveryNotices.has(kind);
-  recoveryNotices.delete(kind);
-  return had;
+export function hasRegistrationRecoveryNotice(kind) {
+  return recoveryNotices.has(kind);
 }
 
 // Test-only reset.

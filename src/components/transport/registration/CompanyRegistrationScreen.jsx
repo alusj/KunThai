@@ -62,12 +62,9 @@ import { buildCompanyRegistrationAiContext } from "./companyRegistrationAi";
 import { uiText as translateUi, useI18n as useUiLocale } from "../../../i18n/index.js";
 import { inlineErrorMessage } from "../../../Backend/services/friendlyErrorService";
 import DeferredVerificationNotice from "../../shared/DeferredVerificationNotice";
-import { useRegistrationTask } from "../../../Backend/hooks/useRegistrationTask";
+import { useRegistrationRecoveryNotice, useRegistrationTask } from "../../../Backend/hooks/useRegistrationTask";
 import { REGISTRATION_KINDS } from "../../../Backend/services/registration/registrationTaskCore";
-import {
-  consumeRegistrationRecoveryNotice,
-  startRegistrationTask,
-} from "../../../Backend/services/registration/registrationTaskRunner";
+import { startRegistrationTask } from "../../../Backend/services/registration/registrationTaskRunner";
 
 const steps = [
   { labelKey: "urride.companyReg.stepCompany", icon: FiBriefcase },
@@ -396,13 +393,13 @@ export default function CompanyRegistrationScreen({ existingCompany = null, mode
 
   // Opened from "Review" after a save was cut short (reload, app closed):
   // say why the details came back and that the files are needed again.
-  useEffect(() => {
-    if (!backgroundEnabled || !consumeRegistrationRecoveryNotice(REGISTRATION_KINDS.URRIDE_COMPANY)) return;
-    setStatus(t("registrationSaving.interruptedInline"));
-    setStatusTone("info");
-    // Checked once, when the screen opens.
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, []);
+  useRegistrationRecoveryNotice(REGISTRATION_KINDS.URRIDE_COMPANY, {
+    enabled: backgroundEnabled,
+    onNotice: () => {
+      setStatus(t("registrationSaving.interruptedInline"));
+      setStatusTone("info");
+    },
+  });
 
   useEffect(() => {
     let alive = true;

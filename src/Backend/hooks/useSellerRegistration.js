@@ -1,12 +1,9 @@
 import { useEffect, useMemo, useState } from "react";
 import { getPreciseCurrentPosition } from "../utils/precisePosition";
 import { inlineErrorMessage } from "../services/friendlyErrorService";
-import { useRegistrationTask } from "./useRegistrationTask";
+import { useRegistrationRecoveryNotice, useRegistrationTask } from "./useRegistrationTask";
 import { REGISTRATION_KINDS } from "../services/registration/registrationTaskCore";
-import {
-  consumeRegistrationRecoveryNotice,
-  startRegistrationTask,
-} from "../services/registration/registrationTaskRunner";
+import { startRegistrationTask } from "../services/registration/registrationTaskRunner";
 import { t } from "../../i18n";
 
 import {
@@ -252,10 +249,10 @@ export function useSellerRegistration({ mode = "create", onComplete } = {}) {
 
   // Opened from "Review" after a save was cut short (reload, app closed):
   // say why the details came back and that the files are needed again.
-  useEffect(() => {
-    if (editing || !consumeRegistrationRecoveryNotice(REGISTRATION_KINDS.URMALL)) return;
-    setErrors((current) => ({ ...current, submit: t("registrationSaving.interruptedInline") }));
-  }, [editing]);
+  useRegistrationRecoveryNotice(REGISTRATION_KINDS.URMALL, {
+    enabled: !editing,
+    onNotice: () => setErrors((current) => ({ ...current, submit: t("registrationSaving.interruptedInline") })),
+  });
 
   function handleBackgroundSettled(task) {
     if (task.status === "succeeded") {

@@ -1053,11 +1053,10 @@ export default function Transport({
           })
           .catch(() => {});
       }
-    } else if (destination === "register-solo") {
-      // "Review" after a registration could not be finished.
-      openSoloRegistration("background-review");
-    } else if (destination === "register-company") {
-      openCompanyRegistration("background-review", "full");
+    } else if (destination === "register-solo" || destination === "register-company") {
+      // "Review" after a registration could not be finished; opened once the
+      // account type is known (UrRide may only just have opened).
+      setRegistrationReviewRequest(destination);
     } else if (destination === "nearby-area") {
       openNearbyAreaRoute();
     } else if (destination === "home") {
@@ -1070,6 +1069,16 @@ export default function Transport({
     // account changes would replay an already handled request.
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [navigationRequest, onNavigationRequestHandled]);
+
+  const [registrationReviewRequest, setRegistrationReviewRequest] = useState("");
+  useEffect(() => {
+    if (!registrationReviewRequest || accountTypeLoading) return;
+    setRegistrationReviewRequest("");
+    if (registrationReviewRequest === "register-solo") openSoloRegistration("background-review");
+    else openCompanyRegistration("background-review", "full");
+    // Runs when a request arrives or the account type finishes loading.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [registrationReviewRequest, accountTypeLoading]);
 
   // An operator registration that finished after the user left its screen:
   // the header and dashboard switch to the new account straight away.

@@ -111,8 +111,12 @@ test("a running task cannot be cleared and a different account never gets the de
   assert.equal(runner.getRegistrationTask(REGISTRATION_KINDS.URMALL), null);
 });
 
-test("recovery notices are consumed once", () => {
+test("a recovery notice stays until the registration is submitted again", async () => {
   runner.markRegistrationRecoveryNotice(REGISTRATION_KINDS.URMALL);
-  assert.equal(runner.consumeRegistrationRecoveryNotice(REGISTRATION_KINDS.URMALL), true);
-  assert.equal(runner.consumeRegistrationRecoveryNotice(REGISTRATION_KINDS.URMALL), false);
+  assert.equal(runner.hasRegistrationRecoveryNotice(REGISTRATION_KINDS.URMALL), true);
+  assert.equal(runner.hasRegistrationRecoveryNotice(REGISTRATION_KINDS.URMALL), true);
+  assert.equal(runner.hasRegistrationRecoveryNotice(REGISTRATION_KINDS.URRIDE_SOLO), false);
+  runner.startRegistrationTask(REGISTRATION_KINDS.URMALL, { run: async () => ({}) });
+  assert.equal(runner.hasRegistrationRecoveryNotice(REGISTRATION_KINDS.URMALL), false);
+  await tick();
 });

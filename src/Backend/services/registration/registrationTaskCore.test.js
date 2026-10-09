@@ -53,6 +53,7 @@ test("progress moves forward only and never counts more uploads than exist", () 
   assert.equal(same.progress.done, 2);
   // Nor moves the stage back.
   task = applyProgress(task, { stage: "creating", total: 3 });
+  assert.deepEqual(task.progress, { stage: "creating", done: 3, total: 3 });
   assert.equal(applyProgress(task, { stage: "uploading", done: 3, total: 3 }), task);
   assert.deepEqual(normalizeProgress({ stage: "uploading", done: 9, total: 2 }), { stage: "uploading", done: 2, total: 2 });
   assert.deepEqual(normalizeProgress({ stage: "nonsense", done: -1 }), { stage: "checking", done: 0, total: 0 });

@@ -48,12 +48,9 @@ import { t as i18nText } from "../../../i18n/index";
 import { uiText as translateUi, useI18n as useUiLocale } from "../../../i18n/index.js";
 import { inlineErrorMessage } from "../../../Backend/services/friendlyErrorService";
 import DeferredVerificationNotice from "../../shared/DeferredVerificationNotice";
-import { useRegistrationTask } from "../../../Backend/hooks/useRegistrationTask";
+import { useRegistrationRecoveryNotice, useRegistrationTask } from "../../../Backend/hooks/useRegistrationTask";
 import { REGISTRATION_KINDS } from "../../../Backend/services/registration/registrationTaskCore";
-import {
-  consumeRegistrationRecoveryNotice,
-  startRegistrationTask,
-} from "../../../Backend/services/registration/registrationTaskRunner";
+import { startRegistrationTask } from "../../../Backend/services/registration/registrationTaskRunner";
 
 // Stored enum values stay English; display localized via urride.fleetEdit.enum.
 const availabilityOptions = ["Full-time", "Part-time", "Scheduled", "Weekends only", "Night service"];
@@ -230,11 +227,9 @@ export default function FleetRegistrationDrawer({ onClose, onComplete, onSaveExi
 
   // Opened from "Review" after a save was cut short (reload, app closed):
   // say why the details came back and that the files are needed again.
-  useEffect(() => {
-    if (consumeRegistrationRecoveryNotice(REGISTRATION_KINDS.URRIDE_SOLO)) {
-      setSubmitError(t("registrationSaving.interruptedInline"));
-    }
-  }, []);
+  useRegistrationRecoveryNotice(REGISTRATION_KINDS.URRIDE_SOLO, {
+    onNotice: () => setSubmitError(t("registrationSaving.interruptedInline")),
+  });
 
   useEffect(() => {
     let alive = true;
@@ -624,8 +619,8 @@ export default function FleetRegistrationDrawer({ onClose, onComplete, onSaveExi
   };
   const prevStep = () => setStep((current) => Math.max(current - 1, 0));
   const handleRegistrationBack = () => {
-    if (submitting) {
-      if (backgroundAllowed) leaveWhileSaving();
+    if (submitting && backgroundAllowed) {
+      leaveWhileSaving();
       return;
     }
 
