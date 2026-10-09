@@ -2,9 +2,19 @@ import { useEffect, useRef, useState } from "react";
 import { Camera, Loader2, Package, Search, Sparkles, X } from "lucide-react";
 
 import { isAiCancellation, runAiTask } from "../../../Backend/services/ai/aiService";
-import { prepareImageForAi } from "../../../Backend/services/ai/exploreAi";
+import { preparePhotoForSearch } from "../../../Backend/services/ai/photoSearchImage";
 import { moneyLabel } from "../../../Backend/services/ai/urmallAiModels";
-import { applyPhotoMatches, photoMatchListing, photoSearchCandidates, photoSearchTerms } from "../../../Backend/services/marketplace/photoSearch";
+import {
+  applyPhotoMatches,
+  expandPhotoSearchTerms,
+  mergeListings,
+  PHOTO_MATCH_LIMIT,
+  photoFallbackResults,
+  photoMatchListing,
+  photoRecallQueries,
+  rankPhotoCandidates,
+} from "../../../Backend/services/marketplace/photoSearch";
+import { fetchBuyerMarketplaceProducts } from "../../../Backend/services/marketplace/buyerMarketplaceService";
 import { verticalAsPhotoCandidate } from "../../../Backend/services/marketplace/verticalSearch";
 import { isConnectionFailure } from "../../../Backend/services/friendlyErrorService";
 import { announceConnectionTrouble } from "../../../Backend/services/networkService";
@@ -15,6 +25,23 @@ function productPriceLabel(product) {
   const discount = Number(product?.discountPrice);
   const price = Number.isFinite(discount) && discount > 0 && discount < Number(product?.price || 0) ? discount : Number(product?.price || 0);
   return moneyLabel(price, product?.currency || product?.seller?.currency || "");
+}
+
+const RECALL_TIMEOUT_MS = 6_000;
+
+// Server searches for KAI's words, so listings the preloaded catalogue does
+// not hold (older listings past the first page, a slow or failed catalogue
+// load) can still be found. Never blocks the photo search for long.
+function recallPhotoListings(queries) {
+  if (!queries.length) return Promise.resolve([]);
+  const searches = Promise.all(
+    queries.map((search) => fetchBuyerMarketplaceProducts({ search }).then((result) => result?.newProducts || []).catch(() => [])),
+  ).then((lists) => lists.flat());
+  let timer;
+  const timeout = new Promise((resolve) => {
+    timer = setTimeout(() => resolve([]), RECALL_TIMEOUT_MS);
+  });
+  return Promise.race([searches, timeout]).finally(() => clearTimeout(timer));
 }
 
 /**
@@ -39,10 +66,12 @@ export default function PhotoSearchPanel({ file, products = [], verticalEntries 
     setState({ step: "reading", identified: null, results: [], error: "" });
 
     (async () => {
-      const image = await prepareImageForAi(url);
+      const prepared = await preparePhotoForSearch(file);
       if (controller.signal.aborted) return;
+      const image = prepared.image;
       if (!image) {
-        setState({ step: "error", identified: null, results: [], error: t("ai.urmall.photoFailed") });
+        const error = prepared.error === "unreadable" ? t("kaiListingFix.photoUnreadable") : t("ai.urmall.photoFailed");
+        setState({ step: "error", identified: null, results: [], error });
         return;
       }
       setState((current) => ({ ...current, step: "identifying" }));
@@ -56,7 +85,9 @@ export default function PhotoSearchPanel({ file, products = [], verticalEntries 
         });
         if (controller.signal.aborted) return;
         const identified = response?.result || null;
-        if (!identified?.found || !identified.searchTerms?.length) {
+        // Even when KAI doubts there is a product, its best guess is still
+        // searched; only a photo with no words at all stops here.
+        if (!identified || !expandPhotoSearchTerms(identified).length) {
           setState({ step: "notProduct", identified, results: [], error: "" });
           return;
         }
@@ -85,42 +116,50 @@ export default function PhotoSearchPanel({ file, products = [], verticalEntries 
   useEffect(() => {
     if (!readyToMatch || !identified) return undefined;
     const controller = controllerRef.current;
-    // Everything a buyer can find: shop and vendor products plus meals, hotels
-    // and property (a photographed burger must be able to match a menu item).
-    const candidates = photoSearchCandidates(
-      [...products, ...verticalEntries.map(verticalAsPhotoCandidate)],
-      photoSearchTerms(identified),
-    );
-    if (!candidates.length) {
-      setState((current) => ({ ...current, step: "done", results: [] }));
-      return undefined;
-    }
     let cancelled = false;
-    runAiTask({
-      task: "urmall.image_match",
-      surface: "urmall",
-      input: {
-        product: { name: identified.name, category: identified.category, brand: identified.brand, explanation: identified.text },
-        listings: candidates.map(photoMatchListing),
-        language: locale,
-      },
-      context: { screen: "urmall photo search" },
-      signal: controller?.signal,
-    })
-      .then((response) => {
+    const terms = expandPhotoSearchTerms(identified);
+
+    (async () => {
+      const recalled = await recallPhotoListings(photoRecallQueries(identified, terms));
+      if (cancelled) return;
+      // Everything a buyer can find: shop and vendor products (loaded and
+      // recalled) plus meals, hotels and property (a photographed burger must
+      // be able to match a menu item).
+      const ranked = rankPhotoCandidates(
+        mergeListings(products, recalled, verticalEntries.map(verticalAsPhotoCandidate)),
+        terms,
+      );
+      if (!ranked.length) {
+        setState((current) => ({ ...current, step: "done", results: [] }));
+        return;
+      }
+      const candidates = ranked.slice(0, PHOTO_MATCH_LIMIT).map((entry) => entry.product);
+      try {
+        const response = await runAiTask({
+          task: "urmall.image_match",
+          surface: "urmall",
+          input: {
+            product: { name: identified.name, objectType: identified.objectType, category: identified.category, brand: identified.brand, explanation: identified.text },
+            listings: candidates.map(photoMatchListing),
+            language: locale,
+          },
+          context: { screen: "urmall photo search" },
+          signal: controller?.signal,
+        });
         if (cancelled) return;
-        const results = applyPhotoMatches(candidates, response?.result?.matches);
+        const matched = applyPhotoMatches(candidates, response?.result?.matches);
+        // KAI picked nothing: still show listings whose title, brand,
+        // keywords or category carry the photographed item's words.
+        const results = matched.length ? matched : photoFallbackResults(ranked);
         setState((current) => ({ ...current, step: "done", results }));
-      })
-      .catch((error) => {
+      } catch (error) {
         if (cancelled || isAiCancellation(error)) return;
         // Matching failed: still show the listings the search words found.
-        setState((current) => ({
-          ...current,
-          step: "done",
-          results: candidates.slice(0, 8).map((product) => ({ product, level: "similar", reason: "" })),
-        }));
-      });
+        const fallback = photoFallbackResults(ranked, 8);
+        const results = fallback.length ? fallback : candidates.slice(0, 4).map((product) => ({ product, level: "similar", reason: "" }));
+        setState((current) => ({ ...current, step: "done", results }));
+      }
+    })();
     return () => {
       cancelled = true;
     };
@@ -165,7 +204,9 @@ export default function PhotoSearchPanel({ file, products = [], verticalEntries 
             </>
           ) : null}
           {state.step === "error" && state.error ? <p className="mt-2 text-sm font-bold text-red-600">{state.error}</p> : null}
-          {state.step === "notProduct" ? <p className="mt-2 text-sm font-bold text-amber-700">{t("ai.urmall.photoNotProduct")}</p> : null}
+          {state.step === "notProduct" || (state.step === "done" && identified?.found === false && !state.results.length) ? (
+            <p className="mt-2 text-sm font-bold text-amber-700">{t("ai.urmall.photoNotProduct")}</p>
+          ) : null}
         </div>
       </div>
 
@@ -178,6 +219,7 @@ export default function PhotoSearchPanel({ file, products = [], verticalEntries 
       {state.step === "done" && state.results.length ? (
         <section className="space-y-2">
           <p className="text-xs font-black uppercase tracking-[0.14em] text-gray-400">{t("ai.urmall.photoResults")}</p>
+          {identified?.found === false ? <p className="text-xs font-bold text-amber-700">{t("kaiListingFix.photoBestGuess")}</p> : null}
           {state.results.map(({ product, level, reason }) => (
             <button
               key={product.id}
@@ -219,7 +261,7 @@ export default function PhotoSearchPanel({ file, products = [], verticalEntries 
             <>
               <p className="mt-1 text-xs font-bold text-gray-500">{t("ai.urmall.photoTryTerms")}</p>
               <div className="mt-2 flex flex-wrap gap-2">
-                {identified.searchTerms.map((term) => (
+                {identified.searchTerms.slice(0, 6).map((term) => (
                   <button
                     key={term}
                     type="button"

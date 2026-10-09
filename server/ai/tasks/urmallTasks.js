@@ -228,7 +228,7 @@ export const URMALL_BUYER_TASKS = {
             brand: cleanLine(product.brand, 80),
             description: cleanText(product.explanation, 500),
           }, 800),
-          recordBlock("Listings (KunThai data)", listings, 7_000),
+          recordBlock("Listings (KunThai data)", listings, 12_000),
           language ? `Write each reason in this language: ${language}.` : "",
           "Return JSON only.",
         ]),
