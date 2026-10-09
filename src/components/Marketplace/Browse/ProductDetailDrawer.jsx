@@ -58,6 +58,8 @@ import {
 import { uiText as translateUi, useI18n as useUiLocale } from "../../../i18n/index.js";
 import { inlineErrorMessage, shortErrorToast } from "../../../Backend/services/friendlyErrorService";
 import AppPortal from "../../shared/AppPortal";
+import useOrderCautionGate from "../shared/useOrderCautionGate";
+import { orderCautionKindForProduct } from "../shared/orderCaution";
 
 function mapSavedAddressToOrder(address = {}) {
   return {
@@ -521,6 +523,7 @@ export default function ProductDetailDrawer({
   showOrder = true,
   showReview = true,
   showSave = true,
+  cautionKind = "",
   relatedProducts = [],
   relatedSavedIds = new Set(),
   onRelatedProductSelect,
@@ -557,6 +560,15 @@ export default function ProductDetailDrawer({
   const [activeImageIndex, setActiveImageIndex] = useState(-1);
   const detailScrollRef = useRef(null);
   const aiAvailability = useAiAvailability();
+  // The order / booking caution card. Tapping Order or Book shows it first;
+  // an order form opened any other way (for example filled in by KAI) shows
+  // it on Send instead, so no order or booking goes out without it.
+  const { requestCaution, cautionElement } = useOrderCautionGate();
+  const orderCautionClearedRef = useRef(false);
+
+  useEffect(() => {
+    orderCautionClearedRef.current = false;
+  }, [open, product?.id]);
 
   // The floating KAI chat reads this while the detail is open, so it talks
   // about the same listing as the header KAI pill.
@@ -756,6 +768,13 @@ export default function ProductDetailDrawer({
     setOrderAreaPicker(null);
   }
 
+  function startOrder() {
+    requestCaution(orderCautionKindForProduct(product, cautionKind), () => {
+      orderCautionClearedRef.current = true;
+      openOrderForm();
+    });
+  }
+
   async function openOrderForm() {
     const localAddresses = readSavedAddresses();
     setSavedAddresses(localAddresses);
@@ -868,6 +887,18 @@ export default function ProductDetailDrawer({
       return;
     }
 
+    if (!orderCautionClearedRef.current) {
+      requestCaution(orderCautionKindForProduct(product, cautionKind), () => {
+        orderCautionClearedRef.current = true;
+        // A failed order is already reported by onOrderProduct.
+        submitOrder().catch(() => {});
+      });
+      return;
+    }
+    await submitOrder();
+  }
+
+  async function submitOrder() {
     setOrderSubmitting(true);
     try {
       await onOrderProduct?.(product, orderForm);
@@ -1179,7 +1210,7 @@ export default function ProductDetailDrawer({
           </button> : null}
           {showOrder ? <button
             type="button"
-            onClick={openOrderForm}
+            onClick={startOrder}
             className="kt-pressable inline-flex h-12 min-w-0 items-center justify-center gap-2 rounded-2xl bg-emerald-600 px-3 text-xs font-black text-white hover:bg-emerald-700 sm:text-sm"
           >
             {isBooking ? <CalendarDays size={17} /> : <PackageCheck size={17} />}
@@ -1497,6 +1528,7 @@ export default function ProductDetailDrawer({
           />
         </div>
       ) : null}
+      {cautionElement}
     </>,
     document.body,
   );

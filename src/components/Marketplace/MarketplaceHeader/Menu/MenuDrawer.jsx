@@ -38,6 +38,7 @@ import {
 import Orders from "../../Orders";
 import AdminRolesPanel from "../../shared/AdminRolesPanel";
 import UrMallCautionCard from "../../shared/UrMallCautionCard";
+import OrderCautionMenuSection from "../../shared/OrderCautionMenuSection";
 import {
   clearBuyerAddressDeleted,
   findPreferredBuyerAddress,
@@ -404,6 +405,7 @@ export default function MenuDrawer({ open, onClose, onRequestedScreenHandled, re
         {message && <p className="mb-3 rounded-xl bg-emerald-50 p-3 text-sm font-bold text-emerald-700">{translateUi(message)}</p>}
 
         {screenKey === "caution" && <UrMallCautionCard showMenuNote={false} />}
+        {screenKey === "caution" && <OrderCautionMenuSection />}
 
         {screenKey === "orders" && <Orders compact onProductOpen={openProduct} />}
 

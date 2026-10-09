@@ -70,6 +70,7 @@ export default function VerticalBuyerDetail({ onClose, onMessage, onOpenSeller, 
       onMessageSeller={onMessage}
       onOpenSeller={(seller) => onOpenSeller?.({ ...seller, verticalType: type })}
       onOrderProduct={onOrder}
+      cautionKind={type}
       onNotice={(message, tone = "success") => showToast(message, tone)}
       actionLabel={isRestaurant ? t("urmall.vertical.actionOrder") : t("urmall.vertical.actionBook")}
       actionMode={isRestaurant ? "order" : "booking"}

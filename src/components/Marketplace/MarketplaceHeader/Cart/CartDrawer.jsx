@@ -19,6 +19,8 @@ import {
   writeBuyerAddressPreference,
 } from "../../shared/buyerAddressPreferences";
 import CartItem from "./CartItem";
+import useOrderCautionGate from "../../shared/useOrderCautionGate";
+import { orderCautionKindsForCart } from "../../shared/orderCaution";
 import { uiText as translateUi } from "../../../../i18n/index.js";
 import { inlineErrorMessage } from "../../../../Backend/services/friendlyErrorService";
 
@@ -62,6 +64,9 @@ export default function CartDrawer({
   const [savedAddresses, setSavedAddresses] = useState(readSavedAddresses);
   const [selectedAddressId, setSelectedAddressId] = useState("");
   const [paymentPreference, setPaymentPreference] = useState(readPaymentPreference);
+  // The order caution card for each kind of business in the cart (a shop, a
+  // supplier) comes before checkout creates any order.
+  const { requestCaution, cautionElement } = useOrderCautionGate();
   const total = items.reduce((sum, item) => sum + item.price * item.qty, 0);
   const moneyScope = items[0]?.product?.currency || items[0]?.product?.countryCode || items[0]?.product?.country;
   const itemCount = items.reduce((sum, item) => sum + item.qty, 0);
@@ -120,13 +125,16 @@ export default function CartDrawer({
     };
   }, [onClose, open]);
 
-  async function handleCheckout() {
+  function handleCheckout() {
     setCheckoutStatus("");
     if (!checkoutReady) {
       setCheckoutStatus(t("urmall.cart.chooseAddress"));
       return;
     }
+    requestCaution(orderCautionKindsForCart(items), runCheckout);
+  }
 
+  async function runCheckout() {
     try {
       const addressText = getAddressText(selectedAddress);
       const checkoutNote = [
@@ -274,6 +282,7 @@ export default function CartDrawer({
           </button>
         </div>
       </div>
+      {cautionElement}
     </AppPortal>
   );
 }
