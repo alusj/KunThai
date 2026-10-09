@@ -34,6 +34,7 @@ function mergeEntities(target, entities = {}) {
  * @param {string} [options.role]       buyer | seller | passenger | operator | company | admin
  * @param {string} [options.screen]
  * @param {string[]} [options.capabilities]  what the open screen offers ("form", "message")
+ * @param {object} [options.formMeta]  short facts the open form declares (its id, a business kind)
  * @param {string} options.message
  * @param {Array<{role: string, text: string}>} [options.history]
  * @param {string[]} [options.selection]  ids of items selected on screen
@@ -46,6 +47,7 @@ export async function runAssistantExchange({
   role = "",
   screen = "",
   capabilities = [],
+  formMeta = null,
   message,
   history = [],
   selection = [],
@@ -71,6 +73,7 @@ export async function runAssistantExchange({
         history,
         ...(selection.length ? { selection } : {}),
         ...(facts ? { facts } : {}),
+        ...(formMeta ? { formMeta } : {}),
         ...(pending ? { pending, toolResults } : {}),
       },
     });

@@ -245,7 +245,23 @@ export function prepareFormValues(proposed = [], context = getActiveAiScreen()) 
   const byKey = new Map(fields.map((field) => [field.key, field]));
   const ready = [];
   const skipped = [];
-  (Array.isArray(proposed) ? proposed : []).forEach(({ key, value }) => {
+  let list = (Array.isArray(proposed) ? proposed : []).filter((item) => item && typeof item === "object");
+  // A screen may refuse values by its own rules first (the business
+  // registration drops categories for restaurants and real estate).
+  if (typeof context?.form?.sanitize === "function") {
+    try {
+      const outcome = context.form.sanitize(list);
+      if (outcome && Array.isArray(outcome.kept)) {
+        (Array.isArray(outcome.dropped) ? outcome.dropped : []).forEach((item) => {
+          skipped.push({ key: item.key, label: byKey.get(item.key)?.label || item.key, reason: item.reason || "This field does not apply here." });
+        });
+        list = outcome.kept;
+      }
+    } catch {
+      // A failing screen rule falls back to the plain field checks below.
+    }
+  }
+  list.forEach(({ key, value }) => {
     const field = byKey.get(key);
     if (!field) {
       skipped.push({ key, label: key, reason: "This field is not on the screen." });
@@ -308,6 +324,26 @@ function describeField(field) {
   return `- ${field.key} [${field.type || "text"}${flags.length ? `, ${flags.join(", ")}` : ""}] "${field.label || field.key}": ${value}${options}`;
 }
 
+// Small structured facts a form declares about itself (its id and, for the
+// business registration, the business kind) so the server can apply the same
+// field rules to what the model proposes. Only short scalar values pass.
+function formMetaOf(context) {
+  let meta = null;
+  try {
+    meta = context.form?.meta?.() || null;
+  } catch {
+    meta = null;
+  }
+  const result = { screen: String(context.id || "").slice(0, 80) };
+  if (meta && typeof meta === "object") {
+    Object.entries(meta).slice(0, 8).forEach(([key, value]) => {
+      if (typeof value === "boolean") result[key] = value;
+      else if (typeof value === "string" || typeof value === "number") result[key] = String(value).slice(0, 60);
+    });
+  }
+  return result;
+}
+
 /**
  * What KAI is told about the screen with each message:
  * { screenId, screen, facts, capabilities }.
@@ -352,6 +388,7 @@ export function snapshotAiScreen(context = getActiveAiScreen()) {
     screen: String(context.title || context.id).slice(0, 80),
     facts: lines.join("\n"),
     capabilities,
+    ...(capabilities.includes("form") ? { formMeta: formMetaOf(context) } : {}),
   };
 }
 

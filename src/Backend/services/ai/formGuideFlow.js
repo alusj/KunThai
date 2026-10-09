@@ -282,6 +282,16 @@ function record(field, raw) {
     return false;
   }
   const item = { key: field.key, label: uiText(field.label || field.key), value: outcome.value, display: uiText(String(outcome.display)) };
+  // A field that decides which other fields exist (the business kind) is
+  // applied as soon as the person answers it, so the next questions are the
+  // ones for that choice — a restaurant is never asked for shop categories.
+  if (field.immediate) {
+    const applied = applyAiFormValues(state.screenId, [{ key: item.key, value: item.value }]);
+    if (applied.ok) {
+      emit({ pending: state.pending.filter((entry) => entry.key !== field.key) });
+      return true;
+    }
+  }
   emit({ pending: [...state.pending.filter((entry) => entry.key !== field.key), item] });
   return true;
 }

@@ -67,6 +67,7 @@ async function runReply({ userMessage, replyId }) {
       role: userMessage.role,
       screen: userMessage.screen,
       capabilities: userMessage.capabilities || [],
+      formMeta: userMessage.formMeta || null,
       message: userMessage.text,
       history: historyFor(userMessage.surface, userMessage.role, userIndex),
       selection: userMessage.selection,
@@ -136,6 +137,7 @@ export function sendAssistantMessage({ text, surface = "global", role = "", scre
     screen: onScreen?.screen || screen,
     screenId: onScreen?.screenId || "",
     capabilities: onScreen?.capabilities || [],
+    formMeta: onScreen?.formMeta || null,
     status: "done",
   };
   const reply = { id: newId(), author: "assistant", text: "", surface, role, status: "loading", replyTo: userMessage.id };
