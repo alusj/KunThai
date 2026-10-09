@@ -135,6 +135,9 @@ export default function BiometricLockGate({ userId = "" }) {
       aria-modal="true"
       aria-labelledby="kunthai-lock-title"
       className="fixed inset-0 z-[5000] flex items-center justify-center bg-slate-950 px-6 text-center text-white"
+      // Above every toast, including elevated ones (z 2147483150), so nothing
+      // shows on top of the lock screen.
+      style={{ zIndex: 2147483400 }}
     >
       <div className="w-full max-w-sm">
         <span className="mx-auto grid h-20 w-20 place-items-center rounded-[28px] bg-white/10">
