@@ -27,6 +27,7 @@ import AppBackTab from "../shared/AppBackTab";
 import { useAutoCollapseCard } from "../shared/motionHooks";
 import NearbyAreaMap from "./area/NearbyAreaMap";
 import { fleetFocusBounds, operatorsWithinFleetRadius } from "./area/fleetFocus";
+import { toLngLatArray } from "./area/mapCoordinates";
 import { useTransportPassengerSetting } from "./shared/useTransportPassengerSetting";
 import { formatPlaceDistance, resolveAddressLocation, searchLocations, withDistancesFrom } from "../../Backend/services/locationSearchService";
 import { getRoadDistancesFrom, getRouteBetweenPoints } from "../../Backend/services/routeService";
@@ -408,6 +409,18 @@ function pickLatestUndismissedReviewNotice(reviews = []) {
   }) || null;
 }
 
+// MapLibre throws on a centre it cannot place, and on a map that has been
+// removed; a stray bad row must not take the whole screen down.
+function flyMapTo(map, options = {}) {
+  const center = toLngLatArray(options.center);
+  if (!map || !center || map._removed || map.__ktRemoved) return;
+  try {
+    map.flyTo({ ...options, center });
+  } catch (error) {
+    console.warn("[KunThai] Map move skipped", error);
+  }
+}
+
 function toRadians(value) {
   return (value * Math.PI) / 180;
 }
@@ -454,6 +467,25 @@ function getAreaCategoryLabel(category) {
   return areaCategoryLabels[category]
     ? t(areaCategoryLabels[category])
     : String(category || t("urride.areaView.lblLocation")).toLowerCase();
+}
+
+// The mounted Area View's add-location opener (see the "None available
+// nearby" toast action).
+let activeAddLocationOpener = null;
+
+const addCategoryActionKeys = {
+  Pickup: "urrideMapFix2.addPickup",
+  Shops: "urrideMapFix2.addShops",
+  Schools: "urrideMapFix2.addSchools",
+  Markets: "urrideMapFix2.addMarkets",
+  Emergency: "urrideMapFix2.addEmergency",
+  Community: "urrideMapFix2.addCommunity",
+};
+
+// A whole translated phrase per category ("Add pickup point"), so languages
+// that inflect the noun or put the verb last read naturally.
+function getAddCategoryActionLabel(category) {
+  return t(addCategoryActionKeys[category] || "urrideMapFix2.addLocation");
 }
 
 function getAddCategoryForAreaCategory(category) {
@@ -1077,6 +1109,12 @@ function NearbyAreaScreenContent({
     setFocusMode(false);
     setAdding(true);
   }, []);
+  useEffect(() => {
+    activeAddLocationOpener = openAddLocation;
+    return () => {
+      if (activeAddLocationOpener === openAddLocation) activeAddLocationOpener = null;
+    };
+  }, [openAddLocation]);
 
   function chooseLocationCategory(category) {
     setActiveCategory(category);
@@ -1109,12 +1147,14 @@ function NearbyAreaScreenContent({
     const nearest = matches[0];
 
     if (!nearest) {
-      const label = getAreaCategoryLabel(category);
       showToast("None available nearby", "warning", {
         title: t("urride.areaView.toastAreaView"),
-        actionLabel: t("urride.areaView.addCategoryAction", { label }),
+        actionLabel: getAddCategoryActionLabel(category),
         duration: 6500,
-        onAction: () => openAddLocation(category),
+        // The toast lives in the app-wide toast layer and can outlive this
+        // screen instance (a retry remounts it), so the tap opens the form of
+        // whichever Area View is mounted now.
+        onAction: () => (activeAddLocationOpener || openAddLocation)(category),
       });
       setLocationPanelOpen(false);
       return;
@@ -1123,7 +1163,7 @@ function NearbyAreaScreenContent({
     setActiveLocation(nearest);
     setSelectedSearchLocation(nearest);
     setLocationPanelOpen(true);
-    mapInstance?.flyTo({
+    flyMapTo(mapInstance, {
       center: [nearest.lng, nearest.lat],
       zoom: 15.5,
       essential: true,
@@ -1459,7 +1499,7 @@ function NearbyAreaScreenContent({
           setSelectionLocked(true);
           setSelectedSearchLocation(dropoff);
 
-          mapInstance?.flyTo({
+          flyMapTo(mapInstance, {
             center: [dropoff.lng, dropoff.lat],
             zoom: 14,
             essential: true,
@@ -1540,7 +1580,7 @@ function NearbyAreaScreenContent({
             getRecentSearchHistory().then(setRecentSearches);
           });
 
-          mapInstance?.flyTo({
+          flyMapTo(mapInstance, {
             center: [resolvedDestination.lng, resolvedDestination.lat],
             zoom: 15.5,
             essential: true,
@@ -1569,7 +1609,7 @@ function NearbyAreaScreenContent({
     setSearchOverlayOpen(false);
     if (autoRoute) setSelectedSearchLocation(destination);
 
-    mapInstance?.flyTo({
+    flyMapTo(mapInstance, {
       center: [destination.lng, destination.lat],
       zoom: 15.5,
       essential: true,
@@ -1856,7 +1896,7 @@ function NearbyAreaScreenContent({
       setUserLocation(point);
       setMapCenter(point);
       setRecenterSignal((value) => value + 1);
-      mapInstance?.flyTo({
+      flyMapTo(mapInstance, {
         center: [point.lng, point.lat],
         zoom: 17,
         essential: true,
@@ -1984,7 +2024,7 @@ function NearbyAreaScreenContent({
       setLiveLocations((items) => [pendingLocation, ...items.filter((item) => item.id !== pendingLocation.id)]);
       setActiveLocation(pendingLocation);
       setLocationPanelOpen(true);
-      mapInstance?.flyTo({
+      flyMapTo(mapInstance, {
         center: [pendingLocation.lng, pendingLocation.lat],
         zoom: 16,
         essential: true,
@@ -2106,7 +2146,7 @@ function NearbyAreaScreenContent({
 
     if (document.activeElement) document.activeElement.blur();
 
-    mapInstance?.flyTo({
+    flyMapTo(mapInstance, {
       center: [result.lng, result.lat],
       zoom: 15.5,
       essential: true,
@@ -2127,7 +2167,7 @@ function NearbyAreaScreenContent({
     setOperatorRoutePlan(null);
     setSelectedSearchLocation(location);
 
-    mapInstance?.flyTo({
+    flyMapTo(mapInstance, {
       center: [location.lng, location.lat],
       zoom: 15.5,
       essential: true,
@@ -2166,7 +2206,7 @@ function NearbyAreaScreenContent({
 
     setOperatorRoutePlan(null);
     setSelectedSearchLocation(location);
-    mapInstance?.flyTo({
+    flyMapTo(mapInstance, {
       center: [location.lng, location.lat],
       zoom: 15.5,
       essential: true,
@@ -2196,7 +2236,7 @@ function NearbyAreaScreenContent({
 
     setActiveLocation(reviewLocation);
     setLocationPanelOpen(true);
-    mapInstance?.flyTo({
+    flyMapTo(mapInstance, {
       center: [reviewLocation.lng, reviewLocation.lat],
       zoom: 16,
       essential: true,
