@@ -284,6 +284,10 @@ export function verticalDetailFactsForAi(product, { buyer = null } = {}) {
   return compact(base);
 }
 
+// The screen context keeps about 1,200 characters (see aiScreenContext.js):
+// the short facts go first and the description fills what is left.
+const SCREEN_TEXT_LIMIT = 1_150;
+
 /**
  * Plain "key: value" lines for a listing, for KAI's screen context (the
  * floating KAI chat reads them while the detail screen is open).
@@ -291,7 +295,8 @@ export function verticalDetailFactsForAi(product, { buyer = null } = {}) {
 export function describeListingForAi(facts, heading = "Listing open on screen") {
   if (!facts || typeof facts !== "object") return "";
   const lines = [`${heading} (KunThai data; quote prices exactly):`];
-  Object.entries(facts).forEach(([key, value]) => {
+  const { description, ...rest } = facts;
+  Object.entries(rest).forEach(([key, value]) => {
     if (key === "id" || value === undefined || value === null || value === "") return;
     let text;
     if (Array.isArray(value)) {
@@ -307,8 +312,11 @@ export function describeListingForAi(facts, heading = "Listing open on screen") 
     } else {
       text = String(value);
     }
-    if (text) lines.push(`- ${key}: ${clip(text, key === "description" ? 900 : 200)}`);
+    if (text) lines.push(`- ${key}: ${clip(text, 200)}`);
   });
+  const used = lines.join("\n").length;
+  const room = SCREEN_TEXT_LIMIT - used - "\n- description: ".length;
+  if (description && room > 40) lines.push(`- description: ${clip(description, room)}`);
   return lines.join("\n");
 }
 

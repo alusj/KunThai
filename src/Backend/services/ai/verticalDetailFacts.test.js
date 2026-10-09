@@ -64,6 +64,11 @@ test("the screen text the floating KAI reads carries the same facts, without ids
   assert.match(text, /- delivery: yes/);
   assert.ok(!text.includes("m1"));
   assert.equal(describeListingForAi(null), "");
+  // Long descriptions never push the facts out of KAI's screen context.
+  const long = describeListingForAi(verticalDetailFactsForAi({ ...MEAL, description: "word ".repeat(600) }));
+  assert.ok(long.length <= 1_200, String(long.length));
+  assert.match(long, /- daysAvailable: /);
+  assert.match(long.split("\n").at(-1), /^- description: word/);
 });
 
 test("a property gives KAI type, rent or sale with its period, price, location and rooms", () => {
