@@ -6,7 +6,7 @@ import {
   fetchExploreMessageActivity,
   subscribeToExploreMessageActivity,
 } from "../../../../Backend/services/explore/messageService";
-import { readExploreSettings } from "../../../../Backend/services/explore/preferencesService";
+import { canShowSeenFor, readExploreSettings } from "../../../../Backend/services/explore/preferencesService";
 import { useKeyboardAwareConversation } from "../../../../Backend/hooks/useKeyboardAwareConversation";
 import { useHideAiAssistant } from "../../../../Backend/services/ai/aiScreenContext";
 import { useI18n } from "../../../../i18n";
@@ -126,8 +126,15 @@ export default function ConversationScreen({
   };
   const messagesRef = useRef(null);
   // Read receipts: mark the newest of my messages the other side has read.
-  // Honors the "Receipts" preference in Settings on this account.
-  const receiptsEnabled = readExploreSettings().messages.readReceipts !== false;
+  // "Seen" shows only when both this account and the other person share receipts.
+  const peerUserId = user.userId;
+  const [receiptsEnabled, setReceiptsEnabled] = useState(false);
+  useEffect(() => {
+    let active = true;
+    setReceiptsEnabled(false);
+    canShowSeenFor(peerUserId).then((value) => { if (active) setReceiptsEnabled(value === true); }).catch(() => {});
+    return () => { active = false; };
+  }, [peerUserId]);
   const lastSeenOwnMessageId = receiptsEnabled
     ? [...messages].reverse().find((message) => isMine(message) && message.read && !message.pending)?.id || ""
     : "";
