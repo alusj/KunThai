@@ -70,24 +70,21 @@ export function useExploreFollows(currentUserId) {
     }
 
     haptics.medium("explore");
-    let nextActive = false;
+    // Decide the new state from the state this tap saw. Computing it inside a
+    // setState updater left it unset until React ran the updater, so the
+    // server could receive the wrong direction.
     const previous = new Set(followedUsers);
-
-    setFollowedUsers((current) => {
-      const next = new Set(current);
-      nextActive = !next.has(target.key) && !next.has(target.id);
-
-      if (nextActive) {
-        next.add(target.key);
-        if (target.type !== SPACE_IDENTITY_TYPE) next.add(target.id);
-      } else {
-        next.delete(target.key);
-        next.delete(target.id);
-      }
-
-      writeStoredFollows(next);
-      return next;
-    });
+    const nextActive = !previous.has(target.key) && !previous.has(target.id);
+    const next = new Set(previous);
+    if (nextActive) {
+      next.add(target.key);
+      if (target.type !== SPACE_IDENTITY_TYPE) next.add(target.id);
+    } else {
+      next.delete(target.key);
+      next.delete(target.id);
+    }
+    setFollowedUsers(next);
+    writeStoredFollows(next);
 
     try {
       await syncExploreFollow(target, nextActive);

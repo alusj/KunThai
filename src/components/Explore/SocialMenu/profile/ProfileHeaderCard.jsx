@@ -80,6 +80,7 @@ export default function ProfileHeaderCard({
   followed,
   onAvatarChange,
   onBlock,
+  onCopyLink,
   onCoverChange,
   onCoverPreset,
   onCreateSpace,
@@ -645,7 +646,7 @@ export default function ProfileHeaderCard({
                 ) : (
                   <button
                     type="button"
-                    onClick={() => runMenuAction(onShare)}
+                    onClick={() => runMenuAction(onCopyLink || onShare)}
                     className="flex w-full items-center gap-3 rounded-xl px-4 py-3 text-left text-slate-700 hover:bg-slate-100"
                   >
                     <HiOutlineArchiveBox className="text-lg" />
@@ -720,7 +721,7 @@ export default function ProfileHeaderCard({
             >
               <div className="flex items-start justify-between gap-3">
                 <div className="min-w-0">
-                  <p className="text-xs font-black uppercase tracking-[0.16em] text-sky-700">Visibility Credits</p>
+                  <p className="text-xs font-black uppercase tracking-[0.16em] text-sky-700">{t("exploreProfileFix.visibilityCredits")}</p>
                   <p className="mt-1 flex items-baseline gap-1.5">
                     <CreditBalanceValue loading={creditLoading} value={Number(creditWallet.balance || 0)} />
                     <span className="text-xs font-bold text-slate-500">{t("profile.available")}</span>
@@ -806,7 +807,7 @@ export default function ProfileHeaderCard({
 
           <div className="mt-4 grid grid-cols-4 gap-2 text-center">
             <StatTile label={t("profile.tabFeed")} value={stats?.feed} loading={loadingStats} />
-            <StatTile label="Swip" value={stats?.swip} loading={loadingStats} />
+            <StatTile label={t("exploreProfileFix.swip")} value={stats?.swip} loading={loadingStats} />
             <StatTile label={t("profile.statConnections")} value={stats?.followers} loading={loadingStats} />
             <StatTile label={isSpace ? t("profile.statTeam") : t("profile.statConnected")} value={isSpace ? stats?.team : stats?.following} loading={loadingStats} />
           </div>
@@ -848,7 +849,7 @@ export default function ProfileHeaderCard({
                   <HiOutlineUserPlus className="text-2xl" />
                 </span>
                 <div className="min-w-0">
-                  <p className="text-xs font-black uppercase tracking-[0.18em] text-sky-700">Visibility Credits</p>
+                  <p className="text-xs font-black uppercase tracking-[0.18em] text-sky-700">{t("exploreProfileFix.visibilityCredits")}</p>
                   <h2 id="buy-credits-title" className="mt-1 text-xl font-black text-slate-950">{t("buyCredits.title")}</h2>
                   <p className="mt-1 text-sm font-semibold text-slate-500">{t("profile.choosePaymentMethod")}</p>
                 </div>

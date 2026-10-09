@@ -1,43 +1,49 @@
-import { useExploreFeed } from "../../../../Backend/hooks/useExploreFeed";
-import { useI18n } from "../../../../i18n";
-import EmptyState from "../../shared/EmptyState";
-import ErrorState from "../../shared/ErrorState";
-import FeedPost from "../../ExploreTabs/urfeed/feed/components/FeedPost";
-import SocialScreenHeader from "../shared/SocialScreenHeader";
-import { uiText as translateUi } from "../../../../i18n/index.js";
+import { useMemo } from "react";
 
-export default function MyPostsScreen({ currentUserId, hideHeader = false }) {
+import { useExploreFeed } from "../../../../Backend/hooks/useExploreFeed";
+import { useIdentityPosts } from "../../../../Backend/hooks/useProfilePosts";
+import { readActiveExploreIdentity, readCachedExploreSpaces } from "../../../../Backend/services/explore/spaceService";
+import { buildProfileIdentity, buildSpaceIdentity, SPACE_IDENTITY_TYPE } from "../../../../Backend/services/explore/identityService";
+import { useI18n } from "../../../../i18n";
+import SocialScreenHeader from "../shared/SocialScreenHeader";
+import ProfilePostList from "../profile/ProfilePostList";
+
+// My Posts lists everything the identity in use published, read from the
+// server page by page (not just what the home feed happened to load). While
+// acting as a Space it shows the Space's posts.
+export default function MyPostsScreen({ currentUserId, hideHeader = false, identity: identityProp = null }) {
   const { t } = useI18n();
-  const feed = useExploreFeed("feed");
-  const myPosts = feed.posts.filter((post) => post.user_id === currentUserId);
+  const reactions = useExploreFeed("feed");
+  const spaces = useMemo(() => readCachedExploreSpaces(currentUserId) || [], [currentUserId]);
+  const identity = useMemo(() => {
+    if (identityProp?.spaceId) return buildSpaceIdentity(identityProp.spaceId);
+    const active = readActiveExploreIdentity();
+    if (active?.type === SPACE_IDENTITY_TYPE && active.id && spaces.some((space) => space.spaceId === active.id)) {
+      return buildSpaceIdentity(active.id);
+    }
+    return buildProfileIdentity(currentUserId);
+  }, [currentUserId, identityProp?.spaceId, spaces]);
+  const activeSpace = identity.type === SPACE_IDENTITY_TYPE ? spaces.find((space) => space.spaceId === identity.id) : null;
+  const list = useIdentityPosts(identity, "all");
 
   return (
     <div>
       {!hideHeader ? <SocialScreenHeader title={t("screens.MyPostsTitle")} subtitle={t("screens.MyPostsSubtitle")} /> : null}
 
       <div className="w-full space-y-4 px-4 py-4 sm:px-5">
-        {feed.error ? <ErrorState message={translateUi(feed.error)} onRetry={feed.reload} /> : null}
-
-        {!myPosts.length ? (
-          <EmptyState title={t("explore.noPostsYet")} message={t("explore.noPostsYetMsg")} />
-        ) : (
-          myPosts.map((post) => (
-            <FeedPost
-              key={post.id}
-              post={post}
-              currentUserId={currentUserId}
-              liked={feed.likedPosts.has(post.id)}
-              saved={feed.savedPosts.has(post.id)}
-              isOwner
-              onLike={() => feed.toggleLike(post.id)}
-              onSave={() => feed.toggleSave(post.id)}
-              onComment={() => feed.addComment(post.id)}
-              onEdit={(body) => feed.editPost(post.id, body)}
-              onDelete={() => feed.deletePost(post.id, { confirm: false })}
-              onViewActivity={() => feed.viewActivity(post.id)}
-            />
-          ))
-        )}
+        {activeSpace ? (
+          <p className="rounded-[20px] bg-sky-50 px-4 py-3 text-sm font-bold text-sky-800">
+            {t("exploreProfileFix.spacePostsNote", { name: activeSpace.displayName || "Space" })}
+          </p>
+        ) : null}
+        <ProfilePostList
+          list={list}
+          reactions={reactions}
+          currentUserId={currentUserId}
+          spaces={spaces}
+          emptyTitle={t("explore.noPostsYet")}
+          emptyMessage={t("explore.noPostsYetMsg")}
+        />
       </div>
     </div>
   );

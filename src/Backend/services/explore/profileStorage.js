@@ -63,8 +63,12 @@ export function getMetadataCover(metadata = {}) {
 export function buildExploreProfileFromUser(user) {
   const metadata = user?.user_metadata || {};
   const cached = readStoredProfile(user?.id);
-  const displayName = cached.displayName || metadata.display_name || metadata.full_name || metadata.name || user?.email || "";
   const username = cached.username || metadata.username || user?.email?.split("@")[0] || "";
+  // Never show an email address as a name: fall back to the username.
+  const namedAs = [cached.displayName, metadata.display_name, metadata.full_name, metadata.name]
+    .map((value) => String(value || "").trim())
+    .find((value) => value && !value.includes("@"));
+  const displayName = namedAs || username;
   const avatarUrl = cached.avatarUrl || getMetadataAvatar(metadata) || "";
   const coverUrl = cached.coverUrl || getMetadataCover(metadata) || "preset:gradient";
 

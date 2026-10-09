@@ -3,6 +3,8 @@ import { isMissingColumn, isMissingTable } from "./errors";
 import { SPACE_IDENTITY_TYPE, getIdentityKey } from "./identityService";
 import { uploadMediaDataUrl } from "./mediaService";
 import { resolvePublicCode } from "../publicCodeService";
+import { normalizeSocialLinks } from "./socialLinks";
+import { validateSpaceSlug } from "./profilePostsModel";
 
 export const SPACE_CATEGORIES = [
   { id: "business", label: "Business" },
@@ -169,6 +171,7 @@ function toSpaceProfile(row = {}, membership = {}, fallbackUserId = "") {
     verified: Boolean(row.verified),
     status: row.status || "active",
     settings: row.settings || {},
+    socialLinks: normalizeSocialLinks(row.settings?.social_links),
     createdAt: row.created_at || "",
     updatedAt: row.updated_at || "",
     isSpace: true,
@@ -420,6 +423,33 @@ function mapMemberRow(row = {}, profile = {}) {
   };
 }
 
+export class SpaceSaveError extends Error {
+  constructor(code, message) {
+    super(message);
+    this.name = "SpaceSaveError";
+    this.code = code;
+  }
+}
+
+async function spaceSlugTaken(spaceId, slug) {
+  const { data, error } = await supabase
+    .from("explore_spaces")
+    .select("id")
+    .eq("slug", slug)
+    .neq("id", spaceId)
+    .limit(1);
+
+  if (error) {
+    if (isMissingTable(error)) return false;
+    throw error;
+  }
+  return Boolean(data?.length);
+}
+
+function firstDefined(...values) {
+  return values.find((value) => value !== undefined && value !== null);
+}
+
 export async function updateExploreSpace(spaceId, patch = {}) {
   const user = await getAuthUser();
   if (!user?.id || !spaceId) {
@@ -432,14 +462,39 @@ export async function updateExploreSpace(spaceId, patch = {}) {
   }
 
   const payload = {};
-  if (patch.name != null) payload.name = String(patch.name || "").trim();
-  if (patch.slug != null) payload.slug = normalizeSpaceSlug(patch.slug);
+  // The edit form names these displayName and username (shared with personal
+  // profiles); a Space stores them as name and slug.
+  const name = firstDefined(patch.displayName, patch.name);
+  if (name != null) {
+    const trimmed = String(name || "").trim();
+    if (!trimmed) throw new SpaceSaveError("name-required", "Add a name for this Space.");
+    if (trimmed !== current.name) payload.name = trimmed;
+  }
+
+  const handle = firstDefined(patch.username, patch.slug);
+  if (handle != null) {
+    const slug = String(handle || "").trim().toLowerCase();
+    if (slug !== String(current.username || "").toLowerCase()) {
+      if (validateSpaceSlug(slug)) {
+        throw new SpaceSaveError("slug-invalid", "A Space handle is 3-48 lowercase letters, numbers and single hyphens.");
+      }
+      if (await spaceSlugTaken(spaceId, slug)) {
+        throw new SpaceSaveError("slug-taken", "That Space handle is taken. Try another one.");
+      }
+      payload.slug = slug;
+    }
+  }
+
   if (patch.category != null) payload.category = normalizeSpaceCategory(patch.category);
   if (patch.bio != null) payload.bio = String(patch.bio || "").trim();
   if (patch.email != null || patch.contactEmail != null) payload.contact_email = String(patch.email || patch.contactEmail || "").trim();
   if (patch.phone != null) payload.phone = String(patch.phone || "").trim();
   if (patch.websiteUrl != null || patch.website_url != null) payload.website_url = String(patch.websiteUrl || patch.website_url || "").trim();
   if (patch.location != null || patch.address != null) payload.location = String(patch.location || patch.address || "").trim();
+  if (patch.socialLinks != null) {
+    // explore_spaces has no social_links column; the links live in settings.
+    payload.settings = { ...(current.settings || {}), social_links: normalizeSocialLinks(patch.socialLinks) };
+  }
   if (patch.avatarUrl != null || patch.avatar_url != null) {
     payload.avatar_url = await uploadSpaceImage(patch.avatarUrl || patch.avatar_url || "", "profile", user.id);
   }
@@ -458,8 +513,17 @@ export async function updateExploreSpace(spaceId, patch = {}) {
     .select("*")
     .maybeSingle();
 
-  if (error) throw error;
-  return data ? toSpaceProfile(data, { role: current.memberRole, status: "active", space_id: data.id }, user.id) : current;
+  if (error) {
+    if (error.code === "23505") {
+      throw new SpaceSaveError("slug-taken", "That Space handle is taken. Try another one.");
+    }
+    throw error;
+  }
+  // Row-level security answers "0 rows" when this account may not edit the Space.
+  if (!data) {
+    throw new SpaceSaveError("not-allowed", "This Space could not be updated. Only its owner or an administrator can edit it.");
+  }
+  return toSpaceProfile(data, { role: current.memberRole, status: "active", space_id: data.id, responsibilities: current.responsibilities }, user.id);
 }
 
 export async function updateExploreSpaceStatus(spaceId, status = "active") {
@@ -759,7 +823,8 @@ export async function updateExploreSpaceMember(memberId, patch = {}) {
     .maybeSingle();
 
   if (error) throw error;
-  return mapMemberRow(data || {});
+  if (!data) throw new Error("This team member could not be updated. Only the Space owner or an administrator can change the team.");
+  return mapMemberRow(data);
 }
 
 export async function removeExploreSpaceMember(memberId) {
@@ -772,7 +837,8 @@ export async function removeExploreSpaceMember(memberId) {
     .maybeSingle();
 
   if (error) throw error;
-  return mapMemberRow(data || {});
+  if (!data) throw new Error("This team member could not be removed. Only the Space owner or an administrator can change the team.");
+  return mapMemberRow(data);
 }
 
 export async function leaveExploreSpace(spaceId) {

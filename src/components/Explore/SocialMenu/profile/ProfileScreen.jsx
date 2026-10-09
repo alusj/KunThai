@@ -1,16 +1,16 @@
 import { useEffect, useRef, useState } from "react";
 
-import { decorateShareUrl, fetchSpaceCreditWallet, shareSpaceInviteLink, transferSpaceVisibilityCredits } from "../../../../Backend/services/visibilityCreditService";
+import { fetchSpaceCreditWallet, shareSpaceInviteLink, transferSpaceVisibilityCredits } from "../../../../Backend/services/visibilityCreditService";
 
 import { useExploreFeed } from "../../../../Backend/hooks/useExploreFeed";
 import { useExploreFollows } from "../../../../Backend/hooks/useExploreFollows";
+import { useIdentityPosts } from "../../../../Backend/hooks/useProfilePosts";
+import { countIdentityPosts } from "../../../../Backend/services/explore/postService";
 import { useExploreFollowStats } from "../../../../Backend/hooks/useExploreFollowStats";
-import { useTrustSafety } from "../../../../Backend/hooks/useTrustSafety";
 import { useVisibilityCredits } from "../../../../Backend/hooks/useVisibilityCredits";
 import {
   SPACE_IDENTITY_TYPE,
   getProfileIdentity,
-  postMatchesIdentity,
   respondExploreSpaceInvite,
   updateExploreProfile,
   updateExploreSpace,
@@ -19,8 +19,9 @@ import { blockExploreIdentity, reportExploreProfile, reportExploreSpace } from "
 import { showToast } from "../../../../Backend/services/toastService";
 import { inlineErrorMessage, shortErrorToast } from "../../../../Backend/services/friendlyErrorService";
 import { useI18n } from "../../../../i18n";
-import FeedPost from "../../ExploreTabs/urfeed/feed/components/FeedPost";
-import ProfileSwipGrid from "./ProfileSwipGrid";
+import ProfilePostList from "./ProfilePostList";
+import { copyProfileLink, shareProfileLink } from "./profileLinks";
+import { notifyProfileSaveError, notifyProfileUploadProblems } from "./profileSaveFeedback";
 import Avatar from "../../shared/Avatar";
 import EmptyState from "../../shared/EmptyState";
 import ActivityScreen from "../activity/ActivityScreen";
@@ -41,25 +42,6 @@ function fileToDataUrl(file) {
     reader.onerror = () => reject(new Error("Unable to read image."));
     reader.readAsDataURL(file);
   });
-}
-
-async function shareProfile(values, t) {
-  const url = new URL(window.location.href);
-  const identity = getProfileIdentity(values);
-  url.hash = identity.type === SPACE_IDENTITY_TYPE
-    ? `space-${values.spaceId || values.username || identity.id || "space"}`
-    : `profile-${values.userId || values.username || "user"}`;
-  const data = {
-    title: t("profile.shareTitle", { name: values.displayName || t("feed.profileFallback") }),
-    text: values.bio || t("profile.shareText", { username: values.username || t("post.userFallback") }),
-    url: await decorateShareUrl(url.toString()),
-  };
-
-  if (navigator.share) {
-    return navigator.share(data);
-  }
-
-  return navigator.clipboard?.writeText(data.url);
 }
 
 // Shown while a Space's balance loads, so the card never blinks out.
@@ -96,15 +78,17 @@ export default function ProfileScreen({
   const [values, setValues] = useState(profile || {});
   const fileInputRef = useRef(null);
   const coverInputRef = useRef(null);
+  // The shared feed hook keeps this account's likes and saves; the profile's
+  // own posts come from the server, page by page.
   const feed = useExploreFeed("feed");
-  const swipFeed = useExploreFeed("swip");
   const profileIdentity = getProfileIdentity(values);
   const isSpace = profileIdentity.type === SPACE_IDENTITY_TYPE;
   const followStats = useExploreFollowStats(profileIdentity);
   const { followedUsers, toggleFollow } = useExploreFollows(currentUserId);
-  const safety = useTrustSafety();
-  const profileFeedPosts = feed.posts.filter((post) => postMatchesIdentity(post, profileIdentity));
-  const profileSwipPosts = swipFeed.posts.filter((post) => postMatchesIdentity(post, profileIdentity) && post.video_url);
+  const feedList = useIdentityPosts(profileIdentity, "feed");
+  const swipList = useIdentityPosts(profileIdentity, "swip");
+  const [postCounts, setPostCounts] = useState(null);
+  const blockingRef = useRef(false);
   const credits = useVisibilityCredits({ enabled: editable && !isSpace && Boolean(currentUserId) });
   // A Space has its own Visibility Credits (members only). The card stays on
   // screen while the balance loads; it is hidden only when Space credits are
@@ -144,12 +128,31 @@ export default function ProfileScreen({
       alive = false;
     };
   }, [spaceCreditId, spaceWalletVersion]);
-  // Locally loaded posts win once present, but until the feed hooks resolve the
-  // remote stat keeps the tile from flashing 0.
+  // Post counts are exact server counts (what this viewer may see), not the
+  // number of posts loaded so far.
+  useEffect(() => {
+    if (!profileIdentity.id) {
+      setPostCounts(null);
+      return undefined;
+    }
+    let alive = true;
+    countIdentityPosts(profileIdentity)
+      .then((counts) => {
+        if (alive) setPostCounts(counts);
+      })
+      .catch(() => {
+        if (alive) setPostCounts(null);
+      });
+    return () => {
+      alive = false;
+    };
+    // profileIdentity is rebuilt every render; its key is the trigger.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [profileIdentity.key, feedList.total, feedList.posts.length, swipList.posts.length]);
   const displayedStats = {
     ...(followStats.stats || {}),
-    feed: profileFeedPosts.length || Number(followStats.stats?.feed || 0),
-    swip: profileSwipPosts.length || Number(followStats.stats?.swip || 0),
+    feed: postCounts ? postCounts.feed : Number(followStats.stats?.feed || 0),
+    swip: postCounts ? postCounts.swip : Number(followStats.stats?.swip || 0),
   };
   const followed = Boolean(profileIdentity.key && (followedUsers.has(profileIdentity.key) || followedUsers.has(profileIdentity.id)));
   const accountUnavailable = Boolean(values?.deactivatedAt) && !editable;
@@ -157,14 +160,6 @@ export default function ProfileScreen({
   useEffect(() => {
     setValues(profile || {});
   }, [profile]);
-
-  useEffect(() => {
-    if (postTab === "swip" && profileIdentity.id && !swipFeed.loading) {
-      swipFeed.reload();
-    }
-    // swipFeed is a hook facade; tab/user changes are the intended refresh triggers.
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [postTab, profileIdentity.id, profileIdentity.key]);
 
   function updateField(field, value) {
     setValues((current) => ({ ...current, [field]: value }));
@@ -210,17 +205,23 @@ export default function ProfileScreen({
       setValues(updated);
       onProfileUpdate?.(updated);
       setEditing(false);
-      setFeedback(updated.avatarWarning || (isSpace ? t("profile.spaceUpdated") : t("profile.profileUpdated")));
-      showToast(isSpace ? "Space has been updated" : t("profile.profileUpdated"), "success");
+      const uploadProblem = notifyProfileUploadProblems(updated, { t });
+      setFeedback(uploadProblem || (isSpace ? t("profile.spaceUpdated") : t("profile.profileUpdated")));
+      if (!uploadProblem) showToast(isSpace ? "Space has been updated" : t("profile.profileUpdated"), "success");
     } catch (error) {
-      setFeedback(inlineErrorMessage(error, t("profile.unableUpdateProfile")));
+      setFeedback(notifyProfileSaveError(error, { isSpace, t }));
     } finally {
       setSaving(false);
     }
   }
 
   async function followProfile() {
-    await toggleFollow(profileIdentity);
+    // toggleFollow rolls back and shows its own toast when the server refuses.
+    try {
+      await toggleFollow(profileIdentity);
+    } catch (error) {
+      showToast(shortErrorToast(error, "Connection not updated"), "danger");
+    }
   }
 
   function changeProfileTab(nextTab) {
@@ -234,11 +235,22 @@ export default function ProfileScreen({
 
   async function handleShare() {
     try {
-      await shareProfile(values, t);
+      const result = await shareProfileLink(values, t);
+      if (result === "cancelled") return;
       setFeedback(t("profile.profileLinkReady"));
       showToast(t("profile.profileLinkReady"), "success");
     } catch {
       setFeedback(t("profile.unableShareProfile"));
+      showToast(t("exploreProfileFix.profileNotShared"), "danger");
+    }
+  }
+
+  async function handleCopyLink() {
+    try {
+      await copyProfileLink(values);
+      showToast(t("exploreProfileFix.linkCopied"), "success");
+    } catch {
+      showToast(t("exploreProfileFix.linkNotCopied"), "danger");
     }
   }
 
@@ -252,7 +264,7 @@ export default function ProfileScreen({
         await credits.shareInvite();
       }
       setFeedback(t("profile.inviteLinkReady"));
-      showToast(t("profile.inviteLinkReady"), "success", { title: "Visibility Credits" });
+      showToast(t("profile.inviteLinkReady"), "success", { title: t("exploreProfileFix.visibilityCredits") });
     } catch (error) {
       const message = inlineErrorMessage(error, t("profile.unableShareInvite"));
       setFeedback(message);
@@ -295,8 +307,20 @@ export default function ProfileScreen({
       }
       return;
     }
-    safety.blockUser(values.userId, "blocked from profile");
-    setFeedback(t("profile.profileBlocked"));
+    if (blockingRef.current) return;
+    const name = values.displayName || values.username || t("feed.profileFallback");
+    if (!window.confirm(t("exploreProfileFix.blockConfirm", { name }))) return;
+    blockingRef.current = true;
+    try {
+      await blockExploreIdentity(profileIdentity, "blocked from profile");
+      setFeedback(t("profile.profileBlocked"));
+      showToast(t("exploreProfileFix.profileBlocked"), "success");
+    } catch (error) {
+      setFeedback(inlineErrorMessage(error, t("exploreProfileFix.profileNotBlocked")));
+      showToast(shortErrorToast(error, "Couldn't block profile"), "danger");
+    } finally {
+      blockingRef.current = false;
+    }
   }
 
   async function reportProfile() {
@@ -339,41 +363,28 @@ export default function ProfileScreen({
     }
   }
 
-  function renderFeedPosts() {
-    if (!profileFeedPosts.length) {
-      return <EmptyState title={t("profile.noFeedTitle")} message={t("profile.noFeedMsg")} />;
-    }
-
-    return profileFeedPosts.map((post) => (
-      <FeedPost
-        key={post.id}
-        post={post}
+  function renderPosts(list, surface) {
+    return (
+      <ProfilePostList
+        list={list}
+        reactions={feed}
+        surface={surface}
         currentUserId={currentUserId}
-        isOwner={editable}
-        liked={feed.likedPosts.has(post.id)}
-        saved={feed.savedPosts.has(post.id)}
-        onLike={() => feed.toggleLike(post.id)}
-        onSave={() => feed.toggleSave(post.id)}
-        onComment={(body) => feed.addComment(post.id, body)}
-        onEdit={(body) => feed.editPost(post.id, body)}
-        onDelete={() => feed.deletePost(post.id, { confirm: false })}
-        onViewActivity={() => feed.viewActivity(post.id)}
+        spaces={spaces}
+        emptyTitle={surface === "swip" ? t("profile.noSwipTitle") : t("profile.noFeedTitle")}
+        emptyMessage={surface === "swip" ? t("profile.noSwipMsg") : t("profile.noFeedMsg")}
+        onHide={editable ? undefined : (postId) => {
+          feed.hidePost(postId);
+          list.removePost(postId);
+        }}
+        onReport={editable ? undefined : (postId, reason) => feed.reportPost(postId, reason)}
       />
-    ));
-  }
-
-  function renderSwipPosts() {
-    if (!profileSwipPosts.length) {
-      return <EmptyState title={t("profile.noSwipTitle")} message={t("profile.noSwipMsg")} />;
-    }
-
-    // TikTok-style: a grid of tiles; a tap opens the full-screen player.
-    return <ProfileSwipGrid posts={profileSwipPosts} feed={swipFeed} currentUserId={currentUserId} isOwner={editable} />;
+    );
   }
 
   function renderTabContent() {
-    if (postTab === "feed") return renderFeedPosts();
-    if (postTab === "swip") return renderSwipPosts();
+    if (postTab === "feed") return renderPosts(feedList, "feed");
+    if (postTab === "swip") return renderPosts(swipList, "swip");
     if (postTab === "saved" && editable) return <SavedPostsScreen currentUserId={currentUserId} hideHeader />;
     if (postTab === "activity" && editable) return <ActivityScreen currentUserId={currentUserId} hideHeader onOpenNotification={onOpenNotification} />;
     return null;
@@ -514,6 +525,7 @@ export default function ProfileScreen({
           onLookupCreditRecipient={credits.lookupRecipient}
           onReport={reportProfile}
           onShare={handleShare}
+          onCopyLink={handleCopyLink}
           onShareCredits={handleShareCredits}
           onTransferCredits={handleTransferCredits}
           saving={saving}

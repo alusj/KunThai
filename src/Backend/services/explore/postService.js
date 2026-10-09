@@ -5,7 +5,8 @@ import { MAX_EXPLORE_VIDEO_BYTES, removeUploadedMediaUrl, uploadMediaDataUrl, up
 import { buildExploreProfileFromUser } from "./profileStorage";
 import { recordHashtagUsage } from "./hashtagService";
 import { normalizeExploreTopicSlug } from "../../../data/exploreTopics";
-import { PROFILE_IDENTITY_TYPE, SPACE_IDENTITY_TYPE, getPostIdentity } from "./identityService";
+import { PROFILE_IDENTITY_TYPE, SPACE_IDENTITY_TYPE, getPostIdentity, normalizeIdentityTarget } from "./identityService";
+import { getPostSurface, orderPostsByIds, postBelongsToSurface } from "./profilePostsModel";
 import { normalizeSpaceResponsibilities } from "./spaceService";
 
 const MAX_SWIP_SECONDS = 15;
@@ -293,7 +294,7 @@ async function getPostActorContext(payload, user) {
     actorType: PROFILE_IDENTITY_TYPE,
     actorId: user.id,
     spaceId: null,
-    authorName: profile.displayName || user.email || "Profile",
+    authorName: profile.displayName || profile.username || "Profile",
     authorUsername: profile.username || user.email?.split("@")[0] || "",
     authorAvatarUrl: profile.avatarUrl || "",
     actorMetadata: {},
@@ -815,7 +816,7 @@ export async function updateExplorePost(postId, patch) {
     return null;
   }
 
-  const { data, error } = await supabase.from("explore_posts").update(payload).eq("id", postId).select().maybeSingle();
+  const { data, error } = await supabase.from("explore_posts").update(payload).eq("id", postId).select();
 
   if (error) {
     if (isMissingTable(error)) {
@@ -824,7 +825,13 @@ export async function updateExplorePost(postId, patch) {
     throw error;
   }
 
-  return data;
+  // Row-level security turns an edit the account may not make into "0 rows",
+  // not an error: report it instead of showing a false success.
+  if (!data?.length) {
+    throw new Error("This post could not be updated. It may have been removed, or you can't edit it.");
+  }
+
+  return data[0];
 }
 
 export async function updateExploreVideoModerationStatus(postId, status) {
@@ -852,10 +859,15 @@ export async function updateExploreVideoModerationStatus(postId, status) {
 }
 
 export async function deleteExplorePost(postId) {
-  const { error } = await supabase.from("explore_posts").delete().eq("id", postId);
+  const { data, error } = await supabase.from("explore_posts").delete().eq("id", postId).select("id");
 
-  if (error && !isMissingTable(error)) {
+  if (error) {
+    if (isMissingTable(error)) return;
     throw error;
+  }
+
+  if (!data?.length) {
+    throw new Error("This post could not be deleted. It may have been removed already, or you can't delete it.");
   }
 }
 
@@ -879,4 +891,132 @@ export async function reportExplorePost(postId, reason = "reported from post men
   if (error && !isMissingTable(error)) {
     throw error;
   }
+}
+
+// ---------------------------------------------------------------------------
+// Profile, My Posts and Saved Posts lists. These read the server directly
+// instead of filtering the loaded home feed, so a profile shows every post it
+// published (older ones arrive with "load more"). Row-level security decides
+// what another viewer may see; the same feed checks run on top.
+// ---------------------------------------------------------------------------
+
+export const PROFILE_POSTS_PAGE_SIZE = 12;
+
+function applyIdentityFilter(query, identity) {
+  const target = normalizeIdentityTarget(identity || "");
+  if (target.type === SPACE_IDENTITY_TYPE) {
+    return query.eq("actor_type", SPACE_IDENTITY_TYPE).eq("actor_id", target.id);
+  }
+  return query.eq("user_id", target.id).neq("actor_type", SPACE_IDENTITY_TYPE);
+}
+
+function applySurfaceFilter(query, surface) {
+  if (surface === "swip") return query.not("video_url", "is", null).neq("video_url", "");
+  if (surface === "feed") return query.or("video_url.is.null,video_url.eq.");
+  return query;
+}
+
+function isVisibleProfilePost(post, context) {
+  const ownPending = post?.user_id && post.user_id === context.userId
+    && String(post?.moderation_status || "").toLowerCase() === "pending";
+  return (isExplorePostVisibleInFeed(post) || ownPending) && canCurrentUserViewPost(post, context);
+}
+
+export async function fetchIdentityPosts(identity, options = {}) {
+  const target = normalizeIdentityTarget(identity || "");
+  if (!target.id) return { posts: [], hasMore: false, nextOffset: 0 };
+
+  const surface = ["feed", "swip"].includes(options.surface) ? options.surface : "all";
+  const limit = Math.max(1, Math.min(Number(options.limit) || PROFILE_POSTS_PAGE_SIZE, 50));
+  const offset = Math.max(0, Number(options.offset) || 0);
+  const context = await getCurrentUserContext();
+
+  const query = applySurfaceFilter(applyIdentityFilter(supabase.from("explore_posts").select("*"), target), surface)
+    .order("created_at", { ascending: false })
+    .range(offset, offset + limit - 1);
+  const { data, error } = await query;
+
+  if (error) {
+    if (isMissingTable(error)) return { posts: [], hasMore: false, nextOffset: offset };
+    throw error;
+  }
+
+  const rows = data || [];
+  const visible = rows
+    .filter((post) => postBelongsToSurface(post, surface))
+    .filter((post) => isVisibleProfilePost(post, context));
+
+  return {
+    posts: await hydratePostActionCounts(visible),
+    hasMore: rows.length === limit,
+    nextOffset: offset + rows.length,
+  };
+}
+
+// Exact server counts of an identity's Feed posts and Swips, as this viewer
+// may see them.
+export async function countIdentityPosts(identity) {
+  const target = normalizeIdentityTarget(identity || "");
+  if (!target.id) return { feed: 0, swip: 0 };
+
+  async function count(surface) {
+    const query = applySurfaceFilter(
+      applyIdentityFilter(supabase.from("explore_posts").select("id", { count: "exact", head: true }), target),
+      surface,
+    );
+    const { count: total, error } = await query;
+    if (error) {
+      if (isMissingTable(error)) return 0;
+      throw error;
+    }
+    return total || 0;
+  }
+
+  const [feed, swip] = await Promise.all([count("feed"), count("swip")]);
+  return { feed, swip };
+}
+
+// Posts the signed-in account saved, newest save first. Saves belong to the
+// person (explore_post_saves has no Space identity), so this is the same list
+// whether or not a Space is active.
+export async function fetchSavedExplorePosts(options = {}) {
+  const userId = await getCurrentUserId();
+  if (!userId) return { posts: [], hasMore: false, nextOffset: 0, total: 0 };
+
+  const limit = Math.max(1, Math.min(Number(options.limit) || PROFILE_POSTS_PAGE_SIZE, 50));
+  const offset = Math.max(0, Number(options.offset) || 0);
+  const { data: saves, error, count } = await supabase
+    .from("explore_post_saves")
+    .select("post_id, created_at", { count: "exact" })
+    .eq("user_id", userId)
+    .order("created_at", { ascending: false })
+    .range(offset, offset + limit - 1);
+
+  if (error) {
+    if (isMissingTable(error)) return { posts: [], hasMore: false, nextOffset: offset, total: 0 };
+    throw error;
+  }
+
+  const ids = (saves || []).map((row) => row.post_id).filter(Boolean);
+  if (!ids.length) {
+    return { posts: [], hasMore: false, nextOffset: offset, total: count || 0 };
+  }
+
+  const context = await getCurrentUserContext();
+  const { data: rows, error: postsError } = await supabase.from("explore_posts").select("*").in("id", ids);
+  if (postsError) {
+    if (isMissingTable(postsError)) return { posts: [], hasMore: false, nextOffset: offset, total: 0 };
+    throw postsError;
+  }
+
+  const visible = orderPostsByIds(rows || [], ids)
+    .filter((post) => isVisibleProfilePost(post, context))
+    .map((post) => ({ ...post, savedType: getPostSurface(post) }));
+
+  return {
+    posts: await hydratePostActionCounts(visible),
+    hasMore: (saves || []).length === limit,
+    nextOffset: offset + (saves || []).length,
+    total: count || 0,
+  };
 }

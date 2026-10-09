@@ -3,6 +3,9 @@ import { useEffect, useRef, useState } from "react";
 import { SPACE_IDENTITY_TYPE, getProfileIdentity, updateExploreProfile, updateExploreSpace } from "../../../../Backend/services/exploreService";
 import { optimizeImageFile } from "../../../../Backend/services/marketplace/imageOptimization";
 import { inlineErrorMessage } from "../../../../Backend/services/friendlyErrorService";
+import { shouldReplaceEditedProfile } from "../../../../Backend/services/explore/profilePostsModel";
+import { copyProfileLink, shareProfileLink } from "./profileLinks";
+import { notifyProfileSaveError, notifyProfileUploadProblems } from "./profileSaveFeedback";
 import { haptics } from "../../../../Backend/services/feedbackService";
 import { showToast } from "../../../../Backend/services/toastService";
 import { useI18n } from "../../../../i18n";
@@ -34,8 +37,10 @@ export default function ProfileEditScreen({
   const profileIdentity = getProfileIdentity(values);
   const isSpace = profileIdentity.type === SPACE_IDENTITY_TYPE;
 
+  // The parent rebuilds `profile` on unrelated refreshes. Keep the person's
+  // unsaved edits unless it is a different profile or a newer saved version.
   useEffect(() => {
-    setValues(profile || {});
+    setValues((current) => (shouldReplaceEditedProfile(current, profile) ? profile || {} : current));
   }, [profile]);
 
   function updateField(field, value) {
@@ -85,13 +90,33 @@ export default function ProfileEditScreen({
         });
       setValues(updated);
       onProfileUpdate?.(updated);
-      setFeedback(updated.avatarWarning || (isSpace ? t("profile.spaceUpdated") : t("profile.profileUpdated")));
-      showToast(isSpace ? "Space has been updated" : t("profile.profileUpdated"), "success");
+      const uploadProblem = notifyProfileUploadProblems(updated, { t });
+      setFeedback(uploadProblem || (isSpace ? t("profile.spaceUpdated") : t("profile.profileUpdated")));
+      if (!uploadProblem) showToast(isSpace ? "Space has been updated" : t("profile.profileUpdated"), "success");
       haptics.light("explore");
     } catch (error) {
-      setFeedback(inlineErrorMessage(error, t("profile.unableUpdateProfile")));
+      setFeedback(notifyProfileSaveError(error, { isSpace, t }));
     } finally {
       setSaving(false);
+    }
+  }
+
+  async function handleShare() {
+    try {
+      const result = await shareProfileLink(values, t);
+      if (result === "cancelled") return;
+      showToast(t("profile.profileLinkReady"), "success");
+    } catch {
+      showToast(t("exploreProfileFix.profileNotShared"), "danger");
+    }
+  }
+
+  async function handleCopyLink() {
+    try {
+      await copyProfileLink(values);
+      showToast(t("exploreProfileFix.linkCopied"), "success");
+    } catch {
+      showToast(t("exploreProfileFix.linkNotCopied"), "danger");
     }
   }
 
@@ -108,6 +133,8 @@ export default function ProfileEditScreen({
         onCoverChange={handleCoverChange}
         onCoverPreset={(preset) => updateField("coverUrl", `preset:${preset}`)}
         onEdit={saveProfile}
+        onShare={handleShare}
+        onCopyLink={handleCopyLink}
         saving={saving}
         stats={{
           feed: values?.stats?.feed || 0,

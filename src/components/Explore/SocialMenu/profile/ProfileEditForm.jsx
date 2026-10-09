@@ -35,6 +35,16 @@ function SocialLinkInput({ index, onChange, value }) {
   );
 }
 
+function FormField({ children, className = "", hint = "", label }) {
+  return (
+    <label className={`block ${className}`}>
+      <span className="mb-1 block text-xs font-black text-slate-500">{label}</span>
+      {children}
+      {hint ? <span className="mt-1 block text-[11px] font-semibold text-slate-400">{hint}</span> : null}
+    </label>
+  );
+}
+
 export default function ProfileEditForm({ onChange, values }) {
   const { t } = useI18n();
   const socialLinks = normalizeSocialLinks(values.socialLinks);
@@ -45,44 +55,70 @@ export default function ProfileEditForm({ onChange, values }) {
     onChange("socialLinks", normalizeSocialLinks(nextLinks));
   }
 
+  const isSpace = Boolean(values.spaceId || values.identityType === "space" || values.isSpace);
+  const fieldClass = "w-full rounded-xl bg-slate-50 px-3 py-2 text-sm text-slate-700 outline-none focus:ring-2 focus:ring-sky-500/20";
+
   return (
-    <section className="grid gap-2 rounded-[24px] border border-slate-200 bg-white p-4 shadow-sm sm:grid-cols-2">
-      <input
-        value={values.displayName || ""}
-        onChange={(event) => onChange("displayName", event.target.value)}
-        className="rounded-xl bg-slate-50 px-3 py-2 text-base font-semibold text-slate-950 outline-none focus:ring-2 focus:ring-sky-500/20"
-        placeholder={t("profile.displayName")}
-      />
-      <input
-        value={values.username || ""}
-        onChange={(event) => onChange("username", event.target.value)}
-        className="rounded-xl bg-slate-50 px-3 py-2 text-sm text-slate-700 outline-none focus:ring-2 focus:ring-sky-500/20"
-        placeholder={t("profile.username")}
-      />
-      <textarea
-        value={values.bio || ""}
-        onChange={(event) => onChange("bio", event.target.value)}
-        className="min-h-24 rounded-xl bg-slate-50 px-3 py-2 text-sm text-slate-700 outline-none focus:ring-2 focus:ring-sky-500/20 sm:col-span-2"
-        placeholder={t("profile.bio")}
-      />
-      <input
-        value={values.email || ""}
-        onChange={(event) => onChange("email", event.target.value)}
-        className="rounded-xl bg-slate-50 px-3 py-2 text-sm text-slate-700 outline-none focus:ring-2 focus:ring-sky-500/20"
-        placeholder={t("profile.email")}
-      />
-      <input
-        value={values.address || ""}
-        onChange={(event) => onChange("address", event.target.value)}
-        className="rounded-xl bg-slate-50 px-3 py-2 text-sm text-slate-700 outline-none focus:ring-2 focus:ring-sky-500/20"
-        placeholder={t("profile.address")}
-      />
-      <input
-        value={values.phone || ""}
-        onChange={(event) => onChange("phone", event.target.value)}
-        className="rounded-xl bg-slate-50 px-3 py-2 text-sm text-slate-700 outline-none focus:ring-2 focus:ring-sky-500/20 sm:col-span-2"
-        placeholder={t("profile.phone")}
-      />
+    <section className="grid gap-3 rounded-[24px] border border-slate-200 bg-white p-4 shadow-sm sm:grid-cols-2">
+      <FormField label={isSpace ? t("exploreProfileFix.spaceNameLabel") : t("exploreProfileFix.displayNameLabel")}>
+        <input
+          value={values.displayName || ""}
+          onChange={(event) => onChange("displayName", event.target.value)}
+          className={`${fieldClass} text-base font-semibold text-slate-950`}
+          placeholder={t("profile.displayName")}
+          maxLength={60}
+          required
+        />
+      </FormField>
+      <FormField
+        label={isSpace ? t("exploreProfileFix.spaceHandleLabel") : t("exploreProfileFix.usernameLabel")}
+        hint={isSpace ? t("exploreProfileFix.spaceHandleHint") : t("exploreProfileFix.usernameHint")}
+      >
+        <input
+          value={values.username || ""}
+          onChange={(event) => onChange("username", isSpace ? event.target.value.toLowerCase() : event.target.value)}
+          className={fieldClass}
+          placeholder={t("profile.username")}
+          autoCapitalize="none"
+          autoCorrect="off"
+          spellCheck={false}
+          maxLength={isSpace ? 48 : 30}
+        />
+      </FormField>
+      <FormField label={t("exploreProfileFix.bioLabel")} className="sm:col-span-2">
+        <textarea
+          value={values.bio || ""}
+          onChange={(event) => onChange("bio", event.target.value)}
+          className={`${fieldClass} min-h-24`}
+          placeholder={t("profile.bio")}
+        />
+      </FormField>
+      <FormField label={t("exploreProfileFix.emailPublicLabel")}>
+        <input
+          type="email"
+          value={values.email || ""}
+          onChange={(event) => onChange("email", event.target.value)}
+          className={fieldClass}
+          placeholder={t("profile.email")}
+        />
+      </FormField>
+      <FormField label={t("exploreProfileFix.addressPublicLabel")}>
+        <input
+          value={values.address || ""}
+          onChange={(event) => onChange("address", event.target.value)}
+          className={fieldClass}
+          placeholder={t("profile.address")}
+        />
+      </FormField>
+      <FormField label={isSpace ? t("exploreProfileFix.phonePublicLabel") : t("exploreProfileFix.phonePrivateLabel")} className="sm:col-span-2">
+        <input
+          type="tel"
+          value={values.phone || ""}
+          onChange={(event) => onChange("phone", event.target.value)}
+          className={fieldClass}
+          placeholder={t("profile.phone")}
+        />
+      </FormField>
       <div className="grid gap-3 sm:col-span-2 lg:grid-cols-3">
         {socialLinks.map((link, index) => (
           <SocialLinkInput key={link.id} index={index} value={link} onChange={updateSocialLink} />

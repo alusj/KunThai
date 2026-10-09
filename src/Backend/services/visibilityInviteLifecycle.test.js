@@ -25,7 +25,7 @@ test("invite codes survive every supported account-creation method", () => {
 test("all same-origin social and commerce shares await a durable invite code", () => {
   const shareSources = [
     read("../../components/Explore/ExploreTabs/urfeed/feed/post/postUtils.js"),
-    read("../../components/Explore/SocialMenu/profile/ProfileScreen.jsx"),
+    read("../../components/Explore/SocialMenu/profile/profileLinks.js"),
     read("../../components/Explore/SocialMenu/spaces/SpaceDashboardScreen.jsx"),
     read("../../components/Marketplace/Browse/SellerProfileDrawer.jsx"),
     read("../../components/Marketplace/MarketplaceHeader/Cart/CartItem.jsx"),

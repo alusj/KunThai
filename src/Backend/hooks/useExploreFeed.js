@@ -20,6 +20,7 @@ import { haptics } from "../services/feedbackService";
 import { readExploreSettings } from "../services/explore/preferencesService";
 import { guardGuestAction } from "../services/guestModeService";
 import { canRunSafetyAction, contentHasModerationFlags, readBlockedUsers } from "../services/explore/safetyService";
+import { isPersonalPostOf } from "../services/explore/profileService";
 import {
   POST_OUTBOX_EVENT,
   enqueuePost,
@@ -251,8 +252,65 @@ function applyCurrentProfileToPost(post, profile) {
   };
 }
 
+// In-memory feed state shared by every feed hook, keyed by the signed-in
+// account so one account never sees another's posts, likes or saves.
 const FEED_MEMORY = new Map();
 const FEED_MEMORY_TTL = 900_000;
+const FEED_OWNER_STORAGE_KEY = "explore-feed-owner";
+export const EXPLORE_FEED_RESET_EVENT = "explore-feed-reset";
+
+function readFeedOwner() {
+  try {
+    return localStorage.getItem(FEED_OWNER_STORAGE_KEY) || "";
+  } catch {
+    return "";
+  }
+}
+
+let feedMemoryUserId = readFeedOwner();
+
+function feedMemoryKey(scope) {
+  return `${feedMemoryUserId || "signed-out"}:${scope}`;
+}
+
+// Forgets every cached feed (memory and this device's storage). Call it when
+// the account changes or signs out; the feed hooks also do this themselves
+// when Supabase reports a different user.
+export function clearFeedMemory(nextUserId = "") {
+  FEED_MEMORY.clear();
+  feedMemoryUserId = nextUserId || "";
+  try {
+    ["feed", "connections", "swip"].forEach((feedScope) => localStorage.removeItem(getPostsStorageKey(feedScope)));
+    [LIKE_STORAGE_KEY, SAVE_STORAGE_KEY, HIDE_STORAGE_KEY].forEach((key) => localStorage.removeItem(key));
+    if (feedMemoryUserId) localStorage.setItem(FEED_OWNER_STORAGE_KEY, feedMemoryUserId);
+    else localStorage.removeItem(FEED_OWNER_STORAGE_KEY);
+  } catch {
+    // Storage can be unavailable; the in-memory reset still applies.
+  }
+  if (typeof window !== "undefined") {
+    window.dispatchEvent(new CustomEvent(EXPLORE_FEED_RESET_EVENT, { detail: { userId: feedMemoryUserId } }));
+  }
+}
+
+let feedAuthWatchStarted = false;
+
+function watchFeedAccount() {
+  if (feedAuthWatchStarted) return;
+  feedAuthWatchStarted = true;
+  try {
+    supabase.auth.onAuthStateChange((_event, session) => {
+      const nextUserId = session?.user?.id || "";
+      if (nextUserId === feedMemoryUserId) return;
+      // Leave the auth callback before touching state (Supabase advises not
+      // to await inside it).
+      window.setTimeout(() => {
+        if (nextUserId !== feedMemoryUserId) clearFeedMemory(nextUserId);
+      }, 0);
+    });
+  } catch {
+    feedAuthWatchStarted = false;
+  }
+}
 const FEED_PAGE_SIZE = 24;
 const FEED_BACKGROUND_REFRESH_MS = 90_000;
 const FEED_FOCUS_REFRESH_GAP_MS = 20_000;
@@ -286,7 +344,7 @@ function showFeedRefreshToast(showingSavedPosts) {
 }
 
 function readFeedMemory(scope) {
-  const cached = FEED_MEMORY.get(scope);
+  const cached = FEED_MEMORY.get(feedMemoryKey(scope));
   if (!cached) {
     return null;
   }
@@ -295,8 +353,9 @@ function readFeedMemory(scope) {
 }
 
 function writeFeedMemory(scope, patch) {
-  const current = FEED_MEMORY.get(scope) || {};
-  FEED_MEMORY.set(scope, { ...current, ...patch, savedAt: Date.now() });
+  const key = feedMemoryKey(scope);
+  const current = FEED_MEMORY.get(key) || {};
+  FEED_MEMORY.set(key, { ...current, ...patch, savedAt: Date.now() });
 }
 
 function buildRemoteReactionSet(remoteIds = []) {
@@ -644,6 +703,34 @@ export function useExploreFeed(scope = "feed") {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [scope]);
 
+  // A different account (or none) is signed in: drop everything this hook
+  // holds for the previous one and load again.
+  useEffect(() => {
+    watchFeedAccount();
+    function handleFeedReset() {
+      loadIdRef.current += 1;
+      pendingReactionRef.current.clear();
+      nextOffsetRef.current = 0;
+      recentModeRef.current = false;
+      recentOffsetRef.current = 0;
+      postsRef.current = [];
+      likedPostsRef.current = new Set();
+      savedPostsRef.current = new Set();
+      setPosts([]);
+      setLikedPosts(new Set());
+      setSavedPosts(new Set());
+      setHiddenPosts(new Set());
+      setCurrentUserId("");
+      setHasMore(true);
+      setError("");
+      load({ force: true });
+    }
+    window.addEventListener(EXPLORE_FEED_RESET_EVENT, handleFeedReset);
+    return () => window.removeEventListener(EXPLORE_FEED_RESET_EVENT, handleFeedReset);
+    // load is recreated each render; the listener only needs the latest scope.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [scope]);
+
   useEffect(() => {
     function refreshSilently() {
       if (typeof navigator !== "undefined" && navigator.onLine === false) return;
@@ -805,9 +892,11 @@ export function useExploreFeed(scope = "feed") {
         return;
       }
 
+      // Only this person's own posts take the new name: posts they published
+      // as a Space keep the Space's name and picture.
       setPosts((current) =>
         current.map((post) =>
-          post.user_id === detail.userId || post.author_username === detail.author_username || post.author_name === detail.author_name
+          isPersonalPostOf(post, detail.userId)
             ? {
                 ...post,
                 user_id: post.user_id || detail.userId,
@@ -1219,6 +1308,7 @@ export function useExploreFeed(scope = "feed") {
       return;
     }
 
+    const previousBody = post?.body ?? "";
     setPosts((current) => current.map((item) => (item.id === postId ? { ...item, body: trimmedBody } : item)));
 
     try {
@@ -1227,8 +1317,11 @@ export function useExploreFeed(scope = "feed") {
       if (updated) {
         setPosts((current) => current.map((item) => (item.id === postId ? { ...item, ...updated } : item)));
       }
+      return true;
     } catch (err) {
-      setError(inlineErrorMessage(err, "Unable to edit post."));
+      setPosts((current) => current.map((item) => (item.id === postId ? { ...item, body: previousBody } : item)));
+      showToast(shortErrorToast(err, "Post wasn't updated"), "danger");
+      return false;
     }
   }
 
@@ -1248,7 +1341,7 @@ export function useExploreFeed(scope = "feed") {
       return true;
     } catch (err) {
       setPosts(previousPosts);
-      setError(inlineErrorMessage(err, "Unable to delete post."));
+      showToast(shortErrorToast(err, "Post wasn't deleted"), "danger");
       return false;
     }
   }
