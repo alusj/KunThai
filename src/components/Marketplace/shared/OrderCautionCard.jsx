@@ -97,6 +97,7 @@ export default function OrderCautionDialog({ kind, onResolve }) {
   const baseId = useId();
   const titleId = `${baseId}-title`;
   const introId = `${baseId}-intro`;
+  const hintId = `${baseId}-hint`;
 
   const finish = useCallback(() => {
     if (resolvedRef.current) return;
@@ -157,12 +158,12 @@ export default function OrderCautionDialog({ kind, onResolve }) {
   return (
     <AppPortal>
       <div className="fixed inset-0 z-[1500] flex items-end justify-center p-3 sm:items-center sm:p-6" role="presentation" data-order-caution={content.kind}>
-        <button
-          type="button"
-          tabIndex={-1}
-          aria-label={t("orderCaution.cancel")}
+        {/* Tapping outside the card cancels, like the Cancel button. Hidden
+            from assistive tech, which already has Cancel and Escape. */}
+        <div
+          aria-hidden="true"
           onClick={() => close("cancel")}
-          className="kt-backdrop absolute inset-0 border-0 bg-slate-950/65 p-0 backdrop-blur-[2px]"
+          className="kt-backdrop absolute inset-0 bg-slate-950/65 backdrop-blur-[2px]"
         />
         <section
           ref={sectionRef}
@@ -192,20 +193,19 @@ export default function OrderCautionDialog({ kind, onResolve }) {
             <div className="mt-4">
               <OrderCautionBody kind={content.kind} introId={introId} />
             </div>
+            <p id={hintId} className="mt-3 text-[11px] font-semibold leading-4 text-slate-500">{t("orderCaution.dontShowHint")}</p>
           </div>
 
           <div className="shrink-0 border-t border-slate-100 bg-white px-4 pb-[max(1rem,env(safe-area-inset-bottom))] pt-3 sm:px-5">
-            <label className="flex cursor-pointer items-start gap-3 rounded-2xl border border-slate-200 bg-slate-50 px-3 py-2.5">
+            <label className="flex cursor-pointer items-center gap-3 rounded-2xl border border-slate-200 bg-slate-50 px-3 py-2.5">
               <input
                 type="checkbox"
                 checked={dontShowAgain}
                 onChange={(event) => setDontShowAgain(event.target.checked)}
-                className="mt-0.5 h-5 w-5 shrink-0 accent-blue-600"
+                aria-describedby={hintId}
+                className="h-5 w-5 shrink-0 accent-blue-600"
               />
-              <span className="min-w-0">
-                <span className="block text-sm font-black text-slate-900">{t("orderCaution.dontShow")}</span>
-                <span className="mt-0.5 block text-[11px] font-semibold leading-4 text-slate-500">{t("orderCaution.dontShowHint")}</span>
-              </span>
+              <span className="min-w-0 text-sm font-black text-slate-900">{t("orderCaution.dontShow")}</span>
             </label>
             <div className="mt-3 grid grid-cols-2 gap-2">
               <button
