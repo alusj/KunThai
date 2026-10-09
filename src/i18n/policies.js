@@ -8128,7 +8128,7 @@ export const POLICY_TRANSLATIONS = {
     "People worldwide who visit KunThai, create an account, use public pages, Explore, messaging, UrMall, Transport, safety, support, reporting, or verification tools.": "Люди со всего мира, которые посещают KunThai, создают учетную запись, используют общедоступные страницы, Explore, обмен сообщениями, UrMall, инструменты транспорта, безопасности, поддержки, отчетности или проверки.",
     "Personalize content, language, topics, recommendations, nearby results, saved items, service shortcuts, and the order in which information is presented.": "Персонализируйте контент, язык, темы, рекомендации, ближайшие результаты, сохраненные элементы, ярлыки служб и порядок представления информации.",
     "Please first contact {legal.supportEmail} with enough detail for us to understand and try to resolve the issue. Privacy matters may be sent to {legal.privacyEmail}.": "Пожалуйста, сначала свяжитесь с {legal.supportEmail} и сообщите нам достаточно подробностей, чтобы мы могли понять и попытаться решить проблему. По вопросам конфиденциальности можно обращаться по адресу {legal.privacyEmail}.",
-    "Policy Center": "Политический центр",
+    "Policy Center": "Центр правил",
     "Policy Changes And Contact": "Изменения политики и контакты",
     "Policy Updates And Changelog": "Обновления политики и журнал изменений",
     "Policy version {version}. Effective {effectiveDate}. Last updated {lastUpdated}.": "Версия политики {version}. Действует {effectiveDate}. Последнее обновление {lastUpdated}.",
