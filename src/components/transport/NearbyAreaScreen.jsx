@@ -27,7 +27,7 @@ import AppBackTab from "../shared/AppBackTab";
 import { useAutoCollapseCard } from "../shared/motionHooks";
 import NearbyAreaMap from "./area/NearbyAreaMap";
 import { fleetFocusBounds, operatorsWithinFleetRadius } from "./area/fleetFocus";
-import { toLngLatArray } from "./area/mapCoordinates";
+import { toLngLatArray, toMapPoint } from "./area/mapCoordinates";
 import { useTransportPassengerSetting } from "./shared/useTransportPassengerSetting";
 import { formatPlaceDistance, resolveAddressLocation, searchLocations, withDistancesFrom } from "../../Backend/services/locationSearchService";
 import { getRoadDistancesFrom, getRouteBetweenPoints } from "../../Backend/services/routeService";
@@ -1994,7 +1994,7 @@ function NearbyAreaScreenContent({
       return;
     }
 
-    if (!Number.isFinite(Number(addLocationDraft.lat)) || !Number.isFinite(Number(addLocationDraft.lng))) {
+    if (!toMapPoint(addLocationDraft)) {
       setAddLocationStatus(t("urride.areaView.addUseLocate"));
       return;
     }
@@ -2276,7 +2276,7 @@ function NearbyAreaScreenContent({
     }
   }, [mapInstance, onLocationPicked, resolvedPickerLabels.droppedName, userLocation]);
 
-  const addLocationPinnedPreview = Number.isFinite(Number(addLocationDraft.lat)) && Number.isFinite(Number(addLocationDraft.lng))
+  const addLocationPinnedPreview = toMapPoint(addLocationDraft)
     ? buildExactMapPointPreview(addLocationDraft, areaAddLocationPickerLabels.droppedName)
     : null;
 
@@ -3312,7 +3312,7 @@ function AddLocationPanel({
   useUiLocale();
   const category = draft.category || addCategories[0];
   const selectedLocationLabel = formatCoordinateCode(draft) || draft.coordinatesLabel || formatCoordinatesLabel(draft);
-  const hasSelectedLocation = Number.isFinite(Number(draft.lat)) && Number.isFinite(Number(draft.lng));
+  const hasSelectedLocation = Boolean(toMapPoint(draft));
   const suggestedAddress = String(draft.suggestedAddress || "").trim();
   const panelCollapse = useAutoCollapseCard({
     enabled: false,
