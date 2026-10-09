@@ -12,6 +12,7 @@ import {
   Copy,
   CreditCard,
   Eye,
+  Globe,
   Heart,
   House,
   Info,
@@ -36,6 +37,7 @@ import AppBackTab from "../../shared/AppBackTab";
 import { useI18n, t } from "../../../i18n";
 import useBodyScrollLock from "../../shared/useBodyScrollLock";
 import { buildWhatsAppUrl } from "../../../Backend/services/marketplace/whatsappLink";
+import { sellerWebsiteLink } from "../../../Backend/services/marketplace/sellerWebsiteLink";
 import { formatCurrency } from "../../../Backend/utils/formatCurrency";
 import { resizedImageUrl } from "../../../Backend/lib/imageProxy";
 import {
@@ -1728,7 +1730,10 @@ export default function SellerProfileDrawer({
                       <InfoRow icon={Store} label={t("urmall.seller.businessCategory")} value={sellerCategory} />
                       <InfoRow icon={Truck} label={t("urmall.seller.deliveryMethods")} value={getDeliveryMethods(safeSeller, safeCatalog)} />
                       <InfoRow icon={CreditCard} label={t("urmall.seller.paymentOptions")} value={getPaymentOptions(safeSeller)} />
-                      <InfoRow icon={Mail} label={t("urmall.seller.email")} value={safeSeller.email || t("urmall.seller.emailNotAdded")} />
+                      <InfoRow icon={Mail} label={t("urmall.seller.email")} value={safeSeller.email || t("urmall.seller.emailNotAdded")} href={safeSeller.email ? `mailto:${safeSeller.email}` : ""} />
+                      {sellerWebsiteLink(safeSeller.website) ? (
+                        <InfoRow icon={Globe} label={t("urmall.biz.settings.website")} value={sellerWebsiteLink(safeSeller.website).label} href={sellerWebsiteLink(safeSeller.website).href} />
+                      ) : null}
                     </div>
                   </section>
               ) : null}

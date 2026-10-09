@@ -16,7 +16,7 @@ import {
   normalizeVisibilityCreditSpend,
 } from "../visibilityCreditService";
 
-const BUSINESS_SELECT = "id,business_name,business_kind,description,city,country,country_iso,currency,address,phone,whatsapp_enabled,whatsapp,logo_url,banner_url,vertical_video_url,latitude,longitude,verification_status,open_time,close_time,delivery_enabled,pickup_enabled";
+const BUSINESS_SELECT = "id,business_name,business_kind,description,city,country,country_iso,currency,address,phone,whatsapp_enabled,whatsapp,email,website_url,logo_url,banner_url,vertical_video_url,latitude,longitude,verification_status,open_time,close_time,delivery_enabled,pickup_enabled";
 const WEEKDAY_INDEX = { Sunday: 0, Monday: 1, Tuesday: 2, Wednesday: 3, Thursday: 4, Friday: 5, Saturday: 6 };
 
 export function getMarketplaceBusinessDay(countryIso = "") {
@@ -48,6 +48,8 @@ function normalizeBusinessRow(row = {}) {
     phone: business.phone || "",
     whatsappEnabled: Boolean(business.whatsapp_enabled),
     whatsapp: business.whatsapp || "",
+    email: business.email || "",
+    website: business.website_url || "",
     description: business.description || "",
     logoUrl: business.logo_url || "",
     bannerUrl: business.banner_url || "",
