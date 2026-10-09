@@ -27,7 +27,8 @@ import {
   nextMovingStreak,
   shouldReleaseRoutePreview,
 } from "./areaLocationTracking";
-import { getActiveCountryProfile } from "../../../data/globalCountryProfiles";
+import { DEFAULT_COUNTRY_ISO, getActiveCountryProfile, getCountryProfile, getDefaultCountryProfile } from "../../../data/globalCountryProfiles";
+import { boundsAroundPoints, toLngLatArray, toMapBounds, toMapPoint, withMapPoint } from "./mapCoordinates";
 import { useI18n, t } from "../../../i18n";
 import { t as i18nText } from "../../../i18n/index";
 import { inlineErrorMessage } from "../../../Backend/services/friendlyErrorService";
@@ -54,8 +55,41 @@ const ROUTE_STATUS_PILL_KEYS = {
   wrong: "urride.areaMap.pillWrong",
 };
 
-const defaultCountryProfile = getActiveCountryProfile();
-const DEFAULT_CENTER = defaultCountryProfile.mapCenter;
+// Only the curated country profiles carry a map centre; the generic ones (most
+// of the world) have `mapCenter: null`. Reading `.label`/`.lng` from that null
+// crashed Area View on open for every account outside the curated countries,
+// so fall back through the device's country and the global default.
+function resolveDefaultCenter() {
+  const candidates = [
+    () => getActiveCountryProfile()?.mapCenter,
+    () => getDefaultCountryProfile()?.mapCenter,
+    () => getCountryProfile(DEFAULT_COUNTRY_ISO)?.mapCenter,
+  ];
+  for (const read of candidates) {
+    try {
+      const center = read();
+      const point = toMapPoint(center);
+      if (point) return { ...center, ...point, label: center.label || "" };
+    } catch {
+      // Try the next source.
+    }
+  }
+  return { lat: 40.7128, lng: -74.006, label: "New York, United States" };
+}
+
+const DEFAULT_CENTER = resolveDefaultCenter();
+
+// The cached area position seeds the first camera and the user marker, so a
+// stored point MapLibre cannot place (out of range, or written by an older
+// build) is dropped instead of throwing in the map constructor.
+function readPlaceableAreaCache() {
+  try {
+    const cache = readAreaViewCache({ allowStale: true });
+    return { ...cache, position: withMapPoint(cache.position) };
+  } catch {
+    return { position: null };
+  }
+}
 
 const ROUTE_STATUS = {
   correct: {
@@ -348,29 +382,18 @@ function createMeasurementLabel(label) {
 }
 
 function normalizeRoutePreviewPoint(point) {
-  const rawLat = point?.lat ?? point?.latitude;
-  const rawLng = point?.lng ?? point?.longitude;
-  const lat = rawLat == null || rawLat === "" ? null : Number(rawLat);
-  const lng = rawLng == null || rawLng === "" ? null : Number(rawLng);
-  if (!Number.isFinite(lat) || !Number.isFinite(lng)) return null;
-  return { ...point, lat, lng };
+  const placeable = toMapPoint(point);
+  return placeable ? { ...point, ...placeable } : null;
 }
 
 function normalizeLineStringCoordinates(geometry) {
   if (geometry?.type !== "LineString" || !Array.isArray(geometry.coordinates)) return [];
 
-  return geometry.coordinates.filter((coordinate) => {
-    const lng = Number(coordinate?.[0]);
-    const lat = Number(coordinate?.[1]);
-    return Number.isFinite(lat) && Number.isFinite(lng);
-  });
+  return geometry.coordinates.map(toLngLatArray).filter(Boolean);
 }
 
 function coordinateToPoint(coordinate) {
-  const lng = Number(coordinate?.[0]);
-  const lat = Number(coordinate?.[1]);
-  if (!Number.isFinite(lat) || !Number.isFinite(lng)) return null;
-  return { lat, lng };
+  return toMapPoint(coordinate);
 }
 
 function getMeasurementPreviewCoordinates(origin, destination, geometry) {
@@ -1162,12 +1185,17 @@ function getRouteStatus(distanceFromRoute, isMovingBackward) {
 }
 
 function setRouteLineColor(map, color) {
-  if (map?.getLayer("route-line-glow")) {
-    map.setPaintProperty("route-line-glow", "line-color", color);
-  }
+  if (isMapGone(map) || !map.style) return;
+  try {
+    if (map.getLayer("route-line-glow")) {
+      map.setPaintProperty("route-line-glow", "line-color", color);
+    }
 
-  if (map?.getLayer("route-line")) {
-    map.setPaintProperty("route-line", "line-color", color);
+    if (map.getLayer("route-line")) {
+      map.setPaintProperty("route-line", "line-color", color);
+    }
+  } catch (error) {
+    console.warn("[KunThai] Route colour skipped", error);
   }
 }
 
@@ -1262,14 +1290,50 @@ function getMarkerPosition(marker, fallback) {
   };
 }
 
+// A removed map has no style: getSource/getLayer/addLayer throw on it, and its
+// queued work must be dropped rather than run.
+function isMapGone(map) {
+  return !map || Boolean(map._removed || map.__ktRemoved);
+}
+
+function isMapStyleReady(map) {
+  if (isMapGone(map)) return false;
+  try {
+    return Boolean(map.isStyleLoaded());
+  } catch {
+    return false;
+  }
+}
+
+// Camera moves (flyTo/easeTo/fitBounds/jumpTo) throw on a target MapLibre
+// cannot place; a bad target must never take the screen down.
+function safeMapCall(map, method, ...args) {
+  if (isMapGone(map) || typeof map[method] !== "function") return false;
+  try {
+    map[method](...args);
+    return true;
+  } catch (error) {
+    console.warn(`[KunThai] Map ${method} skipped`, error);
+    return false;
+  }
+}
+
+function safeFitBounds(map, bounds, options) {
+  const box = toMapBounds(bounds);
+  if (!box) return false;
+  return safeMapCall(map, "fitBounds", box, options);
+}
+
 function waitForMapStyle(map) {
-  if (!map || map.isStyleLoaded()) return Promise.resolve();
+  // A removed map never becomes ready; callers are cancelled by then.
+  if (isMapGone(map)) return new Promise(() => {});
+  if (isMapStyleReady(map)) return Promise.resolve();
 
   // "load" fires once per map; after a style swap (MapTiler -> OSM fallback)
   // only "styledata"/"idle" follow, so listen for those as well.
   return new Promise((resolve) => {
     const done = () => {
-      if (!map.isStyleLoaded()) return;
+      if (!isMapStyleReady(map)) return;
       map.off("load", done);
       map.off("styledata", done);
       map.off("idle", done);
@@ -1286,20 +1350,15 @@ function waitForMapStyle(map) {
 // addSource/addLayer too early, which throws and took down the whole app.
 // Returns true when the change was queued; the newest change per group wins.
 function deferUntilStyleReady(map, group, apply) {
-  if (!map) return true;
-  let ready = false;
-  try {
-    ready = map.isStyleLoaded();
-  } catch {
-    ready = false;
-  }
-  if (ready) return false;
+  // A removed map is skipped outright: there is nothing left to draw on.
+  if (isMapGone(map)) return true;
+  if (isMapStyleReady(map)) return false;
   if (!map.__ktStylePending) map.__ktStylePending = new Map();
   map.__ktStylePending.set(group, apply);
   if (!map.__ktStyleFlushBound) {
     map.__ktStyleFlushBound = true;
     const flush = () => {
-      if (!map.__ktStylePending?.size || !map.isStyleLoaded()) return;
+      if (!map.__ktStylePending?.size || !isMapStyleReady(map)) return;
       const pending = map.__ktStylePending;
       map.__ktStylePending = new Map();
       pending.forEach((run) => {
@@ -1447,7 +1506,7 @@ function buildTrafficOverlayGeoJson(trafficSnapshots = []) {
   return {
     type: "FeatureCollection",
     features: trafficSnapshots
-      .filter((snapshot) => snapshot?.lat != null && snapshot?.lng != null && snapshot.status !== "green")
+      .filter((snapshot) => toMapPoint(snapshot) && snapshot.status !== "green")
       .map((snapshot) => ({
         type: "Feature",
         properties: {
@@ -1458,7 +1517,7 @@ function buildTrafficOverlayGeoJson(trafficSnapshots = []) {
         },
         geometry: {
           type: "Point",
-          coordinates: [snapshot.lng, snapshot.lat],
+          coordinates: toLngLatArray(snapshot),
         },
       })),
   };
@@ -1641,22 +1700,44 @@ function clearAlternativeRouteLayer(map) {
   if (map.getSource("route-alternative")) map.removeSource("route-alternative");
 }
 
+function removeMarkerById(markers, id) {
+  if (id == null || !markers?.has(id)) return;
+  markers.get(id)?.remove();
+  markers.delete(id);
+}
+
+const NO_ITEMS = [];
+
+function listOrEmpty(value) {
+  return Array.isArray(value) ? value : NO_ITEMS;
+}
+
 function animateMarkerTo(marker, fromPosition, toPosition, duration = 280, onFrame, easing = easeOutCubic) {
-  if (!marker || !fromPosition || !toPosition) return null;
+  if (!marker || !toMapPoint(toPosition)) return null;
+  // An unplaceable start (a marker that was never positioned) jumps straight
+  // to the target instead of interpolating through NaN.
+  const from = toMapPoint(fromPosition) || toMapPoint(toPosition);
+  const to = toMapPoint(toPosition);
 
   const startedAt = performance.now();
   let frameId = null;
 
   function step(now) {
+    frameId = null;
     const progress = Math.min((now - startedAt) / duration, 1);
     const easedProgress = easing(progress);
 
-    const nextLng = lerp(fromPosition.lng, toPosition.lng, easedProgress);
-    const nextLat = lerp(fromPosition.lat, toPosition.lat, easedProgress);
+    const nextLng = lerp(from.lng, to.lng, easedProgress);
+    const nextLat = lerp(from.lat, to.lat, easedProgress);
     const renderedPosition = { lng: nextLng, lat: nextLat };
 
-    marker.setLngLat([renderedPosition.lng, renderedPosition.lat]);
-    onFrame?.(renderedPosition);
+    try {
+      marker.setLngLat([renderedPosition.lng, renderedPosition.lat]);
+      onFrame?.(renderedPosition);
+    } catch (error) {
+      console.warn("[KunThai] Marker animation stopped", error);
+      return;
+    }
 
     if (progress < 1) frameId = requestAnimationFrame(step);
   }
@@ -1676,10 +1757,10 @@ export default function NearbyAreaMap({
   selectedLocation,
   routePlan = null,
   focusMode = false,
-  operatorLocations = [],
-  nearbyMapLocations = [],
-  reportLocations = [],
-  trafficSnapshots = [],
+  operatorLocations: operatorLocationsProp,
+  nearbyMapLocations: nearbyMapLocationsProp,
+  reportLocations: reportLocationsProp,
+  trafficSnapshots: trafficSnapshotsProp,
   weatherCache = null,
   onMapLocationSelect,
   onReportSelect,
@@ -1694,7 +1775,12 @@ export default function NearbyAreaMap({
   focusBoundsRequest = null,
 }) {
   useI18n();
-  const initialAreaCacheRef = useRef(readAreaViewCache({ allowStale: true }));
+  // Cached or half-loaded data can arrive as null instead of a list.
+  const operatorLocations = listOrEmpty(operatorLocationsProp);
+  const nearbyMapLocations = listOrEmpty(nearbyMapLocationsProp);
+  const reportLocations = listOrEmpty(reportLocationsProp);
+  const trafficSnapshots = listOrEmpty(trafficSnapshotsProp);
+  const initialAreaCacheRef = useRef(readPlaceableAreaCache());
   const initialCachedPosition = initialAreaCacheRef.current.position || DEFAULT_CENTER;
   const mapContainerRef = useRef(null);
   const mapRef = useRef(null);
@@ -2091,7 +2177,7 @@ export default function NearbyAreaMap({
 
   function applySmartCamera(position, destination = selectedLocation, routeSegmentIndex, options = {}) {
     const map = mapRef.current;
-    if (!map || !position || !smartCameraRef.current) return;
+    if (isMapGone(map) || !toMapPoint(position) || !smartCameraRef.current) return;
     if (!options.force && isUserInteractingRef.current) return;
 
     const now = performance.now();
@@ -2119,12 +2205,14 @@ export default function NearbyAreaMap({
       routeSegmentIndex,
       headingMode,
     );
+    const center = toLngLatArray(cameraCenter) || toLngLatArray(position);
+    if (!center) return;
 
-    map.easeTo({
-      center: [cameraCenter.lng, cameraCenter.lat],
+    safeMapCall(map, "easeTo", {
+      center,
       zoom: Math.max(map.getZoom(), hasDestination ? 16.2 : 15.2),
       pitch: hasDestination || canUseHeading ? 58 : 35,
-      bearing,
+      bearing: Number.isFinite(bearing) ? bearing : (currentBearing ?? 0),
       // Route previews use asymmetric fitBounds padding. Reset it when live
       // follow resumes so the coordinate is the actual viewport centre.
       padding: 0,
@@ -2153,12 +2241,19 @@ export default function NearbyAreaMap({
   // True when the traveller's icon has drifted out of the safe box — the
   // viewport inset on every side — including when it is fully off screen.
   function isTravellerOutsideSafeBox(map, point) {
+    const lngLat = toLngLatArray(point);
+    if (isMapGone(map) || !lngLat) return false;
     const canvas = map.getCanvas?.();
     const width = canvas?.clientWidth || 0;
     const height = canvas?.clientHeight || 0;
     if (!width || !height) return false;
 
-    const screenPoint = map.project([point.lng, point.lat]);
+    let screenPoint;
+    try {
+      screenPoint = map.project(lngLat);
+    } catch {
+      return false;
+    }
 
     return isPointOutsideSafeBox(
       screenPoint,
@@ -2427,7 +2522,7 @@ export default function NearbyAreaMap({
 
     if (nextTrafficAhead?.geometry) {
       upsertTrafficAheadRouteLayer(mapRef.current, nextTrafficAhead.geometry, nextTrafficAhead.status);
-    } else if (mapRef.current?.getSource("route-traffic-ahead")) {
+    } else if (!isMapGone(mapRef.current) && mapRef.current.style && mapRef.current.getSource("route-traffic-ahead")) {
       upsertTrafficAheadRouteLayer(mapRef.current, null);
     }
   }
@@ -2610,9 +2705,16 @@ export default function NearbyAreaMap({
     const handleMapError = (event) => {
       // First choice: silently fall back from a failed MapTiler style to the
       // free OpenStreetMap raster tiles.
-      if (MAPTILER_KEY && isMapTilerRequestError(event) && !map.getSource("osm-tiles")) {
+      if (isMapGone(map)) return;
+      let hasOsmFallback = true;
+      try {
+        hasOsmFallback = Boolean(map.getSource("osm-tiles"));
+      } catch {
+        hasOsmFallback = true;
+      }
+      if (MAPTILER_KEY && isMapTilerRequestError(event) && !hasOsmFallback) {
         console.warn("MapTiler style could not load. Falling back to OpenStreetMap raster tiles.", event?.error);
-        map.setStyle(osmRasterStyle);
+        safeMapCall(map, "setStyle", osmRasterStyle);
         return;
       }
 
@@ -2683,14 +2785,29 @@ export default function NearbyAreaMap({
       measurementEndMarkerRef.current?.remove();
       measurementLabelMarkerRef.current?.remove();
 
-      clearRouteLayers(map);
-      clearMeasurementPreviewLayer(map);
-      clearTrafficOverlayLayers(map);
-      clearTrafficAheadRouteLayer(map);
-      clearAlternativeRouteLayer(map);
+      // Nothing here may stop map.remove() from running: a map left alive keeps
+      // its WebGL context, and iOS Safari refuses new contexts once a few are
+      // leaked, so every later open would fail with "Failed to initialize WebGL".
+      try {
+        clearRouteLayers(map);
+        clearMeasurementPreviewLayer(map);
+        clearTrafficOverlayLayers(map);
+        clearTrafficAheadRouteLayer(map);
+        clearAlternativeRouteLayer(map);
+      } catch (error) {
+        console.warn("[KunThai] Map layer cleanup skipped", error);
+      }
+      map.__ktStylePending?.clear?.();
 
-      map.remove();
-      mapRef.current = null;
+      try {
+        map.remove();
+      } catch (error) {
+        console.warn("[KunThai] Map removal failed", error);
+      }
+      map.__ktRemoved = true;
+      if (mapRef.current === map) mapRef.current = null;
+      // The parent must not keep calling flyTo/getCenter on a removed map.
+      onMapReady?.(null);
       userMarkerRef.current = null;
       pickupMarkerRef.current = null;
       destinationMarkerRef.current = null;
@@ -2720,7 +2837,7 @@ export default function NearbyAreaMap({
     // A safety net: if tiles still have not drawn shortly after a reload, keep
     // the overlay honest about the connection instead of spinning forever.
     const timer = window.setTimeout(() => {
-      if (!map.areTilesLoaded?.()) holdBaseMapForConnection();
+      if (!isMapGone(map) && !map.areTilesLoaded?.()) holdBaseMapForConnection();
     }, 9000);
     return () => window.clearTimeout(timer);
   }, [mapReloadKey]);
@@ -2848,7 +2965,7 @@ export default function NearbyAreaMap({
           viewTargetActive: viewTargetActiveRef.current,
           followLockActive: followLockRef.current,
         })) {
-          mapRef.current?.easeTo({
+          safeMapCall(mapRef.current, "easeTo", {
             center: [nextCenter.lng, nextCenter.lat],
             zoom: 15,
             duration: 520,
@@ -2924,15 +3041,15 @@ export default function NearbyAreaMap({
   // or tapping locate returns to following.
   useEffect(() => {
     const map = mapRef.current;
-    const bounds = focusBoundsRequest?.bounds;
-    if (!map || !Array.isArray(bounds) || bounds.length !== 2) return;
+    const bounds = toMapBounds(focusBoundsRequest?.bounds);
+    if (isMapGone(map) || !bounds) return;
 
     // Same hold as a previewed destination: released once the traveller
     // really moves away from here, or by the locate button.
     followLockRef.current = false;
     routePreviewHoldRef.current = true;
     routePreviewAnchorRef.current = markerRenderedPositionRef.current || smoothedPositionRef.current || userLocationRef.current || null;
-    map.fitBounds(bounds, {
+    safeFitBounds(map, bounds, {
       padding: { top: 170, bottom: 150, left: 70, right: 90 },
       maxZoom: 16,
       duration: 900,
@@ -2946,10 +3063,7 @@ export default function NearbyAreaMap({
   // the user marker/position, but the camera stays on the pinned place.
   useEffect(() => {
     const map = mapRef.current;
-    const point =
-      viewTarget && Number.isFinite(Number(viewTarget.lat)) && Number.isFinite(Number(viewTarget.lng))
-        ? { lat: Number(viewTarget.lat), lng: Number(viewTarget.lng) }
-        : null;
+    const point = toMapPoint(viewTarget);
 
     viewTargetActiveRef.current = Boolean(point);
 
@@ -2969,7 +3083,7 @@ export default function NearbyAreaMap({
       .setLngLat([point.lng, point.lat])
       .addTo(map);
 
-    map.flyTo({ center: [point.lng, point.lat], zoom: 15.5, essential: true });
+    safeMapCall(map, "flyTo", { center: [point.lng, point.lat], zoom: 15.5, essential: true });
 
     return () => {
       viewTargetMarkerRef.current?.remove();
@@ -3041,12 +3155,9 @@ export default function NearbyAreaMap({
         .setLngLat([midpoint.lng, midpoint.lat])
         .addTo(map);
 
-      const bounds = new maplibregl.LngLatBounds();
-      previewCoordinates.forEach((coordinate) => bounds.extend(coordinate));
-      bounds.extend([origin.lng, origin.lat]);
-      bounds.extend([destination.lng, destination.lat]);
+      const bounds = boundsAroundPoints([...previewCoordinates, origin, destination]);
 
-      map.fitBounds(bounds, {
+      safeFitBounds(map, bounds, {
         padding: { top: 150, bottom: 190, left: 70, right: 70 },
         duration: 900,
         maxZoom: 16.8,
@@ -3186,11 +3297,14 @@ export default function NearbyAreaMap({
 
       upsertRouteLayers(map, route.geometry, ROUTE_STATUS.correct.color);
 
-      const bounds = new maplibregl.LngLatBounds();
-      route.geometry.coordinates.forEach((coord) => bounds.extend(coord));
-      [routeStart, operatorPickup, routeTarget].filter(Boolean).forEach((point) => bounds.extend([point.lng, point.lat]));
+      const bounds = boundsAroundPoints([
+        ...(Array.isArray(route.geometry?.coordinates) ? route.geometry.coordinates : []),
+        routeStart,
+        operatorPickup,
+        routeTarget,
+      ]);
 
-      const fitRouteBounds = () => map.fitBounds(bounds, {
+      const fitRouteBounds = () => safeFitBounds(map, bounds, {
         padding: hasOperatorRoutePlan
           ? { top: 150, bottom: 290, left: 80, right: 80 }
           : { top: 140, bottom: 230, left: 70, right: 70 },
@@ -3198,9 +3312,9 @@ export default function NearbyAreaMap({
       });
 
       if (hasOperatorRoutePlan) {
-        [routeStart, operatorPickup, routeTarget].filter(Boolean).forEach((point, index) => {
+        [routeStart, operatorPickup, routeTarget].map(toMapPoint).filter(Boolean).forEach((point, index) => {
           scheduleCameraMove(() => {
-            map.flyTo({
+            safeMapCall(map, "flyTo", {
               center: [point.lng, point.lat],
               zoom: index === 0 ? 15 : 15.5,
               duration: 650,
@@ -3673,7 +3787,7 @@ export default function NearbyAreaMap({
     if (!mapRef.current) return;
 
     const map = mapRef.current;
-    const nextIds = new Set(operatorLocations.map((operator) => operator.id));
+    const nextIds = new Set(operatorLocations.map((operator) => operator?.id));
 
     operatorMarkersRef.current.forEach((marker, id) => {
       if (!nextIds.has(id)) {
@@ -3684,8 +3798,19 @@ export default function NearbyAreaMap({
       }
     });
 
-    operatorLocations.forEach((operator) => {
-      if (!operator?.id || operator.lat == null || operator.lng == null) return;
+    operatorLocations.forEach((rawOperator) => {
+      // Live rows can carry a missing or out-of-range position (a fresh
+      // operator, a realtime update mid-write); MapLibre throws on those.
+      const operator = rawOperator?.id ? withMapPoint(rawOperator) : null;
+      if (!operator) {
+        if (rawOperator?.id && operatorMarkersRef.current.has(rawOperator.id)) {
+          operatorAnimationCancelRef.current.get(rawOperator.id)?.();
+          operatorAnimationCancelRef.current.delete(rawOperator.id);
+          operatorMarkersRef.current.get(rawOperator.id)?.remove();
+          operatorMarkersRef.current.delete(rawOperator.id);
+        }
+        return;
+      }
 
       const existingMarker = operatorMarkersRef.current.get(operator.id);
 
@@ -3725,7 +3850,7 @@ export default function NearbyAreaMap({
     if (!mapRef.current) return;
 
     const map = mapRef.current;
-    const nextIds = new Set(nearbyMapLocations.map((location) => location.id));
+    const nextIds = new Set(nearbyMapLocations.map((location) => location?.id));
 
     areaLocationMarkersRef.current.forEach((marker, id) => {
       if (!nextIds.has(id)) {
@@ -3734,8 +3859,12 @@ export default function NearbyAreaMap({
       }
     });
 
-    nearbyMapLocations.forEach((location) => {
-      if (!location?.id || location.lat == null || location.lng == null) return;
+    nearbyMapLocations.forEach((rawLocation) => {
+      const location = rawLocation?.id ? withMapPoint(rawLocation) : null;
+      if (!location) {
+        removeMarkerById(areaLocationMarkersRef.current, rawLocation?.id);
+        return;
+      }
 
       const existingMarker = areaLocationMarkersRef.current.get(location.id);
       if (existingMarker) {
@@ -3758,7 +3887,7 @@ export default function NearbyAreaMap({
     if (!mapRef.current) return;
 
     const map = mapRef.current;
-    const nextIds = new Set(reportLocations.map((report) => report.id));
+    const nextIds = new Set(reportLocations.map((report) => report?.id));
 
     reportMarkersRef.current.forEach((marker, id) => {
       if (!nextIds.has(id)) {
@@ -3767,8 +3896,12 @@ export default function NearbyAreaMap({
       }
     });
 
-    reportLocations.forEach((report) => {
-      if (!report?.id || report.lat == null || report.lng == null) return;
+    reportLocations.forEach((rawReport) => {
+      const report = rawReport?.id ? withMapPoint(rawReport) : null;
+      if (!report) {
+        removeMarkerById(reportMarkersRef.current, rawReport?.id);
+        return;
+      }
 
       const existingMarker = reportMarkersRef.current.get(report.id);
       if (existingMarker) {
@@ -3792,7 +3925,7 @@ export default function NearbyAreaMap({
 
     const map = mapRef.current;
     let cancelled = false;
-    const nextIds = new Set(trafficSnapshots.map((snapshot) => snapshot.id));
+    const nextIds = new Set(trafficSnapshots.map((snapshot) => snapshot?.id));
 
     trafficMarkersRef.current.forEach((marker, id) => {
       if (!nextIds.has(id)) {
@@ -3801,8 +3934,12 @@ export default function NearbyAreaMap({
       }
     });
 
-    trafficSnapshots.forEach((snapshot) => {
-      if (!snapshot?.id || snapshot.lat == null || snapshot.lng == null) return;
+    trafficSnapshots.forEach((rawSnapshot) => {
+      const snapshot = rawSnapshot?.id ? withMapPoint(rawSnapshot) : null;
+      if (!snapshot) {
+        removeMarkerById(trafficMarkersRef.current, rawSnapshot?.id);
+        return;
+      }
 
       const existingMarker = trafficMarkersRef.current.get(snapshot.id);
       if (existingMarker) {
