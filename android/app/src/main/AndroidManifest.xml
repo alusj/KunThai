@@ -60,6 +60,10 @@
     <!-- navigator.geolocation in the WebView: UrRide pickups, maps, nearby places, region. -->
     <uses-permission android:name="android.permission.ACCESS_COARSE_LOCATION" />
     <uses-permission android:name="android.permission.ACCESS_FINE_LOCATION" />
+    <!-- Biometric unlock (Security > Biometric unlock): fingerprint / face via BiometricPrompt. -->
+    <uses-permission android:name="android.permission.USE_BIOMETRIC" />
+    <!-- Android 13+: push alerts need the runtime notification permission. -->
+    <uses-permission android:name="android.permission.POST_NOTIFICATIONS" />
     <!-- Optional hardware: devices without a camera or GPS can still install KunThai. -->
     <uses-feature android:name="android.hardware.camera" android:required="false" />
     <uses-feature android:name="android.hardware.location.gps" android:required="false" />
