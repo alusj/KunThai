@@ -8,6 +8,7 @@ import ZoomableImage from "../../../../shared/ZoomableImage";
 import { clipWindowHandlers, postClipRange } from "../../../../shared/clipWindow";
 import { t as i18nText } from "../../../../../../i18n/index";
 import { uiText as translateUi, useI18n as useUiLocale } from "../../../../../../i18n/index.js";
+import { useExploreSettingsSnapshot } from "../../../../../../Backend/hooks/useExplorePreferences";
 
 export default function PostMedia({ post, imageOnly = false }) {
   const { t } = useI18n();
@@ -17,10 +18,34 @@ export default function PostMedia({ post, imageOnly = false }) {
   const videoRef = useRef(null);
   const advertPost = isAdvertPost(post);
   const clipRange = postClipRange(post);
+  // Settings > Video: autoplay, default sound and data saver.
+  const { video: videoSettings } = useExploreSettingsSnapshot();
+  const reduceData = Boolean(videoSettings.reduceData);
+  const autoplay = Boolean(videoSettings.autoplay) && !reduceData;
+  const startMuted = videoSettings.defaultMuted !== false;
 
   useEffect(() => () => {
     stopAllExploreMedia();
   }, []);
+
+  // Autoplay while at least 60% of the video is on screen; pause when it leaves.
+  useEffect(() => {
+    const element = videoRef.current;
+    if (!autoplay || !element || imageOnly || typeof IntersectionObserver === "undefined") return undefined;
+    const observer = new IntersectionObserver(([entry]) => {
+      if (entry?.isIntersecting && entry.intersectionRatio >= 0.6) {
+        element.play().catch(() => {
+          // Browsers refuse autoplay with sound; retry muted.
+          element.muted = true;
+          element.play().catch(() => {});
+        });
+      } else if (!element.paused) {
+        element.pause();
+      }
+    }, { threshold: [0, 0.6] });
+    observer.observe(element);
+    return () => observer.disconnect();
+  }, [autoplay, imageOnly, post.video_url, videoRetryKey]);
 
   useEffect(() => {
     setVideoStatus(post.video_url ? "loading" : "idle");
@@ -45,13 +70,13 @@ export default function PostMedia({ post, imageOnly = false }) {
             />
           ) : (
             <div className="relative aspect-video overflow-hidden rounded-[20px] bg-slate-950">
-              {videoStatus !== "loaded" ? <MediaSkeleton dark /> : null}
+              {videoStatus !== "loaded" && !reduceData ? <MediaSkeleton dark /> : null}
               <video
                 key={`${post.video_url}-${videoRetryKey}`}
                 ref={videoRef}
                 controls
                 loop
-                muted
+                muted={startMuted}
                 onLoadedData={() => setVideoStatus("loaded")}
                 onLoadedMetadata={(event) => {
                   setVideoStatus("loaded");
@@ -61,12 +86,12 @@ export default function PostMedia({ post, imageOnly = false }) {
                 onError={() => setVideoStatus("error")}
                 onPlay={(event) => pauseOtherExploreMedia(event.currentTarget)}
                 playsInline
-                preload="metadata"
+                preload={reduceData ? "none" : "metadata"}
                 src={post.video_url}
                 // Only the trimmed part of the video is the post.
                 onTimeUpdate={clipWindowHandlers(clipRange.start, clipRange.end).onTimeUpdate}
                 className={`h-full max-h-[520px] w-full max-w-full object-cover transition-opacity duration-200 ${
-                  videoStatus === "loaded" ? "opacity-100" : "opacity-0"
+                  videoStatus === "loaded" || reduceData ? "opacity-100" : "opacity-0"
                 }`}
               />
             </div>
@@ -81,7 +106,7 @@ export default function PostMedia({ post, imageOnly = false }) {
             <audio
               ref={audioRef}
               controls
-              preload="metadata"
+              preload={reduceData ? "none" : "metadata"}
               src={post.audio_url}
               onPlay={(event) => pauseOtherExploreMedia(event.currentTarget)}
               className="w-full"

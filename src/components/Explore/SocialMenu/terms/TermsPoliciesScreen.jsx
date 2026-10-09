@@ -306,6 +306,16 @@ function PolicyCenterHome({ onOpen }) {
 
       <footer className="rounded-[24px] border border-slate-200 bg-white px-5 py-4 text-sm font-semibold leading-6 text-slate-500 shadow-sm">
         {policyText("Policy version {version}. Effective {effectiveDate}. Last updated {lastUpdated}.", locale, { version: legalConfig.policyVersion, effectiveDate: policyDate(legalConfig.effectiveDate, locale), lastUpdated: policyDate(legalConfig.lastUpdated, locale) })}
+        {/* Shown only once the owner configures them (src/config/legalConfig.js). */}
+        {isResolvedLegalValue(legalConfig.registeredAddress) ? (
+          <span className="mt-1 block">{i18nText("exploreSettingsFix.legalAddress", { value0: legalConfig.registeredAddress })}</span>
+        ) : null}
+        {isResolvedLegalValue(legalConfig.governingLaw) ? (
+          <span className="mt-1 block">{i18nText("exploreSettingsFix.legalGoverningLaw", { value0: legalConfig.governingLaw })}</span>
+        ) : null}
+        {isResolvedLegalValue(legalConfig.disputeJurisdiction) ? (
+          <span className="mt-1 block">{i18nText("exploreSettingsFix.legalJurisdiction", { value0: legalConfig.disputeJurisdiction })}</span>
+        ) : null}
       </footer>
     </main>
   );
