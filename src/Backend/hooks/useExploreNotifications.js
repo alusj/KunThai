@@ -29,6 +29,14 @@ const PAGE_SIZE = 30;
 const HIGH_PRIORITY_TYPES = new Set(["comment", "reply", "mention", "follow", "message", "creator_reply", "thread_reply"]);
 const MEDIUM_PRIORITY_TYPES = new Set(["like", "share", "save", "reaction", "repost"]);
 const NOTIFICATION_RETENTION_MS = 10 * 24 * 60 * 60 * 1000;
+// Every subscriber (the header bell, Activity, Notifications) gets its own
+// realtime topic. A shared topic meant one screen's unmount removed the
+// channel the header still relied on.
+let notificationChannelSequence = 0;
+
+export function notificationChannelTopic(userId, sequence) {
+  return `explore-notifications-${userId}-${sequence}`;
+}
 
 function normalizeNotification(item) {
   const platformNotification = item?._notification_source === "platform" || Object.prototype.hasOwnProperty.call(item || {}, "notification_type");
@@ -186,8 +194,9 @@ export function useExploreNotifications(requestedUserId = "") {
       }
 
       currentUserId = requestedUserId || data.user.id;
+      notificationChannelSequence += 1;
       channel = supabase
-        .channel(`explore-notifications-${currentUserId}`)
+        .channel(notificationChannelTopic(currentUserId, notificationChannelSequence))
         .on(
           "postgres_changes",
           {
@@ -358,10 +367,26 @@ export function useExploreNotifications(requestedUserId = "") {
     }
   }
 
+  async function retry() {
+    try {
+      setLoading(!notifications.length);
+      setError("");
+      const nextItems = await fetchExploreNotifications({ limit: PAGE_SIZE });
+      const storedItems = storeNotificationMemory(nextItems);
+      setNotifications(visibleNotifications(storedItems));
+      setHasMore(nextItems.length >= PAGE_SIZE);
+    } catch (err) {
+      setError(inlineErrorMessage(err, "Unable to load notifications."));
+    } finally {
+      setLoading(false);
+    }
+  }
+
   return {
     notifications,
     unreadCount: notifications.filter((item) => !item.read).length,
     loading,
+    retry,
     loadingMore,
     hasMore,
     error,
