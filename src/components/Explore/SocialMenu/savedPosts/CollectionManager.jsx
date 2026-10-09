@@ -2,6 +2,7 @@ import { useState } from "react";
 import { HiOutlinePencilSquare, HiOutlineTrash } from "react-icons/hi2";
 
 import { collectionNameTaken, normalizeCollectionName } from "../../../../Backend/services/explore/profilePostsModel";
+import { isUuid } from "../../../../Backend/services/explore/savedCollectionsModel";
 import { showToast } from "../../../../Backend/services/toastService";
 import { useI18n } from "../../../../i18n";
 
@@ -12,49 +13,68 @@ export default function CollectionManager({ collections, onClose, onDeleted }) {
   const [editingId, setEditingId] = useState("");
   const [editName, setEditName] = useState("");
   const [message, setMessage] = useState("");
+  const [busy, setBusy] = useState(false);
   const list = collections.collections;
 
-  function createCollection(event) {
+  // Changes are saved to the account. useSavedCollections undoes a change the
+  // server refuses and shows the error toast; a duplicate name is shown here.
+  async function createCollection(event) {
     event.preventDefault();
     const title = normalizeCollectionName(name);
-    if (!title) return;
+    if (!title || busy) return;
     if (collectionNameTaken(list, title)) {
       setMessage(t("exploreProfileFix.collectionDuplicate"));
       return;
     }
+    setBusy(true);
+    setName("");
+    setMessage("");
     try {
-      collections.createCollection(title);
-      setName("");
-      setMessage("");
+      await collections.createCollection(title);
       showToast(t("exploreProfileFix.collectionCreated"), "success");
-    } catch {
-      setMessage(t("exploreProfileFix.collectionDuplicate"));
+    } catch (error) {
+      setName(title);
+      if (error?.code === "duplicate") setMessage(t("exploreProfileFix.collectionDuplicate"));
+    } finally {
+      setBusy(false);
     }
   }
 
-  function saveRename(event) {
+  async function saveRename(event) {
     event.preventDefault();
     const title = normalizeCollectionName(editName);
-    if (!title || !editingId) return;
+    if (!title || !editingId || busy) return;
     if (collectionNameTaken(list, title, editingId)) {
       setMessage(t("exploreProfileFix.collectionDuplicate"));
       return;
     }
+    const renamingId = editingId;
+    setBusy(true);
+    setEditingId("");
+    setMessage("");
     try {
-      collections.renameCollection(editingId, title);
-      setEditingId("");
-      setMessage("");
+      await collections.renameCollection(renamingId, title);
       showToast(t("exploreProfileFix.collectionRenamed"), "success");
-    } catch {
-      setMessage(t("exploreProfileFix.collectionDuplicate"));
+    } catch (error) {
+      if (error?.code === "duplicate") {
+        setEditingId(renamingId);
+        setEditName(title);
+        setMessage(t("exploreProfileFix.collectionDuplicate"));
+      }
+    } finally {
+      setBusy(false);
     }
   }
 
-  function removeCollection(collection) {
+  async function removeCollection(collection) {
     if (!window.confirm(t("exploreProfileFix.deleteCollectionConfirm", { name: collection.name }))) return;
-    collections.deleteCollection(collection.id);
-    onDeleted?.(collection.id);
-    showToast(t("exploreProfileFix.collectionDeleted"), "success");
+    try {
+      await collections.deleteCollection(collection.id);
+      onDeleted?.(collection.id);
+      showToast(t("exploreProfileFix.collectionDeleted"), "success");
+    } catch {
+      // Restored in the list; the hook already said it was not deleted.
+    }
   }
 
   return (
@@ -80,7 +100,7 @@ export default function CollectionManager({ collections, onClose, onDeleted }) {
             className="h-11 min-w-0 flex-1 rounded-2xl bg-slate-100 px-4 text-sm font-bold text-slate-800 outline-none"
             autoFocus
           />
-          <button type="submit" disabled={!name.trim()} className="h-11 rounded-2xl bg-slate-950 px-4 text-sm font-black text-white disabled:opacity-50">
+          <button type="submit" disabled={!name.trim() || busy} className="h-11 rounded-2xl bg-slate-950 px-4 text-sm font-black text-white disabled:opacity-50">
             {t("exploreProfileFix.create")}
           </button>
         </form>
@@ -111,21 +131,23 @@ export default function CollectionManager({ collections, onClose, onDeleted }) {
                     <span className="min-w-0 flex-1 truncate text-sm font-black text-slate-800">{collection.name}</span>
                     <button
                       type="button"
+                      disabled={!isUuid(collection.id)}
                       onClick={() => {
                         setEditingId(collection.id);
                         setEditName(collection.name);
                         setMessage("");
                       }}
                       aria-label={t("exploreProfileFix.renameCollection")}
-                      className="flex h-9 w-9 items-center justify-center rounded-xl bg-white text-slate-600"
+                      className="flex h-9 w-9 items-center justify-center rounded-xl bg-white text-slate-600 disabled:opacity-40"
                     >
                       <HiOutlinePencilSquare />
                     </button>
                     <button
                       type="button"
+                      disabled={!isUuid(collection.id)}
                       onClick={() => removeCollection(collection)}
                       aria-label={t("exploreProfileFix.deleteCollection")}
-                      className="flex h-9 w-9 items-center justify-center rounded-xl bg-white text-rose-600"
+                      className="flex h-9 w-9 items-center justify-center rounded-xl bg-white text-rose-600 disabled:opacity-40"
                     >
                       <HiOutlineTrash />
                     </button>
