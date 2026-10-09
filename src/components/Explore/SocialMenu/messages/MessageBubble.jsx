@@ -10,6 +10,17 @@ import {
 import { useI18n } from "../../../../i18n";
 import MessageImage from "../../../shared/MessageImage";
 import { uiText as translateUi, useI18n as useUiLocale } from "../../../../i18n/index.js";
+import { t as i18nText } from "../../../../i18n/index";
+import { useMessageMediaUrl } from "../../../../Backend/hooks/useMessageMediaUrl";
+import { locationMessageParts } from "../../../../Backend/services/explore/messageInboxModels.js";
+import { showToast } from "../../../../Backend/services/toastService";
+import { shortErrorToast } from "../../../../Backend/services/friendlyErrorService";
+
+// Location messages carry a text key so they read in the viewer's language.
+function locationText(message) {
+  const parts = locationMessageParts(message);
+  return parts ? i18nText(`exploreMessagesFix.${parts.key}`, parts.vars) : message.body || "";
+}
 
 export default function MessageBubble({
   mine,
@@ -24,11 +35,16 @@ export default function MessageBubble({
   senderLabel = "",
   // A Space is not a person: its threads offer no "block sender".
   canBlock = true,
+  // Only your own messages can be deleted for everyone. A teammate's reply in
+  // a Space inbox is "ours" but can only be hidden for you.
+  canDelete = mine,
 }) {
   const { t } = useI18n();
   const otherName = otherUserName || t("messages.thisUser");
   const [optionsOpen, setOptionsOpen] = useState(false);
-  const mediaUrl = message.mediaUrl || message.media_url || "";
+  const storedMediaUrl = message.mediaUrl || message.media_url || "";
+  const media = useMessageMediaUrl(storedMediaUrl);
+  const mediaUrl = media.url;
   const mediaType = message.type || message.media_type || "text";
   const metadata = message.metadata || {};
   const actor = metadata.actor || {};
@@ -59,10 +75,19 @@ export default function MessageBubble({
     setOptionsOpen(false);
   }
 
-  function runMessageAction(event, action) {
+  async function runMessageAction(event, action) {
     stop(event);
     setOptionsOpen(false);
-    action?.(message);
+    try {
+      const result = await action?.(message);
+      // Cancelled confirmations and actions that already explained their
+      // failure stay quiet.
+      if (result?.ok === false && !result.cancelled && !result.notified) {
+        showToast(i18nText("exploreMessagesFix.actionFailedToast"), "danger");
+      }
+    } catch (error) {
+      showToast(shortErrorToast(error, i18nText("exploreMessagesFix.actionFailedToast")), "danger");
+    }
   }
 
   function renderOptions() {
@@ -82,7 +107,7 @@ export default function MessageBubble({
         <MessageAction
           danger
           icon={HiOutlineTrash}
-          label={mine ? t("messages.deleteMessage") : t("messages.hideMessage")}
+          label={mine && canDelete ? t("messages.deleteMessage") : i18nText("exploreMessagesFix.hideForMe")}
           onClick={(event) => runMessageAction(event, onDeleteMessage)}
         />
         {!mine && canBlock ? (
@@ -103,7 +128,7 @@ export default function MessageBubble({
             <div className="min-w-0">
               <p className="font-black">{mine ? t("messages.locationRequestSent") : t("messages.locationRequested")}</p>
               <p className={mine ? "text-white/80" : "text-slate-600"}>
-                {message.body || t("messages.requestingLocation", { name: otherName })}
+                {locationText(message) || t("messages.requestingLocation", { name: otherName })}
               </p>
             </div>
           </div>
@@ -148,7 +173,7 @@ export default function MessageBubble({
             </span>
             <div className="min-w-0">
               <p className="font-black">{mine ? t("messages.locationSharing") : t("messages.locationUpdate")}</p>
-              <p className={mine ? "text-white/80" : "text-slate-600"}>{message.body || t("messages.locationBeingShared")}</p>
+              <p className={mine ? "text-white/80" : "text-slate-600"}>{locationText(message) || t("messages.locationBeingShared")}</p>
             </div>
           </div>
           {hasSharedMapPoint ? (
@@ -178,6 +203,15 @@ export default function MessageBubble({
         {mediaType === "image" && mediaUrl ? (
           <MessageImage mediaUrl={mediaUrl} alt={t("messages.photo")} pending={message.pending} className="mb-2" />
         ) : null}
+        {["image", "video"].includes(mediaType) && media.loading ? (
+          <span className="mb-2 block h-36 w-full animate-pulse rounded-2xl bg-slate-200/70" aria-hidden="true" />
+        ) : null}
+        {media.failed ? (
+          <p className={`mb-2 text-xs font-bold ${mine ? "text-white/60" : "text-slate-400"}`}>{i18nText("exploreMessagesFix.mediaUnavailable")}</p>
+        ) : null}
+        {mediaType === "video" && mediaUrl ? (
+          <video controls playsInline preload="metadata" src={mediaUrl} className="mb-2 max-h-72 w-full rounded-2xl bg-black" onClick={stop} />
+        ) : null}
         {!mine && actorName ? (
           <p className="mb-1 text-[10px] font-black uppercase tracking-[0.14em] text-sky-700">{actorName}</p>
         ) : null}
@@ -189,7 +223,7 @@ export default function MessageBubble({
             <audio controls src={mediaUrl} className="w-full" aria-label={t("messages.voiceMessage")} />
           </div>
         ) : null}
-        {message.body ? <p>{message.body}</p> : mediaType === "audio" ? <p>{t("messages.voiceNote")}</p> : mediaType === "image" ? <p>{t("messages.photo")}</p> : null}
+        {message.body ? <p>{message.body}</p> : mediaType === "audio" ? <p>{t("messages.voiceNote")}</p> : mediaType === "image" ? <p>{t("messages.photo")}</p> : mediaType === "video" ? <p>{i18nText("exploreMessagesFix.previewVideo")}</p> : null}
         <p className={`mt-1 text-[10px] font-bold ${mine ? "text-white/55" : "text-slate-400"}`}>
           {timeLabel}
         </p>

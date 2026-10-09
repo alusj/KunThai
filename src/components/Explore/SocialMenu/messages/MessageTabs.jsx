@@ -1,10 +1,10 @@
 import { useI18n } from "../../../../i18n";
 import { uiText as translateUi } from "../../../../i18n/index.js";
 
-export default function MessageTabs({ active, onChange, requestCount = 0 }) {
+export default function MessageTabs({ active, inboxUnreadCount = 0, onChange, requestCount = 0 }) {
   const { t } = useI18n();
   const tabs = [
-    { id: "inbox", label: t("messages.inbox"), count: 0 },
+    { id: "inbox", label: t("messages.inbox"), count: inboxUnreadCount },
     { id: "requests", label: t("messages.requests"), count: requestCount },
   ];
 
