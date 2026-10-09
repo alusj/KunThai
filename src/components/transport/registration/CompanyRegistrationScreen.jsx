@@ -62,6 +62,9 @@ import { buildCompanyRegistrationAiContext } from "./companyRegistrationAi";
 import { uiText as translateUi, useI18n as useUiLocale } from "../../../i18n/index.js";
 import { inlineErrorMessage } from "../../../Backend/services/friendlyErrorService";
 import DeferredVerificationNotice from "../../shared/DeferredVerificationNotice";
+import { useRegistrationRecoveryNotice, useRegistrationTask } from "../../../Backend/hooks/useRegistrationTask";
+import { REGISTRATION_KINDS } from "../../../Backend/services/registration/registrationTaskCore";
+import { startRegistrationTask } from "../../../Backend/services/registration/registrationTaskRunner";
 
 const steps = [
   { labelKey: "urride.companyReg.stepCompany", icon: FiBriefcase },
@@ -307,19 +310,40 @@ export default function CompanyRegistrationScreen({ existingCompany = null, mode
   // registration steps (each with the current details + Edit) instead of
   // walking the wizard from the top.
   const editing = Boolean(existingCompany) && !incrementalFleetMode;
+  // A new company is saved by a background task: leaving this screen never
+  // cancels it, and reopening shows it (or, after a failure elsewhere, the
+  // entered details and picked files) instead of a fresh form. Edits and
+  // added vehicles keep saving in place, as before.
+  // Fixed when the screen opens: the saved company arriving from the server
+  // (existingCompany) must not switch a running save to the edit path.
+  const [backgroundEnabled] = useState(() => !editing && !incrementalFleetMode);
+  const backgroundTask = useRegistrationTask(REGISTRATION_KINDS.URRIDE_COMPANY, {
+    enabled: backgroundEnabled,
+    onSettled: handleBackgroundSettled,
+  });
+  const restored = backgroundTask.adopted?.restore || null;
+  const skipContextLoadRef = useRef(Boolean(restored));
+  const submitOriginRef = useRef(null);
   const [openSection, setOpenSection] = useState(-1);
-  const [step, setStep] = useState(() => (incrementalFleetMode ? 2 : 0));
-  const [maxStepReached, setMaxStepReached] = useState(() => (incrementalFleetMode ? 2 : 0));
-  const [form, setForm] = useState(() => openingFleetForm || createCompanyForm());
-  const [fleets, setFleets] = useState(() => [createFleetDraft(0, openingFleetForm || {}, addRentalMode ? "Rental" : "")]);
-  const [areaText, setAreaText] = useState(() => (openingFleetForm?.operatingAreas || []).join(", "));
-  const [status, setStatus] = useState("");
-  const [statusTone, setStatusTone] = useState("info");
+  const [step, setStep] = useState(() => restored?.step ?? (incrementalFleetMode ? 2 : 0));
+  const [maxStepReached, setMaxStepReached] = useState(() => restored?.maxStepReached ?? (incrementalFleetMode ? 2 : 0));
+  const [form, setForm] = useState(() => restored?.form || openingFleetForm || createCompanyForm());
+  const [fleets, setFleets] = useState(() => restored?.fleets || [createFleetDraft(0, openingFleetForm || {}, addRentalMode ? "Rental" : "")]);
+  const [areaText, setAreaText] = useState(() => restored?.areaText ?? (openingFleetForm?.operatingAreas || []).join(", "));
+  const [status, setStatus] = useState(() => (
+    backgroundTask.adopted?.status === "failed"
+      ? t("registrationSaving.failedInline", {
+          reason: backgroundTask.adopted.error?.message || t("urride.companyReg.submitError"),
+        })
+      : ""
+  ));
+  const [statusTone, setStatusTone] = useState(() => (backgroundTask.adopted?.status === "failed" ? "error" : "info"));
   const [fieldErrors, setFieldErrors] = useState({});
   const [saving, setSaving] = useState(false);
-  const [submitting, setSubmitting] = useState(false);
+  const [submittingInPlace, setSubmitting] = useState(false);
+  const submitting = submittingInPlace || (backgroundEnabled && backgroundTask.running);
   const [finishing, setFinishing] = useState(false);
-  const [initializing, setInitializing] = useState(() => !incrementalFleetMode);
+  const [initializing, setInitializing] = useState(() => !incrementalFleetMode && !restored);
   const [transitionOrigin, setTransitionOrigin] = useState({ x: "50%", y: "70%" });
   const [locationPickerMode, setLocationPickerMode] = useState(null);
   const [locationCautionOpen, setLocationCautionOpen] = useState(false);
@@ -367,8 +391,21 @@ export default function CompanyRegistrationScreen({ existingCompany = null, mode
     return () => window.cancelAnimationFrame(frame);
   }, [step]);
 
+  // Opened from "Review" after a save was cut short (reload, app closed):
+  // say why the details came back and that the files are needed again.
+  useRegistrationRecoveryNotice(REGISTRATION_KINDS.URRIDE_COMPANY, {
+    enabled: backgroundEnabled,
+    onNotice: () => {
+      setStatus(t("registrationSaving.interruptedInline"));
+      setStatusTone("info");
+    },
+  });
+
   useEffect(() => {
     let alive = true;
+    // A save in progress (or one that failed elsewhere) already brought the
+    // entered details back; a saved draft must not replace them.
+    if (skipContextLoadRef.current) return undefined;
 
     // The company workspace already supplies everything needed to add an
     // operator or rental. Paint that screen immediately instead of showing a
@@ -840,6 +877,26 @@ export default function CompanyRegistrationScreen({ existingCompany = null, mode
       }
     }
 
+    if (backgroundEnabled) {
+      // The save runs outside this screen; a second tap while it runs joins it.
+      setFieldErrors({});
+      clearStatus();
+      submitOriginRef.current = origin;
+      const payload = buildPayload("submitted");
+      // Kept first, so a save cut short (reload, app closed) can be restored.
+      const draftPayload = buildPayload("draft");
+      startRegistrationTask(REGISTRATION_KINDS.URRIDE_COMPANY, {
+        restore: { step, maxStepReached, form, fleets, areaText },
+        matchHint: form.companyName,
+        expectedUploads: countCompanyFiles(form, fleets),
+        run: async (report) => {
+          await saveTransportCompanyDraft(draftPayload).catch(() => {});
+          return saveTransportCompanyAccount(payload, { onProgress: report });
+        },
+      });
+      return;
+    }
+
     try {
       setFieldErrors({});
       setSubmitting(true);
@@ -854,6 +911,28 @@ export default function CompanyRegistrationScreen({ existingCompany = null, mode
     } finally {
       setSubmitting(false);
     }
+  }
+
+  async function handleBackgroundSettled(task) {
+    if (task.status !== "succeeded") {
+      showStatus(task.error?.message || t("urride.companyReg.submitError"), "error");
+      return;
+    }
+    const origin = submitOriginRef.current || { x: "50%", y: "70%" };
+    setTransitionOrigin(origin);
+    setFinishing(true);
+    await new Promise((resolve) => window.setTimeout(resolve, 480));
+    onComplete?.(task.result, origin, { actionMode: "registration" });
+  }
+
+  // Back while the company is saving leaves the screen; the save carries on
+  // in the background and a toast reports it.
+  function leaveWhileSaving() {
+    if (onSaveExit) {
+      onSaveExit();
+      return;
+    }
+    onBack?.();
   }
 
   function acceptLocation(location) {
@@ -880,6 +959,11 @@ export default function CompanyRegistrationScreen({ existingCompany = null, mode
   }
 
   function handleRegistrationBack() {
+    if (backgroundEnabled && backgroundTask.running) {
+      leaveWhileSaving();
+      return;
+    }
+
     // The edit accordion is a single screen, so Back leaves to the workspace
     // rather than stepping through wizard stages.
     if (!incrementalFleetMode && !editing && step > 0) {
@@ -925,7 +1009,13 @@ export default function CompanyRegistrationScreen({ existingCompany = null, mode
       className={`${finishing ? "kt-onboarding-collapse-out" : ""} kt-mobile-viewport kt-safe-screen bg-slate-50 [transform:translateZ(0)]`}
       style={{ "--kt-transition-x": transitionOrigin.x, "--kt-transition-y": transitionOrigin.y }}
     >
-      <AccountSetupLoader open={submitting || finishing} sector="urride" />
+      <AccountSetupLoader
+        open={submitting || finishing}
+        sector="urride"
+        kind={REGISTRATION_KINDS.URRIDE_COMPANY}
+        progress={backgroundEnabled ? backgroundTask.progress : null}
+        onBack={backgroundEnabled && backgroundTask.running && !finishing ? leaveWhileSaving : undefined}
+      />
       <header className="sticky top-0 z-30 border-b border-slate-100 bg-white/95 px-3 py-3 shadow-sm backdrop-blur sm:px-5 lg:px-8">
         <div className="flex w-full items-center gap-3">
           <AppBackTab
@@ -1906,6 +1996,14 @@ function keepStoredUpload(documents = {}) {
   return Object.fromEntries(Object.entries(documents || {}).filter(([, value]) =>
     value && typeof value === "object" && (value.fileUrl || value.publicUrl || value.url || (value.bucket && value.path)),
   ));
+}
+
+// Files picked for the company and its vehicles that the save will upload.
+function countCompanyFiles(form = {}, fleets = []) {
+  return [
+    ...Object.values(form.documents || {}),
+    ...fleets.flatMap((fleet) => Object.values(fleet.documents || {})),
+  ].filter((value) => value && typeof value === "object" && (value.file || (typeof Blob !== "undefined" && value instanceof Blob))).length;
 }
 
 function restorableCompanyDraft(draft) {

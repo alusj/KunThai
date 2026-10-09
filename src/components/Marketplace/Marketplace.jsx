@@ -93,9 +93,11 @@ export default function Marketplace({ nav, setNav, onActivityChange, onNotificat
         setRequestedMenuScreen("adminRoles");
         return;
       }
-      if (screen === "business" || screen === "business-messages") {
+      if (screen === "business" || screen === "business-messages" || screen === "business-register") {
         setActiveUtility(null);
-        setBusinessInitialScreen(screen === "business-messages" ? "messages" : "");
+        // "business-register": reopen "Add business" after a registration
+        // that could not finish in the background.
+        setBusinessInitialScreen(screen === "business-messages" ? "messages" : screen === "business-register" ? "addBusiness" : "");
         setNav({ root: "marketplace", sub: "business" });
       }
     }

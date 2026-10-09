@@ -107,7 +107,12 @@ export default function ToastProvider({ children }) {
           feedback above those surfaces so an Area View action is visibly
           acknowledged on the map that produced it, not on the dashboard
           underneath. Critical image/system overlays still sit above this. */}
-      <div className="pointer-events-none fixed inset-x-0 top-[calc(env(safe-area-inset-top)+0.75rem)] z-[1700] flex flex-col items-center gap-2 px-3 sm:top-5">
+      {/* An elevated toast (a background registration finishing) lifts the
+          stack above modals and full-screen overlays while it is shown. */}
+      <div
+        className="pointer-events-none fixed inset-x-0 top-[calc(env(safe-area-inset-top)+0.75rem)] z-[1700] flex flex-col items-center gap-2 px-3 sm:top-5"
+        style={items.some((item) => item.elevated && !item.leaving) ? { zIndex: 2147483150 } : undefined}
+      >
         {items.map((item, index) => {
           const tone = tones[item.tone] || tones.info;
           const Icon = tone.icon;

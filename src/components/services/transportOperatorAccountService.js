@@ -374,7 +374,7 @@ function normalizeUploadDocumentEntries(uploads = {}) {
     .filter(Boolean);
 }
 
-async function prepareOperatorPublicMedia(userId, uploads = {}) {
+async function prepareOperatorPublicMedia(userId, uploads = {}, onUploaded) {
   const nextUploads = {};
   const fleetPhotos = [];
   let operatorPhotoUrl = "";
@@ -409,6 +409,7 @@ async function prepareOperatorPublicMedia(userId, uploads = {}) {
       fleetPhotos.push({ label: uploadLabel, url: publicUrl });
     }
     if (isOperatorPhoto && publicUrl) operatorPhotoUrl = publicUrl;
+    if (file) onUploaded?.();
   }
 
   return { uploads: nextUploads, fleetPhotos, operatorPhotoUrl };
@@ -914,12 +915,23 @@ async function loadOperatorDashboard(operatorId = null, preferredFleetId = null,
   };
 }
 
-export async function saveOperatorAccount(account) {
+// `onProgress` (optional) hears the real steps of the save — checking,
+// uploading N of M files, creating the operator, finishing — for the saving
+// screen. It never changes what is saved.
+export async function saveOperatorAccount(account, { onProgress } = {}) {
+  const report = (progress) => {
+    try {
+      onProgress?.(progress);
+    } catch {
+      // Progress display must never break the save.
+    }
+  };
   // In company mode the form holds the company vehicle; saving it here would
   // overwrite (or duplicate) the operator's own solo fleet.
   if (account?.workMode === "company") {
     throw new Error("Company vehicles are edited by the company in Fleet HQ. Switch to Solo to edit your own fleet.");
   }
+  report({ stage: "checking" });
   const userId = await getCurrentUserId("Sign in before submitting your fleet.");
   const form = account.form || {};
   const requestedOperatorCode = normalizeOperatorCode(account.operatorId || account.displayCode);
@@ -935,7 +947,13 @@ export async function saveOperatorAccount(account) {
   if (missingFleetImages.length) {
     throw new Error("Upload the required front, back, left-side, and right-side fleet images before saving.");
   }
-  const publicMedia = await prepareOperatorPublicMedia(userId, account.uploads || {});
+  const uploadTotal = Object.values(account.uploads || {}).filter((value) => getTransportUploadFile(value)).length;
+  let uploadsDone = 0;
+  if (uploadTotal) report({ stage: "uploading", done: 0, total: uploadTotal });
+  const publicMedia = await prepareOperatorPublicMedia(userId, account.uploads || {}, () => {
+    report({ stage: "uploading", done: ++uploadsDone, total: uploadTotal });
+  });
+  report({ stage: "creating", total: uploadTotal });
 
   const { data: existingOperator, error: existingOperatorError } = await supabase
     .from("transport_operators")
@@ -1177,6 +1195,7 @@ export async function saveOperatorAccount(account) {
   localStorage.removeItem(getDraftKey(userId));
   localStorage.removeItem(LEGACY_ACCOUNT_KEY);
 
+  report({ stage: "finishing", total: uploadTotal });
   invalidateCache("operator-dashboard");
   const dashboard = await fetchOperatorDashboard(operator.id);
   return mapOperatorAccount(operator, fleet, { dashboard });

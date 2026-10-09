@@ -184,13 +184,18 @@ async function uploadBusinessDocument(userId, file) {
   throw new Error(error.message || "Unable to upload business file.");
 }
 
-async function uploadBusinessDocumentRequirements(userId, trustPayout, requirements) {
+async function uploadBusinessDocumentRequirements(userId, trustPayout, requirements, onUploaded) {
   return Promise.all(
-    requirements.map(async (requirement) => ({
-      requirement,
-      fileName: trustPayout[requirement.nameField] || "",
-      stored: await uploadBusinessDocument(userId, trustPayout[requirement.fileField]),
-    })),
+    requirements.map(async (requirement) => {
+      const file = trustPayout[requirement.fileField];
+      const stored = await uploadBusinessDocument(userId, file);
+      if (file) onUploaded?.();
+      return {
+        requirement,
+        fileName: trustPayout[requirement.nameField] || "",
+        stored,
+      };
+    }),
   );
 }
 
@@ -645,7 +650,18 @@ export async function hasRegisteredBusiness() {
   return Boolean(business);
 }
 
-export async function submitSellerRegistration(registration) {
+// `onProgress` (optional) hears the real steps of the save — checking,
+// uploading N of M files, creating the business, finishing — so the saving
+// screen can show them. It never changes what is saved.
+export async function submitSellerRegistration(registration, { onProgress } = {}) {
+  const report = (progress) => {
+    try {
+      onProgress?.(progress);
+    } catch {
+      // Progress display must never break the save.
+    }
+  };
+  report({ stage: "checking" });
   invalidateRegisteredBusinessesCache();
   const userId = await getCurrentUserId();
   await assertCanCreateBusinessType(registration.identity.businessKind || "retail");
@@ -656,11 +672,25 @@ export async function submitSellerRegistration(registration) {
     countryCode: registration.location.countryIso || countryProfile.iso2,
   });
   const readinessScore = calculateReadinessScore(registration);
+  const uploadTotal = [
+    registration.identity.logoFile,
+    registration.identity.bannerFile,
+    ...documentRequirements.map((requirement) => registration.trustPayout[requirement.fileField]),
+  ].filter(Boolean).length;
+  let uploadsDone = 0;
+  const countUpload = (file) => (value) => {
+    if (file) report({ stage: "uploading", done: ++uploadsDone, total: uploadTotal });
+    return value;
+  };
+  if (uploadTotal) report({ stage: "uploading", done: 0, total: uploadTotal });
   const [logoUrl, bannerUrl, documentUploads] = await Promise.all([
-    uploadBusinessFile(userId, registration.identity.logoFile, "logos"),
-    uploadBusinessFile(userId, registration.identity.bannerFile, "banners"),
-    uploadBusinessDocumentRequirements(userId, registration.trustPayout, documentRequirements),
+    uploadBusinessFile(userId, registration.identity.logoFile, "logos").then(countUpload(registration.identity.logoFile)),
+    uploadBusinessFile(userId, registration.identity.bannerFile, "banners").then(countUpload(registration.identity.bannerFile)),
+    uploadBusinessDocumentRequirements(userId, registration.trustPayout, documentRequirements, () => {
+      report({ stage: "uploading", done: ++uploadsDone, total: uploadTotal });
+    }),
   ]);
+  report({ stage: "creating", total: uploadTotal });
 
   const submittedDocuments = documentUploads.some((document) => document.stored);
   const businessPayload = {
@@ -789,6 +819,7 @@ export async function submitSellerRegistration(registration) {
     meta: "Registration",
   });
 
+  report({ stage: "finishing", total: uploadTotal });
   await setActiveRegisteredBusiness(business.id);
   return readRegisteredBusiness({ fresh: true });
 }
