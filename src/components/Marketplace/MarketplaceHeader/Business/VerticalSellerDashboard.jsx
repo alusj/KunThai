@@ -42,10 +42,14 @@ import PromotionSetupPanel from "./Promotion/PromotionSetupPanel";
 import { normalizePromotionSettings } from "./Promotion/promotionSetup";
 import { uiText as translateUi, useI18n as useUiLocale } from "../../../../i18n/index.js";
 import { inlineErrorMessage, shortErrorToast } from "../../../../Backend/services/friendlyErrorService";
+import { fetchBusinessSubscription, getMealDayLimit } from "../../../../Backend/services/businessSubscriptionService";
+import { ALL_WEEKDAYS, checkMealDays, mealServedDays, restaurantMealDays } from "../../../../Backend/services/marketplace/restaurantMealDays";
 
 const DAYS = ["Sunday", "Monday", "Tuesday", "Wednesday", "Thursday", "Friday", "Saturday"];
 const dayLong = (index) => t(`urmall.biz.vert.dayLong${index}`);
 const dayShort = (index) => t(`urmall.biz.vert.dayShort${index}`);
+const emptyMealForm = () => ({ name: "", description: "", price: "", meal_period: "all_day", preparation_minutes: 20, available_everyday: true, available_days: [], ...createEmptyVerticalMedia() });
+const mealFormDays = (form) => (form.available_everyday !== false ? [...ALL_WEEKDAYS] : (form.available_days || []).map(Number));
 const SELLER_VERTICAL_STORAGE_KEY = "kunthai.marketplace.sellerVerticals.v1";
 const SELLER_VERTICAL_MEMORY = new Map();
 
@@ -182,8 +186,37 @@ function RestaurantDashboard({ business, canManage = true, initialWorkspace = nu
   const [promoteItem, setPromoteItem] = useState(null);
   const [insightsItem, setInsightsItem] = useState(null);
   const submissionLock = useRef(false);
-  const [form, setForm] = useState({ name: "", description: "", price: "", meal_period: "all_day", preparation_minutes: 20, available_everyday: true, available_days: [], ...createEmptyVerticalMedia() });
+  const [form, setForm] = useState(emptyMealForm);
   const editingMeal = Boolean(form.id);
+  // Free plan: meals on at most N weekdays (null = every day allowed). The
+  // database enforces the same rule; this explains it before saving.
+  const plan = useContext(VerticalPlanContext);
+  const [mealDayLimit, setMealDayLimit] = useState(null);
+  const mealDayLimitRef = useRef(null);
+  const [allMeals, setAllMeals] = useState([]);
+  const allMealsRef = useRef([]);
+  const [mealBaselineDays, setMealBaselineDays] = useState([]);
+  const [limitNotice, setLimitNotice] = useState(null);
+  const refreshMealDayRules = useCallback(async () => {
+    const [state, meals] = await Promise.all([
+      plan.plansEnabled ? fetchBusinessSubscription("urmall", business.id).catch(() => null) : null,
+      fetchRestaurantMenu(business.id, null).catch(() => null),
+    ]);
+    const limit = getMealDayLimit(state);
+    mealDayLimitRef.current = limit;
+    setMealDayLimit(limit);
+    if (Array.isArray(meals)) {
+      allMealsRef.current = meals;
+      setAllMeals(meals);
+    }
+  }, [business.id, plan.plansEnabled]);
+  useEffect(() => { refreshMealDayRules(); }, [refreshMealDayRules]);
+  const mealDayRules = useMemo(() => ({
+    limit: mealDayLimit,
+    oldDays: mealBaselineDays,
+    otherDays: restaurantMealDays(allMeals, form.id),
+  }), [allMeals, form.id, mealBaselineDays, mealDayLimit]);
+  const openPlansFromMeal = plan.onOpenPlans ? () => { setFormOpen(false); plan.onOpenPlans(); } : null;
   const activity = useVerticalActivity(business.id);
   const load = useCallback(async () => {
     const cached = overviewMenuRef.current || readSellerVerticalCache(menuCacheKey, []);
@@ -201,14 +234,29 @@ function RestaurantDashboard({ business, canManage = true, initialWorkspace = nu
   }, [business.id, day, menuCacheKey]);
   useEffect(() => { load(); }, [load]);
   const openNewMeal = useCallback(() => {
-    setForm({ name: "", description: "", price: "", meal_period: "all_day", preparation_minutes: 20, available_everyday: true, available_days: [], ...createEmptyVerticalMedia() });
+    const next = emptyMealForm();
+    const limit = mealDayLimitRef.current;
+    if (limit !== null) {
+      // On a limited plan a new meal starts on the selected day (when the
+      // restaurant may still use it) instead of "every day".
+      const fits = checkMealDays({ limit, newDays: [day], otherDays: restaurantMealDays(allMealsRef.current) }).allowed;
+      next.available_everyday = false;
+      next.available_days = fits ? [day] : [];
+    }
+    setForm(next);
+    setMealBaselineDays([]);
+    setLimitNotice(null);
     setFormOpen(true);
-  }, []);
+    refreshMealDayRules();
+  }, [day, refreshMealDayRules]);
   useOpenVerticalEditor(openNewMeal, canManage);
   useRetentionInventoryRefresh(business.id, load);
 
   function editMeal(item) {
     setDay(Number(item.day_of_week));
+    setMealBaselineDays(mealServedDays(item));
+    setLimitNotice(null);
+    refreshMealDayRules();
     setForm({
       id: item.id,
       name: item.name || "",
@@ -231,6 +279,11 @@ function RestaurantDashboard({ business, canManage = true, initialWorkspace = nu
     if (submissionLock.current) return;
     if (!form.available_everyday && !(form.available_days || []).length) {
       showToast("Pick at least one day", "danger");
+      return;
+    }
+    const dayCheck = checkMealDays({ ...mealDayRules, newDays: mealFormDays(form) });
+    if (!dayCheck.allowed) {
+      setLimitNotice({ reason: dayCheck.reason });
       return;
     }
     submissionLock.current = true;
@@ -257,14 +310,31 @@ function RestaurantDashboard({ business, canManage = true, initialWorkspace = nu
           showToast(shortErrorToast(promoError, "Boost couldn't start"), "danger");
         }
       }
-      setForm({ name: "", description: "", price: "", meal_period: "all_day", preparation_minutes: 20, available_everyday: true, available_days: [], ...createEmptyVerticalMedia() });
+      setForm(emptyMealForm());
+      setLimitNotice(null);
       setFormOpen(false);
       await load();
+      refreshMealDayRules();
       notifyVerticalListingUpdated(business.id);
       haptics.medium("marketplace");
       sounds.success("marketplace");
       showToast(wasEditing ? "Updated successfully" : "Added successfully", "success", urMallShareToastOptions());
-    } catch (error) { showToast(shortErrorToast(error, "Couldn't save meal"), "danger"); } finally { submissionLock.current = false; setSubmitting(false); setUploadStage(""); }
+    } catch (error) {
+      if (error?.code === "KUNTHAI_PLAN_LIMIT") {
+        // Explain the plan limit inside the form, with the way to upgrade.
+        const reason = error.resource === "meal_days"
+          ? (mealFormDays(form).length > Number(error.limit || 0) ? "meal" : "restaurant")
+          : "products";
+        setLimitNotice({ reason, current: error.current, limit: error.limit, planCode: error.planCode });
+        if (reason !== "products" && Number(error.limit) > 0) {
+          mealDayLimitRef.current = Number(error.limit);
+          setMealDayLimit(Number(error.limit));
+        }
+        showToast(t("urmallPlans2026.limits.toast"), "danger");
+      } else {
+        showToast(shortErrorToast(error, "Couldn't save meal"), "danger");
+      }
+    } finally { submissionLock.current = false; setSubmitting(false); setUploadStage(""); }
   }
 
   return (
@@ -273,11 +343,11 @@ function RestaurantDashboard({ business, canManage = true, initialWorkspace = nu
       <VerticalActivityStrip activity={activity} commerceLabel={t("urmall.biz.vert.orders")} commerceValue={activity.orders} />
       <section className="rounded-[26px] border border-gray-200 bg-white p-5 shadow-sm">
         <SectionHeading eyebrow={t("urmall.biz.vert.dayMenu", { day: dayLong(day) })} title={t("urmall.biz.vert.mealsTitle")}>{canManage ? <PrimaryButton onClick={openNewMeal} label={t("urmall.biz.vert.addMeal")} className="bg-orange-600" /> : null}</SectionHeading>
-        <div className="mt-5 grid gap-3 md:grid-cols-2" aria-busy={loading || undefined}>{loading ? <VerticalListingsSkeleton variant="meal" /> : items.map((item) => <MealCard key={item.id} item={item} business={business} canManage={canManage} onEdit={() => editMeal(item)} onInsights={() => setInsightsItem(item)} onPromote={() => setPromoteItem(item)} onDelete={async () => { await deleteRestaurantMenuItem(item); await load(); notifyVerticalListingUpdated(business.id); showToast("Meal has been deleted", "success"); }} onToggle={async () => { await toggleRestaurantMenuItem(item, !item.available); await load(); notifyVerticalListingUpdated(business.id); }} />)}</div>
+        <div className="mt-5 grid gap-3 md:grid-cols-2" aria-busy={loading || undefined}>{loading ? <VerticalListingsSkeleton variant="meal" /> : items.map((item) => <MealCard key={item.id} item={item} business={business} canManage={canManage} onEdit={() => editMeal(item)} onInsights={() => setInsightsItem(item)} onPromote={() => setPromoteItem(item)} onDelete={async () => { await deleteRestaurantMenuItem(item); await load(); refreshMealDayRules(); notifyVerticalListingUpdated(business.id); showToast("Meal has been deleted", "success"); }} onToggle={async () => { await toggleRestaurantMenuItem(item, !item.available); await load(); notifyVerticalListingUpdated(business.id); }} />)}</div>
         {!loading && !items.length ? <EmptyState text={t("urmall.biz.vert.noMeals", { day: dayLong(day) })} /> : null}
       </section>
       <VerticalEditorSheet open={formOpen} onClose={() => setFormOpen(false)} title={editingMeal ? t("urmall.biz.vert.editMeal") : t("urmall.biz.vert.addMeal")} subtitle={t("urmall.biz.vert.dayMenu", { day: dayLong(day) })} formId="restaurant-meal-form" actionLabel={editingMeal ? t("urmall.biz.vert.saveChanges") : form.promote ? t("urmall.biz.pform.pubPromote") : t("urmall.biz.vert.addMeal")} processingLabel={editingMeal ? t("urmall.biz.vert.saving") : t("urmall.biz.vert.adding")} processing={submitting} accentClass="bg-orange-600" uploadStage={uploadStage} uploadTitle={t("urmall.biz.vert.addingMeal")}>
-        <RestaurantForm formId="restaurant-meal-form" form={form} setForm={setForm} onSubmit={save} />
+        <RestaurantForm formId="restaurant-meal-form" form={form} setForm={setForm} onSubmit={save} dayRules={mealDayRules} limitNotice={limitNotice} onLimitNotice={setLimitNotice} onOpenPlans={openPlansFromMeal} />
       </VerticalEditorSheet>
       {promoteItem ? <VerticalPromoteSheet listingType="meal" listing={promoteItem} onClose={() => setPromoteItem(null)} onPromoted={load} /> : null}
       {insightsItem ? <VerticalInsightsSheet listingType="meal" businessId={business.id} listing={insightsItem} onClose={() => setInsightsItem(null)} /> : null}
@@ -285,13 +355,14 @@ function RestaurantDashboard({ business, canManage = true, initialWorkspace = nu
   );
 }
 
-function RestaurantForm({ formId, form, setForm, onSubmit }) {
+function RestaurantForm({ formId, form, setForm, onSubmit, dayRules = null, limitNotice = null, onLimitNotice, onOpenPlans = null }) {
   useUiLocale();
   return (
     <form id={formId} onSubmit={onSubmit} className="grid gap-3 rounded-2xl bg-orange-50 p-4 sm:grid-cols-2">
       <Input label={t("urmall.biz.vert.mealName")} value={form.name} onChange={(value) => setForm({ ...form, name: value })} /><Input label={t("urmall.biz.cat.price")} type="number" value={form.price} onChange={(value) => setForm({ ...form, price: value })} />
       <Select label={t("urmall.biz.vert.mealPeriod")} value={form.meal_period} onChange={(value) => setForm({ ...form, meal_period: value })} options={["all_day", "breakfast", "lunch", "dinner", "drinks"]} labels={{ all_day: t("urmall.biz.vert.allDay"), breakfast: t("urmall.biz.vert.breakfast"), lunch: t("urmall.biz.vert.lunch"), dinner: t("urmall.biz.vert.dinner"), drinks: t("urmall.biz.vert.drinks") }} /><Input label={t("urmall.biz.vert.prepMinutes")} type="number" value={form.preparation_minutes} onChange={(value) => setForm({ ...form, preparation_minutes: value })} />
-      <AvailabilityField form={form} setForm={setForm} />
+      <AvailabilityField form={form} setForm={setForm} rules={dayRules} onLimitNotice={onLimitNotice} />
+      <PlanLimitNotice notice={limitNotice} limit={dayRules?.limit} onOpenPlans={onOpenPlans} />
       <TextArea label={t("urmall.detail.description")} value={form.description} onChange={(value) => setForm({ ...form, description: value })} />
       <VerticalMediaFields media={form} setMedia={setForm} accent="orange" noun="meal" />
       <PromoteToggleField form={form} setForm={setForm} />
@@ -299,14 +370,33 @@ function RestaurantForm({ formId, form, setForm, onSubmit }) {
   );
 }
 
-function AvailabilityField({ form, setForm }) {
+function AvailabilityField({ form, setForm, rules = null, onLimitNotice }) {
   useUiLocale();
   const everyday = form.available_everyday !== false;
   const selected = (form.available_days || []).map(Number);
+  const limit = rules?.limit ?? null;
+  const check = (days) => checkMealDays({ limit, newDays: days, oldDays: rules?.oldDays || [], otherDays: rules?.otherDays || [] });
+  const everydayLocked = limit !== null && !check([...ALL_WEEKDAYS]).allowed;
+  const usedDays = limit !== null ? check(everyday ? [...ALL_WEEKDAYS] : selected).restaurantDays : 0;
+  const toggleEveryday = () => {
+    if (!everyday) {
+      const result = check([...ALL_WEEKDAYS]);
+      if (!result.allowed) { onLimitNotice?.({ reason: result.reason }); return; }
+    }
+    onLimitNotice?.(null);
+    setForm({ ...form, available_everyday: !everyday });
+  };
   const toggleDay = (index) => {
     const set = new Set(selected);
-    if (set.has(index)) set.delete(index); else set.add(index);
-    setForm({ ...form, available_days: Array.from(set).sort((a, b) => a - b) });
+    const adding = !set.has(index);
+    if (adding) set.add(index); else set.delete(index);
+    const next = Array.from(set).sort((a, b) => a - b);
+    if (adding) {
+      const result = check(next);
+      if (!result.allowed) { onLimitNotice?.({ reason: result.reason }); return; }
+    }
+    onLimitNotice?.(null);
+    setForm({ ...form, available_days: next });
   };
   return (
     <div className="rounded-2xl border border-orange-100 bg-white p-3 sm:col-span-2">
@@ -314,18 +404,20 @@ function AvailabilityField({ form, setForm }) {
         <div className="min-w-0">
           <p className="text-[11px] font-black uppercase tracking-wide text-gray-500">{t("urmall.biz.vert.availability")}</p>
           <p className="mt-0.5 truncate text-sm font-black text-gray-900">{t("urmall.biz.vert.availableEveryday")}</p>
+          {everydayLocked && !everyday ? <p className="mt-0.5 flex items-center gap-1 text-[11px] font-bold text-amber-700"><Lock size={11} className="shrink-0" />{t("urmallPlans2026.mealDays.everydayNeedsUpgrade")}</p> : null}
         </div>
         <button
           type="button"
           role="switch"
           aria-checked={everyday}
           aria-label={t("urmall.biz.vert.availableEveryday")}
-          onClick={() => setForm({ ...form, available_everyday: !everyday })}
+          onClick={toggleEveryday}
           className={`relative h-7 w-12 shrink-0 rounded-full transition ${everyday ? "bg-orange-600" : "bg-gray-300"}`}
         >
           <span className={`absolute top-0.5 grid h-6 w-6 place-items-center rounded-full bg-white shadow transition-all ${everyday ? "left-[1.375rem]" : "left-0.5"}`} />
         </button>
       </div>
+      {limit !== null ? <p className="mt-2 text-[11px] font-bold text-gray-500">{t("urmallPlans2026.mealDays.usage", { used: usedDays, limit })}</p> : null}
       {!everyday ? (
         <div className="mt-3">
           <p className="text-xs font-black text-gray-600">{t("urmall.biz.vert.selectDays")}</p>
@@ -346,6 +438,32 @@ function AvailabilityField({ form, setForm }) {
             })}
           </div>
         </div>
+      ) : null}
+    </div>
+  );
+}
+
+// The plan limit explained inside the meal form, with the way to upgrade.
+function PlanLimitNotice({ notice, limit, onOpenPlans }) {
+  useUiLocale();
+  if (!notice) return null;
+  const dayLimit = notice.limit ?? limit ?? 5;
+  const text = notice.reason === "meal"
+    ? t("urmallPlans2026.mealDays.mealLimit", { limit: dayLimit })
+    : notice.reason === "restaurant"
+      ? t("urmallPlans2026.mealDays.restaurantLimit", { limit: dayLimit })
+      : t("urmallPlans2026.limits.listingsFull", {
+        plan: notice.planCode === "pro" ? "Pro" : notice.planCode === "premium" ? "Premium" : "Free",
+        limit: notice.limit ?? 0,
+        current: notice.current ?? 0,
+      });
+  return (
+    <div role="alert" className="rounded-2xl border border-amber-200 bg-amber-50 p-3 sm:col-span-2">
+      <p className="flex items-start gap-2 text-xs font-semibold leading-5 text-amber-900"><Lock size={14} className="mt-0.5 shrink-0" />{text}</p>
+      {onOpenPlans ? (
+        <button type="button" onClick={onOpenPlans} className="mt-2 inline-flex min-h-9 items-center rounded-xl bg-orange-600 px-3 text-xs font-black text-white">
+          {t("urmallPlans2026.mealDays.upgrade")}
+        </button>
       ) : null}
     </div>
   );

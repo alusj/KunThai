@@ -33,6 +33,7 @@ import { showToast } from "../../Backend/services/toastService";
 import { t as i18nText } from "../../i18n/index";
 import { uiText as translateUi, useI18n as useUiLocale } from "../../i18n/index.js";
 import AppPortal from "./AppPortal";
+import { translatePlanFeature } from "./planFeatureText";
 
 const PLAN_ICONS = { free: Sparkles, pro: Crown, premium: Gem };
 const PLAN_STYLES = {
@@ -150,7 +151,7 @@ function PlanCard({ plan, currentCode, currentInterval, pendingCode, pendingInte
         {plan.features.map((feature) => (
           <li key={feature} className="flex items-start gap-2 text-sm font-semibold leading-5 text-slate-700">
             <Check size={16} className="mt-0.5 shrink-0 text-emerald-600" />
-            <span>{feature}</span>
+            <span>{translatePlanFeature(feature)}</span>
           </li>
         ))}
       </ul>
@@ -242,6 +243,10 @@ export default function BusinessPlanScreen({ surface, entityId, entityName = "Yo
       { key: "admins", label: i18nText("ui.literals.k0b4b3550a31a"), icon: ShieldCheck },
     ];
   }, [state, surface, memoLocale]);
+  // Sellers above the limit (for example after Free moved to 5) keep every
+  // listing; say so plainly instead of only showing a full meter.
+  const productCapacity = state && surface === "urmall" ? getCapacityStatus(state, "products") : null;
+  const overProductLimit = Boolean(productCapacity && !productCapacity.unlimited && productCapacity.current > productCapacity.limit);
 
   async function confirmPlanChange() {
     if (!selectedPlan || busy) return;
@@ -420,6 +425,11 @@ export default function BusinessPlanScreen({ surface, entityId, entityName = "Yo
             return <UsageMeter key={row.key} label={translateUi(row.label)} current={capacity.current} limit={capacity.limit} icon={row.icon} />;
           })}
         </div>
+        {overProductLimit ? (
+          <p className="mt-3 rounded-2xl border border-amber-200 bg-amber-50 p-3 text-sm font-semibold leading-6 text-amber-900">
+            {i18nText("urmallPlans2026.limits.overLimit", { current: productCapacity.current, limit: productCapacity.limit })}
+          </p>
+        ) : null}
       </section>
 
       {subscription.planCode !== "free" ? (
