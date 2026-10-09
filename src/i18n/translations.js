@@ -3,6 +3,9 @@
 // vocabulary and are intentionally identical in every language.
 
 import { URRIDE } from "./urride";
+import { URRIDE_MAP_FIX2 } from "./urrideMapFix2";
+import { URMALL_PLANS_2026 } from "./urmallPlans2026";
+import { KAI_REGISTRATION_FIX } from "./kaiRegistrationFix";
 import { URMALL_VENDOR_GUIDE } from "./urmallVendorGuide";
 import { URRIDE_AREA_FIX } from "./urrideAreaFix";
 import { EXPLORE_SETTINGS_FIX } from "./exploreSettingsFix";
@@ -59235,6 +59238,24 @@ for (const [locale, section] of Object.entries(URMALL_VENDOR_GUIDE)) {
 for (const [locale, section] of Object.entries(URRIDE_AREA_FIX)) {
   if (TRANSLATIONS[locale]) {
     TRANSLATIONS[locale].urrideAreaFix = section;
+  }
+}
+
+for (const [locale, section] of Object.entries(URRIDE_MAP_FIX2)) {
+  if (TRANSLATIONS[locale]) {
+    TRANSLATIONS[locale].urrideMapFix2 = section;
+  }
+}
+
+for (const [locale, section] of Object.entries(URMALL_PLANS_2026)) {
+  if (TRANSLATIONS[locale]) {
+    TRANSLATIONS[locale].urmallPlans2026 = section;
+  }
+}
+
+for (const [locale, section] of Object.entries(KAI_REGISTRATION_FIX)) {
+  if (TRANSLATIONS[locale]) {
+    TRANSLATIONS[locale].kaiRegistrationFix = section;
   }
 }
 
