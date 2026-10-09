@@ -3,6 +3,7 @@ import { ArrowUpRight, Check, Crown, Gem, Sparkles, WalletCards } from "lucide-r
 import { getFallbackBusinessPlans } from "../../Backend/services/businessSubscriptionService";
 import { t as i18nText } from "../../i18n/index";
 import { useI18n as useUiLocale } from "../../i18n/index.js";
+import { translatePlanFeature } from "./planFeatureText";
 
 const TIER_META = {
   free: { icon: Sparkles, bestFor: "Getting started" },
@@ -86,7 +87,7 @@ export default function PlanStagesCard({ surface = "urmall", accent = "emerald" 
                 {plan.features.map((feature) => (
                   <li key={feature} className="flex items-start gap-1.5 text-xs font-semibold leading-5 text-slate-600">
                     <Check size={13} className={`mt-0.5 shrink-0 ${theme.check}`} />
-                    <span>{feature}</span>
+                    <span>{translatePlanFeature(feature)}</span>
                   </li>
                 ))}
               </ul>

@@ -855,12 +855,13 @@ export async function getAdminUserWorkspace(userId) {
       plan_code: "pro",
       plan_name: "Pro",
       plan_status: "active",
-      product_count: 42,
-      published_product_count: 37,
+      product_count: 28,
+      published_product_count: 24,
+      plan_listing_count: 24,
       order_count: 196,
       content_count: 8,
       admin_count: 1,
-      product_limit: 50,
+      product_limit: 30,
       admin_limit: 1,
     }] : [];
     const companies = user.account_type === "operator" ? [{
@@ -901,7 +902,7 @@ export async function getAdminUserWorkspace(userId) {
     }] : [];
     const adminRoles = user.user_id === "user-3" ? [{ id: "preview-role-support", role_key: "support_officer", name: "Support Officer", sector_scopes: ["support", "platform"], authority_level: 2, status: "active" }] : [];
     const subscriptions = [
-      ...businesses.map((business) => ({ id: `preview-sub-${business.id}`, surface: "urmall", entity_name: business.business_name, plan_code: business.plan_code, plan_name: business.plan_name, status: business.plan_status, current_period_end: new Date(Date.now() + 24 * 19 * 60 * 60 * 1000).toISOString(), auto_renew: true, limits: { product_limit: business.product_limit, admin_limit: business.admin_limit }, usage: { product_count: business.product_count } })),
+      ...businesses.map((business) => ({ id: `preview-sub-${business.id}`, surface: "urmall", entity_name: business.business_name, plan_code: business.plan_code, plan_name: business.plan_name, status: business.plan_status, current_period_end: new Date(Date.now() + 24 * 19 * 60 * 60 * 1000).toISOString(), auto_renew: true, limits: { product_limit: business.product_limit, admin_limit: business.admin_limit }, usage: { product_count: business.product_count, plan_listing_count: business.plan_listing_count } })),
       ...companies.map((company) => ({ id: `preview-sub-${company.id}`, surface: "urride", entity_name: company.company_name, plan_code: company.plan_code, plan_name: company.plan_name, status: company.plan_status, current_period_end: new Date(Date.now() + 24 * 26 * 60 * 60 * 1000).toISOString(), auto_renew: true, limits: { vehicle_limit: company.vehicle_limit, operator_limit: company.operator_limit }, usage: { fleet_count: company.fleet_count, operator_count: company.operator_count } })),
     ];
     const summary = { content_count: content.length, case_count: cases.length, open_case_count: cases.filter((item) => !["resolved", "closed"].includes(item.status)).length, account_count: 1 + businesses.length + companies.length + operators.length, business_count: businesses.length, company_count: companies.length, operator_count: operators.length, fleet_count: companies.reduce((total, company) => total + company.fleet_count, 0) + operators.reduce((total, operator) => total + operator.fleet_count, 0), rental_count: companies.reduce((total, company) => total + company.rental_fleet_count, 0), product_count: businesses.reduce((total, business) => total + business.product_count, 0), subscription_count: subscriptions.length, admin_role_count: adminRoles.length };

@@ -19,11 +19,12 @@ const FALLBACK_PLANS = Object.freeze({
       creditCost: 0,
       durationDays: 30,
       graceDays: 7,
-      productLimit: 10,
+      productLimit: 5,
+      mealDayLimit: 5,
       operatorLimit: null,
       vehicleLimit: null,
       adminLimit: 0,
-      features: ["10 active products", "Seller dashboard", "Customer messages", "Store analytics"],
+      features: ["5 active products, meals or properties", "Restaurant meals on up to 5 days a week", "Seller dashboard", "Customer messages", "Store analytics"],
       sortOrder: 1,
     },
     {
@@ -35,27 +36,29 @@ const FALLBACK_PLANS = Object.freeze({
       yearlyDurationDays: 365,
       durationDays: 30,
       graceDays: 7,
-      productLimit: 50,
+      productLimit: 30,
+      mealDayLimit: null,
       operatorLimit: null,
       vehicleLimit: null,
       adminLimit: 1,
-      features: ["50 active products", "1 business admin", "Advanced product insights", "Priority store tools"],
+      features: ["Up to 30 active products, meals or properties", "Restaurant meals all 7 days", "1 business admin", "Advanced product insights", "Priority store tools"],
       sortOrder: 2,
     },
     {
       surface: "urmall",
       planCode: "premium",
       displayName: "Premium",
-      creditCost: 75,
-      yearlyCreditCost: 750,
+      creditCost: 100,
+      yearlyCreditCost: 1000,
       yearlyDurationDays: 365,
       durationDays: 30,
       graceDays: 7,
       productLimit: null,
+      mealDayLimit: null,
       operatorLimit: null,
       vehicleLimit: null,
       adminLimit: 5,
-      features: ["Unlimited active products", "Up to 5 business admins", "Full business insights", "Premium store tools"],
+      features: ["Unlimited active products, meals or properties", "Restaurant meals all 7 days", "Up to 5 business admins", "Full business insights", "Premium store tools"],
       sortOrder: 3,
     },
   ],
@@ -123,6 +126,7 @@ const RESOURCE_CONFIG = Object.freeze({
   operators: { limitKey: "operatorLimit", label: "company operators" },
   vehicles: { limitKey: "vehicleLimit", label: "registered vehicles" },
   admins: { limitKey: "adminLimit", label: "business administrators" },
+  meal_days: { limitKey: "mealDayLimit", label: "meal days a week" },
 });
 
 function numberOrNull(value) {
@@ -146,6 +150,7 @@ function normalizePlan(plan = {}, fallbackSurface = "urmall") {
     durationDays: Number(plan.duration_days ?? plan.durationDays ?? 30),
     graceDays: Number(plan.grace_days ?? plan.graceDays ?? 7),
     productLimit: numberOrNull(plan.product_limit ?? plan.productLimit),
+    mealDayLimit: numberOrNull(plan.meal_day_limit ?? plan.mealDayLimit),
     operatorLimit: numberOrNull(plan.operator_limit ?? plan.operatorLimit),
     vehicleLimit: numberOrNull(plan.vehicle_limit ?? plan.vehicleLimit),
     adminLimit: numberOrNull(plan.admin_limit ?? plan.adminLimit),
@@ -212,6 +217,11 @@ export function normalizeBusinessSubscriptionState(raw = {}, surface = "urmall",
   const freePlan = plans.find((plan) => plan.planCode === "free") || fallbackPlans[0] || {};
   const subscription = normalizeSubscription(raw.subscription);
   const entitlement = normalizeEntitlement(raw.entitlement, plans.find((plan) => plan.planCode === subscription.planCode) || freePlan);
+  // Restaurants: the weekday limit of the plan actually in force (an expired
+  // paid plan is entitled to Free). Null means all 7 days.
+  entitlement.mealDayLimit = normalizedSurface === "urmall"
+    ? numberOrNull(raw.entitlement?.meal_day_limit ?? plans.find((plan) => plan.planCode === entitlement.planCode)?.mealDayLimit)
+    : null;
   const usage = {
     products: Number(raw.usage?.products || 0),
     operators: Number(raw.usage?.operators || 0),
@@ -318,6 +328,14 @@ export async function buyOperatorCapacityPack(companyId) {
   });
   notifyBusinessPlanUpdated("urride", companyId);
   return normalizeBusinessSubscriptionState(data, "urride", companyId);
+}
+
+// The weekday limit for restaurant meals, or null when every day is allowed
+// or the plan service is not installed yet (never invent a quota then).
+export function getMealDayLimit(state) {
+  if (!state || state.available === false) return null;
+  const limit = numberOrNull(state.entitlement?.mealDayLimit);
+  return limit !== null && limit < 7 ? limit : null;
 }
 
 export function getCapacityStatus(state, resource, additional = 0) {
