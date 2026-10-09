@@ -9,8 +9,6 @@ import {
 } from "react-icons/hi2";
 
 import {
-  APPLICATION_STATUS_LABELS,
-  APPLICATION_TYPE_LABELS,
   discardDraftApplication,
   fetchApplicationDetail,
   fetchMyApplications,
@@ -22,6 +20,8 @@ import SocialScreenHeader from "../shared/SocialScreenHeader";
 import JoinApplicationForm from "./JoinApplicationForm";
 import JoinApplicationTracker from "./JoinApplicationTracker";
 import { JOIN_PATHS } from "./joinNotices";
+import { joinStatusLabel, joinTypeLabel } from "./joinLabels";
+import { clearLocalDraft } from "./joinDraftStorage";
 import { t as i18nText } from "../../../../i18n/index";
 import { uiText as translateUi, useI18n as useUiLocale } from "../../../../i18n/index.js";
 import { inlineErrorMessage } from "../../../../Backend/services/friendlyErrorService";
@@ -77,10 +77,10 @@ function ApplicationRow({ application, onOpen }) {
       </span>
       <div className="min-w-0 flex-1">
         <p className="truncate text-sm font-black text-slate-950">
-          {application.reference || i18nText("ui.literals.k99515105d8e9", { value0: APPLICATION_TYPE_LABELS[application.applicationType] })}
+          {application.reference || i18nText("ui.literals.k99515105d8e9", { value0: joinTypeLabel(application.applicationType) })}
         </p>
         <p className="mt-0.5 truncate text-xs font-bold text-slate-500">
-          {application.headline || APPLICATION_TYPE_LABELS[application.applicationType]}
+          {application.headline || joinTypeLabel(application.applicationType)}
         </p>
       </div>
       {application.applicantUnreadCount ? (
@@ -89,7 +89,7 @@ function ApplicationRow({ application, onOpen }) {
         </span>
       ) : null}
       <span className={`flex-none rounded-full px-3 py-1 text-[11px] font-black ${statusTone(application.status)}`}>
-        {APPLICATION_STATUS_LABELS[application.status] || application.status}
+        {joinStatusLabel(application.status)}
       </span>
     </button>
   );
@@ -168,8 +168,10 @@ export default function JoinKunThaiScreen({ hideHeader = false }) {
 
   async function discardDraft() {
     if (!detail?.application?.id) return;
+    if (!window.confirm(i18nText("exploreMessagesFix.joinDiscardConfirm"))) return;
     try {
       await discardDraftApplication(detail.application.id);
+      clearLocalDraft(detail.application.userId, detail.application.id);
       backToHub();
     } catch (discardError) {
       setError(inlineErrorMessage(discardError, i18nText("ui.literals.k6904e8b0e8c1")));

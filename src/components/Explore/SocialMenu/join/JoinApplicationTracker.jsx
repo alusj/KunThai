@@ -8,8 +8,6 @@ import {
 
 import {
   APPLICATION_STATUS_FLOW,
-  APPLICATION_STATUS_LABELS,
-  APPLICATION_TYPE_LABELS,
   markApplicationRead,
   postApplicationMessage,
   submitAssessmentResponse,
@@ -18,6 +16,7 @@ import {
 import { showToast } from "../../../../Backend/services/toastService";
 
 import { describeAnswer, visibleQuestions, visibleSections } from "./questionEngine";
+import { joinStatusLabel, joinTypeLabel } from "./joinLabels";
 import { t as i18nText } from "../../../../i18n/index";
 import { uiText as translateUi, useI18n as useUiLocale } from "../../../../i18n/index.js";
 import { inlineErrorMessage } from "../../../../Backend/services/friendlyErrorService";
@@ -52,7 +51,7 @@ function StatusTimeline({ application, history }) {
                 : "bg-amber-50 text-amber-900"
           }`}
         >
-          {APPLICATION_STATUS_LABELS[application.status]}
+          {joinStatusLabel(application.status)}
           {application.decisionReason ? ` — ${application.decisionReason}` : ""}
         </div>
       ) : null}
@@ -72,7 +71,7 @@ function StatusTimeline({ application, history }) {
               </span>
               <div className="min-w-0">
                 <p className={`text-sm font-black ${active ? "text-sky-800" : done ? "text-slate-800" : "text-slate-400"}`}>
-                  {APPLICATION_STATUS_LABELS[status]}
+                  {joinStatusLabel(status)}
                 </p>
                 {active ? <p className="text-xs font-bold text-slate-500">{i18nText("ui.literals.kfff0b529acac")}</p> : null}
               </div>
@@ -87,7 +86,7 @@ function StatusTimeline({ application, history }) {
           <ul className="mt-2 space-y-2">
             {[...history].reverse().map((event) => (
               <li key={event.id} className="text-xs font-bold leading-5 text-slate-500">
-                {formatDateTime(event.createdAt)} — {APPLICATION_STATUS_LABELS[event.toStatus] || event.toStatus}
+                {formatDateTime(event.createdAt)} — {joinStatusLabel(event.toStatus)}
                 {event.reason ? `: ${event.reason}` : ""}
               </li>
             ))}
@@ -310,6 +309,7 @@ export default function JoinApplicationTracker({ catalogue, detail, onBack, onDe
   const openAssessments = detail.assessments.filter((item) => item.status !== "cancelled");
 
   async function withdraw() {
+    if (!window.confirm(i18nText("exploreMessagesFix.joinWithdrawConfirm"))) return;
     setError("");
     setWithdrawing(true);
     try {
@@ -329,7 +329,7 @@ export default function JoinApplicationTracker({ catalogue, detail, onBack, onDe
         <div className="flex items-start justify-between gap-3">
           <div className="min-w-0">
             <p className="text-xs font-black uppercase tracking-[0.18em] text-sky-700">
-              {APPLICATION_TYPE_LABELS[application.applicationType]} {i18nText("ui.literals.kd2005cc206cc")}
+              {joinTypeLabel(application.applicationType)} {i18nText("ui.literals.kd2005cc206cc")}
             </p>
             <h2 className="mt-1 text-2xl font-black text-slate-950">{application.reference || i18nText("ui.literals.k23d33e22acfc")}</h2>
             {application.headline ? <p className="mt-1 text-sm font-bold text-slate-600">{application.headline}</p> : null}

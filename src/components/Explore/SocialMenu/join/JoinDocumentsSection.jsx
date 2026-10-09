@@ -70,10 +70,29 @@ export default function JoinDocumentsSection({ applicationId, documents = [], re
     }
   }
 
+  // The window opens synchronously inside the tap (so it is not treated as
+  // a popup), then points at the signed link once it arrives.
   async function open(document) {
+    setError("");
+    const opened = window.open("", "_blank");
+    if (opened) {
+      try {
+        opened.opener = null;
+        opened.document.title = i18nText("exploreMessagesFix.joinOpeningDocument");
+        opened.document.body.textContent = i18nText("exploreMessagesFix.joinOpeningDocument");
+      } catch {
+        // Some browsers do not allow writing to the new window; it still loads.
+      }
+    }
     const url = await createApplicationDocumentUrl(document.storagePath);
-    if (url) window.open(url, "_blank", "noopener,noreferrer");
-    else setError(i18nText("ui.literals.k03533e3a4c4a"));
+    if (url && opened && !opened.closed) {
+      opened.location.href = url;
+    } else if (url) {
+      window.location.assign(url);
+    } else {
+      opened?.close();
+      setError(i18nText("ui.literals.k03533e3a4c4a"));
+    }
   }
 
   return (
