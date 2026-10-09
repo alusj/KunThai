@@ -19,7 +19,7 @@ const settings = [
   { key: "messages", labelKey: "settingMessages", detailKey: "settingMessagesDetail", icon: MessageCircle },
   { key: "followedPosts", labelKey: "settingFollowedPosts", detailKey: "settingFollowedPostsDetail", icon: HiOutlineRectangleStack },
   { key: "milestones", labelKey: "settingMilestones", detailKey: "settingMilestonesDetail", icon: HiOutlineFire },
-  { key: "safetyAlerts", labelKey: "settingSafety", detailKey: "settingSafetyDetail", icon: HiOutlineBellAlert },
+  { key: "safetyAlerts", labelKey: "exploreSettingsFix.notifReportsLabel", detailKey: "exploreSettingsFix.notifReportsDetail", icon: HiOutlineBellAlert },
 ];
 
 export default function NotificationSettings({ values, onToggle }) {
@@ -45,8 +45,8 @@ export default function NotificationSettings({ values, onToggle }) {
                 <Icon />
               </span>
               <span className="min-w-0">
-                <span className="block truncate text-sm font-black">{t(`notifications.${item.labelKey}`)}</span>
-                <span className="block truncate text-[11px] font-semibold text-slate-500">{t(`notifications.${item.detailKey}`)}</span>
+                <span className="block truncate text-sm font-black">{t(item.labelKey.includes(".") ? item.labelKey : `notifications.${item.labelKey}`)}</span>
+                <span className="block truncate text-[11px] font-semibold text-slate-500">{t(item.detailKey.includes(".") ? item.detailKey : `notifications.${item.detailKey}`)}</span>
                 <span className={`block text-[11px] font-black uppercase tracking-[0.14em] ${active ? "text-sky-600" : "text-slate-400"}`}>
                   {active ? t("notifications.on") : t("notifications.off")}
                 </span>

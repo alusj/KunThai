@@ -8,6 +8,7 @@ import {
   normalizeBlockedIdentityValues,
 } from "./safetyIdentityUtils.js";
 import { apiUrl } from "../../lib/apiUrl.js";
+import { claimExploreAccountCache, hasOwnedCacheValue } from "./accountCache.js";
 
 export { normalizeBlockedIdentityValues } from "./safetyIdentityUtils.js";
 
@@ -19,7 +20,10 @@ export const PRIVACY_SETTINGS_EVENT = "kuntai-explore-privacy-settings-updated";
 
 const DEFAULT_PRIVACY_SETTINGS = {
   defaultPostPrivacy: "public",
-  allowMessages: "followers",
+  // "everyone" | "followers" (shown as Connections) | "none". An account that
+  // never chose keeps an open inbox where strangers arrive as requests; the
+  // server applies the same default (migration 20261009100000).
+  allowMessages: "everyone",
   showActivity: true,
   allowMentions: true,
   filterSensitiveContent: true,
@@ -69,6 +73,7 @@ export function writeBlockedUsers(value) {
 export async function fetchBlockedUsers() {
   const userId = await getCurrentUserId();
   if (!userId) return readBlockedUsers();
+  claimExploreAccountCache(userId);
 
   const { data, error } = await supabase
     .from("explore_user_blocks")
@@ -342,16 +347,39 @@ export function readPrivacySettings() {
 
 export function writePrivacySettings(settings) {
   const next = { ...DEFAULT_PRIVACY_SETTINGS, ...settings };
-  localStorage.setItem(PRIVACY_SETTINGS_KEY, JSON.stringify(next));
+  try {
+    localStorage.setItem(PRIVACY_SETTINGS_KEY, JSON.stringify(next));
+  } catch {
+    // Storage can be blocked in private browsers; the event still updates screens.
+  }
   if (typeof window !== "undefined") {
     window.dispatchEvent(new CustomEvent(PRIVACY_SETTINGS_EVENT, { detail: next }));
   }
   return next;
 }
 
+async function savePrivacySettingsToServer(settings, userId) {
+  const { error } = await supabase.from(PRIVACY_TABLE).upsert(
+    {
+      user_id: userId,
+      settings,
+      updated_at: new Date().toISOString(),
+    },
+    { onConflict: "user_id" },
+  );
+
+  if (error && !isMissingTable(error)) {
+    throw error;
+  }
+}
+
+// Loads the account's privacy settings. Another account's values left on this
+// device are never returned (the cache is claimed per account first); when the
+// account has nothing saved yet, this account's own device values are pushed up.
 export async function fetchPrivacySettings() {
-  const localSettings = readPrivacySettings();
   const userId = await getCurrentUserId();
+  if (userId) claimExploreAccountCache(userId);
+  const localSettings = readPrivacySettings();
 
   if (!userId) {
     return localSettings;
@@ -370,30 +398,27 @@ export async function fetchPrivacySettings() {
     throw error;
   }
 
-  return data?.settings ? writePrivacySettings(data.settings) : localSettings;
+  if (data?.settings && typeof data.settings === "object") {
+    return writePrivacySettings(data.settings);
+  }
+  if (hasOwnedCacheValue(PRIVACY_SETTINGS_KEY, userId)) {
+    await savePrivacySettingsToServer(localSettings, userId).catch(() => {});
+  }
+  return localSettings;
 }
 
-export async function updatePrivacySettings(settings) {
-  const next = writePrivacySettings(settings);
+// Merges patch onto the LATEST stored privacy settings (never a screen's stale
+// copy), keeps it on this device, then saves it to the account. Throws when
+// the server save failed; the device keeps the change either way.
+export async function updatePrivacySettings(patch) {
+  const next = writePrivacySettings({ ...readPrivacySettings(), ...(patch || {}) });
   const userId = await getCurrentUserId();
 
   if (!userId) {
     return next;
   }
 
-  const { error } = await supabase.from(PRIVACY_TABLE).upsert(
-    {
-      user_id: userId,
-      settings: next,
-      updated_at: new Date().toISOString(),
-    },
-    { onConflict: "user_id" },
-  );
-
-  if (error && !isMissingTable(error)) {
-    throw error;
-  }
-
+  await savePrivacySettingsToServer(next, userId);
   return next;
 }
 

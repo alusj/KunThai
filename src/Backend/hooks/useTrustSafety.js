@@ -8,11 +8,14 @@ import {
   fetchBlockedUsers,
   readBlockedUsers,
   fetchPrivacySettings,
+  PRIVACY_SETTINGS_EVENT,
   readPrivacySettings,
   unblockExploreIdentity,
   updatePrivacySettings as syncPrivacySettings,
 } from "../services/explore/safetyService";
-import { readExploreSettings, updateExploreSettings } from "../services/explore/preferencesService";
+import { updateExploreSettings } from "../services/explore/preferencesService";
+import { EXPLORE_ACCOUNT_CACHE_RESET_EVENT } from "../services/explore/accountCache.js";
+import { t as i18nText } from "../../i18n/index";
 import { hideCurrentExploreMessageActivity } from "../services/explore/messageService";
 import { showToast } from "../services/toastService";
 
@@ -29,6 +32,27 @@ export function useTrustSafety() {
   useEffect(() => {
     privacySettingsRef.current = privacySettings;
   }, [privacySettings]);
+
+  // Stay in sync with every other screen, tab and account change.
+  useEffect(() => {
+    const onPrivacy = (event) => setPrivacySettings(event?.detail ? { ...readPrivacySettings(), ...event.detail } : readPrivacySettings());
+    const onStorage = (event) => {
+      if (!event.key || event.key === "explore-privacy-settings") setPrivacySettings(readPrivacySettings());
+      if (!event.key || event.key === "explore-blocked-users") setBlockedUsers(readBlockedUsers());
+    };
+    const onReset = () => {
+      setPrivacySettings(readPrivacySettings());
+      setBlockedUsers(readBlockedUsers());
+    };
+    window.addEventListener(PRIVACY_SETTINGS_EVENT, onPrivacy);
+    window.addEventListener("storage", onStorage);
+    window.addEventListener(EXPLORE_ACCOUNT_CACHE_RESET_EVENT, onReset);
+    return () => {
+      window.removeEventListener(PRIVACY_SETTINGS_EVENT, onPrivacy);
+      window.removeEventListener("storage", onStorage);
+      window.removeEventListener(EXPLORE_ACCOUNT_CACHE_RESET_EVENT, onReset);
+    };
+  }, []);
 
   useEffect(() => {
     let active = true;
@@ -104,23 +128,23 @@ export function useTrustSafety() {
   async function updatePrivacySettings(patch) {
     const keys = Object.keys(patch || {});
     if (!keys.length) return;
-    const optimistic = { ...privacySettingsRef.current, ...patch };
+    // Merge onto the latest stored values, not this screen's possibly stale copy.
+    const optimistic = { ...readPrivacySettings(), ...patch };
     privacySettingsRef.current = optimistic;
     setPrivacySettings(optimistic);
     setUpdatingSettings((current) => new Set([...current, ...keys]));
 
     try {
-      const exploreSettings = readExploreSettings();
       const behaviorPatch = {};
       if (Object.hasOwn(patch, "showActivity")) {
-        behaviorPatch.messages = { ...exploreSettings.messages, showActiveStatus: Boolean(patch.showActivity) };
+        behaviorPatch.messages = { showActiveStatus: Boolean(patch.showActivity) };
       }
       if (Object.hasOwn(patch, "filterSensitiveContent")) {
-        behaviorPatch.feed = { ...exploreSettings.feed, showSensitiveWarnings: Boolean(patch.filterSensitiveContent) };
+        behaviorPatch.feed = { showSensitiveWarnings: Boolean(patch.filterSensitiveContent) };
       }
 
       const [next] = await Promise.all([
-        syncPrivacySettings(optimistic),
+        syncPrivacySettings(patch),
         Object.keys(behaviorPatch).length ? updateExploreSettings(behaviorPatch) : Promise.resolve(),
         patch.showActivity === false ? hideCurrentExploreMessageActivity() : Promise.resolve(),
       ]);
@@ -129,7 +153,7 @@ export function useTrustSafety() {
       setFeedback("Privacy settings updated.");
       showToast("Privacy settings updated.", "success");
     } catch (error) {
-      setFeedback(inlineErrorMessage(error, "Privacy settings saved on this device."));
+      setFeedback(i18nText("exploreSettingsFix.settingsSyncFailed"));
       showToast(shortErrorToast(error, "Saved, sync pending"), "warning");
     } finally {
       setUpdatingSettings((current) => {

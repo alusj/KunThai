@@ -1,5 +1,6 @@
 import supabase from "../lib/supabaseClient";
 import { clearExploreMessageCache } from "./explore/messageService";
+import { claimExploreAccountCache, clearExploreAccountCache } from "./explore/accountCache.js";
 
 const SOCIAL_CACHE_KEYS = [
   "explore-liked-posts",
@@ -213,20 +214,18 @@ export function clearTransientSessionNavigation() {
 
 export async function signOutSocialSession({ allDevices = false } = {}) {
   // Signing out is an explicit end of this account's device access, so its
-  // vaulted switch tokens must go too.
+  // vaulted switch tokens must go too. "Everywhere" only revokes THIS
+  // account's sessions, so other accounts saved on this device stay ready.
   try {
     const { data } = await supabase.auth.getSession();
-    if (allDevices) {
-      writeSessionVault({});
-    } else {
-      purgeVaultedSession(data?.session?.user?.id);
-    }
+    purgeVaultedSession(data?.session?.user?.id);
   } catch {
     // Vault cleanup is best-effort; sign-out must still proceed.
   }
 
   clearExploreMessageCache();
   clearSocialSessionCache();
+  clearExploreAccountCache();
   clearTransientSessionNavigation();
   // Default sign-out only ends this device's session; other devices stay
   // signed in unless the user explicitly signs out everywhere.
@@ -235,6 +234,25 @@ export async function signOutSocialSession({ allDevices = false } = {}) {
   if (error) {
     throw error;
   }
+}
+
+// Ends this account's sessions on every other device; this one stays signed in.
+export async function signOutOtherDevices() {
+  const { error } = await supabase.auth.signOut({ scope: "others" });
+  if (error) throw error;
+}
+
+// Forgets a saved account on this device (list entry and its switch tokens).
+export function removeRememberedSocialAccount(accountId) {
+  if (!accountId || typeof localStorage === "undefined") return getRememberedSocialAccounts();
+  purgeVaultedSession(accountId);
+  const next = getRememberedSocialAccounts().filter((account) => account.id !== accountId);
+  try {
+    localStorage.setItem(ACCOUNT_HISTORY_KEY, JSON.stringify(next));
+  } catch {
+    // Storage can be blocked in private browsers.
+  }
+  return next;
 }
 
 export async function switchSocialAccount() {
@@ -251,6 +269,7 @@ export async function switchToRememberedSocialAccount(account = {}) {
   if (stored) {
     clearExploreMessageCache();
     clearSocialSessionCache();
+    clearExploreAccountCache();
     clearTransientSessionNavigation();
 
     // Do NOT sign the current account out here: local sign-out revokes its
@@ -283,4 +302,44 @@ export async function switchToRememberedSocialAccount(account = {}) {
 
   await signOutSocialSession();
   return { switched: false };
+}
+
+// --- Per-account Explore settings ---------------------------------------------
+// On every sign-in (and app start with a session) the settings, privacy and
+// blocked-account caches are claimed for that account, so a previous account's
+// values never show; then the account's saved values are loaded (or this
+// device's values for the same account are pushed up when it has none).
+let hydratedExploreUserId = "";
+
+function hydrateExploreAccount(userId) {
+  if (!userId || hydratedExploreUserId === userId) return;
+  hydratedExploreUserId = userId;
+  Promise.all([
+    import("./explore/preferencesService"),
+    import("./explore/safetyService"),
+  ])
+    .then(([preferences, safety]) => Promise.allSettled([
+      preferences.fetchExploreSettings(),
+      safety.fetchPrivacySettings(),
+      safety.fetchBlockedUsers(),
+    ]))
+    .catch(() => {
+      hydratedExploreUserId = "";
+    });
+}
+
+if (typeof window !== "undefined" && supabase?.auth?.onAuthStateChange) {
+  // Synchronous work only inside the callback: supabase-js holds its auth lock
+  // while notifying, so network calls are deferred to the next task.
+  supabase.auth.onAuthStateChange((event, session) => {
+    const userId = session?.user?.id || "";
+    if (event === "SIGNED_OUT") {
+      hydratedExploreUserId = "";
+      clearExploreAccountCache();
+      return;
+    }
+    if (!userId || !["INITIAL_SESSION", "SIGNED_IN"].includes(event)) return;
+    claimExploreAccountCache(userId);
+    window.setTimeout(() => hydrateExploreAccount(userId), 0);
+  });
 }

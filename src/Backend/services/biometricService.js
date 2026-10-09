@@ -1,5 +1,14 @@
 const BIOMETRIC_KEY_PREFIX = "kuntai.biometric.";
 
+// With biometric unlock on, KunThai asks again on launch and when it comes
+// back after more than a minute in the background.
+export const BIOMETRIC_RELOCK_AFTER_MS = 60 * 1000;
+
+export function shouldRelockAfterBackground(hiddenAt, now = Date.now(), thresholdMs = BIOMETRIC_RELOCK_AFTER_MS) {
+  const since = Number(hiddenAt) || 0;
+  return since > 0 && now - since > thresholdMs;
+}
+
 function getStorageKey(userId = "") {
   return `${BIOMETRIC_KEY_PREFIX}${String(userId || "guest")}`;
 }
