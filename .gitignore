@@ -79,3 +79,10 @@ signing-key-info.txt
 
 # Local secrets: never commit
 password.txt
+
+# Native push config files: each owner adds their own locally (never commit)
+google-services.json
+GoogleService-Info.plist
+*.p8
+*firebase-adminsdk*.json
+*service-account*.json

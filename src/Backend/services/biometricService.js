@@ -1,3 +1,12 @@
+import { Capacitor } from "@capacitor/core";
+
+
+// Biometric unlock. In the iOS / Android app (bundled, served from
+// capacitor://localhost, where WebAuthn can never work) it uses the system
+// Face ID / Touch ID / fingerprint prompt through
+// @aparajita/capacitor-biometric-auth. In a browser it keeps using a WebAuthn
+// platform credential. The exported functions are the same on both.
+
 const BIOMETRIC_KEY_PREFIX = "kuntai.biometric.";
 
 // With biometric unlock on, KunThai asks again on launch and when it comes
@@ -39,6 +48,87 @@ function getWebAuthnError(error, fallback) {
   return error?.message || fallback;
 }
 
+function isNativeApp() {
+  try {
+    return Capacitor.isNativePlatform();
+  } catch {
+    return false;
+  }
+}
+
+// The plugin and the translations load only in the app (the first time a
+// native function runs), which also keeps this module importable by tests.
+let i18nText = (key) => key;
+let nativePluginPromise = null;
+function loadNativeBiometricPlugin() {
+  nativePluginPromise ??= Promise.all([
+    import("@aparajita/capacitor-biometric-auth").then((module) => module.BiometricAuth || null).catch(() => null),
+    import("../../i18n/index.js").then((module) => {
+      i18nText = module.t;
+    }).catch(() => {}),
+  ]).then(([plugin]) => plugin);
+  return nativePluginPromise;
+}
+
+const NATIVE_CANCEL_CODES = new Set(["userCancel", "appCancel", "systemCancel", "userFallback"]);
+
+function nativeErrorMessage(error, fallbackKey = "exploreNativeFix.biometricFailed") {
+  const code = String(error?.code || "");
+  if (NATIVE_CANCEL_CODES.has(code)) return i18nText("exploreNativeFix.biometricCancelled");
+  if (code === "biometryLockout") return i18nText("exploreNativeFix.biometricLockedOut");
+  if (code === "biometryNotEnrolled" || code === "passcodeNotSet" || code === "noDeviceCredential") {
+    return i18nText("exploreNativeFix.biometricNotEnrolled");
+  }
+  if (code === "biometryNotAvailable") return i18nText("exploreNativeFix.biometricUnavailable");
+  return i18nText(fallbackKey);
+}
+
+async function getNativeAvailability() {
+  const plugin = await loadNativeBiometricPlugin();
+  if (!plugin) return { available: false, reason: i18nText("exploreNativeFix.biometricCheckFailed") };
+  try {
+    const result = await plugin.checkBiometry();
+    if (result?.isAvailable) return { available: true, reason: "" };
+    const code = String(result?.code || "");
+    return {
+      available: false,
+      reason: code === "biometryNotEnrolled" || code === "passcodeNotSet"
+        ? i18nText("exploreNativeFix.biometricNotEnrolled")
+        : i18nText("exploreNativeFix.biometricUnavailable"),
+    };
+  } catch {
+    return { available: false, reason: i18nText("exploreNativeFix.biometricCheckFailed") };
+  }
+}
+
+// Shows the system prompt. Device passcode is allowed as a fallback so a
+// lockout never strands someone behind the KunThai lock screen.
+async function authenticateNative(reasonKey) {
+  const plugin = await loadNativeBiometricPlugin();
+  if (!plugin) throw new Error(i18nText("exploreNativeFix.biometricCheckFailed"));
+  try {
+    await plugin.authenticate({
+      reason: i18nText(reasonKey),
+      cancelTitle: i18nText("exploreNativeFix.biometricCancel"),
+      allowDeviceCredential: true,
+      iosFallbackTitle: i18nText("exploreNativeFix.biometricUsePasscode"),
+      androidTitle: i18nText("exploreNativeFix.biometricReason"),
+      androidSubtitle: i18nText("exploreNativeFix.biometricAndroidSubtitle"),
+      androidConfirmationRequired: false,
+    });
+  } catch (error) {
+    throw new Error(nativeErrorMessage(error));
+  }
+}
+
+function savePreference(userId, preference) {
+  try {
+    window.localStorage.setItem(getStorageKey(userId), JSON.stringify(preference));
+  } catch {
+    // Storage unavailable: the lock still works for this session.
+  }
+}
+
 export function readBiometricPreference(userId = "") {
   if (typeof window === "undefined" || !userId) return { enabled: false };
   try {
@@ -50,6 +140,7 @@ export function readBiometricPreference(userId = "") {
 }
 
 export async function getBiometricAvailability() {
+  if (isNativeApp()) return getNativeAvailability();
   if (typeof window === "undefined" || !window.isSecureContext) {
     return { available: false, reason: "Biometrics require a secure connection." };
   }
@@ -73,6 +164,18 @@ export async function enableBiometricUnlock({ displayName = "KunThai user", user
   if (!userId) throw new Error("Sign in before enabling biometric unlock.");
   const availability = await getBiometricAvailability();
   if (!availability.available) throw new Error(availability.reason);
+
+  if (isNativeApp()) {
+    await authenticateNative("exploreNativeFix.biometricEnableReason");
+    const preference = {
+      enabled: true,
+      enrolledAt: new Date().toISOString(),
+      lastVerifiedAt: new Date().toISOString(),
+      method: "native",
+    };
+    savePreference(userId, preference);
+    return preference;
+  }
 
   try {
     const credential = await window.navigator.credentials.create({
@@ -114,6 +217,13 @@ export async function enableBiometricUnlock({ displayName = "KunThai user", user
 
 export async function verifyBiometricUnlock(userId = "") {
   const preference = readBiometricPreference(userId);
+  if (isNativeApp()) {
+    if (!preference.enabled) throw new Error("Biometric unlock is not enabled on this device.");
+    await authenticateNative("exploreNativeFix.biometricReason");
+    const next = { ...preference, lastVerifiedAt: new Date().toISOString() };
+    savePreference(userId, next);
+    return next;
+  }
   if (!preference.enabled || !preference.credentialId) {
     throw new Error("Biometric unlock is not enabled on this device.");
   }

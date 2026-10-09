@@ -39,6 +39,8 @@
 	<string>$(CURRENT_PROJECT_VERSION)</string>
 	<key>LSRequiresIPhoneOS</key>
 	<true/>
+	<key>NSFaceIDUsageDescription</key>
+	<string>KunThai uses Face ID to unlock the app when you turn on Biometric unlock in Security.</string>
 	<key>NSCameraUsageDescription</key>
 	<string>KunThai uses the camera only when you choose to take a photo or video for a post, message, listing or profile.</string>
 	<key>NSMicrophoneUsageDescription</key>

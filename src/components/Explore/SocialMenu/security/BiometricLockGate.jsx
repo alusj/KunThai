@@ -24,6 +24,8 @@ export default function BiometricLockGate({ userId = "" }) {
   const [error, setError] = useState("");
   const [available, setAvailable] = useState(true);
   const hiddenAtRef = useRef(0);
+  const autoPromptedRef = useRef(false);
+  const busyRef = useRef(false);
 
   useEffect(() => {
     setLocked(Boolean(userId && readBiometricPreference(userId).enabled));
@@ -83,22 +85,38 @@ export default function BiometricLockGate({ userId = "" }) {
     };
   }, [markHidden, markVisible, userId]);
 
-  async function unlock() {
-    if (busy) return;
+  const unlock = useCallback(async () => {
+    if (busyRef.current) return;
+    busyRef.current = true;
     setBusy(true);
     setError("");
     try {
       await verifyBiometricUnlock(userId);
       setLocked(false);
-    } catch {
-      setError(i18nText("exploreSettingsFix.lockFailed"));
+    } catch (unlockError) {
+      // The app's own prompt explains why (cancelled, locked out, not set up);
+      // the browser's WebAuthn errors are not translated, so keep the generic line.
+      setError(isNativePlatform() && unlockError?.message ? unlockError.message : i18nText("exploreSettingsFix.lockFailed"));
     } finally {
+      busyRef.current = false;
       setBusy(false);
     }
-  }
+  }, [userId]);
+
+  // In the app, show the Face ID / fingerprint prompt straight away each time
+  // KunThai locks (once; after a cancel the Unlock button asks again).
+  useEffect(() => {
+    if (!locked) {
+      autoPromptedRef.current = false;
+      return;
+    }
+    if (!available || autoPromptedRef.current || !isNativePlatform()) return;
+    autoPromptedRef.current = true;
+    unlock();
+  }, [available, locked, unlock]);
 
   async function signOut() {
-    if (busy) return;
+    if (busyRef.current) return;
     setBusy(true);
     try {
       await signOutSocialSession();

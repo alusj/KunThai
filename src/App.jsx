@@ -14,6 +14,7 @@ import { clearExploreScreenStack } from "./Backend/services/explore/navigationSe
 import { setNotificationSeenUser } from "./Backend/services/notificationSeenStore";
 import { getCurrentAccountControl, subscribeToAccountControl } from "./Backend/services/accountControlService";
 import { markSessionContinuity, readSessionContinuity } from "./Backend/services/sessionService";
+import { forgetNativePushDevice } from "./Backend/services/pushService";
 import { initNativeOAuth } from "./Backend/services/nativeOAuthService";
 import AccountRestrictionNotice from "./components/shared/AccountRestrictionNotice";
 import ReturningUserIntro from "./components/shared/ReturningUserIntro";
@@ -753,7 +754,10 @@ export default function App() {
         control={accountControl}
         availablePage={availablePage}
         onOpenAvailablePage={() => availablePage && setPage(availablePage)}
-        onSignOut={() => supabase.auth.signOut({ scope: "local" })}
+        onSignOut={async () => {
+          await forgetNativePushDevice();
+          await supabase.auth.signOut({ scope: "local" });
+        }}
       />,
     );
   }
