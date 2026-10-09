@@ -494,7 +494,7 @@ function normalizeFleet(fleet = {}, index = 0) {
   };
 }
 
-async function prepareCompanyFleetPublicMedia(fleets = [], ownerUserId) {
+async function prepareCompanyFleetPublicMedia(fleets = [], ownerUserId, onUploaded) {
   const prepared = [];
 
   for (const fleet of fleets) {
@@ -529,6 +529,7 @@ async function prepareCompanyFleetPublicMedia(fleets = [], ownerUserId) {
       if (isFleetImage && publicUrl) {
         publicFleetPhotos.push({ label: key.replace(/^Fleet image - /, ""), url: publicUrl });
       }
+      if (file) onUploaded?.();
     }
 
     prepared.push({
@@ -541,7 +542,7 @@ async function prepareCompanyFleetPublicMedia(fleets = [], ownerUserId) {
   return prepared;
 }
 
-async function prepareCompanyDocuments(documents = {}, ownerUserId) {
+async function prepareCompanyDocuments(documents = {}, ownerUserId, onUploaded) {
   const prepared = {};
   for (const [key, value] of Object.entries(documents || {})) {
     const file = getTransportUploadFile(value);
@@ -553,6 +554,7 @@ async function prepareCompanyDocuments(documents = {}, ownerUserId) {
           label: key,
         })
       : value;
+    if (file) onUploaded?.();
   }
   return prepared;
 }
@@ -1449,7 +1451,18 @@ async function assertCompanyFleetPlatesAvailable(fleets = [], { companyId = "", 
   }
 }
 
-export async function saveTransportCompanyAccount(account) {
+// `onProgress` (optional) hears the real steps of the save — checking,
+// uploading N of M files, creating the company, finishing — for the saving
+// screen. It never changes what is saved.
+export async function saveTransportCompanyAccount(account, { onProgress } = {}) {
+  const report = (progress) => {
+    try {
+      onProgress?.(progress);
+    } catch {
+      // Progress display must never break the save.
+    }
+  };
+  report({ stage: "checking" });
   const user = await getCurrentUser("Sign in before submitting your company registration.");
   const addOperatorMode = account?.actionMode === "add_operator";
   const addRentalMode = account?.actionMode === "add_rental";
@@ -1523,11 +1536,19 @@ export async function saveTransportCompanyAccount(account) {
     }
   }
 
+  const uploadTotal = [
+    ...Object.values(normalized.documents || {}),
+    ...normalized.fleets.flatMap((fleet) => Object.values(fleet.documents || {})),
+  ].filter((value) => getTransportUploadFile(value)).length;
+  let uploadsDone = 0;
+  const countUpload = () => report({ stage: "uploading", done: ++uploadsDone, total: uploadTotal });
+  if (uploadTotal) report({ stage: "uploading", done: 0, total: uploadTotal });
   normalized = {
     ...normalized,
-    documents: await prepareCompanyDocuments(normalized.documents, user.id),
-    fleets: await prepareCompanyFleetPublicMedia(normalized.fleets, user.id),
+    documents: await prepareCompanyDocuments(normalized.documents, user.id, countUpload),
+    fleets: await prepareCompanyFleetPublicMedia(normalized.fleets, user.id, countUpload),
   };
+  report({ stage: "creating", total: uploadTotal });
   const persistedIdPattern = /^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i;
   const fleetWithoutRequiredImages = normalized.fleets.find((fleet) => {
     const isExistingIncrementalFleet = incrementalFleetMode && persistedIdPattern.test(String(fleet.id || ""));
@@ -1758,6 +1779,7 @@ export async function saveTransportCompanyAccount(account) {
       }
     }
 
+    report({ stage: "finishing", total: uploadTotal });
     const cloudAccount = normalizeCompanyAccount({ ...normalized, id: companyId || normalized.id, storageMode: "cloud" }, user.id);
     localStorage.removeItem(scopedKey(COMPANY_DRAFT_PREFIX, user.id));
     return writeLocalCompanyAccount(user.id, cloudAccount);
