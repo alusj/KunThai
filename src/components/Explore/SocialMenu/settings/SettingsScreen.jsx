@@ -21,6 +21,9 @@ import { readDefaultMainPage, setDefaultMainPage } from "../../../../Backend/ser
 import { haptics, sounds } from "../../../../Backend/services/feedbackService";
 import { disablePushNotifications, enablePushNotifications, getPushStatus } from "../../../../Backend/services/pushService";
 import { showToast } from "../../../../Backend/services/toastService";
+import supabase from "../../../../Backend/lib/supabaseClient";
+import { saveUnifiedNotificationPreferences } from "../../../../Backend/services/unifiedNotificationService";
+import NotificationSettings from "../../ExploreTabs/notification/components/NotificationSettings";
 import { signOutSocialSession } from "../../../../Backend/services/sessionService";
 import { useAppearanceMode } from "../../../../contexts/appearanceContext";
 import { useI18n } from "../../../../i18n";
@@ -99,12 +102,18 @@ export default function SettingsScreen({ hideHeader = false, onOpenDataMobile, o
   const { clearCache, feedback, settings, updateSection } = useExplorePreferences();
   const { mode: appearanceMode, resolvedMode, setMode: setAppearanceMode } = useAppearanceMode();
   const i18n = useI18n();
-  const { notifications, video, feed, messages, account, feedbackFx } = settings;
+  const { notifications, video, feed, messages, feedbackFx } = settings;
   const [pushStatus, setPushStatus] = useState("loading");
   const [pushBusy, setPushBusy] = useState(false);
   const [defaultDashboard, setDefaultDashboard] = useState(() => readDefaultMainPage() || "auto");
 
+  const [signOutBusy, setSignOutBusy] = useState("");
+  const [confirmSignOutAll, setConfirmSignOutAll] = useState(false);
+  const vibrationSupported = typeof navigator !== "undefined" && typeof navigator.vibrate === "function";
+
   async function handleSignOut(allDevices) {
+    if (signOutBusy) return;
+    setSignOutBusy(allDevices ? "all" : "this");
     try {
       await signOutSocialSession({ allDevices });
       if (allDevices) {
@@ -112,6 +121,9 @@ export default function SettingsScreen({ hideHeader = false, onOpenDataMobile, o
       }
     } catch (error) {
       showToast(shortErrorToast(error, i18n.t("settings.toastSignOutError")), "danger");
+    } finally {
+      setSignOutBusy("");
+      setConfirmSignOutAll(false);
     }
   }
 
@@ -126,10 +138,16 @@ export default function SettingsScreen({ hideHeader = false, onOpenDataMobile, o
   }, []);
 
   async function togglePushNotifications() {
-    if (pushBusy || pushStatus === "unsupported" || pushStatus === "loading") return;
+    if (pushBusy || ["unsupported", "loading", "native"].includes(pushStatus)) return;
     setPushBusy(true);
     try {
       const next = pushStatus === "enabled" ? await disablePushNotifications() : await enablePushNotifications();
+      // Delivery also checks the account's push preference (as in the
+      // notification center), so both switches move together.
+      const { data } = await supabase.auth.getUser();
+      if (data?.user?.id) {
+        await saveUnifiedNotificationPreferences(data.user.id, { push_enabled: next === "enabled" });
+      }
       setPushStatus(next);
       showToast(next === "enabled" ? "Push alerts are on" : "Push alerts are off", "success");
     } catch (error) {
@@ -231,37 +249,42 @@ export default function SettingsScreen({ hideHeader = false, onOpenDataMobile, o
               icon={HiOutlineDevicePhoneMobile}
               title={i18n.t("settings.pushTitle")}
               description={
-                pushStatus === "unsupported"
-                  ? i18n.t("settings.pushUnsupported")
-                  : pushStatus === "denied"
-                    ? i18n.t("settings.pushDenied")
-                    : i18n.t("settings.pushDefault")
+                pushStatus === "native"
+                  ? i18n.t("exploreSettingsFix.pushNativeDesc")
+                  : pushStatus === "unsupported"
+                    ? i18n.t("settings.pushUnsupported")
+                    : pushStatus === "denied"
+                      ? i18n.t("settings.pushDenied")
+                      : i18n.t("exploreSettingsFix.pushAnnouncementsDesc")
               }
             >
-              <Toggle
-                active={pushStatus === "enabled"}
-                label={pushBusy || pushStatus === "loading" ? "..." : pushStatus === "enabled" ? i18n.t("settings.on") : i18n.t("settings.off")}
-                onChange={togglePushNotifications}
+              {pushStatus === "native" ? (
+                <span className="flex h-11 items-center rounded-2xl bg-slate-100 px-4 text-sm font-black text-slate-500">{i18n.t("exploreSettingsFix.notAvailableYet")}</span>
+              ) : (
+                <Toggle
+                  active={pushStatus === "enabled"}
+                  label={pushBusy || pushStatus === "loading" ? "..." : pushStatus === "enabled" ? i18n.t("settings.on") : i18n.t("settings.off")}
+                  onChange={togglePushNotifications}
+                />
+              )}
+            </SettingRow>
+            {/* The same switches as the Notifications panel, so both places match. */}
+            <div className="rounded-[24px] border border-slate-200 bg-white p-3 shadow-sm">
+              <p className="px-1 pb-2 text-sm font-semibold leading-6 text-slate-500">{i18n.t("exploreSettingsFix.inAppAlertsDesc")}</p>
+              <NotificationSettings
+                values={notifications}
+                onToggle={(key) => updateSection("notifications", { [key]: notifications[key] === false })}
               />
-            </SettingRow>
-            <SettingRow icon={HiOutlineBellAlert} title={i18n.t("settings.reactionsTitle")} description={i18n.t("settings.reactionsDesc")}>
-              <Toggle active={notifications.reactions} label={i18n.t("settings.likes")} onChange={(value) => updateSection("notifications", { reactions: value })} />
-              <Toggle active={notifications.comments} label={i18n.t("settings.comments")} onChange={(value) => updateSection("notifications", { comments: value })} />
-            </SettingRow>
-            <SettingRow icon={HiOutlineSignal} title={i18n.t("settings.socialPostsTitle")} description={i18n.t("settings.socialPostsDesc")}>
-              <Toggle active={notifications.follows} label={i18n.t("settings.connects")} onChange={(value) => updateSection("notifications", { follows: value })} />
-              <Toggle active={notifications.followedPosts} label={i18n.t("settings.posts")} onChange={(value) => updateSection("notifications", { followedPosts: value })} />
-            </SettingRow>
-            <SettingRow icon={HiOutlineChatBubbleLeftRight} title={i18n.t("settings.messagesSafetyTitle")} description={i18n.t("settings.messagesSafetyDesc")}>
-              <Toggle active={notifications.messages} label={i18n.t("settings.messages")} onChange={(value) => updateSection("notifications", { messages: value })} />
-              <Toggle active={notifications.safetyAlerts} label={i18n.t("settings.safety")} onChange={(value) => updateSection("notifications", { safetyAlerts: value })} />
-            </SettingRow>
+            </div>
           </SettingsSection>
 
           <SettingsSection title={i18n.t("settings.soundsTitle")} subtitle={i18n.t("settings.soundsSubtitle")}>
             <SettingRow icon={HiOutlineBellAlert} title={i18n.t("settings.allFeedbackTitle")} description={i18n.t("settings.allFeedbackDesc")}>
               <Toggle active={feedbackFx.sounds} label={feedbackFx.sounds ? i18n.t("settings.soundsOn") : i18n.t("settings.soundsOff")} onChange={(value) => updateSection("feedbackFx", { sounds: value })} />
-              <Toggle active={feedbackFx.vibration} label={feedbackFx.vibration ? i18n.t("settings.vibrationOn") : i18n.t("settings.vibrationOff")} onChange={(value) => updateSection("feedbackFx", { vibration: value })} />
+              {/* iPhone browsers and the iOS app have no vibration API, so the switch would do nothing. */}
+              {vibrationSupported ? (
+                <Toggle active={feedbackFx.vibration} label={feedbackFx.vibration ? i18n.t("settings.vibrationOn") : i18n.t("settings.vibrationOff")} onChange={(value) => updateSection("feedbackFx", { vibration: value })} />
+              ) : null}
               <button
                 type="button"
                 onClick={testFeedback}
@@ -379,22 +402,35 @@ export default function SettingsScreen({ hideHeader = false, onOpenDataMobile, o
               <button
                 type="button"
                 onClick={() => handleSignOut(false)}
-                className="mt-4 h-11 w-full rounded-2xl bg-rose-600 px-4 text-sm font-black text-white transition hover:bg-rose-700"
+                disabled={Boolean(signOutBusy)}
+                className="mt-4 h-11 w-full rounded-2xl bg-rose-600 px-4 text-sm font-black text-white transition hover:bg-rose-700 disabled:opacity-60"
               >
-                {i18n.t("settings.signOutBtn")}
+                {signOutBusy === "this" ? i18n.t("exploreSettingsFix.signingOut") : i18n.t("settings.signOutBtn")}
               </button>
-              <button
-                type="button"
-                onClick={() => handleSignOut(true)}
-                className="mt-2 h-11 w-full rounded-2xl border border-rose-200 bg-white px-4 text-sm font-black text-rose-700 transition hover:bg-rose-100"
-              >
-                {i18n.t("settings.signOutAll")}
-              </button>
+              {confirmSignOutAll ? (
+                <div className="mt-2 rounded-2xl border border-rose-200 bg-white p-3">
+                  <p className="text-xs font-bold leading-5 text-rose-800">{i18n.t("exploreSettingsFix.signOutAllConfirm")}</p>
+                  <div className="mt-2 flex gap-2">
+                    <button type="button" onClick={() => setConfirmSignOutAll(false)} disabled={Boolean(signOutBusy)} className="h-10 flex-1 rounded-xl bg-slate-100 text-xs font-black text-slate-700 disabled:opacity-60">
+                      {i18n.t("common.cancel")}
+                    </button>
+                    <button type="button" onClick={() => handleSignOut(true)} disabled={Boolean(signOutBusy)} className="h-10 flex-1 rounded-xl bg-rose-600 text-xs font-black text-white disabled:opacity-60">
+                      {signOutBusy === "all" ? i18n.t("exploreSettingsFix.signingOut") : i18n.t("settings.signOutAll")}
+                    </button>
+                  </div>
+                </div>
+              ) : (
+                <button
+                  type="button"
+                  onClick={() => setConfirmSignOutAll(true)}
+                  disabled={Boolean(signOutBusy)}
+                  className="mt-2 h-11 w-full rounded-2xl border border-rose-200 bg-white px-4 text-sm font-black text-rose-700 transition hover:bg-rose-100 disabled:opacity-60"
+                >
+                  {i18n.t("settings.signOutAll")}
+                </button>
+              )}
             </div>
           </div>
-          <SettingRow icon={HiOutlineRectangleStack} title={i18n.t("settings.compactMenuTitle")} description={i18n.t("settings.compactMenuDesc")}>
-            <Toggle active={account.compactMenu} onChange={(value) => updateSection("account", { compactMenu: value })} />
-          </SettingRow>
         </SettingsSection>
       </div>
     </div>
