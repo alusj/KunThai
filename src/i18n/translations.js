@@ -3,6 +3,9 @@
 // vocabulary and are intentionally identical in every language.
 
 import { URRIDE } from "./urride";
+import { EXPLORE_SETTINGS_FIX } from "./exploreSettingsFix";
+import { EXPLORE_PROFILE_FIX } from "./exploreProfileFix";
+import { EXPLORE_MESSAGES_FIX } from "./exploreMessagesFix";
 import { UI_TRANSLATIONS } from "./ui";
 import { REGIONS } from "./regions";
 import { ADDRESS_BOOK } from "./addressBook";
@@ -59193,6 +59196,24 @@ export const TRANSLATIONS = {
 for (const [locale, section] of Object.entries(URRIDE)) {
   if (TRANSLATIONS[locale]) {
     TRANSLATIONS[locale].urride = section;
+  }
+}
+
+for (const [locale, section] of Object.entries(EXPLORE_SETTINGS_FIX)) {
+  if (TRANSLATIONS[locale]) {
+    TRANSLATIONS[locale].exploreSettingsFix = section;
+  }
+}
+
+for (const [locale, section] of Object.entries(EXPLORE_PROFILE_FIX)) {
+  if (TRANSLATIONS[locale]) {
+    TRANSLATIONS[locale].exploreProfileFix = section;
+  }
+}
+
+for (const [locale, section] of Object.entries(EXPLORE_MESSAGES_FIX)) {
+  if (TRANSLATIONS[locale]) {
+    TRANSLATIONS[locale].exploreMessagesFix = section;
   }
 }
 
