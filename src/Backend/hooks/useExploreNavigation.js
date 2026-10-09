@@ -2,6 +2,7 @@ import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 
 import { readExploreSettings } from "../services/explore/preferencesService";
 import { readExploreNavigation, writeExploreNavigation } from "../services/explore/navigationService";
+import { nextMenuStack } from "../services/explore/menuStack.js";
 
 const PARENT_TABS = new Set(["UrFeed", "Swip", "Connections"]);
 // A fresh browser session (app launched anew) should open on the user's
@@ -87,15 +88,8 @@ export function useExploreNavigation(menuScreens) {
 
         rememberScrollPosition();
         setNavigation((current) => {
-          if (current.menuStack.at(-1) === screen) {
-            return current;
-          }
-
-          const stack = options.fromMenu && current.menuStack.at(-1) !== "Menu"
-            ? [...current.menuStack, "Menu", screen]
-            : [...current.menuStack, screen];
-
-          return { ...current, menuStack: stack };
+          const stack = nextMenuStack(current.menuStack, screen, options);
+          return stack === current.menuStack ? current : { ...current, menuStack: stack };
         });
         // The window deliberately keeps its scroll position: menu screens
         // render in a fixed overlay with their own scroll container, and the

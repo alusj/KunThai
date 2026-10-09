@@ -20,16 +20,21 @@ import { showToast } from "../../../../Backend/services/toastService";
 import SocialScreenHeader from "../shared/SocialScreenHeader";
 import LinkedAccountsSection from "./LinkedAccountsSection";
 import RecoveryEmailSection from "./RecoveryEmailSection";
+import AccountAccessSection from "./AccountAccessSection";
+import TwoFactorSection from "../settings/TwoFactorSection";
 import { isGuestMode } from "../../../../Backend/services/guestModeService";
 import { t as i18nText, uiText } from "../../../../i18n/index";
 import { uiText as translateUi, useI18n as useUiLocale } from "../../../../i18n/index.js";
 import { shortErrorToast } from "../../../../Backend/services/friendlyErrorService";
 
+// title/description/status/actionLabel are English source copy run through
+// uiText(); entries marked `key` are read from exploreSettingsFix instead.
 const securityItems = [
   {
-    title: "Password and recovery",
-    description: "Keep your sign-in details current and use the account recovery flow if access is lost.",
-    status: "Available at sign-in",
+    key: "help",
+    title: "exploreSettingsFix.helpItemTitle",
+    description: "exploreSettingsFix.helpItemDesc",
+    status: "exploreSettingsFix.helpItemStatus",
     icon: HiOutlineKey,
     action: "help",
     actionLabel: "Get account help",
@@ -43,9 +48,10 @@ const securityItems = [
     actionLabel: "Switch account",
   },
   {
-    title: "Login alerts",
-    description: "KunThai will surface important sign-in and account-change notices through trusted alert channels.",
-    status: "Being prepared",
+    key: "alerts",
+    title: "exploreSettingsFix.loginAlertsTitle",
+    description: "exploreSettingsFix.loginAlertsDesc",
+    status: "exploreSettingsFix.notAvailableYet",
     icon: HiOutlineBellAlert,
   },
   {
@@ -134,6 +140,7 @@ export default function SecurityScreen({ currentProfile, hideHeader = false, onO
         <section className="grid gap-3 lg:grid-cols-2">
           {securityItems.map((item) => {
             const Icon = item.icon;
+            const text = (value) => (item.key ? i18nText(value) : uiText(value));
             return (
               <article key={item.title} className="rounded-[24px] border border-slate-200 bg-white p-5 shadow-sm">
                 <div className="flex items-start gap-3">
@@ -141,12 +148,12 @@ export default function SecurityScreen({ currentProfile, hideHeader = false, onO
                     <Icon className="text-2xl" />
                   </span>
                   <div className="min-w-0 flex-1">
-                    <h4 className="text-base font-black text-slate-950">{uiText(item.title)}</h4>
-                    <p className="mt-1 text-sm font-semibold leading-6 text-slate-500">{uiText(item.description)}</p>
+                    <h4 className="text-base font-black text-slate-950">{text(item.title)}</h4>
+                    <p className="mt-1 text-sm font-semibold leading-6 text-slate-500">{text(item.description)}</p>
                   </div>
                 </div>
                 <div className="mt-4 flex flex-wrap items-center justify-between gap-2">
-                  <span className="rounded-full bg-slate-100 px-3 py-1.5 text-xs font-black text-slate-600">{uiText(item.status)}</span>
+                  <span className="rounded-full bg-slate-100 px-3 py-1.5 text-xs font-black text-slate-600">{text(item.status)}</span>
                   {item.action ? (
                     <button type="button" onClick={() => runAction(item.action)} className="text-sm font-black text-sky-700">
                       {uiText(item.actionLabel)}
@@ -158,7 +165,9 @@ export default function SecurityScreen({ currentProfile, hideHeader = false, onO
           })}
         </section>
 
-        {/* Guests have no account to recover. */}
+        {/* Password, other devices, two-step verification and the sign-in email (guests have no account). */}
+        {currentUserId && !isGuestMode() ? <AccountAccessSection /> : null}
+        {currentUserId && !isGuestMode() ? <TwoFactorSection /> : null}
         {currentUserId && !isGuestMode() ? <RecoveryEmailSection /> : null}
 
         <LinkedAccountsSection currentUserId={currentUserId} />
@@ -175,6 +184,7 @@ export default function SecurityScreen({ currentProfile, hideHeader = false, onO
                   <p className="mt-1 max-w-2xl text-sm font-semibold leading-6 text-slate-500">
                     {i18nText("ui.literals.kfb7f4c6126ca")}
                   </p>
+                  <p className="mt-1 max-w-2xl text-xs font-bold leading-5 text-slate-500">{i18nText("exploreSettingsFix.biometricWhen")}</p>
                 </div>
                 <span className={`rounded-full px-3 py-1.5 text-xs font-black ${
                   biometricPreference.enabled ? "bg-emerald-50 text-emerald-700" : "bg-slate-100 text-slate-600"

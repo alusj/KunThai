@@ -77,7 +77,11 @@ function notificationEnabled(item) {
   if (item.type === "post") return settings.followedPosts;
   if (item.type === "message") return settings.messages;
   if (["post_trending", "video_milestone", "profile_milestone", "follower_milestone"].includes(item.type)) return settings.milestones;
-  return settings.safetyAlerts;
+  // The "Reports & moderation" switch (safetyAlerts) covers report and
+  // moderation updates only. Security and account alerts (new sign-in,
+  // password change, verification) and KunThai announcements always show.
+  if (["report_update", "moderation_action", "report", "content_removed", "content_restricted"].includes(item.type)) return settings.safetyAlerts;
+  return true;
 }
 
 function mergeNotificationList(items) {

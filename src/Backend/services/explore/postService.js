@@ -8,6 +8,7 @@ import { normalizeExploreTopicSlug } from "../../../data/exploreTopics";
 import { PROFILE_IDENTITY_TYPE, SPACE_IDENTITY_TYPE, getPostIdentity, normalizeIdentityTarget } from "./identityService";
 import { getPostSurface, orderPostsByIds, postBelongsToSurface } from "./profilePostsModel";
 import { normalizeSpaceResponsibilities } from "./spaceService";
+import { shouldUseLegacyMentionInsert } from "./mentionFallback.js";
 
 const MAX_SWIP_SECONDS = 15;
 const SPACE_POSTING_ROLES = new Set(["owner", "administrator", "moderator", "editor", "customer_support"]);
@@ -651,7 +652,9 @@ async function notifyMentionedUsers(post, draft) {
     mentioned_usernames: draft.mentions,
   });
 
-  if (!rpcError) {
+  // Only fall back when the function is missing; otherwise a direct insert
+  // would ignore the mentioned person's mention settings.
+  if (!shouldUseLegacyMentionInsert(rpcError)) {
     return;
   }
 

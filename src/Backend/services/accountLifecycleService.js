@@ -94,15 +94,20 @@ export async function setAccountDeactivated(deactivated) {
     throw new Error("Sign in to manage your account.");
   }
 
-  const { error } = await supabase
+  // .select() returns the rows really changed: RLS or a missing profile turns
+  // the update into a silent no-op otherwise. Posts of a deactivated account
+  // are hidden from feeds server-side (explore_author_is_deactivated read rule
+  // and the ranked feed functions, migration 20261006150000).
+  const { data, error } = await supabase
     .from("explore_profiles")
     .update({
       deactivated_at: deactivated ? new Date().toISOString() : null,
       updated_at: new Date().toISOString(),
     })
-    .eq("user_id", userId);
+    .eq("user_id", userId)
+    .select("user_id, deactivated_at");
 
-  if (error) {
+  if (error || !data?.length || Boolean(data[0].deactivated_at) !== Boolean(deactivated)) {
     throw new Error(
       deactivated
         ? "KunThai could not deactivate your account right now. Please try again."

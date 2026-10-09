@@ -39,6 +39,16 @@
 	<string>$(CURRENT_PROJECT_VERSION)</string>
 	<key>LSRequiresIPhoneOS</key>
 	<true/>
+	<key>NSCameraUsageDescription</key>
+	<string>KunThai uses the camera only when you choose to take a photo or video for a post, message, listing or profile.</string>
+	<key>NSMicrophoneUsageDescription</key>
+	<string>KunThai uses the microphone only when you record a voice note or a video with sound.</string>
+	<key>NSPhotoLibraryUsageDescription</key>
+	<string>KunThai opens your photo library only when you choose photos or videos to share or upload.</string>
+	<key>NSPhotoLibraryAddUsageDescription</key>
+	<string>KunThai saves photos and videos to your library only when you choose to save them.</string>
+	<key>NSLocationWhenInUseUsageDescription</key>
+	<string>KunThai uses your location while you use the app for UrRide pickups, maps, nearby places and to suggest your region. You can say no and enter places yourself.</string>
 	<key>UILaunchStoryboardName</key>
 	<string>LaunchScreen</string>
 	<key>UIApplicationSceneManifest</key>

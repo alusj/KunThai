@@ -4,6 +4,7 @@ import { uploadMediaDataUrl } from "./mediaService";
 import { getCurrentUserProfile } from "./profileService";
 import { SPACE_IDENTITY_TYPE } from "./identityService";
 import { normalizeSpaceResponsibilities, readActiveExploreIdentity } from "./spaceService";
+import { shouldUseLegacyMentionInsert } from "./mentionFallback.js";
 
 async function getCurrentUserId() {
   const {
@@ -500,7 +501,9 @@ async function notifyMentionedUsers(comment, draft) {
     mentioned_usernames: draft.mentions,
   });
 
-  if (!rpcError) {
+  // Only fall back when the function is missing; otherwise a direct insert
+  // would ignore the mentioned person's mention settings.
+  if (!shouldUseLegacyMentionInsert(rpcError)) {
     return;
   }
 

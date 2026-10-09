@@ -55,4 +55,12 @@
     <!-- getUserMedia({ audio }) in the WebView: voice notes in messages, comments and posts. -->
     <uses-permission android:name="android.permission.RECORD_AUDIO" />
     <uses-permission android:name="android.permission.MODIFY_AUDIO_SETTINGS" />
+    <!-- getUserMedia({ video }) in the WebView: photos and videos taken in the app. -->
+    <uses-permission android:name="android.permission.CAMERA" />
+    <!-- navigator.geolocation in the WebView: UrRide pickups, maps, nearby places, region. -->
+    <uses-permission android:name="android.permission.ACCESS_COARSE_LOCATION" />
+    <uses-permission android:name="android.permission.ACCESS_FINE_LOCATION" />
+    <!-- Optional hardware: devices without a camera or GPS can still install KunThai. -->
+    <uses-feature android:name="android.hardware.camera" android:required="false" />
+    <uses-feature android:name="android.hardware.location.gps" android:required="false" />
 </manifest>

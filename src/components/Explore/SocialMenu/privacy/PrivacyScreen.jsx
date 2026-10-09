@@ -17,7 +17,7 @@ import {
   fetchAccountDeactivation,
   setAccountDeactivated,
 } from "../../../../Backend/services/accountLifecycleService";
-import { collectKunThaiDataExport, downloadDataExport } from "../../../../Backend/services/dataExportService";
+import { collectKunThaiDataExport, deliverDataExport } from "../../../../Backend/services/dataExportService";
 import { showToast } from "../../../../Backend/services/toastService";
 import { useI18n } from "../../../../i18n";
 import EmptyState from "../../shared/EmptyState";
@@ -67,6 +67,7 @@ export default function PrivacyScreen({ hideHeader = false, onOpenPermissions })
   const [confirmAction, setConfirmAction] = useState(null);
   const [accountActionBusy, setAccountActionBusy] = useState(false);
   const [exportState, setExportState] = useState({ busy: false, step: "" });
+  const [exportNotice, setExportNotice] = useState("");
 
   useEffect(() => {
     let active = true;
@@ -105,13 +106,16 @@ export default function PrivacyScreen({ hideHeader = false, onOpenPermissions })
 
   async function handleDataExport() {
     if (exportState.busy) return;
-    setExportState({ busy: true, step: "Starting your export..." });
+    setExportState({ busy: true, step: i18nText("exploreSettingsFix.exportPreparing") });
 
     try {
       const payload = await collectKunThaiDataExport((step) => setExportState({ busy: true, step }));
-      downloadDataExport(payload);
+      const outcome = await deliverDataExport(payload);
       setExportState({ busy: false, step: "" });
-      showToast("Data export downloaded", "success");
+      setExportNotice(outcome === "unavailable" ? i18nText("exploreSettingsFix.exportUnavailable") : "");
+      if (outcome === "downloaded") showToast(i18nText("exploreSettingsFix.toastExportStarted"), "success");
+      else if (outcome === "shared") showToast(i18nText("exploreSettingsFix.toastExportShared"), "success");
+      else if (outcome === "unavailable") showToast(i18nText("exploreSettingsFix.toastExportUnavailable"), "warning");
     } catch (error) {
       setExportState({ busy: false, step: "" });
       showToast(shortErrorToast(error, "Couldn't export data"), "danger");
@@ -157,7 +161,7 @@ export default function PrivacyScreen({ hideHeader = false, onOpenPermissions })
             </select>
           </SettingRow>
 
-          <SettingRow icon={HiOutlineChatBubbleLeftRight} title={i18nText("ui.literals.k51515a6a5a92")} description={i18nText("ui.literals.keb2f97b117bc")}>
+          <SettingRow icon={HiOutlineChatBubbleLeftRight} title={i18nText("ui.literals.k51515a6a5a92")} description={i18nText("exploreSettingsFix.whoCanMessageDesc")}>
             <select
               value={settings.allowMessages}
               onChange={(event) => safety.updatePrivacySettings({ allowMessages: event.target.value })}
@@ -185,7 +189,8 @@ export default function PrivacyScreen({ hideHeader = false, onOpenPermissions })
             </button>
           </SettingRow>
 
-          <SettingRow icon={HiOutlineBolt} title={i18nText("ui.literals.k43c17b69d1b3")} description={i18nText("ui.literals.k98fdae836f80")}>
+          {/* This switch controls Messages presence only (active status), so it is labelled as such. */}
+          <SettingRow icon={HiOutlineBolt} title={i18nText("exploreSettingsFix.activeStatusTitle")} description={i18nText("exploreSettingsFix.activeStatusDesc")}>
             <button
               type="button"
               onClick={() => safety.updatePrivacySettings({ showActivity: !settings.showActivity })}
@@ -270,6 +275,9 @@ export default function PrivacyScreen({ hideHeader = false, onOpenPermissions })
               </span>
               {exportState.busy ? (
                 <span className="mt-2 inline-flex rounded-full bg-sky-50 px-2.5 py-1 text-[11px] font-black text-sky-700">{exportState.step}</span>
+              ) : null}
+              {exportNotice ? (
+                <span className="mt-2 block rounded-2xl bg-amber-50 px-3 py-2 text-xs font-bold leading-5 text-amber-800" role="status">{exportNotice}</span>
               ) : null}
             </span>
           </button>

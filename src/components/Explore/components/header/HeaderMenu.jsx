@@ -23,7 +23,10 @@ import {
   HiOutlineUserGroup,
 } from "react-icons/hi2";
 
+import { useState } from "react";
 import { signOutSocialSession } from "../../../../Backend/services/sessionService";
+import { showToast } from "../../../../Backend/services/toastService";
+import { shortErrorToast } from "../../../../Backend/services/friendlyErrorService";
 import { useI18n } from "../../../../i18n";
 
 import MenuSection from "./menu/MenuSection";
@@ -108,9 +111,19 @@ export function SocialMenuContent({ compact = false, currentProfile = null, onCl
     onNavigate?.("SwitchAccount", { fromMenu: true });
   };
 
+  // "" -> "confirm" -> "busy"; the menu closes only once sign-out worked.
+  const [signOutState, setSignOutState] = useState("");
   const handleSignOut = async () => {
-    onClose?.();
-    await signOutSocialSession();
+    if (signOutState === "busy") return;
+    setSignOutState("busy");
+    try {
+      await signOutSocialSession();
+      setSignOutState("");
+      onClose?.();
+    } catch (error) {
+      setSignOutState("");
+      showToast(shortErrorToast(error, t("settings.toastSignOutError")), "danger");
+    }
   };
 
   return (
@@ -195,8 +208,21 @@ export function SocialMenuContent({ compact = false, currentProfile = null, onCl
                 label={t("menu.items.signOutLabel")}
                 description={t("menu.items.signOutDescription")}
                 tone="danger"
-                onClick={handleSignOut}
+                onClick={() => setSignOutState((current) => (current === "busy" ? current : "confirm"))}
               />
+              {signOutState ? (
+                <div className="rounded-2xl border border-rose-200 bg-rose-50 p-3">
+                  <p className="text-sm font-bold text-rose-800">{t("exploreSettingsFix.signOutConfirm")}</p>
+                  <div className="mt-2 flex gap-2">
+                    <button type="button" onClick={() => setSignOutState("")} disabled={signOutState === "busy"} className="h-10 flex-1 rounded-xl bg-white text-sm font-black text-slate-700 disabled:opacity-60">
+                      {t("common.cancel")}
+                    </button>
+                    <button type="button" onClick={handleSignOut} disabled={signOutState === "busy"} className="h-10 flex-1 rounded-xl bg-rose-600 text-sm font-black text-white disabled:opacity-60">
+                      {signOutState === "busy" ? t("exploreSettingsFix.signingOut") : t("menu.items.signOutLabel")}
+                    </button>
+                  </div>
+                </div>
+              ) : null}
               <MenuActionButton
                 icon={HiOutlineRocketLaunch}
                 label={t("menu.items.futureFeaturesLabel")}

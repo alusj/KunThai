@@ -4,9 +4,15 @@
 // Platform reality: background push works on Android/desktop Chromium and
 // Firefox from the browser tab; on iPhone it only works after the user adds
 // KunThai to their home screen (iOS 16.4+ installed PWA). getPushStatus()
-// reports "unsupported" where the APIs are missing.
+// reports "unsupported" where the APIs are missing and "native" inside the
+// iOS/Android app, which has no push pipeline yet.
+// What is sent today: KunThai announcements (admin campaigns with the push
+// channel, supabase/functions/send-notification-push) to accounts whose
+// user_notification_preferences.push_enabled is true.
 
+import { Capacitor } from "@capacitor/core";
 import supabase from "../lib/supabaseClient";
+import { t as i18nText } from "../../i18n/index";
 import { requestExploreScreen, requestMarketplaceScreen, runNotificationAction } from "./notificationBannerService";
 import { requestConversationOpen } from "./explore/messageService";
 
@@ -19,8 +25,19 @@ function urlBase64ToUint8Array(base64String) {
   return Uint8Array.from([...rawData].map((char) => char.charCodeAt(0)));
 }
 
+// The iOS/Android app has no native push pipeline yet (no push plugin), and
+// Web Push does not work inside its WebView.
+function isNativeApp() {
+  try {
+    return Capacitor.isNativePlatform();
+  } catch {
+    return false;
+  }
+}
+
 function isPushSupported() {
-  return typeof window !== "undefined"
+  return !isNativeApp()
+    && typeof window !== "undefined"
     && "serviceWorker" in navigator
     && "PushManager" in window
     && "Notification" in window
@@ -80,7 +97,9 @@ export function registerKunThaiServiceWorker() {
   });
 }
 
+// "native" (the app, not available yet) | "unsupported" | "denied" | "enabled" | "disabled"
 export async function getPushStatus() {
+  if (isNativeApp()) return "native";
   if (!isPushSupported()) return "unsupported";
   if (Notification.permission === "denied") return "denied";
   try {
@@ -93,6 +112,9 @@ export async function getPushStatus() {
 }
 
 export async function enablePushNotifications() {
+  if (isNativeApp()) {
+    throw new Error(i18nText("exploreSettingsFix.pushNativeUnavailable"));
+  }
   if (!isPushSupported()) {
     throw new Error("Push notifications are not supported in this browser. On iPhone, add KunThai to your home screen first.");
   }
