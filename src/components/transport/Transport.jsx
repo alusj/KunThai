@@ -43,6 +43,8 @@ import OpenBookingSheet from "./booking/OpenBookingSheet";
 import { subscribeNotificationSeen } from "../../Backend/services/notificationSeenStore";
 import { getNetworkStatus } from "../../Backend/services/networkService";
 import { KAI_TRIP_BOOKING_EVENT } from "../../Backend/services/ai/aiEntityNavigation";
+import { REGISTRATION_KINDS } from "../../Backend/services/registration/registrationTaskCore";
+import { subscribeRegistrationTasks } from "../../Backend/services/registration/registrationTaskRunner";
 import { showToast } from "../../Backend/services/toastService";
 import { useI18n, t } from "../../i18n";
 import { uiText as translateUi } from "../../i18n/index.js";
@@ -1020,9 +1022,42 @@ export default function Transport({
       setActiveTripsOpen(true);
     } else if (destination === "operator-dashboard" && operatorAccount) {
       openOperatorDashboard("dashboard");
-    } else if (destination === "company-dashboard" && companyAccount) {
+    } else if (destination === "operator-dashboard") {
+      // Just registered (e.g. in the background): load the new account first.
+      getOperatorAccount()
+        .then((account) => {
+          if (!account) return;
+          setOperatorAccount(account);
+          openOperatorDashboard("dashboard");
+        })
+        .catch(() => {});
+    } else if (destination === "company-dashboard" && companyAccount && (!targetId || companyAccount.id === targetId)) {
       setCompanyWorkspaceInitialTab("Overview");
       setCompanyWorkspaceOpen(true);
+    } else if (destination === "company-dashboard") {
+      // A specific (just registered) company, or none loaded yet.
+      const openCompany = (account) => {
+        setCompanyAccount(account);
+        setCompanyWorkspaceInitialTab("Overview");
+        setCompanyWorkspaceOpen(true);
+      };
+      const known = targetId ? companyAccounts.find((company) => company.id === targetId) : null;
+      if (known) {
+        openCompany(known);
+      } else {
+        getTransportCompanyAccounts()
+          .then((accounts) => {
+            setCompanyAccounts(accounts);
+            const found = (targetId && accounts.find((company) => company.id === targetId)) || accounts[0];
+            if (found) openCompany(found);
+          })
+          .catch(() => {});
+      }
+    } else if (destination === "register-solo") {
+      // "Review" after a registration could not be finished.
+      openSoloRegistration("background-review");
+    } else if (destination === "register-company") {
+      openCompanyRegistration("background-review", "full");
     } else if (destination === "nearby-area") {
       openNearbyAreaRoute();
     } else if (destination === "home") {
@@ -1035,6 +1070,14 @@ export default function Transport({
     // account changes would replay an already handled request.
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [navigationRequest, onNavigationRequestHandled]);
+
+  // An operator registration that finished after the user left its screen:
+  // the header and dashboard switch to the new account straight away.
+  // (Companies arrive through subscribeTransportCompanyUpdates.)
+  useEffect(() => subscribeRegistrationTasks((task, change) => {
+    if (change !== "settled" || task.handledBy !== "background" || task.status !== "succeeded") return;
+    if (task.kind === REGISTRATION_KINDS.URRIDE_SOLO && task.result) setOperatorAccount(task.result);
+  }), []);
 
   useEffect(() => {
     const openRental = (event) => {
@@ -1281,6 +1324,9 @@ export default function Transport({
     return renderWithAreaView(
       <div className={`${routePanelClass} kt-mobile-viewport`}>
         <FleetRegistrationDrawer
+          // Accepting a company invite finishes on this screen (the invite
+          // is updated afterwards), so that save cannot move to the background.
+          backgroundAllowed={registrationSource !== "company-invite"}
           onClose={closeRegistrationFlow}
           onSaveExit={exitRegistrationFlow}
           onViewOneKmPreview={openRegistrationOneKmPreview}

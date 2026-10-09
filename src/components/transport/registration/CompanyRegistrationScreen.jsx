@@ -317,7 +317,9 @@ export default function CompanyRegistrationScreen({ existingCompany = null, mode
   // cancels it, and reopening shows it (or, after a failure elsewhere, the
   // entered details and picked files) instead of a fresh form. Edits and
   // added vehicles keep saving in place, as before.
-  const backgroundEnabled = !editing && !incrementalFleetMode;
+  // Fixed when the screen opens: the saved company arriving from the server
+  // (existingCompany) must not switch a running save to the edit path.
+  const [backgroundEnabled] = useState(() => !editing && !incrementalFleetMode);
   const backgroundTask = useRegistrationTask(REGISTRATION_KINDS.URRIDE_COMPANY, {
     enabled: backgroundEnabled,
     onSettled: handleBackgroundSettled,

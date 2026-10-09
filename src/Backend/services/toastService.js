@@ -80,6 +80,9 @@ export function showToast(rawMessage, tone = "info", options = {}) {
         actionLabel: options.actionLabel || "",
         onAction: typeof options.onAction === "function" ? options.onAction : null,
         allowLongMessage: options.allowLongMessage === true,
+        // Shown above full-screen overlays and modals (e.g. a registration
+        // that finished in the background while another screen is open).
+        elevated: options.elevated === true,
       },
     }),
   );

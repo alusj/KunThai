@@ -21,6 +21,7 @@ import {
   removePendingRecord,
   settleTask,
 } from "./registrationTaskCore.js";
+import { beginHeavyUpload } from "../uploadActivity.js";
 
 export const REGISTRATION_TASK_EVENT = "kunthai-registration-task";
 const PENDING_STORAGE_KEY = "kunthai.registration.pending.v1";
@@ -158,6 +159,9 @@ export function startRegistrationTask(kind, { run, restore = null, matchHint = "
   emit(task, "started");
 
   const taskId = task.id;
+  // Timed background refreshes skip their turn while documents upload, so
+  // they do not compete with the save for a slow connection.
+  const endHeavyUpload = beginHeavyUpload();
   const report = (progress) => {
     const current = tasks.get(kind);
     if (!current || current.id !== taskId) return;
@@ -168,6 +172,7 @@ export function startRegistrationTask(kind, { run, restore = null, matchHint = "
   };
 
   const finish = (outcome) => {
+    endHeavyUpload();
     const current = tasks.get(kind);
     if (!current || current.id !== taskId) return;
     const settled = settleTask(current, { ...outcome, viewers: viewers.get(kind) || 0 });

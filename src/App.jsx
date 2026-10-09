@@ -21,6 +21,7 @@ import ReturningUserIntro from "./components/shared/ReturningUserIntro";
 import TwoFactorGate from "./components/auth/TwoFactorGate";
 import GuestGateCard from "./components/shared/GuestGateCard";
 import NotificationBannerHost from "./components/shared/NotificationBannerHost";
+import RegistrationBackgroundHost from "./components/shared/RegistrationBackgroundHost";
 import BiometricLockGate from "./components/Explore/SocialMenu/security/BiometricLockGate";
 import DirectionCardHost from "./components/shared/directionCards/DirectionCardHost";
 import RecoveryPasswordSheet from "./components/auth/RecoveryPasswordSheet";
@@ -1004,6 +1005,8 @@ export default function App() {
       {/* KAI floats on every screen, including full-screen flows; a screen can hide it. */}
       {!guestSession ? <AiFloatingButton /> : null}
       <NotificationBannerHost userId={userId} />
+      {/* UrMall / UrRide registrations that finish (or were cut short) away from their saving screen. */}
+      {userId && !guestSession ? <RegistrationBackgroundHost userId={userId} /> : null}
       {/* Biometric unlock (Security): covers the app until the device confirms the person. */}
       {userId && !guestSession ? <BiometricLockGate userId={userId} /> : null}
       {/* One-time tips pointing at key buttons; guests get GuestGateCard instead. */}

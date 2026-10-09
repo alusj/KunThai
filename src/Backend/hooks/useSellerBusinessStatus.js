@@ -1,12 +1,28 @@
 import { useCallback, useEffect, useState } from "react";
 
-import { hasRegisteredBusiness } from "../services/marketplace/sellerRegistrationService";
+import { MARKETPLACE_BUSINESS_CHANGED_EVENT, hasRegisteredBusiness } from "../services/marketplace/sellerRegistrationService";
 import { registerSellerAccountReset } from "./sellerMemoryRegistry";
 
 const SELLER_BUSINESS_STATUS_MEMORY = {
   checked: false,
   hasBusiness: false,
 };
+
+// A business that became active (e.g. a registration that finished in the
+// background while UrMall was closed) means this account has one: reopening
+// UrMall must show its dashboard, not the registration form. Only the memory
+// is updated; a mounted registration screen finishes its own way.
+function isBusinessActivated(event) {
+  return Boolean(event?.detail?.businessId);
+}
+
+if (typeof window !== "undefined") {
+  window.addEventListener(MARKETPLACE_BUSINESS_CHANGED_EVENT, (event) => {
+    if (!isBusinessActivated(event)) return;
+    SELLER_BUSINESS_STATUS_MEMORY.checked = true;
+    SELLER_BUSINESS_STATUS_MEMORY.hasBusiness = true;
+  });
+}
 
 // Whether this account has a business belongs to the signed-in account.
 registerSellerAccountReset(() => {
