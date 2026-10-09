@@ -12,6 +12,7 @@ import { isNativePlatform } from "../../../../Backend/services/nativeOAuthServic
 import { signOutSocialSession } from "../../../../Backend/services/sessionService";
 import { t as i18nText } from "../../../../i18n/index";
 import { useI18n as useUiLocale } from "../../../../i18n/index.js";
+import AppPortal from "../../../shared/AppPortal";
 
 // Enforces "Biometric unlock" from Security: when it is on for the signed-in
 // account, KunThai stays covered until the device confirms the person, on
@@ -110,6 +111,7 @@ export default function BiometricLockGate({ userId = "" }) {
   if (!locked || !userId) return null;
 
   return (
+    <AppPortal>
     <div
       role="dialog"
       aria-modal="true"
@@ -145,5 +147,6 @@ export default function BiometricLockGate({ userId = "" }) {
         </button>
       </div>
     </div>
+    </AppPortal>
   );
 }
