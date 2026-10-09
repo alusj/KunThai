@@ -9,9 +9,9 @@ import {
   linkOAuthIdentity,
   OAUTH_SETTLED_EVENT,
 } from "../../../../Backend/services/nativeOAuthService";
-import { uiText } from "../../../../i18n/index";
+import { t as i18nText, uiText } from "../../../../i18n/index";
 import { uiText as translateUi, useI18n as useUiLocale } from "../../../../i18n/index.js";
-import { inlineErrorMessage } from "../../../../Backend/services/friendlyErrorService";
+import { inlineErrorMessage, isConnectionFailure } from "../../../../Backend/services/friendlyErrorService";
 
 // Lets a signed-in KunThai user connect a social login to their account — the
 // path for a phone-only account whose email does not match the Google/Facebook
@@ -28,6 +28,7 @@ export default function LinkedAccountsSection({ currentUserId = "" }) {
   const [busyProvider, setBusyProvider] = useState("");
   const [error, setError] = useState("");
   const [notice, setNotice] = useState("");
+  const [confirmUnlink, setConfirmUnlink] = useState("");
 
   const refresh = useCallback(async () => {
     try {
@@ -81,12 +82,35 @@ export default function LinkedAccountsSection({ currentUserId = "" }) {
       setBusyProvider("");
       const message = String(err?.message || "").toLowerCase();
       if (message.includes("manual linking") || message.includes("linking is disabled")) {
-        setError(uiText("Account linking is turned off. Enable Manual Linking in your Supabase Authentication settings."));
+        setError(i18nText("exploreSettingsFix.linkingUnavailable"));
       } else if (message.includes("already")) {
         setError(uiText("This social account is already connected to another KunThai account."));
       } else {
         setError(inlineErrorMessage(err, uiText("We couldn't start account linking. Please try again.")));
       }
+    }
+  }
+
+  // Unlinking is allowed only while another way to sign in remains.
+  const canUnlink = (identities || []).length > 1;
+
+  async function handleUnlink(provider) {
+    if (busyProvider || !canUnlink) return;
+    const identity = (identities || []).find((item) => item.provider === provider);
+    if (!identity) return;
+    setError("");
+    setNotice("");
+    setConfirmUnlink("");
+    setBusyProvider(provider);
+    try {
+      const { error: unlinkError } = await supabase.auth.unlinkIdentity(identity);
+      if (unlinkError) throw unlinkError;
+      setNotice(i18nText("exploreSettingsFix.unlinked"));
+      await refresh();
+    } catch (err) {
+      setError(isConnectionFailure(err) ? i18nText("common.networkLost") : i18nText("exploreSettingsFix.unlinkFailed"));
+    } finally {
+      setBusyProvider("");
     }
   }
 
@@ -126,9 +150,27 @@ export default function LinkedAccountsSection({ currentUserId = "" }) {
                   </span>
 
                   {linked ? (
-                    <span className="inline-flex items-center gap-1 rounded-full bg-emerald-50 px-3 py-1.5 text-xs font-black text-emerald-700">
-                      <HiOutlineCheckCircle className="text-base" />
-                      {uiText("Linked")}
+                    <span className="flex flex-wrap items-center justify-end gap-2">
+                      <span className="inline-flex items-center gap-1 rounded-full bg-emerald-50 px-3 py-1.5 text-xs font-black text-emerald-700">
+                        <HiOutlineCheckCircle className="text-base" />
+                        {uiText("Linked")}
+                      </span>
+                      {canUnlink ? (
+                        confirmUnlink === id ? (
+                          <>
+                            <button type="button" onClick={() => setConfirmUnlink("")} disabled={Boolean(busyProvider)} className="rounded-full bg-slate-100 px-3 py-1.5 text-xs font-black text-slate-700">
+                              {i18nText("exploreSettingsFix.cancel")}
+                            </button>
+                            <button type="button" onClick={() => handleUnlink(id)} disabled={Boolean(busyProvider)} className="rounded-full bg-rose-600 px-3 py-1.5 text-xs font-black text-white disabled:opacity-60">
+                              {busy ? i18nText("exploreSettingsFix.working") : i18nText("exploreSettingsFix.unlinkConfirm")}
+                            </button>
+                          </>
+                        ) : (
+                          <button type="button" onClick={() => setConfirmUnlink(id)} disabled={Boolean(busyProvider)} className="rounded-full border border-slate-200 px-3 py-1.5 text-xs font-black text-slate-600 disabled:opacity-60">
+                            {i18nText("exploreSettingsFix.unlink")}
+                          </button>
+                        )
+                      ) : null}
                     </span>
                   ) : (
                     <button

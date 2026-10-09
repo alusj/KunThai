@@ -22,14 +22,21 @@ export default function InterestsScreen({ hideHeader = false }) {
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
   const [feedback, setFeedback] = useState("");
+  const [loadError, setLoadError] = useState(false);
+  const [reloadKey, setReloadKey] = useState(0);
 
   useEffect(() => {
     let active = true;
+    setLoading(true);
+    setLoadError(false);
     Promise.all([fetchExploreTopics(), fetchUserTopicFollows()])
       .then(([topicRows, followed]) => {
         if (!active) return;
         setTopics(topicRows);
         setSelected(followed);
+      })
+      .catch(() => {
+        if (active) setLoadError(true);
       })
       .finally(() => {
         if (active) setLoading(false);
@@ -37,7 +44,7 @@ export default function InterestsScreen({ hideHeader = false }) {
     return () => {
       active = false;
     };
-  }, []);
+  }, [reloadKey]);
 
   const categories = useMemo(
     () => [ALL_CATEGORIES, ...Array.from(new Set(topics.map((topic) => topic.category)))],
@@ -92,7 +99,7 @@ export default function InterestsScreen({ hideHeader = false }) {
               <p className="text-xs font-black uppercase tracking-[0.2em] text-sky-700">{i18nText("ui.literals.k44ba84943105")}</p>
               <h3 className="mt-1 text-2xl font-black text-slate-950">{i18nText("ui.literals.kd7da97eac638")}</h3>
               <p className="mt-2 max-w-3xl text-sm font-semibold leading-6 text-slate-600">
-                {i18nText("ui.literals.kf30e9d0fd03f")}
+                {i18nText("exploreSettingsFix.interestsDesc")}
               </p>
             </div>
           </div>
@@ -113,7 +120,7 @@ export default function InterestsScreen({ hideHeader = false }) {
             onChange={(event) => setCategory(event.target.value)}
             className="h-12 rounded-2xl border border-slate-200 bg-white px-4 text-sm font-black text-slate-700 shadow-sm outline-none"
           >
-            {categories.map((item) => <option key={item}>{item}</option>)}
+            {categories.map((item) => <option key={item} value={item}>{item === ALL_CATEGORIES ? i18nText("exploreSettingsFix.allTopics") : item}</option>)}
           </select>
         </div>
 
@@ -127,7 +134,15 @@ export default function InterestsScreen({ hideHeader = false }) {
           </div>
 
           {loading ? <p className="mt-5 text-sm font-bold text-slate-500">{i18nText("ui.literals.k039ccb135c12")}</p> : null}
-          {!loading ? (
+          {!loading && loadError ? (
+            <div className="mt-5 rounded-2xl bg-rose-50 px-4 py-3" role="alert">
+              <p className="text-sm font-bold text-rose-800">{i18nText("exploreSettingsFix.interestsLoadError")}</p>
+              <button type="button" onClick={() => setReloadKey((value) => value + 1)} className="mt-2 rounded-xl bg-white px-3 py-1.5 text-sm font-black text-rose-700 shadow-sm">
+                {i18nText("exploreSettingsFix.retry")}
+              </button>
+            </div>
+          ) : null}
+          {!loading && !loadError ? (
             <div className="mt-5 flex flex-wrap gap-2">
               {visibleTopics.map((topic) => {
                 const active = selected.includes(topic.slug);
@@ -149,7 +164,7 @@ export default function InterestsScreen({ hideHeader = false }) {
               })}
             </div>
           ) : null}
-          {!loading && !visibleTopics.length ? <p className="mt-5 text-sm font-bold text-slate-500">{i18nText("ui.literals.k5f5d075858c7")}</p> : null}
+          {!loading && !loadError && !visibleTopics.length ? <p className="mt-5 text-sm font-bold text-slate-500">{i18nText("ui.literals.k5f5d075858c7")}</p> : null}
         </section>
 
         {feedback ? <p className="rounded-2xl bg-sky-50 px-4 py-3 text-sm font-black text-sky-800" role="status">{translateUi(feedback)}</p> : null}
@@ -168,7 +183,7 @@ export default function InterestsScreen({ hideHeader = false }) {
           <button
             type="button"
             onClick={save}
-            disabled={saving}
+            disabled={saving || loading || loadError}
             className="h-12 rounded-2xl bg-slate-950 px-6 text-sm font-black text-white disabled:opacity-50"
           >
             {saving ? i18nText("ui.literals.kae7e887517b0") : i18nText("ui.literals.k9554542662ab")}

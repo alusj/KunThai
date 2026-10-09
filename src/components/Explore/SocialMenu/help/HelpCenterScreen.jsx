@@ -79,10 +79,27 @@ const helpTopics = [
   },
 ];
 
+// Stable category values (stored on the ticket, read by support staff); only
+// the label shown is translated.
+const SUPPORT_CATEGORIES = [
+  { value: "Explore" },
+  { value: "Profile", labelKey: "ui.literals.kff4fc0276e96" },
+  { value: "Messages", labelKey: "ui.literals.kf1702b468627" },
+  { value: "Privacy & Safety", labelKey: "ui.literals.k0e3ce14578d9" },
+  { value: "Marketplace", labelKey: "ui.literals.k983095c0ea49" },
+  { value: "UrRide" },
+  { value: "Payments", labelKey: "ui.literals.k44357ae55a21" },
+];
+
+function supportCategoryLabel(value) {
+  const category = SUPPORT_CATEGORIES.find((item) => item.value === value);
+  return category?.labelKey ? i18nText(category.labelKey) : value;
+}
+
 const quickActions = [
-  { title: "Report unsafe content", description: "Abuse, scams, impersonation, threats, or serious policy concerns.", priority: "urgent", category: "Privacy & Safety" },
-  { title: "Account or profile issue", description: "Incorrect saved details, username, identity display, or account access.", priority: "normal", category: "Profile" },
-  { title: "Payment, order, or booking issue", description: "Marketplace checkout, payments, delivery, or UrRide bookings.", priority: "high", category: "Payments" },
+  { id: "unsafe-content", title: "Report unsafe content", description: "Abuse, scams, impersonation, threats, or serious policy concerns.", priority: "urgent", category: "Privacy & Safety" },
+  { id: "account-profile", title: "Account or profile issue", description: "Incorrect saved details, username, identity display, or account access.", priority: "normal", category: "Profile" },
+  { id: "payment-order", title: "Payment, order, or booking issue", description: "Marketplace checkout, payments, delivery, or UrRide bookings.", priority: "high", category: "Payments" },
 ];
 
 function TopicCard({ topic }) {
@@ -192,7 +209,7 @@ export default function HelpCenterScreen({ focusReport = false, hideHeader = fal
             <div className="space-y-4">
               <div className="grid gap-3 md:grid-cols-3">
                 {quickActions.map((action) => (
-                  <button key={action.title} type="button" onClick={() => applyQuickAction(action)} className="rounded-[22px] border border-slate-200 bg-white p-4 text-left shadow-sm transition hover:border-sky-200 hover:bg-sky-50">
+                  <button key={action.id} type="button" onClick={() => applyQuickAction(action)} className="rounded-[22px] border border-slate-200 bg-white p-4 text-left shadow-sm transition hover:border-sky-200 hover:bg-sky-50">
                     <HiOutlineMegaphone className="text-2xl text-sky-700" /><p className="mt-3 text-sm font-black text-slate-950">{uiText(action.title)}</p><p className="mt-1 text-xs font-semibold leading-5 text-slate-600">{uiText(action.description)}</p>
                   </button>
                 ))}
@@ -202,8 +219,10 @@ export default function HelpCenterScreen({ focusReport = false, hideHeader = fal
                 <div className="flex items-center gap-3"><span className="grid h-12 w-12 place-items-center rounded-2xl bg-sky-50 text-sky-700"><HiOutlineLifebuoy className="text-2xl" /></span><div><p className="text-lg font-black text-slate-950">{i18nText("ui.literals.kcb38f57cdb90")}</p><p className="text-sm font-semibold text-slate-500">{i18nText("ui.literals.kcf1653315dae")}</p></div></div>
                 {support.feedback ? <p className="mt-4 rounded-2xl bg-sky-50 px-4 py-3 text-sm font-black text-sky-700">{translateUi(support.feedback)}</p> : null}
                 <div className="mt-4 grid gap-3">
-                  <select value={form.category} onChange={(event) => setForm((current) => ({ ...current, category: event.target.value }))} className="h-12 rounded-2xl bg-slate-100 px-4 text-sm font-black text-slate-700 outline-none">
-                    <option>Explore</option><option>{i18nText("ui.literals.kff4fc0276e96")}</option><option>{i18nText("ui.literals.kf1702b468627")}</option><option>{i18nText("ui.literals.k0e3ce14578d9")}</option><option>{i18nText("ui.literals.k983095c0ea49")}</option><option>UrRide</option><option>{i18nText("ui.literals.k44357ae55a21")}</option>
+                  <select value={form.category} onChange={(event) => setForm((current) => ({ ...current, category: event.target.value }))} aria-label={i18nText("exploreSettingsFix.helpCategory")} className="h-12 rounded-2xl bg-slate-100 px-4 text-sm font-black text-slate-700 outline-none">
+                    {SUPPORT_CATEGORIES.map((category) => (
+                      <option key={category.value} value={category.value}>{category.labelKey ? i18nText(category.labelKey) : category.value}</option>
+                    ))}
                   </select>
                   <input value={form.subject} onChange={(event) => setForm((current) => ({ ...current, subject: event.target.value }))} placeholder={i18nText("ui.literals.k8d183dbdcea3")} className="h-12 rounded-2xl bg-slate-100 px-4 text-sm font-bold text-slate-800 outline-none" />
                   <textarea value={form.message} onChange={(event) => setForm((current) => ({ ...current, message: event.target.value }))} placeholder={i18nText("ui.literals.kd54ee310edcf")} rows={5} className="resize-none rounded-2xl bg-slate-100 px-4 py-3 text-sm font-bold leading-6 text-slate-800 outline-none" />
@@ -216,7 +235,7 @@ export default function HelpCenterScreen({ focusReport = false, hideHeader = fal
             <section className="h-fit rounded-[28px] border border-slate-200 bg-white p-5 shadow-sm">
               <div className="flex items-center gap-2"><HiOutlineClipboardDocumentCheck className="text-2xl text-sky-700" /><h3 className="text-lg font-black text-slate-950">{i18nText("ui.literals.kedcd27ca7ccd")}</h3></div>
               {!support.tickets.length ? <p className="mt-4 rounded-2xl bg-slate-50 px-4 py-3 text-sm font-bold leading-6 text-slate-500">{i18nText("ui.literals.kc5aeff4a73d2")}</p> : (
-                <div className="mt-4 space-y-2">{support.tickets.slice(0, 5).map((ticket) => <article key={ticket.id} className="rounded-2xl bg-slate-50 px-4 py-3"><div className="flex items-center justify-between gap-2"><p className="truncate text-sm font-black text-slate-950">{ticket.subject}</p><span className="rounded-full bg-white px-2.5 py-1 text-xs font-black capitalize text-sky-700">{ticket.status.replaceAll("_", " ")}</span></div><p className="mt-1 text-xs font-bold text-slate-500">{ticket.category} • {ticket.priority}</p>{ticket.adminReply ? <p className="mt-3 rounded-xl border border-emerald-100 bg-emerald-50 px-3 py-2 text-xs font-bold leading-5 text-emerald-900"><span className="block text-[10px] font-black uppercase tracking-[0.12em] text-emerald-700">{i18nText("ui.literals.kc8de2f957b49")}</span>{ticket.adminReply}</p> : null}</article>)}</div>
+                <div className="mt-4 space-y-2">{support.tickets.slice(0, 5).map((ticket) => <article key={ticket.id} className="rounded-2xl bg-slate-50 px-4 py-3"><div className="flex items-center justify-between gap-2"><p className="truncate text-sm font-black text-slate-950">{ticket.subject}</p><span className="rounded-full bg-white px-2.5 py-1 text-xs font-black capitalize text-sky-700">{ticket.status.replaceAll("_", " ")}</span></div><p className="mt-1 text-xs font-bold text-slate-500">{supportCategoryLabel(ticket.category)} • {ticket.priority}</p>{ticket.adminReply ? <p className="mt-3 rounded-xl border border-emerald-100 bg-emerald-50 px-3 py-2 text-xs font-bold leading-5 text-emerald-900"><span className="block text-[10px] font-black uppercase tracking-[0.12em] text-emerald-700">{i18nText("ui.literals.kc8de2f957b49")}</span>{ticket.adminReply}</p> : null}</article>)}</div>
               )}
             </section>
           </div>

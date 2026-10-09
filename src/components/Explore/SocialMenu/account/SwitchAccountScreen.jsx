@@ -5,12 +5,15 @@ import {
   HiOutlineDevicePhoneMobile,
   HiOutlineEnvelope,
   HiOutlineUserCircle,
+  HiOutlineUserPlus,
 } from "react-icons/hi2";
 
 import {
   getRememberedSocialAccounts,
   hasVaultedSession,
+  removeRememberedSocialAccount,
   signOutSocialSession,
+  startAddSocialAccount,
   switchToRememberedSocialAccount,
 } from "../../../../Backend/services/sessionService";
 import { useI18n } from "../../../../i18n";
@@ -39,8 +42,12 @@ function AccountAvatar({ account, active }) {
 export default function SwitchAccountScreen({ currentProfile = {}, user = null }) {
   const { t } = useI18n();
   const [statusMessage, setStatusMessage] = useState("");
+  // "" | "add" | "signout" | an account id being switched to
+  const [busy, setBusy] = useState("");
+  const [rememberedVersion, setRememberedVersion] = useState(0);
   const currentUserId = currentProfile?.userId || user?.id || "";
   const accounts = useMemo(() => {
+    void rememberedVersion;
     const remembered = getRememberedSocialAccounts();
     if (!currentUserId || remembered.some((account) => account.id === currentUserId)) return remembered;
 
@@ -56,9 +63,10 @@ export default function SwitchAccountScreen({ currentProfile = {}, user = null }
       },
       ...remembered,
     ];
-  }, [currentProfile, currentUserId, user]);
+  }, [currentProfile, currentUserId, user, rememberedVersion]);
 
   async function chooseAccount(account) {
+    if (busy) return;
     if (account.id === currentUserId) {
       setStatusMessage(t("switchAccount.alreadyActive"));
       return;
@@ -66,6 +74,7 @@ export default function SwitchAccountScreen({ currentProfile = {}, user = null }
 
     const instant = hasVaultedSession(account.id);
 
+    setBusy(account.id);
     try {
       setStatusMessage(instant ? t("switchAccount.switching") : t("switchAccount.openingSignIn"));
       const result = await switchToRememberedSocialAccount(account);
@@ -74,15 +83,40 @@ export default function SwitchAccountScreen({ currentProfile = {}, user = null }
       }
     } catch (error) {
       setStatusMessage(inlineErrorMessage(error, i18nText("ui.literals.k435fff56c883")));
+    } finally {
+      setBusy("");
     }
   }
 
+  async function addAccount() {
+    if (busy) return;
+    setBusy("add");
+    try {
+      setStatusMessage(t("switchAccount.openingSignIn"));
+      await startAddSocialAccount();
+    } catch (error) {
+      setStatusMessage(inlineErrorMessage(error, i18nText("ui.literals.k435fff56c883")));
+      setBusy("");
+    }
+  }
+
+  function removeAccount(account) {
+    if (busy || account.id === currentUserId) return;
+    removeRememberedSocialAccount(account.id);
+    setRememberedVersion((value) => value + 1);
+    setStatusMessage(i18nText("exploreSettingsFix.accountRemoved"));
+  }
+
   async function signOut() {
+    if (busy) return;
+    setBusy("signout");
     try {
       setStatusMessage(i18nText("ui.literals.kb9412f771503"));
       await signOutSocialSession();
     } catch (error) {
       setStatusMessage(inlineErrorMessage(error, i18nText("ui.literals.k2719ccab4f15")));
+    } finally {
+      setBusy("");
     }
   }
 
@@ -130,13 +164,25 @@ export default function SwitchAccountScreen({ currentProfile = {}, user = null }
                 <button
                   type="button"
                   onClick={() => chooseAccount(account)}
-                  disabled={active}
-                  className={`mt-4 h-11 w-full rounded-2xl text-sm font-black ${
+                  disabled={active || Boolean(busy)}
+                  className={`mt-4 h-11 w-full rounded-2xl text-sm font-black disabled:opacity-70 ${
                     active ? "bg-slate-100 text-slate-400" : "bg-slate-950 text-white"
                   }`}
                 >
-                  {active ? t("switchAccount.currentAccount") : instant ? t("switchAccount.switchTo") : t("switchAccount.signInAs")}
+                  {busy === account.id
+                    ? i18nText("exploreSettingsFix.working")
+                    : active ? t("switchAccount.currentAccount") : instant ? t("switchAccount.switchTo") : t("switchAccount.signInAs")}
                 </button>
+                {!active ? (
+                  <button
+                    type="button"
+                    onClick={() => removeAccount(account)}
+                    disabled={Boolean(busy)}
+                    className="mt-2 h-10 w-full rounded-2xl text-xs font-black text-slate-500 hover:bg-slate-50 disabled:opacity-60"
+                  >
+                    {i18nText("exploreSettingsFix.removeFromDevice")}
+                  </button>
+                ) : null}
               </article>
             );
           })
@@ -153,11 +199,23 @@ export default function SwitchAccountScreen({ currentProfile = {}, user = null }
 
       <button
         type="button"
+        onClick={addAccount}
+        disabled={Boolean(busy)}
+        className="flex h-12 w-full items-center justify-center gap-2 rounded-2xl bg-sky-700 text-sm font-black text-white disabled:opacity-60"
+      >
+        <HiOutlineUserPlus />
+        {busy === "add" ? i18nText("exploreSettingsFix.working") : i18nText("exploreSettingsFix.addAccount")}
+      </button>
+      <p className="px-1 text-xs font-semibold leading-5 text-slate-500">{i18nText("exploreSettingsFix.addAccountHint")}</p>
+
+      <button
+        type="button"
         onClick={signOut}
-        className="flex h-12 w-full items-center justify-center gap-2 rounded-2xl border border-rose-100 bg-rose-50 text-sm font-black text-rose-700"
+        disabled={Boolean(busy)}
+        className="flex h-12 w-full items-center justify-center gap-2 rounded-2xl border border-rose-100 bg-rose-50 text-sm font-black text-rose-700 disabled:opacity-60"
       >
         <HiOutlineArrowRightOnRectangle />
-        {t("switchAccount.signOutCurrent")}
+        {busy === "signout" ? i18nText("exploreSettingsFix.signingOut") : t("switchAccount.signOutCurrent")}
       </button>
     </div>
   );

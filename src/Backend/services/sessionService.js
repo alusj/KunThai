@@ -236,6 +236,32 @@ export async function signOutSocialSession({ allDevices = false } = {}) {
   }
 }
 
+// "Add account": opens sign-in for another account WITHOUT signing the current
+// one out (a sign-out revokes its refresh token, which would break switching
+// back). The current session is kept in the vault and only this device's
+// copy of the active session is dropped before a full reload.
+export async function startAddSocialAccount() {
+  const { data } = await supabase.auth.getSession();
+  if (data?.session) vaultSessionSnapshot(data.session);
+  clearExploreMessageCache();
+  clearSocialSessionCache();
+  clearExploreAccountCache();
+  clearTransientSessionNavigation();
+  try {
+    const storageKey = supabase.auth.storageKey;
+    if (storageKey) {
+      localStorage.removeItem(storageKey);
+      localStorage.removeItem(`${storageKey}-code-verifier`);
+      localStorage.removeItem(`${storageKey}-user`);
+    }
+  } catch {
+    // Storage blocked: fall back to a normal sign-out below.
+    await signOutSocialSession();
+    return;
+  }
+  window.location.reload();
+}
+
 // Ends this account's sessions on every other device; this one stays signed in.
 export async function signOutOtherDevices() {
   const { error } = await supabase.auth.signOut({ scope: "others" });
