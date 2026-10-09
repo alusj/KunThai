@@ -16,8 +16,8 @@ create table auth.users(id uuid primary key);
 
 -- The foundation as production has it, then the change under test (twice: it must be re-runnable).
 \ir ../migrations/20260916120000_kunthai_ai_foundation.sql
-\ir ../migrations/20261010100000_kai_usage_controls.sql
-\ir ../migrations/20261010100000_kai_usage_controls.sql
+\ir ../migrations/20261010110000_kai_usage_controls.sql
+\ir ../migrations/20261010110000_kai_usage_controls.sql
 
 create function public.test_assert(ok boolean, message text) returns void language plpgsql as $$ begin if ok is not true then raise exception 'TEST FAILED: %', message; end if; end $$;
 

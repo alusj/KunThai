@@ -735,7 +735,9 @@ export async function submitSellerRegistration(registration) {
   // (otherwise "You already have this business type" blocked the retry).
   try {
     await supabase.from("marketplace_business_categories").delete().eq("business_id", business.id);
-    if (registration.identity.categories.length) {
+    // Only shops and vendors have categories; a restaurant or real-estate
+    // draft that once held categories must not save them.
+    if (usesMarketplaceCategories(registration.identity.businessKind) && registration.identity.categories.length) {
       const { error: categoryError } = await supabase.from("marketplace_business_categories").insert(
         registration.identity.categories.map((category) => ({ business_id: business.id, category })),
       );
@@ -918,7 +920,9 @@ export async function updateRegisteredBusinessProfile(updates) {
 
   if (updates.identity?.categories) {
     await supabase.from("marketplace_business_categories").delete().eq("business_id", currentBusiness.id);
-    const categories = registration.identity.categories.filter(Boolean);
+    const categories = usesMarketplaceCategories(registration.identity.businessKind)
+      ? registration.identity.categories.filter(Boolean)
+      : [];
     if (categories.length) {
       const { error: categoryError } = await supabase.from("marketplace_business_categories").insert(
         categories.map((category) => ({ business_id: currentBusiness.id, category })),

@@ -2,7 +2,7 @@
 
 ## SQL to run in Supabase (once)
 
-`supabase/migrations/20261010100000_kai_usage_controls.sql`:
+`supabase/migrations/20261010110000_kai_usage_controls.sql`:
 
 - adds `ai_usage_events.cached_tokens` (how many input tokens Gemini served from its context cache);
 - answers served from KunThai's response cache are logged with `cached = true` and no longer count
