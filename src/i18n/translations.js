@@ -6,6 +6,7 @@ import { URRIDE } from "./urride";
 import { EXPLORE_SETTINGS_FIX } from "./exploreSettingsFix";
 import { EXPLORE_PROFILE_FIX } from "./exploreProfileFix";
 import { EXPLORE_MESSAGES_FIX } from "./exploreMessagesFix";
+import { EXPLORE_NATIVE_FIX } from "./exploreNativeFix";
 import { UI_TRANSLATIONS } from "./ui";
 import { REGIONS } from "./regions";
 import { ADDRESS_BOOK } from "./addressBook";
@@ -59214,6 +59215,12 @@ for (const [locale, section] of Object.entries(EXPLORE_PROFILE_FIX)) {
 for (const [locale, section] of Object.entries(EXPLORE_MESSAGES_FIX)) {
   if (TRANSLATIONS[locale]) {
     TRANSLATIONS[locale].exploreMessagesFix = section;
+  }
+}
+
+for (const [locale, section] of Object.entries(EXPLORE_NATIVE_FIX)) {
+  if (TRANSLATIONS[locale]) {
+    TRANSLATIONS[locale].exploreNativeFix = section;
   }
 }
 
