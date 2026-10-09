@@ -1,4 +1,4 @@
-import { useEffect, useRef } from "react";
+import { useCallback, useEffect, useRef } from "react";
 import { FiChevronDown, FiChevronUp, FiPlus, FiTrash2 } from "react-icons/fi";
 
 import CenteredModal from "../../../../shared/CenteredModal";
@@ -52,7 +52,7 @@ export default function LocationContactStep({ registration }) {
     openCurrentLocationPicker,
     openDropPinPicker,
     updateSection,
-    locateBusiness,
+    locateBusiness: startLocateBusiness,
     addBranch,
     updateBranch,
     removeBranch,
@@ -72,10 +72,19 @@ export default function LocationContactStep({ registration }) {
   const addressValidationResult = addressValidation.result;
   const accuracyCaution = useAddressAccuracyCaution(form.location.address, { gate: false, lockOnEdit: true });
   const addressInputRef = useRef(null);
+  // The location card stays on screen until the seller acts on it or closes it.
+  // It used to minimize itself after 5 seconds, which looked like it vanished
+  // and made Locate me seem disabled (the prompt was already open, just hidden).
+  // The seller can still minimize it with the chevron.
   const locationPromptCollapse = useAutoCollapseCard({
-    enabled: locationPromptOpen && !locating,
+    enabled: false,
     resetKey: [locationPromptOpen ? "open" : "closed", locationStatus, locating ? "locating" : "ready"].join("|"),
   });
+  const expandLocationPrompt = locationPromptCollapse.expand;
+  const locateBusiness = useCallback((target) => {
+    expandLocationPrompt();
+    startLocateBusiness(target);
+  }, [expandLocationPrompt, startLocateBusiness]);
   const countryProfile = getActiveCountryProfile(form.location.country);
   const phoneValidation = validateCountryPhone(form.location.phone, countryProfile);
 

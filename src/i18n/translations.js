@@ -3,6 +3,8 @@
 // vocabulary and are intentionally identical in every language.
 
 import { URRIDE } from "./urride";
+import { URMALL_VENDOR_GUIDE } from "./urmallVendorGuide";
+import { URRIDE_AREA_FIX } from "./urrideAreaFix";
 import { EXPLORE_SETTINGS_FIX } from "./exploreSettingsFix";
 import { EXPLORE_PROFILE_FIX } from "./exploreProfileFix";
 import { EXPLORE_MESSAGES_FIX } from "./exploreMessagesFix";
@@ -59221,6 +59223,18 @@ for (const [locale, section] of Object.entries(EXPLORE_MESSAGES_FIX)) {
 for (const [locale, section] of Object.entries(EXPLORE_NATIVE_FIX)) {
   if (TRANSLATIONS[locale]) {
     TRANSLATIONS[locale].exploreNativeFix = section;
+  }
+}
+
+for (const [locale, section] of Object.entries(URMALL_VENDOR_GUIDE)) {
+  if (TRANSLATIONS[locale]) {
+    TRANSLATIONS[locale].urmallVendorGuide = section;
+  }
+}
+
+for (const [locale, section] of Object.entries(URRIDE_AREA_FIX)) {
+  if (TRANSLATIONS[locale]) {
+    TRANSLATIONS[locale].urrideAreaFix = section;
   }
 }
 

@@ -236,8 +236,10 @@ export default function OperatorDashboardScreen({
       { label: t("urride.opDash.health.makeModel"), complete: Boolean(form.make && form.model) },
       { label: t("urride.opDash.health.pricing"), complete: [form.baseFare, form.pricePerKm, form.pricePerHour].some((value) => Number(value || 0) > 0) },
       { label: t("urride.opDash.health.documents"), complete: !documentsSkipped },
-      { label: t("urride.opDash.health.kunthaiVerification"), complete: verificationStatus === "verified" },
     ];
+    // KunThai's review is not a setup step the operator can finish: it is shown
+    // on its own badge (Fleet profile), so setup reaches 100% once the operator
+    // has added every detail and document.
     const completeCount = checklist.filter((item) => item.complete).length;
     const score = Math.round((completeCount / checklist.length) * 100);
     return {
@@ -246,7 +248,7 @@ export default function OperatorDashboardScreen({
       nextStep: score >= 100 ? t("urride.opDash.health.complete") : t("urride.opDash.health.nextStep"),
       missingItems: checklist.filter((item) => !item.complete).map((item) => item.label),
     };
-  }, [form, documentsSkipped, verificationStatus, memoLocale]);
+  }, [form, documentsSkipped, memoLocale]);
   const verification =
     operatorVerificationStatuses[verificationStatus] || operatorVerificationStatuses.pending;
   const hasCompanyAccount = Boolean(companyAccount?.companyName || companyAccount?.id);

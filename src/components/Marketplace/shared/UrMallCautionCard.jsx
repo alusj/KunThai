@@ -1,4 +1,4 @@
-import { Ban, BadgeCheck, Clock, FileText, House, Landmark, ShieldAlert, ShoppingBag, Store, UtensilsCrossed } from "lucide-react";
+import { Ban, BadgeCheck, Clock, FileText, House, Landmark, ShieldAlert, ShoppingBag, Store, Truck, UtensilsCrossed } from "lucide-react";
 
 import { useI18n, t } from "../../../i18n";
 import PlanStagesCard from "../../shared/PlanStagesCard";
@@ -9,6 +9,7 @@ import CautionFeatureGuide from "../../shared/CautionFeatureGuide";
 // standalone hotel guide.
 const BUSINESS_GUIDES = [
   { icon: Store, titleKey: "urmall.caution.shopTitle", purposeKey: "urmall.caution.shopPurpose", registrationKey: "urmall.caution.shopRegistration", operationKey: "urmall.caution.shopOperation" },
+  { icon: Truck, titleKey: "urmallVendorGuide.title", purposeKey: "urmallVendorGuide.purpose", registrationKey: "urmallVendorGuide.registration", operationKey: "urmallVendorGuide.operation" },
   { icon: UtensilsCrossed, titleKey: "urmall.caution.restaurantTitle", purposeKey: "urmall.caution.restaurantPurpose", registrationKey: "urmall.caution.restaurantRegistration", operationKey: "urmall.caution.restaurantOperation" },
   { icon: House, titleKey: "urmall.caution.realEstateTitle", purposeKey: "urmall.caution.realEstatePurpose", registrationKey: "urmall.caution.realEstateRegistration", operationKey: "urmall.caution.realEstateOperation" },
 ];
@@ -74,7 +75,7 @@ export default function UrMallCautionCard({ showMenuNote = true }) {
           <div>
             <h3 className="font-black text-slate-950">{t("urmall.caution.typeTitle")}</h3>
             <p className="mt-1 text-xs font-semibold leading-5 text-slate-600">
-              {t("urmall.caution.typeBody")}
+              {t("urmallVendorGuide.typeBody")}
             </p>
           </div>
         </div>

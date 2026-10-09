@@ -1265,13 +1265,61 @@ function getMarkerPosition(marker, fallback) {
 function waitForMapStyle(map) {
   if (!map || map.isStyleLoaded()) return Promise.resolve();
 
+  // "load" fires once per map; after a style swap (MapTiler -> OSM fallback)
+  // only "styledata"/"idle" follow, so listen for those as well.
   return new Promise((resolve) => {
-    map.once("load", resolve);
+    const done = () => {
+      if (!map.isStyleLoaded()) return;
+      map.off("load", done);
+      map.off("styledata", done);
+      map.off("idle", done);
+      resolve();
+    };
+    map.on("load", done);
+    map.on("styledata", done);
+    map.on("idle", done);
   });
+}
+
+// Sources and layers can only change once the style has loaded. Opening the
+// area view right after launch (or during a style swap) used to call
+// addSource/addLayer too early, which throws and took down the whole app.
+// Returns true when the change was queued; the newest change per group wins.
+function deferUntilStyleReady(map, group, apply) {
+  if (!map) return true;
+  let ready = false;
+  try {
+    ready = map.isStyleLoaded();
+  } catch {
+    ready = false;
+  }
+  if (ready) return false;
+  if (!map.__ktStylePending) map.__ktStylePending = new Map();
+  map.__ktStylePending.set(group, apply);
+  if (!map.__ktStyleFlushBound) {
+    map.__ktStyleFlushBound = true;
+    const flush = () => {
+      if (!map.__ktStylePending?.size || !map.isStyleLoaded()) return;
+      const pending = map.__ktStylePending;
+      map.__ktStylePending = new Map();
+      pending.forEach((run) => {
+        try {
+          run();
+        } catch (error) {
+          console.warn("[KunThai] Map layer update skipped", error);
+        }
+      });
+    };
+    map.on("styledata", flush);
+    map.on("idle", flush);
+    map.on("load", flush);
+  }
+  return true;
 }
 
 function clearRouteLayers(map) {
   if (!map) return;
+  if (map && deferUntilStyleReady(map, "route", () => clearRouteLayers(map))) return;
 
   if (map.getLayer("route-line")) map.removeLayer("route-line");
   if (map.getLayer("route-line-glow")) map.removeLayer("route-line-glow");
@@ -1279,6 +1327,7 @@ function clearRouteLayers(map) {
 }
 
 function clearMeasurementPreviewLayer(map) {
+  if (map && deferUntilStyleReady(map, "measurement", () => clearMeasurementPreviewLayer(map))) return;
   if (!map) return;
 
   try {
@@ -1291,6 +1340,7 @@ function clearMeasurementPreviewLayer(map) {
 }
 
 function upsertMeasurementPreviewLayer(map, coordinates) {
+  if (map && deferUntilStyleReady(map, "measurement", () => upsertMeasurementPreviewLayer(map, coordinates))) return;
   if (!map || !Array.isArray(coordinates) || coordinates.length < 2) return;
 
   const data = {
@@ -1344,6 +1394,7 @@ function upsertMeasurementPreviewLayer(map, coordinates) {
 
 function upsertRouteLayers(map, geometry, color = ROUTE_STATUS.correct.color) {
   if (!map || !geometry) return;
+  if (map && deferUntilStyleReady(map, "route", () => upsertRouteLayers(map, geometry, color))) return;
 
   const data = {
     type: "Feature",
@@ -1414,6 +1465,7 @@ function buildTrafficOverlayGeoJson(trafficSnapshots = []) {
 }
 
 function upsertTrafficOverlayLayers(map, trafficSnapshots = []) {
+  if (map && deferUntilStyleReady(map, "traffic", () => upsertTrafficOverlayLayers(map, trafficSnapshots))) return;
   if (!map) return;
 
   const data = buildTrafficOverlayGeoJson(trafficSnapshots);
@@ -1470,6 +1522,7 @@ function upsertTrafficOverlayLayers(map, trafficSnapshots = []) {
 }
 
 function clearTrafficOverlayLayers(map) {
+  if (map && deferUntilStyleReady(map, "traffic", () => clearTrafficOverlayLayers(map))) return;
   if (!map) return;
   if (map.getLayer("traffic-zone-ring")) map.removeLayer("traffic-zone-ring");
   if (map.getLayer("traffic-zone-fill")) map.removeLayer("traffic-zone-fill");
@@ -1477,6 +1530,7 @@ function clearTrafficOverlayLayers(map) {
 }
 
 function upsertTrafficAheadRouteLayer(map, geometry, status = "yellow") {
+  if (map && deferUntilStyleReady(map, "trafficAhead", () => upsertTrafficAheadRouteLayer(map, geometry, status))) return;
   if (!map) return;
 
   const data = {
@@ -1537,6 +1591,7 @@ function upsertTrafficAheadRouteLayer(map, geometry, status = "yellow") {
 }
 
 function clearTrafficAheadRouteLayer(map) {
+  if (map && deferUntilStyleReady(map, "trafficAhead", () => clearTrafficAheadRouteLayer(map))) return;
   if (!map) return;
   if (map.getLayer("route-traffic-ahead-line")) map.removeLayer("route-traffic-ahead-line");
   if (map.getLayer("route-traffic-ahead-glow")) map.removeLayer("route-traffic-ahead-glow");
@@ -1544,6 +1599,7 @@ function clearTrafficAheadRouteLayer(map) {
 }
 
 function upsertAlternativeRouteLayer(map, geometry) {
+  if (map && deferUntilStyleReady(map, "alternative", () => upsertAlternativeRouteLayer(map, geometry))) return;
   if (!map || !geometry) return;
 
   const data = {
@@ -1579,6 +1635,7 @@ function upsertAlternativeRouteLayer(map, geometry) {
 }
 
 function clearAlternativeRouteLayer(map) {
+  if (map && deferUntilStyleReady(map, "alternative", () => clearAlternativeRouteLayer(map))) return;
   if (!map) return;
   if (map.getLayer("route-alternative-line")) map.removeLayer("route-alternative-line");
   if (map.getSource("route-alternative")) map.removeSource("route-alternative");

@@ -1,4 +1,5 @@
 import { memo, useCallback, useEffect, useMemo, useRef, useState } from "react";
+import AreaViewErrorBoundary from "./area/AreaViewErrorBoundary";
 import { getPreciseCurrentPosition } from "../../Backend/utils/precisePosition";
 import { useAiScreen } from "../../Backend/services/ai/aiScreenContext";
 import {
@@ -803,7 +804,7 @@ function isFutureOrMissing(value) {
   return !Number.isFinite(timestamp) || timestamp > Date.now();
 }
 
-export default function NearbyAreaScreen({
+function NearbyAreaScreenContent({
   active = true,
   onBack,
   onDone,
@@ -3522,5 +3523,15 @@ function FormInput({ label, onChange, placeholder, value }) {
         className="h-12 w-full rounded-2xl border border-slate-200 bg-slate-50 px-3 text-sm font-semibold outline-none placeholder:text-slate-400"
       />
     </label>
+  );
+}
+
+// Every caller (UrRide, UrMall, saved addresses, KAI, bookings) gets the same
+// safety net: a map failure stays inside this screen with Try again / Go back.
+export default function NearbyAreaScreen(props) {
+  return (
+    <AreaViewErrorBoundary onBack={props.onBack}>
+      <NearbyAreaScreenContent {...props} />
+    </AreaViewErrorBoundary>
   );
 }
