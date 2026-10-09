@@ -1,6 +1,7 @@
 import Avatar from "../../shared/Avatar";
 import { t as i18nText } from "../../../../i18n/index";
 import { uiText as translateUi, useI18n as useUiLocale } from "../../../../i18n/index.js";
+import { messagePreviewParts } from "../../../../Backend/services/explore/messageInboxModels.js";
 
 function getOtherParticipant(conversation, currentUserId) {
   if (conversation.counterpart) return conversation.counterpart;
@@ -8,13 +9,13 @@ function getOtherParticipant(conversation, currentUserId) {
   return conversation.participants?.[otherId] || {};
 }
 
+// The last message in the viewer's language ("Photo", "Voice note", …).
 function getConversationPreview(conversation, username) {
   const message = conversation.lastMessage;
-  if (message?.body) return message.body;
-  if (message?.type === "image") return "Photo";
-  if (message?.type === "audio") return "Voice note";
-  if (message?.type === "video") return "Video";
-  return `@${username || "user"}`;
+  if (!message) return `@${username || "user"}`;
+  const parts = messagePreviewParts(message);
+  if (parts.text) return parts.text;
+  return parts.key ? i18nText(`exploreMessagesFix.${parts.key}`) : `@${username || "user"}`;
 }
 
 export default function ConversationRow({ conversation, currentUserId, onOpen, onRespond, request = false }) {

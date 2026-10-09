@@ -1,5 +1,16 @@
 import supabase from "../../lib/supabaseClient";
-import { uploadMediaDataUrl } from "./mediaService";
+import { dataUrlToBlob, uploadMediaDataUrl } from "./mediaService";
+import {
+  buildMessageMediaPath,
+  MESSAGE_MEDIA_BUCKET,
+  MESSAGE_PAGE_SIZE,
+  normalizeInboxRow,
+  privateMediaPath,
+  isPrivateMediaRef,
+  SIGNED_MEDIA_TTL_SECONDS,
+  signedUrlIsFresh,
+  toPrivateMediaRef,
+} from "./messageInboxModels.js";
 import { SPACE_IDENTITY_TYPE } from "./identityService";
 import { normalizeSpaceResponsibilities } from "./spaceService";
 
@@ -200,6 +211,14 @@ function isMissingMessageRequestRpc(error) {
   return error?.code === "PGRST202" || (
     message.includes("respond_to_explore_message_request")
     && (message.includes("schema cache") || message.includes("could not find"))
+  );
+}
+
+function isMissingRpc(error, rpcName) {
+  const message = String(error?.message || "").toLowerCase();
+  return error?.code === "PGRST202" || error?.code === "42883" || (
+    message.includes(rpcName)
+    && (message.includes("schema cache") || message.includes("could not find") || message.includes("does not exist"))
   );
 }
 
@@ -489,10 +508,34 @@ function fetchLocalConversations(currentUserId) {
     .filter((conversation) => conversation.participantIds?.includes(currentUserId))
     .map((conversation) => {
       const conversationMessages = messages.filter((message) => message.conversationId === conversation.id);
-      const lastMessage = conversationMessages[conversationMessages.length - 1] || null;
-      const unreadCount = conversationMessages.filter((message) => message.senderId !== currentUserId && !message.read).length;
-      return { ...conversation, lastMessage, unreadCount };
+      return {
+        ...conversation,
+        lastMessage: newestMessage(conversationMessages[conversationMessages.length - 1], conversation.lastMessage),
+        unreadCount: Number.isFinite(conversation.unreadCount)
+          ? conversation.unreadCount
+          : conversationMessages.filter((message) => message.senderId !== currentUserId && !message.read).length,
+      };
     }));
+}
+
+function newestMessage(a, b) {
+  if (!a) return b || null;
+  if (!b) return a;
+  return new Date(a.createdAt || 0) >= new Date(b.createdAt || 0) ? a : b;
+}
+
+// The inbox in one query (list_explore_conversations): each conversation with
+// its last visible message and unread count. null before the RPC exists.
+async function fetchInboxRows(spaceId = "") {
+  const { data, error } = await supabase.rpc("list_explore_conversations", {
+    p_space_id: spaceId || null,
+    p_limit: 200,
+  });
+  if (error) {
+    if (isMissingRpc(error, "list_explore_conversations")) return null;
+    throw error;
+  }
+  return (data || []).map(normalizeInboxRow).filter((row) => row.id);
 }
 
 // Synchronous stale-first reads keep the message list and an opened thread on
@@ -510,6 +553,21 @@ export function readCachedExploreMessages(conversationId, currentUserId = "") {
 
 export async function fetchExploreConversations(currentUserId) {
   if (!currentUserId) return [];
+
+  const inboxRows = await fetchInboxRows();
+  if (inboxRows) {
+    const memberRows = inboxRows.flatMap((row) => (row.memberIds.length ? row.memberIds : row.participantIds)
+      .map((userId) => ({ conversation_id: row.id, user_id: userId })));
+    const [profiles, spacesById] = await Promise.all([
+      fetchProfilesByIds(inboxRows.flatMap((row) => [...row.participantIds, ...row.memberIds])),
+      fetchSpacesByIds(inboxRows.map((row) => row.spaceId)),
+    ]);
+    const nextConversations = dedupeExploreConversations(
+      attachSpaceCounterparts(hydrateConversations(inboxRows, memberRows, profiles), spacesById),
+    );
+    writeConversations(nextConversations, currentUserId);
+    return nextConversations;
+  }
 
   const { data: memberRows, error: memberError } = await supabase
     .from("explore_conversation_members")
@@ -585,15 +643,37 @@ export function readCachedExploreSpaceConversations(currentUserId, spaceId) {
       const conversationMessages = messages.filter((message) => message.conversationId === conversation.id);
       return {
         ...conversation,
-        lastMessage: conversationMessages[conversationMessages.length - 1] || null,
-        unreadCount: conversationMessages.filter((message) => message.senderId === conversation.customerId && !message.read).length,
+        lastMessage: newestMessage(conversationMessages[conversationMessages.length - 1], conversation.lastMessage),
+        unreadCount: Number.isFinite(conversation.unreadCount)
+          ? conversation.unreadCount
+          : conversationMessages.filter((message) => message.senderId === conversation.customerId && !message.read).length,
       };
     });
+}
+
+function toSpaceInboxConversation(conversation, profiles) {
+  const customerId = conversation.participantIds[0] || "";
+  const customer = profiles[customerId] || { userId: customerId, displayName: "Profile", username: "user", avatarUrl: "" };
+  return {
+    ...conversation,
+    spaceInbox: true,
+    customerId,
+    participants: { [customerId]: customer },
+    counterpart: { ...customer, accountType: "personal" },
+  };
 }
 
 export async function fetchExploreSpaceConversations(spaceId, currentUserId) {
   if (!isUuid(spaceId) || !currentUserId) return [];
   const cacheKey = spaceInboxCacheKey(currentUserId, spaceId);
+
+  const inboxRows = await fetchInboxRows(spaceId);
+  if (inboxRows) {
+    const profiles = await fetchProfilesByIds(inboxRows.map((row) => row.participantIds[0]));
+    const next = inboxRows.map((row) => toSpaceInboxConversation(row, profiles));
+    writeConversations(next, cacheKey);
+    return next;
+  }
 
   const { data, error } = await supabase
     .from("explore_conversations")
@@ -712,27 +792,55 @@ export async function startExploreSpaceConversation(currentProfile, space, optio
   return withSpace;
 }
 
-export async function fetchExploreMessages(conversationId, currentUserId = "") {
-  if (!conversationId) return [];
-  if (isLocalConversationId(conversationId)) {
-    return readArray(MESSAGES_KEY, currentUserId).filter((message) => message.conversationId === conversationId);
-  }
+// One page of a thread, oldest first: the latest MESSAGE_PAGE_SIZE messages,
+// or those older than options.before. Messages this account hid are left out
+// by the server. Only the latest page is cached on the device.
+export async function fetchExploreMessagePage(conversationId, currentUserId = "", options = {}) {
+  const cachedMessages = () => readArray(MESSAGES_KEY, currentUserId).filter((message) => message.conversationId === conversationId);
+  if (!conversationId) return { messages: [], hasMore: false };
+  if (isLocalConversationId(conversationId)) return { messages: cachedMessages(), hasMore: false };
 
-  const { data, error } = await supabase
-    .from("explore_messages")
-    .select("*")
-    .eq("conversation_id", conversationId)
-    .order("created_at", { ascending: true });
+  const limit = Number(options.limit) > 0 ? Number(options.limit) : MESSAGE_PAGE_SIZE;
+  const before = options.before || null;
+  let rows = null;
+  const { data, error } = await supabase.rpc("list_explore_messages", {
+    p_conversation_id: conversationId,
+    p_before: before,
+    p_limit: limit,
+  });
 
-  if (error) {
-    if (isMissingMessageStore(error)) return readArray(MESSAGES_KEY, currentUserId).filter((message) => message.conversationId === conversationId);
+  if (!error) {
+    rows = data || [];
+  } else if (isMissingRpc(error, "list_explore_messages")) {
+    let query = supabase
+      .from("explore_messages")
+      .select("*")
+      .eq("conversation_id", conversationId)
+      .order("created_at", { ascending: false })
+      .limit(limit);
+    if (before) query = query.lt("created_at", before);
+    const fallback = await query;
+    if (fallback.error) {
+      if (isMissingMessageStore(fallback.error)) return { messages: before ? [] : cachedMessages(), hasMore: false };
+      throw fallback.error;
+    }
+    rows = fallback.data || [];
+  } else if (isMissingMessageStore(error)) {
+    return { messages: before ? [] : cachedMessages(), hasMore: false };
+  } else {
     throw error;
   }
 
-  const nextMessages = (data || []).map(normalizeMessage);
-  const otherMessages = readArray(MESSAGES_KEY, currentUserId).filter((message) => message.conversationId !== conversationId);
-  writeArray(MESSAGES_KEY, [...otherMessages, ...nextMessages], currentUserId);
-  return nextMessages;
+  const page = rows.map(normalizeMessage).sort((a, b) => new Date(a.createdAt) - new Date(b.createdAt));
+  if (!before) {
+    const otherMessages = readArray(MESSAGES_KEY, currentUserId).filter((message) => message.conversationId !== conversationId);
+    writeArray(MESSAGES_KEY, [...otherMessages, ...page], currentUserId);
+  }
+  return { messages: page, hasMore: rows.length >= limit };
+}
+
+export async function fetchExploreMessages(conversationId, currentUserId = "") {
+  return (await fetchExploreMessagePage(conversationId, currentUserId)).messages;
 }
 
 export async function startExploreConversation(currentProfile, recipient) {
@@ -973,6 +1081,84 @@ async function insertExploreConversationDraft(draft) {
   return supabase.from("explore_conversations").insert(payload).select().maybeSingle();
 }
 
+// Photos, voice notes and videos sent in a conversation go to the private
+// message bucket under <conversation>/<sender>/. Before that bucket exists the
+// old public upload keeps sending working.
+async function uploadPrivateMessageMedia(mediaUrl, type, conversationId, senderId) {
+  const value = String(mediaUrl || "");
+  if (!value.startsWith("data:") && !value.startsWith("blob:")) return value;
+
+  const blob = value.startsWith("data:")
+    ? dataUrlToBlob(value)
+    : await fetch(value).then((response) => {
+        if (!response.ok) throw new Error("Unable to prepare media for upload.");
+        return response.blob();
+      });
+  const path = buildMessageMediaPath({
+    conversationId,
+    userId: senderId,
+    type,
+    mimeType: blob.type,
+    stamp: `${Date.now()}-${Math.random().toString(36).slice(2, 8)}`,
+  });
+  if (!path) return uploadMediaDataUrl(value, type, senderId);
+
+  const { error } = await supabase.storage.from(MESSAGE_MEDIA_BUCKET).upload(path, blob, {
+    cacheControl: "3600",
+    contentType: blob.type || undefined,
+    upsert: false,
+  });
+  if (error) {
+    if (/bucket not found/i.test(String(error.message || ""))) return uploadMediaDataUrl(value, type, senderId);
+    throw error;
+  }
+  return toPrivateMediaRef(path);
+}
+
+function removePrivateMessageMedia(mediaUrl, senderId) {
+  const path = privateMediaPath(mediaUrl);
+  // Only the sender's own folder: the storage policy refuses anything else.
+  if (!path || path.split("/")[1] !== senderId) return Promise.resolve();
+  return Promise.resolve()
+    .then(() => supabase.storage.from(MESSAGE_MEDIA_BUCKET).remove([path]))
+    .catch(() => null);
+}
+
+const signedMediaCache = new Map();
+const signedMediaRequests = new Map();
+
+// { url, expiresAt } when this media can be shown right now: a fresh cached
+// signed link for private media, or the stored URL of an older public one.
+export function readSignedMessageMedia(mediaUrl) {
+  if (!mediaUrl) return null;
+  if (!isPrivateMediaRef(mediaUrl)) return { url: mediaUrl, expiresAt: Infinity };
+  const entry = signedMediaCache.get(privateMediaPath(mediaUrl));
+  return signedUrlIsFresh(entry) ? entry : null;
+}
+
+// A short-lived link for private message media, cached and shared between
+// bubbles; it is renewed shortly before it expires.
+export async function getSignedMessageMedia(mediaUrl) {
+  const cached = readSignedMessageMedia(mediaUrl);
+  if (cached) return cached;
+  const path = privateMediaPath(mediaUrl);
+  if (!path) return null;
+  if (signedMediaRequests.has(path)) return signedMediaRequests.get(path);
+
+  const request = supabase.storage
+    .from(MESSAGE_MEDIA_BUCKET)
+    .createSignedUrl(path, SIGNED_MEDIA_TTL_SECONDS)
+    .then(({ data, error }) => {
+      if (error || !data?.signedUrl) throw error || new Error("Media unavailable.");
+      const entry = { url: data.signedUrl, expiresAt: Date.now() + SIGNED_MEDIA_TTL_SECONDS * 1000 };
+      signedMediaCache.set(path, entry);
+      return entry;
+    })
+    .finally(() => signedMediaRequests.delete(path));
+  signedMediaRequests.set(path, request);
+  return request;
+}
+
 export async function sendExploreMessage(conversationId, senderProfile, body, options = {}) {
   const draft = normalizeMessageInput(body);
   if (!conversationId || (!draft.body && !draft.mediaUrl)) return null;
@@ -982,7 +1168,7 @@ export async function sendExploreMessage(conversationId, senderProfile, body, op
   const actorMetadata = await getMessageActorMetadata(senderProfile, senderId);
   const isLocalConversation = isLocalConversationId(conversationId);
   const mediaUrl = !isLocalConversation && draft.mediaUrl
-    ? await uploadMediaDataUrl(draft.mediaUrl, draft.type, senderId)
+    ? await uploadPrivateMessageMedia(draft.mediaUrl, draft.type, conversationId, senderId)
     : draft.mediaUrl;
   const message = {
     id: `message-${Date.now()}`,
@@ -1049,6 +1235,10 @@ export async function sendExploreMessage(conversationId, senderProfile, body, op
 
   if (error) {
     if (isMissingMessageStore(error)) return message;
+    // The message was refused (for example the recipient blocked the
+    // sender): its file must not stay behind in storage.
+    removePrivateMessageMedia(message.mediaUrl, senderId);
+    removeLocalMessage(senderId, message.id);
     throw error;
   }
 
@@ -1068,6 +1258,13 @@ export async function markExploreConversationRead(conversationId, currentUserId,
     message.conversationId === conversationId && isIncoming(message.senderId) ? { ...message, read: true } : message,
   );
   writeArray(MESSAGES_KEY, messages, cacheKey);
+  writeArray(
+    CONVERSATIONS_KEY,
+    readArray(CONVERSATIONS_KEY, cacheKey).map((conversation) => (
+      conversation.id === conversationId ? { ...conversation, unreadCount: 0 } : conversation
+    )),
+    cacheKey,
+  );
   window.dispatchEvent(new CustomEvent(EXPLORE_MESSAGE_EVENT, { detail: { type: "read", conversationId, currentUserId } }));
 
   if (isLocalConversationId(conversationId)) {
@@ -1093,12 +1290,22 @@ export async function deleteExploreMessage(message, currentUserId, options = {})
   const conversationId = message?.conversationId || message?.conversation_id || "";
   if (!messageId || !currentUserId) return;
 
-  removeLocalMessage(currentUserId, messageId);
+  removeLocalMessage(options.cacheKey || currentUserId, messageId);
   window.dispatchEvent(new CustomEvent(EXPLORE_MESSAGE_EVENT, {
     detail: { type: "delete", conversationId, messageId },
   }));
 
-  if (!options.forEveryone || !isUuid(messageId)) return;
+  if (!isUuid(messageId)) return;
+
+  if (!options.forEveryone) {
+    // "Hide for me" is kept on the server for this account, so the message
+    // stays hidden on every device while others still see it.
+    const { error } = await supabase
+      .from("explore_message_hidden")
+      .upsert({ user_id: currentUserId, message_id: messageId }, { onConflict: "user_id,message_id", ignoreDuplicates: true });
+    if (error && !isMissingMessageStore(error)) throw error;
+    return;
+  }
 
   const { error } = await supabase
     .from("explore_messages")
@@ -1109,6 +1316,7 @@ export async function deleteExploreMessage(message, currentUserId, options = {})
   if (error && !isMissingMessageStore(error)) {
     throw error;
   }
+  await removePrivateMessageMedia(message?.mediaUrl || message?.media_url || "", currentUserId);
 }
 
 const activityChannels = new Map();

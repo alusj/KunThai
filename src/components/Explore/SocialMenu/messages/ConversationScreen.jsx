@@ -1,5 +1,5 @@
 import AppBackTab from "../../../shared/AppBackTab";
-import { useEffect, useRef, useState } from "react";
+import { useEffect, useLayoutEffect, useRef, useState } from "react";
 import Avatar from "../../shared/Avatar";
 import {
   EXPLORE_MESSAGE_ACTIVITY_EVENT,
@@ -15,6 +15,10 @@ import MessageComposer from "./MessageComposer";
 import { t as i18nText } from "../../../../i18n/index";
 import MessagePrivacyNotice from "../../../shared/MessagePrivacyNotice";
 import { uiText as translateUi, useI18n as useUiLocale } from "../../../../i18n/index.js";
+import { PRESENCE_LABEL_KEYS } from "../../../../Backend/services/explore/messageInboxModels.js";
+
+// Scrolling this close to the top of a thread loads the page before it.
+const LOAD_OLDER_THRESHOLD_PX = 80;
 
 const TYPING_FRESH_MS = 12000;
 const PRESENCE_FRESH_MS = 45000;
@@ -34,10 +38,10 @@ function resolvePresenceLabel(peerActivity) {
   if (!Number.isFinite(age) || age < 0) return "";
 
   if (age < TYPING_FRESH_MS && peerActivity.activity === "typing" && settings.showTypingStatus) {
-    return "typing…";
+    return "typing";
   }
   if (age < TYPING_FRESH_MS && peerActivity.activity === "recording" && settings.allowVoiceNotes) {
-    return "recording voice…";
+    return "recording";
   }
   if (age < PRESENCE_FRESH_MS && settings.showActiveStatus && ["active", "typing", "recording"].includes(peerActivity.activity)) {
     return "online";
@@ -90,7 +94,21 @@ function usePeerPresence(conversationId, peerUserId, onActivity) {
   return presenceLabel;
 }
 
-export default function ConversationScreen({ conversation, currentUserId, loading = false, messages, onAction, onActivity, onBack, onSend, onViewProfile, replyingAs = "" }) {
+export default function ConversationScreen({
+  conversation,
+  currentUserId,
+  hasOlderMessages = false,
+  loading = false,
+  loadingOlderMessages = false,
+  messages,
+  onAction,
+  onActivity,
+  onBack,
+  onLoadOlder,
+  onSend,
+  onViewProfile,
+  replyingAs = "",
+}) {
   // KAI is not offered in Explore messages.
   useHideAiAssistant();
   const { t } = useI18n();
@@ -113,13 +131,38 @@ export default function ConversationScreen({ conversation, currentUserId, loadin
   const lastSeenOwnMessageId = receiptsEnabled
     ? [...messages].reverse().find((message) => isMine(message) && message.read && !message.pending)?.id || ""
     : "";
-  const presenceLabel = usePeerPresence(conversation?.id, user.userId, onActivity);
-  const typingIndicator = presenceLabel === "typing…" || presenceLabel === "recording voice…";
+  const presenceState = usePeerPresence(conversation?.id, user.userId, onActivity);
+  const presenceLabel = presenceState ? i18nText(`exploreMessagesFix.${PRESENCE_LABEL_KEYS[presenceState]}`) : "";
+  const typingIndicator = presenceState === "typing" || presenceState === "recording";
+  // Pin to the newest message only when the newest message changes, so
+  // loading older pages above does not jump the thread to the bottom.
+  const newestMessageKey = messages.length ? messages[messages.length - 1].id : "";
   const keyboard = useKeyboardAwareConversation({
     activeKey: conversation?.id || "",
-    itemCount: messages.length,
+    itemCount: newestMessageKey,
     threadRef: messagesRef,
   });
+  const olderAnchorRef = useRef(null);
+
+  async function loadOlder() {
+    const node = messagesRef.current;
+    if (!node || !onLoadOlder || !hasOlderMessages || loadingOlderMessages) return;
+    olderAnchorRef.current = { height: node.scrollHeight, top: node.scrollTop };
+    await onLoadOlder();
+  }
+
+  function handleThreadScroll(event) {
+    if (event.currentTarget.scrollTop < LOAD_OLDER_THRESHOLD_PX) loadOlder();
+  }
+
+  // Keep the reader's place after older messages are added above.
+  useLayoutEffect(() => {
+    const anchor = olderAnchorRef.current;
+    const node = messagesRef.current;
+    if (!anchor || !node) return;
+    olderAnchorRef.current = null;
+    node.scrollTop = node.scrollHeight - anchor.height + anchor.top;
+  }, [messages.length]);
 
   function openPeerProfile() {
     if (!onViewProfile) return;
@@ -190,7 +233,17 @@ export default function ConversationScreen({ conversation, currentUserId, loadin
         </p>
       ) : null}
 
-      <div ref={messagesRef} className="kt-message-thread space-y-3 bg-slate-50 px-4 py-4 kuntai-scrollbar-none">
+      <div ref={messagesRef} onScroll={handleThreadScroll} className="kt-message-thread space-y-3 bg-slate-50 px-4 py-4 kuntai-scrollbar-none">
+        {hasOlderMessages ? (
+          <button
+            type="button"
+            onClick={loadOlder}
+            disabled={loadingOlderMessages}
+            className="mx-auto block rounded-full bg-white px-4 py-1.5 text-xs font-black text-slate-600 shadow-sm disabled:opacity-60"
+          >
+            {loadingOlderMessages ? i18nText("exploreMessagesFix.loadingOlder") : i18nText("exploreMessagesFix.loadOlder")}
+          </button>
+        ) : null}
         {loading && !messages.length ? <ConversationMessagesSkeleton /> : null}
         {!loading && !messages.length ? (
           <div className="rounded-[24px] border border-dashed border-slate-300 bg-white p-6 text-center">
@@ -206,6 +259,7 @@ export default function ConversationScreen({ conversation, currentUserId, loadin
             seen={message.id === lastSeenOwnMessageId}
             senderLabel={teammateLabel(message)}
             canBlock={!peerIsSpace}
+            canDelete={message.senderId === currentUserId}
             otherUserName={user.displayName || user.username || "This user"}
             onApproveLocationRequest={() => onAction?.("approveLocationRequest", { message, userId: user.userId })}
             onBlockUser={() => onAction?.("blockUser", { message, userId: user.userId })}

@@ -30,6 +30,7 @@ import MenuSection from "./menu/MenuSection";
 import MenuActionButton from "./menu/MenuActionButton";
 import SpaceActivityBadge, { SpaceActivitySummary } from "../../shared/SpaceActivityBadge";
 import { t as i18nText } from "../../../../i18n/index";
+import { useExploreMessageStatus } from "../../../../Backend/hooks/useExploreMessageStatus";
 
 // Each item is [navigationTarget, i18nKey, icon]; label/description resolve from
 // the `menu.items.<i18nKey>Label / Description` translation keys at render time.
@@ -70,6 +71,8 @@ const MENU_GROUPS = [
 
 export function SocialMenuContent({ compact = false, currentProfile = null, onClose, onNavigate, onSelectIdentity, spaces = [], spaceActivity = {} }) {
   const { t } = useI18n();
+  const messageStatus = useExploreMessageStatus(currentProfile?.userId || "");
+  const messagesUnread = Number(messageStatus.unreadCount) || 0;
   const handleSelect = (target) => {
     onClose?.();
 
@@ -165,7 +168,16 @@ export function SocialMenuContent({ compact = false, currentProfile = null, onCl
             {MENU_GROUPS.map((group) => (
               <MenuSection key={group.groupKey} title={t(`menu.groups.${group.groupKey}Title`)} description={t(`menu.groups.${group.groupKey}Description`)}>
                 {group.items.map(([target, i18nKey, icon]) => (
-                  <MenuActionButton key={target} icon={icon} label={t(`menu.items.${i18nKey}Label`)} description={t(`menu.items.${i18nKey}Description`)} onClick={() => handleSelect(target)} />
+                  <MenuActionButton
+                    key={target}
+                    badge={target === "messages" && messagesUnread ? (
+                      <span className="flex-none rounded-full bg-sky-600 px-2 py-0.5 text-[11px] font-black text-white">{messagesUnread > 99 ? "99+" : messagesUnread}</span>
+                    ) : null}
+                    icon={icon}
+                    label={t(`menu.items.${i18nKey}Label`)}
+                    description={t(`menu.items.${i18nKey}Description`)}
+                    onClick={() => handleSelect(target)}
+                  />
                 ))}
               </MenuSection>
             ))}

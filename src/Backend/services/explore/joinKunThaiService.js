@@ -407,9 +407,27 @@ export async function withdrawApplication(applicationId, reason = "") {
   return normalizeApplication(row);
 }
 
+// Discarding a draft also deletes the files uploaded for it: the recorded
+// documents plus anything left in the draft's storage folder.
 export async function discardDraftApplication(applicationId) {
+  const user = await currentUser();
+  const { data: documents } = await supabase
+    .from("join_documents")
+    .select("storage_path")
+    .eq("application_id", applicationId);
+  const folder = `join/${user.id}/${applicationId}`;
+  const listed = await supabase.storage.from(DOCUMENT_BUCKET).list(folder, { limit: 1000 }).catch(() => ({ data: [] }));
+
   const { error } = await supabase.from("join_applications").delete().eq("id", applicationId);
   if (error) raise(error);
+
+  const paths = Array.from(new Set([
+    ...(documents || []).map((row) => row.storage_path).filter(Boolean),
+    ...(listed?.data || []).filter((item) => item?.name).map((item) => `${folder}/${item.name}`),
+  ])).filter((path) => path.startsWith(`join/${user.id}/`));
+  if (paths.length) {
+    await supabase.storage.from(DOCUMENT_BUCKET).remove(paths).catch(() => null);
+  }
 }
 
 // ---------------------------------------------------------------------------

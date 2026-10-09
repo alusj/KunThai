@@ -8,7 +8,7 @@ import {
   EXPLORE_OPEN_SPACE_INBOX_EVENT,
   fetchExploreConversations,
   findConversationSpaceId,
-  fetchExploreMessages,
+  fetchExploreMessagePage,
   fetchExploreSpaceConversations,
   EXPLORE_MESSAGE_EVENT,
   markExploreConversationRead,
@@ -26,10 +26,26 @@ import {
 } from "../services/explore/messageService";
 import { setBannerContext } from "../services/notificationBannerService";
 import { readExploreSettings } from "../services/explore/preferencesService";
-import { blockExploreUser } from "../services/explore/safetyService";
+import { blockExploreUser, fetchBlockedIdentityKeys, fetchBlockedUsers, readBlockedUsers } from "../services/explore/safetyService";
+import {
+  filterBlockedConversations,
+  filterBlockedMessages,
+  isBlockedMessageError,
+  mergeMessagePages,
+  oldestMessageCursor,
+} from "../services/explore/messageInboxModels.js";
 import { haptics, sounds } from "../services/feedbackService";
 import { showToast } from "../services/toastService";
 import { shortErrorToast } from "../services/friendlyErrorService";
+import { t as i18nText } from "../../i18n/index";
+
+const CONVERSATION_SYNC_DELAY_MS = 700;
+
+async function loadBlockedKeys() {
+  // Person blocks first: the identity read merges into what that one stored.
+  await fetchBlockedUsers().catch(() => null);
+  return fetchBlockedIdentityKeys().catch(() => readBlockedUsers());
+}
 
 const MESSAGES_MEMORY = new Map();
 const MESSAGES_MEMORY_TTL = 120_000;
@@ -162,6 +178,8 @@ function buildSharedLocationMetadata(location = {}) {
     lat: Number.isFinite(lat) ? lat : null,
     lng: Number.isFinite(lng) ? lng : null,
     name: location.name || "Shared location",
+    // Rendered in the reader's language (see locationMessageParts).
+    textKey: "locationShare",
   };
 }
 
@@ -175,6 +193,7 @@ function parseLocationFromMessageBody(body = "") {
 }
 
 function friendlyMessageError(err) {
+  if (isBlockedMessageError(err)) return i18nText("exploreMessagesFix.cannotMessage");
   const message = String(err?.message || "");
   if (message.toLowerCase().includes("uuid") || message.includes("__")) {
     return "We could not open that conversation. Please try starting the chat again.";
@@ -220,6 +239,13 @@ export function useExploreMessages(currentProfile, initialRecipient) {
   const [error, setError] = useState("");
   const [messages, setMessages] = useState([]);
   const [pendingMessageKeys, setPendingMessageKeys] = useState(new Set());
+  const [blockedKeys, setBlockedKeys] = useState(() => readBlockedUsers());
+  const [hasOlderMessages, setHasOlderMessages] = useState(false);
+  const [loadingOlderMessages, setLoadingOlderMessages] = useState(false);
+  const loadingOlderRef = useRef(false);
+  const messagesRef = useRef(messages);
+  messagesRef.current = messages;
+  const syncTimerRef = useRef(0);
   const conversationsRef = useRef(conversations);
   const activeConversationRef = useRef(activeConversation);
   const spaceLookupRef = useRef("");
@@ -233,6 +259,40 @@ export function useExploreMessages(currentProfile, initialRecipient) {
       return deduped;
     });
   }
+
+  // Several realtime events often arrive together (a message, the
+  // conversation's updated_at, a read flag): refresh the inbox once after
+  // they settle instead of once per event.
+  function scheduleConversationSync(delay = CONVERSATION_SYNC_DELAY_MS) {
+    window.clearTimeout(syncTimerRef.current);
+    syncTimerRef.current = window.setTimeout(() => {
+      loadConversations()
+        .then(setConversationList)
+        .catch((err) => setError(friendlyMessageError(err)));
+    }, delay);
+  }
+
+  function patchConversation(conversationId, patch) {
+    setConversationList((current) => current.map((conversation) => (
+      conversation.id === conversationId
+        ? { ...conversation, ...(typeof patch === "function" ? patch(conversation) : patch) }
+        : conversation
+    )));
+  }
+
+  useEffect(() => () => window.clearTimeout(syncTimerRef.current), []);
+
+  // The block list hides blocked people's conversations and messages.
+  useEffect(() => {
+    if (!currentUserId) return undefined;
+    let active = true;
+    loadBlockedKeys().then((keys) => {
+      if (active && keys) setBlockedKeys(new Set(keys));
+    });
+    return () => {
+      active = false;
+    };
+  }, [currentUserId]);
 
   useEffect(() => {
     activeConversationRef.current = activeConversation;
@@ -366,9 +426,10 @@ export function useExploreMessages(currentProfile, initialRecipient) {
 
       if (fresh) {
         if (activeConversation?.id && !cached.messagesByConversation?.[activeConversation.id]) {
-          const nextMessages = await fetchExploreMessages(activeConversation.id, cacheKey);
-          setMessages(nextMessages);
-          cacheConversationMessages(activeConversation.id, nextMessages);
+          const page = await fetchExploreMessagePage(activeConversation.id, cacheKey);
+          setMessages(page.messages);
+          setHasOlderMessages(page.hasMore);
+          cacheConversationMessages(activeConversation.id, page.messages);
         }
         return;
       }
@@ -384,9 +445,13 @@ export function useExploreMessages(currentProfile, initialRecipient) {
         const cachedMessages = cached?.messagesByConversation?.[activeConversation.id]
           || readCachedExploreMessages(activeConversation.id, cacheKey);
         if (!cachedMessages.length) setConversationLoading(true);
-        const nextMessages = await fetchExploreMessages(activeConversation.id, cacheKey);
-        setMessages(nextMessages);
-        cacheConversationMessages(activeConversation.id, nextMessages);
+        const page = await fetchExploreMessagePage(activeConversation.id, cacheKey);
+        // Keep older pages the person already scrolled back to.
+        setMessages((current) => {
+          const nextMessages = mergeMessagePages(current.filter((message) => !message.pending), page.messages);
+          cacheConversationMessages(activeConversation.id, nextMessages);
+          return nextMessages;
+        });
         setConversationLoading(false);
       }
     } catch (err) {
@@ -419,12 +484,13 @@ export function useExploreMessages(currentProfile, initialRecipient) {
           : startExploreConversation(currentProfile, initialRecipient);
       opening.then(async (conversation) => {
         setConversationLoading(true);
-        const nextMessages = await fetchExploreMessages(conversation.id, cacheKey);
-        setMessages(nextMessages);
-        cacheConversationMessages(conversation.id, nextMessages);
+        const page = await fetchExploreMessagePage(conversation.id, cacheKey);
+        setMessages(page.messages);
+        setHasOlderMessages(page.hasMore);
+        cacheConversationMessages(conversation.id, page.messages);
         setActiveConversation(conversation);
         setConversationLoading(false);
-        setConversationList(await loadConversations());
+        scheduleConversationSync(0);
       }).catch((err) => {
         setConversationLoading(false);
         setError(friendlyMessageError(err));
@@ -436,9 +502,7 @@ export function useExploreMessages(currentProfile, initialRecipient) {
 
   useEffect(() => {
     function syncConversationsQuietly() {
-      loadConversations()
-        .then(setConversationList)
-        .catch((err) => setError(friendlyMessageError(err)));
+      scheduleConversationSync();
     }
 
     function applyIncomingMessage(incomingMessage) {
@@ -500,6 +564,9 @@ export function useExploreMessages(currentProfile, initialRecipient) {
         if (existing && incomingRow?.id) {
           const updated = mergeConversationUpdate(existing, incomingRow);
           setConversationList((current) => [updated, ...current.filter((conversation) => conversation.id !== updated.id)]);
+          // A known conversation's row change (request accepted, updated_at)
+          // is applied in place; only a new one needs the inbox refreshed.
+          return;
         }
         syncConversationsQuietly();
         return;
@@ -525,7 +592,10 @@ export function useExploreMessages(currentProfile, initialRecipient) {
         return;
       }
 
-      reload();
+      // Read receipts and local bookkeeping events change nothing the inbox
+      // must refetch right away.
+      if (detail?.type === "read") return;
+      syncConversationsQuietly();
     }
 
     const unsubscribeRealtime = subscribeToExploreMessages(currentUserId, handleMessageEvent);
@@ -540,33 +610,72 @@ export function useExploreMessages(currentProfile, initialRecipient) {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [cacheKey]);
 
-  useEffect(() => {
-    if (!activeConversation?.id || !currentUserId) {
-      return;
+  // The newest unread message from the other side: marking read runs only
+  // when it changes, never on every new message length.
+  const lastIncomingUnreadId = useMemo(() => {
+    if (!activeConversation) return "";
+    for (let index = messages.length - 1; index >= 0; index -= 1) {
+      const message = messages[index];
+      if (!message.pending && !message.read && isIncomingMessage(activeConversation, message, currentUserId)) return message.id;
     }
+    return "";
+  }, [activeConversation, currentUserId, messages]);
 
-    markRead(activeConversation).then(() => loadConversations().then(setConversationList));
-    // markRead/loadConversations are derived from the identity (cacheKey).
+  useEffect(() => {
+    const conversation = activeConversationRef.current;
+    if (!conversation?.id || !currentUserId) return;
+    patchConversation(conversation.id, { unreadCount: 0 });
+    if (!lastIncomingUnreadId) return;
+    markRead(conversation).catch(() => {});
+    // markRead is derived from the identity (cacheKey).
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [activeConversation?.id, cacheKey, currentUserId, messages.length]);
+  }, [activeConversation?.id, cacheKey, currentUserId, lastIncomingUnreadId]);
 
   async function openConversation(conversation) {
     const cachedMessages = MESSAGES_MEMORY.get(cacheKey)?.messagesByConversation?.[conversation.id]
       || readCachedExploreMessages(conversation.id, cacheKey);
     setMessages(cachedMessages);
+    setHasOlderMessages(false);
     setConversationLoading(!cachedMessages.length);
     setActiveConversation(conversation);
     try {
       setError("");
-      const nextMessages = await fetchExploreMessages(conversation.id, cacheKey);
-      setMessages(nextMessages);
-      cacheConversationMessages(conversation.id, nextMessages);
-      await markRead(conversation);
-      setConversationList(await loadConversations());
+      const page = await fetchExploreMessagePage(conversation.id, cacheKey);
+      setMessages(page.messages);
+      setHasOlderMessages(page.hasMore);
+      cacheConversationMessages(conversation.id, page.messages);
     } catch (err) {
       setError(friendlyMessageError(err));
     } finally {
       setConversationLoading(false);
+    }
+  }
+
+  // Scrolling to the top of a thread loads the 50 messages before the oldest
+  // one on screen.
+  async function loadOlderMessages() {
+    const conversation = activeConversationRef.current;
+    if (!conversation?.id || loadingOlderRef.current || !hasOlderMessages) return { ok: false };
+    const before = oldestMessageCursor(messagesRef.current);
+    if (!before) return { ok: false };
+    loadingOlderRef.current = true;
+    setLoadingOlderMessages(true);
+    try {
+      const page = await fetchExploreMessagePage(conversation.id, cacheKey, { before });
+      if (activeConversationRef.current?.id !== conversation.id) return { ok: false };
+      setMessages((current) => {
+        const nextMessages = mergeMessagePages(current, page.messages);
+        cacheConversationMessages(conversation.id, nextMessages);
+        return nextMessages;
+      });
+      setHasOlderMessages(page.hasMore);
+      return { ok: true, count: page.messages.length };
+    } catch (err) {
+      setError(friendlyMessageError(err));
+      return { ok: false };
+    } finally {
+      loadingOlderRef.current = false;
+      setLoadingOlderMessages(false);
     }
   }
 
@@ -586,7 +695,7 @@ export function useExploreMessages(currentProfile, initialRecipient) {
         }
         showToast("Message request removed.", "info");
       }
-      setConversationList(await loadConversations());
+      scheduleConversationSync(0);
       return { ok: true };
     } catch (err) {
       const message = friendlyMessageError(err);
@@ -600,8 +709,9 @@ export function useExploreMessages(currentProfile, initialRecipient) {
     setActivity("active");
     setActiveConversation(null);
     setMessages([]);
+    setHasOlderMessages(false);
     setConversationLoading(false);
-    reload();
+    scheduleConversationSync();
   }
 
   async function sendMessage(body) {
@@ -653,12 +763,19 @@ export function useExploreMessages(currentProfile, initialRecipient) {
           cacheConversationMessages(conversationId, nextMessages);
           return nextMessages;
         });
-        setConversationList(await loadConversations());
+        // Only this conversation changed: update its row instead of
+        // refetching the whole inbox.
+        patchConversation(conversationId, { lastMessage: created, updatedAt: created.createdAt || tempMessage.createdAt });
       }
       return { ok: true, message: created || tempMessage };
     } catch (err) {
       setMessages((current) => current.filter((message) => message.id !== tempMessage.id));
-      setError("Message failed. Try again.");
+      if (isBlockedMessageError(err)) {
+        setError(i18nText("exploreMessagesFix.cannotMessage"));
+        showToast(i18nText("exploreMessagesFix.cannotMessageToast"), "danger");
+      } else {
+        setError("Message failed. Try again.");
+      }
       return { ok: false, error: friendlyMessageError(err) };
     } finally {
       setPendingMessageKeys((current) => {
@@ -680,13 +797,20 @@ export function useExploreMessages(currentProfile, initialRecipient) {
     cacheConversationMessages(conversationId, nextMessages);
 
     try {
+      // Only your own messages can be deleted for everyone; anyone else's
+      // (including a teammate's reply in a Space inbox) is hidden for you.
       await deleteExploreMessage(message, currentUserId, {
+        cacheKey,
         forEveryone: message.senderId === currentUserId,
       });
       showToast(message.senderId === currentUserId ? "Message deleted." : "Message hidden for you", "info", {
         title: "Message action",
       });
-      setConversationList(await loadConversations());
+      patchConversation(conversationId, (conversation) => (
+        conversation.lastMessage?.id === messageId
+          ? { lastMessage: nextMessages[nextMessages.length - 1] || null }
+          : {}
+      ));
       return { ok: true };
     } catch (err) {
       setMessages(previousMessages);
@@ -791,9 +915,12 @@ export function useExploreMessages(currentProfile, initialRecipient) {
     }
 
     if (action === "requestLocation") {
+      // The text key lets each reader see the request in their own language;
+      // the English body stays for older app versions and push previews.
       return sendMessage({
         type: "location_request",
         body: `${myName} is requesting your location.`,
+        metadata: { textKey: "locationRequest", requesterName: myName },
       });
     }
 
@@ -815,9 +942,23 @@ export function useExploreMessages(currentProfile, initialRecipient) {
     if (action === "blockUser") {
       const targetUserId = payload.userId || otherUser.userId;
       if (!targetUserId) return { ok: false, error: "Unable to identify this account." };
-      await blockExploreUser(targetUserId, "blocked from Explore messages");
-      showToast("Contact has been blocked", "success");
-      return { ok: true };
+      const name = otherUser.displayName || otherUser.username || i18nText("exploreMessagesFix.thisAccount");
+      if (!payload.confirmed && typeof window !== "undefined" && !window.confirm(i18nText("exploreMessagesFix.blockConfirm", { name }))) {
+        return { ok: false, cancelled: true };
+      }
+      try {
+        // explore_identity_blocks has no Space blocker yet, so in a Space
+        // inbox the block is made by the team member's own account.
+        await blockExploreUser(targetUserId, "blocked from Explore messages");
+        setBlockedKeys((current) => new Set([...current, targetUserId, `profile:${targetUserId}`]));
+        setActiveConversation(null);
+        setMessages([]);
+        showToast("Contact has been blocked", "success");
+        return { ok: true };
+      } catch (err) {
+        showToast(shortErrorToast(err, i18nText("exploreMessagesFix.blockFailedToast")), "danger");
+        return { ok: false, error: friendlyMessageError(err), notified: true };
+      }
     }
 
     if (action === "deleteMessage") {
@@ -827,7 +968,14 @@ export function useExploreMessages(currentProfile, initialRecipient) {
     return { ok: false, error: "This message action is not available." };
   }
 
-  const visibleConversations = useMemo(() => dedupeExploreConversations(conversations), [conversations]);
+  const visibleConversations = useMemo(
+    () => filterBlockedConversations(dedupeExploreConversations(conversations), blockedKeys, currentUserId),
+    [blockedKeys, conversations, currentUserId],
+  );
+  const visibleMessages = useMemo(
+    () => filterBlockedMessages(messages, blockedKeys, currentUserId),
+    [blockedKeys, currentUserId, messages],
+  );
   // A Space never receives "requests": anyone may message a Space, and a
   // thread the team opened waits on the customer, not on a teammate.
   const requests = useMemo(
@@ -839,8 +987,14 @@ export function useExploreMessages(currentProfile, initialRecipient) {
     [currentUserId, spaceId, visibleConversations],
   );
 
+  const inboxUnreadCount = useMemo(
+    () => inbox.reduce((total, conversation) => total + (Number(conversation.unreadCount) || 0), 0),
+    [inbox],
+  );
+
   return {
     activeConversation,
+    inboxUnreadCount,
     spaceInbox: Boolean(spaceId),
     closeConversation,
     conversations: visibleConversations,
@@ -848,7 +1002,10 @@ export function useExploreMessages(currentProfile, initialRecipient) {
     inbox,
     loading,
     conversationLoading,
-    messages,
+    hasOlderMessages,
+    loadingOlderMessages,
+    loadOlderMessages,
+    messages: visibleMessages,
     openConversation,
     reload,
     respondToRequest,

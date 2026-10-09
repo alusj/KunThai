@@ -1,5 +1,7 @@
 import { useEffect, useState } from "react";
 import { inlineErrorMessage, shortErrorToast } from "../services/friendlyErrorService";
+import supabase from "../lib/supabaseClient";
+import { t as i18nText } from "../../i18n/index";
 
 import { fetchExploreConnections } from "../services/exploreService";
 import { getIdentityKey, normalizeIdentityTarget } from "../services/exploreService";
@@ -13,6 +15,22 @@ const CONNECTIONS_MEMORY = new Map();
 const CONNECTIONS_MEMORY_TTL = 120_000;
 const CONNECTIONS_STORAGE_PREFIX = "kunthai.explore.connections.";
 const CONNECTIONS_CACHE_VERSION = "v3";
+// The list renders a page at a time instead of the whole directory at once.
+export const CONNECTIONS_PAGE_SIZE = 30;
+
+function confirmAction(message) {
+  return typeof window === "undefined" || typeof window.confirm !== "function" || window.confirm(message);
+}
+
+function connectionName(item) {
+  return item?.name || item?.display_name || (item?.username ? `@${item.username}` : "") || i18nText("exploreMessagesFix.thisAccount");
+}
+
+// Removes this person's follow of the signed-in account (they are not told).
+async function removeFollower(followerUserId) {
+  const { error } = await supabase.rpc("remove_explore_follower", { p_follower: followerUserId });
+  if (error) throw error;
+}
 
 function getConnectionsKey(kind, currentUserId) {
   return `${CONNECTIONS_CACHE_VERSION}:${kind || "discover"}:${currentUserId || "guest"}`;
@@ -84,6 +102,7 @@ export function useExploreConnections(kind, currentUserId = "") {
   const [refreshing, setRefreshing] = useState(false);
   const [error, setError] = useState("");
   const [blockedUsers, setBlockedUsers] = useState(readBlockedUsers);
+  const [shownCount, setShownCount] = useState(CONNECTIONS_PAGE_SIZE);
   const { followedUsers, toggleFollow } = useExploreFollows(currentUserId);
 
   useEffect(() => {
@@ -258,6 +277,8 @@ export function useExploreConnections(kind, currentUserId = "") {
   async function blockUser(target) {
     const targetIdentity = getConnectionIdentity(typeof target === "object" ? target : { user_id: target });
     const blockedItem = items.find((item) => getConnectionIdentity(item).key === targetIdentity.key);
+    if (!confirmAction(i18nText("exploreMessagesFix.blockConfirm", { name: connectionName(blockedItem || target) }))) return;
+    const previous = new Set(blockedUsers);
     const optimistic = new Set(blockedUsers);
     optimistic.add(targetIdentity.key);
     writeBlockedUsers(optimistic);
@@ -267,7 +288,11 @@ export function useExploreConnections(kind, currentUserId = "") {
       const synced = await blockExploreIdentity(targetIdentity, "blocked from Explore connections");
       setBlockedUsers(new Set(synced));
     } catch (error) {
-      showToast(shortErrorToast(error, "Blocked on this device"), "danger");
+      // One toast: the failure. The account stays visible.
+      writeBlockedUsers(previous);
+      setBlockedUsers(previous);
+      showToast(shortErrorToast(error, i18nText("exploreMessagesFix.blockFailedToast")), "danger");
+      return;
     }
 
     showToast("Account blocked.", "danger", {
@@ -290,6 +315,21 @@ export function useExploreConnections(kind, currentUserId = "") {
   async function removeUser(target) {
     const targetIdentity = getConnectionIdentity(typeof target === "object" ? target : { user_id: target });
     const removedItem = items.find((item) => getConnectionIdentity(item).key === targetIdentity.key);
+
+    // Followers -> Remove: the person stops following you (server side).
+    if (kind === "followers") {
+      const followerId = removedItem?.user_id || (typeof target === "object" ? target.user_id : "") || targetIdentity.id;
+      if (!followerId || targetIdentity.type === "space") return;
+      if (!confirmAction(i18nText("exploreMessagesFix.removeFollowerConfirm", { name: connectionName(removedItem || target) }))) return;
+      try {
+        await removeFollower(followerId);
+        setItems((current) => current.filter((item) => getConnectionIdentity(item).key !== targetIdentity.key));
+        showToast(i18nText("exploreMessagesFix.followerRemovedToast"), "success");
+      } catch (error) {
+        showToast(shortErrorToast(error, i18nText("exploreMessagesFix.removeFollowerFailedToast")), "danger");
+      }
+      return;
+    }
     const wasFollowing = followedUsers.has(targetIdentity.key) || followedUsers.has(targetIdentity.id) || removedItem?.isFollowing;
 
     if (wasFollowing) {
@@ -320,7 +360,10 @@ export function useExploreConnections(kind, currentUserId = "") {
     });
 
   return {
-    items: visibleItems,
+    items: visibleItems.slice(0, shownCount),
+    totalCount: visibleItems.length,
+    hasMoreItems: visibleItems.length > shownCount,
+    showMore: () => setShownCount((current) => current + CONNECTIONS_PAGE_SIZE),
     loading,
     isInitialLoading: loading && visibleItems.length === 0,
     refreshing,

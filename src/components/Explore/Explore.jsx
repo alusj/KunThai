@@ -1460,7 +1460,7 @@ export default function Explore({ active = true, onNavigateMain, onScreenModeCha
     }
 
     if (screenKey === "Activity") {
-      return <ActivityScreen currentUserId={currentUserId} hideHeader onOpenNotification={openNotificationTarget} />;
+      return <ActivityScreen currentUserId={currentUserId} hideHeader onOpenNotification={openNotificationTarget} spaceId={activeSpaceProfile?.spaceId || ""} spaceName={activeSpaceProfile?.displayName || ""} />;
     }
 
     if (screenKey === "Notifications") {

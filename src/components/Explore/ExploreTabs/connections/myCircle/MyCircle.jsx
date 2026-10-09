@@ -1,6 +1,7 @@
 import EmptyState from "../../../shared/EmptyState";
 import ErrorState from "../../../shared/ErrorState";
 import MyCircleList from "./MyCircleList";
+import ShowMoreButton from "../components/ShowMoreButton";
 import { t as i18nText } from "../../../../../i18n/index";
 import { uiText as translateUi, useI18n as useUiLocale } from "../../../../../i18n/index.js";
 
@@ -26,13 +27,16 @@ export default function MyCircle({ connectionState, kind = "mycircle", onViewPro
   }
 
   return (
-    <MyCircleList
-      users={items}
-      onBlock={blockUser}
-      onFollow={followUser}
-      onRemove={removeUser}
-      onViewProfile={onViewProfile}
-    />
+    <>
+      <MyCircleList
+        users={items}
+        onBlock={blockUser}
+        onFollow={followUser}
+        onRemove={removeUser}
+        onViewProfile={onViewProfile}
+      />
+      <ShowMoreButton connectionState={connectionState} />
+    </>
   );
 }
 

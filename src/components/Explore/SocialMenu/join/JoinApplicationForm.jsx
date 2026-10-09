@@ -34,6 +34,7 @@ import {
 import { t as i18nText } from "../../../../i18n/index";
 import { uiText as translateUi, useI18n as useUiLocale } from "../../../../i18n/index.js";
 import { inlineErrorMessage } from "../../../../Backend/services/friendlyErrorService";
+import { clearLocalDraft, mergeRestoredAnswers, readLocalDraft, writeLocalDraft } from "./joinDraftStorage";
 
 // Sections of the catalogue that also carry a list editor, and the ones that
 // only exist as a list. Keyed by the section_key stored in the database.
@@ -153,13 +154,41 @@ export default function JoinApplicationForm({ catalogue, detail, onCancel, onDet
   const application = detail.application;
   const path = JOIN_PATH_BY_TYPE[application.applicationType];
 
-  const [answers, setAnswers] = useState(detail.answers || {});
+  // Answers typed earlier on this device but never saved come back here.
+  const [restored] = useState(() => mergeRestoredAnswers(detail.answers || {}, readLocalDraft(application.userId, application.id)));
+  const [answers, setAnswers] = useState(restored.answers);
   const [errors, setErrors] = useState({});
   const [stepIndex, setStepIndex] = useState(0);
   const [busy, setBusy] = useState(false);
   const [notice, setNotice] = useState("");
-  const dirtyKeys = useRef(new Set());
+  const [hasUnsaved, setHasUnsaved] = useState(restored.restoredKeys.length > 0);
+  const dirtyKeys = useRef(new Set(restored.restoredKeys));
   const scrollAnchor = useRef(null);
+
+  // Keep a copy of unsaved answers on this device as they are typed.
+  useEffect(() => {
+    if (!dirtyKeys.current.size) return;
+    const unsaved = {};
+    for (const key of dirtyKeys.current) unsaved[key] = answers[key] ?? null;
+    writeLocalDraft(application.userId, application.id, unsaved);
+  }, [answers, application.id, application.userId]);
+
+  // Closing the page with unsaved answers asks first (they also stay on this
+  // device, so nothing is lost either way).
+  useEffect(() => {
+    if (!hasUnsaved) return undefined;
+    function warn(event) {
+      event.preventDefault();
+      event.returnValue = "";
+    }
+    window.addEventListener("beforeunload", warn);
+    return () => window.removeEventListener("beforeunload", warn);
+  }, [hasUnsaved]);
+
+  function leaveForm() {
+    if (hasUnsaved && !window.confirm(i18nText("exploreMessagesFix.joinUnsavedConfirm"))) return;
+    onCancel();
+  }
 
   const steps = useMemo(() => {
     const list = visibleSections(catalogue.sections, answers).map((section) => ({
@@ -183,6 +212,7 @@ export default function JoinApplicationForm({ catalogue, detail, onCancel, onDet
 
   function setAnswer(questionKey, value) {
     dirtyKeys.current.add(questionKey);
+    setHasUnsaved(true);
     setAnswers((current) => ({ ...current, [questionKey]: value }));
     setErrors((current) => (current[questionKey] ? { ...current, [questionKey]: "" } : current));
   }
@@ -195,6 +225,8 @@ export default function JoinApplicationForm({ catalogue, detail, onCancel, onDet
     }
     await saveAnswers(application.id, payload);
     dirtyKeys.current.clear();
+    clearLocalDraft(application.userId, application.id);
+    setHasUnsaved(false);
     onDetailChange({ ...detail, answers: nextAnswers });
   }
 
@@ -249,6 +281,8 @@ export default function JoinApplicationForm({ catalogue, detail, onCancel, onDet
       await persistAnswers(cleaned);
 
       const submitted = await submitApplication(application.id);
+      clearLocalDraft(application.userId, application.id);
+      setHasUnsaved(false);
       onSubmitted(submitted);
     } catch (submitError) {
       setNotice(inlineErrorMessage(submitError, i18nText("ui.literals.k786912c3fbce")));
@@ -310,7 +344,7 @@ export default function JoinApplicationForm({ catalogue, detail, onCancel, onDet
                 {i18nText("ui.literals.k3a09ce0de183")}
               </button>
             ) : null}
-            <button type="button" onClick={onCancel} className="text-xs font-black text-slate-500 hover:text-slate-800">
+            <button type="button" onClick={leaveForm} className="text-xs font-black text-slate-500 hover:text-slate-800">
               {i18nText("ui.literals.kbbfa773e5a63")}
             </button>
           </div>
@@ -322,6 +356,12 @@ export default function JoinApplicationForm({ catalogue, detail, onCancel, onDet
           />
         </div>
       </section>
+
+      {restored.restoredKeys.length && hasUnsaved ? (
+        <p className="rounded-2xl bg-amber-50 px-4 py-3 text-sm font-bold leading-6 text-amber-900">
+          {i18nText("exploreMessagesFix.joinRestoredNotice")}
+        </p>
+      ) : null}
 
       <section className="rounded-[24px] border border-slate-200 bg-white p-5 shadow-sm sm:p-6">
         <h2 className="text-xl font-black text-slate-950">{translateUi(step.title)}</h2>

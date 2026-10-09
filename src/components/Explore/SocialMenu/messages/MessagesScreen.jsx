@@ -72,11 +72,15 @@ export default function MessagesScreen({ currentProfile, hideHeader = false, ini
     return undefined;
   }, [messages.activeConversation]);
 
+  // Open on Requests only once, when the first load finds nothing but
+  // requests. After that the person's own tab choice is kept, so Inbox can
+  // always be opened (even while it is empty).
+  const autoTabDecidedRef = useRef(false);
   useEffect(() => {
-    if (tab === "inbox" && !messages.inbox.length && messages.requests.length) {
-      setTab("requests");
-    }
-  }, [messages.inbox.length, messages.requests.length, tab]);
+    if (autoTabDecidedRef.current || messages.loading) return;
+    autoTabDecidedRef.current = true;
+    if (!messages.inbox.length && messages.requests.length) setTab("requests");
+  }, [messages.inbox.length, messages.loading, messages.requests.length]);
 
   const panelClass = screenAction === "push"
     ? "kt-explore-stack-enter"
@@ -111,6 +115,7 @@ export default function MessagesScreen({ currentProfile, hideHeader = false, ini
           ) : (
             <MessageTabs
               active={tab}
+              inboxUnreadCount={messages.inboxUnreadCount}
               requestCount={messages.requests.length}
               onChange={setTab}
             />
@@ -155,6 +160,9 @@ export default function MessagesScreen({ currentProfile, hideHeader = false, ini
             onBack={messages.closeConversation}
             onAction={messages.handleConversationAction}
             onSend={messages.sendMessage}
+            hasOlderMessages={messages.hasOlderMessages}
+            loadingOlderMessages={messages.loadingOlderMessages}
+            onLoadOlder={messages.loadOlderMessages}
             onActivity={messages.setActivity}
             onViewProfile={onViewProfile}
             replyingAs={spaceName}
