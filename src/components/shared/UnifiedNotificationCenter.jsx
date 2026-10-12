@@ -26,7 +26,8 @@ import {
   saveUnifiedNotificationPreferences,
   updateUnifiedNotificationReceipt,
 } from "../../Backend/services/unifiedNotificationService";
-import { disablePushNotifications, enablePushNotifications } from "../../Backend/services/pushService";
+import { disablePushNotifications, enablePushNotifications, getPushProblemMessage, getPushStatus } from "../../Backend/services/pushService";
+import { isNativePlatform } from "../../Backend/services/nativeOAuthService";
 import { inlineErrorMessage } from "../../Backend/services/friendlyErrorService";
 import AppBackTab from "./AppBackTab";
 import AppPortal from "./AppPortal";
@@ -90,6 +91,8 @@ export default function UnifiedNotificationCenter({ onCountChange, onOpenChange,
   const [settingsOpen, setSettingsOpen] = useState(false);
   const [preferences, setPreferences] = useState(null);
   const [savingPreference, setSavingPreference] = useState("");
+  // In the app: this phone's real push state ("enabled", "disabled", "denied").
+  const [devicePushStatus, setDevicePushStatus] = useState("");
   const busyRef = useRef(false);
   const queuedRef = useRef(false);
 
@@ -140,6 +143,14 @@ export default function UnifiedNotificationCenter({ onCountChange, onOpenChange,
     refresh();
     return () => { active = false; };
   }, [refresh, userId]);
+
+  const pushPreferenceOn = preferences?.push_enabled === true;
+  useEffect(() => {
+    if (!settingsOpen || !isNativePlatform()) return undefined;
+    let active = true;
+    getPushStatus().then((status) => { if (active) setDevicePushStatus(status); }).catch(() => {});
+    return () => { active = false; };
+  }, [settingsOpen, pushPreferenceOn]);
 
   useEffect(() => {
     onCountChange?.(unreadCount);
@@ -317,6 +328,12 @@ export default function UnifiedNotificationCenter({ onCountChange, onOpenChange,
                     {savingPreference === row.key ? <LoaderCircle className="animate-spin text-sky-600" size={18} /> : null}
                   </button>
                 ))}
+                {pushPreferenceOn && ["disabled", "denied"].includes(devicePushStatus) ? (
+                  <p role="status" className="rounded-2xl border border-amber-200 bg-amber-50 p-3 text-sm font-bold leading-6 text-amber-800">
+                    {getPushProblemMessage() || i18nText("nativePushFix.devicePending")}
+                  </p>
+                ) : null}
+                {error ? <div role="alert" className="rounded-2xl border border-rose-200 bg-rose-50 p-3 text-sm font-bold text-rose-700">{translateUi(error)}</div> : null}
               </section>
             ) : (
               <>
