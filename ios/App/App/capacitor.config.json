@@ -15,7 +15,9 @@
 		"PushNotifications": {
 			"presentationOptions": [
 				"badge",
-				"sound"
+				"sound",
+				"banner",
+				"list"
 			]
 		},
 		"Keyboard": {

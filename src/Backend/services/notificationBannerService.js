@@ -15,8 +15,6 @@ export const OPEN_EXPLORE_SCREEN_EVENT = "kuntai-open-explore-screen";
 export const OPEN_MARKETPLACE_SCREEN_EVENT = "kuntai-open-marketplace-screen";
 
 const activeContexts = new Set();
-// contextKey -> when its last banner was shown (for push de-duplication).
-const recentBanners = new Map();
 let pendingExploreScreen = "";
 let pendingMarketplaceRequest = null;
 
@@ -44,27 +42,11 @@ export function isBannerContextActive(key) {
   return Boolean(key) && activeContexts.has(key);
 }
 
-// Was a banner whose context key starts with one of these prefixes shown in
-// the last withinMs? A push that arrives while the app is open uses it to
-// avoid a second banner for what the realtime banner already announced.
-export function wasBannerShownRecently(prefixes = [], withinMs = 10_000) {
-  const since = Date.now() - withinMs;
-  for (const [key, shownAt] of recentBanners) {
-    if (shownAt >= since && prefixes.some((prefix) => prefix && key.startsWith(prefix))) return true;
-  }
-  return false;
-}
-
 export function showNotificationBanner({ title, body, avatarUrl = "", tone = "message", contextKey = "", onOpen = null, openLabel = "Open" }) {
   if (!title && !body) return false;
   if (readExploreSettings().feedbackFx.banners === false) return false;
   if (isBannerContextActive(contextKey)) return false;
 
-  if (contextKey) {
-    const now = Date.now();
-    recentBanners.set(contextKey, now);
-    for (const [key, shownAt] of recentBanners) if (now - shownAt > 60_000) recentBanners.delete(key);
-  }
   window.dispatchEvent(
     new CustomEvent(BANNER_EVENT, {
       detail: {

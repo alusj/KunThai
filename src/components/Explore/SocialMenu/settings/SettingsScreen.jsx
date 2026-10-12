@@ -19,7 +19,7 @@ import {
 import { useExplorePreferences } from "../../../../Backend/hooks/useExplorePreferences";
 import { readDefaultMainPage, setDefaultMainPage } from "../../../../Backend/services/mainDashboardPreference";
 import { haptics, sounds } from "../../../../Backend/services/feedbackService";
-import { disablePushNotifications, enablePushNotifications, getPushProblemMessage, getPushStatus } from "../../../../Backend/services/pushService";
+import { disablePushNotifications, enablePushNotifications, getPushStatus } from "../../../../Backend/services/pushService";
 import { showToast } from "../../../../Backend/services/toastService";
 import supabase from "../../../../Backend/lib/supabaseClient";
 import { saveUnifiedNotificationPreferences } from "../../../../Backend/services/unifiedNotificationService";
@@ -133,11 +133,7 @@ export default function SettingsScreen({ hideHeader = false, onOpenDataMobile, o
   useEffect(() => {
     let active = true;
     getPushStatus().then((status) => {
-      if (!active) return;
-      setPushStatus(status);
-      // In the app: the last reason this phone could not get push alerts
-      // (permission off, a build without push set up, no connection).
-      if (status !== "enabled") setPushError(getPushProblemMessage());
+      if (active) setPushStatus(status);
     });
     return () => {
       active = false;

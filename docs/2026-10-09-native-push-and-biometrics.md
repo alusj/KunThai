@@ -1,13 +1,5 @@
 # Native push notifications and biometric unlock (2026-10-09)
 
-> **Update 2026-10-11:** push delivery was completed in
-> `docs/2026-10-11-native-push-delivery.md` (entitlements per build
-> configuration, automatic drain through pg_net + Vault + pg_cron, retries,
-> admin campaigns to the app, setup diagnostics). For push, follow that
-> document; its steps replace sections 2.3 and 4.4–4.5 below (the
-> *Remote notifications* background mode, the hand-made cron job and the
-> Database Webhook are no longer needed).
-
 What shipped in code, and the exact steps the owner takes to switch it on.
 No key, certificate or service-account file is in this repository, and none
 should ever be: they go into Apple, Firebase and Supabase secret storage only.
