@@ -2444,29 +2444,7 @@ if (!isMobileVideoDevice) {
                     </div>
                     <span className="text-[11px] font-bold text-slate-500">{i18nText("ui.literals.kb54364d2f8ab")}</span>
                   </div>
-                  <div className="mt-3 flex gap-2">
-                    <input
-                      value={tagDraft}
-                      onChange={(event) => setTagDraft(normalizeHashtag(event.target.value))}
-                      onKeyDown={(event) => {
-                        if (event.key === "Enter") {
-                          event.preventDefault();
-                          addHashtag();
-                        }
-                      }}
-                      autoFocus
-                      placeholder={i18nText("ui.literals.k57eeecfa7fb3")}
-                      className="h-11 min-w-0 flex-1 rounded-2xl border border-sky-100 bg-white px-4 text-sm font-bold text-slate-900 outline-none focus:border-sky-300"
-                    />
-                    <button
-                      type="button"
-                      onClick={addHashtag}
-                      disabled={!tagDraft.trim()}
-                      className="h-11 rounded-2xl bg-sky-700 px-4 text-sm font-black text-white disabled:cursor-not-allowed disabled:opacity-40"
-                    >
-                      {normalizedTagDraft && !visibleHashtagSuggestions.some((item) => item.tag === normalizedTagDraft) ? i18nText("ui.literals.k739262f57539", { value0: normalizedTagDraft }) : i18nText("ui.literals.k61cc55aa0453")}
-                    </button>
-                  </div>
+                  {/* Suggestions sit above the field so the phone keyboard never covers them. */}
                   <div className="mt-3 max-h-56 space-y-2 overflow-y-auto">
                     {hashtagSuggestionsLoading ? (
                       <p className="rounded-2xl bg-white px-4 py-3 text-sm font-bold text-slate-500">{i18nText("ui.literals.k5513dbf0eec3")}</p>
@@ -2490,6 +2468,29 @@ if (!isMobileVideoDevice) {
                       </p>
                     ) : null}
                   </div>
+                  <div className="mt-3 flex gap-2">
+                    <input
+                      value={tagDraft}
+                      onChange={(event) => setTagDraft(normalizeHashtag(event.target.value))}
+                      onKeyDown={(event) => {
+                        if (event.key === "Enter") {
+                          event.preventDefault();
+                          addHashtag();
+                        }
+                      }}
+                      autoFocus
+                      placeholder={i18nText("ui.literals.k57eeecfa7fb3")}
+                      className="h-11 min-w-0 flex-1 rounded-2xl border border-sky-100 bg-white px-4 text-sm font-bold text-slate-900 outline-none focus:border-sky-300"
+                    />
+                    <button
+                      type="button"
+                      onClick={addHashtag}
+                      disabled={!tagDraft.trim()}
+                      className="h-11 rounded-2xl bg-sky-700 px-4 text-sm font-black text-white disabled:cursor-not-allowed disabled:opacity-40"
+                    >
+                      {normalizedTagDraft && !visibleHashtagSuggestions.some((item) => item.tag === normalizedTagDraft) ? i18nText("ui.literals.k739262f57539", { value0: normalizedTagDraft }) : i18nText("ui.literals.k61cc55aa0453")}
+                    </button>
+                  </div>
                   <p className="mt-2 text-xs font-semibold text-slate-500">{i18nText("ui.literals.k2500fd296cf8")}</p>
                 </div>
               ) : null}
@@ -2500,14 +2501,8 @@ if (!isMobileVideoDevice) {
                     <HiOutlineAtSymbol className="text-base" />
                     {i18nText("ui.literals.kc9aea155862e")}
                   </div>
-                  <input
-                    value={mentionQuery}
-                    onChange={(event) => setMentionQuery(event.target.value.replace(/^@/, ""))}
-                    autoFocus
-                    placeholder={i18nText("ui.literals.k9c923df6528e")}
-                    className="mt-3 h-11 w-full rounded-2xl border border-violet-100 bg-white px-4 text-sm font-bold text-slate-900 outline-none focus:border-violet-300"
-                  />
-                  <div className="mt-2 max-h-56 space-y-2 overflow-y-auto">
+                  {/* Suggestions sit above the field so the phone keyboard never covers them. */}
+                  <div className="mt-3 max-h-56 space-y-2 overflow-y-auto">
                     {mentionLoading ? <p className="rounded-2xl bg-white px-4 py-3 text-sm font-bold text-slate-500">{i18nText("ui.literals.k06f00244d1dd")}</p> : null}
                     {!mentionLoading && !mentionResults.length ? (
                       <p className="rounded-2xl bg-white px-4 py-3 text-sm font-bold text-slate-500">
@@ -2529,6 +2524,13 @@ if (!isMobileVideoDevice) {
                       </button>
                     ))}
                   </div>
+                  <input
+                    value={mentionQuery}
+                    onChange={(event) => setMentionQuery(event.target.value.replace(/^@/, ""))}
+                    autoFocus
+                    placeholder={i18nText("ui.literals.k9c923df6528e")}
+                    className="mt-3 h-11 w-full rounded-2xl border border-violet-100 bg-white px-4 text-sm font-bold text-slate-900 outline-none focus:border-violet-300"
+                  />
                   <p className="mt-2 text-xs font-semibold text-slate-500">{i18nText("ui.literals.kb456bd766c5b")}</p>
                 </div>
               ) : null}

@@ -2755,6 +2755,17 @@ function OneKmPreviewChrome({ onBack, onDone, backLabel, ready, previewState }) 
   );
 }
 
+// Small spinner shown beside "Confirming your current location…" and other
+// in-progress picker messages, so the wait is visibly working.
+function PickerSpinner() {
+  return (
+    <span
+      aria-hidden="true"
+      className="inline-block h-4 w-4 flex-none animate-spin rounded-full border-2 border-blue-200 border-t-blue-600 motion-reduce:animate-none"
+    />
+  );
+}
+
 function BusinessLocationPickerChrome({
   mode,
   status,
@@ -2856,7 +2867,12 @@ function BusinessLocationPickerChrome({
           ) : (
             <p className="text-sm font-semibold leading-5 text-slate-600">{labels.dropInstruction}</p>
           )}
-          {busy && status ? <p className="mt-2 text-xs font-bold text-blue-700">{translateUi(status)}</p> : null}
+          {busy && status ? (
+            <p className="mt-2 flex items-center gap-2 text-xs font-bold text-blue-700" role="status" aria-live="polite">
+              <PickerSpinner />
+              <span className="min-w-0">{translateUi(status)}</span>
+            </p>
+          ) : null}
           <div className="mt-3 grid grid-cols-2 gap-2">
             <button
               type="button"
@@ -2899,10 +2915,17 @@ function BusinessLocationPickerChrome({
               onClick={toggle}
             />
           </div>
-          <p className="mt-2 text-sm font-semibold leading-6 text-slate-600">
-            {isDropPin
-              ? labels.dropInstruction
-              : status || labels.currentPreparing}
+          <p
+            className="mt-2 flex items-center gap-2 text-sm font-semibold leading-6 text-slate-600"
+            role={!isDropPin && busy ? "status" : undefined}
+            aria-live={!isDropPin && busy ? "polite" : undefined}
+          >
+            {!isDropPin && busy ? <PickerSpinner /> : null}
+            <span className="min-w-0">
+              {isDropPin
+                ? labels.dropInstruction
+                : status || labels.currentPreparing}
+            </span>
           </p>
           {currentLocation ? (
             <div className="mt-3 rounded-2xl border border-blue-100 bg-blue-50 px-3 py-3">
