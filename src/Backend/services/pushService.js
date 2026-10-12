@@ -9,8 +9,11 @@
 // iOS / Android app (@capacitor/push-notifications): the device's APNs or FCM
 // token is saved with register_push_device_token() into push_device_tokens.
 // Database triggers queue pushes for messages, comments, mentions, follows,
-// reactions and order updates in push_outbox, and
-// supabase/functions/send-native-push delivers them. Each push carries a
+// reactions, order updates and admin campaigns with the push channel in
+// push_outbox, and supabase/functions/send-native-push delivers them
+// (supabase/migrations/20261011100000_native_push_delivery.sql). Pure
+// decisions (failure reasons, when to register, foreground banners) live in
+// nativePushLogic.js. Each push carries a
 // "route" (e.g. "conversation:<id>", "notifications", "orders") that opens
 // the matching screen when tapped.
 //
@@ -21,8 +24,27 @@ import { Capacitor } from "@capacitor/core";
 import { PushNotifications } from "@capacitor/push-notifications";
 import supabase from "../lib/supabaseClient";
 import { t as i18nText } from "../../i18n/index";
-import { requestExploreScreen, requestMarketplaceScreen, runNotificationAction } from "./notificationBannerService";
+import { App as CapacitorApp } from "@capacitor/app";
+import {
+  requestExploreScreen,
+  requestMarketplaceScreen,
+  runNotificationAction,
+  showNotificationBanner,
+  wasBannerShownRecently,
+} from "./notificationBannerService";
 import { requestConversationOpen } from "./explore/messageService";
+import {
+  NATIVE_PUSH_DIAGNOSTIC_KEY,
+  NATIVE_PUSH_RECEIVED_EVENT,
+  bannerContextsForRoute,
+  buildPushDiagnostic,
+  decideNativePushAction,
+  diagnosticMessage,
+  foregroundPushBanner,
+  nativePushStatusFrom,
+  normalizePushRoute,
+  refreshEventsForRoute,
+} from "./nativePushLogic";
 
 const VAPID_PUBLIC_KEY = import.meta.env.VITE_VAPID_PUBLIC_KEY || "";
 
@@ -53,7 +75,7 @@ function isPushSupported() {
 
 function handleNotificationTarget(target = "", url = "") {
   runNotificationAction(() => {
-    const [kind, id] = String(target || "").split(":");
+    const [kind, id] = normalizePushRoute(target).split(":");
     if (kind === "conversation" && id) {
       requestConversationOpen(id);
       requestExploreScreen("Messages");
@@ -108,6 +130,7 @@ export function registerKunThaiServiceWorker() {
 
 const NATIVE_PUSH_KEY = "kunthai.nativePush";
 const NATIVE_REGISTER_TIMEOUT_MS = 20_000;
+const FOREGROUND_BANNER_DELAY_MS = 1500;
 
 function readNativePushState() {
   try {
@@ -125,6 +148,40 @@ function writeNativePushState(value) {
   } catch {
     // Storage unavailable: the server copy of the token still works.
   }
+}
+
+// The last reason this phone could not be set up for push (no token in it).
+function readPushDiagnostic() {
+  try {
+    const value = JSON.parse(localStorage.getItem(NATIVE_PUSH_DIAGNOSTIC_KEY) || "null");
+    return value && typeof value === "object" && value.stage ? value : null;
+  } catch {
+    return null;
+  }
+}
+
+function writePushDiagnostic(value) {
+  try {
+    if (value) localStorage.setItem(NATIVE_PUSH_DIAGNOSTIC_KEY, JSON.stringify(value));
+    else localStorage.removeItem(NATIVE_PUSH_DIAGNOSTIC_KEY);
+  } catch {
+    // Storage unavailable: the message is still shown for this attempt.
+  }
+}
+
+function pushProblemText(diagnostic) {
+  const { key, vars } = diagnosticMessage(diagnostic);
+  return i18nText(`nativePushFix.${key}`, vars);
+}
+
+// Records what went wrong and returns an Error whose message tells the person
+// what to do about it.
+function nativePushFailure(stage, error, platform) {
+  const diagnostic = buildPushDiagnostic({ stage, error, platform });
+  writePushDiagnostic(diagnostic);
+  const failure = new Error(pushProblemText(diagnostic));
+  failure.diagnostic = diagnostic;
+  return failure;
 }
 
 function nativePlatform() {
@@ -150,10 +207,26 @@ async function nativePermission() {
   }
 }
 
-// Asks iOS / Android for this device's push token. Rejects with an honest
-// message when the app build has no push set up (no Push Notifications
-// capability on iOS, no google-services.json on Android) or registration
-// hangs.
+// The account's push switch (user_notification_preferences.push_enabled):
+// true / false, or null when it could not be read (offline).
+async function accountPushPreference(userId) {
+  if (!userId) return null;
+  try {
+    const { data, error } = await supabase
+      .from("user_notification_preferences")
+      .select("push_enabled")
+      .eq("user_id", userId)
+      .maybeSingle();
+    if (error) return null;
+    return data?.push_enabled === true;
+  } catch {
+    return null;
+  }
+}
+
+// Asks iOS / Android for this device's push token. Rejects with the stage
+// ("register" or "timeout") and the native reason, e.g. a build without the
+// aps-environment entitlement or without google-services.json.
 function obtainNativeToken() {
   return new Promise((resolve, reject) => {
     let settled = false;
@@ -166,15 +239,15 @@ function obtainNativeToken() {
       handles.forEach((handle) => handle?.remove?.());
       callback(value);
     };
-    const fail = () => finish(reject, new Error(i18nText("exploreNativeFix.pushRegisterFailed")));
-    timer = setTimeout(fail, NATIVE_REGISTER_TIMEOUT_MS);
+    const fail = (stage) => (error) => finish(reject, { stage, error });
+    timer = setTimeout(() => fail("timeout")(new Error("timeout")), NATIVE_REGISTER_TIMEOUT_MS);
 
     Promise.all([
       PushNotifications.addListener("registration", (token) => {
         if (token?.value) finish(resolve, token.value);
-        else fail();
+        else fail("register")(new Error("empty token"));
       }),
-      PushNotifications.addListener("registrationError", fail),
+      PushNotifications.addListener("registrationError", fail("register")),
     ])
       .then((added) => {
         if (settled) {
@@ -184,28 +257,63 @@ function obtainNativeToken() {
         handles = added;
         return PushNotifications.register();
       })
-      .catch(fail);
+      .catch(fail("register"));
   });
 }
 
 async function saveNativeToken(token, platform) {
   const { error } = await supabase.rpc("register_push_device_token", { p_token: token, p_platform: platform });
-  if (error) throw new Error(i18nText("exploreNativeFix.pushSaveFailed"));
+  if (error) throw error;
+}
+
+let registrationInFlight = null;
+
+// Gets this phone's token and saves it for the account. One registration at a
+// time: callers arriving meanwhile share the running one.
+function registerThisDevice(userId, platform) {
+  if (registrationInFlight) return registrationInFlight;
+  registrationInFlight = (async () => {
+    let token = "";
+    try {
+      token = await obtainNativeToken();
+    } catch (failure) {
+      throw nativePushFailure(failure?.stage || "register", failure?.error ?? failure, platform);
+    }
+    try {
+      await saveNativeToken(token, platform);
+    } catch (error) {
+      throw nativePushFailure("save", error, platform);
+    }
+    writeNativePushState({ platform, token, userId, savedAt: new Date().toISOString() });
+    writePushDiagnostic(null);
+    return "enabled";
+  })().finally(() => {
+    registrationInFlight = null;
+  });
+  return registrationInFlight;
+}
+
+async function unregisterThisDevice(state) {
+  if (state?.token) {
+    const { error } = await supabase.rpc("unregister_push_device_token", { p_token: state.token });
+    if (error) throw new Error(i18nText("nativePushFix.saveFailed"));
+  }
+  writeNativePushState(null);
 }
 
 async function getNativePushStatus() {
+  if (registrationInFlight) await registrationInFlight.catch(() => {});
   const permission = await nativePermission();
-  if (permission === "denied") return "denied";
-  const state = readNativePushState();
   const userId = await currentUserId();
-  return permission === "granted" && state && userId && state.userId === userId ? "enabled" : "disabled";
+  const preferenceOn = permission === "granted" ? await accountPushPreference(userId) : null;
+  return nativePushStatusFrom({ permission, state: readNativePushState(), userId, preferenceOn });
 }
 
 async function enableNativePush() {
-  const userId = await currentUserId();
-  if (!userId) throw new Error(i18nText("exploreNativeFix.pushSignIn"));
   const platform = nativePlatform();
-  if (!platform) throw new Error(i18nText("exploreNativeFix.pushRegisterFailed"));
+  const userId = await currentUserId();
+  if (!userId) throw nativePushFailure("signin", null, platform);
+  if (!platform) throw nativePushFailure("register", null, platform);
 
   let permission = await nativePermission();
   if (permission !== "granted" && permission !== "denied") {
@@ -215,22 +323,22 @@ async function enableNativePush() {
       permission = "denied";
     }
   }
-  if (permission !== "granted") throw new Error(i18nText("exploreNativeFix.pushPermissionNeeded"));
-
-  const token = await obtainNativeToken();
-  await saveNativeToken(token, platform);
-  writeNativePushState({ platform, token, userId, savedAt: new Date().toISOString() });
-  return "enabled";
+  if (permission !== "granted") throw nativePushFailure("permission", null, platform);
+  return registerThisDevice(userId, platform);
 }
 
 async function disableNativePush() {
-  const state = readNativePushState();
-  if (state?.token) {
-    const { error } = await supabase.rpc("unregister_push_device_token", { p_token: state.token });
-    if (error) throw new Error(i18nText("exploreNativeFix.pushSaveFailed"));
-  }
-  writeNativePushState(null);
+  await unregisterThisDevice(readNativePushState());
+  writePushDiagnostic(null);
   return "disabled";
+}
+
+// Settings: why push is not working on this phone, in words the person can
+// act on ("" when nothing went wrong).
+export function getPushProblemMessage() {
+  if (!isNativeApp()) return "";
+  const diagnostic = readPushDiagnostic();
+  return diagnostic ? pushProblemText(diagnostic) : "";
 }
 
 // Before signing out (while the session still works): this phone stops
@@ -239,6 +347,7 @@ export async function forgetNativePushDevice() {
   if (!isNativeApp()) return;
   const state = readNativePushState();
   writeNativePushState(null);
+  writePushDiagnostic(null);
   if (!state?.token) return;
   try {
     await Promise.race([
@@ -253,11 +362,58 @@ export async function forgetNativePushDevice() {
   }
 }
 
+// App start, sign-in and coming back to the app: keep this phone's server
+// registration in line with the OS permission and the account's switch.
+async function syncNativePush(trigger) {
+  const platform = nativePlatform();
+  const userId = await currentUserId();
+  if (!platform || !userId) return;
+  const permission = await nativePermission();
+  const state = readNativePushState();
+  const preferenceOn = permission === "granted" ? await accountPushPreference(userId) : null;
+  const action = decideNativePushAction({ userId, permission, preferenceOn, state, trigger });
+  try {
+    if (action === "register") {
+      await registerThisDevice(userId, platform);
+    } else if (action === "unregister") {
+      // Notifications were turned off in the phone's settings.
+      await unregisterThisDevice(state);
+      writePushDiagnostic(buildPushDiagnostic({ stage: "permission", error: null, platform }));
+    }
+  } catch {
+    // Kept in the diagnostic; Settings shows it the next time it opens.
+  }
+}
+
+// A push that arrives while KunThai is open: refresh what is on screen and
+// show the in-app banner (unless the realtime banner already showed it).
+function handleForegroundPush(notification) {
+  const banner = foregroundPushBanner(notification);
+  const route = banner?.route || normalizePushRoute(notification?.data?.route);
+  refreshEventsForRoute(route).forEach((name) => {
+    window.dispatchEvent(new CustomEvent(name, { detail: { type: "native-push", route } }));
+  });
+  window.dispatchEvent(new CustomEvent(NATIVE_PUSH_RECEIVED_EVENT, { detail: { route, kind: banner?.kind || "" } }));
+  if (!banner) return;
+  setTimeout(() => {
+    if (wasBannerShownRecently(bannerContextsForRoute(banner.route))) return;
+    showNotificationBanner({
+      title: banner.title,
+      body: banner.body,
+      tone: banner.tone,
+      contextKey: banner.contextKey,
+      openLabel: i18nText("nativePushFix.open"),
+      onOpen: banner.route ? () => handleNotificationTarget(banner.route) : null,
+    });
+  }, FOREGROUND_BANNER_DELAY_MS);
+}
+
 let nativePushStarted = false;
 
-// Runs once at startup in the app: tapping a push opens the screen it is
-// about, and an account that has push on refreshes this phone's token (it
-// can change after an OS update or a reinstall).
+// Runs once at startup in the app. Listeners are added before any
+// registration: tapping a push opens its screen, a push in the foreground
+// shows a banner, and the token is (re)saved after sign-in, on app start and
+// when the app comes back (the OS permission may have changed meanwhile).
 export function initNativePushNotifications() {
   if (!isNativeApp() || nativePushStarted) return;
   nativePushStarted = true;
@@ -268,24 +424,16 @@ export function initNativePushNotifications() {
     if (route) handleNotificationTarget(route);
   })).catch(() => {});
 
-  const refresh = async (userId) => {
-    const state = readNativePushState();
-    if (!userId || !state || state.userId !== userId) return;
-    if ((await nativePermission()) !== "granted") return;
-    try {
-      const token = await obtainNativeToken();
-      await saveNativeToken(token, state.platform || nativePlatform());
-      writeNativePushState({ ...state, token, savedAt: new Date().toISOString() });
-    } catch {
-      // Settings shows the honest state the next time it is opened.
-    }
-  };
+  Promise.resolve(PushNotifications.addListener("pushNotificationReceived", handleForegroundPush)).catch(() => {});
 
-  supabase.auth.onAuthStateChange((event, session) => {
+  Promise.resolve(CapacitorApp.addListener("appStateChange", ({ isActive }) => {
+    if (isActive) syncNativePush("resume");
+  })).catch(() => {});
+
+  supabase.auth.onAuthStateChange((event) => {
     if (event === "INITIAL_SESSION" || event === "SIGNED_IN") {
-      const userId = session?.user?.id || "";
       setTimeout(() => {
-        refresh(userId);
+        syncNativePush("startup");
       }, 0);
     }
   });

@@ -6,6 +6,7 @@ import { URRIDE } from "./urride";
 import { KAI_LISTING_FIX } from "./kaiListingFix";
 import { ORDER_CAUTION } from "./orderCaution";
 import { REGISTRATION_SAVING } from "./registrationSaving";
+import { NATIVE_PUSH_FIX } from "./nativePushFix";
 import { URRIDE_MAP_FIX2 } from "./urrideMapFix2";
 import { URMALL_PLANS_2026 } from "./urmallPlans2026";
 import { KAI_REGISTRATION_FIX } from "./kaiRegistrationFix";
@@ -59277,6 +59278,12 @@ for (const [locale, section] of Object.entries(ORDER_CAUTION)) {
 for (const [locale, section] of Object.entries(REGISTRATION_SAVING)) {
   if (TRANSLATIONS[locale]) {
     TRANSLATIONS[locale].registrationSaving = section;
+  }
+}
+
+for (const [locale, section] of Object.entries(NATIVE_PUSH_FIX)) {
+  if (TRANSLATIONS[locale]) {
+    TRANSLATIONS[locale].nativePushFix = section;
   }
 }
 
