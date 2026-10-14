@@ -98,3 +98,9 @@ android/app/build/
 android/build/
 xcuserdata/
 ios/App/CapApp-SPM/.swiftpm/
+
+# Push delivery migrations are applied in Supabase by hand and kept local.
+supabase/migrations/20261013120000_urmall_urride_native_push.sql
+supabase/migrations/20261013130000_urride_company_activity_push.sql
+supabase/migrations/20261013140000_urride_push_deep_links.sql
+supabase/migrations/20261013160000_urride_ride_request_push_kind.sql
