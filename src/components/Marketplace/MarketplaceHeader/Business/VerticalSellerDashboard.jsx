@@ -316,7 +316,7 @@ function RestaurantDashboard({ business, canManage = true, initialWorkspace = nu
       await load();
       refreshMealDayRules();
       notifyVerticalListingUpdated(business.id);
-      haptics.medium("marketplace");
+      haptics.success("marketplace");
       sounds.success("marketplace");
       showToast(wasEditing ? "Updated successfully" : "Added successfully", "success", urMallShareToastOptions());
     } catch (error) {
@@ -551,7 +551,7 @@ function HotelDashboard({ business, canManage = true, initialWorkspace = null })
       setFormOpen(false);
       await load();
       notifyVerticalListingUpdated(business.id);
-      haptics.medium("marketplace");
+      haptics.success("marketplace");
       sounds.success("marketplace");
       showToast("Added successfully", "success", urMallShareToastOptions());
     } catch (error) { showToast(shortErrorToast(error, "Couldn't add media"), "danger"); } finally { submissionLock.current = false; setSubmitting(false); setUploadStage(""); }
@@ -655,7 +655,7 @@ function PropertyDashboard({ business, canManage = true, initialWorkspace = null
       setFormOpen(false);
       await load();
       notifyVerticalListingUpdated(business.id);
-      haptics.medium("marketplace");
+      haptics.success("marketplace");
       sounds.success("marketplace");
       showToast(wasEditing ? "Updated successfully" : "Added successfully", "success", urMallShareToastOptions());
     } catch (error) { showToast(shortErrorToast(error, "Couldn't save property"), "danger"); } finally { submissionLock.current = false; setSubmitting(false); setUploadStage(""); }
@@ -930,7 +930,7 @@ function VerticalPromoteSheet({ listingType, listing, onClose, onPromoted }) {
         regions: nextSettings.promotionRegions,
         countries: nextSettings.promotionCountries,
       });
-      haptics.medium("marketplace");
+      haptics.success("marketplace");
       sounds.success("marketplace");
       showToast("Product is now boosted", "success", urMallShareToastOptions());
       onPromoted?.();
