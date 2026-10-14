@@ -238,7 +238,7 @@ function mapLiveFleet(row, companyAffiliation = null, publicStats = null, public
     operatorRecordId: publicContact?.operator_id || operator.id || row.operator_id || "",
     operatorName: publicContact?.operator_name || operator.full_name || "Transport operator",
     operatorPhone: publicContact?.operator_phone || operator.phone || "",
-    operatorCity: operator.city || "",
+    operatorCity: operator.city || publicContact?.operator_city || "",
     country,
     countryCode,
     currency,
@@ -260,8 +260,10 @@ function mapLiveFleet(row, companyAffiliation = null, publicStats = null, public
     companyCode: companyAffiliation?.company_code || "",
     companyType: companyAffiliation?.company_type || "",
     companyCity: companyAffiliation?.company_city || "",
-    currentLocation: row.current_location || row.home_base_location || row.operating_area || operator.city || "Location pending",
-    lastKnownLocation: row.last_known_location || row.home_base_location || row.operating_area || operator.city || "Location pending",
+    // The *_name columns hold the place recorded when the operator switched
+    // Active on / off; the saved base is only a fallback.
+    currentLocation: row.current_location_name || row.current_location || row.home_base_location || row.operating_area || operator.city || publicContact?.operator_city || "Location pending",
+    lastKnownLocation: row.last_known_location_name || row.last_known_location || row.current_location_name || row.home_base_location || row.operating_area || operator.city || publicContact?.operator_city || "Location pending",
     lastActive: isActive ? "Active now" : formatLastActive(row.last_active_at || row.updated_at),
     // Only ever a distance measured from the passenger (attachFleetDistances /
     // fetchTopRatedNearby). max_distance_km is the operator's service range,

@@ -80,6 +80,14 @@ export async function isTwoFactorChallengeRequired() {
   return data?.currentLevel === "aal1" && data?.nextLevel === "aal2";
 }
 
+// Like isTwoFactorChallengeRequired, but tells "could not check" (no
+// connection, session not restored yet) apart from "not required".
+export async function checkTwoFactorChallenge() {
+  const { data, error } = await supabase.auth.mfa.getAuthenticatorAssuranceLevel();
+  if (error) return { checked: false, required: false };
+  return { checked: true, required: data?.currentLevel === "aal1" && data?.nextLevel === "aal2" };
+}
+
 export async function verifyTwoFactorLogin(code) {
   const state = await getTwoFactorState();
   if (!state.factorId) throw new Error("Two-step verification is not enabled on this account.");

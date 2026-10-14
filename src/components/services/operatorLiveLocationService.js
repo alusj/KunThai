@@ -29,6 +29,14 @@ export function isOperatorLiveLocationRunning() {
   return Boolean(activePublisher);
 }
 
+// The operator's most recent GPS point this session ({ lat, lng }), kept after
+// publishing stops so going offline can record where it happened.
+let lastOperatorPoint = null;
+
+export function readLastOperatorPoint() {
+  return activePublisher?.lastPoint || lastOperatorPoint;
+}
+
 function distanceInMeters(a, b) {
   if (!a || !b) return Infinity;
   const earthRadius = 6371000;
@@ -62,6 +70,7 @@ async function publishRow(publisher, position, { force = false } = {}) {
   }
 
   publisher.lastPoint = point;
+  lastOperatorPoint = point;
   publisher.lastPublishedPoint = point;
   publisher.lastPublishedAt = now;
 

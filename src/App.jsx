@@ -19,6 +19,7 @@ import { initNativeOAuth } from "./Backend/services/nativeOAuthService";
 import AccountRestrictionNotice from "./components/shared/AccountRestrictionNotice";
 import ReturningUserIntro from "./components/shared/ReturningUserIntro";
 import TwoFactorGate from "./components/auth/TwoFactorGate";
+import { checkTwoFactorChallenge } from "./Backend/services/twoFactorService";
 import GuestGateCard from "./components/shared/GuestGateCard";
 import NotificationBannerHost from "./components/shared/NotificationBannerHost";
 import RegistrationBackgroundHost from "./components/shared/RegistrationBackgroundHost";
@@ -195,12 +196,16 @@ function AppLoading({ page = "explore", marketplaceSub = "" }) {
   // screen never adds a second offline message of its own.
   const notice = showPatienceNotice ? (
     <div className="kt-route-transition rounded-2xl border border-sky-200 bg-sky-50 px-4 py-4 text-center shadow-sm">
-      <p className="text-sm font-black text-slate-950">
-        {i18nText("ui.literals.k28f19756579e")}
+      <p className="text-sm font-semibold leading-6 text-slate-700">
+        {i18nText("appLoading.slowNetwork")}
       </p>
-      <p className="mt-1 text-sm font-semibold leading-6 text-slate-600">
-        {i18nText("ui.literals.ke92c26e43495")}
-      </p>
+      <button
+        type="button"
+        onClick={() => window.location.reload()}
+        className="kt-pressable mx-auto mt-3 inline-flex h-10 items-center justify-center rounded-2xl bg-slate-950 px-5 text-sm font-black text-white"
+      >
+        {i18nText("appLoading.refresh")}
+      </button>
     </div>
   ) : null;
 
@@ -269,6 +274,10 @@ export default function App() {
   const loginShownRef = useRef(false);
   const [accountControl, setAccountControl] = useState(null);
   const [twoFactorPending, setTwoFactorPending] = useState(null);
+  // Set when the two-step check could not finish (offline launch): the cached
+  // app opens, and the check runs again as soon as the connection returns.
+  const [twoFactorDeferred, setTwoFactorDeferred] = useState(false);
+  const deferTwoFactorCheck = useCallback(() => setTwoFactorDeferred(true), []);
   const [returningIntroOpen, setReturningIntroOpen] = useState(false);
   // Bumped when KunThai returns from a long time in the background: the main
   // dashboards remount, so inner screens (messages, settings, profiles) close.
@@ -432,7 +441,33 @@ export default function App() {
   // Each new sign-in re-checks whether the account needs its authenticator code.
   useEffect(() => {
     setTwoFactorPending(null);
+    setTwoFactorDeferred(false);
   }, [userId]);
+
+  useEffect(() => {
+    if (!twoFactorDeferred || !userId) return undefined;
+    let cancelled = false;
+    async function recheck() {
+      if (typeof navigator !== "undefined" && navigator.onLine === false) return;
+      try {
+        const result = await checkTwoFactorChallenge();
+        if (cancelled || !result.checked) return;
+        setTwoFactorDeferred(false);
+        // The account needs its code: show the gate now.
+        if (result.required) setTwoFactorPending(null);
+      } catch {
+        // Still unreachable; the next "online" event or retry tries again.
+      }
+    }
+    recheck();
+    const retry = window.setInterval(recheck, 30_000);
+    window.addEventListener("online", recheck);
+    return () => {
+      cancelled = true;
+      window.clearInterval(retry);
+      window.removeEventListener("online", recheck);
+    };
+  }, [twoFactorDeferred, userId]);
 
   // The inviter's credit is only granted once the invited account is fully
   // created and has landed on a dashboard (onboarding complete). Gating the
@@ -738,7 +773,7 @@ export default function App() {
 
   if (!guestSession && twoFactorPending !== false) {
     return withStartupIntro(
-      <TwoFactorGate key={userId} user={user}>
+      <TwoFactorGate key={userId} user={user} onDeferred={deferTwoFactorCheck}>
         <TwoFactorPassed onPassed={() => setTwoFactorPending(false)} />
       </TwoFactorGate>,
     );

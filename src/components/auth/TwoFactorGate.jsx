@@ -3,7 +3,7 @@ import { LogOut, ShieldCheck } from "lucide-react";
 
 import { signOutUser } from "../../Backend/services/authService";
 import {
-  isTwoFactorChallengeRequired,
+  checkTwoFactorChallenge,
   verifyTwoFactorLogin,
 } from "../../Backend/services/twoFactorService";
 import { t as i18nText } from "../../i18n/index";
@@ -13,7 +13,14 @@ import { inlineErrorMessage } from "../../Backend/services/friendlyErrorService"
 // Blocks the workspace after password sign-in until the authenticator code is
 // verified, for accounts with two-step verification turned on. Accounts
 // without 2FA pass straight through.
-export default function TwoFactorGate({ user, children, onResolved }) {
+// The check needs supabase-js's auth lock, which an offline launch can hold
+// for a long time while the token refresh keeps retrying. Past this wait the
+// cached app opens and the check is repeated once the connection is back
+// (onDeferred), so being offline never shows an empty screen and never skips
+// the code for good.
+const CHECK_WAIT_MS = 3000;
+
+export default function TwoFactorGate({ user, children, onResolved, onDeferred }) {
   useUiLocale();
   const [required, setRequired] = useState(null);
   const [code, setCode] = useState("");
@@ -32,17 +39,35 @@ export default function TwoFactorGate({ user, children, onResolved }) {
     }
 
     setRequired(null);
-    isTwoFactorChallengeRequired()
-      .then((needsChallenge) => {
-        if (active) {
-          const nextRequired = Boolean(needsChallenge);
+    let settled = false;
+    const defer = () => {
+      if (!active || settled) return;
+      settled = true;
+      onDeferred?.();
+      setRequired(false);
+      onResolved?.(false);
+    };
+    const waitTimer = window.setTimeout(defer, typeof navigator !== "undefined" && navigator.onLine === false ? 0 : CHECK_WAIT_MS);
+    checkTwoFactorChallenge()
+      .then((result) => {
+        window.clearTimeout(waitTimer);
+        // Could not check (no connection): open the app now, check again later.
+        if (!result.checked) {
+          defer();
+          return;
+        }
+        if (active && !settled) {
+          settled = true;
+          const nextRequired = Boolean(result.required);
           setRequired(nextRequired);
           onResolved?.(nextRequired);
         }
       })
       .catch(() => {
+        window.clearTimeout(waitTimer);
         // If the check itself fails, do not lock the user out of the app.
-        if (active) {
+        if (active && !settled) {
+          settled = true;
           setRequired(false);
           onResolved?.(false);
         }
@@ -50,8 +75,9 @@ export default function TwoFactorGate({ user, children, onResolved }) {
 
     return () => {
       active = false;
+      window.clearTimeout(waitTimer);
     };
-  }, [guest, onResolved, userId]);
+  }, [guest, onDeferred, onResolved, userId]);
 
   if (required === null) {
     // Blend into the single app loading backdrop instead of adding a separate

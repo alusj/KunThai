@@ -1201,6 +1201,44 @@ export async function saveOperatorAccount(account, { onProgress } = {}) {
   return mapOperatorAccount(operator, fleet, { dashboard });
 }
 
+function currentDevicePoint() {
+  return new Promise((resolve) => {
+    if (typeof navigator === "undefined" || !navigator.geolocation) {
+      resolve(null);
+      return;
+    }
+    navigator.geolocation.getCurrentPosition(
+      (position) => resolve({ lat: position.coords.latitude, lng: position.coords.longitude }),
+      () => resolve(null),
+      { enableHighAccuracy: false, maximumAge: 5 * 60_000, timeout: 8000 },
+    );
+  });
+}
+
+// Where the operator is when they switch Active on ("current location") or
+// off ("Last seen at …" for passengers), as a street / community name. Uses
+// the last GPS point already shared, else a quick device fix; skipped when
+// neither is available, so the operator's saved base still shows. Runs in
+// the background and never blocks or fails the switch.
+async function recordOperatorPlace(fleetId, active) {
+  try {
+    const { readLastOperatorPoint } = await import("./operatorLiveLocationService");
+    const point = readLastOperatorPoint() || await currentDevicePoint();
+    if (!point) return;
+    const { reverseGeocodeLabel } = await import("../../Backend/services/locationSearchService");
+    const label = await reverseGeocodeLabel(point);
+    if (!label) return;
+    await supabase
+      .from("transport_fleets")
+      .update(active
+        ? { current_location_name: label, last_known_location_name: label }
+        : { last_known_location_name: label })
+      .eq("id", fleetId);
+  } catch {
+    // Best-effort only.
+  }
+}
+
 export async function updateOperatorAvailability(fleetId, active, pauseReason = "") {
   if (!fleetId) throw new Error("Fleet profile is missing.");
   const now = new Date().toISOString();
@@ -1214,6 +1252,7 @@ export async function updateOperatorAvailability(fleetId, active, pauseReason = 
   const data = Array.isArray(rows) ? rows[0] : rows;
 
   const activeStatus = data?.active_status || (active ? "active" : "offline");
+  recordOperatorPlace(fleetId, activeStatus === "active");
   // A dashboard reopened within the cache window must show the new state.
   invalidateCache("operator-dashboard");
   patchStoredOperatorAccount({

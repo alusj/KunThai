@@ -8,6 +8,7 @@ import { ORDER_CAUTION } from "./orderCaution";
 import { REGISTRATION_SAVING } from "./registrationSaving";
 import { NATIVE_PUSH_FIX } from "./nativePushFix";
 import { VOICE_NOTES } from "./voiceNotes";
+import { APP_LOADING } from "./appLoading";
 import { URRIDE_MAP_FIX2 } from "./urrideMapFix2";
 import { URMALL_PLANS_2026 } from "./urmallPlans2026";
 import { KAI_REGISTRATION_FIX } from "./kaiRegistrationFix";
@@ -59441,6 +59442,12 @@ for (const [locale, section] of Object.entries(NATIVE_PUSH_FIX)) {
 for (const [locale, section] of Object.entries(VOICE_NOTES)) {
   if (TRANSLATIONS[locale]) {
     TRANSLATIONS[locale].voiceNotes = section;
+  }
+}
+
+for (const [locale, section] of Object.entries(APP_LOADING)) {
+  if (TRANSLATIONS[locale]) {
+    TRANSLATIONS[locale].appLoading = section;
   }
 }
 

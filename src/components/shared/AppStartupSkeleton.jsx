@@ -346,7 +346,17 @@ export default function AppStartupSkeleton({ page = "explore", marketplaceSub = 
   // UrRide intentionally has no startup representation. Showing even a static
   // imitation of its actions created a visible pre-screen before the real
   // dashboard mounted, so transport now waits silently for the actual screen.
-  if (page === "transport") return null;
+  // A long wait (very poor or no network) still gets the notice and its
+  // Refresh button, so UrRide never sits on an empty screen.
+  if (page === "transport") {
+    if (!notice) return null;
+    return (
+      <div className="kt-mobile-viewport relative overflow-x-hidden bg-slate-100 text-slate-950 dark:bg-slate-950 dark:text-white" aria-busy="true">
+        <div className="relative z-40 px-4 pt-[max(1rem,env(safe-area-inset-top))]">{notice}</div>
+        <BottomShell activePage={page} />
+      </div>
+    );
+  }
 
   return (
     <div

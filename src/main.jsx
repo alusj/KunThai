@@ -11,6 +11,7 @@ import { initNativePushNotifications, registerKunThaiServiceWorker } from "./Bac
 import { initCountryConfig } from "./Backend/services/countryConfigService.js";
 import { t as i18nText } from "./i18n/index";
 import { installMobileViewportVariables } from "./Backend/services/mobileViewportService";
+import { installNativeShare } from "./Backend/services/nativeShare";
 import { lazyWithRetry } from "./Backend/utils/lazyWithRetry";
 import { useI18n as useUiLocale } from "./i18n/index.js";
 
@@ -18,6 +19,9 @@ registerKunThaiServiceWorker();
 initNativePushNotifications();
 initCountryConfig();
 installMobileViewportVariables();
+// In the iOS / Android app, Share buttons open the phone's share sheet and
+// share kunthai.app links rather than the app's on-device address.
+installNativeShare();
 
 const AdminApp = lazyWithRetry(() => import("./admin/AdminApp.jsx"));
 const PublicPolicyPage = lazyWithRetry(() => import("./components/public/PublicPolicyPage.jsx"));
