@@ -298,3 +298,17 @@ Steps:
 
 Android fixes a channel's sound when the channel is first created. To change
 a sound later, give it a new channel id rather than replacing the file.
+
+## 8. Every notification can reach a closed app (2026-10-14)
+
+- `20261014170000_platform_notifications_always_push.sql` (applied): any
+  non-campaign `platform_notifications` row without the `push` channel gets
+  it before it is stored (admin messages, enforcement notices, case
+  decisions, account status, Join KunThai, adverts, invites, subscription
+  warnings). A campaign test send pushes when the tested campaign has Push.
+- New campaigns default to In-app + Push in the builder (untick for inbox only).
+- The app sets push up the first time a signed-in person reaches the main
+  screens: it asks iOS / Android once, or switches push on quietly when the
+  phone already allows it. A person who turned push off is never asked again.
+- Delivery still needs, per person: a registered phone, `push_enabled` on, and
+  the sector switch (social / commerce / transport) on.

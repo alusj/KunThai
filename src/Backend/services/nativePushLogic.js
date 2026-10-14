@@ -177,6 +177,21 @@ export function decideNativePushAction({ userId = "", permission = "prompt", pre
   return "register";
 }
 
+// First time a signed-in person reaches the main screens in the app: push is
+// set up without them having to find the Settings switch, unless they chose.
+//   permission: the OS state ("prompt", "prompt-with-rationale", "granted", "denied")
+//   preference: the account's push switch: "on" | "off" | "unset" | "unknown"
+//   asked: KunThai already asked on this phone for this account
+// Returns "ask" (request the OS permission, then turn push on), "enable"
+// (permission already granted: turn push on quietly) or "none".
+export function decideFirstRunPush({ permission = "prompt", preference = "unknown", asked = false } = {}) {
+  if (preference === "off" || preference === "unknown") return "none";
+  if (permission === "denied") return "none";
+  if (permission === "granted") return preference === "unset" ? "enable" : "none";
+  // Not decided at OS level yet: ask once per account on this phone.
+  return asked ? "none" : "ask";
+}
+
 // FCM / APNs handed the app a token outside a registration (FCM rotated it).
 // Save it only when this phone is already registered for this account and
 // the token really changed.

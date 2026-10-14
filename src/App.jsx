@@ -14,7 +14,7 @@ import { clearExploreScreenStack } from "./Backend/services/explore/navigationSe
 import { setNotificationSeenUser } from "./Backend/services/notificationSeenStore";
 import { getCurrentAccountControl, subscribeToAccountControl } from "./Backend/services/accountControlService";
 import { markSessionContinuity, readSessionContinuity } from "./Backend/services/sessionService";
-import { forgetNativePushDevice, setNotificationNavigationReady } from "./Backend/services/pushService";
+import { forgetNativePushDevice, ensurePushOnFirstRun, setNotificationNavigationReady } from "./Backend/services/pushService";
 import { initNativeOAuth } from "./Backend/services/nativeOAuthService";
 import AccountRestrictionNotice from "./components/shared/AccountRestrictionNotice";
 import ReturningUserIntro from "./components/shared/ReturningUserIntro";
@@ -737,6 +737,16 @@ export default function App() {
   useEffect(() => {
     setNotificationNavigationReady(notificationNavigationReady);
   }, [notificationNavigationReady]);
+
+  // On the main screens (never during sign-up or onboarding): set push up for
+  // a new account so alerts reach the phone when KunThai is closed.
+  useEffect(() => {
+    if (!notificationNavigationReady || guestSession) return undefined;
+    const timer = window.setTimeout(() => {
+      ensurePushOnFirstRun().catch(() => {});
+    }, 1500);
+    return () => window.clearTimeout(timer);
+  }, [guestSession, notificationNavigationReady, userId]);
 
   function withStartupIntro(content) {
     return (

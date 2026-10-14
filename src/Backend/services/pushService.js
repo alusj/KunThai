@@ -39,6 +39,7 @@ import {
   NATIVE_PUSH_RECEIVED_EVENT,
   bannerContextsForRoute,
   buildPushDiagnostic,
+  decideFirstRunPush,
   decideNativePushAction,
   diagnosticMessage,
   foregroundPushBanner,
@@ -309,6 +310,82 @@ async function accountPushPreference(userId) {
     return data?.push_enabled === true;
   } catch {
     return null;
+  }
+}
+
+// The account's push switch as "on" | "off" | "unset" (never chosen) |
+// "unknown" (could not be read).
+async function accountPushPreferenceState(userId) {
+  if (!userId) return "unknown";
+  try {
+    const { data, error } = await supabase
+      .from("user_notification_preferences")
+      .select("push_enabled")
+      .eq("user_id", userId)
+      .maybeSingle();
+    if (error) return "unknown";
+    if (!data || data.push_enabled === null || data.push_enabled === undefined) return "unset";
+    return data.push_enabled === true ? "on" : "off";
+  } catch {
+    return "unknown";
+  }
+}
+
+const FIRST_RUN_PUSH_KEY = "kunthai.pushFirstRunAsked.v1";
+
+function firstRunAsked(userId) {
+  try {
+    return (JSON.parse(localStorage.getItem(FIRST_RUN_PUSH_KEY) || "[]") || []).includes(userId);
+  } catch {
+    return false;
+  }
+}
+
+function rememberFirstRunAsked(userId) {
+  try {
+    const asked = JSON.parse(localStorage.getItem(FIRST_RUN_PUSH_KEY) || "[]") || [];
+    if (!asked.includes(userId)) localStorage.setItem(FIRST_RUN_PUSH_KEY, JSON.stringify([...asked, userId].slice(-20)));
+  } catch {
+    // Storage unavailable: at worst the question is asked again next launch.
+  }
+}
+
+let firstRunPushStarted = false;
+
+// Once the signed-in person is on the main screens (never during sign-up or
+// onboarding), set push up for them: ask for the OS permission the first
+// time, or switch it on quietly when the phone already allows it. A person
+// who turned push off is never asked again. Push stays manageable in Settings.
+export async function ensurePushOnFirstRun() {
+  if (!isNativeApp() || firstRunPushStarted) return;
+  firstRunPushStarted = true;
+  try {
+    const userId = await currentUserId();
+    if (!userId) return;
+    const permission = await nativePermission();
+    const preference = await accountPushPreferenceState(userId);
+    const decision = decideFirstRunPush({ permission, preference, asked: firstRunAsked(userId) });
+    pushLog(`first run: permission=${permission} accountPush=${preference} -> ${decision}`);
+    if (decision === "none") return;
+    if (decision === "ask") rememberFirstRunAsked(userId);
+    let result = "";
+    try {
+      result = await enableNativePush();
+    } catch {
+      // The reason is already saved for Settings (nativePushFailure).
+      return;
+    }
+    if (result === "enabled") {
+      // Same row the Settings switch writes (delivery checks push_enabled).
+      const { error } = await supabase
+        .from("user_notification_preferences")
+        .upsert({ user_id: userId, push_enabled: true, updated_at: new Date().toISOString() }, { onConflict: "user_id" });
+      pushLog(error ? "first run: could not save the account's push switch" : "first run: push switched on for the account");
+    }
+  } catch {
+    // Best-effort; Settings still offers the switch.
+  } finally {
+    firstRunPushStarted = false;
   }
 }
 

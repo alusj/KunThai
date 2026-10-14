@@ -134,7 +134,9 @@ export function createEmptyCampaignForm() {
     locationMode: "all",
     locations: [],
     presentation: { ...createDefaultPresentation("inbox"), dismissible: true },
-    channels: ["in_app"],
+    // Push is on by default so a campaign also reaches people with KunThai
+    // closed; untick it in the builder for an inbox-only message.
+    channels: ["in_app", "push"],
     content: { title: "", body: "", icon: "bell", badge: "", mediaUrl: "" },
     action: createEmptyAction(),
     schedule: { mode: "now", startAt: "", endMode: "after", endAfterDays: 7, endAt: "", timeZone: browserTimeZone() },

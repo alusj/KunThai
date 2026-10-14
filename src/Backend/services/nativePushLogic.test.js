@@ -4,6 +4,7 @@ import test from "node:test";
 import {
   ANDROID_PUSH_CHANNEL,
   ANDROID_PUSH_CHANNELS,
+  decideFirstRunPush,
   bannerContextsForRoute,
   buildPushDiagnostic,
   classifyPushFailure,
@@ -208,4 +209,20 @@ test("each push kind gets its sound and an Android channel that exists", () => {
     assert.ok(channels.has(channel), `${kind} channel missing`);
     if (sound !== "default") assert.equal(channels.get(channel).sound, sound);
   }
+});
+
+test("a new account gets push without finding the Settings switch, but a choice is respected", () => {
+  // Never asked: ask once.
+  assert.equal(decideFirstRunPush({ permission: "prompt", preference: "unset" }), "ask");
+  assert.equal(decideFirstRunPush({ permission: "prompt-with-rationale", preference: "unset" }), "ask");
+  assert.equal(decideFirstRunPush({ permission: "prompt", preference: "unset", asked: true }), "none");
+  // Allowed at OS level but the account never chose: switch on quietly.
+  assert.equal(decideFirstRunPush({ permission: "granted", preference: "unset" }), "enable");
+  // Already on: the normal sync keeps it registered.
+  assert.equal(decideFirstRunPush({ permission: "granted", preference: "on" }), "none");
+  // The person turned it off, said no to the OS, or we cannot tell (offline).
+  assert.equal(decideFirstRunPush({ permission: "prompt", preference: "off" }), "none");
+  assert.equal(decideFirstRunPush({ permission: "granted", preference: "off" }), "none");
+  assert.equal(decideFirstRunPush({ permission: "denied", preference: "unset" }), "none");
+  assert.equal(decideFirstRunPush({ permission: "prompt", preference: "unknown" }), "none");
 });
