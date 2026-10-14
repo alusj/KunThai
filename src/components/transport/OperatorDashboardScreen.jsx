@@ -671,6 +671,7 @@ export default function OperatorDashboardScreen({
           <button
             type="button"
             aria-label={t("urride.opDash.notificationsAria")}
+            data-direction="urride-notifications"
             onClick={() => {
               markNotificationsSeen(alertSeenScope, alertNotificationItems);
               setSeenVersion((version) => version + 1);

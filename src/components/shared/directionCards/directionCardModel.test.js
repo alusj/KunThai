@@ -4,7 +4,10 @@ import test from "node:test";
 import { DIRECTION_CARDS } from "../../../i18n/directionCards.js";
 import {
   DIRECTION_CARD_ORDER,
+  HIDE_ALL_DIRECTIONS,
+  directionSeenKey,
   pickDirection,
+  pickDirectionEntry,
   placeDirectionCard,
   readSeenDirections,
   writeSeenDirections,
@@ -55,4 +58,20 @@ test("card flips above a button near the bottom of the screen", () => {
   assert.equal(place.top, 720 - 14 - 150);
   assert.equal(place.left, 16);
   assert.equal(place.arrowX, 32);
+});
+
+test("seller tips belong to one business, so a new business gets them again", () => {
+  const seen = new Set(["urmall-seller-add", directionSeenKey("urmall-seller-add", "biz-1")]);
+  const entries = [
+    { id: "urmall-seller-add", key: directionSeenKey("urmall-seller-add", "biz-2") },
+    { id: "kai-assistant", key: "kai-assistant" },
+  ];
+  assert.equal(pickDirectionEntry(entries, seen)?.key, "urmall-seller-add@biz-2");
+  assert.equal(pickDirectionEntry([{ id: "urmall-seller-add", key: "urmall-seller-add@biz-1" }], seen), null);
+});
+
+test("Hide all tips also hides tips added later", () => {
+  const seen = new Set([HIDE_ALL_DIRECTIONS]);
+  assert.equal(pickDirection(["urride-notifications"], seen), "");
+  assert.equal(pickDirectionEntry([{ id: "urride-notifications", key: "urride-notifications" }], seen), null);
 });

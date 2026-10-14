@@ -16,6 +16,8 @@ export const DIRECTION_CARDS = {
       "area-focus": ["Focus on the map", "Hides the buttons so you see more map. The screen stays on."],
       "urride-open-booking": ["Book a ride from here", "Tap to send one ride request. Nearby operators see it and can accept."],
       "urmall-search": ["Find what you need", "Search products, meals, rooms and properties from sellers near you."],
+      "urmall-seller-notifications": ["Your business alerts", "Plan updates, reviews and important notices for your store appear here."],
+      "urride-notifications": ["Your operator alerts", "New ride requests, trip updates and notices for your fleet appear here."],
       "kai-assistant": ["Meet KAI, your assistant", "Ask KAI to find products, rides or help with a form. Drag it anywhere."],
     },
   },
@@ -34,6 +36,8 @@ export const DIRECTION_CARDS = {
       "area-focus": ["Concentrez-vous sur la carte", "Masque les boutons pour voir plus de carte. L’écran reste allumé."],
       "urride-open-booking": ["Réservez un trajet ici", "Touchez pour envoyer une demande de trajet. Les opérateurs proches la voient et peuvent l’accepter."],
       "urmall-search": ["Trouvez ce qu’il vous faut", "Cherchez des produits, des repas, des chambres et des biens chez les vendeurs proches."],
+      "urmall-seller-notifications": ["Les alertes de votre entreprise", "Mises à jour de forfait, avis et notifications importantes de votre boutique apparaissent ici."],
+      "urride-notifications": ["Vos alertes d’opérateur", "Nouvelles demandes de trajet, mises à jour et avis pour votre véhicule apparaissent ici."],
       "kai-assistant": ["Voici KAI, votre assistant", "Demandez à KAI des produits, des trajets ou de l’aide pour un formulaire. Déplacez-le où vous voulez."],
     },
   },
@@ -52,6 +56,8 @@ export const DIRECTION_CARDS = {
       "area-focus": ["Céntrate en el mapa", "Oculta los botones para ver más mapa. La pantalla sigue encendida."],
       "urride-open-booking": ["Reserva un viaje desde aquí", "Toca para enviar una solicitud de viaje. Los operadores cercanos la ven y pueden aceptarla."],
       "urmall-search": ["Encuentra lo que necesitas", "Busca productos, comidas, habitaciones y propiedades de vendedores cercanos."],
+      "urmall-seller-notifications": ["Alertas de tu negocio", "Aquí aparecen actualizaciones del plan, reseñas y avisos importantes de tu tienda."],
+      "urride-notifications": ["Tus alertas de operador", "Aquí aparecen nuevas solicitudes de viaje, actualizaciones y avisos de tu vehículo."],
       "kai-assistant": ["Conoce a KAI, tu asistente", "Pide a KAI productos, viajes o ayuda con un formulario. Arrástralo donde quieras."],
     },
   },
@@ -70,6 +76,8 @@ export const DIRECTION_CARDS = {
       "area-focus": ["ركّز على الخريطة", "يخفي الأزرار لترى مساحة أكبر من الخريطة. تبقى الشاشة مضاءة."],
       "urride-open-booking": ["احجز رحلة من هنا", "اضغط لإرسال طلب رحلة واحد. يراه المشغلون القريبون ويمكنهم قبوله."],
       "urmall-search": ["اعثر على ما تحتاجه", "ابحث عن المنتجات والوجبات والغرف والعقارات لدى البائعين القريبين منك."],
+      "urmall-seller-notifications": ["تنبيهات نشاطك التجاري", "تظهر هنا تحديثات الباقة والمراجعات والإشعارات المهمة لمتجرك."],
+      "urride-notifications": ["تنبيهاتك كمشغّل", "تظهر هنا طلبات الرحلات الجديدة وتحديثات الرحلات والإشعارات الخاصة بمركبتك."],
       "kai-assistant": ["تعرّف على KAI، مساعدك", "اطلب من KAI منتجات أو رحلات أو مساعدة في نموذج. اسحبه إلى أي مكان."],
     },
   },
@@ -88,6 +96,8 @@ export const DIRECTION_CARDS = {
       "area-focus": ["专注查看地图", "隐藏按钮以显示更多地图，屏幕保持常亮。"],
       "urride-open-booking": ["在这里预订行程", "点击发送一次用车请求，附近的运营者都能看到并接单。"],
       "urmall-search": ["找到你需要的", "搜索附近卖家的商品、餐食、房间和房产。"],
+      "urmall-seller-notifications": ["你的店铺通知", "套餐更新、评价和店铺的重要通知会显示在这里。"],
+      "urride-notifications": ["你的运营者通知", "新的用车请求、行程更新和车辆通知会显示在这里。"],
       "kai-assistant": ["认识你的助手 KAI", "让 KAI 帮你找商品、找车或填写表单。可拖动到任意位置。"],
     },
   },
@@ -142,6 +152,8 @@ export const DIRECTION_CARDS = {
       ],
       "urride-open-booking": ["Reserve uma viagem aqui", "Toque para enviar um pedido de viagem. Operadores próximos veem e podem aceitar."],
       "urmall-search": ["Encontre o que precisa", "Pesquise produtos, refeições, quartos e imóveis de vendedores perto de você."],
+      "urmall-seller-notifications": ["Alertas do seu negócio", "Atualizações do plano, avaliações e avisos importantes da sua loja aparecem aqui."],
+      "urride-notifications": ["Seus alertas de operador", "Novos pedidos de viagem, atualizações e avisos do seu veículo aparecem aqui."],
       "kai-assistant": [
         "Conheça KAI, seu assistente",
         "Peça a KAI para encontrar produtos, passeios ou ajuda com um formulário. Arraste-o para qualquer lugar."
@@ -199,6 +211,8 @@ export const DIRECTION_CARDS = {
       ],
       "urride-open-booking": ["यहाँ से राइड बुक करें", "एक राइड अनुरोध भेजने के लिए टैप करें। पास के ऑपरेटर इसे देखकर स्वीकार कर सकते हैं।"],
       "urmall-search": ["जो चाहिए वह खोजें", "पास के विक्रेताओं के उत्पाद, भोजन, कमरे और संपत्तियाँ खोजें।"],
+      "urmall-seller-notifications": ["आपके बिज़नेस अलर्ट", "प्लान अपडेट, रिव्यू और आपकी दुकान की ज़रूरी सूचनाएँ यहाँ दिखती हैं।"],
+      "urride-notifications": ["आपके ऑपरेटर अलर्ट", "नए राइड अनुरोध, ट्रिप अपडेट और आपके वाहन की सूचनाएँ यहाँ दिखती हैं।"],
       "kai-assistant": [
         "अपने सहायक KAI से मिलें",
         "उत्पादों, सवारी या फॉर्म में मदद ढूंढने के लिए KAI से पूछें। इसे कहीं भी खींचें."
@@ -256,6 +270,8 @@ export const DIRECTION_CARDS = {
       ],
       "urride-open-booking": ["এখান থেকে রাইড বুক করুন", "একটি রাইড অনুরোধ পাঠাতে ট্যাপ করুন। কাছের অপারেটররা এটি দেখে গ্রহণ করতে পারেন।"],
       "urmall-search": ["যা দরকার খুঁজে নিন", "কাছের বিক্রেতাদের পণ্য, খাবার, রুম ও সম্পত্তি খুঁজুন।"],
+      "urmall-seller-notifications": ["আপনার ব্যবসার সতর্কতা", "প্ল্যান আপডেট, রিভিউ ও আপনার দোকানের গুরুত্বপূর্ণ নোটিশ এখানে দেখা যায়।"],
+      "urride-notifications": ["আপনার অপারেটর সতর্কতা", "নতুন রাইড অনুরোধ, ট্রিপ আপডেট ও আপনার গাড়ির নোটিশ এখানে দেখা যায়।"],
       "kai-assistant": [
         "আপনার সহকারী KAI এর সাথে দেখা করুন",
         "পণ্য, রাইড বা একটি ফর্মের সাহায্যের জন্য KAI কে জিজ্ঞাসা করুন। যে কোন জায়গায় টেনে আনুন।"
@@ -313,6 +329,8 @@ export const DIRECTION_CARDS = {
       ],
       "urride-open-booking": ["Pesan perjalanan dari sini", "Ketuk untuk mengirim satu permintaan perjalanan. Operator terdekat melihatnya dan dapat menerimanya."],
       "urmall-search": ["Temukan yang Anda butuhkan", "Cari produk, makanan, kamar, dan properti dari penjual di dekat Anda."],
+      "urmall-seller-notifications": ["Notifikasi bisnis Anda", "Pembaruan paket, ulasan, dan pemberitahuan penting toko Anda muncul di sini."],
+      "urride-notifications": ["Notifikasi operator Anda", "Permintaan perjalanan baru, pembaruan perjalanan, dan pemberitahuan armada muncul di sini."],
       "kai-assistant": [
         "Temui KAI, asisten Anda",
         "Minta KAI untuk menemukan produk, wahana, atau bantuan terkait formulir. Seret ke mana saja."
@@ -370,6 +388,8 @@ export const DIRECTION_CARDS = {
       ],
       "urride-open-booking": ["یہاں سے سواری بک کریں", "ایک سواری کی درخواست بھیجنے کے لیے ٹیپ کریں۔ قریبی آپریٹرز اسے دیکھ کر قبول کر سکتے ہیں۔"],
       "urmall-search": ["جو چاہیے وہ تلاش کریں", "قریبی فروخت کنندگان کی مصنوعات، کھانے، کمرے اور جائیدادیں تلاش کریں۔"],
+      "urmall-seller-notifications": ["آپ کے کاروبار کے الرٹس", "پلان اپ ڈیٹس، ریویوز اور آپ کی دکان کے اہم نوٹس یہاں نظر آتے ہیں۔"],
+      "urride-notifications": ["آپ کے آپریٹر الرٹس", "نئی سواری کی درخواستیں، ٹرپ اپ ڈیٹس اور آپ کی گاڑی کے نوٹس یہاں نظر آتے ہیں۔"],
       "kai-assistant": [
         "اپنے معاون، KAI سے ملیں۔",
         "KAI سے مصنوعات، سواری تلاش کرنے یا فارم میں مدد کے لیے کہیں۔ اسے کہیں بھی گھسیٹیں۔"
@@ -427,6 +447,8 @@ export const DIRECTION_CARDS = {
       ],
       "urride-open-booking": ["Закажите поездку здесь", "Нажмите, чтобы отправить один запрос на поездку. Ближайшие операторы увидят его и смогут принять."],
       "urmall-search": ["Найдите то, что нужно", "Ищите товары, еду, комнаты и недвижимость у продавцов рядом с вами."],
+      "urmall-seller-notifications": ["Уведомления вашего бизнеса", "Здесь появляются обновления тарифа, отзывы и важные уведомления вашего магазина."],
+      "urride-notifications": ["Ваши уведомления оператора", "Здесь появляются новые заказы поездок, обновления и уведомления по вашему транспорту."],
       "kai-assistant": [
         "Знакомьтесь, KAI, ваш помощник",
         "Попросите KAI найти продукты, аттракционы или помочь с формой. Перетащите его куда угодно."
@@ -485,6 +507,8 @@ export const DIRECTION_CARDS = {
       ],
       "urride-open-booking": ["ここから乗車を予約", "タップして乗車リクエストを1件送信。近くのオペレーターが確認して受け付けます。"],
       "urmall-search": ["必要なものを探す", "近くの販売者の商品、食事、部屋、物件を検索できます。"],
+      "urmall-seller-notifications": ["ビジネスのお知らせ", "プランの更新、レビュー、ストアの重要なお知らせがここに表示されます。"],
+      "urride-notifications": ["オペレーターのお知らせ", "新しい乗車リクエスト、運行の更新、車両のお知らせがここに表示されます。"],
       "kai-assistant": [
         "あなたのアシスタント、KAI をご紹介します",
         "製品、乗り物を検索したり、フォームに関するサポートを依頼したりする場合は、KAI に依頼してください。任意の場所にドラッグします。"
@@ -542,6 +566,8 @@ export const DIRECTION_CARDS = {
       ],
       "urride-open-booking": ["इथून राइड बुक करा", "एक राइड विनंती पाठवण्यासाठी टॅप करा. जवळचे ऑपरेटर ती पाहून स्वीकारू शकतात."],
       "urmall-search": ["हवे ते शोधा", "जवळच्या विक्रेत्यांची उत्पादने, जेवण, खोल्या आणि मालमत्ता शोधा."],
+      "urmall-seller-notifications": ["तुमच्या व्यवसायाच्या सूचना", "प्लॅन अपडेट, रिव्ह्यू आणि तुमच्या दुकानाच्या महत्त्वाच्या सूचना इथे दिसतात."],
+      "urride-notifications": ["तुमच्या ऑपरेटर सूचना", "नवीन राइड विनंत्या, ट्रिप अपडेट आणि तुमच्या वाहनाच्या सूचना इथे दिसतात."],
       "kai-assistant": [
         "तुमचा सहाय्यक KAI ला भेटा",
         "KAI ला उत्पादने, राइड शोधण्यासाठी किंवा फॉर्ममध्ये मदत करण्यासाठी विचारा. ते कुठेही ड्रॅग करा."
@@ -599,6 +625,8 @@ export const DIRECTION_CARDS = {
       ],
       "urride-open-booking": ["Đặt chuyến đi từ đây", "Chạm để gửi một yêu cầu chuyến đi. Các nhà vận hành gần bạn sẽ thấy và có thể nhận."],
       "urmall-search": ["Tìm thứ bạn cần", "Tìm sản phẩm, món ăn, phòng và bất động sản từ người bán gần bạn."],
+      "urmall-seller-notifications": ["Thông báo của doanh nghiệp", "Cập nhật gói, đánh giá và thông báo quan trọng của cửa hàng xuất hiện tại đây."],
+      "urride-notifications": ["Thông báo nhà vận hành", "Yêu cầu chuyến đi mới, cập nhật chuyến và thông báo cho xe của bạn xuất hiện tại đây."],
       "kai-assistant": [
         "Hãy gặp KAI, trợ lý của bạn",
         "Hãy hỏi KAI để tìm sản phẩm, chuyến đi hoặc trợ giúp về biểu mẫu. Kéo nó đi bất cứ đâu."
@@ -656,6 +684,8 @@ export const DIRECTION_CARDS = {
       ],
       "urride-open-booking": ["Fahrt hier buchen", "Tippen Sie, um eine Fahrtanfrage zu senden. Betreiber in der Nähe sehen sie und können annehmen."],
       "urmall-search": ["Finden Sie, was Sie brauchen", "Suchen Sie Produkte, Mahlzeiten, Zimmer und Immobilien von Verkäufern in Ihrer Nähe."],
+      "urmall-seller-notifications": ["Benachrichtigungen deines Geschäfts", "Tarif-Updates, Bewertungen und wichtige Hinweise für deinen Shop erscheinen hier."],
+      "urride-notifications": ["Deine Betreiber-Benachrichtigungen", "Neue Fahrtanfragen, Fahrt-Updates und Hinweise zu deinem Fahrzeug erscheinen hier."],
       "kai-assistant": [
         "Lernen Sie KAI kennen, Ihren Assistenten",
         "Bitten Sie KAI um die Suche nach Produkten, Fahrten oder Hilfe bei einem Formular. Ziehen Sie es an eine beliebige Stelle."

@@ -4,6 +4,8 @@ import { uiText as translateUi, useI18n as useUiLocale } from "../../../../../i1
   label,
   badge,
   direction,
+  // The business a seller tip belongs to (each business gets its own tips).
+  directionScope,
   primary = false,
   onClick,
 }) {
@@ -13,6 +15,7 @@ import { uiText as translateUi, useI18n as useUiLocale } from "../../../../../i1
       type="button"
       onClick={onClick}
       data-direction={direction || undefined}
+      data-direction-scope={direction && directionScope ? directionScope : undefined}
       className={[
         "relative flex h-10 items-center justify-center gap-2 rounded-lg px-3 text-sm font-semibold transition",
         primary
