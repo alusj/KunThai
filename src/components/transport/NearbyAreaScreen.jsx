@@ -55,7 +55,7 @@ import {
 } from "../../data/globalCountryProfiles";
 import { getEmergencyContacts } from "../../data/emergencyContacts";
 import { isMapFleetTypeVisible } from "../../data/globalTransportCapabilities";
-import { haptics } from "../../Backend/services/feedbackService";
+import { haptics, sounds } from "../../Backend/services/feedbackService";
 import { showToast } from "../../Backend/services/toastService";
 import { useScreenWakeLock } from "../../Backend/hooks/useScreenWakeLock";
 import { getNetworkStatus } from "../../Backend/services/networkService";
@@ -2044,6 +2044,7 @@ function NearbyAreaScreenContent({
 
   const openEmergencyMode = useCallback(async () => {
     haptics.heavy("transport");
+    sounds.emergency("transport");
     const requestId = sosDetectionRequestRef.current + 1;
     sosDetectionRequestRef.current = requestId;
     setSosOpen(true);

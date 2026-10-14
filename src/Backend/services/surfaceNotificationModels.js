@@ -8,7 +8,16 @@ function normalizedSector(item = {}) {
   return String(item.sector || item.workspace || "platform").trim().toLowerCase();
 }
 
+// Fleet HQ's own rows (rental updates for the company owner and admins). They
+// show in the company dashboard notifications, never in a passenger bell.
+export const COMPANY_NOTIFICATION_WORKSPACE = "transport_company";
+
+export function isCompanyWorkspaceNotification(item = {}) {
+  return String(item.workspace || "").trim().toLowerCase() === COMPANY_NOTIFICATION_WORKSPACE;
+}
+
 export function notificationBelongsToSurface(item, surface) {
+  if (isCompanyWorkspaceNotification(item)) return false;
   return Boolean(SURFACE_SECTORS[surface]?.has(normalizedSector(item)));
 }
 

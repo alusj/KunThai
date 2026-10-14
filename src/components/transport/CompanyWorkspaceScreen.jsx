@@ -47,6 +47,12 @@ import { useBackSwipe } from "../../Backend/hooks/useBackSwipe";
 import { SlidePanel, useSlidePanel } from "../shared/SlideTransition";
 import { showToast } from "../../Backend/services/toastService";
 import {
+  dismissPlatformNotification,
+  fetchCompanyPlatformNotifications,
+  markSurfacePlatformNotificationRead,
+  subscribeToCompanyPlatformNotifications,
+} from "../../Backend/services/surfaceNotificationService";
+import {
   companyActivityNotificationEnabled,
   DEFAULT_COMPANY_NOTIFICATION_PREFERENCES,
   fetchCompanyNotificationPreferences,
@@ -241,17 +247,26 @@ export default function CompanyWorkspaceScreen({ company, initialTab = "Overview
     const supported = type.startsWith("operator_invite_") || type === "trip_status_updated";
     return supported && companyActivityNotificationEnabled(activity, companyNotificationPreferences);
   });
+  // Rental updates for the company (platform_notifications in the company
+  // workspace) share this inbox with company activity.
+  const [companyPlatformNotifications, setCompanyPlatformNotifications] = useState([]);
   const notificationSeenScope = `transport:${company?.id || "company"}`;
   const notificationReadScope = `${notificationSeenScope}:read`;
   const notificationDismissedScope = `${notificationSeenScope}:dismissed`;
   const dismissedNotificationIds = readSeenNotificationIds(notificationDismissedScope);
-  const companyNotificationItems = companyNotifications
-    .map((activity) => ({
+  const companyNotificationItems = [
+    ...companyNotifications.map((activity) => ({
       ...activity,
       id: `company-activity-${activity.id}`,
       unread: true,
-    }))
-    .filter((item) => !dismissedNotificationIds.has(item.id));
+    })),
+    ...companyPlatformNotifications.map((notification) => ({
+      ...notification,
+      id: `company-platform-${notification.rawId}`,
+    })),
+  ]
+    .filter((item) => !dismissedNotificationIds.has(item.id))
+    .sort((a, b) => new Date(b.created_at || 0).getTime() - new Date(a.created_at || 0).getTime());
   const companyNotificationRows = applySeenNotificationState(notificationReadScope, companyNotificationItems).map((activity) => ({
     ...activity,
     read: activity.unread === false,
@@ -371,6 +386,33 @@ export default function CompanyWorkspaceScreen({ company, initialTab = "Overview
   }, []);
 
   useEffect(() => subscribeNotificationSeen(() => setSeenVersion((version) => version + 1)), []);
+
+  useEffect(() => {
+    if (!company?.id || !canViewCompanyNotifications) {
+      setCompanyPlatformNotifications([]);
+      return undefined;
+    }
+    let active = true;
+    let unsubscribe = () => {};
+    const load = () => {
+      fetchCompanyPlatformNotifications(company.id)
+        .then((rows) => {
+          if (active) setCompanyPlatformNotifications(rows);
+        })
+        .catch(() => {});
+    };
+    load();
+    subscribeToCompanyPlatformNotifications(company.id, load)
+      .then((cleanup) => {
+        if (active) unsubscribe = cleanup;
+        else cleanup();
+      })
+      .catch(() => {});
+    return () => {
+      active = false;
+      unsubscribe();
+    };
+  }, [canViewCompanyNotifications, company?.id]);
 
   useEffect(() => {
     if (!company?.id || !canManagePlans) {
@@ -1010,19 +1052,34 @@ export default function CompanyWorkspaceScreen({ company, initialTab = "Overview
             onClose={() => setCompanyNotificationsOpen(false)}
             onMarkAllRead={() => {
               markNotificationsSeen(notificationReadScope, companyNotificationItems);
+              companyNotificationItems
+                .filter((item) => item.platformNotificationId && item.unread)
+                .forEach((item) => markSurfacePlatformNotificationRead(item).then(() => {}, () => {}));
               setSeenVersion((version) => version + 1);
               showToast("All alerts marked read", "success");
             }}
             onRead={(activity) => {
               markNotificationsSeen(notificationReadScope, [activity]);
               setSeenVersion((version) => version + 1);
+              if (activity.platformNotificationId) {
+                if (activity.unread) markSurfacePlatformNotificationRead(activity, { actioned: true }).then(() => {}, () => {});
+                // A rental update opens the Rentals tab it is about.
+                if (String(activity.actionTarget || "").startsWith("urride:rental:") && availableTabs.includes("Rentals")) {
+                  setCompanyNotificationsOpen(false);
+                  switchCompanyTab("Rentals");
+                }
+              }
             }}
             onDelete={(activity) => {
               markNotificationsSeen(notificationDismissedScope, [activity]);
+              if (activity.platformNotificationId) dismissPlatformNotification(activity).then(() => {}, () => {});
               setSeenVersion((version) => version + 1);
             }}
             onDeleteAll={() => {
               markNotificationsSeen(notificationDismissedScope, companyNotificationItems);
+              companyNotificationItems
+                .filter((item) => item.platformNotificationId)
+                .forEach((item) => dismissPlatformNotification(item).then(() => {}, () => {}));
               setSeenVersion((version) => version + 1);
               showToast("All alerts deleted", "success");
             }}

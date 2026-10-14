@@ -236,7 +236,10 @@ export default function VideoCard({
     }));
   }, [clip.start]);
 
-  const requestActivePlayback = useCallback(async ({ sound } = {}) => {
+  // userGesture: the person tapped this video. Every other call (opening
+  // Swip, swiping to the next clip, the profile viewer) is automatic and
+  // follows Settings > Swip videos: "Autoplay videos" and "Default sound".
+  const requestActivePlayback = useCallback(async ({ sound, userGesture = false } = {}) => {
     if (!activeRef.current) return;
 
     const video = videoRef.current;
@@ -247,41 +250,38 @@ export default function VideoCard({
     }
 
     const videoSettings = readExploreSettings().video;
+    const wantSound = userGesture ? sound ?? true : !videoSettings.defaultMuted && sound !== false;
 
-    // Explicit sound (a user gesture) always wins; the automatic activation
-    // path honors the "default sound" preference from Settings.
-    const wantSound = sound ?? !videoSettings.defaultMuted;
-
-    if (!videoSettings.autoplay && sound === undefined) {
-      // Autoplay is off in Settings: position the clip and wait for a tap.
-      video.muted = Boolean(videoSettings.defaultMuted);
-      setNeedsSoundUnlock(true);
+    if (!videoSettings.autoplay && !userGesture) {
+      // Autoplay is off: position the clip and wait for a tap on it.
+      video.autoplay = false;
+      video.pause();
+      video.muted = !wantSound;
+      setNeedsSoundUnlock(false);
       return;
     }
 
-    // First choice: autoplay with sound. Some iOS/Safari builds block this
-    // until a user gesture, so the fallback keeps the video moving silently
-    // without showing a large "Tap for sound" overlay.
-    video.muted = false;
-    video.volume = wantSound ? 1 : 0;
+    // iOS ignores video.volume, so sound off is always `muted`. With sound
+    // wanted, some iOS/Safari builds block unmuted playback until a gesture;
+    // the fallback keeps the clip moving silently and the next tap adds sound.
+    video.volume = 1;
+    video.muted = !wantSound;
     video.autoplay = true;
 
     try {
       await playExploreMedia(video, { muteVideos: false });
-      video.muted = false;
-      video.volume = wantSound ? 1 : 0;
+      video.muted = !wantSound;
       setNeedsSoundUnlock(false);
-      logSwipPlayback("active video playing with sound", { post_id: post.id });
+      logSwipPlayback(wantSound ? "active video playing with sound" : "active video playing muted", { post_id: post.id });
     } catch (error) {
       logSwipPlayback("unmuted autoplay deferred by browser", { post_id: post.id, error });
 
       try {
         video.muted = true;
-        video.volume = 0;
         await video.play();
-        setNeedsSoundUnlock(true);
+        setNeedsSoundUnlock(wantSound);
       } catch (fallbackError) {
-        setNeedsSoundUnlock(true);
+        setNeedsSoundUnlock(wantSound);
         logSwipPlayback("muted autoplay deferred by browser", { post_id: post.id, error: fallbackError });
       }
     }
@@ -344,7 +344,8 @@ export default function VideoCard({
   if (!active) return undefined;
 
   function handleSwipActivePlay(event) {
-    requestActivePlayback({ sound: event.detail?.sound !== false });
+    // Automatic (open / scroll): Settings decide; `sound: false` can only mute.
+    requestActivePlayback({ sound: event.detail?.sound === false ? false : undefined });
   }
 
   window.addEventListener("swip-active-play", handleSwipActivePlay);
@@ -578,7 +579,7 @@ export default function VideoCard({
         video.volume = 1;
         setNeedsSoundUnlock(false);
       }
-      requestActivePlayback({ sound: true });
+      requestActivePlayback({ sound: true, userGesture: true });
     } else {
       video.pause();
     }
@@ -732,7 +733,7 @@ export default function VideoCard({
       <video
         ref={videoRef}
         src={post.video_url}
-        autoPlay={active}
+        autoPlay={active && readExploreSettings().video.autoplay}
         data-explore-active={active ? "true" : "false"}
         controls={false}
         muted={false}

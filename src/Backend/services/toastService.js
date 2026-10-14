@@ -1,5 +1,6 @@
 import { isConnectionFailure, sanitizeUserMessage, TOAST_MAX_LENGTH, TOAST_MIN_LENGTH } from "./friendlyErrorService";
 import { announceConnectionTrouble } from "./networkService";
+import { hapticFiredSince, haptics } from "./feedbackService";
 import { t } from "../../i18n/index";
 
 // Every toast is 15–25 characters, spaces included. The copy is written to
@@ -40,6 +41,35 @@ function readToastOrigin() {
   return { x: lastPointerPress.x, y: lastPointerPress.y };
 }
 
+// A toast the person caused gets a matching haptic (never a sound). A toast
+// that arrives on its own (a background save finishing, a connection notice)
+// stays silent: "caused" means they tapped something in the last few seconds.
+const TOAST_HAPTIC_WINDOW_MS = 10000;
+const TOAST_HAPTICS = {
+  success: "success",
+  danger: "error",
+  error: "error",
+  warning: "warning",
+  info: "selection",
+};
+
+function toastHaptic(tone, options) {
+  try {
+    if (options.haptic === false) return;
+    if (!lastPointerPress || Date.now() - lastPointerPress.at > TOAST_HAPTIC_WINDOW_MS) return;
+    const kind = TOAST_HAPTICS[tone] || TOAST_HAPTICS.info;
+    const shownAt = Date.now() - 400;
+    // Wait a moment: when the action already gave its own haptic (before or
+    // right after the toast), the toast does not buzz a second time.
+    window.setTimeout(() => {
+      if (hapticFiredSince(shownAt)) return;
+      haptics[kind]?.(options.module);
+    }, 120);
+  } catch {
+    // Feedback is best-effort only.
+  }
+}
+
 export function showToast(rawMessage, tone = "info", options = {}) {
   if (!rawMessage) return;
   // A lost connection has one voice: the global network toast. An action that
@@ -67,6 +97,7 @@ export function showToast(rawMessage, tone = "info", options = {}) {
       if (now - shownAt > TOAST_DEDUP_MS) recentToastKeys.delete(key);
     });
   }
+  toastHaptic(tone, options);
   window.dispatchEvent(
     new CustomEvent(TOAST_EVENT, {
       detail: {

@@ -7,6 +7,80 @@
 
 export const NATIVE_PUSH_DIAGNOSTIC_KEY = "kunthai.nativePushDiagnostic";
 export const NATIVE_PUSH_RECEIVED_EVENT = "kunthai-native-push-received";
+// Android 8+ notification channel for every push. FCM uses it for pushes
+// without a channel_id (AndroidManifest.xml default_notification_channel_id);
+// high importance so Samsung / Android show them as heads-up alerts.
+export const ANDROID_PUSH_CHANNEL = {
+  id: "kunthai_alerts",
+  name: "KunThai alerts",
+  description: "Messages, activity and order updates",
+  importance: 4,
+  visibility: 0,
+  vibration: true,
+  lights: false,
+};
+
+// One channel per sound (Android fixes a channel's sound when it is first
+// created, so each sound needs its own channel). The sound files live in
+// android/app/src/main/res/raw and ios/App/App. send-native-push picks the
+// channel and sound with the same kind mapping as pushSoundForKind below.
+export const ANDROID_PUSH_CHANNELS = [
+  ANDROID_PUSH_CHANNEL,
+  {
+    id: "kunthai_ride_requests",
+    name: "UrRide ride requests",
+    description: "New ride and delivery requests while you are an operator",
+    importance: 5,
+    visibility: 1,
+    vibration: true,
+    lights: true,
+    lightColor: "#10B981",
+    sound: "kt_ride_request.wav",
+  },
+  {
+    id: "kunthai_messages",
+    name: "Messages",
+    description: "Explore and UrMall messages",
+    importance: 4,
+    visibility: 0,
+    vibration: true,
+    lights: false,
+    sound: "kt_message.wav",
+  },
+  {
+    id: "kunthai_orders",
+    name: "Orders, bookings and trips",
+    description: "UrMall orders and bookings, and UrRide trip updates",
+    importance: 4,
+    visibility: 0,
+    vibration: true,
+    lights: false,
+    sound: "kt_order.wav",
+  },
+];
+
+const PUSH_SOUNDS = {
+  ride: { sound: "kt_ride_request.wav", channel: "kunthai_ride_requests" },
+  message: { sound: "kt_message.wav", channel: "kunthai_messages" },
+  order: { sound: "kt_order.wav", channel: "kunthai_orders" },
+  default: { sound: "default", channel: ANDROID_PUSH_CHANNEL.id },
+};
+
+const PUSH_SOUND_BY_KIND = {
+  urride_request: "ride",
+  messages: "message",
+  urmall_message: "message",
+  orders: "order",
+  urmall_order: "order",
+  urmall_booking: "order",
+  urride_trip: "order",
+};
+
+/** The sound file and Android channel a push of this kind uses (mirrors send-native-push). */
+export function pushSoundForKind(kind = "") {
+  return PUSH_SOUNDS[PUSH_SOUND_BY_KIND[text(kind).toLowerCase()] || "default"];
+}
+
 const RESUME_REFRESH_MS = 12 * 60 * 60 * 1000;
 const MAX_DETAIL_LENGTH = 160;
 
@@ -103,6 +177,19 @@ export function decideNativePushAction({ userId = "", permission = "prompt", pre
   return "register";
 }
 
+// FCM / APNs handed the app a token outside a registration (FCM rotated it).
+// Save it only when this phone is already registered for this account and
+// the token really changed.
+export function shouldSaveRefreshedToken({ state = null, userId = "", token = "" } = {}) {
+  const mine = ownState(state, userId);
+  return Boolean(mine && text(token) && mine.token !== text(token));
+}
+
+// A token for log lines: its length only, never its characters.
+export function tokenSummary(token = "") {
+  return `token(${typeof token === "string" ? token.length : 0} chars)`;
+}
+
 // "denied" | "enabled" | "disabled" for the Settings switch.
 export function nativePushStatusFrom({ permission = "prompt", state = null, userId = "", preferenceOn = null } = {}) {
   if (permission === "denied") return "denied";
@@ -118,6 +205,54 @@ export function normalizePushRoute(route = "") {
   if (id === "notifications" && kind === "marketplace") return "urmall";
   if (id === "notifications" && kind === "transport") return "urride";
   return value;
+}
+
+// --- Notification taps ----------------------------------------------------------
+// Every route a push (native or web) can carry, and what a tap opens. Unknown or
+// incomplete routes fall back to a safe screen instead of doing nothing.
+const URMALL_SCREENS = new Set(["messages", "orders", "business-messages", "business", "admin-roles"]);
+const DUPLICATE_TAP_MS = 30_000;
+
+// -> { route, kind, fallback, reason }. `kind` is safe to log (no ids).
+export function pushTapRoute(route = "") {
+  const value = normalizePushRoute(route);
+  const fallbackTo = (to, reason) => ({ route: to, kind: to.split(":")[0], fallback: true, reason });
+  if (!value) return fallbackTo("notifications", "missing route");
+  const [kind, id = ""] = value.split(":");
+  switch (kind) {
+    case "conversation":
+      return id ? { route: value, kind, fallback: false, reason: "" } : fallbackTo("messages", "conversation without id");
+    case "messages":
+    case "notifications":
+    case "orders":
+    case "urride":
+      return { route: value, kind, fallback: false, reason: "" };
+    case "urmall":
+      return !id || URMALL_SCREENS.has(id)
+        ? { route: value, kind: id ? `urmall:${id}` : "urmall", fallback: false, reason: "" }
+        : fallbackTo("urmall", "unknown UrMall screen");
+    default:
+      return fallbackTo("notifications", "unknown route");
+  }
+}
+
+// One tap can reach the app more than once (iOS / Android replay the launch
+// tap to a late listener; a resumed app can deliver it again). Key: the
+// notification's id, else its route.
+export function pushTapKey(action) {
+  const notification = action?.notification && typeof action.notification === "object" ? action.notification : {};
+  const data = notification.data && typeof notification.data === "object" ? notification.data : {};
+  const id = text(String(notification.id ?? "")) || text(String(data["google.message_id"] ?? "")) || text(String(data["gcm.message_id"] ?? ""));
+  return id ? `id:${id}` : `route:${normalizePushRoute(text(data.route))}`;
+}
+
+// true when the same tap was already handled in the last 30 s; records it.
+export function isDuplicateTap(recent, key, now = Date.now(), windowMs = DUPLICATE_TAP_MS) {
+  if (!(recent instanceof Map) || !key) return false;
+  for (const [seenKey, seenAt] of recent) if (now - seenAt > windowMs) recent.delete(seenKey);
+  if (recent.has(key)) return true;
+  recent.set(key, now);
+  return false;
 }
 
 // Banners already shown for this route (by the realtime banner hosts) make a

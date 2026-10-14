@@ -1472,7 +1472,7 @@ async function loadBuyerMessages(buyerId) {
     acc[key].supportDispute = acc[key].supportDispute || Boolean(message.support_dispute);
     if (new Date(message.created_at).getTime() >= new Date(acc[key].createdAt).getTime()) {
       acc[key].createdAt = message.created_at;
-      acc[key].preview = message.preview || "";
+      acc[key].preview = message.preview || (message.media_type === "audio" ? t("voiceNotes.voiceNote") : "");
       acc[key].conversationKey = messageConversationKey;
       acc[key].productId = message.product_id;
       acc[key].topic = message.topic || message.product_name || "UrMall message";
@@ -1517,7 +1517,7 @@ export async function sendBuyerMarketplaceMessage({ seller, product, topic, mess
   const productId = product?.isVertical ? null : product?.id || null;
   const conversationContext = product?.isVertical ? `${product.verticalType || "listing"}:${product.id}` : productId;
   const conversationKey = buildConversationKey(businessId, conversationContext, conversationTopic);
-  const uploadedMediaUrl = mediaUrl ? await uploadMediaDataUrl(mediaUrl, "image", buyer.id) : "";
+  const uploadedMediaUrl = mediaUrl ? await uploadMediaDataUrl(mediaUrl, mediaType === "audio" ? "audio" : "image", buyer.id) : "";
 
   const { data, error } = await supabase
     .from("marketplace_customer_messages")

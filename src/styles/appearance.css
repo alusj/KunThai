@@ -683,3 +683,48 @@ html.dark .kt-address-accuracy-caution .kt-address-caution-copy,
 html.dark .kt-address-accuracy-caution .kt-address-caution-details {
   color: #e2e8f0 !important;
 }
+
+/* Voice note player (shared/voice/VoiceNotePlayer.jsx). Its colours are its
+   own variables, so the dark-theme overrides of bg-white / bg-slate-* above
+   never repaint the waveform or the play button. */
+.kt-voice {
+  --kt-voice-button-bg: #0f172a;
+  --kt-voice-button-fg: #ffffff;
+  --kt-voice-played: #0f172a;
+  --kt-voice-rest: #cbd5e1;
+  --kt-voice-time: #64748b;
+}
+.kt-voice-dark {
+  --kt-voice-button-bg: #ffffff;
+  --kt-voice-button-fg: #0f172a;
+  --kt-voice-played: #ffffff;
+  --kt-voice-rest: rgb(255 255 255 / 0.35);
+  --kt-voice-time: rgb(255 255 255 / 0.72);
+}
+.kt-voice-emerald {
+  --kt-voice-button-bg: #ffffff;
+  --kt-voice-button-fg: #047857;
+  --kt-voice-played: #ffffff;
+  --kt-voice-rest: rgb(255 255 255 / 0.42);
+  --kt-voice-time: rgb(255 255 255 / 0.82);
+}
+html.dark .kt-voice-light {
+  --kt-voice-button-bg: #e2e8f0;
+  --kt-voice-button-fg: #0f172a;
+  --kt-voice-played: #e2e8f0;
+  --kt-voice-rest: #475569;
+  --kt-voice-time: #94a3b8;
+}
+.kt-voice-button {
+  background-color: var(--kt-voice-button-bg);
+  color: var(--kt-voice-button-fg);
+}
+.kt-voice-bar {
+  background-color: var(--kt-voice-rest);
+}
+.kt-voice-bar[data-played="true"] {
+  background-color: var(--kt-voice-played);
+}
+.kt-voice-time {
+  color: var(--kt-voice-time);
+}

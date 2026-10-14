@@ -2,16 +2,24 @@ import assert from "node:assert/strict";
 import test from "node:test";
 
 import {
+  ANDROID_PUSH_CHANNEL,
+  ANDROID_PUSH_CHANNELS,
   bannerContextsForRoute,
   buildPushDiagnostic,
   classifyPushFailure,
   decideNativePushAction,
   diagnosticMessage,
   foregroundPushBanner,
+  pushSoundForKind,
+  isDuplicateTap,
   nativeErrorText,
   nativePushStatusFrom,
   normalizePushRoute,
+  pushTapKey,
+  pushTapRoute,
   refreshEventsForRoute,
+  shouldSaveRefreshedToken,
+  tokenSummary,
 } from "./nativePushLogic.js";
 
 const USER = "00000000-0000-4000-8000-000000000001";
@@ -125,4 +133,79 @@ test("duplicate banners and refresh events per route", () => {
   assert.deepEqual(refreshEventsForRoute("conversation:c1"), ["kuntai-unified-notifications-updated", "explore-message-event"]);
   assert.deepEqual(refreshEventsForRoute("orders"), ["kuntai-unified-notifications-updated", "marketplace-orders-updated"]);
   assert.deepEqual(refreshEventsForRoute("notifications"), ["kuntai-unified-notifications-updated"]);
+});
+
+test("a refreshed token is saved only for this phone's own registration and only when it changed", () => {
+  assert.equal(shouldSaveRefreshedToken({ state: savedState(), userId: USER, token: "new-device-token-value" }), true);
+  assert.equal(shouldSaveRefreshedToken({ state: savedState(), userId: USER, token: "device-token-value" }), false);
+  assert.equal(shouldSaveRefreshedToken({ state: savedState(OTHER), userId: USER, token: "new-device-token-value" }), false);
+  assert.equal(shouldSaveRefreshedToken({ state: null, userId: USER, token: "new-device-token-value" }), false);
+  assert.equal(shouldSaveRefreshedToken({ state: savedState(), userId: "", token: "new-device-token-value" }), false);
+  assert.equal(shouldSaveRefreshedToken({ state: savedState(), userId: USER, token: "" }), false);
+});
+
+test("token log summaries never contain the token", () => {
+  const token = "abcDEF123-secret-token-value";
+  assert.equal(tokenSummary(token), `token(${token.length} chars)`);
+  assert.ok(!tokenSummary(token).includes("abc"));
+  assert.equal(tokenSummary(undefined), "token(0 chars)");
+});
+
+test("the Android push channel is high importance", () => {
+  assert.equal(ANDROID_PUSH_CHANNEL.id, "kunthai_alerts");
+  assert.equal(ANDROID_PUSH_CHANNEL.importance, 4);
+});
+
+test("every route a push carries opens a known screen; malformed ones fall back", () => {
+  const opens = (route) => pushTapRoute(route).route;
+  assert.equal(opens("conversation:abc"), "conversation:abc");
+  assert.equal(opens("messages"), "messages");
+  assert.equal(opens("notifications"), "notifications");
+  assert.equal(opens("explore:notifications"), "notifications");
+  assert.equal(opens("orders"), "orders");
+  assert.equal(opens("urmall:messages"), "urmall:messages");
+  assert.equal(opens("urmall:business-messages"), "urmall:business-messages");
+  assert.equal(opens("urmall:business"), "urmall:business");
+  assert.equal(opens("urride"), "urride");
+  assert.equal(opens("urride:trip:123"), "urride:trip:123");
+  assert.deepEqual(pushTapRoute("urmall:nowhere"), { route: "urmall", kind: "urmall", fallback: true, reason: "unknown UrMall screen" });
+  assert.equal(opens("conversation:"), "messages");
+  assert.equal(pushTapRoute("").fallback, true);
+  assert.equal(opens(""), "notifications");
+  assert.equal(opens(undefined), "notifications");
+  assert.equal(opens("<script>"), "notifications");
+  assert.equal(pushTapRoute("conversation:secret-id").kind, "conversation", "the logged kind has no id");
+});
+
+test("a tap is handled once, even when the OS delivers it again", () => {
+  const recent = new Map();
+  const ios = { notification: { id: "apns-request-1", data: { route: "orders" } } };
+  const android = { notification: { id: "", data: { "google.message_id": "0:999", route: "urride" } } };
+  assert.equal(pushTapKey(ios), "id:apns-request-1");
+  assert.equal(pushTapKey(android), "id:0:999");
+  assert.equal(pushTapKey({ notification: { data: { route: "urmall:business" } } }), "route:urmall:business");
+  assert.equal(pushTapKey(null), "route:");
+  assert.equal(isDuplicateTap(recent, pushTapKey(ios), 1_000), false);
+  assert.equal(isDuplicateTap(recent, pushTapKey(ios), 2_000), true, "second delivery of the same tap");
+  assert.equal(isDuplicateTap(recent, pushTapKey(android), 2_000), false, "another notification is not a duplicate");
+  assert.equal(isDuplicateTap(recent, pushTapKey(ios), 40_000), false, "the same notification tapped again much later opens again");
+});
+
+test("each push kind gets its sound and an Android channel that exists", () => {
+  const channels = new Map(ANDROID_PUSH_CHANNELS.map((channel) => [channel.id, channel]));
+  assert.equal(channels.size, ANDROID_PUSH_CHANNELS.length);
+  assert.deepEqual(pushSoundForKind("urride_request"), { sound: "kt_ride_request.wav", channel: "kunthai_ride_requests" });
+  assert.equal(pushSoundForKind("messages").sound, "kt_message.wav");
+  assert.equal(pushSoundForKind("urmall_message").channel, "kunthai_messages");
+  for (const kind of ["orders", "urmall_order", "urmall_booking", "urride_trip"]) {
+    assert.equal(pushSoundForKind(kind).sound, "kt_order.wav", kind);
+  }
+  for (const kind of ["reactions", "urride_operator", "urride_company", "", undefined]) {
+    assert.deepEqual(pushSoundForKind(kind), { sound: "default", channel: "kunthai_alerts" });
+  }
+  for (const kind of ["urride_request", "messages", "orders", "reactions"]) {
+    const { sound, channel } = pushSoundForKind(kind);
+    assert.ok(channels.has(channel), `${kind} channel missing`);
+    if (sound !== "default") assert.equal(channels.get(channel).sound, sound);
+  }
 });

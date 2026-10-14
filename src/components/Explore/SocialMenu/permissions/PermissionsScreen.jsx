@@ -13,6 +13,9 @@ import {
 import SocialScreenHeader from "../shared/SocialScreenHeader";
 import { isNativePlatform } from "../../../../Backend/services/nativeOAuthService";
 import { readPermissionStatus, requestPermission } from "../../../../Backend/services/permissionStatusService";
+import supabase from "../../../../Backend/lib/supabaseClient";
+import { enablePushNotifications, getPushProblemMessage, getPushStatus } from "../../../../Backend/services/pushService";
+import { saveUnifiedNotificationPreferences } from "../../../../Backend/services/unifiedNotificationService";
 import { t as i18nText, uiText } from "../../../../i18n/index";
 import { useI18n as useUiLocale } from "../../../../i18n/index.js";
 
@@ -63,7 +66,7 @@ const STATUS_KEYS = {
   prompt: "exploreSettingsFix.permPrompt",
   unknown: "exploreSettingsFix.permUnknown",
   unsupported: "exploreSettingsFix.permUnsupported",
-  native: "exploreSettingsFix.notAvailableYet",
+  off: "exploreSettingsFix.permOff",
   picker: "exploreSettingsFix.permPicker",
 };
 
@@ -72,16 +75,42 @@ const STATUS_TONE = {
   denied: "bg-rose-50 text-rose-700",
 };
 
+// In the app, notifications are push alerts (@capacitor/push-notifications),
+// not the WebView's Notification API: "enabled" | "denied" | "disabled".
+const NATIVE_PUSH_STATUS = { enabled: "granted", denied: "denied", disabled: "off" };
+
+async function readNotificationStatus(native) {
+  if (!native) return readPermissionStatus("notifications", { native });
+  try {
+    return NATIVE_PUSH_STATUS[await getPushStatus()] || "unknown";
+  } catch {
+    return "unknown";
+  }
+}
+
+// Same as Settings > Push alerts: ask iOS / Android, register this phone and
+// turn push on for the account.
+async function enableNativeNotifications() {
+  await enablePushNotifications();
+  const { data } = await supabase.auth.getUser();
+  if (data?.user?.id) await saveUnifiedNotificationPreferences(data.user.id, { push_enabled: true });
+  return "granted";
+}
+
 export default function PermissionsScreen({ hideHeader = false, onOpenPrivacy }) {
   useUiLocale();
   const native = isNativePlatform();
   const [expandedId, setExpandedId] = useState("");
   const [statuses, setStatuses] = useState({});
   const [busyId, setBusyId] = useState("");
+  const [pushProblem, setPushProblem] = useState("");
 
   const refresh = useCallback(async () => {
     const entries = await Promise.all(
-      permissions.filter((item) => !item.static).map(async (item) => [item.id, await readPermissionStatus(item.id, { native })]),
+      permissions.filter((item) => !item.static).map(async (item) => [
+        item.id,
+        item.id === "notifications" ? await readNotificationStatus(native) : await readPermissionStatus(item.id, { native }),
+      ]),
     );
     setStatuses(Object.fromEntries(entries));
   }, [native]);
@@ -100,6 +129,17 @@ export default function PermissionsScreen({ hideHeader = false, onOpenPrivacy })
     if (busyId) return;
     setBusyId(id);
     try {
+      if (id === "notifications" && native) {
+        setPushProblem("");
+        try {
+          await enableNativeNotifications();
+        } catch (error) {
+          setPushProblem(error?.message || getPushProblemMessage());
+        }
+        const next = await readNotificationStatus(native);
+        setStatuses((current) => ({ ...current, [id]: next }));
+        return;
+      }
       const next = await requestPermission(id, { native });
       setStatuses((current) => ({ ...current, [id]: next }));
     } finally {
@@ -109,7 +149,6 @@ export default function PermissionsScreen({ hideHeader = false, onOpenPrivacy })
 
   function statusFor(permission) {
     if (permission.static) return "picker";
-    if (permission.id === "notifications" && native) return "native";
     return statuses[permission.id] || "unknown";
   }
 
@@ -137,7 +176,8 @@ export default function PermissionsScreen({ hideHeader = false, onOpenPrivacy })
             const Icon = permission.icon;
             const expanded = expandedId === permission.id;
             const status = statusFor(permission);
-            const canAsk = ["prompt", "unknown"].includes(status);
+            const canAsk = ["prompt", "unknown", "off"].includes(status);
+            const summaryKey = permission.id === "notifications" && native ? "exploreSettingsFix.permNotificationsSummaryApp" : permission.summaryKey;
             return (
               <article key={permission.id} className="rounded-[24px] border border-slate-200 bg-white p-4 shadow-sm">
                 <div className="flex items-start gap-3">
@@ -148,10 +188,13 @@ export default function PermissionsScreen({ hideHeader = false, onOpenPrivacy })
                       <span className={`rounded-full px-2.5 py-1 text-[11px] font-black ${STATUS_TONE[status] || "bg-slate-100 text-slate-600"}`}>{i18nText(STATUS_KEYS[status])}</span>
                     </div>
                     <p className="mt-1 text-sm font-semibold leading-6 text-slate-500">
-                      {permission.summaryKey ? i18nText(permission.summaryKey) : uiText(permission.summary)}
+                      {summaryKey ? i18nText(summaryKey) : uiText(permission.summary)}
                     </p>
                   </div>
                 </div>
+                {permission.id === "notifications" && pushProblem && status !== "granted" ? (
+                  <p role="alert" className="mt-3 rounded-2xl bg-amber-50 px-3 py-2 text-xs font-bold leading-5 text-amber-900">{pushProblem}</p>
+                ) : null}
                 {status === "denied" ? (
                   <p className="mt-3 rounded-2xl bg-rose-50 px-3 py-2 text-xs font-bold leading-5 text-rose-800">
                     {native ? i18nText("exploreSettingsFix.permDeniedHintApp") : i18nText("exploreSettingsFix.permDeniedHintWeb")}

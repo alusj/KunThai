@@ -13,8 +13,8 @@ export function notifyActionDone(message, { module = "explore", tone = "success"
 }
 
 // The failure counterpart: a short (network/technical-sanitized) toast plus a
-// firmer haptic, so a failed action is just as clearly acknowledged.
+// error haptic, so a failed action is just as clearly acknowledged.
 export function notifyActionFailed(error, fallback = "", { module = "explore" } = {}) {
   showToast(shortErrorToast(error, fallback), "danger");
-  if (typeof haptics.heavy === "function") haptics.heavy(module);
+  haptics.error(module);
 }

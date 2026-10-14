@@ -28,6 +28,7 @@
 		"BiometricAuthNative",
 		"AppPlugin",
 		"CAPBrowserPlugin",
+		"HapticsPlugin",
 		"KeyboardPlugin",
 		"PushNotificationsPlugin",
 		"StatusBarPlugin"

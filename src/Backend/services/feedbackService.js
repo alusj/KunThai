@@ -1,10 +1,15 @@
 // Haptic and sound feedback for meaningful app events.
-// Web platform limits: vibration only works where navigator.vibrate exists
-// (Android Chrome; iOS browsers have no vibration API), and audio can only
-// start after the user's first gesture, so the context is primed on the
-// first pointer/key interaction. Sounds are synthesized with Web Audio so
-// no audio assets are downloaded. Feedback must never break or slow the
-// action that triggered it — every entry point swallows its own errors.
+// In the iOS / Android app, haptics use the phone's own engine through
+// @capacitor/haptics (the Taptic Engine on iPhone). On the web, and in an older
+// app build without that plugin, they fall back to navigator.vibrate (Android
+// Chrome only; iOS browsers have no vibration API). Audio can only start after
+// the user's first gesture, so the context is primed on the first pointer/key
+// interaction. Sounds are synthesized with Web Audio so no audio assets are
+// downloaded. Feedback must never break or slow the action that triggered
+// it — every entry point swallows its own errors.
+
+import { Capacitor } from "@capacitor/core";
+import { Haptics, ImpactStyle, NotificationType } from "@capacitor/haptics";
 
 import { readExploreSettings } from "./explore/preferencesService";
 
@@ -12,6 +17,7 @@ const HAPTIC_COOLDOWN_MS = 90;
 const SOUND_COOLDOWN_MS = 250;
 
 const lastFired = new Map();
+let lastAnyHapticAt = 0;
 
 function tooSoon(key, cooldownMs) {
   const now = Date.now();
@@ -29,39 +35,105 @@ function moduleAllowed(module) {
   return fxSettings()[module] !== false;
 }
 
-function vibrate(pattern, module, key) {
+const nativeHaptics = (() => {
   try {
-    if (typeof navigator === "undefined" || typeof navigator.vibrate !== "function") return;
-    if (!fxSettings().vibration || !moduleAllowed(module)) return;
-    if (window.matchMedia?.("(prefers-reduced-motion: reduce)")?.matches) return;
-    if (tooSoon(`haptic:${key}`, HAPTIC_COOLDOWN_MS)) return;
-    navigator.vibrate(pattern);
+    return Capacitor.isNativePlatform() && Capacitor.isPluginAvailable("Haptics");
+  } catch {
+    return false;
+  }
+})();
+
+function webVibrationAvailable() {
+  return typeof navigator !== "undefined" && typeof navigator.vibrate === "function";
+}
+
+/** Whether this device can give any haptic feedback (drives the Settings switch). */
+export function hapticsSupported() {
+  return nativeHaptics || webVibrationAvailable();
+}
+
+/** True when any haptic fired at or after `timestamp` (so a toast does not buzz twice). */
+export function hapticFiredSince(timestamp) {
+  return lastAnyHapticAt >= timestamp;
+}
+
+function webVibrate(pattern) {
+  try {
+    if (webVibrationAvailable()) navigator.vibrate(pattern);
   } catch {
     // Feedback is best-effort only.
   }
 }
 
+// `native` runs the phone's haptic; `pattern` is the web/old-build fallback.
+function vibrate(pattern, module, key, native) {
+  try {
+    if (!fxSettings().vibration || !moduleAllowed(module)) return;
+    if (window.matchMedia?.("(prefers-reduced-motion: reduce)")?.matches) return;
+    if (tooSoon(`haptic:${key}`, HAPTIC_COOLDOWN_MS)) return;
+    lastAnyHapticAt = Date.now();
+    if (nativeHaptics && native) {
+      Promise.resolve()
+        .then(native)
+        .catch(() => webVibrate(pattern));
+      return;
+    }
+    webVibrate(pattern);
+  } catch {
+    // Feedback is best-effort only.
+  }
+}
+
+const impact = (style) => () => Haptics.impact({ style });
+const notify = (type) => () => Haptics.notification({ type });
+const wait = (ms) => new Promise((resolve) => setTimeout(resolve, ms));
+
 export const haptics = {
+  // The smallest tick: toggles, tabs, pickers, chips.
+  selection(module) {
+    vibrate(6, module, "selection", () => Haptics.selectionChanged());
+  },
   light(module) {
-    vibrate(12, module, "light");
+    vibrate(12, module, "light", impact(ImpactStyle.Light));
   },
   medium(module) {
-    vibrate([16, 30, 24], module, "medium");
+    vibrate([16, 30, 24], module, "medium", impact(ImpactStyle.Medium));
   },
   heavy(module) {
-    vibrate([35, 60, 35, 60, 45], module, "heavy");
+    vibrate([35, 60, 35, 60, 45], module, "heavy", impact(ImpactStyle.Heavy));
+  },
+  // Something finished well (saved, sent, accepted).
+  success(module) {
+    vibrate([10, 40, 14], module, "success", notify(NotificationType.Success));
+  },
+  // Something failed.
+  error(module) {
+    vibrate([40, 50, 40, 50, 40], module, "error", notify(NotificationType.Error));
+  },
+  // Needs attention, but nothing broke (e.g. "add a photo first").
+  warning(module) {
+    vibrate([24, 60, 24], module, "warning", notify(NotificationType.Warning));
   },
   // Two distinct buzzes: "you can't do that yet" (e.g. leaving a locked screen).
   doubleShake(module) {
-    vibrate([90, 80, 90], module, "doubleShake");
+    vibrate([90, 80, 90], module, "doubleShake", notify(NotificationType.Warning));
   },
   // One crisp, strong tick the moment the microphone goes live.
   recordStart(module) {
-    vibrate(55, module, "recordStart");
+    vibrate(55, module, "recordStart", impact(ImpactStyle.Heavy));
   },
   // Softer tap when a recording is stopped or discarded.
   recordStop(module) {
-    vibrate(14, module, "recordStop");
+    vibrate(14, module, "recordStop", impact(ImpactStyle.Light));
+  },
+  // A strong triple pulse for one ring of an incoming ride request.
+  ring(module) {
+    vibrate([300, 150, 300, 150, 300], module, "ring", async () => {
+      for (let pulse = 0; pulse < 3; pulse += 1) {
+        await Haptics.impact({ style: ImpactStyle.Heavy });
+        await wait(180);
+      }
+    });
   },
 };
 
@@ -132,6 +204,20 @@ export const sounds = {
   arrival(module) {
     playTones([{ from: 587, duration: 0.09 }, { from: 740, duration: 0.09 }, { from: 880, duration: 0.16 }], module, "arrival");
   },
+  // One ring of an incoming ride request: a bright rising two-tone, loud
+  // enough to hear in a car.
+  ring(module) {
+    playTones(
+      [
+        { from: 784, duration: 0.16, type: "triangle", volume: 0.12 },
+        { from: 1047, duration: 0.22, type: "triangle", volume: 0.12 },
+        { from: 784, duration: 0.16, type: "triangle", volume: 0.12, gap: 0.12 },
+        { from: 1047, duration: 0.22, type: "triangle", volume: 0.12 },
+      ],
+      module,
+      "ring",
+    );
+  },
   emergency(module) {
     playTones(
       [
@@ -144,3 +230,78 @@ export const sounds = {
     );
   },
 };
+
+const RING_INTERVAL_MS = 2400;
+const RING_MAX_MS = 45000;
+let activeRing = null;
+
+/**
+ * Rings (sound + strong vibration, every few seconds) until the returned stop
+ * function is called or 45 seconds pass. Used for a new ride request reaching
+ * an online operator. Only one ring runs at a time; starting again keeps the
+ * running one. Respects the "Ride requests ring" switch plus the usual Sounds,
+ * Vibration and UrRide switches.
+ */
+export function startRinging(module = "transport") {
+  try {
+    if (fxSettings().rideRequestRing === false || !moduleAllowed(module)) return stopRinging;
+    if (activeRing) return stopRinging;
+    const ringOnce = () => {
+      if (typeof document !== "undefined" && document.hidden) return;
+      sounds.ring(module);
+      haptics.ring(module);
+    };
+    ringOnce();
+    const interval = window.setInterval(ringOnce, RING_INTERVAL_MS);
+    const timeout = window.setTimeout(stopRinging, RING_MAX_MS);
+    activeRing = { interval, timeout };
+  } catch {
+    // Feedback is best-effort only.
+  }
+  return stopRinging;
+}
+
+export function stopRinging() {
+  if (!activeRing) return;
+  window.clearInterval(activeRing.interval);
+  window.clearTimeout(activeRing.timeout);
+  activeRing = null;
+}
+
+export function isRinging() {
+  return Boolean(activeRing);
+}
+
+const SELECTION_TARGETS = [
+  '[role="switch"]',
+  '[role="tab"]',
+  '[role="radio"]',
+  '[role="menuitemradio"]',
+  '[role="menuitemcheckbox"]',
+  'input[type="checkbox"]',
+  'input[type="radio"]',
+].join(",");
+
+/**
+ * One tiny selection tick for every switch, tab, radio and checkbox, plus every
+ * <select> change, across the whole app, without each screen wiring it. Buttons
+ * that give their own feedback (likes, saves) are not matched. Returns a
+ * cleanup function.
+ */
+export function installSelectionHaptics() {
+  if (typeof document === "undefined") return () => {};
+  const onClick = (event) => {
+    const target = event.target instanceof Element ? event.target.closest(SELECTION_TARGETS) : null;
+    if (!target || target.disabled || target.getAttribute("aria-disabled") === "true") return;
+    haptics.selection();
+  };
+  const onChange = (event) => {
+    if (event.target instanceof HTMLSelectElement) haptics.selection();
+  };
+  document.addEventListener("click", onClick, true);
+  document.addEventListener("change", onChange, true);
+  return () => {
+    document.removeEventListener("click", onClick, true);
+    document.removeEventListener("change", onChange, true);
+  };
+}

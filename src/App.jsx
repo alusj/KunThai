@@ -14,7 +14,7 @@ import { clearExploreScreenStack } from "./Backend/services/explore/navigationSe
 import { setNotificationSeenUser } from "./Backend/services/notificationSeenStore";
 import { getCurrentAccountControl, subscribeToAccountControl } from "./Backend/services/accountControlService";
 import { markSessionContinuity, readSessionContinuity } from "./Backend/services/sessionService";
-import { forgetNativePushDevice } from "./Backend/services/pushService";
+import { forgetNativePushDevice, setNotificationNavigationReady } from "./Backend/services/pushService";
 import { initNativeOAuth } from "./Backend/services/nativeOAuthService";
 import AccountRestrictionNotice from "./components/shared/AccountRestrictionNotice";
 import ReturningUserIntro from "./components/shared/ReturningUserIntro";
@@ -41,7 +41,7 @@ import {
 import { showToast } from "./Backend/services/toastService";
 import { ensureExploreProfile } from "./Backend/services/explore/profileService";
 import { preloadMainDashboardData } from "./Backend/services/dashboardPreloadService";
-import { haptics } from "./Backend/services/feedbackService";
+import { haptics, installSelectionHaptics } from "./Backend/services/feedbackService";
 import { canStartNavigationGesture, navigationGesturesLocked } from "./Backend/services/gestureArbitration";
 import { startGlobalNetworkToasts } from "./Backend/services/networkService";
 import {
@@ -304,6 +304,9 @@ export default function App() {
   useEffect(() => {
     if (page === "transport") setTransportMounted(true);
   }, [page]);
+
+  // Switches, tabs, radios, checkboxes and pickers give one tiny tick app-wide.
+  useEffect(() => installSelectionHaptics(), []);
 
   useLayoutEffect(() => {
     if (!userId || guestSession || !onboardingComplete || twoFactorPending !== false) {
@@ -582,8 +585,10 @@ export default function App() {
     // On a fresh sign-in honor the user's explicit "open first" choice
     // (primarySurface) ahead of the most-frequented-page heuristic — the first
     // app render records an Explore visit that would otherwise always win.
+    // The default dashboard picked in Settings beats both of those; only a
+    // just-finished onboarding choice or a deep link outranks it.
     const chosenSurface = normalizeMainPage(onboardingProfile?.primarySurface);
-    const preferredPage = pendingLanding || hashPage || chosenSurface || readPreferredMainPage("", userId);
+    const preferredPage = pendingLanding || hashPage || readDefaultMainPage() || chosenSurface || readPreferredMainPage("", userId);
     if (pendingLanding) pendingLandingRef.current = "";
     setPage(preferredPage);
     if (!hashPage) clearBrowserHash();
@@ -684,6 +689,19 @@ export default function App() {
       window.removeEventListener("kuntai-return-main-page", handleReturnMainPage);
     };
   }, [page]);
+
+  // A tapped push waits (pushService) until the signed-in main screens are on
+  // screen: not while loading, signing in, on two-step, onboarding or a block.
+  // Declared after the page-switch listener so it exists when the tap opens.
+  const notificationNavigationReady = !loading
+    && Boolean(user)
+    && (guestSession || (onboardingChecked && !onboardingLoading))
+    && (guestSession || twoFactorPending === false)
+    && (guestSession || onboardingComplete || Boolean(onboardingReveal))
+    && !["suspended", "banned"].includes(accountControl?.status);
+  useEffect(() => {
+    setNotificationNavigationReady(notificationNavigationReady);
+  }, [notificationNavigationReady]);
 
   function withStartupIntro(content) {
     return (

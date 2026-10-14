@@ -27,7 +27,7 @@ const helpTopics = [
     title: "Account and profile",
     icon: HiOutlineUserCircle,
     summary: "Profile details, switching accounts, identity display, and account access.",
-    bullets: ["Update your public identity from Profile.", "Use Security for account-protection guidance.", "Saved profile data should appear before fallback names."],
+    bullets: ["Update your public identity from Profile.", "Use Security for account-protection guidance.", "exploreSettingsFix.helpBulletProfile"],
   },
   {
     id: "posts-swip",
@@ -35,7 +35,7 @@ const helpTopics = [
     title: "Posts, comments, and Swip",
     icon: HiOutlineBolt,
     summary: "Publishing, review stages, comments, video sound, and playback behavior.",
-    bullets: ["Posts may pass through review before publishing.", "Comments open from each post or video.", "Only the active Swip should continue playing."],
+    bullets: ["Posts may pass through review before publishing.", "Comments open from each post or video.", "exploreSettingsFix.helpBulletSwip"],
   },
   {
     id: "messages",
@@ -102,6 +102,8 @@ const quickActions = [
   { id: "payment-order", title: "Payment, order, or booking issue", description: "Marketplace checkout, payments, delivery, or UrRide bookings.", priority: "high", category: "Payments" },
 ];
 
+const bulletText = (item) => (item.startsWith("exploreSettingsFix.") ? i18nText(item) : uiText(item));
+
 function TopicCard({ topic }) {
   useUiLocale();
   const Icon = topic.icon;
@@ -112,7 +114,7 @@ function TopicCard({ topic }) {
         <div className="min-w-0"><h3 className="text-base font-black text-slate-950">{uiText(topic.title)}</h3><p className="mt-1 text-sm font-semibold leading-6 text-slate-600">{uiText(topic.summary)}</p></div>
       </div>
       <div className="mt-4 space-y-2">
-        {topic.bullets.map((item) => <p key={item} className="rounded-2xl bg-slate-50 px-3 py-2.5 text-xs font-bold leading-5 text-slate-600">{uiText(item)}</p>)}
+        {topic.bullets.map((item) => <p key={item} className="rounded-2xl bg-slate-50 px-3 py-2.5 text-xs font-bold leading-5 text-slate-600">{bulletText(item)}</p>)}
       </div>
     </article>
   );
@@ -128,7 +130,7 @@ export default function HelpCenterScreen({ focusReport = false, hideHeader = fal
   const visibleTopics = useMemo(() => {
     const value = query.trim().toLowerCase();
     if (!value) return helpTopics;
-    return helpTopics.filter((topic) => [topic.title, topic.summary, ...topic.bullets, uiText(topic.title), uiText(topic.summary), ...topic.bullets.map(uiText)].join(" ").toLowerCase().includes(value));
+    return helpTopics.filter((topic) => [topic.title, topic.summary, uiText(topic.title), uiText(topic.summary), ...topic.bullets.map(bulletText)].join(" ").toLowerCase().includes(value));
   }, [query, memoLocale]);
   const popularTopics = helpTopics.filter((topic) => topic.group === "popular");
   const serviceTopics = helpTopics.filter((topic) => topic.group === "service");

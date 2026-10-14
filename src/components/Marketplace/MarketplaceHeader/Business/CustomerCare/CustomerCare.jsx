@@ -1,5 +1,9 @@
 import { useSellerCustomerCare } from "../../../../../Backend/hooks/useSellerCustomerCare";
 import MessageImage from "../../../../shared/MessageImage";
+import { LiveRecordingStrip } from "../../../../shared/recording/LiveRecording";
+import { useVoiceRecorder } from "../../../../shared/voice/useVoiceRecorder";
+import VoiceNotePlayer, { VoiceNoteDraft } from "../../../../shared/voice/VoiceNotePlayer";
+import VoiceRecordButton from "../../../../shared/voice/VoiceRecordButton";
 import RecentConversations from "./RecentConversations";
 import { useEffect, useMemo, useRef, useState } from "react";
 import AiAssistButton from "../../../../ai/AiAssistButton";
@@ -41,6 +45,15 @@ export default function CustomerCare({ onBack } = {}) {
   const [conversationAction, setConversationAction] = useState("idle");
   const [reply, setReply] = useState("");
   const [attachment, setAttachment] = useState(null);
+  // Voice notes: the same recorder and player as Explore messages.
+  const voice = useVoiceRecorder({
+    module: "marketplace",
+    onRecorded: ({ dataUrl, seconds }) => {
+      setAttachment({ kind: "audio", dataUrl, seconds });
+      setSendError("");
+    },
+    onError: (message) => setSendError(message),
+  });
   const [sendError, setSendError] = useState("");
   const [sending, setSending] = useState(false);
   // Optimistic copies of just-sent messages, keyed by conversation id, so a
@@ -233,7 +246,7 @@ export default function CustomerCare({ onBack } = {}) {
       from: "seller",
       text,
       mediaUrl: pendingAttachment?.dataUrl || "",
-      mediaType: pendingAttachment ? "image" : "text",
+      mediaType: pendingAttachment ? (pendingAttachment.kind === "audio" ? "audio" : "image") : "text",
       createdAt: new Date().toISOString(),
       pending: true,
     };
@@ -249,6 +262,7 @@ export default function CustomerCare({ onBack } = {}) {
     try {
       const savedMessage = await sendSellerMarketplaceMessage(conversation, text, {
         mediaUrl: pendingAttachment?.dataUrl || "",
+        mediaType: pendingAttachment?.kind === "audio" ? "audio" : "image",
       });
       setEchoes((current) =>
         current.map((echo) => (echo.message.id === tempId ? { ...echo, message: savedMessage } : echo)),
@@ -325,7 +339,7 @@ export default function CustomerCare({ onBack } = {}) {
       : conversationAction === "pop"
         ? "kt-explore-stack-leave-right"
         : "translate-x-0";
-    const canSend = Boolean(reply.trim() || attachment) && !sending;
+    const canSend = Boolean(reply.trim() || attachment) && !sending && !voice.recording;
 
     return (
       <section className={`kt-conversation-screen absolute inset-0 z-10 flex flex-col bg-gray-50 ${panelClass}`} data-back-swipe-scope>
@@ -363,6 +377,15 @@ export default function CustomerCare({ onBack } = {}) {
                 {message.mediaType === "image" && message.mediaUrl ? (
                   <MessageImage mediaUrl={message.mediaUrl} alt={t("urmall.biz.care.msgAttachment")} pending={message.pending} className="mb-2" />
                 ) : null}
+                {message.mediaType === "audio" && message.mediaUrl ? (
+                  <VoiceNotePlayer
+                    src={message.mediaUrl}
+                    seed={message.id}
+                    loading={message.pending}
+                    tone={fromSeller ? "emerald" : "light"}
+                    className={message.text ? "mb-2" : ""}
+                  />
+                ) : null}
                 {message.text ? <p>{message.text}</p> : null}
                 <span className={`mt-1 block text-[10px] font-bold ${fromSeller ? "text-white/70" : "text-gray-400"}`}>
                   {message.pending ? t("urmall.biz.care.sendingMsg") : formatMessageTime(message.createdAt)}
@@ -380,7 +403,15 @@ export default function CustomerCare({ onBack } = {}) {
           className="kt-message-composer border-t border-gray-200 bg-white px-3 pt-3 shadow-[0_-10px_30px_rgba(15,23,42,0.05)]"
           data-focused={keyboard.focused ? "true" : "false"}
         >
-          {attachment ? (
+          {attachment?.kind === "audio" ? (
+            <VoiceNoteDraft
+              className="mb-2"
+              dataUrl={attachment.dataUrl}
+              seconds={attachment.seconds}
+              onRemove={() => setAttachment(null)}
+              removeLabel={t("urmall.biz.care.removeAttachment")}
+            />
+          ) : attachment ? (
             <div className="mb-2 flex items-center gap-3 rounded-lg border border-gray-200 bg-gray-50 p-2">
               <img src={attachment.dataUrl} alt={t("urmall.biz.care.selectedAttachment")} className="h-12 w-12 rounded-lg object-cover" />
               <p className="min-w-0 flex-1 truncate text-sm font-black text-gray-950">{t("urmall.biz.care.photoReady")}</p>
@@ -405,24 +436,45 @@ export default function CustomerCare({ onBack } = {}) {
               <ImagePlus size={18} />
             </button>
             <AiAssistButton size="icon" getRequest={() => buildReplyAiRequest(conversation)} label={t("ai.seller.draftReply")} />
-            <input
-              value={reply}
-              onChange={(event) => setReply(event.target.value)}
-              onPointerDown={keyboard.handleInputPointerDown}
-              onFocus={keyboard.handleInputFocus}
-              onBlur={keyboard.handleInputBlur}
-              placeholder={t("urmall.biz.care.replyPlaceholder")}
-              enterKeyHint="send"
-              autoComplete="off"
-              className="min-w-0 flex-1 rounded-2xl border border-gray-200 bg-gray-50 px-3 py-2 text-sm font-semibold outline-none transition focus:border-emerald-400 focus:bg-white focus:ring-4 focus:ring-emerald-100"
-            />
+            {voice.recording ? (
+              <LiveRecordingStrip
+                stream={voice.stream}
+                seconds={voice.seconds}
+                label={t("voiceNotes.recording")}
+                onCancel={() => voice.discard()}
+                cancelLabel={t("voiceNotes.discard")}
+              />
+            ) : (
+              <input
+                value={reply}
+                onChange={(event) => setReply(event.target.value)}
+                onPointerDown={keyboard.handleInputPointerDown}
+                onFocus={keyboard.handleInputFocus}
+                onBlur={keyboard.handleInputBlur}
+                placeholder={t("urmall.biz.care.replyPlaceholder")}
+                enterKeyHint="send"
+                autoComplete="off"
+                className="min-w-0 flex-1 rounded-2xl border border-gray-200 bg-gray-50 px-3 py-2 text-sm font-semibold outline-none transition focus:border-emerald-400 focus:bg-white focus:ring-4 focus:ring-emerald-100"
+              />
+            )}
+            {voice.supported ? (
+              <VoiceRecordButton
+                recording={voice.recording}
+                disabled={sending}
+                onClick={() => {
+                  if (!voice.recording) setAttachment(null);
+                  voice.toggle();
+                }}
+              />
+            ) : null}
             <button
               type="submit"
               disabled={!canSend}
-              className="inline-flex h-10 items-center gap-2 rounded-lg bg-emerald-600 px-4 text-sm font-black text-white hover:bg-emerald-700 disabled:cursor-not-allowed disabled:opacity-50"
+              aria-label={t("urmall.biz.care.reply")}
+              className="inline-flex h-10 shrink-0 items-center gap-2 rounded-lg bg-emerald-600 px-3 text-sm sm:px-4 font-black text-white hover:bg-emerald-700 disabled:cursor-not-allowed disabled:opacity-50"
             >
               <Send size={16} />
-              {t("urmall.biz.care.reply")}
+              <span className="hidden sm:inline">{t("urmall.biz.care.reply")}</span>
             </button>
           </div>
         </form>

@@ -13,7 +13,7 @@ import { isTranslatableText } from "../../../../../../Backend/services/ai/explor
 import { useI18n, t as translate } from "../../../../../../i18n";
 import Avatar from "../../../../shared/Avatar";
 import LinkifiedText from "../../../../shared/LinkifiedText";
-import { voiceCommentAudioHandlers } from "../../../../shared/singleMediaPlayback";
+import VoiceNotePlayer from "../../../../../shared/voice/VoiceNotePlayer";
 import { uiText as translateUi } from "../../../../../../i18n/index.js";
 
 function isPlaceholderName(value) {
@@ -115,11 +115,12 @@ export default function CommentItem({
             </p>
           ) : null}
           {comment.audio_url ? (
-            <audio
-              controls
+            <VoiceNotePlayer
               src={comment.audio_url}
-              {...voiceCommentAudioHandlers}
-              className="mt-3 h-10 w-full min-w-0"
+              seed={comment.id}
+              durationHint={Number(comment.audio_duration_seconds) || 0}
+              fluid
+              className="mt-3 rounded-2xl bg-slate-50 p-2"
             />
           ) : null}
 

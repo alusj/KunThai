@@ -86,3 +86,17 @@ test("photo matching is grounded in real listings and needs candidates", () => {
   const parsed = task.parse({ matches: [{ id: "p1", level: "exact", reason: "Same model." }, { id: "", level: "exact", reason: "x" }, { id: "p2", level: "weird", reason: "Close." }] });
   assert.deepEqual(parsed.matches.map((m) => [m.id, m.level]), [["p1", "exact"], ["p2", "similar"]]);
 });
+
+test("buyer message drafts read the conversation and are never cached", () => {
+  const task = getTask("urmall.buyer_reply");
+  assert.equal(taskAllowsSurface(task, "urmall"), true);
+  assert.throws(() => task.build({ messages: [] }), (error) => error.code === AI_ERROR_CODES.invalidRequest);
+  const built = task.build({
+    messages: [{ from: "buyer", text: "Is it still available?" }, { from: "seller", text: "Yes, in blue and black." }],
+    listing: LISTING,
+  });
+  assert.equal(built.cacheKey, null);
+  assert.match(built.prompt, /seller: Yes, in blue and black\./);
+  assert.ok(built.prompt.includes("Le 1,850.00"));
+  assert.deepEqual(task.parse({ replies: ["Great, I'll take blue.", "great, i'll take blue.", "Can you deliver today?"] }).items, ["Great, I'll take blue.", "Can you deliver today?"]);
+});

@@ -1,6 +1,5 @@
 import { useEffect, useState } from "react";
 import {
-  HiOutlineBellAlert,
   HiOutlineDevicePhoneMobile,
   HiOutlineExclamationTriangle,
   HiOutlineFingerPrint,
@@ -48,15 +47,8 @@ const securityItems = [
     actionLabel: "Switch account",
   },
   {
-    key: "alerts",
-    title: "exploreSettingsFix.loginAlertsTitle",
-    description: "exploreSettingsFix.loginAlertsDesc",
-    status: "exploreSettingsFix.notAvailableYet",
-    icon: HiOutlineBellAlert,
-  },
-  {
     title: "Device protection",
-    description: "A screen lock, updated browser, and private device access help protect your KunThai session.",
+    description: "exploreSettingsFix.deviceProtectionDesc",
     status: "Managed by device",
     icon: HiOutlineLockClosed,
   },
@@ -140,7 +132,7 @@ export default function SecurityScreen({ currentProfile, hideHeader = false, onO
         <section className="grid gap-3 lg:grid-cols-2">
           {securityItems.map((item) => {
             const Icon = item.icon;
-            const text = (value) => (item.key ? i18nText(value) : uiText(value));
+            const text = (value) => (item.key || String(value).startsWith("exploreSettingsFix.") ? i18nText(value) : uiText(value));
             return (
               <article key={item.title} className="rounded-[24px] border border-slate-200 bg-white p-5 shadow-sm">
                 <div className="flex items-start gap-3">

@@ -45,6 +45,7 @@ import { useCampaignInbox } from "../../Backend/hooks/useCampaignInbox";
 import useBodyScrollLock from "../shared/useBodyScrollLock";
 import { requestTransportTripStart, updateTransportTripProgress, updateTransportTripStatus } from "../services/bookingService";
 import { showToast } from "../../Backend/services/toastService";
+import { stopRinging } from "../../Backend/services/feedbackService";
 import {
   applySeenNotificationState,
   getUnseenNotificationCount,
@@ -154,6 +155,11 @@ export default function OperatorDashboardScreen({
   useAiRoleContext("urride", "operator", { screen: "operator dashboard" });
   useCampaignSurfaceRole("transport", "operator");
   const [isActive, setIsActive] = useState(account?.activeStatus === "active");
+  // The operator is now looking at their requests, so a ride request ringing
+  // in the background has been answered.
+  useEffect(() => {
+    stopRinging();
+  }, []);
   const operatorNavigation = useNavigationStack("dashboard");
   const activeView = operatorNavigation.current.screen;
   const [verificationOpen, setVerificationOpen] = useState(false);

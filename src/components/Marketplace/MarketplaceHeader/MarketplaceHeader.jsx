@@ -186,6 +186,7 @@ export default function MarketplaceHeader({
           <PremiumHeaderButton
             active={searchOpen}
             accent="emerald"
+            direction="urmall-search"
             icon={Search}
             label={searchOpen ? t("urmall.header.closeSearch") : t("urmall.header.searchProducts")}
             onClick={() => onSearchClick?.()}

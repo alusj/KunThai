@@ -9,6 +9,7 @@ import ZoomableImage from "./ZoomableImage";
 import { t } from "../../../i18n";
 import { t as i18nText } from "../../../i18n/index";
 import { useI18n as useUiLocale } from "../../../i18n/index.js";
+import VoiceNotePlayer from "../../shared/voice/VoiceNotePlayer";
 
 export default function RepostPreview({ post, sourcePost = null, compact = false }) {
   useUiLocale();
@@ -78,7 +79,7 @@ export default function RepostPreview({ post, sourcePost = null, compact = false
       {source.videoUrl ? <RepostSwipVideo compact={compact} source={source} /> : null}
       {source.audioUrl ? (
         <div className="p-4">
-          <audio src={source.audioUrl} controls preload="metadata" className="w-full" />
+          <VoiceNotePlayer src={source.audioUrl} seed={source.audioUrl} fluid />
         </div>
       ) : null}
     </section>

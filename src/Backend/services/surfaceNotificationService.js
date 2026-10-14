@@ -1,5 +1,7 @@
 import supabase from "../lib/supabaseClient";
 import {
+  COMPANY_NOTIFICATION_WORKSPACE,
+  isCompanyWorkspaceNotification,
   mapSurfacePlatformNotification,
   notificationBelongsToSurface,
   surfaceSectors,
@@ -48,6 +50,50 @@ export async function fetchSurfacePlatformNotifications(surface, { limit = 100, 
       ? platformRowBelongsInInbox(row, SURFACE_INBOX[surface], now)
       : !row.dismissed_at && (!row.expires_at || new Date(row.expires_at).getTime() > now)))
     .map(mapSurfacePlatformNotification);
+}
+
+/** Fleet HQ notifications (rental updates) for one company, newest first. */
+export async function fetchCompanyPlatformNotifications(companyId, { limit = 60, userId = "" } = {}) {
+  const currentUserId = await resolveUserId(userId);
+  if (!currentUserId || !companyId) return [];
+  const { data, error } = await supabase
+    .from("platform_notifications")
+    .select("*")
+    .eq("user_id", currentUserId)
+    .eq("workspace", COMPANY_NOTIFICATION_WORKSPACE)
+    .eq("workspace_id", companyId)
+    .is("dismissed_at", null)
+    .order("created_at", { ascending: false })
+    .limit(limit);
+  if (error && /platform_notifications|schema cache|does not exist/i.test(error.message || "")) return [];
+  if (error) throw error;
+  const now = Date.now();
+  return (data || [])
+    .filter((row) => !row.expires_at || new Date(row.expires_at).getTime() > now)
+    .map(mapSurfacePlatformNotification);
+}
+
+export async function subscribeToCompanyPlatformNotifications(companyId, listener, { userId = "" } = {}) {
+  const currentUserId = await resolveUserId(userId);
+  if (!currentUserId || !companyId || typeof listener !== "function") return () => {};
+  const channel = supabase
+    .channel(`company-notifications-${companyId}-${currentUserId}-${crypto.randomUUID()}`)
+    .on(
+      "postgres_changes",
+      { event: "*", schema: "public", table: "platform_notifications", filter: `user_id=eq.${currentUserId}` },
+      (payload) => {
+        const row = payload.new || payload.old;
+        if (isCompanyWorkspaceNotification(row) && row?.workspace_id === companyId) listener(payload);
+      },
+    )
+    .subscribe();
+  return () => supabase.removeChannel(channel);
+}
+
+export function dismissPlatformNotification(item) {
+  const id = item?.platformNotificationId || item?.rawId;
+  if (!id) return Promise.resolve();
+  return supabase.from("platform_notifications").update({ dismissed_at: new Date().toISOString() }).eq("id", id);
 }
 
 export function markSurfacePlatformNotificationRead(item, { actioned = false } = {}) {

@@ -4,6 +4,7 @@ import {
   fetchUrMallRetention,
   notifyUrMallRetentionUpdated,
   selectUrMallRetainedInventory,
+  URMALL_RETAINED_LISTINGS,
   URMALL_RETENTION_UPDATED_EVENT,
 } from "../../../../Backend/services/marketplace/urmallExpiryRetentionService";
 import { t as i18nText } from "../../../../i18n/index";
@@ -63,7 +64,7 @@ export default function UrMallExpiryNotice({ businessId, businessKind = "retail"
   const retention = state.case;
   if (!retention || retention.businessId !== businessId || retention.status !== "pending") return null;
   const items = state.items.filter((item) => item.eligibleToKeep);
-  const required = state.canSelect ? Math.min(10, items.length) : retention.retainedIds.length;
+  const required = state.canSelect ? Math.min(URMALL_RETAINED_LISTINGS, items.length) : retention.retainedIds.length;
   const noun = businessKind === "restaurant" ? "meals" : businessKind === "property_agent" ? "properties" : "products";
   const deadline = new Intl.DateTimeFormat(undefined, { dateStyle: "medium", timeStyle: "short" }).format(new Date(retention.deleteAfter));
   const ended = new Date(retention.deleteAfter).getTime() <= Date.now();

@@ -18,7 +18,7 @@ import {
 
 import { useExplorePreferences } from "../../../../Backend/hooks/useExplorePreferences";
 import { readDefaultMainPage, setDefaultMainPage } from "../../../../Backend/services/mainDashboardPreference";
-import { haptics, sounds } from "../../../../Backend/services/feedbackService";
+import { haptics, hapticsSupported, sounds } from "../../../../Backend/services/feedbackService";
 import { disablePushNotifications, enablePushNotifications, getPushProblemMessage, getPushStatus } from "../../../../Backend/services/pushService";
 import { showToast } from "../../../../Backend/services/toastService";
 import supabase from "../../../../Backend/lib/supabaseClient";
@@ -41,6 +41,8 @@ function Toggle({ active, label, onChange }) {
   return (
     <button
       type="button"
+      role="switch"
+      aria-checked={Boolean(active)}
       onClick={() => onChange(!active)}
       className={`flex h-11 min-w-24 items-center justify-center rounded-2xl px-4 text-sm font-black transition ${
         active ? "bg-sky-700 text-white" : "bg-slate-100 text-slate-600"
@@ -112,7 +114,7 @@ export default function SettingsScreen({ hideHeader = false, onOpenDataMobile, o
 
   const [signOutBusy, setSignOutBusy] = useState("");
   const [confirmSignOutAll, setConfirmSignOutAll] = useState(false);
-  const vibrationSupported = typeof navigator !== "undefined" && typeof navigator.vibrate === "function";
+  const vibrationSupported = hapticsSupported();
 
   async function handleSignOut(allDevices) {
     if (signOutBusy) return;
@@ -291,7 +293,7 @@ export default function SettingsScreen({ hideHeader = false, onOpenDataMobile, o
           <SettingsSection title={i18n.t("settings.soundsTitle")} subtitle={i18n.t("settings.soundsSubtitle")}>
             <SettingRow icon={HiOutlineBellAlert} title={i18n.t("settings.allFeedbackTitle")} description={i18n.t("settings.allFeedbackDesc")}>
               <Toggle active={feedbackFx.sounds} label={feedbackFx.sounds ? i18n.t("settings.soundsOn") : i18n.t("settings.soundsOff")} onChange={(value) => updateSection("feedbackFx", { sounds: value })} />
-              {/* iPhone browsers and the iOS app have no vibration API, so the switch would do nothing. */}
+              {/* Hidden only where nothing can vibrate (iPhone browsers); the iOS app uses native haptics. */}
               {vibrationSupported ? (
                 <Toggle active={feedbackFx.vibration} label={feedbackFx.vibration ? i18n.t("settings.vibrationOn") : i18n.t("settings.vibrationOff")} onChange={(value) => updateSection("feedbackFx", { vibration: value })} />
               ) : null}
@@ -311,6 +313,9 @@ export default function SettingsScreen({ hideHeader = false, onOpenDataMobile, o
               <Toggle active={feedbackFx.messages} label={i18n.t("settings.messages")} onChange={(value) => updateSection("feedbackFx", { messages: value })} />
               <Toggle active={feedbackFx.marketplace} label="UrMall" onChange={(value) => updateSection("feedbackFx", { marketplace: value })} />
               <Toggle active={feedbackFx.transport} label="UrRide" onChange={(value) => updateSection("feedbackFx", { transport: value })} />
+            </SettingRow>
+            <SettingRow icon={HiOutlineBellAlert} title={i18n.t("settings.rideRingTitle")} description={i18n.t("settings.rideRingDesc")}>
+              <Toggle active={feedbackFx.rideRequestRing !== false} label={feedbackFx.rideRequestRing !== false ? i18n.t("settings.rideRingOn") : i18n.t("settings.rideRingOff")} onChange={(value) => updateSection("feedbackFx", { rideRequestRing: value })} />
             </SettingRow>
           </SettingsSection>
 

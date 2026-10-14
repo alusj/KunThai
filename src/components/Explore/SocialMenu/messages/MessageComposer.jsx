@@ -18,14 +18,9 @@ import { useI18n } from "../../../../i18n";
 import { t as i18nText } from "../../../../i18n/index";
 import { uiText as translateUi } from "../../../../i18n/index.js";
 import { inlineErrorMessage } from "../../../../Backend/services/friendlyErrorService";
-import { haptics } from "../../../../Backend/services/feedbackService";
 import { LiveRecordingStrip } from "../../../shared/recording/LiveRecording";
-
-function formatRecordingTime(seconds) {
-  const minutes = Math.floor(seconds / 60);
-  const remainingSeconds = seconds % 60;
-  return `${String(minutes).padStart(2, "0")}:${String(remainingSeconds).padStart(2, "0")}`;
-}
+import { useVoiceRecorder } from "../../../shared/voice/useVoiceRecorder";
+import { VoiceNoteDraft } from "../../../shared/voice/VoiceNotePlayer";
 
 function readFileAsDataUrl(file) {
   return new Promise((resolve, reject) => {
@@ -42,44 +37,26 @@ export default function MessageComposer({ focused = false, onAction, onActivity,
   const showTypingStatus = messageSettings.showTypingStatus !== false;
   const allowVoiceNotes = messageSettings.allowVoiceNotes !== false;
   const [value, setValue] = useState("");
-  const [recording, setRecording] = useState(false);
-  const [recordingSeconds, setRecordingSeconds] = useState(0);
-  const [recordingStream, setRecordingStream] = useState(null);
   const [attachment, setAttachment] = useState(null);
   const [notice, setNotice] = useState("");
   const [sending, setSending] = useState(false);
   const [actionsOpen, setActionsOpen] = useState(false);
   const fileInputRef = useRef(null);
-  const mediaRecorderRef = useRef(null);
-  const mediaStreamRef = useRef(null);
-  const audioChunksRef = useRef([]);
-  const recordingSecondsRef = useRef(0);
-  const discardRecordingRef = useRef(false);
+  const voice = useVoiceRecorder({
+    module: "messages",
+    onActivity,
+    onRecorded: ({ dataUrl, seconds }) => {
+      setAttachment({ type: "audio", mediaUrl: dataUrl, seconds });
+      setNotice("");
+    },
+    onError: (message) => setNotice(message),
+  });
+  const recording = voice.recording;
 
+  // Keep the "recording…" status fresh for the other person while recording.
   useEffect(() => {
-    if (!recording) {
-      return undefined;
-    }
-
-    if (allowVoiceNotes) onActivity?.("recording");
-    const interval = window.setInterval(() => {
-      setRecordingSeconds((current) => {
-        const next = current + 1;
-        recordingSecondsRef.current = next;
-        return next;
-      });
-      if (allowVoiceNotes) onActivity?.("recording");
-    }, 1000);
-
-    return () => window.clearInterval(interval);
-  }, [allowVoiceNotes, onActivity, recording]);
-
-  useEffect(() => {
-    return () => {
-      mediaRecorderRef.current?.state === "recording" && mediaRecorderRef.current.stop();
-      mediaStreamRef.current?.getTracks?.().forEach((track) => track.stop());
-    };
-  }, []);
+    if (recording && allowVoiceNotes) onActivity?.("recording");
+  }, [allowVoiceNotes, onActivity, recording, voice.seconds]);
 
   useEffect(() => {
     if (!actionsOpen) return undefined;
@@ -101,7 +78,14 @@ export default function MessageComposer({ focused = false, onAction, onActivity,
     setNotice("");
 
     try {
-      const result = await onSend?.(attachment ? { body, type: attachment.type, mediaUrl: attachment.mediaUrl } : body);
+      const result = await onSend?.(attachment
+        ? {
+          body,
+          type: attachment.type,
+          mediaUrl: attachment.mediaUrl,
+          ...(attachment.type === "audio" ? { metadata: { durationSeconds: attachment.seconds || 0 } } : {}),
+        }
+        : body);
       setSending(false);
 
       if (result?.ok === false) {
@@ -150,89 +134,13 @@ export default function MessageComposer({ focused = false, onAction, onActivity,
     }
   }
 
-  function stopRecording({ discard = false } = {}) {
-    const recorder = mediaRecorderRef.current;
-    if (recorder?.state === "recording") {
-      discardRecordingRef.current = discard;
-      haptics.recordStop("messages");
-      recorder.stop();
-    }
-  }
-
-  async function startRecording() {
+  function toggleRecording() {
     if (!allowVoiceNotes) return;
-
-    if (!navigator.mediaDevices?.getUserMedia || typeof MediaRecorder === "undefined") {
-      setNotice(i18nText("ui.literals.k703ac149a63c"));
-      return;
-    }
-
-    try {
-      const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
-      const recorder = new MediaRecorder(stream);
-      audioChunksRef.current = [];
-      mediaStreamRef.current = stream;
-      mediaRecorderRef.current = recorder;
-
-      recorder.addEventListener("dataavailable", (event) => {
-        if (event.data?.size) {
-          audioChunksRef.current.push(event.data);
-        }
-      });
-
-      recorder.addEventListener("stop", async () => {
-        const mimeType = recorder.mimeType || "audio/webm";
-        const blob = new Blob(audioChunksRef.current, { type: mimeType });
-        mediaStreamRef.current?.getTracks?.().forEach((track) => track.stop());
-        mediaStreamRef.current = null;
-        mediaRecorderRef.current = null;
-        setRecording(false);
-        setRecordingStream(null);
-        onActivity?.("active");
-
-        if (discardRecordingRef.current) {
-          discardRecordingRef.current = false;
-          audioChunksRef.current = [];
-          return;
-        }
-
-        if (!blob.size) {
-          setNotice(i18nText("ui.literals.k3b51ce823349"));
-          return;
-        }
-
-        try {
-          const mediaUrl = await readFileAsDataUrl(blob);
-          setAttachment({ type: "audio", mediaUrl, label: i18nText("ui.literals.kccf1da9ab56b", { value0: formatRecordingTime(recordingSecondsRef.current) }) });
-          setNotice("");
-        } catch {
-          setNotice(i18nText("ui.literals.kf58cd926600e"));
-        }
-      });
-
-      setRecordingSeconds(0);
-      recordingSecondsRef.current = 0;
-      discardRecordingRef.current = false;
+    if (!recording) {
       setAttachment(null);
       setNotice("");
-      setRecordingStream(stream);
-      setRecording(true);
-      onActivity?.("recording");
-      recorder.start();
-      haptics.recordStart("messages");
-    } catch {
-      setNotice(i18nText("ui.literals.k616aa6d808cc"));
-      onActivity?.("active");
     }
-  }
-
-  function toggleRecording() {
-    if (recording) {
-      stopRecording();
-      return;
-    }
-
-    startRecording();
+    voice.toggle();
   }
 
   async function runAction(action) {
@@ -256,7 +164,15 @@ export default function MessageComposer({ focused = false, onAction, onActivity,
       className="kt-message-composer border-t border-slate-200 bg-white px-3 pt-3 shadow-[0_-10px_30px_rgba(15,23,42,0.05)]"
       data-focused={focused ? "true" : "false"}
     >
-      {attachment ? (
+      {attachment?.type === "audio" ? (
+        <VoiceNoteDraft
+          className="mb-2"
+          dataUrl={attachment.mediaUrl}
+          seconds={attachment.seconds}
+          onRemove={clearAttachment}
+          removeLabel={t("messages.removeAttachment")}
+        />
+      ) : attachment ? (
         <div className="mb-2 flex items-center gap-3 rounded-2xl border border-slate-200 bg-slate-50 p-2">
           {attachment.type === "image" ? (
             <img src={resizedImageUrl(attachment.mediaUrl, { width: 96, quality: 70 })} alt={t("messages.selectedAttachment")} className="h-12 w-12 rounded-xl object-cover" />
@@ -318,10 +234,10 @@ export default function MessageComposer({ focused = false, onAction, onActivity,
       </button>
       {recording ? (
         <LiveRecordingStrip
-          stream={recordingStream}
-          seconds={recordingSeconds}
-          label={i18nText("ui.literals.k409a42143265")}
-          onCancel={() => stopRecording({ discard: true })}
+          stream={voice.stream}
+          seconds={voice.seconds}
+          label={t("voiceNotes.recording")}
+          onCancel={() => voice.discard()}
           cancelLabel={t("messages.removeAttachment")}
         />
       ) : (

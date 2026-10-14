@@ -268,3 +268,33 @@ createdb -h /tmp -p 55432 -U pgtest native_push_delivery_test
 psql -h /tmp -p 55432 -U pgtest -d native_push_delivery_test -v ON_ERROR_STOP=1 -f supabase/tests/native_push_delivery.sql
 psql -h /tmp -p 55432 -U pgtest -d push_device_tokens_test -v ON_ERROR_STOP=1 -f supabase/tests/native_push_tokens.sql
 ```
+
+## 7. Push sounds per kind (2026-10-13)
+
+Each push plays a sound chosen by its `kind` (`pushSoundForKind` in
+`src/Backend/services/nativePushLogic.js`, mirrored in `send-native-push`):
+
+| Kind | Sound | Android channel |
+|---|---|---|
+| `urride_request` (new ride / delivery request) | `kt_ride_request.wav` (~6 s ring) | `kunthai_ride_requests` (urgent) |
+| `messages`, `urmall_message` | `kt_message.wav` | `kunthai_messages` |
+| `orders`, `urmall_order`, `urmall_booking`, `urride_trip` | `kt_order.wav` | `kunthai_orders` |
+| everything else | phone default | `kunthai_alerts` |
+
+The files are in `ios/App/App/` (added to the App target's Copy Bundle
+Resources) and `android/app/src/main/res/raw/`. Older app builds keep working:
+iOS plays the default sound for a file it does not have, and Android uses the
+default channel until the new app creates its channels.
+
+Steps:
+1. Apply `supabase/migrations/20261013160000_urride_ride_request_push_kind.sql`
+   (after `20261013140000_urride_push_deep_links.sql`).
+2. Deploy the function: `supabase functions deploy send-native-push`.
+3. Ship new iOS and Android builds (the sounds and channels are in the app).
+4. Optional, iPhone: in Xcode > App target > Signing & Capabilities, add
+   **Time Sensitive Notifications**. Ride requests are already sent with
+   `interruption-level: time-sensitive`; with the capability they break
+   through Focus. Without it they arrive as normal alerts.
+
+Android fixes a channel's sound when the channel is first created. To change
+a sound later, give it a new channel id rather than replacing the file.

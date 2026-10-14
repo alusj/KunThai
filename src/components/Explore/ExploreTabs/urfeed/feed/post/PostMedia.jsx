@@ -5,6 +5,7 @@ import { useI18n } from "../../../../../../i18n";
 import { pauseOtherExploreMedia, stopAllExploreMedia } from "../../../../shared/singleMediaPlayback";
 import { isAdvertPost } from "../../../../shared/advertUtils";
 import ZoomableImage from "../../../../shared/ZoomableImage";
+import VoiceNotePlayer from "../../../../../shared/voice/VoiceNotePlayer";
 import { clipWindowHandlers, postClipRange } from "../../../../shared/clipWindow";
 import { t as i18nText } from "../../../../../../i18n/index";
 import { uiText as translateUi, useI18n as useUiLocale } from "../../../../../../i18n/index.js";
@@ -14,7 +15,6 @@ export default function PostMedia({ post, imageOnly = false }) {
   const { t } = useI18n();
   const [videoStatus, setVideoStatus] = useState(post.video_url ? "loading" : "idle");
   const [videoRetryKey, setVideoRetryKey] = useState(0);
-  const audioRef = useRef(null);
   const videoRef = useRef(null);
   const advertPost = isAdvertPost(post);
   const clipRange = postClipRange(post);
@@ -103,17 +103,13 @@ export default function PostMedia({ post, imageOnly = false }) {
         <div className="max-w-full overflow-hidden px-4 pb-4">
           <div className="rounded-[20px] border border-slate-200 bg-slate-50 p-4">
             <p className="mb-2 text-sm font-bold text-slate-900">{t("post.voiceNote")}</p>
-            <audio
-              ref={audioRef}
-              controls
-              preload={reduceData ? "none" : "metadata"}
+            <VoiceNotePlayer
               src={post.audio_url}
-              onPlay={(event) => pauseOtherExploreMedia(event.currentTarget)}
-              className="w-full"
+              seed={post.id}
+              durationHint={Number(post.audio_duration_seconds) || 0}
+              preload={reduceData ? "none" : "metadata"}
+              fluid
             />
-            {post.audio_duration_seconds ? (
-              <p className="mt-2 text-xs font-semibold text-slate-500">{post.audio_duration_seconds}s</p>
-            ) : null}
           </div>
         </div>
       ) : null}

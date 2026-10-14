@@ -7,6 +7,10 @@
 export const DIRECTION_CARD_ORDER = [
   "urmall-register",
   "urride-register",
+  // Personal accounts (every new account) have no register button, so these
+  // are their "start here" actions in UrRide and UrMall.
+  "urride-open-booking",
+  "urmall-search",
   "explore-create",
   "urmall-seller-add",
   "urmall-seller-orders",

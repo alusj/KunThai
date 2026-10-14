@@ -1,4 +1,7 @@
-// Restaurant meal days and the Free plan's weekday limit (2026-10-10).
+// Restaurant meal days and a plan's optional weekday limit (2026-10-10).
+// Since 2026-10-13 no UrMall plan sets one (meal_day_limit is null for Free,
+// Pro and Premium), so every meal can be served every day; the checks below
+// stay for a plan that sets a limit again.
 // Mirrors the database guard kunthai_guard_urmall_meal_days:
 //   * a meal is served every weekday when available_everyday is on, otherwise
 //     on its available_days, falling back to the legacy day_of_week;
@@ -9,7 +12,6 @@
 //     restaurant already had are never refused (existing sellers keep them).
 
 export const ALL_WEEKDAYS = Object.freeze([0, 1, 2, 3, 4, 5, 6]);
-export const FREE_MEAL_DAY_LIMIT = 5;
 
 function sortedDays(days) {
   return Array.from(new Set(days.map(Number).filter((day) => Number.isInteger(day) && day >= 0 && day <= 6))).sort((a, b) => a - b);

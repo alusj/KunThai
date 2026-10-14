@@ -124,7 +124,7 @@ export default function SavedOperatorsScreen({ onBack, onViewFleet, onShowVerifi
                 <p className="text-xs font-bold uppercase tracking-wide text-green-700">{saved.savedAs}</p>
                 <h2 className="mt-1 truncate text-base font-black text-gray-950">{saved.fleet?.fleetName}</h2>
                 <p className="mt-1 text-xs text-gray-500">
-                  {saved.fleet?.operatorId} - {saved.fleet?.displayType} - {saved.fleet?.plateNumber}
+                  {[saved.fleet?.operatorId, saved.fleet?.displayType, saved.fleet?.plateNumber].filter(Boolean).join(" - ")}
                 </p>
                 <div className="mt-3">
                   <VerificationBadge

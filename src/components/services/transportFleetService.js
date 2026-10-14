@@ -242,7 +242,10 @@ function mapLiveFleet(row, companyAffiliation = null, publicStats = null, public
     country,
     countryCode,
     currency,
-    operatorId: operator.display_code || `KT-${operator.operator_code || String(row.id).slice(0, 5).toUpperCase()}`,
+    // Never derive a code from the fleet UUID: it would look like a second,
+    // different operator ID. RLS hides the nested operator from passengers, so
+    // the public contact lookup carries the real KT code.
+    operatorId: operator.display_code || publicContact?.operator_code || (operator.operator_code ? `KT-${operator.operator_code}` : ""),
     plateNumber: row.plate_number || "Plate pending",
     serviceCategory,
     fleetType,

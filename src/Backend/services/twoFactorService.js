@@ -24,9 +24,11 @@ export async function getTwoFactorState() {
 
 export async function startTotpEnrollment() {
   // Stale unverified factors block re-enrollment, so clear them first.
+  // listFactors().totp holds verified factors only; unverified ones (a setup
+  // that was cancelled) are only in .all.
   const { data: existing } = await supabase.auth.mfa.listFactors();
-  for (const factor of existing?.totp || []) {
-    if (factor.status === "unverified") {
+  for (const factor of existing?.all || []) {
+    if (factor.factor_type === "totp" && factor.status === "unverified") {
       await supabase.auth.mfa.unenroll({ factorId: factor.id }).catch(() => {});
     }
   }
