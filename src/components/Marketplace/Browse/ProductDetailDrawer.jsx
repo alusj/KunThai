@@ -40,6 +40,7 @@ import { cleanAddressString } from "../../../Backend/utils/geoAddress";
 import { getProductTierPricing, getTierUnitPrice } from "../../../Backend/services/marketplace/tierPricingUtils";
 import { getProductMinimumOrderQuantity } from "../../../Backend/services/marketplace/vendorOrderRules";
 import { haptics, sounds } from "../../../Backend/services/feedbackService";
+import { startBuyerViewTimer } from "../../../Backend/services/marketplace/buyerInterestService";
 import { getOnboardingProfile } from "../../../Backend/services/onboardingService";
 import {
   fetchBuyerDeliveryAddresses,
@@ -568,6 +569,15 @@ export default function ProductDetailDrawer({
 
   useEffect(() => {
     orderCautionClearedRef.current = false;
+  }, [open, product?.id]);
+
+  // A listing the buyer opens (and how long they stay) shapes their UrMall
+  // suggestions and "new from a store you viewed" notifications.
+  useEffect(() => {
+    if (!open || !product?.id) return undefined;
+    return startBuyerViewTimer(product);
+    // The listing id is the trigger; the object is refreshed while open.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [open, product?.id]);
 
   // The floating KAI chat reads this while the detail is open, so it talks

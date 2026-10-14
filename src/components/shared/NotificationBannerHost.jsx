@@ -18,6 +18,7 @@ import {
 } from "../../Backend/services/explore/realtimeService";
 import { readExploreSettings } from "../../Backend/services/explore/preferencesService";
 import { haptics, sounds } from "../../Backend/services/feedbackService";
+import { getUrMallBuyerSettings } from "../../Backend/services/marketplace/marketplaceBuyerSettings";
 import supabase from "../../Backend/lib/supabaseClient";
 import { t as i18nText } from "../../i18n/index";
 import {
@@ -210,6 +211,9 @@ export default function NotificationBannerHost({ userId = "" }) {
         window.dispatchEvent(new CustomEvent("kuntai-visibility-credits-updated"));
       }
 
+      // UrMall Settings > Order & booking alerts.
+      if (String(row.sector || "") === "marketplace" && /order|booking/i.test(String(row.notification_type || ""))
+        && getUrMallBuyerSettings().orderAlerts === false && !["urgent", "critical"].includes(row.priority)) return;
       if (!platformFloatingEnabledRef.current && !["urgent", "critical"].includes(row.priority)) return;
       if (!referralNotification && !["floating", "urgent"].includes(row.presentation) && !["urgent", "critical"].includes(row.priority)) return;
       if (underCooldown(`platform:${row.notification_type}:${row.id}`)) return;

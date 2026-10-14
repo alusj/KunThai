@@ -12,6 +12,7 @@ import {
 import { showKunThaiSystemNotification } from "../../Backend/services/pushService";
 import { t as i18nText } from "../../i18n/index";
 import { fetchSurfacePlatformNotifications } from "../../Backend/services/surfaceNotificationService";
+import { getUrMallBuyerSettings } from "../../Backend/services/marketplace/marketplaceBuyerSettings";
 
 const ACTIVITY_REFRESH_MS = 20_000;
 const EMPTY_ACTIVITY = {
@@ -101,8 +102,24 @@ function defaultActivityFeedback(page) {
   sounds.notification(page);
 }
 
+// UrRide Settings > Trip alerts, read straight from storage so this host does
+// not pull the whole passenger service into the startup bundle.
+function readPassengerTripAlertsOff() {
+  try {
+    return JSON.parse(localStorage.getItem("kuntai.transport.passengerSettings") || "{}")?.tripAlerts === false;
+  } catch {
+    return false;
+  }
+}
+
 function announceActivity({ body, item, page, source, title, feedback, onOpened }) {
   if (!body || !item) return;
+  // UrMall Settings > Seller message alerts: a store's reply to this buyer.
+  if (page === "marketplace" && String(item.id || "").startsWith("buyer-message:")
+    && getUrMallBuyerSettings().messageAlerts === false) return;
+  // UrRide Settings > Trip alerts: passenger trip updates.
+  if (page === "transport" && source === "notifications" && !item.activityScope
+    && readPassengerTripAlertsOff()) return;
   const contextKey = `${page}:${source}`;
 
   // A new-message banner should land on the conversation list, not just the
