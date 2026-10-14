@@ -1,7 +1,8 @@
 import { useEffect, useRef, useState } from "react";
 import { FiBriefcase, FiMapPin, FiStar } from "react-icons/fi";
 import { formatCountryMoney } from "../../../data/globalCountryProfiles";
-import { fetchTransportFleets, getTransportFleets } from "../../services/transportFleetService";
+import { attachFleetDistances, fetchTransportFleets, getTransportFleets } from "../../services/transportFleetService";
+import { getPassengerPosition } from "../../services/passengerPosition";
 import {
   readTransportDashboardSnapshot,
   writeTransportDashboardSnapshot,
@@ -114,6 +115,23 @@ export default function NearbyOperators({
           }
           const visibleItems = applyOperatorFilters(items, filters, destination).slice(0, 6);
           setOperators(visibleItems);
+          // Add how far each operator is, when the passenger's location is
+          // already known (never prompts). The list keeps its order.
+          if (visibleItems.length) {
+            getPassengerPosition()
+              .then((position) => (position ? attachFleetDistances(visibleItems, position) : null))
+              .then((measured) => {
+                if (!alive || !measured) return;
+                const byId = new Map(measured.map((fleet) => [fleet.id, fleet]));
+                setOperators((current) => current.map((operator) => {
+                  const withDistance = byId.get(operator.id);
+                  return withDistance && Number.isFinite(withDistance.distanceKm)
+                    ? { ...operator, distanceKm: withDistance.distanceKm, distanceSource: withDistance.distanceSource, etaMinutes: withDistance.etaMinutes }
+                    : operator;
+                }));
+              })
+              .catch(() => {});
+          }
           if ((filters?.mode || "topRated") === "topRated" && !filters?.fleetType) {
             writeTransportDashboardSnapshot(effectCacheScope, { operators: visibleItems });
           }
@@ -210,6 +228,13 @@ export default function NearbyOperators({
                 <FiMapPin size={14} />
                 {operator.currentLocation || operator.lastKnownLocation}
               </div>
+              {Number.isFinite(operator.distanceKm) ? (
+                <p className="mt-1 text-xs font-bold text-emerald-700">
+                  {operator.distanceSource === "live" && operator.etaMinutes
+                    ? t("urride.fleetList.distanceLive", { distance: operator.distanceKm, eta: operator.etaMinutes })
+                    : t("urride.fleetList.distanceRecent", { distance: operator.distanceKm })}
+                </p>
+              ) : null}
               <p className="mt-2 text-xs font-black text-slate-800">
                 {operator.pricePerKm ? t("urride.operators.rateKm", { price: formatCountryMoney(operator.pricePerKm, moneyScope, { maximumFractionDigits: 0 }) }) : t("urride.operators.ratePending")}
                 {operator.pricePerHour ? ` - ${t("urride.operators.rateHour", { price: formatCountryMoney(operator.pricePerHour, moneyScope, { maximumFractionDigits: 0 }) })}` : ""}

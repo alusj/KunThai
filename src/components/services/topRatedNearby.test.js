@@ -61,3 +61,17 @@ test("without distances the original order is kept", () => {
   const fleets = [{ id: "a", activeStatus: "active" }, { id: "b", activeStatus: "active" }];
   assert.deepEqual(applyFleetDistances(fleets, []).map((fleet) => fleet.id), ["a", "b"]);
 });
+
+test("an online operator without a recent position is listed with no distance", () => {
+  const { rated } = applyNearbyRanking(
+    [{ id: "a", fleetType: "car" }, { id: "b", fleetType: "car" }],
+    [
+      { fleet_id: "a", distance_km: 1.2, location_source: "live", radius_km: 50, is_rated: true },
+      { fleet_id: "b", distance_km: null, location_source: "unknown", radius_km: 50, is_rated: true },
+    ],
+  );
+  assert.deepEqual(rated.map((fleet) => fleet.id), ["a", "b"]);
+  assert.equal(rated[1].distanceKm, null);
+  assert.equal(rated[1].distanceSource, null);
+  assert.equal(rated[1].etaMinutes, null);
+});

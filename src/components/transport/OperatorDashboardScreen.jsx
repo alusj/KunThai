@@ -307,9 +307,13 @@ export default function OperatorDashboardScreen({
       else stop = cleanup;
     });
 
+    // Leaving this screen while still online keeps the position flowing
+    // (passengers see the distance and the Area View marker); going offline
+    // stops it on the next run of this effect, and a new start replaces it.
     return () => {
       cancelled = true;
-      stop?.();
+      if (!stop) return;
+      stop = null;
     };
     // form fields are stable per account; isActive is the real trigger.
     // eslint-disable-next-line react-hooks/exhaustive-deps

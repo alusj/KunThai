@@ -24,6 +24,7 @@ import NotificationBannerHost from "./components/shared/NotificationBannerHost";
 import RegistrationBackgroundHost from "./components/shared/RegistrationBackgroundHost";
 import BiometricLockGate from "./components/Explore/SocialMenu/security/BiometricLockGate";
 import DirectionCardHost from "./components/shared/directionCards/DirectionCardHost";
+import OperatorPresenceHost from "./components/transport/OperatorPresenceHost";
 import RecoveryPasswordSheet from "./components/auth/RecoveryPasswordSheet";
 import CampaignPresentationHost from "./components/shared/CampaignPresentationHost";
 import CrossServiceActivityHost from "./components/shared/CrossServiceActivityHost";
@@ -70,7 +71,6 @@ const PAGE_VISITS_KEY = "kuntai-main-page-visits";
 const MARKETPLACE_NAV_KEY = "kuntai-marketplace-nav";
 const SCREENSHOT_PROMPT_AUTO_HIDE_MS = 12_000;
 const SCREENSHOT_PROMPT_EXIT_MS = 280;
-const SCREENSHOT_RETURN_WINDOW_MS = 6_000;
 const NATIVE_SCREENSHOT_EVENTS = [
   "kuntai-native-screenshot",
   "nativeScreenshot",
@@ -1029,6 +1029,8 @@ export default function App() {
       {userId && !guestSession ? <BiometricLockGate userId={userId} /> : null}
       {/* One-time tips pointing at key buttons; guests get GuestGateCard instead. */}
       {userId && !guestSession ? <DirectionCardHost userId={userId} /> : null}
+      {/* An online operator keeps sharing their position on every screen. */}
+      {userId && !guestSession ? <OperatorPresenceHost userId={userId} /> : null}
       {/* After an email recovery link: offer a new password once. */}
       {userId && !guestSession ? <RecoveryPasswordSheet userId={userId} /> : null}
     </div>,
@@ -1045,8 +1047,6 @@ function ScreenshotVoicePrompt({ page }) {
   const closeTimerRef = useRef(null);
   const capturePromiseRef = useRef(Promise.resolve(null));
   const preferClipboardRef = useRef(false);
-  const blurAtRef = useRef(0);
-  const hiddenAtRef = useRef(0);
   const lastRevealAtRef = useRef(0);
   const suppressUntilRef = useRef(0);
 
@@ -1091,25 +1091,10 @@ function ScreenshotVoicePrompt({ page }) {
       if (String(event.key || "").toLowerCase() === "printscreen") revealPrompt({ preferClipboard: true });
     }
 
-    function handleBlur() {
-      blurAtRef.current = Date.now();
-    }
-
-    function handleFocus() {
-      const elapsed = Date.now() - blurAtRef.current;
-      if (elapsed > 120 && elapsed < SCREENSHOT_RETURN_WINDOW_MS) revealPrompt();
-    }
-
-    function handleVisibilityChange() {
-      if (document.hidden) {
-        hiddenAtRef.current = Date.now();
-        return;
-      }
-
-      const elapsed = Date.now() - hiddenAtRef.current;
-      if (elapsed > 120 && elapsed < SCREENSHOT_RETURN_WINDOW_MS) revealPrompt();
-    }
-
+    // Only real screenshots open the prompt: the iOS / Android app's own
+    // screenshot signal and the desktop screenshot keys. Leaving and returning
+    // to the app is not a screenshot (picking a photo, the camera, a
+    // permission dialog and the notification shade all do that).
     function handleSuppressPrompt(event) {
       const duration = Math.max(0, Number(event.detail?.durationMs || 3_000));
       suppressUntilRef.current = Math.max(suppressUntilRef.current, Date.now() + duration);
@@ -1121,24 +1106,18 @@ function ScreenshotVoicePrompt({ page }) {
 
     window.addEventListener("keydown", handleKeyDown);
     window.addEventListener("keyup", handleKeyUp);
-    window.addEventListener("blur", handleBlur);
-    window.addEventListener("focus", handleFocus);
     window.addEventListener("kuntai-suppress-screenshot-prompt", handleSuppressPrompt);
     NATIVE_SCREENSHOT_EVENTS.forEach((eventName) => {
       window.addEventListener(eventName, handleNativeScreenshot);
     });
-    document.addEventListener("visibilitychange", handleVisibilityChange);
 
     return () => {
       window.removeEventListener("keydown", handleKeyDown);
       window.removeEventListener("keyup", handleKeyUp);
-      window.removeEventListener("blur", handleBlur);
-      window.removeEventListener("focus", handleFocus);
       window.removeEventListener("kuntai-suppress-screenshot-prompt", handleSuppressPrompt);
       NATIVE_SCREENSHOT_EVENTS.forEach((eventName) => {
         window.removeEventListener(eventName, handleNativeScreenshot);
       });
-      document.removeEventListener("visibilitychange", handleVisibilityChange);
     };
   }, []);
 

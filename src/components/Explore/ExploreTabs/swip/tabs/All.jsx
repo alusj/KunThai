@@ -256,7 +256,11 @@ export default function All({ active = true, currentUserId = "", focusPostId = "
       }}
       >
       {videos.map((post, index) => {
-  const shouldMountVideo = Math.abs(index - activeIndex) <= 1;
+  // The current clip, the one before and the next two stay mounted; the
+  // current and upcoming ones buffer ahead so a swipe starts playing at once.
+  const offset = index - activeIndex;
+  const shouldMountVideo = offset >= -1 && offset <= SWIP_PRELOAD_AHEAD;
+  const preloadMode = offset >= 0 && offset <= swipBufferAhead() ? "auto" : "metadata";
 
   return (
     <section
@@ -273,6 +277,7 @@ export default function All({ active = true, currentUserId = "", focusPostId = "
             profile={profile}
             post={post}
             active={active && index === activeIndex}
+            preloadMode={preloadMode}
             fullBleed
             fullscreen={fullscreen}
             contextLabel={getSwipContext(post, currentUserId)}
@@ -316,6 +321,20 @@ export default function All({ active = true, currentUserId = "", focusPostId = "
       </div>
     </div>
   );
+}
+
+const SWIP_PRELOAD_AHEAD = 2;
+
+// How many upcoming clips may buffer fully. On a slow or data-saving
+// connection only the current clip does, so it is not starved.
+function swipBufferAhead() {
+  const connection = typeof navigator !== "undefined"
+    ? navigator.connection || navigator.mozConnection || navigator.webkitConnection
+    : null;
+  const effectiveType = String(connection?.effectiveType || "").toLowerCase();
+  if (connection?.saveData || effectiveType === "slow-2g" || effectiveType === "2g") return 0;
+  if (effectiveType === "3g") return 1;
+  return SWIP_PRELOAD_AHEAD;
 }
 
 function SwipSkeleton() {

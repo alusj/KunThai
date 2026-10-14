@@ -31,11 +31,14 @@ export function applyNearbyRanking(fleets = [], rankingRows = []) {
     radiusKm = Number(row.radius_km) || radiusKm;
 
     const distanceKm = row.distance_km === null || row.distance_km === undefined ? NaN : Number(row.distance_km);
-    const live = row.location_source === "live";
+    const known = Number.isFinite(distanceKm);
+    const live = known && row.location_source === "live";
     const item = {
       ...fleet,
-      distanceKm: Number.isFinite(distanceKm) ? distanceKm : null,
-      distanceSource: live ? "live" : "recent",
+      distanceKm: known ? distanceKm : null,
+      // An online operator with no recent position (they left KunThai) is
+      // listed without any distance line.
+      distanceSource: known ? (live ? "live" : "recent") : null,
       // A travel time only makes sense from a live position.
       etaMinutes: live ? estimateTravelMinutes(distanceKm, fleet.fleetType) : null,
     };

@@ -27,6 +27,23 @@ function resolveInitialTab(savedNavigation, settings) {
   return PARENT_TABS.has(savedNavigation.activeTab) ? savedNavigation.activeTab : defaultTab;
 }
 
+/**
+ * The tab Explore will open on, read without starting the session (no side
+ * effects), so the startup skeleton can draw the right tab before Explore
+ * itself loads: Swip's dark loader rather than UrFeed's cards.
+ */
+export function peekInitialExploreTab() {
+  try {
+    const settings = readExploreSettings();
+    const defaultTab = PARENT_TABS.has(settings.feed.defaultTab) ? settings.feed.defaultTab : "UrFeed";
+    if (!sessionStorage.getItem(SESSION_STARTED_KEY)) return defaultTab;
+    const saved = readExploreNavigation();
+    return PARENT_TABS.has(saved.activeTab) ? saved.activeTab : defaultTab;
+  } catch {
+    return "UrFeed";
+  }
+}
+
 export function useExploreNavigation(menuScreens) {
   const savedScrollRef = useRef(Number(sessionStorage.getItem("exploreFeedScrollY") || 0));
   const [navigation, setNavigation] = useState(() => {

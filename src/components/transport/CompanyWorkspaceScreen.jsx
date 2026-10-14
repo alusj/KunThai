@@ -572,9 +572,13 @@ export default function CompanyWorkspaceScreen({ company, initialTab = "Overview
       else stop = cleanup;
     });
 
+    // Leaving this screen while still online keeps the position flowing
+    // (passengers see the distance and the Area View marker); going offline
+    // stops it on the next run of this effect, and a new start replaces it.
     return () => {
       cancelled = true;
-      stop?.();
+      if (!stop) return;
+      stop = null;
     };
   }, [basicOperator, operatorAvailable, companyOperatorAssignment?.companyFleetId, companyOperatorAssignment?.operatorName, companyOperatorAssignment?.fleetType]);
 

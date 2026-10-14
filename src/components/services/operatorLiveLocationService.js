@@ -13,6 +13,22 @@ const MIN_MOVE_METERS = 12;
 
 let activePublisher = null;
 
+// Set once the operator's device has given a position, so KunThai can resume
+// publishing at launch without ever showing a surprise permission prompt.
+const LOCATION_GRANTED_KEY = "kunthai.operatorLocationGranted.v1";
+
+export function operatorLocationPreviouslyGranted() {
+  try {
+    return localStorage.getItem(LOCATION_GRANTED_KEY) === "1";
+  } catch {
+    return false;
+  }
+}
+
+export function isOperatorLiveLocationRunning() {
+  return Boolean(activePublisher);
+}
+
 function distanceInMeters(a, b) {
   if (!a || !b) return Infinity;
   const earthRadius = 6371000;
@@ -113,7 +129,14 @@ export async function startOperatorLiveLocation({ displayName = "", fleetType = 
   activePublisher = publisher;
 
   publisher.watchId = navigator.geolocation.watchPosition(
-    (position) => publishRow(publisher, position),
+    (position) => {
+      try {
+        localStorage.setItem(LOCATION_GRANTED_KEY, "1");
+      } catch {
+        // Storage unavailable: the dashboard still publishes while open.
+      }
+      publishRow(publisher, position);
+    },
     () => {
       // Position denied or unavailable: the heartbeat keeps the last point fresh.
     },

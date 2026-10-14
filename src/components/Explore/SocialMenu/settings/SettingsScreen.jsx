@@ -342,6 +342,8 @@ export default function SettingsScreen({ hideHeader = false, onOpenDataMobile, o
                 onChange={(value) => {
                   setDefaultDashboard(value);
                   setDefaultMainPage(value === "auto" ? "" : value);
+                  haptics.medium();
+                  showToast(i18n.t("settings.defaultScreenSaved"), "success");
                 }}
                 options={[
                   { value: "auto", label: i18nText("ui.literals.kf5000d2670af") },
@@ -354,7 +356,11 @@ export default function SettingsScreen({ hideHeader = false, onOpenDataMobile, o
             <SettingRow icon={HiOutlineRectangleStack} title={i18n.t("settings.defaultTabTitle")} description={i18n.t("settings.defaultTabDesc")}>
               <SelectControl
                 value={feed.defaultTab}
-                onChange={(value) => updateSection("feed", { defaultTab: value })}
+                onChange={(value) => {
+                  updateSection("feed", { defaultTab: value });
+                  haptics.medium("explore");
+                  showToast(i18n.t("settings.exploreTabSaved"), "success");
+                }}
                 options={[
                   { value: "UrFeed", label: "UrFeed" },
                   { value: "Swip", label: "Swip" },

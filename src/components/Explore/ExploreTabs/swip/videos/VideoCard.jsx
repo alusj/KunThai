@@ -82,6 +82,9 @@ export default function VideoCard({
   onFullscreenToggle,
   onViewProfile,
   profile,
+  // "auto" buffers the clip before it is reached (the next videos in Swip);
+  // "metadata" only reads its size and length.
+  preloadMode = "metadata",
 }) {
   const { t, locale } = useI18n();
   const [commentOpen, setCommentOpen] = useState(false);
@@ -92,6 +95,9 @@ export default function VideoCard({
   const [message, setMessage] = useState("");
   const [needsSoundUnlock, setNeedsSoundUnlock] = useState(false);
   const [videoLoading, setVideoLoading] = useState(true);
+  // The spinner waits a moment: a clip that starts quickly (already buffered,
+  // or a short network hiccup) never flashes it.
+  const [showSpinner, setShowSpinner] = useState(false);
   const [actionMenuOpen, setActionMenuOpen] = useState(false);
   const [actionMenuClosing, setActionMenuClosing] = useState(false);
   const [analyticsOpen, setAnalyticsOpen] = useState(false);
@@ -664,6 +670,22 @@ export default function VideoCard({
   }, [active]);
 
   useEffect(() => {
+    if (!videoLoading) {
+      setShowSpinner(false);
+      return undefined;
+    }
+    const timer = window.setTimeout(() => setShowSpinner(true), 450);
+    return () => window.clearTimeout(timer);
+  }, [videoLoading]);
+
+  // A clip buffered ahead of time may already be playable when this card
+  // mounts or becomes active.
+  useEffect(() => {
+    const video = videoRef.current;
+    if (video && video.readyState >= 3) setVideoLoading(false);
+  }, [active]);
+
+  useEffect(() => {
     const video = videoRef.current;
     if (!video) return undefined;
 
@@ -672,7 +694,8 @@ export default function VideoCard({
         if (entry.isIntersecting && active) {
           activeRef.current = true;
           startPlaybackSignals();
-          video.currentTime = clip.start;
+          // Seeking throws away buffered data; only rewind when needed.
+          if (video.ended || Math.abs(video.currentTime - clip.start) > 0.25) video.currentTime = clip.start;
           requestActivePlayback();
           return;
         }
@@ -738,7 +761,7 @@ export default function VideoCard({
         controls={false}
         muted={false}
         playsInline
-        preload={readExploreSettings().video.reduceData ? "none" : "metadata"}
+        preload={readExploreSettings().video.reduceData ? "none" : preloadMode}
         loop={false}
         onError={() => {
           setVideoLoading(false);
@@ -771,7 +794,7 @@ export default function VideoCard({
       ) : null}
       <div className={`absolute inset-0 ${fullscreen ? "bg-transparent" : "bg-slate-950/10"}`} />
 
-      {videoLoading && !mediaError ? (
+      {videoLoading && showSpinner && !mediaError ? (
         <div className="pointer-events-none absolute inset-0 z-[2] flex items-center justify-center">
           <div className="flex h-14 w-14 items-center justify-center rounded-full bg-black/35">
             <span className="h-7 w-7 animate-spin rounded-full border-2 border-white/35 border-t-white" />
