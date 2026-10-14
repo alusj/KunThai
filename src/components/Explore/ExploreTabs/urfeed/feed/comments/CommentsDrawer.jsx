@@ -27,21 +27,12 @@ import { useI18n } from "../../../../../../i18n";
 import ErrorState from "../../../../shared/ErrorState";
 import CommentDrawerComposer from "./CommentDrawerComposer";
 import CommentItem from "./CommentItem";
-import { fetchAccountDeactivation } from "../../../../../../Backend/services/accountLifecycleService";
+import { checkOwnAccountDeactivated } from "../../../../../../Backend/services/accountLifecycleService";
 import { uiText as translateUi, useI18n as useUiLocale } from "../../../../../../i18n/index.js";
 
 const EXIT_MS = 260;
-const DEACTIVATION_CHECK_MS = 30_000;
-let deactivationCheck = { at: 0, promise: null };
-
-// Whether the signed-in account is deactivated. Shared and briefly cached so
-// opening comments stays instant; the database refuses the comment anyway.
-function checkOwnDeactivation() {
-  if (!deactivationCheck.promise || Date.now() - deactivationCheck.at > DEACTIVATION_CHECK_MS) {
-    deactivationCheck = { at: Date.now(), promise: fetchAccountDeactivation().then(Boolean).catch(() => false) };
-  }
-  return deactivationCheck.promise;
-}
+// Whether the signed-in account is deactivated (shared, briefly cached).
+const checkOwnDeactivation = checkOwnAccountDeactivated;
 const SORT_LABEL_KEYS = { newest: "post.sortNewest", top: "post.sortTop", oldest: "post.sortOldest" };
 const SORT_HINT_KEYS = { newest: "post.sortNewestHint", top: "post.sortTopHint", oldest: "post.sortOldestHint" };
 

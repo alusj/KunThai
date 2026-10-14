@@ -289,7 +289,7 @@ default channel until the new app creates its channels.
 Steps:
 1. Apply `supabase/migrations/20261013160000_urride_ride_request_push_kind.sql`
    (after `20261013140000_urride_push_deep_links.sql`).
-2. Deploy the function: `supabase functions deploy send-native-push`.
+2. Deploy the function: `supabase functions deploy send-native-push --no-verify-jwt` (the database calls it with its own secret, not a user token).
 3. Ship new iOS and Android builds (the sounds and channels are in the app).
 4. Optional, iPhone: in Xcode > App target > Signing & Capabilities, add
    **Time Sensitive Notifications**. Ride requests are already sent with
