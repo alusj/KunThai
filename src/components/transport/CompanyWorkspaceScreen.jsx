@@ -73,6 +73,7 @@ import {
   COMPANY_OPERATOR_ROLES,
   getTransportCompanyBookingQueue,
   inviteOperatorToCompanyFleet,
+  deleteTransportCompany,
   leaveTransportCompany,
   manageTransportCompanyFleet,
   manageTransportCompanyOperator,
@@ -177,6 +178,9 @@ export default function CompanyWorkspaceScreen({ company, initialTab = "Overview
   const bookingQueueLoadedForRef = useRef("");
   const [operatorMenuOpen, setOperatorMenuOpen] = useState(false);
   const [leaveCompanyOpen, setLeaveCompanyOpen] = useState(false);
+  const [deleteCompanyOpen, setDeleteCompanyOpen] = useState(false);
+  const [deleteCompanyBusy, setDeleteCompanyBusy] = useState(false);
+  const [deleteCompanyError, setDeleteCompanyError] = useState("");
   const [operatorAvailable, setOperatorAvailable] = useState(companyOperatorAssignment?.activeStatus === "active");
   const [operatorDashboardData, setOperatorDashboardData] = useState(null);
   const [availabilitySaving, setAvailabilitySaving] = useState(false);
@@ -710,6 +714,25 @@ export default function CompanyWorkspaceScreen({ company, initialTab = "Overview
     }
   }
 
+  async function confirmDeleteCompany(typedName) {
+    if (deleteCompanyBusy) return;
+    try {
+      setDeleteCompanyBusy(true);
+      setDeleteCompanyError("");
+      await deleteTransportCompany(company, typedName);
+      setDeleteCompanyOpen(false);
+      setMenuOpen(false);
+      onCompanyUpdate?.(null);
+      showToast(t("urrideDeleteCompany.deleted"), "success");
+      onCompanyLeft?.();
+    } catch (error) {
+      setDeleteCompanyError(inlineErrorMessage(error, t("urrideDeleteCompany.failed")));
+      showToast(shortErrorToast(error, t("urrideDeleteCompany.failed")), "danger");
+    } finally {
+      setDeleteCompanyBusy(false);
+    }
+  }
+
   async function runOperatorAction(operator, action, options = {}) {
     try {
       setManagementBusy(true);
@@ -1025,6 +1048,10 @@ export default function CompanyWorkspaceScreen({ company, initialTab = "Overview
             open={menuOpen}
             onClose={() => setMenuOpen(false)}
             onEdit={access.isOwner ? openCompanyEditor : undefined}
+            onDeleteCompany={access.isOwner ? () => {
+              setMenuOpen(false);
+              window.setTimeout(() => setDeleteCompanyOpen(true), 150);
+            } : undefined}
             onNavigate={openMenuScreen}
           /> : null}
           {visibleMenuScreen ? (
@@ -1124,6 +1151,19 @@ export default function CompanyWorkspaceScreen({ company, initialTab = "Overview
                 onOpenPersonalDashboard?.();
               }}
               open={operatorMenuOpen}
+            />
+          ) : null}
+          {access.isOwner ? (
+            <DeleteCompanyDrawer
+              busy={deleteCompanyBusy}
+              company={company}
+              error={deleteCompanyError}
+              onClose={() => {
+                setDeleteCompanyOpen(false);
+                setDeleteCompanyError("");
+              }}
+              onConfirm={confirmDeleteCompany}
+              open={deleteCompanyOpen}
             />
           ) : null}
           <LeaveCompanyDrawer
@@ -1255,7 +1295,7 @@ function useDrawerTransition(open, duration = DRAWER_TRANSITION_MS) {
   return { rendered, panelOpen };
 }
 
-function FleetHqMenuDrawer({ company, menuItems, open, onClose, onEdit, onNavigate }) {
+function FleetHqMenuDrawer({ company, menuItems, open, onClose, onDeleteCompany, onEdit, onNavigate }) {
   useUiLocale();
   const { rendered, panelOpen } = useDrawerTransition(open);
   const requestClose = useBrowserBack(rendered, onClose, "transport-company-menu-drawer");
@@ -1331,6 +1371,21 @@ function FleetHqMenuDrawer({ company, menuItems, open, onClose, onEdit, onNaviga
               {menuItems.map((item) => (
                 <FleetHqMenuItem key={item.id} item={item} onClick={() => onNavigate(item.id)} />
               ))}
+              {onDeleteCompany ? (
+                <button
+                  type="button"
+                  onClick={onDeleteCompany}
+                  className="kt-pressable flex w-full items-center gap-3 rounded-2xl border border-rose-200 bg-white p-4 text-left transition hover:bg-rose-50"
+                >
+                  <span className="flex h-11 w-11 shrink-0 items-center justify-center rounded-2xl bg-rose-50 text-rose-700">
+                    <Trash2 size={20} />
+                  </span>
+                  <span className="min-w-0 flex-1">
+                    <span className="block text-sm font-black text-rose-700">{t("urrideDeleteCompany.menuButton")}</span>
+                    <span className="mt-0.5 block text-xs font-bold leading-5 text-slate-500">{t("urrideDeleteCompany.menuDetail")}</span>
+                  </span>
+                </button>
+              ) : null}
             </div>
           </nav>
 
@@ -1969,6 +2024,56 @@ function LeaveCompanyDrawer({ busy, company, onClose, onConfirm, open }) {
           <button type="button" disabled={busy} onClick={onClose} className="h-12 rounded-2xl border border-slate-200 bg-white text-sm font-black text-slate-700 disabled:opacity-60">{t("urride.companyWs.stay")}</button>
           <button type="button" disabled={busy} onClick={onConfirm} className="h-12 rounded-2xl bg-rose-600 text-sm font-black text-white disabled:opacity-60">
             {busy ? t("urride.companyWs.leaving") : t("urride.companyWs.leaveCompany")}
+          </button>
+        </div>
+      </div>
+    </FleetHqActionSheet>
+  );
+}
+
+// Company creator only. The delete button stays off until the company name is
+// typed exactly (the server checks it again).
+function DeleteCompanyDrawer({ busy, company, error = "", onClose, onConfirm, open }) {
+  useUiLocale();
+  const [typed, setTyped] = useState("");
+  const companyName = company?.companyName || "";
+  const matches = Boolean(companyName) && typed.trim().toLowerCase() === companyName.trim().toLowerCase();
+
+  useEffect(() => {
+    if (!open) setTyped("");
+  }, [open]);
+
+  return (
+    <FleetHqActionSheet label={t("urrideDeleteCompany.confirm")} onClose={busy ? () => {} : onClose} open={open}>
+      <ActionSheetHeader eyebrow={t("urrideDeleteCompany.eyebrow")} icon={Trash2} onClose={busy ? () => {} : onClose} title={t("urrideDeleteCompany.title", { name: companyName || t("urride.companyWs.companyFallback") })} />
+      <div className="p-5">
+        <p className="rounded-2xl bg-rose-50 px-4 py-3 text-sm font-bold leading-6 text-rose-900">
+          {t("urrideDeleteCompany.warning")}
+        </p>
+        <label className="mt-4 block">
+          <span className="text-sm font-black text-slate-800">{t("urrideDeleteCompany.typeToConfirm", { name: companyName })}</span>
+          <input
+            type="text"
+            value={typed}
+            onChange={(event) => setTyped(event.target.value)}
+            placeholder={t("urrideDeleteCompany.placeholder")}
+            autoComplete="off"
+            autoCapitalize="off"
+            spellCheck={false}
+            disabled={busy}
+            className="mt-2 h-12 w-full rounded-2xl border border-slate-200 bg-white px-4 text-sm font-bold text-slate-900 outline-none focus:border-rose-400 focus:ring-2 focus:ring-rose-500/20"
+          />
+        </label>
+        {error ? <p role="alert" className="mt-3 text-sm font-bold leading-6 text-rose-700">{translateUi(error)}</p> : null}
+        <div className="mt-4 grid grid-cols-2 gap-2">
+          <button type="button" disabled={busy} onClick={onClose} className="h-12 rounded-2xl border border-slate-200 bg-white text-sm font-black text-slate-700 disabled:opacity-60">{t("urrideDeleteCompany.keep")}</button>
+          <button
+            type="button"
+            disabled={busy || !matches}
+            onClick={() => onConfirm(typed)}
+            className="h-12 rounded-2xl bg-rose-600 text-sm font-black text-white disabled:opacity-50"
+          >
+            {busy ? t("urrideDeleteCompany.deleting") : t("urrideDeleteCompany.confirm")}
           </button>
         </div>
       </div>

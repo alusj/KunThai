@@ -2386,6 +2386,36 @@ export async function leaveTransportCompany(companyAccount = null) {
   return null;
 }
 
+// Company creator only. The server checks ownership and the typed name, and
+// refuses while a company trip or rental is under way.
+export async function deleteTransportCompany(companyAccount = null, confirmName = "") {
+  const user = await getCurrentUser("Sign in to delete this company.");
+  const company = companyAccount?.id ? companyAccount : await getTransportCompanyAccount();
+  if (!company?.id) throw new Error("This company could not be found. Refresh Fleet HQ and try again.");
+  if (!company.access?.isOwner) throw new Error(t("urrideDeleteCompany.errNotOwner"));
+
+  const { error } = await supabase.rpc("delete_transport_company", {
+    p_company_id: company.id,
+    p_confirm_name: confirmName,
+  });
+  if (error) {
+    if (isMissingFunction(error)) throw new Error(t("urrideDeleteCompany.errUnavailable"));
+    const text = String(error.message || "");
+    const known = [
+      ["trip is in progress", "errBusyTrip"],
+      ["rental is confirmed or active", "errBusyRental"],
+      ["Type the company name", "errNameMismatch"],
+      ["Only the company creator", "errNotOwner"],
+    ].find(([fragment]) => text.includes(fragment));
+    if (known) throw new Error(t(`urrideDeleteCompany.${known[1]}`));
+    throw new Error(friendlyErrorMessage(error, t("urrideDeleteCompany.failed")));
+  }
+
+  localStorage.removeItem(scopedKey(COMPANY_ACCOUNT_PREFIX, user.id));
+  invalidateCache("operator-dashboard");
+  return null;
+}
+
 export async function getTransportCompanyBookingQueue(companyAccount = null) {
   const company = companyAccount?.id ? companyAccount : await getTransportCompanyAccount();
   const canViewAllBookings = Boolean(company?.access?.canViewAllBookings);
