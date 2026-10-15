@@ -203,6 +203,7 @@ export default function Body({
         onViewCompany={onViewCompany}
         onOpenBooking={onOpenBooking}
         onReportConcern={onReportConcern}
+        onOpenOpenBooking={showOpenBooking ? onOpenOpenBooking : undefined}
       />
 
       {/* Radar Floating In Slot Between Row 2 

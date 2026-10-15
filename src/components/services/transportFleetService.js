@@ -1,4 +1,5 @@
 import { applyFleetDistances, applyNearbyRanking } from "./topRatedNearby";
+import { groupLiveDiscovery, isMissingRpcError, LIVE_DEFAULT_RADIUS_KM } from "./liveDiscovery";
 import supabase from "../../Backend/lib/supabaseClient";
 import { friendlyErrorMessage } from "../../Backend/services/friendlyErrorService";
 import {
@@ -542,6 +543,128 @@ export async function fetchTopRatedNearby({ latitude, longitude, countryIso = ""
   const ranked = applyNearbyRanking(allowed, rankingRows);
   rememberTransportFleets("top-rated-nearby", [...ranked.rated, ...ranked.fresh]);
   return ranked;
+}
+
+// "Available near you" (live discovery). The database lists operators whose
+// phone checked in within 2 minutes (available / busy) plus recently online
+// ones; the rows are hydrated and passed through the same client safety
+// filters as every other list. Hydrated fleets are reused for a minute so the
+// 10-second refresh costs one RPC, not a full reload.
+//
+// Resolves { supported: false } when the RPC does not exist yet (migration not
+// applied) so the caller keeps the older list; other errors are thrown.
+const LIVE_FLEET_CACHE = new Map();
+const LIVE_FLEET_CACHE_MS = 60_000;
+let liveDiscoveryRpcMissing = false;
+
+export function isLiveDiscoveryAvailable() {
+  return !liveDiscoveryRpcMissing;
+}
+
+async function hydrateFleetsById(ids, forceRefresh = false) {
+  const now = Date.now();
+  const missing = ids.filter((id) => {
+    const cached = LIVE_FLEET_CACHE.get(id);
+    return forceRefresh || !cached || now - cached.at > LIVE_FLEET_CACHE_MS;
+  });
+  if (missing.length) {
+    const { data: rows, error } = await supabase
+      .from("transport_fleets")
+      .select("*, transport_operators(id, full_name, phone, city, operator_code, display_code, verification_status)")
+      .in("id", missing);
+    if (error) throw error;
+    const hydrated = await hydrateLiveFleets(rows || []);
+    const found = new Set();
+    for (const fleet of hydrated) {
+      LIVE_FLEET_CACHE.set(fleet.id, { fleet, at: now });
+      found.add(fleet.id);
+    }
+    // Rows the passenger may not read (RLS) are remembered as absent too.
+    for (const id of missing) if (!found.has(id)) LIVE_FLEET_CACHE.set(id, { fleet: null, at: now });
+    if (LIVE_FLEET_CACHE.size > 300) {
+      for (const [key, value] of LIVE_FLEET_CACHE) if (now - value.at > LIVE_FLEET_CACHE_MS) LIVE_FLEET_CACHE.delete(key);
+    }
+  }
+  return ids.map((id) => LIVE_FLEET_CACHE.get(id)?.fleet).filter(Boolean);
+}
+
+export async function fetchAvailableOperatorsNearby({
+  latitude,
+  longitude,
+  countryIso = "",
+  mode = "topRated",
+  fleetType = null,
+  radiusKm = LIVE_DEFAULT_RADIUS_KM,
+  limit = 20,
+  includeUnverified = false,
+  forceRefresh = false,
+} = {}) {
+  if (liveDiscoveryRpcMissing) return { supported: false };
+  const currentIso = normalizeCountryIso(countryIso) || getActiveCountryProfile(countryIso).iso2;
+  if (!currentIso || !Number.isFinite(Number(latitude)) || !Number.isFinite(Number(longitude))) {
+    return { supported: false };
+  }
+
+  const { data: rows, error } = await supabase.rpc("transport_available_operators_nearby", {
+    p_lat: Number(latitude),
+    p_lng: Number(longitude),
+    p_radius_km: radiusKm,
+    p_fleet_type: fleetType ? String(fleetType).toLowerCase() : null,
+    p_limit: limit,
+    p_include_unverified: Boolean(includeUnverified),
+    p_country: currentIso,
+    p_include_recent: true,
+  });
+  if (error) {
+    if (isMissingRpcError(error)) {
+      liveDiscoveryRpcMissing = true;
+      return { supported: false };
+    }
+    throw error;
+  }
+
+  const list = Array.isArray(rows) ? rows : [];
+  const ids = Array.from(new Set(list.map((row) => row?.fleet_id).filter(Boolean)));
+  const radius = Math.min(Math.max(Number(radiusKm) || LIVE_DEFAULT_RADIUS_KM, 1), 50);
+  if (!ids.length) return { supported: true, available: [], recent: [], radiusKm: radius };
+
+  const fleets = await hydrateFleetsById(ids, forceRefresh);
+  const { items: sameCountryFleets } = filterStrictSameCountry(fleets, currentIso);
+  const selection = { mode, fleetType, includeOffline: false };
+  const allowed = sameCountryFleets.filter((fleet) =>
+    matchesMode(fleet, mode) &&
+    isFleetAllowedForTransportMode(fleet, mode, currentIso) &&
+    passengerVisibilityFilters(fleet, selection, false),
+  );
+  const groups = groupLiveDiscovery(allowed, list, { includeUnverified });
+  rememberTransportFleets("live-discovery", [...groups.available, ...groups.recent]);
+  return { supported: true, ...groups, radiusKm: radius };
+}
+
+// Realtime nudge for "Available near you": calls back (with the change) when
+// an operator location row changes. transport_operator_locations is in the
+// supabase_realtime publication (20260817150000); RLS only delivers rows a
+// passenger may see. Returns the unsubscribe function.
+export function subscribeToOperatorLocationChanges(callback) {
+  let channel = null;
+  try {
+    channel = supabase
+      .channel(`urride-live-discovery-${Math.random().toString(36).slice(2)}`)
+      .on("postgres_changes", { event: "*", schema: "public", table: "transport_operator_locations" }, (payload) => {
+        try {
+          callback?.(payload);
+        } catch {
+          // A refresh nudge must never break the list.
+        }
+      })
+      .subscribe();
+  } catch {
+    channel = null;
+  }
+  return () => {
+    if (channel) supabase.removeChannel(channel);
+    channel = null;
+  };
 }
 
 // Book a Ride / Send Delivery lists: measured distance from the passenger to
