@@ -1298,6 +1298,11 @@ export async function markOperatorAlertRead(alertId) {
   if (error) throw new Error(error.message);
 }
 
+// A realtime change must not be answered from the 8-second dashboard cache.
+export function invalidateOperatorDashboardCache() {
+  invalidateCache("operator-dashboard");
+}
+
 export function subscribeOperatorTrips(fleetId, onChange) {
   if (!fleetId || typeof onChange !== "function") return () => {};
 
