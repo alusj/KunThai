@@ -6,5 +6,6 @@ import Capacitor
 class KunThaiBridgeViewController: CAPBridgeViewController {
     override open func capacitorDidLoad() {
         bridge?.registerPluginInstance(KunThaiAppleSignInPlugin())
+        bridge?.registerPluginInstance(KunThaiStoreKitPlugin())
     }
 }

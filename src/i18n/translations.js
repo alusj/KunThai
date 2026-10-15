@@ -7,6 +7,7 @@ import { KAI_LISTING_FIX } from "./kaiListingFix";
 import { ORDER_CAUTION } from "./orderCaution";
 import { REGISTRATION_SAVING } from "./registrationSaving";
 import { NATIVE_PUSH_FIX } from "./nativePushFix";
+import { APPLE_IAP } from "./appleIap";
 import { VOICE_NOTES } from "./voiceNotes";
 import { APP_LOADING } from "./appLoading";
 import { URMALL_SETTINGS } from "./urmallSettings";
@@ -59452,6 +59453,12 @@ for (const [locale, section] of Object.entries(REGISTRATION_SAVING)) {
 for (const [locale, section] of Object.entries(NATIVE_PUSH_FIX)) {
   if (TRANSLATIONS[locale]) {
     TRANSLATIONS[locale].nativePushFix = section;
+  }
+}
+
+for (const [locale, section] of Object.entries(APPLE_IAP)) {
+  if (TRANSLATIONS[locale]) {
+    TRANSLATIONS[locale].appleIap = section;
   }
 }
 

@@ -19,6 +19,7 @@
 		504EC3121FED79650016851F /* LaunchScreen.storyboard in Resources */ = {isa = PBXBuildFile; fileRef = 504EC3101FED79650016851F /* LaunchScreen.storyboard */; };
 		50B271D11FEDC1A000F3C39B /* public in Resources */ = {isa = PBXBuildFile; fileRef = 50B271D01FEDC1A000F3C39B /* public */; };
 		A1B2C3D40000000000000002 /* AppleSignInPlugin.swift in Sources */ = {isa = PBXBuildFile; fileRef = A1B2C3D40000000000000001 /* AppleSignInPlugin.swift */; };
+		A1B2C3D40000000000000031 /* StoreKitCreditsPlugin.swift in Sources */ = {isa = PBXBuildFile; fileRef = A1B2C3D40000000000000030 /* StoreKitCreditsPlugin.swift */; };
 		A1B2C3D40000000000000004 /* KunThaiBridgeViewController.swift in Sources */ = {isa = PBXBuildFile; fileRef = A1B2C3D40000000000000003 /* KunThaiBridgeViewController.swift */; };
 		A1B2C3D40000000000000011 /* SceneDelegate.swift in Sources */ = {isa = PBXBuildFile; fileRef = A1B2C3D40000000000000010 /* SceneDelegate.swift */; };
 /* End PBXBuildFile section */
@@ -38,6 +39,7 @@
 		50B271D01FEDC1A000F3C39B /* public */ = {isa = PBXFileReference; lastKnownFileType = folder; path = public; sourceTree = "<group>"; };
 		958DCC722DB07C7200EA8C5F /* debug.xcconfig */ = {isa = PBXFileReference; lastKnownFileType = text.xcconfig; name = debug.xcconfig; path = ../debug.xcconfig; sourceTree = SOURCE_ROOT; };
 		A1B2C3D40000000000000001 /* AppleSignInPlugin.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AppleSignInPlugin.swift; sourceTree = "<group>"; };
+		A1B2C3D40000000000000030 /* StoreKitCreditsPlugin.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = StoreKitCreditsPlugin.swift; sourceTree = "<group>"; };
 		A1B2C3D40000000000000003 /* KunThaiBridgeViewController.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = KunThaiBridgeViewController.swift; sourceTree = "<group>"; };
 		A1B2C3D40000000000000010 /* SceneDelegate.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SceneDelegate.swift; sourceTree = "<group>"; };
 		A1B2C3D40000000000000005 /* App.entitlements */ = {isa = PBXFileReference; lastKnownFileType = text.plist.entitlements; path = App.entitlements; sourceTree = "<group>"; };
@@ -81,6 +83,7 @@
 				A1B2C3D40000000000000010 /* SceneDelegate.swift */,
 				A1B2C3D40000000000000003 /* KunThaiBridgeViewController.swift */,
 				A1B2C3D40000000000000001 /* AppleSignInPlugin.swift */,
+				A1B2C3D40000000000000030 /* StoreKitCreditsPlugin.swift */,
 				A1B2C3D40000000000000005 /* App.entitlements */,
 				A1B2C3D40000000000000006 /* App-Release.entitlements */,
 				504EC30B1FED79650016851F /* Main.storyboard */,
@@ -184,6 +187,7 @@
 				A1B2C3D40000000000000011 /* SceneDelegate.swift in Sources */,
 				A1B2C3D40000000000000004 /* KunThaiBridgeViewController.swift in Sources */,
 				A1B2C3D40000000000000002 /* AppleSignInPlugin.swift in Sources */,
+				A1B2C3D40000000000000031 /* StoreKitCreditsPlugin.swift in Sources */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
