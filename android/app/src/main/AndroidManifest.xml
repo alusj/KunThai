@@ -1,5 +1,6 @@
 <?xml version="1.0" encoding="utf-8"?>
-<manifest xmlns:android="http://schemas.android.com/apk/res/android">
+<manifest xmlns:android="http://schemas.android.com/apk/res/android"
+    xmlns:tools="http://schemas.android.com/tools">
 
     <application
         android:allowBackup="true"
@@ -68,9 +69,19 @@
     <uses-permission android:name="android.permission.ACCESS_FINE_LOCATION" />
     <!-- Biometric unlock (Security > Biometric unlock): fingerprint / face via BiometricPrompt. -->
     <uses-permission android:name="android.permission.USE_BIOMETRIC" />
-    <!-- Android 13+: push alerts need the runtime notification permission. -->
+    <!-- Android 13+: push alerts need the runtime notification permission. It also
+         shows the "KunThai: you're online" notification while an UrRide operator shares
+         their location in the background. -->
     <uses-permission android:name="android.permission.POST_NOTIFICATIONS" />
+    <!-- UrRide operators who are online (Active) keep sharing their position while the
+         phone is locked, through the background-geolocation plugin's foreground service
+         (type "location", with a visible notification). No ACCESS_BACKGROUND_LOCATION:
+         the foreground service started while KunThai is open is enough. -->
+    <uses-permission android:name="android.permission.FOREGROUND_SERVICE" />
+    <uses-permission android:name="android.permission.FOREGROUND_SERVICE_LOCATION" />
     <!-- Optional hardware: devices without a camera or GPS can still install KunThai. -->
     <uses-feature android:name="android.hardware.camera" android:required="false" />
-    <uses-feature android:name="android.hardware.location.gps" android:required="false" />
+    <!-- tools:node="replace" keeps GPS optional: the background-geolocation plugin declares
+         it without android:required, which would otherwise merge as required. -->
+    <uses-feature android:name="android.hardware.location.gps" android:required="false" tools:node="replace" />
 </manifest>

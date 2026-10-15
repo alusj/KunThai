@@ -2,6 +2,9 @@
   "appId": "app.kunthai.mobile",
   "appName": "KunThai",
   "webDir": "dist",
+  "android": {
+    "useLegacyBridge": true
+  },
   "plugins": {
     "StatusBar": {
       "overlaysWebView": false
