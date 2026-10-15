@@ -1,18 +1,22 @@
 import { useEffect } from "react";
 
+import { presenceResumeAction } from "../services/operatorLocationPolicy";
 import {
   isOperatorLiveLocationRunning,
   operatorLocationPreviouslyGranted,
   startOperatorLiveLocation,
   stopOperatorLiveLocation,
 } from "../services/operatorLiveLocationService";
+import OperatorBackgroundLocationSheet from "./OperatorBackgroundLocationSheet";
 
 // A solo operator who is online keeps sharing their position while KunThai is
-// open on any screen, so passengers see how far away they are ("1.2 km
-// away") and the Area View marker stays fresh. The operator dashboard starts
-// and stops it with the Active switch; this host only resumes it when the app
-// opens (or returns to the foreground) with the operator already online, and
-// only if location was allowed before, so it never prompts.
+// open on any screen (and, in the native app, with the phone locked), so
+// passengers see how far away they are ("1.2 km away") and the Area View
+// marker stays fresh. The operator dashboard starts and stops it with the
+// Active switch; this host only resumes it when the app opens (or returns to
+// the foreground) with the operator already online, and only if location was
+// allowed before, so it never prompts. It also hosts the native "stay visible
+// with your phone locked" explanation sheet.
 export default function OperatorPresenceHost({ userId = "" }) {
   useEffect(() => {
     if (!userId) {
@@ -28,7 +32,13 @@ export default function OperatorPresenceHost({ userId = "" }) {
       try {
         const { getOperatorAccount } = await import("../services/transportOperatorAccountService");
         const account = await getOperatorAccount();
-        if (!alive || !account || account.activeStatus !== "active" || isOperatorLiveLocationRunning()) return;
+        if (!alive) return;
+        const action = presenceResumeAction({
+          running: isOperatorLiveLocationRunning(),
+          previouslyGranted: operatorLocationPreviouslyGranted(),
+          account,
+        });
+        if (action !== "start") return;
         await startOperatorLiveLocation({
           displayName: account.form?.name || "KunThai operator",
           fleetType: account.form?.fleetType || "",
@@ -48,10 +58,11 @@ export default function OperatorPresenceHost({ userId = "" }) {
       alive = false;
       window.clearTimeout(timer);
       document.removeEventListener("visibilitychange", onVisible);
-      // Signing out (or switching account) stops sharing the old account's position.
+      // Signing out (or switching account) stops sharing the old account's
+      // position, including the native background watcher.
       stopOperatorLiveLocation();
     };
   }, [userId]);
 
-  return null;
+  return <OperatorBackgroundLocationSheet />;
 }

@@ -64,6 +64,7 @@ import {
 } from "../services/transportOperatorAccountService";
 import { updateTransportCompanyOperatorAvailability } from "../services/transportCompanyService";
 import {
+  requestOperatorBackgroundConsent,
   startOperatorLiveLocation,
   stopOperatorLiveLocation,
   syncOperatorLiveBookedState,
@@ -181,6 +182,9 @@ export default function OperatorDashboardScreen({
   const initialViewAppliedRef = useRef(false);
   const availabilityInFlightRef = useRef(false);
   const availabilityOverrideRef = useRef(null);
+  // Set when the operator switches Active on themselves: the native app may
+  // then show the location permission prompts (never on launch).
+  const liveLocationPromptRef = useRef(false);
   const popDashboardView = operatorNavigation.pop;
   const pushDashboardView = operatorNavigation.push;
   const navigateBackDashboardView = useBrowserBack(
@@ -299,10 +303,13 @@ export default function OperatorDashboardScreen({
 
     let stop = null;
     let cancelled = false;
+    const interactive = liveLocationPromptRef.current;
+    liveLocationPromptRef.current = false;
     startOperatorLiveLocation({
       displayName: form.name || "KunThai operator",
       fleetType: form.fleetType,
       isBooked: () => activeTripRef.current,
+      interactive,
     }).then((cleanup) => {
       if (cancelled) cleanup?.();
       else stop = cleanup;
@@ -497,6 +504,12 @@ export default function OperatorDashboardScreen({
     const previousActive = isActive;
     const nextActive = !isActive;
     availabilityInFlightRef.current = true;
+    if (nextActive) {
+      // Native app: explain background location before the system prompt
+      // ("Not now" still goes online, without prompting). Web: no sheet.
+      const consent = await requestOperatorBackgroundConsent().catch(() => "skip");
+      liveLocationPromptRef.current = consent !== "later";
+    }
     availabilityOverrideRef.current = {
       active: nextActive,
       expiresAt: Date.now() + AVAILABILITY_REFRESH_GRACE_MS,
