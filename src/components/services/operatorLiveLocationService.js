@@ -1,17 +1,31 @@
+import { Capacitor } from "@capacitor/core";
+
 import supabase from "../../Backend/lib/supabaseClient";
+import { t } from "../../i18n";
+import {
+  HEARTBEAT_INTERVAL_MS,
+  chooseLocationEngine,
+  describeBackgroundAccess,
+  distanceInMeters,
+  needsBackgroundConsentSheet,
+  shouldPublishFix,
+} from "./operatorLocationPolicy";
+import { createNativeLocationSession } from "./operatorNativeLocationSession";
 
 // Publishes the signed-in operator's live position into
 // public.transport_operator_locations while they are online: on movement
-// (12 m+), every 30 s as a heartbeat, and straight away when the app returns
-// to the foreground (phones pause timers in the background). The Area View
-// reads this table (getLiveOperators + realtime) to show moving operators with
-// an AVAILABLE / BOOKED badge. RLS: operator_id must equal auth.uid().
-
-const MIN_PUBLISH_INTERVAL_MS = 6000;
-// Passengers count an operator as available for 2 minutes after a check-in
-// (transport_available_operators_nearby), so 30 s survives missed beats.
-const HEARTBEAT_INTERVAL_MS = 30_000;
-const MIN_MOVE_METERS = 12;
+// (12 m+, at most every 6 s otherwise), every 30 s as a heartbeat, and straight
+// away when the app returns to the foreground. The Area View and "Available
+// near you" read this table. RLS: operator_id must equal auth.uid().
+//
+// Two engines:
+// - web (browser, or an app build without the native plugin): the WebView's
+//   navigator.geolocation, exactly as before. Phones pause it in the background.
+// - native (iOS / Android app): @capgo/background-geolocation keeps reporting
+//   with the phone locked — on Android through a foreground service with a
+//   "KunThai: you're online" notification, on iOS through the "location"
+//   background mode. Permission is only requested when the operator switches
+//   Active on or taps "Share location" (`interactive`), never at launch.
 
 // Readable place for "Last seen near Lumley Beach Road" on passengers' cards.
 // Looked up on this phone (the app's own reverse geocoder), at most when the
@@ -34,7 +48,14 @@ let lastSuccessfulPublishAt = 0;
 const publishListeners = new Set();
 
 function publishStatusSnapshot() {
-  return { running: Boolean(activePublisher), lastPublishedAt: lastSuccessfulPublishAt };
+  return {
+    running: Boolean(activePublisher),
+    lastPublishedAt: lastSuccessfulPublishAt,
+    // "native" | "web" | "" (not running)
+    engine: activePublisher?.engine || "",
+    // Native only: "background" | "foregroundOnly" | "denied" | "prompt" | "unknown"
+    access: activePublisher?.engine === "native" ? activePublisher.access || "unknown" : "",
+  };
 }
 
 function notifyPublishListeners() {
@@ -63,13 +84,27 @@ export function subscribeOperatorPublishStatus(listener) {
 // Set once the operator's device has given a position, so KunThai can resume
 // publishing at launch without ever showing a surprise permission prompt.
 const LOCATION_GRANTED_KEY = "kunthai.operatorLocationGranted.v1";
+// Set once the "stay visible with your phone locked" sheet was answered.
+const BACKGROUND_EXPLAINED_KEY = "kunthai.operatorBackgroundLocationExplained.v1";
 
-export function operatorLocationPreviouslyGranted() {
+function readFlag(key) {
   try {
-    return localStorage.getItem(LOCATION_GRANTED_KEY) === "1";
+    return localStorage.getItem(key) === "1";
   } catch {
     return false;
   }
+}
+
+function writeFlag(key) {
+  try {
+    localStorage.setItem(key, "1");
+  } catch {
+    // Storage unavailable: the dashboard still publishes while open.
+  }
+}
+
+export function operatorLocationPreviouslyGranted() {
+  return readFlag(LOCATION_GRANTED_KEY);
 }
 
 export function isOperatorLiveLocationRunning() {
@@ -83,17 +118,6 @@ let lastPublisherUserId = "";
 
 export function readLastOperatorPoint() {
   return activePublisher?.lastPoint || lastOperatorPoint;
-}
-
-function distanceInMeters(a, b) {
-  if (!a || !b) return Infinity;
-  const earthRadius = 6371000;
-  const dLat = ((b.lat - a.lat) * Math.PI) / 180;
-  const dLng = ((b.lng - a.lng) * Math.PI) / 180;
-  const lat1 = (a.lat * Math.PI) / 180;
-  const lat2 = (b.lat * Math.PI) / 180;
-  const h = Math.sin(dLat / 2) ** 2 + Math.cos(lat1) * Math.cos(lat2) * Math.sin(dLng / 2) ** 2;
-  return 2 * earthRadius * Math.asin(Math.sqrt(h));
 }
 
 function normalizeAreaTransportType(fleetType = "") {
@@ -144,8 +168,15 @@ async function publishRow(publisher, position, { force = false } = {}) {
     : publisher.lastPoint;
   if (!point) return;
 
-  const moved = distanceInMeters(publisher.lastPublishedPoint, point);
-  if (!force && now - publisher.lastPublishedAt < MIN_PUBLISH_INTERVAL_MS && moved < MIN_MOVE_METERS) {
+  if (
+    !shouldPublishFix({
+      now,
+      lastPublishedAt: publisher.lastPublishedAt,
+      lastPublishedPoint: publisher.lastPublishedPoint,
+      point,
+      force,
+    })
+  ) {
     publisher.lastPoint = point;
     return;
   }
@@ -205,12 +236,169 @@ async function markOffline(userId) {
     .then(() => {}, () => {});
 }
 
-export async function startOperatorLiveLocation({ displayName = "", fleetType = "", isBooked = () => false } = {}) {
-  if (typeof navigator === "undefined" || !navigator.geolocation) return () => {};
+// ---------------------------------------------------------------------------
+// Native background plugin
+
+function isNativeApp() {
+  try {
+    return Capacitor.isNativePlatform();
+  } catch {
+    return false;
+  }
+}
+
+function nativePlatform() {
+  try {
+    return Capacitor.getPlatform();
+  } catch {
+    return "web";
+  }
+}
+
+// The plugin is only used when the native project was synced with it
+// (`npx cap sync`); an older app build keeps the web engine.
+let nativePluginPromise = null;
+function loadNativePlugin() {
+  if (!isNativeApp()) return Promise.resolve(null);
+  if (!nativePluginPromise) {
+    let available = false;
+    try {
+      available = Capacitor.isPluginAvailable("BackgroundGeolocation");
+    } catch {
+      available = false;
+    }
+    nativePluginPromise = available
+      ? import("@capgo/background-geolocation").then((module) => module.BackgroundGeolocation || null, () => null)
+      : Promise.resolve(null);
+  }
+  return nativePluginPromise;
+}
+
+async function readNativeAccess(plugin) {
+  try {
+    const permissions = await plugin.checkPermissions();
+    return describeBackgroundAccess({ platform: nativePlatform(), permissions });
+  } catch {
+    return "unknown";
+  }
+}
+
+function refreshNativeAccess(publisher) {
+  if (!publisher?.plugin) return;
+  readNativeAccess(publisher.plugin).then((access) => {
+    if (activePublisher !== publisher || publisher.access === access) return;
+    publisher.access = access;
+    notifyPublishListeners();
+  });
+}
+
+function startNativeWatch(publisher, plugin, { interactive = false } = {}) {
+  publisher.engine = "native";
+  publisher.plugin = plugin;
+  publisher.access = "unknown";
+
+  publisher.nativeSession = createNativeLocationSession({
+    plugin,
+    platform: nativePlatform(),
+    interactive,
+    notificationTitle: t("urrideBackgroundLocation.notificationTitle"),
+    notificationMessage: t("urrideBackgroundLocation.notificationMessage"),
+    onLocation: (position) => {
+      if (activePublisher !== publisher) return;
+      writeFlag(LOCATION_GRANTED_KEY);
+      publishRow(publisher, position);
+    },
+    // Denied, or location services off: the amber line offers Settings.
+    onPermissionError: () => refreshNativeAccess(publisher),
+    onStartFailed: () => {
+      // The plugin failed to start: share from the WebView instead, like before.
+      if (activePublisher !== publisher || publisher.engine !== "native") return;
+      if (typeof navigator === "undefined" || !navigator.geolocation) return;
+      publisher.nativeSession?.stopHeartbeat();
+      publisher.nativeSession = null;
+      publisher.engine = "web";
+      publisher.plugin = null;
+      startWebWatch(publisher);
+      notifyPublishListeners();
+    },
+    onSettled: () => {
+      if (publisher.engine === "native") refreshNativeAccess(publisher);
+    },
+    // Heartbeat with the last known fix. iOS keeps KunThai running while
+    // location updates are on; timers may still be slowed in the background
+    // (see docs/2026-10-15-urride-background-location.md).
+    lastPublishedAt: () => publisher.lastPublishedAt,
+    hasPoint: () => Boolean(publisher.lastPoint),
+    beat: () => {
+      if (activePublisher === publisher) publishRow(publisher, null, { force: true });
+    },
+  });
+
+  // Back in the foreground: check in now, and re-read the permission (the
+  // operator may be coming back from Settings).
+  publisher.onVisible = () => {
+    if (document.visibilityState !== "visible" || activePublisher !== publisher) return;
+    publishRow(publisher, null, { force: true });
+    if (publisher.engine === "native") refreshNativeAccess(publisher);
+  };
+  document.addEventListener("visibilitychange", publisher.onVisible);
+}
+
+// ---------------------------------------------------------------------------
+// Web engine (unchanged behaviour)
+
+function startWebWatch(publisher) {
+  publisher.watchId = navigator.geolocation.watchPosition(
+    (position) => {
+      writeFlag(LOCATION_GRANTED_KEY);
+      publishRow(publisher, position);
+    },
+    () => {
+      // Position denied or unavailable: the heartbeat keeps the last point fresh.
+    },
+    { enableHighAccuracy: true, maximumAge: 5000, timeout: 20000 },
+  );
+
+  if (publisher.heartbeatId != null) window.clearInterval(publisher.heartbeatId);
+  publisher.heartbeatId = window.setInterval(() => publishRow(publisher, null, { force: true }), HEARTBEAT_INTERVAL_MS);
+
+  // Back from the background: send a fresh fix now instead of waiting for
+  // the next movement or heartbeat, so passengers see an up-to-date position.
+  if (publisher.onVisible) document.removeEventListener("visibilitychange", publisher.onVisible);
+  publisher.onVisible = () => {
+    if (document.visibilityState !== "visible" || activePublisher !== publisher) return;
+    navigator.geolocation.getCurrentPosition(
+      (position) => publishRow(publisher, position, { force: true }),
+      () => publishRow(publisher, null, { force: true }),
+      { enableHighAccuracy: true, maximumAge: 15_000, timeout: 15_000 },
+    );
+  };
+  document.addEventListener("visibilitychange", publisher.onVisible);
+}
+
+// ---------------------------------------------------------------------------
+
+// `interactive`: true only for an explicit tap (Active switched on, "Share
+// location"); the native app may then show the system permission prompts.
+// Resuming at launch / on the dashboard never prompts. The web engine
+// behaves as before either way.
+export async function startOperatorLiveLocation({
+  displayName = "",
+  fleetType = "",
+  isBooked = () => false,
+  interactive = false,
+} = {}) {
+  const native = isNativeApp();
+  const hasWebGeolocation = typeof navigator !== "undefined" && Boolean(navigator.geolocation);
+  if (!native && !hasWebGeolocation) return () => {};
 
   const { data } = await supabase.auth.getUser();
   const userId = data?.user?.id;
   if (!userId) return () => {};
+
+  const plugin = native ? await loadNativePlugin() : null;
+  const engine = chooseLocationEngine({ isNative: native, pluginAvailable: Boolean(plugin), hasWebGeolocation });
+  if (engine === "none") return () => {};
 
   stopOperatorLiveLocation();
   if (lastPublisherUserId !== userId) lastSuccessfulPublishAt = 0;
@@ -221,6 +409,10 @@ export async function startOperatorLiveLocation({ displayName = "", fleetType = 
     displayName,
     transportType: normalizeAreaTransportType(fleetType),
     isBooked,
+    engine,
+    plugin: null,
+    nativeSession: null,
+    access: "",
     lastPoint: null,
     lastPublishedPoint: null,
     lastPublishedAt: 0,
@@ -234,36 +426,10 @@ export async function startOperatorLiveLocation({ displayName = "", fleetType = 
     onVisible: null,
   };
   activePublisher = publisher;
+
+  if (engine === "native") startNativeWatch(publisher, plugin, { interactive });
+  else startWebWatch(publisher);
   notifyPublishListeners();
-
-  publisher.watchId = navigator.geolocation.watchPosition(
-    (position) => {
-      try {
-        localStorage.setItem(LOCATION_GRANTED_KEY, "1");
-      } catch {
-        // Storage unavailable: the dashboard still publishes while open.
-      }
-      publishRow(publisher, position);
-    },
-    () => {
-      // Position denied or unavailable: the heartbeat keeps the last point fresh.
-    },
-    { enableHighAccuracy: true, maximumAge: 5000, timeout: 20000 },
-  );
-
-  publisher.heartbeatId = window.setInterval(() => publishRow(publisher, null, { force: true }), HEARTBEAT_INTERVAL_MS);
-
-  // Back from the background: send a fresh fix now instead of waiting for
-  // the next movement or heartbeat, so passengers see an up-to-date position.
-  publisher.onVisible = () => {
-    if (document.visibilityState !== "visible" || activePublisher !== publisher) return;
-    navigator.geolocation.getCurrentPosition(
-      (position) => publishRow(publisher, position, { force: true }),
-      () => publishRow(publisher, null, { force: true }),
-      { enableHighAccuracy: true, maximumAge: 15_000, timeout: 15_000 },
-    );
-  };
-  document.addEventListener("visibilitychange", publisher.onVisible);
 
   return () => {
     if (activePublisher === publisher) stopOperatorLiveLocation();
@@ -277,6 +443,7 @@ export function stopOperatorLiveLocation() {
   if (publisher.watchId != null) navigator.geolocation?.clearWatch?.(publisher.watchId);
   if (publisher.heartbeatId != null) window.clearInterval(publisher.heartbeatId);
   if (publisher.onVisible) document.removeEventListener("visibilitychange", publisher.onVisible);
+  publisher.nativeSession?.stop();
   markOffline(publisher.userId);
   notifyPublishListeners();
 }
@@ -285,4 +452,58 @@ export function stopOperatorLiveLocation() {
 export function syncOperatorLiveBookedState() {
   if (!activePublisher) return;
   publishRow(activePublisher, null, { force: true });
+}
+
+// ---------------------------------------------------------------------------
+// "Stay visible with your phone locked" explanation (native app only)
+
+let consentPresenter = null;
+
+// OperatorPresenceHost registers the sheet; `present({ platform, resolve })`
+// shows it and calls resolve("continue" | "later").
+export function registerOperatorBackgroundConsentPresenter(present) {
+  if (typeof present !== "function") return () => {};
+  consentPresenter = present;
+  return () => {
+    if (consentPresenter === present) consentPresenter = null;
+  };
+}
+
+// Called when the operator switches Active on. Resolves "skip" when nothing
+// needs explaining (web, access already enough, denied, plugin missing) —
+// start sharing as usual; "continue" — start with the permission prompts;
+// "later" — go online without prompting.
+export async function requestOperatorBackgroundConsent() {
+  try {
+    if (!isNativeApp() || !consentPresenter) return "skip";
+    const plugin = await loadNativePlugin();
+    if (!plugin) return "skip";
+    const permissions = await plugin.checkPermissions().catch(() => null);
+    const platform = nativePlatform();
+    const show = needsBackgroundConsentSheet({
+      isNative: true,
+      platform,
+      permissions,
+      explainedBefore: readFlag(BACKGROUND_EXPLAINED_KEY),
+    });
+    const present = consentPresenter;
+    if (!show || !present) return "skip";
+    const choice = await new Promise((resolve) => {
+      present({ platform, resolve });
+    });
+    writeFlag(BACKGROUND_EXPLAINED_KEY);
+    return choice === "later" ? "later" : "continue";
+  } catch {
+    return "skip";
+  }
+}
+
+// App settings for KunThai (location "Always", notifications).
+export async function openOperatorLocationSettings() {
+  try {
+    const plugin = await loadNativePlugin();
+    if (plugin) await plugin.openSettings();
+  } catch {
+    // Nothing else to open; the hint stays.
+  }
 }
