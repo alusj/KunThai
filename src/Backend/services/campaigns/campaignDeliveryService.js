@@ -4,6 +4,7 @@ import {
   campaignRowInbox,
   isCampaignDelivery,
 } from "./campaignModel";
+import { DASHBOARD_NOTIFICATION_WORKSPACES, notificationWorkspace } from "../surfaceNotificationModels";
 
 // Admin campaign deliveries in the KunThai app: reading a person's campaign
 // rows for a given inbox and recording what they did with them.
@@ -58,7 +59,15 @@ async function currentUserId(userId) {
   return data?.user?.id || "";
 }
 
-/** Campaign rows for one inbox (seller dashboard, operator dashboard, …). */
+// A dashboard's own system notice (e.g. a verification decision), not a campaign.
+function dashboardRowBelongsInInbox(row = {}, inbox, now = Date.now()) {
+  const workspace = DASHBOARD_NOTIFICATION_WORKSPACES[inbox];
+  if (!workspace || notificationWorkspace(row) !== workspace) return false;
+  if (row.status === "archived" || row.dismissed_at) return false;
+  return !row.expires_at || new Date(row.expires_at).getTime() > now;
+}
+
+/** Campaign rows (and the dashboard's own notices) for one inbox (seller dashboard, operator dashboard, …). */
 export async function fetchCampaignInbox(inbox, { userId = "", limit = 50 } = {}) {
   const id = await currentUserId(userId);
   const sectors = SECTOR_FOR_INBOX[inbox];
@@ -74,7 +83,9 @@ export async function fetchCampaignInbox(inbox, { userId = "", limit = 50 } = {}
   if (error && /platform_notifications|schema cache|does not exist/i.test(error.message || "")) return [];
   if (error) throw error;
   const now = Date.now();
-  return (data || []).filter((row) => isCampaignDelivery(row) && platformRowBelongsInInbox(row, inbox, now));
+  return (data || []).filter((row) => (isCampaignDelivery(row)
+    ? platformRowBelongsInInbox(row, inbox, now)
+    : dashboardRowBelongsInInbox(row, inbox, now)));
 }
 
 export async function subscribeToCampaignDeliveries(listener, { userId = "" } = {}) {

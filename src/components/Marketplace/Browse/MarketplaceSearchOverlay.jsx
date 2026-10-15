@@ -617,7 +617,7 @@ function StoreRow({ store, onClick }) {
       <span className="min-w-0 flex-1">
         <span className="flex min-w-0 items-center gap-1">
           <span className="truncate text-sm font-black text-gray-950">{store.name}</span>
-          {store.verificationStatus === "verified" ? <BadgeCheck size={14} className="flex-none text-sky-600" aria-hidden="true" /> : null}
+          {["verified", "verified_recommended", "recommended"].includes(store.verificationStatus) ? <BadgeCheck size={14} className="flex-none text-sky-600" aria-hidden="true" /> : null}
         </span>
         <span className="block truncate text-xs font-bold text-gray-500">{details.join(" · ") || t("urmall.search.store")}</span>
       </span>

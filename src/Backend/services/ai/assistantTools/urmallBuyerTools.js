@@ -183,7 +183,7 @@ async function findStores(args) {
         kind: store.businessKind,
         owner: store.ownerMatch ? store.ownerName : undefined,
         listings: store.listingCount ?? undefined,
-        verified: store.verificationStatus === "verified",
+        verified: ["verified", "verified_recommended", "recommended"].includes(store.verificationStatus),
       })),
     },
     entities: { stores },

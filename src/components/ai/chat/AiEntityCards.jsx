@@ -128,7 +128,7 @@ function StoreCard({ store, onOpened }) {
       <span className="min-w-0">
         <span className="flex items-center gap-1 truncate text-sm font-black text-slate-900">
           {store.name}
-          {store.verificationStatus === "verified" ? <Star size={11} className="flex-none fill-amber-400 text-amber-400" /> : null}
+          {["verified", "verified_recommended", "recommended"].includes(store.verificationStatus) ? <Star size={11} className="flex-none fill-amber-400 text-amber-400" /> : null}
         </span>
         <span className="block truncate text-[11px] font-semibold text-slate-500">{[store.city, store.country].filter(Boolean).join(", ")}</span>
       </span>

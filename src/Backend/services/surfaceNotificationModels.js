@@ -16,8 +16,23 @@ export function isCompanyWorkspaceNotification(item = {}) {
   return String(item.workspace || "").trim().toLowerCase() === COMPANY_NOTIFICATION_WORKSPACE;
 }
 
+// Seller and operator dashboard rows (e.g. verification decisions). They show
+// in that dashboard's notifications, never in the buyer or passenger bell.
+export const DASHBOARD_NOTIFICATION_WORKSPACES = Object.freeze({
+  "urmall.seller": "marketplace_seller",
+  "urride.operator": "transport_operator",
+});
+
+export function notificationWorkspace(item = {}) {
+  return String(item.workspace || "").trim().toLowerCase();
+}
+
+export function isDashboardWorkspaceNotification(item = {}) {
+  return Object.values(DASHBOARD_NOTIFICATION_WORKSPACES).includes(notificationWorkspace(item));
+}
+
 export function notificationBelongsToSurface(item, surface) {
-  if (isCompanyWorkspaceNotification(item)) return false;
+  if (isCompanyWorkspaceNotification(item) || isDashboardWorkspaceNotification(item)) return false;
   return Boolean(SURFACE_SECTORS[surface]?.has(normalizedSector(item)));
 }
 

@@ -111,7 +111,7 @@ export function productFactsForAi(product, { buyer = null, detail = false } = {}
     negotiable: Boolean(product.allowNegotiation),
     city: product.seller?.city || clip(product.location, 60) || undefined,
     seller: clip(product.seller?.name, 80) || undefined,
-    sellerVerified: ["verified", "approved"].includes(String(product.seller?.verificationStatus || "").toLowerCase()),
+    sellerVerified: ["verified", "approved", "verified_recommended", "recommended"].includes(String(product.seller?.verificationStatus || "").toLowerCase()),
     ...(Number(product.reviewCount) > 0 ? { rating: Number(product.rating), reviewCount: Number(product.reviewCount) } : {}),
     ...(distanceTo(buyer, product.seller?.latitude, product.seller?.longitude) !== null
       ? { distanceKm: distanceTo(buyer, product.seller?.latitude, product.seller?.longitude) }
@@ -219,7 +219,7 @@ export function verticalDetailFactsForAi(product, { buyer = null } = {}) {
     name: clip(product.name, 120),
     priceLabel,
     seller: clip(product.seller?.name, 80) || undefined,
-    sellerVerified: ["verified", "approved"].includes(String(product.seller?.verificationStatus || "").toLowerCase()),
+    sellerVerified: ["verified", "approved", "verified_recommended", "recommended"].includes(String(product.seller?.verificationStatus || "").toLowerCase()),
     city: product.seller?.city || undefined,
     country: product.seller?.country || product.country || undefined,
     ...(Number(product.reviewCount) > 0 ? { rating: Number(product.rating), reviewCount: Number(product.reviewCount) } : {}),

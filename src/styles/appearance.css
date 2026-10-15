@@ -120,11 +120,14 @@ html.dark [class~="bg-gray-50/80"],
 html.dark [class~="bg-gray-50/70"],
 html.dark [class~="bg-gray-50/60"],
 html.dark [class~="bg-gray-50/50"],
-html.dark .bg-zinc-50 {
+html.dark .bg-zinc-50,
+html.dark [class~="bg-zinc-50/60"] {
   background-color: var(--kt-app-bg) !important;
 }
 
 html.dark .bg-slate-100,
+html.dark [class~="bg-slate-100/60"],
+html.dark [class~="bg-slate-100/95"],
 html.dark [class~="bg-slate-100/80"],
 html.dark [class~="bg-slate-100/70"],
 html.dark .bg-gray-100,
@@ -270,6 +273,7 @@ html.dark .ring-gray-200 {
 
 /* Soft semantic surfaces preserve meaning without creating bright panels. */
 html.dark .bg-sky-50,
+html.dark [class~="bg-sky-50/50"],
 html.dark [class~="bg-sky-50/90"],
 html.dark [class~="bg-sky-50/80"],
 html.dark [class~="bg-sky-50/70"],
@@ -278,7 +282,8 @@ html.dark [class~="bg-sky-50/40"] {
   background-color: rgb(14 165 233 / 0.14) !important;
 }
 
-html.dark .bg-sky-100 { background-color: rgb(14 165 233 / 0.22) !important; }
+html.dark .bg-sky-100,
+html.dark [class~="bg-sky-100/80"] { background-color: rgb(14 165 233 / 0.22) !important; }
 html.dark .border-sky-100,
 html.dark .border-sky-200 { border-color: rgb(56 189 248 / 0.3) !important; }
 html.dark .text-sky-700,
@@ -287,6 +292,8 @@ html.dark .text-sky-900,
 html.dark .text-sky-950 { color: #7dd3fc !important; }
 
 html.dark .bg-blue-50,
+html.dark [class~="bg-blue-50/40"],
+html.dark [class~="bg-blue-50/50"],
 html.dark [class~="bg-blue-50/90"],
 html.dark [class~="bg-blue-50/80"],
 html.dark [class~="bg-blue-50/70"],
@@ -301,12 +308,16 @@ html.dark .text-blue-900,
 html.dark .text-blue-950 { color: #93c5fd !important; }
 
 html.dark .bg-emerald-50,
+html.dark [class~="bg-emerald-50/55"],
+html.dark [class~="bg-emerald-50/50"],
 html.dark [class~="bg-emerald-50/90"],
 html.dark [class~="bg-emerald-50/80"],
 html.dark [class~="bg-emerald-50/70"],
 html.dark [class~="bg-emerald-50/60"],
 html.dark [class~="bg-emerald-50/40"] { background-color: rgb(16 185 129 / 0.14) !important; }
-html.dark .bg-emerald-100 { background-color: rgb(16 185 129 / 0.22) !important; }
+html.dark .bg-emerald-100,
+html.dark [class~="bg-emerald-100/60"],
+html.dark [class~="bg-emerald-100/80"] { background-color: rgb(16 185 129 / 0.22) !important; }
 html.dark .border-emerald-50,
 html.dark .border-emerald-100,
 html.dark .border-emerald-200 { border-color: rgb(52 211 153 / 0.3) !important; }
@@ -331,6 +342,8 @@ html.dark .text-green-900,
 html.dark .text-green-950 { color: #86efac !important; }
 
 html.dark .bg-amber-50,
+html.dark [class~="bg-amber-50/45"],
+html.dark [class~="bg-amber-50/50"],
 html.dark [class~="bg-amber-50/90"],
 html.dark [class~="bg-amber-50/80"],
 html.dark [class~="bg-amber-50/70"],
@@ -373,6 +386,7 @@ html.dark .text-rose-900,
 html.dark .text-rose-950 { color: #fda4af !important; }
 
 html.dark .bg-violet-50,
+html.dark [class~="bg-violet-50/80"],
 html.dark [class~="bg-violet-50/70"],
 html.dark .bg-purple-50,
 html.dark [class~="bg-purple-50/70"],

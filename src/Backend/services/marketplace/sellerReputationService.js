@@ -40,7 +40,7 @@ export async function fetchSellerReputation() {
   const averageRating = ratings.length ? ratings.reduce((sum, value) => sum + value, 0) / ratings.length : 0;
   const totalOrders = ordersResult.error ? 0 : Number(ordersResult.count || 0);
   const cancelledOrders = cancelledResult.error ? 0 : Number(cancelledResult.count || 0);
-  const verified = business.verificationStatus === "verified";
+  const verified = ["verified", "verified_recommended", "recommended"].includes(business.verificationStatus);
 
   return {
     metrics: {

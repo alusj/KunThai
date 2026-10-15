@@ -39,7 +39,8 @@ function RootApplication() {
 
   if (isAdminPath) {
     return (
-      <Suspense fallback={<div className="flex min-h-screen items-center justify-center bg-zinc-100 text-sm font-bold text-zinc-600">{i18nText("ui.literals.kb23c1e4f1dc3")}</div>}>
+      // No admin wording while loading: non-admins are sent back to the app.
+      <Suspense fallback={<div className="min-h-screen bg-white" aria-busy="true" />}>
         <AdminApp />
       </Suspense>
     );

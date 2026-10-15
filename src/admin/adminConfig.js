@@ -105,6 +105,7 @@ export const CASE_STATUSES = [
 
 export const CASE_DECISIONS = [
   { key: "approve", label: "Approve" },
+  { key: "approve_recommend", label: "Approve & recommend" },
   { key: "reject", label: "Reject" },
   { key: "dismiss", label: "Dismiss" },
   { key: "remove", label: "Remove content" },
