@@ -2,6 +2,7 @@ import { Suspense, useCallback, useEffect, useLayoutEffect, useMemo, useRef, use
 import { HiOutlineCamera, HiOutlineLightBulb, HiOutlineXMark } from "react-icons/hi2";
 
 import { useAuth } from "./Backend/hooks/useAuth";
+import { isLikelySignedIn } from "./Backend/services/startupSession";
 import { useCountryChoiceExpiry } from "./Backend/hooks/useCountryChoiceExpiry";
 import { useSessionSizeGuard } from "./Backend/hooks/useSessionSizeGuard";
 import { useOnboarding } from "./Backend/hooks/useOnboarding";
@@ -223,6 +224,11 @@ function TwoFactorPassed({ onPassed }) {
 export default function App() {
   useUiLocale();
   const { user, loading } = useAuth();
+  // Read once at startup, before auth restores: is there a saved sign-in?
+  const [startupLikelySignedIn] = useState(() => isLikelySignedIn({
+    storage: typeof window !== "undefined" ? window.localStorage : null,
+    location: typeof window !== "undefined" ? window.location : null,
+  }));
   const {
     profile: onboardingProfile,
     loading: onboardingLoading,
@@ -697,6 +703,14 @@ export default function App() {
   // React owns the only startup loader. This appears immediately while auth is
   // restored, without a temporary HTML skeleton or a boot/login logo first.
   if (loading) {
+    // No saved sign-in on this device: show Login straight away instead of
+    // flashing the signed-in Explore skeleton for a frame first. Same element
+    // as the signed-out branch below, so Login keeps its state when auth
+    // finishes.
+    if (!startupLikelySignedIn) {
+      loginShownRef.current = true;
+      return withStartupIntro(<Login />);
+    }
     return withStartupIntro(<AppLoading page={page} marketplaceSub={marketplaceNav.sub || ""} />);
   }
 
