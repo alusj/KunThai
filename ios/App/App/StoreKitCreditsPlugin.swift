@@ -1,4 +1,5 @@
 import Foundation
+import UIKit
 import Capacitor
 import StoreKit
 
@@ -101,7 +102,16 @@ public class KunThaiStoreKitPlugin: CAPPlugin, CAPBridgedPlugin {
                     call.reject("This credit pack is not available.", "product_unavailable")
                     return
                 }
-                let result = try await product.purchase(options: [.appAccountToken(accountToken)])
+                let options: Set<Product.PurchaseOption> = [.appAccountToken(accountToken)]
+                // iOS 17+: the App Store sheet must be given the window scene to
+                // appear in; without it a scene-based app may never show it and
+                // the purchase call waits forever.
+                let result: Product.PurchaseResult
+                if #available(iOS 17.0, *), let scene = await self.purchaseScene() {
+                    result = try await product.purchase(confirmIn: scene, options: options)
+                } else {
+                    result = try await product.purchase(options: options)
+                }
                 switch result {
                 case .success(let verification):
                     guard let payload = Self.payload(for: verification) else {
@@ -124,6 +134,14 @@ public class KunThaiStoreKitPlugin: CAPPlugin, CAPBridgedPlugin {
                 call.reject("The purchase could not be completed.", "purchase_failed")
             }
         }
+    }
+
+    // KunThai's window scene (the bridge's own window, else the active scene).
+    @MainActor
+    private func purchaseScene() -> UIWindowScene? {
+        if let scene = bridge?.viewController?.view.window?.windowScene { return scene }
+        let scenes = UIApplication.shared.connectedScenes.compactMap { $0 as? UIWindowScene }
+        return scenes.first { $0.activationState == .foregroundActive } ?? scenes.first
     }
 
     // Called only after KunThai's server has added the credits.
