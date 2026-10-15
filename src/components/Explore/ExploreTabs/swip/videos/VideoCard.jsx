@@ -82,6 +82,9 @@ export default function VideoCard({
   onFullscreenToggle,
   onViewProfile,
   profile,
+  // "auto" buffers the clip before it is reached (the next videos in Swip);
+  // "metadata" only reads its size and length.
+  preloadMode = "metadata",
 }) {
   const { t, locale } = useI18n();
   const [commentOpen, setCommentOpen] = useState(false);
@@ -92,6 +95,9 @@ export default function VideoCard({
   const [message, setMessage] = useState("");
   const [needsSoundUnlock, setNeedsSoundUnlock] = useState(false);
   const [videoLoading, setVideoLoading] = useState(true);
+  // The spinner waits a moment: a clip that starts quickly (already buffered,
+  // or a short network hiccup) never flashes it.
+  const [showSpinner, setShowSpinner] = useState(false);
   const [actionMenuOpen, setActionMenuOpen] = useState(false);
   const [actionMenuClosing, setActionMenuClosing] = useState(false);
   const [analyticsOpen, setAnalyticsOpen] = useState(false);
@@ -236,7 +242,10 @@ export default function VideoCard({
     }));
   }, [clip.start]);
 
-  const requestActivePlayback = useCallback(async ({ sound } = {}) => {
+  // userGesture: the person tapped this video. Every other call (opening
+  // Swip, swiping to the next clip, the profile viewer) is automatic and
+  // follows Settings > Swip videos: "Autoplay videos" and "Default sound".
+  const requestActivePlayback = useCallback(async ({ sound, userGesture = false } = {}) => {
     if (!activeRef.current) return;
 
     const video = videoRef.current;
@@ -247,41 +256,38 @@ export default function VideoCard({
     }
 
     const videoSettings = readExploreSettings().video;
+    const wantSound = userGesture ? sound ?? true : !videoSettings.defaultMuted && sound !== false;
 
-    // Explicit sound (a user gesture) always wins; the automatic activation
-    // path honors the "default sound" preference from Settings.
-    const wantSound = sound ?? !videoSettings.defaultMuted;
-
-    if (!videoSettings.autoplay && sound === undefined) {
-      // Autoplay is off in Settings: position the clip and wait for a tap.
-      video.muted = Boolean(videoSettings.defaultMuted);
-      setNeedsSoundUnlock(true);
+    if (!videoSettings.autoplay && !userGesture) {
+      // Autoplay is off: position the clip and wait for a tap on it.
+      video.autoplay = false;
+      video.pause();
+      video.muted = !wantSound;
+      setNeedsSoundUnlock(false);
       return;
     }
 
-    // First choice: autoplay with sound. Some iOS/Safari builds block this
-    // until a user gesture, so the fallback keeps the video moving silently
-    // without showing a large "Tap for sound" overlay.
-    video.muted = false;
-    video.volume = wantSound ? 1 : 0;
+    // iOS ignores video.volume, so sound off is always `muted`. With sound
+    // wanted, some iOS/Safari builds block unmuted playback until a gesture;
+    // the fallback keeps the clip moving silently and the next tap adds sound.
+    video.volume = 1;
+    video.muted = !wantSound;
     video.autoplay = true;
 
     try {
       await playExploreMedia(video, { muteVideos: false });
-      video.muted = false;
-      video.volume = wantSound ? 1 : 0;
+      video.muted = !wantSound;
       setNeedsSoundUnlock(false);
-      logSwipPlayback("active video playing with sound", { post_id: post.id });
+      logSwipPlayback(wantSound ? "active video playing with sound" : "active video playing muted", { post_id: post.id });
     } catch (error) {
       logSwipPlayback("unmuted autoplay deferred by browser", { post_id: post.id, error });
 
       try {
         video.muted = true;
-        video.volume = 0;
         await video.play();
-        setNeedsSoundUnlock(true);
+        setNeedsSoundUnlock(wantSound);
       } catch (fallbackError) {
-        setNeedsSoundUnlock(true);
+        setNeedsSoundUnlock(wantSound);
         logSwipPlayback("muted autoplay deferred by browser", { post_id: post.id, error: fallbackError });
       }
     }
@@ -344,7 +350,8 @@ export default function VideoCard({
   if (!active) return undefined;
 
   function handleSwipActivePlay(event) {
-    requestActivePlayback({ sound: event.detail?.sound !== false });
+    // Automatic (open / scroll): Settings decide; `sound: false` can only mute.
+    requestActivePlayback({ sound: event.detail?.sound === false ? false : undefined });
   }
 
   window.addEventListener("swip-active-play", handleSwipActivePlay);
@@ -578,7 +585,7 @@ export default function VideoCard({
         video.volume = 1;
         setNeedsSoundUnlock(false);
       }
-      requestActivePlayback({ sound: true });
+      requestActivePlayback({ sound: true, userGesture: true });
     } else {
       video.pause();
     }
@@ -663,6 +670,22 @@ export default function VideoCard({
   }, [active]);
 
   useEffect(() => {
+    if (!videoLoading) {
+      setShowSpinner(false);
+      return undefined;
+    }
+    const timer = window.setTimeout(() => setShowSpinner(true), 450);
+    return () => window.clearTimeout(timer);
+  }, [videoLoading]);
+
+  // A clip buffered ahead of time may already be playable when this card
+  // mounts or becomes active.
+  useEffect(() => {
+    const video = videoRef.current;
+    if (video && video.readyState >= 3) setVideoLoading(false);
+  }, [active]);
+
+  useEffect(() => {
     const video = videoRef.current;
     if (!video) return undefined;
 
@@ -671,7 +694,8 @@ export default function VideoCard({
         if (entry.isIntersecting && active) {
           activeRef.current = true;
           startPlaybackSignals();
-          video.currentTime = clip.start;
+          // Seeking throws away buffered data; only rewind when needed.
+          if (video.ended || Math.abs(video.currentTime - clip.start) > 0.25) video.currentTime = clip.start;
           requestActivePlayback();
           return;
         }
@@ -732,12 +756,12 @@ export default function VideoCard({
       <video
         ref={videoRef}
         src={post.video_url}
-        autoPlay={active}
+        autoPlay={active && readExploreSettings().video.autoplay}
         data-explore-active={active ? "true" : "false"}
         controls={false}
         muted={false}
         playsInline
-        preload={readExploreSettings().video.reduceData ? "none" : "metadata"}
+        preload={readExploreSettings().video.reduceData ? "none" : preloadMode}
         loop={false}
         onError={() => {
           setVideoLoading(false);
@@ -770,7 +794,7 @@ export default function VideoCard({
       ) : null}
       <div className={`absolute inset-0 ${fullscreen ? "bg-transparent" : "bg-slate-950/10"}`} />
 
-      {videoLoading && !mediaError ? (
+      {videoLoading && showSpinner && !mediaError ? (
         <div className="pointer-events-none absolute inset-0 z-[2] flex items-center justify-center">
           <div className="flex h-14 w-14 items-center justify-center rounded-full bg-black/35">
             <span className="h-7 w-7 animate-spin rounded-full border-2 border-white/35 border-t-white" />

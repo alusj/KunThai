@@ -43,6 +43,7 @@ const ACTIONS = {
   "urmall.listing_quality": { labelKey: "ai.seller.checkQuality", readOnly: true },
   "urmall.customer_reply": { labelKey: "ai.seller.draftReply", insertKey: "ai.seller.useReply" },
   "urmall.conversation_summary": { labelKey: "ai.seller.summarizeConversation", readOnly: true },
+  "urmall.buyer_reply": { labelKey: "ai.seller.draftMessage", insertKey: "ai.seller.useMessage" },
   "urmall.seller_review_insights": { labelKey: "ai.seller.reviewInsights", readOnly: true },
   "urmall.marketing_copy": { labelKey: "ai.seller.marketingCopy" },
 

@@ -20,6 +20,7 @@ import {
 } from "lucide-react";
 
 import { t } from "../../i18n";
+import { peekInitialExploreTab } from "../../Backend/hooks/useExploreNavigation";
 import PremiumHeader from "./PremiumHeader";
 import { t as i18nText } from "../../i18n/index";
 import { uiText as translateUi, useI18n as useUiLocale } from "../../i18n/index.js";
@@ -149,22 +150,22 @@ function FeedCardSkeleton({ mediaHeight = "h-44" }) {
   );
 }
 
-function ExploreTabsShell() {
+function ExploreTabsShell({ activeTab = "UrFeed" }) {
   useUiLocale();
   const tabs = [
-    { label: "UrFeed", icon: Sparkles },
-    { label: "Swip", icon: Video },
-    { label: t("nav.connections"), icon: Users },
+    { id: "UrFeed", label: "UrFeed", icon: Sparkles },
+    { id: "Swip", label: "Swip", icon: Video },
+    { id: "Connections", label: t("nav.connections"), icon: Users },
   ];
 
   return (
     <div className="border-y border-white/70 bg-white/[0.52] px-3 py-2 shadow-sm backdrop-blur-2xl dark:border-slate-800/80 dark:bg-slate-950/70" data-static-shell="explore-tabs">
       <div className="grid grid-cols-3 gap-1 rounded-[24px] border border-white/80 bg-white/55 p-1 ring-1 ring-slate-950/5 dark:border-slate-700/60 dark:bg-slate-900/70">
-        {tabs.map(({ icon: Icon, label }, index) => (
+        {tabs.map(({ id, icon: Icon, label }) => (
           <span
-            key={label}
+            key={id}
             className={`inline-flex min-h-10 items-center justify-center gap-1 rounded-[18px] px-1.5 text-xs font-black ${
-              index === 0 ? "bg-slate-950/90 text-white dark:bg-white dark:text-slate-950" : "text-slate-600 dark:text-slate-300"
+              id === activeTab ? "bg-slate-950/90 text-white dark:bg-white dark:text-slate-950" : "text-slate-600 dark:text-slate-300"
             }`}
           >
             <Icon size={15} strokeWidth={2.25} />
@@ -196,12 +197,38 @@ function ExploreComposerShell() {
   );
 }
 
+// Swip has its own dark loader; the startup screen matches it instead of
+// drawing UrFeed's post cards.
+function SwipStartupShell() {
+  return (
+    <main className="relative h-[calc(100dvh-8.5rem)] overflow-hidden bg-slate-950" data-loading-region="explore-swip">
+      <div className="absolute inset-0 animate-pulse bg-gradient-to-b from-slate-900 via-slate-800 to-slate-950" />
+      <div className="absolute bottom-28 left-4 right-24 space-y-3">
+        <div className="h-12 w-12 animate-pulse rounded-full bg-white/20" />
+        <div className="h-5 w-48 animate-pulse rounded-full bg-white/20" />
+        <div className="h-4 w-32 animate-pulse rounded-full bg-white/15" />
+      </div>
+      <div className="absolute bottom-40 right-3 h-56 w-14 animate-pulse rounded-full bg-white/15" />
+    </main>
+  );
+}
+
 function ExploreSkeleton() {
   useUiLocale();
+  const activeTab = peekInitialExploreTab();
+  if (activeTab === "Swip") {
+    return (
+      <>
+        <ExploreHeaderShell />
+        <ExploreTabsShell activeTab="Swip" />
+        <SwipStartupShell />
+      </>
+    );
+  }
   return (
     <>
       <ExploreHeaderShell />
-      <ExploreTabsShell />
+      <ExploreTabsShell activeTab={activeTab} />
       <main className="pb-28 pt-1">
         <ExploreComposerShell />
         <div className="mt-4 space-y-4 px-4 sm:px-5" data-loading-region="explore-posts">
@@ -319,7 +346,17 @@ export default function AppStartupSkeleton({ page = "explore", marketplaceSub = 
   // UrRide intentionally has no startup representation. Showing even a static
   // imitation of its actions created a visible pre-screen before the real
   // dashboard mounted, so transport now waits silently for the actual screen.
-  if (page === "transport") return null;
+  // A long wait (very poor or no network) still gets the notice and its
+  // Refresh button, so UrRide never sits on an empty screen.
+  if (page === "transport") {
+    if (!notice) return null;
+    return (
+      <div className="kt-mobile-viewport relative overflow-x-hidden bg-slate-100 text-slate-950 dark:bg-slate-950 dark:text-white" aria-busy="true">
+        <div className="relative z-40 px-4 pt-[max(1rem,env(safe-area-inset-top))]">{notice}</div>
+        <BottomShell activePage={page} />
+      </div>
+    );
+  }
 
   return (
     <div

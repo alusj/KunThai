@@ -6,11 +6,14 @@ import { fileURLToPath } from "node:url";
 
 import { build } from "esbuild";
 
-// UrMall plans from 2026-10-10: Free 5 (and meals on up to 5 weekdays),
-// Pro 30 at the same price, Premium unlimited at 100 / 1000 credits.
+// UrMall plans from 2026-10-10: Free 5, Pro 30 at the same price, Premium
+// unlimited at 100 / 1000 credits. From 2026-10-13 Free restaurants serve
+// their (at most 5) meals on any day, 5 listings stay visible after a paid
+// plan expires, and UrRide Free has 3 operators and 3 vehicles.
 
 const WEB = fileURLToPath(new URL("../../../", import.meta.url));
 const migration = readFileSync(new URL("../../../supabase/migrations/20261010100000_urmall_plan_limits_2026.sql", import.meta.url), "utf8");
+const freeMigration = readFileSync(new URL("../../../supabase/migrations/20261013100000_urmall_free_meals_retention_five_urride_free_three.sql", import.meta.url), "utf8");
 
 // Bundle the browser modules with the Supabase client stubbed out.
 async function load(entry) {
@@ -35,25 +38,30 @@ async function load(entry) {
 const service = await load('export * from "./src/Backend/services/businessSubscriptionService.js";');
 const features = await load('export { planFeatureKey, translatePlanFeature } from "./src/components/shared/planFeatureText.js";');
 
-test("the fallback catalogue matches the new UrMall plans and leaves UrRide alone", () => {
+test("the fallback catalogue matches the UrMall and UrRide plans", () => {
   const [free, pro, premium] = service.getFallbackBusinessPlans("urmall");
   assert.deepEqual([free.productLimit, pro.productLimit, premium.productLimit], [5, 30, null]);
-  assert.deepEqual([free.mealDayLimit, pro.mealDayLimit, premium.mealDayLimit], [5, null, null]);
+  assert.deepEqual([free.mealDayLimit, pro.mealDayLimit, premium.mealDayLimit], [null, null, null]);
   assert.deepEqual([pro.creditCost, pro.yearlyCreditCost], [30, 300]);
   assert.deepEqual([premium.creditCost, premium.yearlyCreditCost], [100, 1000]);
   assert.deepEqual([free.adminLimit, pro.adminLimit, premium.adminLimit], [0, 1, 5]);
   const urride = service.getFallbackBusinessPlans("urride");
-  assert.deepEqual(urride.map((plan) => [plan.creditCost, plan.operatorLimit, plan.vehicleLimit]), [[0, 5, 5], [40, 15, 15], [100, 50, 50]]);
+  assert.deepEqual(urride.map((plan) => [plan.creditCost, plan.operatorLimit, plan.vehicleLimit]), [[0, 3, 3], [40, 15, 15], [100, 50, 50]]);
 });
 
 test("the fallback catalogue and the migration describe the plans with the same words", () => {
   for (const plan of service.getFallbackBusinessPlans("urmall")) {
-    assert.ok(migration.includes(JSON.stringify(plan.features)), `${plan.planCode} features match the database`);
+    const latest = plan.planCode === "free" ? freeMigration : migration;
+    assert.ok(latest.includes(JSON.stringify(plan.features)), `${plan.planCode} features match the database`);
   }
+  const urrideFree = service.getFallbackBusinessPlans("urride")[0];
+  assert.ok(freeMigration.includes(JSON.stringify(urrideFree.features)), "UrRide Free features match the database");
   assert.match(migration, /set product_limit = 5,\s+meal_day_limit = 5,/);
   assert.match(migration, /set product_limit = 30,\s+meal_day_limit = null,/);
   assert.match(migration, /credit_cost = 100,\s+yearly_credit_cost = 1000,/);
   assert.doesNotMatch(migration, /where surface = 'urride'/);
+  assert.match(freeMigration, /set meal_day_limit = null,[\s\S]+?where surface = 'urmall' and plan_code = 'free'/);
+  assert.match(freeMigration, /set operator_limit = 3,\s+vehicle_limit = 3,[\s\S]+?where surface = 'urride' and plan_code = 'free'/);
 });
 
 test("the restaurant meal-day limit follows the plan in force", () => {
@@ -101,4 +109,13 @@ test("every UrMall plan line shown to sellers has a translation", () => {
       assert.equal(features.translatePlanFeature(feature), feature, `English shows "${feature}"`);
     }
   }
+});
+
+test("five listings stay visible after a paid UrMall plan expires", async () => {
+  const retention = await load('export { URMALL_RETAINED_LISTINGS } from "./src/Backend/services/marketplace/urmallExpiryRetentionService.js";');
+  assert.equal(retention.URMALL_RETAINED_LISTINGS, 5);
+  assert.match(freeMigration, /limit 5\)\s+where id = v_case\.id/, "a new retention case protects the newest five");
+  assert.match(freeMigration, /least\(5, count\(\*\)::integer\) into v_required/, "owners choose exactly five");
+  assert.match(freeMigration, /cardinality\(v_ids\) >= 5 then return new/, "free slots fill up to five");
+  assert.doesNotMatch(freeMigration, /limit 10\b|least\(10|>= 10 then|\bten selected\b/);
 });

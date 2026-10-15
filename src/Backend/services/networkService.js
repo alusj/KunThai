@@ -47,6 +47,16 @@ export function isOnline() {
 // talks to our own origin (no Supabase credentials, no .env values involved).
 // Resolves `true` when the request completes at all — even an HTTP error means
 // the network round-trip worked, which is what we care about here.
+// Where the probe goes. In the iOS / Android app the page itself is served
+// from the device, so a same-origin probe always "succeeds"; the Supabase
+// client points the probe at the API host instead (no credentials are sent;
+// any HTTP answer, even an error, proves the round trip worked).
+let probeBaseUrl = "";
+
+export function setConnectivityProbeUrl(url = "") {
+  probeBaseUrl = String(url || "").replace(/\/+$/, "");
+}
+
 export async function probeConnectivity({ timeoutMs = 3500 } = {}) {
   if (typeof navigator !== "undefined" && navigator.onLine === false) {
     return false;
@@ -60,12 +70,18 @@ export async function probeConnectivity({ timeoutMs = 3500 } = {}) {
   const timer = setTimeout(() => controller.abort(), timeoutMs);
   // Cache-busting so a service worker / HTTP cache can't answer for us, but the
   // path itself carries no identifying data.
-  const url = `${window.location.origin}/favicon.ico?_probe=${Date.now()}`;
+  const remote = Boolean(probeBaseUrl);
+  const url = remote
+    ? `${probeBaseUrl}/auth/v1/health?_probe=${Date.now()}`
+    : `${window.location.origin}/favicon.ico?_probe=${Date.now()}`;
 
   try {
     await fetch(url, {
-      method: "HEAD",
+      method: remote ? "GET" : "HEAD",
       cache: "no-store",
+      credentials: "omit",
+      // Cross-origin: an opaque answer still proves the network round trip.
+      mode: remote ? "no-cors" : "same-origin",
       signal: controller.signal,
     });
     devLog("probe ok");
@@ -141,14 +157,36 @@ const TROUBLE_ANNOUNCE_GAP_MS = 6000;
 // Returns false only when there is no global announcer to defer to (a shell
 // that never started one, such as the admin console); the caller then keeps
 // its own message so the failure is never silent.
+//
+// When the device says it is offline the toast shows at once. When it says it
+// is online, one failed request is not proof: requests cancelled while the
+// app starts or wakes up fail the same way. The toast then waits for a real
+// reachability check and only shows if the connection is truly unreachable.
+let troubleCheckInFlight = false;
+
 export function announceConnectionTrouble() {
   if (!announceOfflineToast) return false;
   if (areGlobalNetworkToastsSuppressed()) return true;
   const now = Date.now();
-  if (now - lastTroubleAnnouncedAt >= TROUBLE_ANNOUNCE_GAP_MS) {
+  if (now - lastTroubleAnnouncedAt < TROUBLE_ANNOUNCE_GAP_MS) return true;
+  if (!isOnline()) {
     lastTroubleAnnouncedAt = now;
     announceOfflineToast();
+    return true;
   }
+  if (troubleCheckInFlight) return true;
+  troubleCheckInFlight = true;
+  runConnectivityChecks({ attempts: 2, timeoutMs: 4000, backoffMs: 1500 })
+    .then((reachable) => {
+      if (reachable || !announceOfflineToast || areGlobalNetworkToastsSuppressed()) return;
+      if (Date.now() - lastTroubleAnnouncedAt < TROUBLE_ANNOUNCE_GAP_MS) return;
+      lastTroubleAnnouncedAt = Date.now();
+      announceOfflineToast();
+    })
+    .catch(() => {})
+    .finally(() => {
+      troubleCheckInFlight = false;
+    });
   return true;
 }
 
@@ -170,27 +208,47 @@ export function startGlobalNetworkToasts({ showToast, messages }) {
   };
   announceOfflineToast = showOffline;
 
+  // A phone's speed estimate is rough right after launch or a network switch,
+  // so "slow connection" shows only when it is still slow a while later.
+  let slowTimer = 0;
+  const SLOW_CONFIRM_MS = 8000;
+  function announceSlowIfStillSlow() {
+    window.clearTimeout(slowTimer);
+    slowTimer = window.setTimeout(() => {
+      const latest = getNetworkStatus();
+      if (latest.online && latest.unstable && !areGlobalNetworkToastsSuppressed()) {
+        showToast(text("slow"), "warning", { title: title(), duration: 4000, origin: false });
+      }
+    }, SLOW_CONFIRM_MS);
+  }
+
   function announce(status, { initial = false } = {}) {
     if (areGlobalNetworkToastsSuppressed()) {
       previous = status;
       return;
     }
     if (!status.online) {
+      window.clearTimeout(slowTimer);
       // Offline is worth repeating on entry, because nothing else will work.
       if (initial || previous.online) showOffline();
     } else if (!previous.online) {
       showToast(text("backOnline"), "success", { title: title(), duration: 2600, origin: false });
     } else if (status.unstable && (initial || !previous.unstable)) {
-      showToast(text("slow"), "warning", { title: title(), duration: 4000, origin: false });
+      announceSlowIfStillSlow();
+    } else if (!status.unstable) {
+      window.clearTimeout(slowTimer);
     }
     previous = status;
   }
 
+  // On entry the only thing worth saying at once is "you are offline"; a slow
+  // estimate is confirmed first (above).
   const initialStatus = getNetworkStatus();
   if (!initialStatus.online || initialStatus.unstable) announce(initialStatus, { initial: true });
 
   const unsubscribe = subscribeToNetworkStatus((status) => announce(status));
   stopGlobalNetworkToasts = () => {
+    window.clearTimeout(slowTimer);
     unsubscribe();
     stopGlobalNetworkToasts = null;
     announceOfflineToast = null;

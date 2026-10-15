@@ -149,7 +149,7 @@ function getVerificationStatus(seller) {
     safeSeller.verificationStatus || safeSeller.verification_status || safeSeller.verified || "pending",
   ).toLowerCase();
 
-  if (["verified", "approved", "true"].includes(rawStatus)) {
+  if (["verified", "approved", "true", "verified_recommended", "recommended"].includes(rawStatus)) {
     return {
       label: t("urmall.seller.verifiedSeller"),
       className: "border-emerald-100 bg-emerald-50 text-emerald-700",

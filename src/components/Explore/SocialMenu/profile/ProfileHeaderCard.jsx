@@ -48,6 +48,8 @@ import {
 } from "../../../../Backend/services/visibilityCreditService";
 import { getActiveCountryProfile } from "../../../../data/globalCountryProfiles";
 import { isNativeApp } from "../../../../Backend/lib/apiUrl";
+import { isAppleIapAvailable } from "../../../../Backend/services/appleIapService";
+import AppleCreditsPanel from "./AppleCreditsPanel";
 import { showToast } from "../../../../Backend/services/toastService";
 import { t } from "../../../../i18n";
 import CenteredModal from "../../../shared/CenteredModal";
@@ -835,6 +837,10 @@ export default function ProfileHeaderCard({
       </CenteredModal>
 
       <CenteredModal open={buyCreditsOpen} onClose={closeBuyCredits} labelledBy="buy-credits-title">
+        {/* iOS app: Apple In-App Purchase only (App Store Guideline 3.1.1). */}
+        {isAppleIapAvailable() ? (
+          buyCreditsOpen ? <AppleCreditsPanel onClose={closeBuyCredits} /> : null
+        ) : (
         <AnimatePresence mode="wait" initial={false}>
           {!buyCreditsMethod ? (
             <motion.div
@@ -1263,6 +1269,7 @@ export default function ProfileHeaderCard({
             </motion.div>
           )}
         </AnimatePresence>
+        )}
       </CenteredModal>
 
       <CenteredModal open={creditHelpOpen} onClose={() => setCreditHelpOpen(false)} labelledBy="visibility-credit-help-title" maxWidth="max-w-lg">

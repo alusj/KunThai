@@ -2,6 +2,9 @@ import supabase from "../../lib/supabaseClient";
 import { invalidateCache } from "../../lib/queryCache";
 
 export const URMALL_RETENTION_UPDATED_EVENT = "kunthai-urmall-retention-updated";
+// Published listings that stay visible after a paid plan expires (the Free
+// plan's 5; select_urmall_retained_inventory asks for exactly this many).
+export const URMALL_RETAINED_LISTINGS = 5;
 
 export function normalizeUrMallRetention(raw = {}) {
   const retention = raw.case;

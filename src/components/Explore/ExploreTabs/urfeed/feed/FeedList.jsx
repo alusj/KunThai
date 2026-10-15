@@ -50,6 +50,7 @@ export default function FeedList({
 }) {
   const { t } = useI18n();
   const { followedUsers, toggleFollow } = useExploreFollows(currentUserId);
+  const autoLoad = useAutoLoadMore({ hasMore, loadingMore, onLoadMore, itemCount: posts?.length || 0 });
 
   async function handleFollow(post) {
     const identity = getPostIdentity(post);
@@ -135,14 +136,25 @@ export default function FeedList({
       </div>
 
       {hasMore ? (
-        <button
-          type="button"
-          onClick={onLoadMore}
-          disabled={loadingMore}
-          className="mx-auto mt-5 block rounded-full border border-slate-200 bg-white px-5 py-2.5 text-sm font-black text-sky-700 shadow-sm disabled:opacity-60"
-        >
-          {loadingMore ? t("feed.loadingMore") : t("feed.showMore")}
-        </button>
+        // More posts load by themselves as the end comes into view; the
+        // button only appears when loading keeps failing (e.g. offline).
+        <div ref={autoLoad.sentinelRef} className="mx-auto mt-5 flex min-h-12 items-center justify-center">
+          {autoLoad.stalled && !loadingMore ? (
+            <button
+              type="button"
+              onClick={autoLoad.retry}
+              className="rounded-full border border-slate-200 bg-white px-5 py-2.5 text-sm font-black text-sky-700 shadow-sm"
+            >
+              {t("feed.showMore")}
+            </button>
+          ) : (
+            <span
+              role="status"
+              aria-label={t("feed.loadingMore")}
+              className={`h-7 w-7 rounded-full border-2 border-slate-200 border-t-sky-600 ${loadingMore ? "animate-spin" : "opacity-0"}`}
+            />
+          )}
+        </div>
       ) : (
         <div className="mx-auto mt-5 max-w-xl rounded-[24px] border border-slate-200 bg-white px-4 py-4 text-center shadow-sm">
           <p className="text-sm font-black text-slate-950">{t("feed.caughtUp")}</p>
@@ -159,6 +171,54 @@ export default function FeedList({
       )}
     </div>
   );
+}
+
+// Loads the next page when the end of the list is about one screen away and
+// keeps going until there is nothing more. Three loads in a row that bring no
+// new posts (offline, a failing request) pause it until the person retries.
+function useAutoLoadMore({ hasMore, loadingMore, onLoadMore, itemCount }) {
+  // A callback ref: the end marker only exists once posts have rendered.
+  const [sentinel, sentinelRef] = useState(null);
+  const [nearEnd, setNearEnd] = useState(false);
+  const [stalls, setStalls] = useState(0);
+  const countAtRequestRef = useRef(-1);
+
+  useEffect(() => {
+    if (!sentinel || typeof IntersectionObserver === "undefined") {
+      setNearEnd(false);
+      return undefined;
+    }
+    const observer = new IntersectionObserver(([entry]) => setNearEnd(Boolean(entry?.isIntersecting)), {
+      rootMargin: "0px 0px 900px 0px",
+    });
+    observer.observe(sentinel);
+    return () => observer.disconnect();
+  }, [sentinel]);
+
+  // A load that finished: did it bring anything?
+  useEffect(() => {
+    if (loadingMore || countAtRequestRef.current < 0) return;
+    setStalls((current) => (itemCount > countAtRequestRef.current ? 0 : current + 1));
+    countAtRequestRef.current = -1;
+  }, [itemCount, loadingMore]);
+
+  const stalled = stalls >= 3;
+
+  useEffect(() => {
+    if (!nearEnd || !hasMore || loadingMore || stalled || typeof onLoadMore !== "function") return;
+    countAtRequestRef.current = itemCount;
+    Promise.resolve(onLoadMore()).catch(() => {});
+  }, [hasMore, itemCount, loadingMore, nearEnd, onLoadMore, stalled]);
+
+  return {
+    sentinelRef,
+    stalled,
+    retry: () => {
+      setStalls(0);
+      countAtRequestRef.current = itemCount;
+      Promise.resolve(onLoadMore?.()).catch(() => {});
+    },
+  };
 }
 
 const SUGGESTIONS_PER_PAGE = 5;

@@ -78,11 +78,6 @@ export default function DataMobileUseScreen({ hideHeader = false }) {
           </DataRow>
         </section>
 
-        <section className="rounded-[24px] border border-slate-200 bg-slate-50 p-5">
-          <h3 className="text-base font-black text-slate-950">{i18nText("ui.literals.kdce9176e5708")}</h3>
-          <p className="mt-1 text-sm font-semibold leading-6 text-slate-600">{i18nText("ui.literals.k03dcbd106ab0")}</p>
-        </section>
-
         {/* Future backend: add measured bandwidth modes, download preferences, cache size reporting, and offline collection sync. */}
       </div>
     </div>

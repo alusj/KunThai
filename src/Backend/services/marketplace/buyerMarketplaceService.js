@@ -24,6 +24,7 @@ import { fetchPromotedVerticalListings } from "./marketplaceVerticalService";
 import { getMyRegion, selectRegionScopedPromotions } from "../regions/regionService";
 import { promotionHasCountryTargets, promotionReachesCountry } from "../regions/promotionTargeting";
 import { rankMarketplaceProductsNearby, rankMarketplacePromotionsForBuyer } from "./marketplaceDiscovery";
+import { getBuyerInterests, recordBuyerSignal } from "./buyerInterestService";
 
 function toOptionalNumber(value) {
   if (value === null || value === undefined || value === "") return null;
@@ -381,8 +382,12 @@ async function getBuyerDiscoveryContext() {
     }
   }
 
+  // The buyer's favourite categories lift matching products (never blocks).
+  const interests = await getBuyerInterests().catch(() => new Map());
+
   return {
     ...(coordinates || {}),
+    interests,
     city: preferredAddress.city || cachedLocation.city || "",
     country: preferredAddress.country || cachedLocation.country || "",
     countryCode: preferredAddress.countryCode || cachedLocation.countryCode || getActiveCountryProfile().iso2,
@@ -720,6 +725,13 @@ async function loadBuyerMarketplaceProducts(filters = {}) {
   }
 
   let { scoped, scopedItems } = await loadScoped(filters);
+  if (searchTerm.length >= 2) {
+    // What the buyer searches for shapes later suggestions.
+    recordBuyerSignal("search", {
+      query: searchTerm,
+      category: filters.category && filters.category !== "all" ? filters.category : scopedItems[0]?.category || "",
+    });
+  }
   if (filters.sort === "nearby" && !searchTerm) scopedItems = await attachStoreDistances(scopedItems, buyerContext);
 
   // When a strict search recalls nothing, retry once with the looser
@@ -1036,6 +1048,7 @@ export async function fetchBuyerCart() {
 }
 
 export async function addBuyerCartItem(product, quantity = 1) {
+  recordBuyerSignal("cart", { item: product });
   const buyerId = await getCurrentUserId("Sign in to add products to your cart.");
   if (!product?.id || !product?.businessId) throw new Error("Choose a valid product.");
   const minimumQuantity = getProductMinimumOrderQuantity(product);
@@ -1472,7 +1485,7 @@ async function loadBuyerMessages(buyerId) {
     acc[key].supportDispute = acc[key].supportDispute || Boolean(message.support_dispute);
     if (new Date(message.created_at).getTime() >= new Date(acc[key].createdAt).getTime()) {
       acc[key].createdAt = message.created_at;
-      acc[key].preview = message.preview || "";
+      acc[key].preview = message.preview || (message.media_type === "audio" ? t("voiceNotes.voiceNote") : "");
       acc[key].conversationKey = messageConversationKey;
       acc[key].productId = message.product_id;
       acc[key].topic = message.topic || message.product_name || "UrMall message";
@@ -1517,7 +1530,8 @@ export async function sendBuyerMarketplaceMessage({ seller, product, topic, mess
   const productId = product?.isVertical ? null : product?.id || null;
   const conversationContext = product?.isVertical ? `${product.verticalType || "listing"}:${product.id}` : productId;
   const conversationKey = buildConversationKey(businessId, conversationContext, conversationTopic);
-  const uploadedMediaUrl = mediaUrl ? await uploadMediaDataUrl(mediaUrl, "image", buyer.id) : "";
+  if (product) recordBuyerSignal("message", { item: { ...product, businessId } });
+  const uploadedMediaUrl = mediaUrl ? await uploadMediaDataUrl(mediaUrl, mediaType === "audio" ? "audio" : "image", buyer.id) : "";
 
   const { data, error } = await supabase
     .from("marketplace_customer_messages")

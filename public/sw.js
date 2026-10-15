@@ -8,11 +8,12 @@
 
 const AREA_TILE_CACHE = "kunthai-area-tiles-v1";
 const AREA_TILE_CACHE_LIMIT = 280;
-const STARTUP_ASSET_CACHE = "kunthai-startup-assets-v1";
+const STARTUP_ASSET_CACHE = "kunthai-startup-assets-v2";
 const STARTUP_ASSETS = [
   "/brand/kunthai-launch-logo.webp",
   "/icons/kunthai-192.png",
   "/icons/kunthai-512.png",
+  "/icons/kunthai-maskable-512.png",
   "/manifest.webmanifest",
 ];
 const STARTUP_ASSET_PATHS = new Set(STARTUP_ASSETS);
@@ -154,7 +155,19 @@ self.addEventListener("notificationclick", (event) => {
           return;
         }
       }
-      await self.clients.openWindow(targetUrl);
+      // No KunThai window: carry the in-app target in the URL so the app opens
+      // it after loading (pushService reads and removes ?kt_push=).
+      let openUrl = targetUrl;
+      if (data.target) {
+        try {
+          const url = new URL(targetUrl, self.location.origin);
+          url.searchParams.set("kt_push", String(data.target));
+          openUrl = url.href;
+        } catch {
+          openUrl = targetUrl;
+        }
+      }
+      await self.clients.openWindow(openUrl);
     })(),
   );
 });

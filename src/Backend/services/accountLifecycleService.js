@@ -88,6 +88,21 @@ export async function fetchAccountDeactivation() {
   return data?.deactivated_at || null;
 }
 
+const DEACTIVATION_CHECK_MS = 30_000;
+let deactivationCheck = { at: 0, promise: null };
+
+/**
+ * Whether the signed-in account is deactivated, cached for 30 s so composers
+ * and the comments drawer stay instant. The database refuses posts and
+ * comments from a deactivated account anyway; this only explains it early.
+ */
+export function checkOwnAccountDeactivated() {
+  if (!deactivationCheck.promise || Date.now() - deactivationCheck.at > DEACTIVATION_CHECK_MS) {
+    deactivationCheck = { at: Date.now(), promise: fetchAccountDeactivation().then(Boolean).catch(() => false) };
+  }
+  return deactivationCheck.promise;
+}
+
 export async function setAccountDeactivated(deactivated) {
   const userId = await getCurrentUserId();
   if (!userId) {
@@ -115,5 +130,6 @@ export async function setAccountDeactivated(deactivated) {
     );
   }
 
+  deactivationCheck = { at: Date.now(), promise: Promise.resolve(Boolean(deactivated)) };
   return deactivated;
 }

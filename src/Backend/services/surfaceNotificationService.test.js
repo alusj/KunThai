@@ -39,3 +39,9 @@ test("surface rows expose consistent routing and read state", () => {
   assert.equal(mapped.actionTarget, "urmall:admin-roles");
   assert.equal(mapped.unread, true);
 });
+
+test("seller and operator dashboard notices stay out of the buyer and passenger bells", () => {
+  assert.equal(notificationBelongsToSurface({ sector: "marketplace", workspace: "marketplace_seller" }, "marketplace"), false);
+  assert.equal(notificationBelongsToSurface({ sector: "transport", workspace: "transport_operator" }, "transport"), false);
+  assert.equal(notificationBelongsToSurface({ sector: "marketplace" }, "marketplace"), true);
+});

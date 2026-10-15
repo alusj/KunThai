@@ -1,8 +1,6 @@
 import { useCallback, useEffect, useMemo, useState } from "react";
-import { ArrowLeft, Database, Globe2, LoaderCircle, ShieldOff, Wrench } from "lucide-react";
+import { Database, Globe2, LoaderCircle, Wrench } from "lucide-react";
 import { useAuth } from "../Backend/hooks/useAuth";
-import supabase from "../Backend/lib/supabaseClient";
-import AdminLogin from "./AdminLogin";
 import AdminMfaGate from "./AdminMfaGate";
 import AdminConsoleLock from "./AdminConsoleLock";
 import { ADMIN_NAV_GROUPS, canAccess } from "./adminConfig";
@@ -56,22 +54,18 @@ function AdminSetupRequired({ error }) {
   );
 }
 
-function AccessDenied({ user }) {
-  useUiLocale();
-  return (
-    <main className="flex min-h-screen items-center justify-center bg-zinc-100 p-5">
-      <section className="w-full max-w-md rounded-lg border border-zinc-200 bg-white p-6 text-center shadow-sm sm:p-8">
-        <span className="mx-auto grid h-12 w-12 place-items-center rounded-lg bg-red-50 text-red-700"><ShieldOff size={24} /></span>
-        <h1 className="mt-5 text-2xl font-black text-zinc-950">{i18nText("ui.literals.k259b14481d9f")}</h1>
-        <p className="mt-3 text-sm font-medium leading-6 text-zinc-600">{user?.email || i18nText("ui.literals.kbbbf83c4baef")} {i18nText("ui.literals.k51b5c3775398")}</p>
-        <div className="mt-6 grid gap-2">
-          <a href="/" className="inline-flex h-11 items-center justify-center gap-2 rounded-lg bg-zinc-950 px-4 text-sm font-black text-white hover:bg-zinc-800"><ArrowLeft size={17} /> {i18nText("ui.literals.k954a66898c26")}</a>
-          <button type="button" onClick={() => supabase.auth.signOut({ scope: "local" })} className="h-11 rounded-lg border border-zinc-300 px-4 text-sm font-black text-zinc-700 hover:bg-zinc-50">{i18nText("ui.literals.kc99bf1aa64be")}</button>
-          {import.meta.env.DEV ? <button type="button" onClick={() => { enableAdminPreview(); window.location.reload(); }} className="h-11 rounded-lg border border-emerald-300 px-4 text-sm font-black text-emerald-800 hover:bg-emerald-50">{i18nText("ui.literals.k69a1fd04c38f")}</button> : null}
-        </div>
-      </section>
-    </main>
-  );
+function AccessCheckScreen() {
+  return <main className="flex min-h-screen items-center justify-center bg-white" aria-busy="true"><LoaderCircle className="animate-spin text-zinc-400" size={22} /></main>;
+}
+
+// Anyone signed out, or signed in without admin access, leaves for the app as
+// if /admin did not exist; nothing on screen says an admin area is here. Staff
+// sign in through the app first, then open /admin.
+function LeaveForApp() {
+  useEffect(() => {
+    window.location.replace("/");
+  }, []);
+  return <main className="min-h-screen bg-white" aria-busy="true" />;
 }
 
 // The hash may carry filters (#/urmall-businesses?status=suspended); the page
@@ -256,11 +250,12 @@ export default function AdminApp() {
     return () => { active = false; };
   }, [authLoading, preview, user]);
 
-  if (authLoading) return <LoadingScreen />;
-  if (!user && !preview) return <AdminLogin />;
-  if (accessLoading) return <LoadingScreen message={i18nText("ui.literals.kb2e314ba8568")} />;
+  // Plain spinner until access is known: a non-admin never sees admin wording.
+  if (authLoading) return <AccessCheckScreen />;
+  if (!user && !preview) return <LeaveForApp />;
+  if (accessLoading) return <AccessCheckScreen />;
   if (accessError) return <AdminSetupRequired error={accessError} />;
-  if (!access?.isAdmin) return <AccessDenied user={user} />;
+  if (!access?.isAdmin) return <LeaveForApp />;
 
   const activeUser = user || { id: "preview-user", email: "chief@kunthai.preview" };
   return (

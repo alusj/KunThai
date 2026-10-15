@@ -13,6 +13,30 @@ const MIN_MOVE_METERS = 12;
 
 let activePublisher = null;
 
+// Set once the operator's device has given a position, so KunThai can resume
+// publishing at launch without ever showing a surprise permission prompt.
+const LOCATION_GRANTED_KEY = "kunthai.operatorLocationGranted.v1";
+
+export function operatorLocationPreviouslyGranted() {
+  try {
+    return localStorage.getItem(LOCATION_GRANTED_KEY) === "1";
+  } catch {
+    return false;
+  }
+}
+
+export function isOperatorLiveLocationRunning() {
+  return Boolean(activePublisher);
+}
+
+// The operator's most recent GPS point this session ({ lat, lng }), kept after
+// publishing stops so going offline can record where it happened.
+let lastOperatorPoint = null;
+
+export function readLastOperatorPoint() {
+  return activePublisher?.lastPoint || lastOperatorPoint;
+}
+
 function distanceInMeters(a, b) {
   if (!a || !b) return Infinity;
   const earthRadius = 6371000;
@@ -46,6 +70,7 @@ async function publishRow(publisher, position, { force = false } = {}) {
   }
 
   publisher.lastPoint = point;
+  lastOperatorPoint = point;
   publisher.lastPublishedPoint = point;
   publisher.lastPublishedAt = now;
 
@@ -113,7 +138,14 @@ export async function startOperatorLiveLocation({ displayName = "", fleetType = 
   activePublisher = publisher;
 
   publisher.watchId = navigator.geolocation.watchPosition(
-    (position) => publishRow(publisher, position),
+    (position) => {
+      try {
+        localStorage.setItem(LOCATION_GRANTED_KEY, "1");
+      } catch {
+        // Storage unavailable: the dashboard still publishes while open.
+      }
+      publishRow(publisher, position);
+    },
     () => {
       // Position denied or unavailable: the heartbeat keeps the last point fresh.
     },

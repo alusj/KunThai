@@ -243,6 +243,7 @@ export const VERIFICATION_FILTER_OPTIONS = Object.freeze([
   { key: "under_review", label: "Under review" },
   { key: "approved", label: "Approved" },
   { key: "verified", label: "Verified" },
+  { key: "verified_recommended", label: "Verified recommended" },
   { key: "rejected", label: "Rejected" },
 ]);
 

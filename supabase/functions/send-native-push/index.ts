@@ -127,6 +127,36 @@ function readApnsConfig(): ApnsConfig | null {
     : { keyP8, keyId, teamId, bundleId, host: APNS_PRODUCTION_HOST, otherHost: APNS_SANDBOX_HOST };
 }
 
+// --- Sounds -----------------------------------------------------------------
+// Mirrors pushSoundForKind in src/Backend/services/nativePushLogic.js. The
+// files ship in the app (ios/App/App and android res/raw). An older app build
+// without them falls back on its own: iOS plays the default sound for a
+// missing file, and Android uses the manifest's default channel when the
+// channel has not been created yet.
+
+type PushSound = { sound: string; androidSound: string; channel: string; timeSensitive: boolean };
+
+const PUSH_SOUNDS: Record<string, PushSound> = {
+  ride: { sound: "kt_ride_request.wav", androidSound: "kt_ride_request", channel: "kunthai_ride_requests", timeSensitive: true },
+  message: { sound: "kt_message.wav", androidSound: "kt_message", channel: "kunthai_messages", timeSensitive: false },
+  order: { sound: "kt_order.wav", androidSound: "kt_order", channel: "kunthai_orders", timeSensitive: false },
+  default: { sound: "default", androidSound: "default", channel: "kunthai_alerts", timeSensitive: false },
+};
+
+const PUSH_SOUND_BY_KIND: Record<string, string> = {
+  urride_request: "ride",
+  messages: "message",
+  urmall_message: "message",
+  orders: "order",
+  urmall_order: "order",
+  urmall_booking: "order",
+  urride_trip: "order",
+};
+
+function pushSound(kind: string): PushSound {
+  return PUSH_SOUNDS[PUSH_SOUND_BY_KIND[String(kind || "").toLowerCase()] || "default"];
+}
+
 let apnsKey: CryptoKey | null = null;
 let apnsJwtCache: { token: string; issuedAt: number } | null = null;
 
@@ -144,6 +174,7 @@ async function apnsJwt(config: ApnsConfig) {
 
 async function postApns(config: ApnsConfig, host: string, device: Device, row: OutboxRow) {
   const jwt = await apnsJwt(config);
+  const tone = pushSound(row.kind);
   const response = await fetch(`https://${host}/3/device/${encodeURIComponent(device.token)}`, {
     method: "POST",
     signal: AbortSignal.timeout(REQUEST_TIMEOUT_MS),
@@ -156,7 +187,15 @@ async function postApns(config: ApnsConfig, host: string, device: Device, row: O
       "content-type": "application/json",
     },
     body: JSON.stringify({
-      aps: { alert: { title: row.title, body: row.body }, sound: "default", "thread-id": row.kind || "kunthai" },
+      aps: {
+        alert: { title: row.title, body: row.body },
+        sound: tone.sound,
+        "thread-id": row.kind || "kunthai",
+        // Ride requests break through Focus once the app has the Time
+        // Sensitive Notifications capability; without it iOS treats this as
+        // "active" (normal), so it is safe to send either way.
+        ...(tone.timeSensitive ? { "interruption-level": "time-sensitive" } : {}),
+      },
       route: row.route || "",
       kind: row.kind || "",
     }),
@@ -261,7 +300,14 @@ async function sendFcm(config: FcmConfig, device: Device, row: OutboxRow): Promi
         token: device.token,
         notification: { title: row.title, body: row.body },
         data: { route: row.route || "", kind: row.kind || "" },
-        android: { priority: "HIGH", notification: { sound: "default", tag: row.kind || "kunthai" } },
+        android: {
+          priority: "HIGH",
+          notification: {
+            sound: pushSound(row.kind).androidSound,
+            channel_id: pushSound(row.kind).channel,
+            tag: row.kind || "kunthai",
+          },
+        },
       },
     }),
   });

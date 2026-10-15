@@ -37,6 +37,7 @@ export const DEFAULT_EXPLORE_SETTINGS = Object.freeze({
     messages: true,
     marketplace: true,
     transport: true,
+    rideRequestRing: true,
   },
 });
 

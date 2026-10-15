@@ -8,16 +8,22 @@ import "./styles/appearance.css";
 import ToastProvider from "./components/Explore/shared/ToastProvider.jsx";
 import { AppearanceProvider } from "./components/AppearanceProvider.jsx";
 import { initNativePushNotifications, registerKunThaiServiceWorker } from "./Backend/services/pushService.js";
+import { initAppleCreditPurchases } from "./Backend/services/appleIapService.js";
 import { initCountryConfig } from "./Backend/services/countryConfigService.js";
 import { t as i18nText } from "./i18n/index";
 import { installMobileViewportVariables } from "./Backend/services/mobileViewportService";
+import { installNativeShare } from "./Backend/services/nativeShare";
 import { lazyWithRetry } from "./Backend/utils/lazyWithRetry";
 import { useI18n as useUiLocale } from "./i18n/index.js";
 
 registerKunThaiServiceWorker();
 initNativePushNotifications();
+initAppleCreditPurchases();
 initCountryConfig();
 installMobileViewportVariables();
+// In the iOS / Android app, Share buttons open the phone's share sheet and
+// share kunthai.app links rather than the app's on-device address.
+installNativeShare();
 
 const AdminApp = lazyWithRetry(() => import("./admin/AdminApp.jsx"));
 const PublicPolicyPage = lazyWithRetry(() => import("./components/public/PublicPolicyPage.jsx"));
@@ -33,7 +39,8 @@ function RootApplication() {
 
   if (isAdminPath) {
     return (
-      <Suspense fallback={<div className="flex min-h-screen items-center justify-center bg-zinc-100 text-sm font-bold text-zinc-600">{i18nText("ui.literals.kb23c1e4f1dc3")}</div>}>
+      // No admin wording while loading: non-admins are sent back to the app.
+      <Suspense fallback={<div className="min-h-screen bg-white" aria-busy="true" />}>
         <AdminApp />
       </Suspense>
     );

@@ -161,3 +161,16 @@ test("signed evidence links are re-signed after 50 minutes", () => {
   assert.equal(isSignedUrlStale({ url: "https://x", bucket: "b", path: "p", signedAt: now - 51 * 60000 }, now), true);
   assert.equal(isSignedUrlStale({ url: "https://public" }, now), false);
 });
+
+test("Approve & recommend is offered only on operator and UrMall seller cases", () => {
+  const superAdmin = { permissions: ["cases.manage"], authorityLevel: 5, roles: [{ key: "super_admin", sectors: ["all"], authorityLevel: 5 }] };
+  const recommendable = ["transport_operator_verification", "marketplace_business_registration", "marketplace_verification"];
+  recommendable.forEach((resourceType) => {
+    assert.equal(fallbackDecisionCapabilities(superAdmin, { sector: "transport", resource_type: resourceType }).decisions.approve_recommend.allowed, true, resourceType);
+  });
+  const fleet = fallbackDecisionCapabilities(superAdmin, { sector: "transport", resource_type: "transport_fleet_verification" }).decisions;
+  assert.equal(fleet.approve.allowed, true);
+  assert.equal(fleet.approve_recommend.allowed, false);
+  assert.equal(fleet.approve_recommend.reason, DECISION_REASONS.notRecommendable);
+  assert.equal(classifyDecisionResult({ id: "case", status: "resolved", resolution_code: "approve_recommend" }, "approve_recommend"), "applied");
+});

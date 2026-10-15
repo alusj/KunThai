@@ -1,6 +1,6 @@
 package app.kunthai.mobile;
 
-import android.annotation.TargetApi;
+import androidx.annotation.RequiresApi;
 import android.app.Activity;
 import android.graphics.Bitmap;
 import android.os.Build;
@@ -41,6 +41,11 @@ public class MainActivity extends BridgeActivity {
 
     private void notifyWebAppOfScreenshot() {
         if (getBridge() == null || getBridge().getWebView() == null) return;
+        if (Build.VERSION.SDK_INT < Build.VERSION_CODES.O) {
+            // PixelCopy needs API 26; report the screenshot without an image.
+            dispatchScreenshotEvent(null);
+            return;
+        }
         View root = getWindow().getDecorView();
         int width = root.getWidth();
         int height = root.getHeight();
@@ -94,7 +99,7 @@ public class MainActivity extends BridgeActivity {
         );
     }
 
-    @TargetApi(Build.VERSION_CODES.UPSIDE_DOWN_CAKE)
+    @RequiresApi(Build.VERSION_CODES.UPSIDE_DOWN_CAKE)
     private static final class ScreenCaptureObserver {
         private final MainActivity activity;
         private final Activity.ScreenCaptureCallback callback;

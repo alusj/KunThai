@@ -177,7 +177,7 @@ export default function PrivacyScreen({ hideHeader = false, onOpenPermissions })
         </PrivacySection>
 
         <PrivacySection title={i18nText("ui.literals.k8a4c2de98d1f")} description={i18nText("ui.literals.k6c764d158a93")}>
-          <SettingRow icon={HiOutlineShieldCheck} title={i18nText("ui.literals.k85e12bc6f2e5")} description={i18nText("ui.literals.kd2efa777d4a8")}>
+          <SettingRow icon={HiOutlineShieldCheck} title={i18nText("ui.literals.k85e12bc6f2e5")} description={i18nText("exploreSettingsFix.mentionsDesc")}>
             <button
               type="button"
               onClick={() => safety.updatePrivacySettings({ allowMentions: !settings.allowMentions })}

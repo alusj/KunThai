@@ -7,8 +7,11 @@ import { DIRECTION_CARDS } from "../../../i18n/directionCards";
 import {
   DIRECTION_ATTRIBUTE,
   DIRECTION_CARD_ORDER,
+  DIRECTION_SCOPE_ATTRIBUTE,
   DIRECTION_SETTLE_MS,
-  pickDirection,
+  HIDE_ALL_DIRECTIONS,
+  directionSeenKey,
+  pickDirectionEntry,
   placeDirectionCard,
   readSeenDirections,
   writeSeenDirections,
@@ -56,7 +59,10 @@ export default function DirectionCardHost({ userId }) {
   const { locale } = useI18n();
   const copy = DIRECTION_CARDS[locale] || DIRECTION_CARDS.en;
   const seenRef = useRef(new Set());
-  const candidateRef = useRef({ id: "", since: 0 });
+  // Tips whose card has been on screen: only for those does tapping the
+  // button count as "found it" (a tap before the card ever showed does not).
+  const shownRef = useRef(new Set());
+  const candidateRef = useRef({ key: "", since: 0 });
   const cardRef = useRef(null);
   const [active, setActive] = useState(null);
   const [cardHeight, setCardHeight] = useState({ key: "", height: 0 });
@@ -64,7 +70,8 @@ export default function DirectionCardHost({ userId }) {
 
   useEffect(() => {
     seenRef.current = readSeenDirections(browserStorage(), userId);
-    candidateRef.current = { id: "", since: 0 };
+    shownRef.current = new Set();
+    candidateRef.current = { key: "", since: 0 };
     setActive(null);
   }, [userId]);
 
@@ -77,7 +84,7 @@ export default function DirectionCardHost({ userId }) {
       }
     }
     if (changed) writeSeenDirections(browserStorage(), userId, seenRef.current);
-    setActive((current) => (current && seenRef.current.has(current.id) ? null : current));
+    setActive((current) => (current && (seenRef.current.has(current.key) || seenRef.current.has(HIDE_ALL_DIRECTIONS)) ? null : current));
   }, [userId]);
 
   useEffect(() => {
@@ -92,24 +99,26 @@ export default function DirectionCardHost({ userId }) {
       const visible = new Map();
       for (const element of document.querySelectorAll(`[${DIRECTION_ATTRIBUTE}]`)) {
         const id = element.getAttribute(DIRECTION_ATTRIBUTE);
-        if (!id || visible.has(id) || seenRef.current.has(id)) continue;
+        const key = directionSeenKey(id, element.getAttribute(DIRECTION_SCOPE_ATTRIBUTE) || "");
+        if (!id || visible.has(key) || seenRef.current.has(key)) continue;
         const rect = visibleRect(element, nextViewport);
-        if (rect) visible.set(id, rect);
+        if (rect) visible.set(key, { id, key, rect });
       }
 
-      const candidate = pickDirection([...visible.keys()], seenRef.current);
+      const candidate = pickDirectionEntry([...visible.values()], seenRef.current);
+      const candidateKey = candidate?.key || "";
       const now = performance.now();
-      if (candidateRef.current.id !== candidate) candidateRef.current = { id: candidate, since: now };
+      if (candidateRef.current.key !== candidateKey) candidateRef.current = { key: candidateKey, since: now };
       const settled = Boolean(candidate) && now - candidateRef.current.since >= DIRECTION_SETTLE_MS;
 
       setActive((current) => {
         // Keep the card that is already open while its button stays visible,
         // even if a higher-priority button scrolls into view meanwhile.
-        if (current && visible.has(current.id)) {
-          const rect = visible.get(current.id);
-          return sameRect(rect, current.rect) ? current : { id: current.id, rect };
+        if (current && visible.has(current.key)) {
+          const { rect } = visible.get(current.key);
+          return sameRect(rect, current.rect) ? current : { ...current, rect };
         }
-        if (settled) return { id: candidate, rect: visible.get(candidate) };
+        if (settled) return { id: candidate.id, key: candidate.key, rect: candidate.rect };
         return null;
       });
     }
@@ -122,7 +131,9 @@ export default function DirectionCardHost({ userId }) {
     const onClick = (event) => {
       const tagged = event.target instanceof Element ? event.target.closest(`[${DIRECTION_ATTRIBUTE}]`) : null;
       const id = tagged?.getAttribute(DIRECTION_ATTRIBUTE);
-      if (id) markSeen([id]);
+      if (!id) return;
+      const key = directionSeenKey(id, tagged.getAttribute(DIRECTION_SCOPE_ATTRIBUTE) || "");
+      if (shownRef.current.has(key)) markSeen([key]);
     };
 
     // The poll evaluates directly (not via rAF) so a card still appears in a
@@ -142,7 +153,11 @@ export default function DirectionCardHost({ userId }) {
     };
   }, [markSeen]);
 
-  const measureKey = active ? `${active.id}:${locale}:${viewport.width}` : "";
+  useEffect(() => {
+    if (active?.key) shownRef.current.add(active.key);
+  }, [active?.key]);
+
+  const measureKey = active ? `${active.key}:${locale}:${viewport.width}` : "";
   useLayoutEffect(() => {
     if (!measureKey || !cardRef.current) return;
     const height = cardRef.current.offsetHeight;
@@ -170,7 +185,7 @@ export default function DirectionCardHost({ userId }) {
         }}
       />
       <div
-        key={active.id}
+        key={active.key}
         ref={cardRef}
         role="dialog"
         aria-modal="false"
@@ -196,7 +211,7 @@ export default function DirectionCardHost({ userId }) {
             type="button"
             aria-label={copy.ui.close}
             className="kt-direction-ghost kt-pressable -me-1 -mt-1 grid h-8 w-8 shrink-0 place-items-center rounded-xl"
-            onClick={() => markSeen([active.id])}
+            onClick={() => markSeen([active.key])}
           >
             <X size={16} strokeWidth={2.4} />
           </button>
@@ -205,14 +220,14 @@ export default function DirectionCardHost({ userId }) {
           <button
             type="button"
             className="kt-direction-ghost kt-pressable rounded-xl px-2 py-1.5 text-xs font-bold"
-            onClick={() => markSeen(DIRECTION_CARD_ORDER)}
+            onClick={() => markSeen([...DIRECTION_CARD_ORDER, HIDE_ALL_DIRECTIONS, active.key])}
           >
             {copy.ui.hideAll}
           </button>
           <button
             type="button"
             className="kt-direction-primary kt-pressable rounded-xl px-4 py-2 text-sm font-black"
-            onClick={() => markSeen([active.id])}
+            onClick={() => markSeen([active.key])}
           >
             {copy.ui.gotIt}
           </button>

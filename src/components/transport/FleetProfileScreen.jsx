@@ -237,7 +237,7 @@ export default function FleetProfileScreen({ fleetId, onBack, onOpenCompany, onS
           <div className="min-w-0 flex-1">
             <h1 className="truncate text-lg font-black text-slate-950">{fleet.fleetName}</h1>
             <p className="truncate text-xs font-bold text-slate-500">
-              {fleet.operatorId} - {fleet.displayType} - {fleet.plateNumber}
+              {[fleet.operatorId, fleet.displayType, fleet.plateNumber].filter(Boolean).join(" - ")}
             </p>
           </div>
         </div>

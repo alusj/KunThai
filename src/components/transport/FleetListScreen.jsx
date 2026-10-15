@@ -281,7 +281,7 @@ function FleetListCard({ fleet, onViewCompany, onViewFleet, onShowVerification, 
               </button>
             ) : null}
             <p className="mt-1 text-xs text-gray-500">
-              {fleet.operatorId} - {fleet.displayType} - {fleet.plateNumber}
+              {[fleet.operatorId, fleet.displayType, fleet.plateNumber].filter(Boolean).join(" - ")}
             </p>
             <p className="mt-1 text-xs font-semibold text-gray-600">
               {[fleet.serviceCategory, fleet.fleetType, fleet.color].filter(Boolean).join(" - ")}

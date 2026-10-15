@@ -129,3 +129,29 @@ test("property recommendations never include meals or retail products", () => {
   const ranked = rankSimilarVerticalListings(current, [meal, retail, property]);
   assert.deepEqual(ranked.map((item) => item.id), ["property-match"]);
 });
+
+test("a buyer's favourite categories lead within the same distance band", () => {
+  const buyer = { latitude: 8.484, longitude: -13.234, interests: new Map([["electronics", 1], ["fashion", 0.3]]) };
+  const at = (km) => ({ latitude: 8.484 + km * 0.009, longitude: -13.234 });
+  const products = [
+    { id: "shoe", category: "Fashion", storeDistanceKm: 2, seller: at(2) },
+    { id: "phone", category: "Electronics", storeDistanceKm: 6, seller: at(6) },
+    { id: "chair", category: "Furniture", storeDistanceKm: 1, seller: at(1) },
+    { id: "far-phone", category: "Electronics", storeDistanceKm: 40, seller: at(40) },
+  ];
+  const order = rankMarketplaceProductsNearby(products, buyer).map((product) => product.id);
+  // 6 km - 8 km bonus beats 1 km and 2 km - 2.4 km; a far phone is not pulled forward.
+  assert.deepEqual(order, ["phone", "shoe", "chair", "far-phone"]);
+});
+
+test("without location, liked categories still come first; no interests changes nothing", () => {
+  const products = [
+    { id: "a", category: "furniture", createdAt: "2026-10-01" },
+    { id: "b", category: "electronics", createdAt: "2026-09-01" },
+  ];
+  assert.deepEqual(
+    rankMarketplaceProductsNearby(products, { interests: new Map([["electronics", 1]]) }).map((p) => p.id),
+    ["b", "a"],
+  );
+  assert.deepEqual(rankMarketplaceProductsNearby(products, {}).map((p) => p.id), ["a", "b"]);
+});

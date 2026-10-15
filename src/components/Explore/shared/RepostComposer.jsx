@@ -7,6 +7,7 @@ import { createExploreRepost } from "../../../Backend/services/explore/repostSer
 import { guardGuestAction } from "../../../Backend/services/guestModeService";
 import { showToast } from "../../../Backend/services/toastService";
 import { haptics } from "../../../Backend/services/feedbackService";
+import { checkOwnAccountDeactivated } from "../../../Backend/services/accountLifecycleService";
 import { inlineErrorMessage } from "../../../Backend/services/friendlyErrorService";
 import { useI18n } from "../../../i18n";
 import Avatar from "../shared/Avatar";
@@ -45,10 +46,17 @@ export default function RepostComposer({ onClose, onSuccess, profile, sourcePost
     setSubmitting(true);
     setError("");
 
+    if (await checkOwnAccountDeactivated()) {
+      haptics.warning("explore");
+      setError(`${t("post.deactivatedNoComment")}. ${t("post.deactivatedNoPostDesc")}`);
+      setSubmitting(false);
+      return;
+    }
+
     try {
       const created = await createExploreRepost(sourcePost, { commentary, privacy });
       showToast("Reposted to UrFeed", "success", { title: i18nText("ui.literals.k0c3053e49f81") });
-      haptics.medium("explore");
+      haptics.success("explore");
       onSuccess?.(created);
       setClosing(true);
       closeTimerRef.current = window.setTimeout(() => onClose?.(), EXIT_MS);

@@ -30,6 +30,27 @@ export function recordBlock(label, value, maxChars = LISTING_MAX_CHARS) {
   return labelledInput(label, text);
 }
 
+// The buyer's side of a conversation with a business, oldest first.
+function buyerConversation(input, max = 12, maxChars = 500) {
+  return (Array.isArray(input.messages) ? input.messages : [])
+    .slice(-max)
+    .map((message) => ({ from: message?.from === "seller" ? "seller" : "buyer", text: cleanText(message?.text, maxChars) }))
+    .filter((message) => message.text);
+}
+
+function distinctReplies(values, max = 3, maxChars = 600) {
+  const seen = new Set();
+  return (Array.isArray(values) ? values : [])
+    .map((value) => stripWrappingQuotes(value).slice(0, maxChars).trim())
+    .filter((value) => {
+      const key = value.toLowerCase();
+      if (!value || seen.has(key)) return false;
+      seen.add(key);
+      return true;
+    })
+    .slice(0, max);
+}
+
 export const URMALL_BUYER_TASKS = {
   "urmall.product_explain": {
     id: "urmall.product_explain",
@@ -246,5 +267,42 @@ export const URMALL_BUYER_TASKS = {
           .filter((match) => match.id)
           .slice(0, 8),
       }),
+  },
+
+  // Suggestions only: the buyer picks one into the reply box and presses Send.
+  "urmall.buyer_reply": {
+    id: "urmall.buyer_reply",
+    tier: "fast",
+    surfaces: ["urmall"],
+    label: "Draft messages to a business",
+    cacheable: false,
+    output: "json",
+    maxOutputTokens: 420,
+    temperature: 0.6,
+    schema: { type: "object", properties: { replies: { type: "array", items: { type: "string" } } }, required: ["replies"] },
+    instruction: [
+      "Draft three short, polite messages the BUYER could send to this UrMall business.",
+      "When the business wrote last, reply to it; otherwise write a clear next message (a question about the product, availability, delivery or pickup).",
+      "Write in the language the conversation uses, or the buyer's own draft's language.",
+      "Use the product listing only for facts. Never invent a price, discount or delivery time.",
+      "Never include passwords, codes, card or bank details, and never suggest paying outside KunThai.",
+    ].join(" "),
+    build(input) {
+      const messages = buyerConversation(input);
+      const draft = cleanText(input.draft, 500);
+      if (!messages.length && !draft && !input.listing) {
+        throw aiError(AI_ERROR_CODES.invalidRequest, { message: "Write a few words or open a conversation first.", details: "empty-conversation" });
+      }
+      return {
+        prompt: joinPrompt([
+          input.listing ? recordBlock("Product the conversation is about (KunThai data)", input.listing) : "",
+          messages.length ? labelledInput("Conversation (oldest first)", messages.map((message) => `${message.from}: ${message.text}`).join("\n")) : "",
+          draft ? labelledInput("The buyer's own draft (build on it)", draft) : "",
+          "Return JSON with exactly three replies.",
+        ]),
+        cacheKey: null,
+      };
+    },
+    parse: (parsed) => ({ kind: "options", items: distinctReplies(parsed?.replies) }),
   },
 };

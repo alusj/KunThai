@@ -46,7 +46,7 @@ function groupMessages(messages) {
     if (new Date(message.created_at).getTime() >= new Date(acc[key].time).getTime()) {
       // Replies continue the buyer's most recent product context.
       acc[key].time = message.created_at;
-      acc[key].preview = message.preview || "";
+      acc[key].preview = message.preview || (message.media_type === "audio" ? t("voiceNotes.voiceNote") : "");
       acc[key].conversationKey = conversationKey;
       acc[key].productId = message.product_id;
       acc[key].topic = message.topic || message.product_name || "UrMall message";
@@ -120,7 +120,7 @@ export async function sendSellerMarketplaceMessage(conversation, message, { medi
   let uploadedMediaUrl = "";
   if (mediaUrl) {
     const { data: authData } = await supabase.auth.getUser();
-    uploadedMediaUrl = await uploadMediaDataUrl(mediaUrl, "image", authData?.user?.id || business.id);
+    uploadedMediaUrl = await uploadMediaDataUrl(mediaUrl, mediaType === "audio" ? "audio" : "image", authData?.user?.id || business.id);
   }
 
   const { data, error } = await supabase

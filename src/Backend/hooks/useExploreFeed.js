@@ -1067,6 +1067,8 @@ export function useExploreFeed(scope = "feed") {
         target_scopes: createdScopes,
         has_video: Boolean(created.video_url),
       });
+      // Published (any type: text, photo, voice, video, advert, Swip).
+      haptics.success("explore");
       return {
         ok: true,
         post: created,

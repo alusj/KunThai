@@ -1,13 +1,20 @@
 import { useEffect, useMemo, useRef, useState } from "react";
 import { ImagePlus, MessageCircle, Send, X } from "lucide-react";
+import AiAssistButton from "../ai/AiAssistButton";
+import { productFactsForAi } from "../../Backend/services/ai/urmallAiModels";
 import {
   fetchBuyerMessages,
+  fetchBuyerProductForAssistant,
   markBuyerMarketplaceConversationRead,
   sendBuyerMarketplaceMessage,
   subscribeBuyerMarketplaceMessages,
 } from "../../Backend/services/marketplace/buyerMarketplaceService";
 import { formatMessageTime } from "../../Backend/utils/formatMessageTime";
 import MessageImage from "../shared/MessageImage";
+import { LiveRecordingStrip } from "../shared/recording/LiveRecording";
+import { useVoiceRecorder } from "../shared/voice/useVoiceRecorder";
+import VoiceNotePlayer, { VoiceNoteDraft } from "../shared/voice/VoiceNotePlayer";
+import VoiceRecordButton from "../shared/voice/VoiceRecordButton";
 import { optimizeImageFile } from "../../Backend/services/marketplace/imageOptimization";
 import { inlineErrorMessage } from "../../Backend/services/friendlyErrorService";
 import { useI18n, t } from "../../i18n";
@@ -35,6 +42,15 @@ export default function Messages({ initialConversationId = "", onBack, onInitial
   const [screenAction, setScreenAction] = useState("idle");
   const [draft, setDraft] = useState("");
   const [attachment, setAttachment] = useState(null);
+  // Voice notes: the same recorder and player as Explore messages.
+  const voice = useVoiceRecorder({
+    module: "marketplace",
+    onRecorded: ({ dataUrl, seconds }) => {
+      setAttachment({ kind: "audio", dataUrl, seconds });
+      setSendError("");
+    },
+    onError: (message) => setSendError(message),
+  });
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState("");
   const [sendError, setSendError] = useState("");
@@ -214,7 +230,7 @@ export default function Messages({ initialConversationId = "", onBack, onInitial
       from: "buyer",
       text,
       mediaUrl: pendingAttachment?.dataUrl || "",
-      mediaType: pendingAttachment ? "image" : "text",
+      mediaType: pendingAttachment ? (pendingAttachment.kind === "audio" ? "audio" : "image") : "text",
       createdAt: new Date().toISOString(),
       pending: true,
     };
@@ -237,6 +253,7 @@ export default function Messages({ initialConversationId = "", onBack, onInitial
         message: text,
         messageType: conversation.type,
         mediaUrl: pendingAttachment?.dataUrl || "",
+        mediaType: pendingAttachment?.kind === "audio" ? "audio" : "image",
       });
       setEchoes((current) =>
         current.map((echo) => (echo.message.id === tempId ? { ...echo, message: savedMessage } : echo)),
@@ -280,6 +297,34 @@ export default function Messages({ initialConversationId = "", onBack, onInitial
         title: i18nText("ui.literals.kf2ad33ecd417"),
         describe: () => `The person is viewing their UrMall conversations: ${messages.length} in total, ${unreadCount} unread. They can open one to reply.`,
       }));
+
+  // KAI drafts messages the buyer could send; one lands in the reply box and
+  // is only sent when the buyer presses Send. The product is looked up from
+  // UrMall so drafts use real details.
+  function buildBuyerAiRequest(conversation) {
+    const messages = threadMessages
+      .filter((item) => !item.pending && item.text)
+      .map((item) => ({ from: item.from === "buyer" ? "buyer" : "seller", text: item.text }));
+    return {
+      surface: "urmall",
+      screen: "buyer conversation with a business",
+      title: t("ai.seller.buyerChatTitle"),
+      sourceLabel: t("ai.seller.buyerMessage"),
+      text: draft,
+      hidePrompts: true,
+      hideAsk: true,
+      task: draft.trim() ? "" : "urmall.buyer_reply",
+      actions: ["urmall.buyer_reply", "text.improve", "text.translate"],
+      buildInput: async (task) => {
+        if (task !== "urmall.buyer_reply") return {};
+        const product = conversation.productId
+          ? await fetchBuyerProductForAssistant(conversation.productId).catch(() => null)
+          : null;
+        return { messages, draft, ...(product ? { listing: productFactsForAi(product, { detail: true }) } : {}) };
+      },
+      onInsert: (text) => setDraft(String(text || "")),
+    };
+  }
 
   function renderProductLink(message) {
     if (!message.productName || message.productName === message.topic) return null;
@@ -378,7 +423,7 @@ export default function Messages({ initialConversationId = "", onBack, onInitial
       : screenAction === "pop"
         ? "kt-explore-stack-leave-right"
         : "translate-x-0";
-    const canSend = Boolean(draft.trim() || attachment) && !sending;
+    const canSend = Boolean(draft.trim() || attachment) && !sending && !voice.recording;
 
     return (
       <section className={`kt-conversation-screen absolute inset-0 z-10 flex flex-col bg-gray-50 ${panelClass}`} data-back-swipe-scope>
@@ -418,6 +463,15 @@ export default function Messages({ initialConversationId = "", onBack, onInitial
                   {item.mediaType === "image" && item.mediaUrl ? (
                     <MessageImage mediaUrl={item.mediaUrl} alt={t("urmall.messages.attachmentAlt")} pending={item.pending} className="mb-2" />
                   ) : null}
+                  {item.mediaType === "audio" && item.mediaUrl ? (
+                    <VoiceNotePlayer
+                      src={item.mediaUrl}
+                      seed={item.id}
+                      loading={item.pending}
+                      tone={fromBuyer ? "emerald" : "light"}
+                      className={item.text ? "mb-2" : ""}
+                    />
+                  ) : null}
                   {item.text ? <p>{item.text}</p> : null}
                   <span className={`mt-1 block text-[10px] font-bold ${fromBuyer ? "text-white/70" : "text-gray-400"}`}>
                     {item.pending ? t("urmall.detail.sending") : formatMessageTime(item.createdAt)}
@@ -436,7 +490,15 @@ export default function Messages({ initialConversationId = "", onBack, onInitial
           className="kt-message-composer border-t border-gray-200 bg-white px-3 pt-3 shadow-[0_-10px_30px_rgba(15,23,42,0.05)]"
           data-focused={keyboard.focused ? "true" : "false"}
         >
-          {attachment ? (
+          {attachment?.kind === "audio" ? (
+            <VoiceNoteDraft
+              className="mb-2"
+              dataUrl={attachment.dataUrl}
+              seconds={attachment.seconds}
+              onRemove={() => setAttachment(null)}
+              removeLabel={t("urmall.messages.removeAttachment")}
+            />
+          ) : attachment ? (
             <div className="mb-2 flex items-center gap-3 rounded-lg border border-gray-200 bg-gray-50 p-2">
               <img src={attachment.dataUrl} alt={t("urmall.messages.selectedAttachmentAlt")} className="h-12 w-12 rounded-lg object-cover" />
               <p className="min-w-0 flex-1 truncate text-sm font-black text-gray-950">{t("urmall.messages.photoReady")}</p>
@@ -460,24 +522,46 @@ export default function Messages({ initialConversationId = "", onBack, onInitial
             >
               <ImagePlus size={18} />
             </button>
-            <input
-              value={draft}
-              onChange={(event) => setDraft(event.target.value)}
-              onPointerDown={keyboard.handleInputPointerDown}
-              onFocus={keyboard.handleInputFocus}
-              onBlur={keyboard.handleInputBlur}
-              placeholder={t("urmall.messages.typeMessage")}
-              enterKeyHint="send"
-              autoComplete="off"
-              className="min-w-0 flex-1 rounded-2xl border border-gray-200 bg-gray-50 px-3 py-2 text-sm font-semibold outline-none transition focus:border-emerald-400 focus:bg-white focus:ring-4 focus:ring-emerald-100"
-            />
+            <AiAssistButton size="icon" getRequest={() => buildBuyerAiRequest(message)} label={t("ai.seller.draftMessage")} />
+            {voice.recording ? (
+              <LiveRecordingStrip
+                stream={voice.stream}
+                seconds={voice.seconds}
+                label={t("voiceNotes.recording")}
+                onCancel={() => voice.discard()}
+                cancelLabel={t("voiceNotes.discard")}
+              />
+            ) : (
+              <input
+                value={draft}
+                onChange={(event) => setDraft(event.target.value)}
+                onPointerDown={keyboard.handleInputPointerDown}
+                onFocus={keyboard.handleInputFocus}
+                onBlur={keyboard.handleInputBlur}
+                placeholder={t("urmall.messages.typeMessage")}
+                enterKeyHint="send"
+                autoComplete="off"
+                className="min-w-0 flex-1 rounded-2xl border border-gray-200 bg-gray-50 px-3 py-2 text-sm font-semibold outline-none transition focus:border-emerald-400 focus:bg-white focus:ring-4 focus:ring-emerald-100"
+              />
+            )}
+            {voice.supported ? (
+              <VoiceRecordButton
+                recording={voice.recording}
+                disabled={sending}
+                onClick={() => {
+                  if (!voice.recording) setAttachment(null);
+                  voice.toggle();
+                }}
+              />
+            ) : null}
             <button
               type="submit"
               disabled={!canSend}
-              className="inline-flex h-10 shrink-0 items-center justify-center gap-2 rounded-lg bg-emerald-600 px-4 text-sm font-black text-white hover:bg-emerald-700 disabled:cursor-not-allowed disabled:opacity-50"
+              aria-label={t("urmall.messages.send")}
+              className="inline-flex h-10 shrink-0 items-center justify-center gap-2 rounded-lg bg-emerald-600 px-3 text-sm sm:px-4 font-black text-white hover:bg-emerald-700 disabled:cursor-not-allowed disabled:opacity-50"
             >
               <Send size={16} />
-              {t("urmall.messages.send")}
+              <span className="hidden sm:inline">{t("urmall.messages.send")}</span>
             </button>
           </div>
         </form>

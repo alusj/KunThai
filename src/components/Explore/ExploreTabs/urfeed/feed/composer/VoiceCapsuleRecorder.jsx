@@ -1,6 +1,7 @@
 import { HiOutlineMicrophone, HiOutlinePause, HiOutlinePlay, HiOutlineTrash, HiOutlineShieldCheck, HiStop } from "react-icons/hi2";
 
 import { LiveWaveform } from "../../../../../shared/recording/LiveRecording";
+import VoiceNotePlayer from "../../../../../shared/voice/VoiceNotePlayer";
 
 import { t } from "../../../../../../i18n";
 import { t as i18nText } from "../../../../../../i18n/index";
@@ -72,7 +73,7 @@ export default function VoiceCapsuleRecorder({
       </div>
 
       {audioPreview ? (
-        <audio src={audioPreview} controls className="mt-4 h-10 w-full" />
+        <VoiceNotePlayer src={audioPreview} seed={audioPreview.slice(-64)} tone="dark" fluid className="mt-4" />
       ) : null}
 
       <div className="mt-5 grid grid-cols-3 gap-2">

@@ -275,7 +275,7 @@ export function useSellerProductForm({ onComplete, mode = "create", product = nu
       clearProductDraft();
       setDraftRestored(false);
       showToast(product ? "Product updated." : "Product has been added", "success");
-      haptics.medium("marketplace");
+      haptics.success("marketplace");
       sounds.success("marketplace");
       onComplete?.(savedProduct);
     } catch (error) {

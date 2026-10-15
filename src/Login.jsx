@@ -54,6 +54,7 @@ import { t as i18nText } from "./i18n/index";
 import { inlineErrorMessage } from "./Backend/services/friendlyErrorService";
 import { takeOAuthReturnFailure } from "./Backend/services/oauthReturnService";
 import { uiText as translateUi, useI18n as useUiLocale } from "./i18n/index.js";
+import { isNativeApp } from "./Backend/lib/apiUrl";
 
 function AuthMessage({ tone = "info", children }) {
   useUiLocale();
@@ -359,7 +360,53 @@ function SocialAuthButtons({ providerLoading, isLoading, onOAuth }) {
             : t("auth.continueWithFacebook")}
         </span>
       </button>
+      <TermsAgreementNote />
     </div>
+  );
+}
+
+const LEGAL_PAGES = {
+  terms: "https://kunthai.app/terms",
+  standards: "https://kunthai.app/policy-center/community-standards",
+};
+
+// Opens a public policy page: the in-app browser in the iOS / Android app,
+// a new tab on the web.
+async function openLegalPage(event, url) {
+  if (!isNativeApp()) return; // the link's own target="_blank" handles the web
+  event.preventDefault();
+  try {
+    const { Browser } = await import("@capacitor/browser");
+    await Browser.open({ url });
+  } catch {
+    window.open(url, "_blank", "noopener");
+  }
+}
+
+// App Store Guideline 1.2: signing in or up means agreeing to the Terms and
+// Community Standards (zero tolerance for objectionable content and abuse).
+function TermsAgreementNote() {
+  const { t } = useI18n();
+  const parts = String(t("authTerms.agreement")).split(/(\{terms\}|\{standards\})/);
+  return (
+    <p className="px-1 pt-1 text-center text-xs font-medium leading-5 text-slate-500">
+      {parts.map((part, index) => {
+        const key = part === "{terms}" ? "terms" : part === "{standards}" ? "standards" : "";
+        if (!key) return <span key={index}>{part}</span>;
+        return (
+          <a
+            key={index}
+            href={LEGAL_PAGES[key]}
+            target="_blank"
+            rel="noopener noreferrer"
+            onClick={(event) => openLegalPage(event, LEGAL_PAGES[key])}
+            className="font-bold text-sky-700 underline underline-offset-2"
+          >
+            {t(`authTerms.${key}`)}
+          </a>
+        );
+      })}
+    </p>
   );
 }
 

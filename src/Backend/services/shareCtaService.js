@@ -1,17 +1,23 @@
 import { showToast } from "./toastService";
 import { appendVisibilityReferral, ensureVisibilityInviteCode } from "./visibilityCreditService";
+import { toShareableUrl } from "./nativeShare";
 
 function getAppUrl(hash = "") {
   if (typeof window === "undefined") return "";
   const url = new URL(window.location.href);
   url.hash = hash;
-  return url.toString();
+  // Inside the app this turns the device address into kunthai.app.
+  return toShareableUrl(url.toString());
 }
 
 async function copyText(text) {
   if (navigator.clipboard?.writeText) {
-    await navigator.clipboard.writeText(text);
-    return;
+    try {
+      await navigator.clipboard.writeText(text);
+      return;
+    } catch {
+      // Some WebViews refuse the clipboard API; fall back to the copy command.
+    }
   }
 
   const input = document.createElement("textarea");

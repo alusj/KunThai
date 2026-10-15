@@ -70,7 +70,9 @@ test("seller loading is limited to changing inventory for every business type", 
 });
 
 test("UrRide has no startup pre-screen or header placeholders", () => {
-  assert.match(skeletonSource, /if \(page === "transport"\) return null/);
+  // Nothing at first; only the slow-network notice (with Refresh) after a
+  // long wait, so an offline launch is never an empty screen (2026-10-14).
+  assert.match(skeletonSource, /if \(page === "transport"\) \{\s*if \(!notice\) return null;/);
   assert.doesNotMatch(skeletonSource, /function TransportShell|function TransportHeaderShell|transport-actions/);
   // One exception (user request 2026-09-26): the operator entry shimmers,
   // like UrMall's seller entry, until the operator/company accounts are known,

@@ -8,6 +8,11 @@ const DECISION_REASON_LIBRARY = {
     suggestion("approve-transport", "Transport documents accepted", "The operator, company, or fleet documents were reviewed and satisfy the current transport verification and safety requirements."),
     suggestion("approve-correction", "Requested correction confirmed", "The requested correction was checked against the available records and supporting evidence. The corrected information is appropriate and can be accepted."),
   ],
+  approve_recommend: [
+    suggestion("recommend-strong", "Verified and recommended", "I reviewed the submitted evidence and confirmed that it meets the applicable KunThai requirements. The account is complete, consistent and in good standing, so it is approved and recommended to customers."),
+    suggestion("recommend-business", "Trusted business recommended", "The business information, ownership details and supporting documents are complete and consistent. The business is verified and recommended to UrMall buyers."),
+    suggestion("recommend-operator", "Trusted operator recommended", "The operator's identity, licence and vehicle documents were reviewed and meet the current transport verification and safety requirements. The operator is verified and recommended to passengers."),
+  ],
   reject: [
     suggestion("reject-incomplete", "Required information is incomplete", "The request cannot be approved because required information or supporting documents are incomplete. The user may submit a new request after providing the missing items."),
     suggestion("reject-mismatch", "Information does not match", "The submitted information does not match the account or supporting records. The discrepancies must be resolved before this request can be approved."),

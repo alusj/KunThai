@@ -54,10 +54,25 @@ function proximityBand({ buyerHasCoordinates, distance, sameCity, sameCountry })
   return 2;
 }
 
+// How much the buyer likes this product's category (0..1), from their own
+// UrMall activity (buyerContext.interests: Map(category -> 0..1)).
+function interestScore(product = {}, interests) {
+  if (!interests?.size) return 0;
+  const category = normalizeText(product.category || product.verticalType);
+  return category ? interests.get(category) || 0 : 0;
+}
+
+// Within one distance band, a liked category counts like being this many km
+// closer, so suggestions follow the buyer's interests without sending them
+// across town.
+const INTEREST_KM_BONUS = 8;
+
 // Location is the leading signal, but unknown coordinates never make the
 // catalogue disappear. City/country, availability, quality and freshness form
-// progressively weaker fallbacks.
+// progressively weaker fallbacks. The buyer's favourite categories lift
+// matching products within the same distance band.
 export function rankMarketplaceProductsNearby(products = [], buyerContext = {}) {
+  const interests = buyerContext.interests instanceof Map ? buyerContext.interests : null;
   const buyerCoordinates = buyerContext.latitude != null && buyerContext.longitude != null
     ? { latitude: Number(buyerContext.latitude), longitude: Number(buyerContext.longitude) }
     : null;
@@ -92,11 +107,14 @@ export function rankMarketplaceProductsNearby(products = [], buyerContext = {}) 
         originalIndex,
         distance,
         band: proximityBand({ buyerHasCoordinates, distance, sameCity, sameCountry }),
+        interest: interestScore(product, interests),
       };
     })
     .sort((a, b) => (
       a.band - b.band ||
-      (a.distance ?? Number.POSITIVE_INFINITY) - (b.distance ?? Number.POSITIVE_INFINITY) ||
+      ((a.distance ?? Number.POSITIVE_INFINITY) - a.interest * INTEREST_KM_BONUS)
+        - ((b.distance ?? Number.POSITIVE_INFINITY) - b.interest * INTEREST_KM_BONUS) ||
+      b.interest - a.interest ||
       qualityScore(b.product) - qualityScore(a.product) ||
       freshnessTime(b.product) - freshnessTime(a.product) ||
       a.originalIndex - b.originalIndex

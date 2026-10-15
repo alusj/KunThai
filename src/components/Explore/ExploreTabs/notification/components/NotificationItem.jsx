@@ -54,14 +54,8 @@ function getMessage(item) {
   return `${name} interacted with your account`;
 }
 
-function getPriorityPill(priority) {
-  if (priority === "high") return "Now";
-  return "";
-}
-
 export default function NotificationItem({ followed, item, onFollowBack, onOpen }) {
   const Icon = getIcon(item.type);
-  const priorityPill = getPriorityPill(item.priority);
 
   return (
     <article
@@ -84,13 +78,6 @@ export default function NotificationItem({ followed, item, onFollowBack, onOpen 
           {item.post_preview ? <p className="mt-1 line-clamp-2 text-xs font-medium text-slate-500">"{item.post_preview}"</p> : null}
           <div className="mt-2 flex flex-wrap items-center gap-2">
             <p className="text-xs font-bold text-slate-400">{item.time_label || item.time}</p>
-            {priorityPill ? (
-              <span className={`rounded-full px-2 py-0.5 text-[10px] font-black uppercase tracking-[0.12em] ${
-                item.priority === "high" ? "bg-sky-100 text-sky-700" : "bg-slate-100 text-slate-500"
-              }`}>
-                {priorityPill}
-              </span>
-            ) : null}
           </div>
         </button>
         <NotificationAction followed={followed} onFollowBack={() => onFollowBack?.(item)} type={item.type} />

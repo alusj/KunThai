@@ -2,7 +2,7 @@ import { useEffect, useRef } from "react";
 import { isHeavyUploadActive } from "../../Backend/services/uploadActivity";
 
 import supabase from "../../Backend/lib/supabaseClient";
-import { haptics, sounds } from "../../Backend/services/feedbackService";
+import { haptics, sounds, startRinging, stopRinging } from "../../Backend/services/feedbackService";
 import { requestExploreScreen, requestMarketplaceScreen, showNotificationBanner } from "../../Backend/services/notificationBannerService";
 import { showToast } from "../../Backend/services/toastService";
 import {
@@ -12,6 +12,7 @@ import {
 import { showKunThaiSystemNotification } from "../../Backend/services/pushService";
 import { t as i18nText } from "../../i18n/index";
 import { fetchSurfacePlatformNotifications } from "../../Backend/services/surfaceNotificationService";
+import { getUrMallBuyerSettings } from "../../Backend/services/marketplace/marketplaceBuyerSettings";
 
 const ACTIVITY_REFRESH_MS = 20_000;
 const EMPTY_ACTIVITY = {
@@ -70,8 +71,55 @@ function openService(page) {
   window.dispatchEvent(new CustomEvent("kuntai-return-main-page", { detail: { page } }));
 }
 
-function announceActivity({ body, item, page, source, title }) {
+// What a passenger feels and hears for each trip update (types come from the
+// transport_passenger_notifications trigger). Anything else gets the default
+// light tick and notification ping.
+const PASSENGER_TRIP_FEEDBACK = {
+  trip_accepted: () => {
+    haptics.success("transport");
+    sounds.success("transport");
+  },
+  operator_arrived: () => {
+    haptics.heavy("transport");
+    sounds.arrival("transport");
+  },
+  trip_start_requested: () => {
+    haptics.medium("transport");
+    sounds.notification("transport");
+  },
+  trip_declined: () => {
+    haptics.warning("transport");
+    sounds.notification("transport");
+  },
+  trip_cancelled: () => {
+    haptics.warning("transport");
+    sounds.notification("transport");
+  },
+};
+
+function defaultActivityFeedback(page) {
+  haptics.light(page);
+  sounds.notification(page);
+}
+
+// UrRide Settings > Trip alerts, read straight from storage so this host does
+// not pull the whole passenger service into the startup bundle.
+function readPassengerTripAlertsOff() {
+  try {
+    return JSON.parse(localStorage.getItem("kuntai.transport.passengerSettings") || "{}")?.tripAlerts === false;
+  } catch {
+    return false;
+  }
+}
+
+function announceActivity({ body, item, page, source, title, feedback, onOpened }) {
   if (!body || !item) return;
+  // UrMall Settings > Seller message alerts: a store's reply to this buyer.
+  if (page === "marketplace" && String(item.id || "").startsWith("buyer-message:")
+    && getUrMallBuyerSettings().messageAlerts === false) return;
+  // UrRide Settings > Trip alerts: passenger trip updates.
+  if (page === "transport" && source === "notifications" && !item.activityScope
+    && readPassengerTripAlertsOff()) return;
   const contextKey = `${page}:${source}`;
 
   // A new-message banner should land on the conversation list, not just the
@@ -88,14 +136,16 @@ function announceActivity({ body, item, page, source, title }) {
         ? () => requestMarketplaceScreen("orders")
         : () => openService(page);
 
-  haptics.light(page);
-  sounds.notification(page);
+  (feedback || (() => defaultActivityFeedback(page)))();
   showNotificationBanner({
     title,
     body,
     contextKey,
     openLabel: page === "marketplace" ? "Open UrMall" : "Open UrRide",
-    onOpen,
+    onOpen: () => {
+      onOpened?.();
+      onOpen();
+    },
   });
   showKunThaiSystemNotification({
     title,
@@ -177,6 +227,7 @@ export default function CrossServiceActivityHost({
     let transportCompanyCleanup = () => {};
     let passengerTripCleanup = () => {};
     let realtimeChannel = null;
+    let ringingBookingId = "";
 
     marketplaceRef.current = EMPTY_ACTIVITY;
     transportRef.current = EMPTY_ACTIVITY;
@@ -304,20 +355,42 @@ export default function CrossServiceActivityHost({
             + unseenItems("transport:passenger", nextState.platformItems).length,
         );
 
+        // A ride request rings until it leaves the waiting list (accepted,
+        // declined or expired), the banner is opened, or 45 seconds pass.
+        if (ringingBookingId && !nextState.bookingItems.some((booking) => itemId(booking) === ringingBookingId)) {
+          ringingBookingId = "";
+          stopRinging();
+        }
+
         if (previous.initialized) {
+          const newBooking = firstNewItem(nextState.bookingItems, previous.bookingItems);
+          // Only a solo operator who is online gets the ring; company queues
+          // and offline operators get the normal notification.
+          const ringForBooking = Boolean(newBooking)
+            && newBooking.activitySource === "operator"
+            && operatorAccount?.activeStatus === "active";
           announceActivity({
             title: i18nText("ui.literals.kd72dbe16af0c"),
             body: i18nText("ui.literals.kace42db22b36"),
-            item: firstNewItem(nextState.bookingItems, previous.bookingItems),
+            item: newBooking,
             page: "transport",
             source: "bookings",
+            feedback: ringForBooking
+              ? () => {
+                ringingBookingId = itemId(newBooking);
+                startRinging("transport");
+              }
+              : undefined,
+            onOpened: ringForBooking ? stopRinging : undefined,
           });
+          const newNotification = firstNewItem(nextState.notificationItems, previous.notificationItems);
           announceActivity({
             title: i18nText("ui.literals.kd72dbe16af0c"),
             body: i18nText("ui.literals.k8b400f126918"),
-            item: firstNewItem(nextState.notificationItems, previous.notificationItems),
+            item: newNotification,
             page: "transport",
             source: "notifications",
+            feedback: PASSENGER_TRIP_FEEDBACK[newNotification?.type],
           });
         }
       } finally {
@@ -387,6 +460,7 @@ export default function CrossServiceActivityHost({
     refreshAll();
     return () => {
       active = false;
+      stopRinging();
       window.clearInterval(intervalId);
       seenCleanup();
       sellerCleanup();

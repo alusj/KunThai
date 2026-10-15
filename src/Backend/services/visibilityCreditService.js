@@ -1,4 +1,5 @@
 import supabase from "../lib/supabaseClient";
+import { publicAppOrigin, toShareableUrl } from "./nativeShare";
 import { friendlyErrorMessage } from "./friendlyErrorService";
 import { apiUrl } from "../lib/apiUrl.js";
 import { t } from "../../i18n";
@@ -150,7 +151,8 @@ export function getVisibilityPackageByCredits(credits) {
 
 export function buildVisibilityInviteUrl(code = "") {
   if (!code || typeof window === "undefined") return "";
-  const url = new URL(window.location.origin);
+  // The public website, also inside the app (where the page origin is the device).
+  const url = new URL(publicAppOrigin());
   url.searchParams.set(CREDIT_SHARE_PARAM, code);
   return url.toString();
 }
@@ -205,8 +207,9 @@ export async function ensureVisibilityInviteCode() {
 export function appendVisibilityReferral(url, code = getCachedVisibilityInviteCode()) {
   if (!url || !code) return url;
   try {
-    const decorated = new URL(url, typeof window !== "undefined" ? window.location.origin : undefined);
-    if (typeof window !== "undefined" && decorated.origin !== window.location.origin) return url;
+    const decorated = new URL(toShareableUrl(url), typeof window !== "undefined" ? publicAppOrigin() : undefined);
+    // Only KunThai's own links carry the sharer's code.
+    if (typeof window !== "undefined" && decorated.origin !== publicAppOrigin()) return url;
     // Always stamp the sharer's own code — overwriting any stale referral the
     // sharer may still carry in their address bar from arriving via someone
     // else's link — so a share always credits the person doing the sharing.

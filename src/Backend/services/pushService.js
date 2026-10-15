@@ -34,16 +34,23 @@ import {
 } from "./notificationBannerService";
 import { requestConversationOpen } from "./explore/messageService";
 import {
+  ANDROID_PUSH_CHANNELS,
   NATIVE_PUSH_DIAGNOSTIC_KEY,
   NATIVE_PUSH_RECEIVED_EVENT,
   bannerContextsForRoute,
   buildPushDiagnostic,
+  decideFirstRunPush,
   decideNativePushAction,
   diagnosticMessage,
   foregroundPushBanner,
+  isDuplicateTap,
   nativePushStatusFrom,
   normalizePushRoute,
+  pushTapKey,
+  pushTapRoute,
   refreshEventsForRoute,
+  shouldSaveRefreshedToken,
+  tokenSummary,
 } from "./nativePushLogic";
 
 const VAPID_PUBLIC_KEY = import.meta.env.VITE_VAPID_PUBLIC_KEY || "";
@@ -73,8 +80,10 @@ function isPushSupported() {
     && Boolean(VAPID_PUBLIC_KEY);
 }
 
-function handleNotificationTarget(target = "", url = "") {
-  runNotificationAction(() => {
+// Opens the screen for a push route. Never reloads the page except for a web
+// push that carries only a URL.
+function navigateToTarget(target = "", url = "") {
+  {
     const [kind, id] = normalizePushRoute(target).split(":");
     if (kind === "conversation" && id) {
       requestConversationOpen(id);
@@ -107,11 +116,83 @@ function handleNotificationTarget(target = "", url = "") {
     if (url && url !== "/" && url !== window.location.href) {
       window.location.assign(url);
     }
-  });
+  }
+}
+
+// In-app banners: only while online (the screens they open need data).
+function handleNotificationTarget(target = "", url = "") {
+  runNotificationAction(() => navigateToTarget(target, url));
+}
+
+// --- Notification taps ------------------------------------------------------------
+// A tap can arrive before the app can navigate: on a cold start Capacitor hands
+// it over as soon as the listener is added (before React has mounted), and a
+// signed-out person must sign in first. The tap waits here until App reports
+// the main screens are ready (setNotificationNavigationReady), then opens
+// exactly once. Logs carry the route kind only (no ids, text or tokens).
+let navigationReady = false;
+let pendingTap = null;
+const recentTaps = new Map();
+
+function queueNotificationTap({ route = "", url = "", key = "", source = "native" } = {}) {
+  if (key && isDuplicateTap(recentTaps, key)) {
+    pushLog(`tap ignored (${source}): already handled`);
+    return;
+  }
+  const parsed = pushTapRoute(route);
+  pushLog(`tap received (${source}): route=${parsed.kind}${parsed.fallback ? ` -> fallback (${parsed.reason})` : ""}`);
+  pendingTap = { route: parsed.route, kind: parsed.kind, url: route ? "" : url, receivedAt: Date.now() };
+  if (!navigationReady) {
+    pushLog("tap waiting until KunThai is signed in and ready");
+    return;
+  }
+  flushNotificationTap();
+}
+
+function flushNotificationTap() {
+  if (!pendingTap || !navigationReady) return;
+  const tap = pendingTap;
+  pendingTap = null;
+  try {
+    navigateToTarget(tap.route, tap.url);
+    pushLog(`tap opened ${tap.kind} after ${Date.now() - tap.receivedAt} ms`);
+  } catch (error) {
+    pushLog(`tap navigation failed for ${tap.kind}: ${error?.name || "error"}`);
+  }
+}
+
+// App: true once the signed-in main screens are rendered (false on the
+// loading, sign-in, two-step, onboarding and blocked screens).
+export function setNotificationNavigationReady(ready) {
+  const next = Boolean(ready);
+  if (next === navigationReady) return;
+  navigationReady = next;
+  if (next && pendingTap) {
+    pushLog("navigation ready; opening the tapped notification");
+    flushNotificationTap();
+  }
+}
+
+const WEB_PUSH_TARGET_PARAM = "kt_push";
+
+// A web push clicked while no KunThai tab was open opens /?kt_push=<target>.
+function takeWebPushTargetFromUrl() {
+  try {
+    const url = new URL(window.location.href);
+    const target = url.searchParams.get(WEB_PUSH_TARGET_PARAM);
+    if (!target) return;
+    url.searchParams.delete(WEB_PUSH_TARGET_PARAM);
+    window.history.replaceState(window.history.state, "", `${url.pathname}${url.search}${url.hash}`);
+    queueNotificationTap({ route: target, key: `web:${target}`, source: "web, new window" });
+  } catch {
+    // A malformed URL: nothing to open.
+  }
 }
 
 export function registerKunThaiServiceWorker() {
-  if (typeof window === "undefined" || !("serviceWorker" in navigator)) return;
+  if (typeof window === "undefined") return;
+  if (!isNativeApp()) takeWebPushTargetFromUrl();
+  if (!("serviceWorker" in navigator)) return;
 
   window.addEventListener("load", () => {
     navigator.serviceWorker.register("/sw.js").catch((error) => {
@@ -121,7 +202,8 @@ export function registerKunThaiServiceWorker() {
 
   navigator.serviceWorker.addEventListener("message", (event) => {
     if (event.data?.type === "kunthai-notification-click") {
-      handleNotificationTarget(event.data.target, event.data.url);
+      if (event.data.target) queueNotificationTap({ route: event.data.target, source: "web" });
+      else handleNotificationTarget("", event.data.url);
     }
   });
 }
@@ -131,6 +213,12 @@ export function registerKunThaiServiceWorker() {
 const NATIVE_PUSH_KEY = "kunthai.nativePush";
 const NATIVE_REGISTER_TIMEOUT_MS = 20_000;
 const FOREGROUND_BANNER_DELAY_MS = 1500;
+
+// One-line, string-only log for Logcat / Xcode (debug builds pipe the WebView
+// console there as Capacitor/Console). Never pass a token, key or session.
+function pushLog(message) {
+  console.info(`[KunThai push] ${message}`);
+}
 
 function readNativePushState() {
   try {
@@ -179,6 +267,7 @@ function pushProblemText(diagnostic) {
 function nativePushFailure(stage, error, platform) {
   const diagnostic = buildPushDiagnostic({ stage, error, platform });
   writePushDiagnostic(diagnostic);
+  pushLog(`setup failed: stage=${diagnostic.stage} reason=${diagnostic.reason}${diagnostic.code ? ` code=${diagnostic.code}` : ""}${diagnostic.message ? ` detail=${diagnostic.message}` : ""}`);
   const failure = new Error(pushProblemText(diagnostic));
   failure.diagnostic = diagnostic;
   return failure;
@@ -221,6 +310,82 @@ async function accountPushPreference(userId) {
     return data?.push_enabled === true;
   } catch {
     return null;
+  }
+}
+
+// The account's push switch as "on" | "off" | "unset" (never chosen) |
+// "unknown" (could not be read).
+async function accountPushPreferenceState(userId) {
+  if (!userId) return "unknown";
+  try {
+    const { data, error } = await supabase
+      .from("user_notification_preferences")
+      .select("push_enabled")
+      .eq("user_id", userId)
+      .maybeSingle();
+    if (error) return "unknown";
+    if (!data || data.push_enabled === null || data.push_enabled === undefined) return "unset";
+    return data.push_enabled === true ? "on" : "off";
+  } catch {
+    return "unknown";
+  }
+}
+
+const FIRST_RUN_PUSH_KEY = "kunthai.pushFirstRunAsked.v1";
+
+function firstRunAsked(userId) {
+  try {
+    return (JSON.parse(localStorage.getItem(FIRST_RUN_PUSH_KEY) || "[]") || []).includes(userId);
+  } catch {
+    return false;
+  }
+}
+
+function rememberFirstRunAsked(userId) {
+  try {
+    const asked = JSON.parse(localStorage.getItem(FIRST_RUN_PUSH_KEY) || "[]") || [];
+    if (!asked.includes(userId)) localStorage.setItem(FIRST_RUN_PUSH_KEY, JSON.stringify([...asked, userId].slice(-20)));
+  } catch {
+    // Storage unavailable: at worst the question is asked again next launch.
+  }
+}
+
+let firstRunPushStarted = false;
+
+// Once the signed-in person is on the main screens (never during sign-up or
+// onboarding), set push up for them: ask for the OS permission the first
+// time, or switch it on quietly when the phone already allows it. A person
+// who turned push off is never asked again. Push stays manageable in Settings.
+export async function ensurePushOnFirstRun() {
+  if (!isNativeApp() || firstRunPushStarted) return;
+  firstRunPushStarted = true;
+  try {
+    const userId = await currentUserId();
+    if (!userId) return;
+    const permission = await nativePermission();
+    const preference = await accountPushPreferenceState(userId);
+    const decision = decideFirstRunPush({ permission, preference, asked: firstRunAsked(userId) });
+    pushLog(`first run: permission=${permission} accountPush=${preference} -> ${decision}`);
+    if (decision === "none") return;
+    if (decision === "ask") rememberFirstRunAsked(userId);
+    let result = "";
+    try {
+      result = await enableNativePush();
+    } catch {
+      // The reason is already saved for Settings (nativePushFailure).
+      return;
+    }
+    if (result === "enabled") {
+      // Same row the Settings switch writes (delivery checks push_enabled).
+      const { error } = await supabase
+        .from("user_notification_preferences")
+        .upsert({ user_id: userId, push_enabled: true, updated_at: new Date().toISOString() }, { onConflict: "user_id" });
+      pushLog(error ? "first run: could not save the account's push switch" : "first run: push switched on for the account");
+    }
+  } catch {
+    // Best-effort; Settings still offers the switch.
+  } finally {
+    firstRunPushStarted = false;
   }
 }
 
@@ -274,16 +439,19 @@ function registerThisDevice(userId, platform) {
   if (registrationInFlight) return registrationInFlight;
   registrationInFlight = (async () => {
     let token = "";
+    pushLog(`registering with ${platform === "ios" ? "APNs" : "FCM"}`);
     try {
       token = await obtainNativeToken();
     } catch (failure) {
       throw nativePushFailure(failure?.stage || "register", failure?.error ?? failure, platform);
     }
+    pushLog(`received ${tokenSummary(token)}; saving to push_device_tokens`);
     try {
       await saveNativeToken(token, platform);
     } catch (error) {
       throw nativePushFailure("save", error, platform);
     }
+    pushLog("device registered for push");
     writeNativePushState({ platform, token, userId, savedAt: new Date().toISOString() });
     writePushDiagnostic(null);
     return "enabled";
@@ -372,6 +540,7 @@ async function syncNativePush(trigger) {
   const state = readNativePushState();
   const preferenceOn = permission === "granted" ? await accountPushPreference(userId) : null;
   const action = decideNativePushAction({ userId, permission, preferenceOn, state, trigger });
+  pushLog(`sync(${trigger}): permission=${permission} accountPush=${preferenceOn} savedOnThisPhone=${Boolean(state?.token && state.userId === userId)} -> ${action}`);
   try {
     if (action === "register") {
       await registerThisDevice(userId, platform);
@@ -408,6 +577,33 @@ function handleForegroundPush(notification) {
   }, FOREGROUND_BANNER_DELAY_MS);
 }
 
+// FCM can replace this phone's token at any time (onNewToken); save the new
+// one right away instead of waiting for the next app start.
+async function handleTokenRefresh(token) {
+  const value = token?.value || "";
+  if (registrationInFlight) return;
+  const state = readNativePushState();
+  const userId = await currentUserId();
+  if (!shouldSaveRefreshedToken({ state, userId, token: value })) return;
+  pushLog(`token refreshed (${tokenSummary(value)}); saving`);
+  try {
+    await saveNativeToken(value, state.platform);
+    writeNativePushState({ ...state, token: value, savedAt: new Date().toISOString() });
+  } catch (error) {
+    pushLog(`could not save refreshed token: ${error?.code || error?.message || "error"}`);
+  }
+}
+
+// Android 8+: the high-importance channel FCM posts background pushes to.
+function ensureAndroidPushChannel() {
+  if (nativePlatform() !== "android") return;
+  for (const channel of ANDROID_PUSH_CHANNELS) {
+    Promise.resolve(PushNotifications.createChannel(channel))
+      .then(() => pushLog(`notification channel ${channel.id} ready`))
+      .catch((error) => pushLog(`notification channel ${channel.id} not created: ${error?.message || "error"}`));
+  }
+}
+
 let nativePushStarted = false;
 
 // Runs once at startup in the app. Listeners are added before any
@@ -418,13 +614,21 @@ export function initNativePushNotifications() {
   if (!isNativeApp() || nativePushStarted) return;
   nativePushStarted = true;
 
+  // Added first, before any network work: a cold-start tap is delivered as
+  // soon as this listener exists and is queued until the app is ready.
   Promise.resolve(PushNotifications.addListener("pushNotificationActionPerformed", (action) => {
     const data = action?.notification?.data || {};
-    const route = typeof data.route === "string" ? data.route : "";
-    if (route) handleNotificationTarget(route);
+    queueNotificationTap({ route: typeof data.route === "string" ? data.route : "", key: pushTapKey(action), source: "native" });
   })).catch(() => {});
 
-  Promise.resolve(PushNotifications.addListener("pushNotificationReceived", handleForegroundPush)).catch(() => {});
+  ensureAndroidPushChannel();
+
+  Promise.resolve(PushNotifications.addListener("pushNotificationReceived", (notification) => {
+    pushLog(`notification received in foreground: kind=${notification?.data?.kind || "(none)"}`);
+    handleForegroundPush(notification);
+  })).catch(() => {});
+
+  Promise.resolve(PushNotifications.addListener("registration", handleTokenRefresh)).catch(() => {});
 
   Promise.resolve(CapacitorApp.addListener("appStateChange", ({ isActive }) => {
     if (isActive) syncNativePush("resume");

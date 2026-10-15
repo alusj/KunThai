@@ -47,6 +47,7 @@ $$;
 
 \ir ../migrations/20261006120000_nearby_top_rated_and_urmall_distance.sql
 \ir ../migrations/20261006130000_transport_fleet_distances.sql
+\ir ../migrations/20261014120000_urride_nearby_keeps_unplaced_operators.sql
 
 -- Passenger in central Freetown. 0.009 deg latitude ~= 1 km.
 -- f1: 1 km, one 5-star review (live)          -> pulled toward the area mean
@@ -56,7 +57,7 @@ $$;
 -- f5: 120 km away, 5 stars                    -> outside 50 km
 -- f6: 1 km, Guinea                            -> other country, excluded
 -- f7: 1 km, offline (active_status)           -> excluded
--- f8: 1 km, last seen 3 days ago              -> excluded (position too old)
+-- f8: 1 km, last seen 3 days ago              -> kept, last, no distance (still online)
 -- f9: 1 km, hidden company fleet              -> excluded
 do $$
 declare
@@ -105,7 +106,19 @@ declare
   r record;
 begin
   select count(*) into rows_seen from public.transport_top_rated_nearby(8.484, -13.234, 'sl');
-  if rows_seen <> 4 then raise exception 'expected 4 nearby fleets (f1-f4), got %', rows_seen; end if;
+  if rows_seen <> 5 then raise exception 'expected 5 fleets (f1-f4 nearby, f8 without a position), got %', rows_seen; end if;
+
+  -- An online operator whose position is too old stays listed, after every
+  -- fleet with a distance, and carries no distance.
+  select * into r from public.transport_top_rated_nearby(8.484, -13.234, 'SL')
+  where fleet_id = '00000000-0000-0000-0000-000000000008';
+  if r.distance_km is not null or r.location_source <> 'unknown' or not r.is_rated then
+    raise exception 'f8 should be rated, without a distance: %', r;
+  end if;
+  select fleet_id into first_id from public.transport_top_rated_nearby(8.484, -13.234, 'SL') offset 3 limit 1;
+  if first_id <> '00000000-0000-0000-0000-000000000008' then
+    raise exception 'f8 must follow the rated fleets with a distance and precede the new ones, got %', first_id;
+  end if;
 
   select fleet_id into first_id from public.transport_top_rated_nearby(8.484, -13.234, 'SL') limit 1;
   if first_id <> '00000000-0000-0000-0000-000000000002' then

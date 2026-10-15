@@ -24,9 +24,11 @@ export async function getTwoFactorState() {
 
 export async function startTotpEnrollment() {
   // Stale unverified factors block re-enrollment, so clear them first.
+  // listFactors().totp holds verified factors only; unverified ones (a setup
+  // that was cancelled) are only in .all.
   const { data: existing } = await supabase.auth.mfa.listFactors();
-  for (const factor of existing?.totp || []) {
-    if (factor.status === "unverified") {
+  for (const factor of existing?.all || []) {
+    if (factor.factor_type === "totp" && factor.status === "unverified") {
       await supabase.auth.mfa.unenroll({ factorId: factor.id }).catch(() => {});
     }
   }
@@ -76,6 +78,14 @@ export async function isTwoFactorChallengeRequired() {
   const { data, error } = await supabase.auth.mfa.getAuthenticatorAssuranceLevel();
   if (error) return false;
   return data?.currentLevel === "aal1" && data?.nextLevel === "aal2";
+}
+
+// Like isTwoFactorChallengeRequired, but tells "could not check" (no
+// connection, session not restored yet) apart from "not required".
+export async function checkTwoFactorChallenge() {
+  const { data, error } = await supabase.auth.mfa.getAuthenticatorAssuranceLevel();
+  if (error) return { checked: false, required: false };
+  return { checked: true, required: data?.currentLevel === "aal1" && data?.nextLevel === "aal2" };
 }
 
 export async function verifyTwoFactorLogin(code) {

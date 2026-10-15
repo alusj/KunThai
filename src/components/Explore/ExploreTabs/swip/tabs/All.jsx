@@ -9,6 +9,7 @@ import EmptyState from "../../../shared/EmptyState";
 import ErrorState from "../../../shared/ErrorState";
 import { useI18n, t as translate } from "../../../../../i18n";
 import { stopAllExploreMedia } from "../../../shared/singleMediaPlayback";
+import { readExploreSettings } from "../../../../../Backend/services/explore/preferencesService";
 import VideoCard from "../videos/VideoCard";
 import { getSwipContext, getVideoCategoryLabel, getSwipVideos, isRenderableSwipPost } from "../videos/swipUtils";
 import { uiText as translateUi, useI18n as useUiLocale } from "../../../../../i18n/index.js";
@@ -47,6 +48,25 @@ export default function All({ active = true, currentUserId = "", focusPostId = "
   useEffect(() => {
     setActiveIndex((current) => Math.min(Math.max(current, 0), Math.max(videos.length - 1, 0)));
   }, [videos.length]);
+
+  // Clips 3-5 ahead are not mounted; only their first ~1 MB is fetched, so
+  // they start quickly when reached (the network and CDN already have the
+  // start) without the memory cost of more video players.
+  const warmUrls = active
+    ? videos.slice(activeIndex + SWIP_PRELOAD_AHEAD + 1, activeIndex + SWIP_WARM_AHEAD + 1).map((post) => post.video_url).filter(Boolean)
+    : [];
+  const warmKey = warmUrls.join("|");
+  useEffect(() => {
+    if (!warmKey || swipBufferAhead() < SWIP_PRELOAD_AHEAD || readExploreSettings().video.reduceData) return undefined;
+    const controller = new AbortController();
+    (async () => {
+      for (const url of warmKey.split("|")) {
+        if (controller.signal.aborted) return;
+        await warmSwipClip(url, controller.signal);
+      }
+    })();
+    return () => controller.abort();
+  }, [warmKey]);
 
   useEffect(() => {
     if (active && feed.hasMore && !feed.loadingMore && videos.length > 0 && activeIndex >= videos.length - 3) {
@@ -256,7 +276,11 @@ export default function All({ active = true, currentUserId = "", focusPostId = "
       }}
       >
       {videos.map((post, index) => {
-  const shouldMountVideo = Math.abs(index - activeIndex) <= 1;
+  // The current clip, the one before and the next two stay mounted; the
+  // current and upcoming ones buffer ahead so a swipe starts playing at once.
+  const offset = index - activeIndex;
+  const shouldMountVideo = offset >= -1 && offset <= SWIP_PRELOAD_AHEAD;
+  const preloadMode = offset >= 0 && offset <= swipBufferAhead() ? "auto" : "metadata";
 
   return (
     <section
@@ -273,6 +297,7 @@ export default function All({ active = true, currentUserId = "", focusPostId = "
             profile={profile}
             post={post}
             active={active && index === activeIndex}
+            preloadMode={preloadMode}
             fullBleed
             fullscreen={fullscreen}
             contextLabel={getSwipContext(post, currentUserId)}
@@ -316,6 +341,51 @@ export default function All({ active = true, currentUserId = "", focusPostId = "
       </div>
     </div>
   );
+}
+
+const SWIP_PRELOAD_AHEAD = 2;
+const SWIP_WARM_AHEAD = 5;
+const SWIP_WARM_BYTES = 1024 * 1024;
+const warmedSwipClips = new Set();
+
+// Fetches the first ~1 MB of a clip once per session. Best-effort: any
+// failure is ignored and the clip simply loads normally when reached.
+async function warmSwipClip(url, signal) {
+  if (!url || warmedSwipClips.has(url) || typeof fetch !== "function") return;
+  warmedSwipClips.add(url);
+  try {
+    const response = await fetch(url, {
+      headers: { Range: `bytes=0-${SWIP_WARM_BYTES - 1}` },
+      credentials: "omit",
+      signal,
+    });
+    // Read up to 1 MB so it is actually downloaded (and cached), then stop,
+    // even if the server ignored the range and sent the whole file.
+    const reader = response.body?.getReader?.();
+    if (!reader) return;
+    let received = 0;
+    while (received < SWIP_WARM_BYTES) {
+      const { done, value } = await reader.read();
+      if (done) break;
+      received += value?.byteLength || 0;
+    }
+    reader.cancel().catch(() => {});
+  } catch {
+    // Aborted (the person scrolled on or left Swip) or offline: try again later.
+    if (signal?.aborted) warmedSwipClips.delete(url);
+  }
+}
+
+// How many upcoming clips may buffer fully. On a slow or data-saving
+// connection only the current clip does, so it is not starved.
+function swipBufferAhead() {
+  const connection = typeof navigator !== "undefined"
+    ? navigator.connection || navigator.mozConnection || navigator.webkitConnection
+    : null;
+  const effectiveType = String(connection?.effectiveType || "").toLowerCase();
+  if (connection?.saveData || effectiveType === "slow-2g" || effectiveType === "2g") return 0;
+  if (effectiveType === "3g") return 1;
+  return SWIP_PRELOAD_AHEAD;
 }
 
 function SwipSkeleton() {

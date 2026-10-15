@@ -15,16 +15,18 @@ import { clearExploreScreenStack } from "./Backend/services/explore/navigationSe
 import { setNotificationSeenUser } from "./Backend/services/notificationSeenStore";
 import { getCurrentAccountControl, subscribeToAccountControl } from "./Backend/services/accountControlService";
 import { markSessionContinuity, readSessionContinuity } from "./Backend/services/sessionService";
-import { forgetNativePushDevice } from "./Backend/services/pushService";
+import { forgetNativePushDevice, ensurePushOnFirstRun, setNotificationNavigationReady } from "./Backend/services/pushService";
 import { initNativeOAuth } from "./Backend/services/nativeOAuthService";
 import AccountRestrictionNotice from "./components/shared/AccountRestrictionNotice";
 import ReturningUserIntro from "./components/shared/ReturningUserIntro";
 import TwoFactorGate from "./components/auth/TwoFactorGate";
+import { checkTwoFactorChallenge } from "./Backend/services/twoFactorService";
 import GuestGateCard from "./components/shared/GuestGateCard";
 import NotificationBannerHost from "./components/shared/NotificationBannerHost";
 import RegistrationBackgroundHost from "./components/shared/RegistrationBackgroundHost";
 import BiometricLockGate from "./components/Explore/SocialMenu/security/BiometricLockGate";
 import DirectionCardHost from "./components/shared/directionCards/DirectionCardHost";
+import OperatorPresenceHost from "./components/transport/OperatorPresenceHost";
 import RecoveryPasswordSheet from "./components/auth/RecoveryPasswordSheet";
 import CampaignPresentationHost from "./components/shared/CampaignPresentationHost";
 import CrossServiceActivityHost from "./components/shared/CrossServiceActivityHost";
@@ -42,7 +44,7 @@ import {
 import { showToast } from "./Backend/services/toastService";
 import { ensureExploreProfile } from "./Backend/services/explore/profileService";
 import { preloadMainDashboardData } from "./Backend/services/dashboardPreloadService";
-import { haptics } from "./Backend/services/feedbackService";
+import { haptics, installSelectionHaptics } from "./Backend/services/feedbackService";
 import { canStartNavigationGesture, navigationGesturesLocked } from "./Backend/services/gestureArbitration";
 import { startGlobalNetworkToasts } from "./Backend/services/networkService";
 import {
@@ -71,7 +73,6 @@ const PAGE_VISITS_KEY = "kuntai-main-page-visits";
 const MARKETPLACE_NAV_KEY = "kuntai-marketplace-nav";
 const SCREENSHOT_PROMPT_AUTO_HIDE_MS = 12_000;
 const SCREENSHOT_PROMPT_EXIT_MS = 280;
-const SCREENSHOT_RETURN_WINDOW_MS = 6_000;
 const NATIVE_SCREENSHOT_EVENTS = [
   "kuntai-native-screenshot",
   "nativeScreenshot",
@@ -196,12 +197,16 @@ function AppLoading({ page = "explore", marketplaceSub = "" }) {
   // screen never adds a second offline message of its own.
   const notice = showPatienceNotice ? (
     <div className="kt-route-transition rounded-2xl border border-sky-200 bg-sky-50 px-4 py-4 text-center shadow-sm">
-      <p className="text-sm font-black text-slate-950">
-        {i18nText("ui.literals.k28f19756579e")}
+      <p className="text-sm font-semibold leading-6 text-slate-700">
+        {i18nText("appLoading.slowNetwork")}
       </p>
-      <p className="mt-1 text-sm font-semibold leading-6 text-slate-600">
-        {i18nText("ui.literals.ke92c26e43495")}
-      </p>
+      <button
+        type="button"
+        onClick={() => window.location.reload()}
+        className="kt-pressable mx-auto mt-3 inline-flex h-10 items-center justify-center rounded-2xl bg-slate-950 px-5 text-sm font-black text-white"
+      >
+        {i18nText("appLoading.refresh")}
+      </button>
     </div>
   ) : null;
 
@@ -275,6 +280,10 @@ export default function App() {
   const loginShownRef = useRef(false);
   const [accountControl, setAccountControl] = useState(null);
   const [twoFactorPending, setTwoFactorPending] = useState(null);
+  // Set when the two-step check could not finish (offline launch): the cached
+  // app opens, and the check runs again as soon as the connection returns.
+  const [twoFactorDeferred, setTwoFactorDeferred] = useState(false);
+  const deferTwoFactorCheck = useCallback(() => setTwoFactorDeferred(true), []);
   const [returningIntroOpen, setReturningIntroOpen] = useState(false);
   // Bumped when KunThai returns from a long time in the background: the main
   // dashboards remount, so inner screens (messages, settings, profiles) close.
@@ -310,6 +319,9 @@ export default function App() {
   useEffect(() => {
     if (page === "transport") setTransportMounted(true);
   }, [page]);
+
+  // Switches, tabs, radios, checkboxes and pickers give one tiny tick app-wide.
+  useEffect(() => installSelectionHaptics(), []);
 
   useLayoutEffect(() => {
     if (!userId || guestSession || !onboardingComplete || twoFactorPending !== false) {
@@ -435,7 +447,33 @@ export default function App() {
   // Each new sign-in re-checks whether the account needs its authenticator code.
   useEffect(() => {
     setTwoFactorPending(null);
+    setTwoFactorDeferred(false);
   }, [userId]);
+
+  useEffect(() => {
+    if (!twoFactorDeferred || !userId) return undefined;
+    let cancelled = false;
+    async function recheck() {
+      if (typeof navigator !== "undefined" && navigator.onLine === false) return;
+      try {
+        const result = await checkTwoFactorChallenge();
+        if (cancelled || !result.checked) return;
+        setTwoFactorDeferred(false);
+        // The account needs its code: show the gate now.
+        if (result.required) setTwoFactorPending(null);
+      } catch {
+        // Still unreachable; the next "online" event or retry tries again.
+      }
+    }
+    recheck();
+    const retry = window.setInterval(recheck, 30_000);
+    window.addEventListener("online", recheck);
+    return () => {
+      cancelled = true;
+      window.clearInterval(retry);
+      window.removeEventListener("online", recheck);
+    };
+  }, [twoFactorDeferred, userId]);
 
   // The inviter's credit is only granted once the invited account is fully
   // created and has landed on a dashboard (onboarding complete). Gating the
@@ -588,8 +626,10 @@ export default function App() {
     // On a fresh sign-in honor the user's explicit "open first" choice
     // (primarySurface) ahead of the most-frequented-page heuristic — the first
     // app render records an Explore visit that would otherwise always win.
+    // The default dashboard picked in Settings beats both of those; only a
+    // just-finished onboarding choice or a deep link outranks it.
     const chosenSurface = normalizeMainPage(onboardingProfile?.primarySurface);
-    const preferredPage = pendingLanding || hashPage || chosenSurface || readPreferredMainPage("", userId);
+    const preferredPage = pendingLanding || hashPage || readDefaultMainPage() || chosenSurface || readPreferredMainPage("", userId);
     if (pendingLanding) pendingLandingRef.current = "";
     setPage(preferredPage);
     if (!hashPage) clearBrowserHash();
@@ -691,6 +731,29 @@ export default function App() {
     };
   }, [page]);
 
+  // A tapped push waits (pushService) until the signed-in main screens are on
+  // screen: not while loading, signing in, on two-step, onboarding or a block.
+  // Declared after the page-switch listener so it exists when the tap opens.
+  const notificationNavigationReady = !loading
+    && Boolean(user)
+    && (guestSession || (onboardingChecked && !onboardingLoading))
+    && (guestSession || twoFactorPending === false)
+    && (guestSession || onboardingComplete || Boolean(onboardingReveal))
+    && !["suspended", "banned"].includes(accountControl?.status);
+  useEffect(() => {
+    setNotificationNavigationReady(notificationNavigationReady);
+  }, [notificationNavigationReady]);
+
+  // On the main screens (never during sign-up or onboarding): set push up for
+  // a new account so alerts reach the phone when KunThai is closed.
+  useEffect(() => {
+    if (!notificationNavigationReady || guestSession) return undefined;
+    const timer = window.setTimeout(() => {
+      ensurePushOnFirstRun().catch(() => {});
+    }, 1500);
+    return () => window.clearTimeout(timer);
+  }, [guestSession, notificationNavigationReady, userId]);
+
   function withStartupIntro(content) {
     return (
       <>
@@ -734,7 +797,7 @@ export default function App() {
 
   if (!guestSession && twoFactorPending !== false) {
     return withStartupIntro(
-      <TwoFactorGate key={userId} user={user}>
+      <TwoFactorGate key={userId} user={user} onDeferred={deferTwoFactorCheck}>
         <TwoFactorPassed onPassed={() => setTwoFactorPending(false)} />
       </TwoFactorGate>,
     );
@@ -1025,6 +1088,8 @@ export default function App() {
       {userId && !guestSession ? <BiometricLockGate userId={userId} /> : null}
       {/* One-time tips pointing at key buttons; guests get GuestGateCard instead. */}
       {userId && !guestSession ? <DirectionCardHost userId={userId} /> : null}
+      {/* An online operator keeps sharing their position on every screen. */}
+      {userId && !guestSession ? <OperatorPresenceHost userId={userId} /> : null}
       {/* After an email recovery link: offer a new password once. */}
       {userId && !guestSession ? <RecoveryPasswordSheet userId={userId} /> : null}
     </div>,
@@ -1041,8 +1106,6 @@ function ScreenshotVoicePrompt({ page }) {
   const closeTimerRef = useRef(null);
   const capturePromiseRef = useRef(Promise.resolve(null));
   const preferClipboardRef = useRef(false);
-  const blurAtRef = useRef(0);
-  const hiddenAtRef = useRef(0);
   const lastRevealAtRef = useRef(0);
   const suppressUntilRef = useRef(0);
 
@@ -1087,25 +1150,10 @@ function ScreenshotVoicePrompt({ page }) {
       if (String(event.key || "").toLowerCase() === "printscreen") revealPrompt({ preferClipboard: true });
     }
 
-    function handleBlur() {
-      blurAtRef.current = Date.now();
-    }
-
-    function handleFocus() {
-      const elapsed = Date.now() - blurAtRef.current;
-      if (elapsed > 120 && elapsed < SCREENSHOT_RETURN_WINDOW_MS) revealPrompt();
-    }
-
-    function handleVisibilityChange() {
-      if (document.hidden) {
-        hiddenAtRef.current = Date.now();
-        return;
-      }
-
-      const elapsed = Date.now() - hiddenAtRef.current;
-      if (elapsed > 120 && elapsed < SCREENSHOT_RETURN_WINDOW_MS) revealPrompt();
-    }
-
+    // Only real screenshots open the prompt: the iOS / Android app's own
+    // screenshot signal and the desktop screenshot keys. Leaving and returning
+    // to the app is not a screenshot (picking a photo, the camera, a
+    // permission dialog and the notification shade all do that).
     function handleSuppressPrompt(event) {
       const duration = Math.max(0, Number(event.detail?.durationMs || 3_000));
       suppressUntilRef.current = Math.max(suppressUntilRef.current, Date.now() + duration);
@@ -1117,24 +1165,18 @@ function ScreenshotVoicePrompt({ page }) {
 
     window.addEventListener("keydown", handleKeyDown);
     window.addEventListener("keyup", handleKeyUp);
-    window.addEventListener("blur", handleBlur);
-    window.addEventListener("focus", handleFocus);
     window.addEventListener("kuntai-suppress-screenshot-prompt", handleSuppressPrompt);
     NATIVE_SCREENSHOT_EVENTS.forEach((eventName) => {
       window.addEventListener(eventName, handleNativeScreenshot);
     });
-    document.addEventListener("visibilitychange", handleVisibilityChange);
 
     return () => {
       window.removeEventListener("keydown", handleKeyDown);
       window.removeEventListener("keyup", handleKeyUp);
-      window.removeEventListener("blur", handleBlur);
-      window.removeEventListener("focus", handleFocus);
       window.removeEventListener("kuntai-suppress-screenshot-prompt", handleSuppressPrompt);
       NATIVE_SCREENSHOT_EVENTS.forEach((eventName) => {
         window.removeEventListener(eventName, handleNativeScreenshot);
       });
-      document.removeEventListener("visibilitychange", handleVisibilityChange);
     };
   }, []);
 

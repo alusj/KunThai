@@ -9,6 +9,7 @@ import {
 
 import { useI18n } from "../../../../i18n";
 import MessageImage from "../../../shared/MessageImage";
+import VoiceNotePlayer from "../../../shared/voice/VoiceNotePlayer";
 import { uiText as translateUi, useI18n as useUiLocale } from "../../../../i18n/index.js";
 import { t as i18nText } from "../../../../i18n/index";
 import { useMessageMediaUrl } from "../../../../Backend/hooks/useMessageMediaUrl";
@@ -218,12 +219,17 @@ export default function MessageBubble({
         {mine && senderLabel ? (
           <p className="mb-1 text-[10px] font-black uppercase tracking-[0.14em] text-white/60">{senderLabel}</p>
         ) : null}
-        {mediaType === "audio" && mediaUrl ? (
-          <div className={`mb-2 rounded-2xl p-2 ${mine ? "bg-white/10" : "bg-white"}`}>
-            <audio controls src={mediaUrl} className="w-full" aria-label={t("messages.voiceMessage")} />
-          </div>
+        {mediaType === "audio" && !media.failed ? (
+          <VoiceNotePlayer
+            src={mediaUrl}
+            seed={message.id}
+            durationHint={Number(metadata.durationSeconds) || 0}
+            loading={media.loading || message.pending}
+            tone={mine ? "dark" : "light"}
+            className={message.body ? "mb-2" : ""}
+          />
         ) : null}
-        {message.body ? <p>{message.body}</p> : mediaType === "audio" ? <p>{t("messages.voiceNote")}</p> : mediaType === "image" ? <p>{t("messages.photo")}</p> : mediaType === "video" ? <p>{i18nText("exploreMessagesFix.previewVideo")}</p> : null}
+        {message.body ? <p>{message.body}</p> : mediaType === "audio" ? null : mediaType === "image" ? <p>{t("messages.photo")}</p> : mediaType === "video" ? <p>{i18nText("exploreMessagesFix.previewVideo")}</p> : null}
         <p className={`mt-1 text-[10px] font-bold ${mine ? "text-white/55" : "text-slate-400"}`}>
           {timeLabel}
         </p>

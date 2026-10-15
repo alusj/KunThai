@@ -4,7 +4,8 @@ import { HiOutlineMicrophone, HiOutlinePaperAirplane, HiOutlineXMark, HiStop } f
 import { fileToDataUrl } from "../composer/composerUtils";
 import { MentionHashtagSuggestions } from "../../../../shared/MentionHashtagAutocomplete";
 import { useMentionHashtagAutocomplete } from "../../../../../../Backend/hooks/useMentionHashtagAutocomplete";
-import { duckExploreVideos, releaseExploreVideoDuck, voiceCommentAudioHandlers } from "../../../../shared/singleMediaPlayback";
+import { duckExploreVideos, releaseExploreVideoDuck } from "../../../../shared/singleMediaPlayback";
+import VoiceNotePlayer from "../../../../../shared/voice/VoiceNotePlayer";
 
 // Ducking key for the mic, shared by every comment composer instance.
 const RECORDING_DUCK_KEY = "comment-voice-recording";
@@ -184,12 +185,7 @@ export default function CommentDrawerComposer({ currentUserId, onSubmit, onSendP
 
       {audioPreview ? (
         <div className="mb-2 flex items-center gap-2 rounded-2xl bg-slate-50 px-3 py-2">
-          <audio
-            controls
-            src={audioPreview}
-            {...voiceCommentAudioHandlers}
-            className="h-10 min-w-0 flex-1"
-          />
+          <VoiceNotePlayer src={audioPreview} seed={audioPreview.slice(-64)} fluid className="min-w-0 flex-1" />
           <button type="button" onClick={() => setAudioPreview("")} className="text-slate-500" aria-label={t("post.removeVoiceComment")}>
             <HiOutlineXMark />
           </button>

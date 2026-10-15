@@ -4,7 +4,7 @@ export const CAUTION_FEATURES = {
     heading: "Plans, access and everyday use",
     urmall: [
       ["Multiple businesses need Pro or Premium", "Free supports {freeTypes} business type. Upgrade an owned business to Pro for {proTypes} types, or Premium for all {premiumTypes}: Shop, Vendor, Restaurant and Real Estate. Each type has its own workspace; use the existing workspace for more stock or locations instead of registering the same type again."],
-      ["Renewals and the 15-day retention window", "Plans use Visibility Credits. If a paid plan expires without renewal, or you move to Free, only 10 published items remain visible. Choose those items in your dashboard. Renew or upgrade within 15 days to prevent permanent deletion of excess items and drafts. Check renewal notices and your credit balance."],
+      ["Renewals and the 15-day retention window", "Plans use Visibility Credits. If a paid plan expires without renewal, or you move to Free, only 5 published items remain visible. Choose those items in your dashboard. Renew or upgrade within 15 days to prevent permanent deletion of excess items and drafts. Check renewal notices and your credit balance."],
       ["Accurate listings, availability and requests", "Keep prices, stock, meal availability, property status and pickup or delivery details current. Add clear cover photos and an accurate location. Hotels are added under Real Estate. Confirm order or reservation status, payment arrangements and fulfilment with the business before paying or travelling; a request alone is not confirmation."],
       ["Admins, messages and verification", "Use the admin invitations and permissions available on your plan. Each person should use their own account. Check customer messages, requests and notifications in the correct business workspace. Paying for a plan does not verify your business; documents and review are handled separately."],
     ],
@@ -20,7 +20,7 @@ export const CAUTION_FEATURES = {
     heading: "Forfaits, accès et utilisation quotidienne",
     urmall: [
       ["Plusieurs activités nécessitent Pro ou Premium", "Free permet {freeTypes} type d’activité. Passez une entreprise dont vous êtes propriétaire à Pro pour {proTypes} types, ou à Premium pour les {premiumTypes} : boutique, vendeur, restaurant et immobilier. Chaque type a son espace ; utilisez l’espace existant pour ajouter du stock ou des adresses au lieu de réinscrire le même type."],
-      ["Renouvellement et délai de conservation de 15 jours", "Les forfaits utilisent des Visibility Credits. Si un forfait payant expire sans renouvellement, ou si vous passez à Free, seuls 10 articles publiés restent visibles. Choisissez-les dans votre tableau de bord. Renouvelez ou passez à un forfait supérieur sous 15 jours pour éviter la suppression définitive des articles excédentaires et des brouillons. Consultez les rappels et votre solde."],
+      ["Renouvellement et délai de conservation de 15 jours", "Les forfaits utilisent des Visibility Credits. Si un forfait payant expire sans renouvellement, ou si vous passez à Free, seuls 5 articles publiés restent visibles. Choisissez-les dans votre tableau de bord. Renouvelez ou passez à un forfait supérieur sous 15 jours pour éviter la suppression définitive des articles excédentaires et des brouillons. Consultez les rappels et votre solde."],
       ["Annonces exactes, disponibilité et demandes", "Tenez à jour les prix, stocks, repas disponibles, biens et modalités de retrait ou livraison. Ajoutez une photo de couverture claire et une adresse exacte. Les hôtels se créent dans Immobilier. Confirmez la commande ou réservation, le paiement et la prestation avec l’entreprise avant de payer ou de vous déplacer ; une demande seule n’est pas une confirmation."],
       ["Administrateurs, messages et vérification", "Utilisez les invitations et permissions d’administrateur prévues par votre forfait. Chacun doit utiliser son propre compte. Consultez messages, demandes et notifications dans le bon espace professionnel. Payer un forfait ne vérifie pas votre entreprise ; les documents et leur examen sont traités séparément."],
     ],
@@ -36,7 +36,7 @@ export const CAUTION_FEATURES = {
     heading: "Planes, acceso y uso diario",
     urmall: [
       ["Varios negocios requieren Pro o Premium", "Free admite {freeTypes} tipo de negocio. Mejora un negocio propio a Pro para {proTypes} tipos, o a Premium para los {premiumTypes}: tienda, vendedor, restaurante e inmobiliaria. Cada tipo tiene su espacio; usa el existente para añadir inventario o ubicaciones en vez de registrar otra vez el mismo tipo."],
-      ["Renovación y plazo de conservación de 15 días", "Los planes usan Visibility Credits. Si un plan de pago vence sin renovarse, o cambias a Free, solo quedan visibles 10 artículos publicados. Elígelos en tu panel. Renueva o mejora el plan en 15 días para evitar la eliminación permanente de los artículos excedentes y borradores. Revisa los avisos y tu saldo."],
+      ["Renovación y plazo de conservación de 15 días", "Los planes usan Visibility Credits. Si un plan de pago vence sin renovarse, o cambias a Free, solo quedan visibles 5 artículos publicados. Elígelos en tu panel. Renueva o mejora el plan en 15 días para evitar la eliminación permanente de los artículos excedentes y borradores. Revisa los avisos y tu saldo."],
       ["Anuncios correctos, disponibilidad y solicitudes", "Actualiza precios, existencias, comidas disponibles, estado de inmuebles y detalles de recogida o entrega. Añade portadas claras y una ubicación exacta. Los hoteles se añaden en Inmobiliaria. Confirma el pedido o reserva, el pago y la prestación con el negocio antes de pagar o viajar; una solicitud por sí sola no es una confirmación."],
       ["Administradores, mensajes y verificación", "Usa las invitaciones y permisos de administrador de tu plan. Cada persona debe usar su propia cuenta. Revisa mensajes, solicitudes y notificaciones en el espacio del negocio correcto. Pagar un plan no verifica el negocio; los documentos y su revisión se gestionan por separado."],
     ],
@@ -52,7 +52,7 @@ export const CAUTION_FEATURES = {
     heading: "套餐、权限与日常使用",
     urmall: [
       ["经营多种业务需要 Pro 或 Premium", "Free 支持 {freeTypes} 种业务类型。将您拥有的商家升级到 Pro 可使用 {proTypes} 种，Premium 可使用全部 {premiumTypes} 种：商店、摊贩、餐厅和房地产。每种类型有独立工作区；增加库存或营业地点时，请使用现有工作区，不要重复注册同一类型。"],
-      ["续费与 15 天保留期限", "套餐使用 Visibility Credits。付费套餐到期未续费，或转为 Free 后，只有 10 个已发布项目保持可见。请在工作台选择要保留的项目。在 15 天内续费或升级，以免超额项目和草稿被永久删除。请查看续费通知和积分余额。"],
+      ["续费与 15 天保留期限", "套餐使用 Visibility Credits。付费套餐到期未续费，或转为 Free 后，只有 5 个已发布项目保持可见。请在工作台选择要保留的项目。在 15 天内续费或升级，以免超额项目和草稿被永久删除。请查看续费通知和积分余额。"],
       ["准确发布、可用状态与申请", "及时更新价格、库存、餐食供应、房产状态及自取或配送信息。添加清晰封面和准确位置。酒店在房地产类别下添加。付款或出行前，请与商家确认订单或预订状态、付款安排和履约方式；提交申请并不代表已确认。"],
       ["管理员、消息与认证", "使用套餐提供的管理员邀请和权限。每个人都应使用自己的账户。在对应商家工作区查看客户消息、申请和通知。购买套餐不会使商家自动通过认证；证明材料及审核另行处理。"],
     ],
@@ -68,7 +68,7 @@ export const CAUTION_FEATURES = {
     heading: "الخطط والصلاحيات والاستخدام اليومي",
     urmall: [
       ["الأنشطة المتعددة تتطلب Pro أو Premium", "تتيح Free عدد {freeTypes} من أنواع النشاط. رقِّ نشاطًا تملكه إلى Pro للحصول على {proTypes} أنواع، أو Premium لجميع الأنواع وعددها {premiumTypes}: متجر وبائع ومطعم وعقارات. لكل نوع مساحة عمل؛ استخدم المساحة الحالية لإضافة مخزون أو مواقع بدل تسجيل النوع نفسه مجددًا."],
-      ["التجديد ومهلة الاحتفاظ البالغة 15 يومًا", "تستخدم الخطط Visibility Credits. إذا انتهت خطة مدفوعة دون تجديد، أو انتقلت إلى Free، فلن يبقى ظاهرًا سوى 10 عناصر منشورة. اخترها من لوحة التحكم. جدّد أو رقِّ خلال 15 يومًا لتجنب الحذف الدائم للعناصر الزائدة والمسودات. راجع إشعارات التجديد ورصيدك."],
+      ["التجديد ومهلة الاحتفاظ البالغة 15 يومًا", "تستخدم الخطط Visibility Credits. إذا انتهت خطة مدفوعة دون تجديد، أو انتقلت إلى Free، فلن يبقى ظاهرًا سوى 5 عناصر منشورة. اخترها من لوحة التحكم. جدّد أو رقِّ خلال 15 يومًا لتجنب الحذف الدائم للعناصر الزائدة والمسودات. راجع إشعارات التجديد ورصيدك."],
       ["دقة الإعلانات والتوفر والطلبات", "حدّث الأسعار والمخزون وتوفر الوجبات وحالة العقارات وتفاصيل الاستلام أو التوصيل. أضف صور غلاف واضحة وموقعًا دقيقًا. تُضاف الفنادق ضمن العقارات. أكّد حالة الطلب أو الحجز وترتيبات الدفع والتنفيذ مع النشاط قبل الدفع أو التنقل؛ إرسال الطلب وحده لا يعني التأكيد."],
       ["المشرفون والرسائل والتحقق", "استخدم دعوات المشرفين والصلاحيات المتاحة في خطتك. يجب أن يستخدم كل شخص حسابه الخاص. راجع رسائل العملاء والطلبات والإشعارات في مساحة النشاط الصحيحة. دفع ثمن الخطة لا يوثّق نشاطك؛ تُعالج المستندات والمراجعة بشكل منفصل."],
     ],
@@ -90,7 +90,7 @@ export const CAUTION_FEATURES = {
       ],
       [
         "Renovações e janela de retenção de 15 dias",
-        "Os planos usam Visibility Credits. Se um plano pago expirar sem renovação ou você passar para o Gratuito, apenas 10 itens publicados permanecerão visíveis. Escolha esses itens em seu painel. Renove ou atualize dentro de 15 dias para evitar a exclusão permanente de itens e rascunhos em excesso. Verifique os avisos de renovação e seu saldo de crédito."
+        "Os planos usam Visibility Credits. Se um plano pago expirar sem renovação ou você passar para o Gratuito, apenas 5 itens publicados permanecerão visíveis. Escolha esses itens em seu painel. Renove ou atualize dentro de 15 dias para evitar a exclusão permanente de itens e rascunhos em excesso. Verifique os avisos de renovação e seu saldo de crédito."
       ],
       [
         "Listagens, disponibilidade e solicitações precisas",
@@ -134,7 +134,7 @@ export const CAUTION_FEATURES = {
       ],
       [
         "नवीनीकरण और 15-दिवसीय प्रतिधारण विंडो",
-        "योजनाएं Visibility Credits का उपयोग करती हैं। यदि कोई भुगतान योजना नवीनीकरण के बिना समाप्त हो जाती है, या आप फ्री में चले जाते हैं, तो केवल 10 प्रकाशित आइटम दिखाई देते हैं। अपने डैशबोर्ड में उन आइटम को चुनें. अतिरिक्त आइटम और ड्राफ्ट को स्थायी रूप से हटाने से रोकने के लिए 15 दिनों के भीतर नवीनीकरण या अपग्रेड करें। नवीनीकरण नोटिस और अपना क्रेडिट शेष जांचें।"
+        "योजनाएं Visibility Credits का उपयोग करती हैं। यदि कोई भुगतान योजना नवीनीकरण के बिना समाप्त हो जाती है, या आप फ्री में चले जाते हैं, तो केवल 5 प्रकाशित आइटम दिखाई देते हैं। अपने डैशबोर्ड में उन आइटम को चुनें. अतिरिक्त आइटम और ड्राफ्ट को स्थायी रूप से हटाने से रोकने के लिए 15 दिनों के भीतर नवीनीकरण या अपग्रेड करें। नवीनीकरण नोटिस और अपना क्रेडिट शेष जांचें।"
       ],
       [
         "सटीक लिस्टिंग, उपलब्धता और अनुरोध",
@@ -178,7 +178,7 @@ export const CAUTION_FEATURES = {
       ],
       [
         "পুনর্নবীকরণ এবং 15-দিন ধরে রাখার উইন্ডো",
-        "পরিকল্পনা Visibility Credits ব্যবহার করে। যদি একটি প্রদত্ত পরিকল্পনা পুনর্নবীকরণ ছাড়াই মেয়াদ শেষ হয়ে যায়, বা আপনি বিনামূল্যেতে চলে যান, শুধুমাত্র 10টি প্রকাশিত আইটেম দৃশ্যমান থাকে৷ আপনার ড্যাশবোর্ডে সেই আইটেমগুলি বেছে নিন। অতিরিক্ত আইটেম এবং খসড়া স্থায়ীভাবে মুছে ফেলা রোধ করতে 15 দিনের মধ্যে পুনর্নবীকরণ বা আপগ্রেড করুন। নবায়ন বিজ্ঞপ্তি এবং আপনার ক্রেডিট ব্যালেন্স চেক করুন."
+        "পরিকল্পনা Visibility Credits ব্যবহার করে। যদি একটি প্রদত্ত পরিকল্পনা পুনর্নবীকরণ ছাড়াই মেয়াদ শেষ হয়ে যায়, বা আপনি বিনামূল্যেতে চলে যান, শুধুমাত্র 5টি প্রকাশিত আইটেম দৃশ্যমান থাকে৷ আপনার ড্যাশবোর্ডে সেই আইটেমগুলি বেছে নিন। অতিরিক্ত আইটেম এবং খসড়া স্থায়ীভাবে মুছে ফেলা রোধ করতে 15 দিনের মধ্যে পুনর্নবীকরণ বা আপগ্রেড করুন। নবায়ন বিজ্ঞপ্তি এবং আপনার ক্রেডিট ব্যালেন্স চেক করুন."
       ],
       [
         "সঠিক তালিকা, প্রাপ্যতা এবং অনুরোধ",
@@ -222,7 +222,7 @@ export const CAUTION_FEATURES = {
       ],
       [
         "Perpanjangan dan jangka waktu retensi 15 hari",
-        "Paket menggunakan Visibility Credits. Jika paket berbayar habis masa berlakunya tanpa perpanjangan, atau Anda berpindah ke Gratis, hanya 10 item terbitan yang tetap terlihat. Pilih item tersebut di dasbor Anda. Perpanjang atau tingkatkan dalam waktu 15 hari untuk mencegah penghapusan permanen kelebihan item dan draf. Periksa pemberitahuan perpanjangan dan saldo kredit Anda."
+        "Paket menggunakan Visibility Credits. Jika paket berbayar habis masa berlakunya tanpa perpanjangan, atau Anda berpindah ke Gratis, hanya 5 item terbitan yang tetap terlihat. Pilih item tersebut di dasbor Anda. Perpanjang atau tingkatkan dalam waktu 15 hari untuk mencegah penghapusan permanen kelebihan item dan draf. Periksa pemberitahuan perpanjangan dan saldo kredit Anda."
       ],
       [
         "Daftar, ketersediaan, dan permintaan yang akurat",
@@ -266,7 +266,7 @@ export const CAUTION_FEATURES = {
       ],
       [
         "تجدیدات اور 15 دن کی برقراری ونڈو",
-        "منصوبے Visibility Credits استعمال کرتے ہیں۔ اگر ایک بامعاوضہ منصوبہ تجدید کے بغیر ختم ہو جاتا ہے، یا آپ مفت میں چلے جاتے ہیں، تو صرف 10 شائع شدہ آئٹمز نظر آتے ہیں۔ اپنے ڈیش بورڈ میں ان اشیاء کو منتخب کریں۔ اضافی اشیاء اور مسودوں کو مستقل طور پر حذف ہونے سے روکنے کے لیے 15 دنوں کے اندر تجدید یا اپ گریڈ کریں۔ تجدید نوٹس اور اپنا کریڈٹ بیلنس چیک کریں۔"
+        "منصوبے Visibility Credits استعمال کرتے ہیں۔ اگر ایک بامعاوضہ منصوبہ تجدید کے بغیر ختم ہو جاتا ہے، یا آپ مفت میں چلے جاتے ہیں، تو صرف 5 شائع شدہ آئٹمز نظر آتے ہیں۔ اپنے ڈیش بورڈ میں ان اشیاء کو منتخب کریں۔ اضافی اشیاء اور مسودوں کو مستقل طور پر حذف ہونے سے روکنے کے لیے 15 دنوں کے اندر تجدید یا اپ گریڈ کریں۔ تجدید نوٹس اور اپنا کریڈٹ بیلنس چیک کریں۔"
       ],
       [
         "درست فہرستیں، دستیابی اور درخواستیں۔",
@@ -310,7 +310,7 @@ export const CAUTION_FEATURES = {
       ],
       [
         "Продление и 15-дневный период хранения",
-        "В планах используется Visibility Credits. Если срок действия платного плана истекает без продления или вы переходите на бесплатный, видимыми останутся только 10 опубликованных элементов. Выберите эти элементы на панели инструментов. Продлите или обновите подписку в течение 15 дней, чтобы предотвратить безвозвратное удаление лишних элементов и черновиков. Проверьте уведомления о продлении и свой кредитный баланс."
+        "В планах используется Visibility Credits. Если срок действия платного плана истекает без продления или вы переходите на бесплатный, видимыми останутся только 5 опубликованных элементов. Выберите эти элементы на панели инструментов. Продлите или обновите подписку в течение 15 дней, чтобы предотвратить безвозвратное удаление лишних элементов и черновиков. Проверьте уведомления о продлении и свой кредитный баланс."
       ],
       [
         "Точные списки, наличие и запросы",
@@ -355,7 +355,7 @@ export const CAUTION_FEATURES = {
       ],
       [
         "更新と 15 日間の保持期間",
-        "プランでは Visibility Credits を使用します。有料プランが更新されずに期限切れになった場合、または無料プランに移行した場合、公開されたアイテムは 10 件のみ表示されます。ダッシュボードでこれらの項目を選択します。余分なアイテムや下書きが完全に削除されないように、15 日以内に更新またはアップグレードしてください。更新通知とクレジット残高を確認してください。"
+        "プランでは Visibility Credits を使用します。有料プランが更新されずに期限切れになった場合、または無料プランに移行した場合、公開されたアイテムは 5 件のみ表示されます。ダッシュボードでこれらの項目を選択します。余分なアイテムや下書きが完全に削除されないように、15 日以内に更新またはアップグレードしてください。更新通知とクレジット残高を確認してください。"
       ],
       [
         "正確なリスト、在庫状況、リクエスト",
@@ -399,7 +399,7 @@ export const CAUTION_FEATURES = {
       ],
       [
         "नूतनीकरण आणि 15-दिवस धारणा विंडो",
-        "योजना Visibility Credits वापरतात. सशुल्क योजना नूतनीकरणाशिवाय कालबाह्य झाल्यास, किंवा तुम्ही विनामूल्य वर गेल्यास, केवळ 10 प्रकाशित आयटम दृश्यमान राहतील. तुमच्या डॅशबोर्डमध्ये ते आयटम निवडा. अतिरिक्त आयटम आणि मसुदे कायमस्वरूपी हटवणे टाळण्यासाठी 15 दिवसांच्या आत नूतनीकरण करा किंवा अपग्रेड करा. नूतनीकरण सूचना आणि तुमची क्रेडिट शिल्लक तपासा."
+        "योजना Visibility Credits वापरतात. सशुल्क योजना नूतनीकरणाशिवाय कालबाह्य झाल्यास, किंवा तुम्ही विनामूल्य वर गेल्यास, केवळ 5 प्रकाशित आयटम दृश्यमान राहतील. तुमच्या डॅशबोर्डमध्ये ते आयटम निवडा. अतिरिक्त आयटम आणि मसुदे कायमस्वरूपी हटवणे टाळण्यासाठी 15 दिवसांच्या आत नूतनीकरण करा किंवा अपग्रेड करा. नूतनीकरण सूचना आणि तुमची क्रेडिट शिल्लक तपासा."
       ],
       [
         "अचूक सूची, उपलब्धता आणि विनंत्या",
@@ -443,7 +443,7 @@ export const CAUTION_FEATURES = {
       ],
       [
         "Gia hạn và thời hạn lưu giữ 15 ngày",
-        "Các gói sử dụng Visibility Credits. Nếu gói trả phí hết hạn mà không gia hạn hoặc bạn chuyển sang Miễn phí thì chỉ còn lại 10 mục đã xuất bản. Chọn những mục đó trong trang tổng quan của bạn. Gia hạn hoặc nâng cấp trong vòng 15 ngày để ngăn chặn việc xóa vĩnh viễn các mục và bản nháp dư thừa. Kiểm tra thông báo gia hạn và số dư tín dụng của bạn."
+        "Các gói sử dụng Visibility Credits. Nếu gói trả phí hết hạn mà không gia hạn hoặc bạn chuyển sang Miễn phí thì chỉ còn lại 5 mục đã xuất bản. Chọn những mục đó trong trang tổng quan của bạn. Gia hạn hoặc nâng cấp trong vòng 15 ngày để ngăn chặn việc xóa vĩnh viễn các mục và bản nháp dư thừa. Kiểm tra thông báo gia hạn và số dư tín dụng của bạn."
       ],
       [
         "Danh sách chính xác, tính sẵn có và yêu cầu",
@@ -487,7 +487,7 @@ export const CAUTION_FEATURES = {
       ],
       [
         "Verlängerungen und das 15-tägige Aufbewahrungsfenster",
-        "Pläne verwenden Visibility Credits. Wenn ein kostenpflichtiger Plan ohne Verlängerung abläuft oder Sie zum kostenlosen Plan wechseln, bleiben nur noch 10 veröffentlichte Artikel sichtbar. Wählen Sie diese Elemente in Ihrem Dashboard aus. Erneuern oder aktualisieren Sie innerhalb von 15 Tagen, um das dauerhafte Löschen überschüssiger Elemente und Entwürfe zu verhindern. Überprüfen Sie Verlängerungsmitteilungen und Ihr Guthaben."
+        "Pläne verwenden Visibility Credits. Wenn ein kostenpflichtiger Plan ohne Verlängerung abläuft oder Sie zum kostenlosen Plan wechseln, bleiben nur noch 5 veröffentlichte Artikel sichtbar. Wählen Sie diese Elemente in Ihrem Dashboard aus. Erneuern oder aktualisieren Sie innerhalb von 15 Tagen, um das dauerhafte Löschen überschüssiger Elemente und Entwürfe zu verhindern. Überprüfen Sie Verlängerungsmitteilungen und Ihr Guthaben."
       ],
       [
         "Genaue Auflistungen, Verfügbarkeit und Anfragen",

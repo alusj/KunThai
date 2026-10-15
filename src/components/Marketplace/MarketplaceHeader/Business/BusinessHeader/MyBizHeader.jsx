@@ -38,6 +38,7 @@ export default function MyBizHeader({ activeBusinessId, businesses, addBusinessP
             showOrders={showOrders}
             showAddProduct={showAddProduct}
             showMessages={showMessages}
+            businessId={activeBusinessId}
           />
         </div>
       </header>

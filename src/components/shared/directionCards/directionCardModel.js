@@ -7,11 +7,17 @@
 export const DIRECTION_CARD_ORDER = [
   "urmall-register",
   "urride-register",
+  // Personal accounts (every new account) have no register button, so these
+  // are their "start here" actions in UrRide and UrMall.
+  "urride-open-booking",
+  "urmall-search",
   "explore-create",
   "urmall-seller-add",
   "urmall-seller-orders",
   "urmall-seller-messages",
+  "urmall-seller-notifications",
   "urride-availability",
+  "urride-notifications",
   "area-sos",
   "area-lock",
   "area-focus",
@@ -19,6 +25,11 @@ export const DIRECTION_CARD_ORDER = [
 ];
 
 export const DIRECTION_ATTRIBUTE = "data-direction";
+// Optional: tips that belong to one business (UrMall seller tips) carry the
+// business id here, so every new business gets its own tips.
+export const DIRECTION_SCOPE_ATTRIBUTE = "data-direction-scope";
+// Stored by "Hide all tips": no tip shows again, including future ones.
+export const HIDE_ALL_DIRECTIONS = "__all__";
 // A button must stay visible this long before its card appears, so cards never
 // flash during page slides, header reveal animations or startup.
 export const DIRECTION_SETTLE_MS = 1100;
@@ -46,9 +57,25 @@ export function writeSeenDirections(storage, userId, seen) {
   }
 }
 
+// The key a tip is remembered under: its id, plus the business it belongs to.
+export function directionSeenKey(id, scope = "") {
+  return scope ? `${id}@${scope}` : id;
+}
+
 // Highest-priority unseen id among the ids currently visible on screen.
 export function pickDirection(visibleIds, seen) {
+  if (seen.has(HIDE_ALL_DIRECTIONS)) return "";
   return DIRECTION_CARD_ORDER.find((id) => visibleIds.includes(id) && !seen.has(id)) || "";
+}
+
+// Same, for visible tips given as { id, key } (key = directionSeenKey).
+export function pickDirectionEntry(entries, seen) {
+  if (seen.has(HIDE_ALL_DIRECTIONS)) return null;
+  for (const id of DIRECTION_CARD_ORDER) {
+    const entry = entries.find((item) => item.id === id && !seen.has(item.key));
+    if (entry) return entry;
+  }
+  return null;
 }
 
 // Place a card of cardWidth x cardHeight next to the target rect inside the

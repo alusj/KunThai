@@ -10,6 +10,7 @@ import { useEffect, useRef, useState } from "react";
 import { Scissors } from "lucide-react";
 
 import { pauseOtherExploreMedia } from "../../../../shared/singleMediaPlayback";
+import VoiceNotePlayer from "../../../../../shared/voice/VoiceNotePlayer";
 import { shouldSkipBrowserVideoProcessing } from "./composerUtils";
 import { t } from "../../../../../../i18n";
 import { t as i18nText } from "../../../../../../i18n/index";
@@ -530,7 +531,7 @@ export default function MediaPreview({
       {audioPreview ? (
         <div className="relative rounded-[22px] border border-slate-200 bg-slate-50 p-4">
           <p className="mb-2 text-sm font-bold text-slate-900">{i18nText("ui.literals.kddc07a6c1316")}</p>
-          <audio controls src={audioPreview} onPlay={(event) => pauseOtherExploreMedia(event.currentTarget)} className="h-10 w-full" />
+          <VoiceNotePlayer src={audioPreview} seed={audioPreview.slice(-64)} fluid />
           <RemoveButton onClick={onRemoveAudio} />
         </div>
       ) : null}

@@ -72,6 +72,7 @@ import {
   normalizeVisibilityCreditSpend,
 } from "../../../../../../Backend/services/visibilityCreditService";
 import { t as i18nText } from "../../../../../../i18n/index";
+import { checkOwnAccountDeactivated } from "../../../../../../Backend/services/accountLifecycleService";
 import ExploreAiButton from "../../../../shared/ExploreAiButton";
 import { EXPLORE_COMPOSER_ACTIONS } from "../../../../../../Backend/services/ai/aiActionCatalog";
 import { loadExploreTopicsForAi, prepareImageForAi } from "../../../../../../Backend/services/ai/exploreAi";
@@ -1743,8 +1744,17 @@ export default function FeedComposer({ profile, creating, onSubmit }) {
       return;
     }
 
-    // Publishing is confirmed through the content-responsibility dialog first.
-    setCautionOpen(true);
+    // A deactivated account cannot post (the database refuses it too); say
+    // why before anything is uploaded.
+    checkOwnAccountDeactivated().then((deactivated) => {
+      if (deactivated) {
+        haptics.warning("explore");
+        setFeedback(`${i18nText("post.deactivatedNoComment")}. ${i18nText("post.deactivatedNoPostDesc")}`);
+        return;
+      }
+      // Publishing is confirmed through the content-responsibility dialog first.
+      setCautionOpen(true);
+    });
   }
 
   async function performSubmit() {

@@ -1,5 +1,7 @@
 // backend/hooks/useAuth.js
 import { useEffect, useRef, useState } from "react";
+import { isAuthRetryableFetchError } from "@supabase/supabase-js";
+
 import supabase from "../lib/supabaseClient";
 import { clearExploreMessageCache } from "../services/explore/messageService";
 import { clearTransientSessionNavigation, readSessionContinuity, rememberSocialAccount, vaultSessionSnapshot } from "../services/sessionService";
@@ -28,6 +30,34 @@ async function clearBrokenSession() {
   }
 }
 
+// How long the app waits for supabase-js to restore the session before it
+// falls back to the copy saved on this device. Offline with an expired
+// access token, supabase-js holds its auth lock while it keeps retrying the
+// token refresh, so without this an offline launch could wait a long time.
+const SAVED_SESSION_FALLBACK_MS = 2500;
+
+// The signed-in user from the session supabase-js saved on this device, read
+// without the auth lock or the network. Only used to show cached screens
+// offline; every server request still sends (and validates) the real token.
+function readSavedSessionUser() {
+  try {
+    const key = supabase.auth.storageKey;
+    if (!key || typeof localStorage === "undefined") return null;
+    const saved = JSON.parse(localStorage.getItem(key) || "null");
+    const user = saved?.user || saved?.currentSession?.user || null;
+    return user?.id ? user : null;
+  } catch {
+    return null;
+  }
+}
+
+function isConnectionProblem(error) {
+  if (typeof navigator !== "undefined" && navigator.onLine === false) return true;
+  if (!error) return false;
+  if (isAuthRetryableFetchError(error)) return true;
+  return /fetch|network|load failed|timed out|offline/i.test(String(error?.message || error));
+}
+
 export const useAuth = () => {
   const [user, setUser] = useState(null);
   const [loading, setLoading] = useState(true);
@@ -37,11 +67,31 @@ export const useAuth = () => {
     let active = true;
 
     async function loadAuth() {
+      // Offline (or a stuck token refresh): show the saved account's cached
+      // screens instead of an endless loader, while the real check finishes.
+      const fallbackTimer = window.setTimeout(() => {
+        if (!active) return;
+        const savedUser = readSavedSessionUser();
+        if (!savedUser) return;
+        activeUserIdRef.current = savedUser.id;
+        setUser((current) => current || savedUser);
+        setLoading(false);
+      }, SAVED_SESSION_FALLBACK_MS);
+
       try {
-        const { data: sessionData } = await supabase.auth.getSession();
+        const { data: sessionData, error: sessionError } = await supabase.auth.getSession();
+        window.clearTimeout(fallbackTimer);
         const sessionUser = sessionData?.session?.user || null;
 
         if (!sessionUser) {
+          // A refresh that failed only because there is no connection keeps
+          // the saved account signed in; it refreshes once back online.
+          const savedUser = isConnectionProblem(sessionError) ? readSavedSessionUser() : null;
+          if (savedUser) {
+            activeUserIdRef.current = savedUser.id;
+            setUser((current) => (current?.id === savedUser.id ? current : savedUser));
+            return;
+          }
           setUser(null);
           return;
         }
@@ -83,9 +133,11 @@ export const useAuth = () => {
             );
           })
           .catch(() => {});
-      } catch {
-        activeUserIdRef.current = "";
-        setUser(null);
+      } catch (error) {
+        window.clearTimeout(fallbackTimer);
+        const savedUser = isConnectionProblem(error) ? readSavedSessionUser() : null;
+        activeUserIdRef.current = savedUser?.id || "";
+        setUser(savedUser);
       } finally {
         if (active) setLoading(false);
       }
@@ -106,6 +158,10 @@ export const useAuth = () => {
       }
 
       if (!session?.user) {
+        // Offline with an expired token the initial session comes back empty
+        // although the account is still saved on this device: that is not a
+        // sign-out, so loadAuth's saved-session fallback decides instead.
+        if (event === "INITIAL_SESSION" && readSavedSessionUser()) return;
         activeUserIdRef.current = "";
         setUser(null);
         setLoading(false);

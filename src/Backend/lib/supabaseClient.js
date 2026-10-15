@@ -1,6 +1,6 @@
 import { createClient } from "@supabase/supabase-js";
 
-import { createReadRetryingFetch } from "../services/networkService";
+import { createReadRetryingFetch, setConnectivityProbeUrl } from "../services/networkService";
 import { captureOAuthReturn } from "../services/oauthReturnService";
 import { isRetryableSupabaseRead } from "./supabaseReadRequests";
 
@@ -10,6 +10,9 @@ const supabaseAnonKey = import.meta.env.VITE_SUPABASE_ANON_KEY;
 if (!supabaseUrl || !supabaseAnonKey) {
   throw new Error("Missing VITE_SUPABASE_URL or VITE_SUPABASE_ANON_KEY.");
 }
+
+// Connection checks reach the API host, not the app's own (local) origin.
+setConnectivityProbeUrl(supabaseUrl);
 
 // Grab a social sign-in return URL (?code / ?error) before supabase-js reads
 // and swallows it, so Login can explain a failed sign-in.

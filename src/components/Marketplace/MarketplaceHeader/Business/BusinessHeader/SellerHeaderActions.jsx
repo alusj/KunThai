@@ -17,6 +17,7 @@ export default function SellerHeaderActions({
   showOrders = true,
   showAddProduct = true,
   showMessages = true,
+  businessId = "",
 }) {
   useI18n();
   return (
@@ -25,6 +26,7 @@ export default function SellerHeaderActions({
         <HeaderActionButton
           icon={Plus}
           direction="urmall-seller-add"
+          directionScope={businessId}
           label={translateUi(primaryActionLabel)}
           primary
           onClick={onAddProduct}
@@ -34,6 +36,7 @@ export default function SellerHeaderActions({
         <HeaderActionButton
           icon={PackageCheck}
           direction="urmall-seller-orders"
+          directionScope={businessId}
           label={t("urmall.biz.header.orders")}
           badge={orderCount}
           onClick={onOrders}
@@ -43,6 +46,7 @@ export default function SellerHeaderActions({
         <HeaderActionButton
           icon={MessageSquare}
           direction="urmall-seller-messages"
+          directionScope={businessId}
           label={t("urmall.biz.header.messages")}
           badge={messageCount}
           onClick={onMessages}
@@ -50,6 +54,8 @@ export default function SellerHeaderActions({
       : null}
       <HeaderActionButton
         icon={Bell}
+        direction="urmall-seller-notifications"
+        directionScope={businessId}
         label={t("urmall.biz.header.alerts")}
         badge={notificationCount}
         onClick={onAlerts}

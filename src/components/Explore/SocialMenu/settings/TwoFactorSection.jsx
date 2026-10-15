@@ -29,6 +29,7 @@ export default function TwoFactorSection() {
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState("");
   const [disableConfirmOpen, setDisableConfirmOpen] = useState(false);
+  const [secretShown, setSecretShown] = useState(false);
 
   async function refresh() {
     try {
@@ -53,6 +54,7 @@ export default function TwoFactorSection() {
       setBusy(true);
       setError("");
       setEnrollment(await startTotpEnrollment());
+      setSecretShown(false);
       setConfirmCode("");
     } catch (nextError) {
       setError(inlineErrorMessage(nextError, i18nText("ui.literals.kc7a08bbb154f")));
@@ -97,9 +99,14 @@ export default function TwoFactorSection() {
     }
   }
 
-  function copySecret() {
-    navigator.clipboard?.writeText(enrollment?.secret || "");
-    showToast("Setup key copied", "success");
+  async function copySecret() {
+    try {
+      await navigator.clipboard.writeText(enrollment?.secret || "");
+      showToast("Setup key copied", "success");
+    } catch {
+      // No clipboard access: show the key so it can be typed or copied by hand.
+      setSecretShown(true);
+    }
   }
 
   return (
@@ -154,6 +161,11 @@ export default function TwoFactorSection() {
             <HiOutlineClipboard className="text-base" />
             {i18nText("ui.literals.k920702f233a3")}
           </button>
+          {secretShown && enrollment.secret ? (
+            <p className="mt-2 select-all break-all rounded-2xl border border-emerald-200 bg-white px-3 py-2.5 text-center font-mono text-sm font-black tracking-wider text-slate-900">
+              {enrollment.secret}
+            </p>
+          ) : null}
 
           <p className="mt-4 text-sm font-black text-slate-950">{i18nText("ui.literals.k52c972ef8f83")}</p>
           <input
