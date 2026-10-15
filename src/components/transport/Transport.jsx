@@ -29,6 +29,7 @@ import {
   getOperatorCompanyInvites,
   getTransportCompanyAccount,
   getTransportCompanyAccounts,
+  leaveTransportCompany,
   setActiveTransportCompanyId,
   subscribeTransportCompanyUpdates,
   submitOperatorCompanyInviteDocuments,
@@ -1476,6 +1477,21 @@ export default function Transport({
             setCompanyAccount(company);
             setCompanyOperationBadgeCount(0);
             showToast("Transport group switched", "success");
+          }}
+          onLeaveCompany={async (company) => {
+            await leaveTransportCompany(company);
+            const remaining = await getTransportCompanyAccounts().catch(() => []);
+            setCompanyAccounts(remaining);
+            if (remaining.length) {
+              await setActiveTransportCompanyId(remaining[0].id);
+              setCompanyAccount(remaining[0]);
+            } else {
+              setCompanyAccount(null);
+            }
+            setCompanyOperationBadgeCount(0);
+            const nextAccount = await getOperatorAccount().catch(() => null);
+            if (nextAccount) setOperatorAccount(nextAccount);
+            showToast(t("urrideDeleteCompany.leaveDone"), "success");
           }}
           onRegisterCompany={() => openCompanyRegistration("operator-dashboard")}
           onSwitchWorkMode={async (mode) => {

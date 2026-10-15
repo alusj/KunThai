@@ -705,10 +705,10 @@ export default function CompanyWorkspaceScreen({ company, initialTab = "Overview
       setLeaveCompanyOpen(false);
       setOperatorMenuOpen(false);
       onCompanyUpdate?.(null);
-      showToast("You left the company", "success");
+      showToast(t("urrideDeleteCompany.leaveDone"), "success");
       onCompanyLeft?.();
     } catch (error) {
-      showToast(shortErrorToast(error, "Couldn't leave company"), "danger");
+      showToast(shortErrorToast(error, t("urrideDeleteCompany.leaveFailed")), "danger");
     } finally {
       setManagementBusy(false);
     }
@@ -2001,9 +2001,9 @@ function CompanyOperatorMenu({ company, onClose, onCopy, onLeave, onOpenPersonal
         />
         <OperatorActionButton
           danger
-          detail={t("urride.companyWs.leaveCompanyDetail")}
+          detail={t("urrideDeleteCompany.leaveDetail", { name: company?.companyName || t("urride.companyWs.companyFallback") })}
           icon={LogOut}
-          label={t("urride.companyWs.leaveCompany")}
+          label={t("urrideDeleteCompany.leaveButton")}
           onClick={onLeave}
         />
       </div>
@@ -2014,16 +2014,16 @@ function CompanyOperatorMenu({ company, onClose, onCopy, onLeave, onOpenPersonal
 function LeaveCompanyDrawer({ busy, company, onClose, onConfirm, open }) {
   useUiLocale();
   return (
-    <FleetHqActionSheet label={t("urride.companyWs.leaveCompany")} onClose={onClose} open={open}>
-      <ActionSheetHeader eyebrow={t("urride.companyWs.membershipEyebrow")} icon={LogOut} onClose={onClose} title={t("urride.companyWs.leaveTitle", { name: company?.companyName || t("urride.companyWs.companyFallback") })} />
+    <FleetHqActionSheet label={t("urrideDeleteCompany.leaveButton")} onClose={onClose} open={open}>
+      <ActionSheetHeader eyebrow={t("urride.companyWs.membershipEyebrow")} icon={LogOut} onClose={onClose} title={t("urrideDeleteCompany.leaveTitle", { name: company?.companyName || t("urride.companyWs.companyFallback") })} />
       <div className="p-5">
         <p className="rounded-2xl bg-rose-50 px-4 py-3 text-sm font-bold leading-6 text-rose-900">
-          {t("urride.companyWs.leaveWarning")}
+          {t("urrideDeleteCompany.leaveWarning")}
         </p>
         <div className="mt-4 grid grid-cols-2 gap-2">
-          <button type="button" disabled={busy} onClick={onClose} className="h-12 rounded-2xl border border-slate-200 bg-white text-sm font-black text-slate-700 disabled:opacity-60">{t("urride.companyWs.stay")}</button>
+          <button type="button" disabled={busy} onClick={onClose} className="h-12 rounded-2xl border border-slate-200 bg-white text-sm font-black text-slate-700 disabled:opacity-60">{t("urrideDeleteCompany.leaveStay")}</button>
           <button type="button" disabled={busy} onClick={onConfirm} className="h-12 rounded-2xl bg-rose-600 text-sm font-black text-white disabled:opacity-60">
-            {busy ? t("urride.companyWs.leaving") : t("urride.companyWs.leaveCompany")}
+            {busy ? t("urrideDeleteCompany.leaving") : t("urrideDeleteCompany.leaveConfirm")}
           </button>
         </div>
       </div>

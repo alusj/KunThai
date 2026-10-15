@@ -7,6 +7,10 @@
   typed exactly. The reason for a refusal is shown inside the sheet.
 - After deleting, the app returns to UrRide (or to the person's next company, if they have one).
 
+- Operators (not the creator) get **Leave and delete company**: in Fleet HQ's operator actions and
+  in the personal operator dashboard's Menu. It ends only their membership and removes the company
+  from their dashboard; the company stays for its owner and other operators. No SQL needed for this.
+
 What is removed: the company, its company fleets, operator memberships, invites, rentals and their
 reservation history, and the company's plan rows. Operators keep their personal KunThai accounts
 and operator profiles; vehicles that were driving for the company go offline and are detached from

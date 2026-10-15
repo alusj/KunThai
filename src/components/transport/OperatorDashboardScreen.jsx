@@ -32,6 +32,7 @@ import {
   FiUser,
   FiUsers,
   FiX,
+  FiLogOut,
 } from "react-icons/fi";
 import { HiOutlineCheckCircle } from "react-icons/hi2";
 import TransportGroupSwitcher from "./TransportGroupSwitcher";
@@ -149,6 +150,7 @@ export default function OperatorDashboardScreen({
   onLocateArea,
   onOpenCompany,
   onSwitchCompany,
+  onLeaveCompany,
   onRegisterCompany,
   onEditRegistration,
   onSwitchWorkMode,
@@ -169,6 +171,7 @@ export default function OperatorDashboardScreen({
   const activeView = operatorNavigation.current.screen;
   const [verificationOpen, setVerificationOpen] = useState(false);
   const [operatorMenuOpen, setOperatorMenuOpen] = useState(false);
+  const [leaveCompanyOpen, setLeaveCompanyOpen] = useState(false);
   const [accountDeletionOpen, setAccountDeletionOpen] = useState(false);
   const [operatorAlertsOpen, setOperatorAlertsOpen] = useState(false);
   const [operatorSafetyOpen, setOperatorSafetyOpen] = useState(false);
@@ -1041,6 +1044,20 @@ export default function OperatorDashboardScreen({
         onRequestDeletion={() => {
           setOperatorMenuOpen(false);
           setAccountDeletionOpen(true);
+        }}
+        onLeaveCompany={onLeaveCompany && companyAccount?.id && !companyAccount?.access?.isOwner && !dashboardReadOnly ? () => {
+          setOperatorMenuOpen(false);
+          window.setTimeout(() => setLeaveCompanyOpen(true), 150);
+        } : undefined}
+      />
+
+      <OperatorLeaveCompanyDialog
+        open={leaveCompanyOpen}
+        company={companyAccount}
+        onClose={() => setLeaveCompanyOpen(false)}
+        onConfirm={async () => {
+          await onLeaveCompany?.(companyAccount);
+          setLeaveCompanyOpen(false);
         }}
       />
 
@@ -2311,6 +2328,7 @@ function OperatorMenuDrawer({
   onEditProfile,
   onLocateArea,
   onRequestDeletion,
+  onLeaveCompany,
 }) {
   useI18n();
   const { rendered, panelOpen } = useDrawerTransition(open);
@@ -2376,6 +2394,15 @@ function OperatorMenuDrawer({
       onClick: onOpenDashboard,
     },
     companyAction,
+    // Company operator (not the creator): leave and remove it from this dashboard.
+    onLeaveCompany
+      ? {
+          icon: FiLogOut,
+          label: t("urrideDeleteCompany.leaveButton"),
+          detail: t("urrideDeleteCompany.leaveDetail", { name: companyAccount?.companyName || t("urride.opDash.companyMembershipFallback") }),
+          onClick: onLeaveCompany,
+        }
+      : null,
     // Solo and company fleets: switch which one takes rides.
     onSwitchWorkMode
       ? {
@@ -2622,6 +2649,64 @@ function OperatorAccountDeletionDrawer({ open, fleetName, operatorName, onClose 
         </div>
       </aside>
     </div></AppPortal>
+  );
+}
+
+// Confirms "Leave and delete company" from the personal operator dashboard.
+// Only this operator's membership ends; the company stays for its owner.
+function OperatorLeaveCompanyDialog({ open, company, onClose, onConfirm }) {
+  useI18n();
+  const [busy, setBusy] = useState(false);
+  const [error, setError] = useState("");
+  useBodyScrollLock(open);
+
+  useEffect(() => {
+    if (!open) {
+      setBusy(false);
+      setError("");
+    }
+  }, [open]);
+
+  if (!open) return null;
+  const name = company?.companyName || t("urride.opDash.companyMembershipFallback");
+
+  async function confirm() {
+    if (busy) return;
+    setBusy(true);
+    setError("");
+    try {
+      await onConfirm?.();
+    } catch (leaveError) {
+      setError(inlineErrorMessage(leaveError, t("urrideDeleteCompany.leaveFailed")));
+      showToast(shortErrorToast(leaveError, t("urrideDeleteCompany.leaveFailed")), "danger");
+    } finally {
+      setBusy(false);
+    }
+  }
+
+  return (
+    <AppPortal>
+      <div className="fixed inset-0 z-[1500] flex items-end bg-slate-950/40 p-3 backdrop-blur-sm sm:items-center sm:justify-center" onClick={busy ? undefined : onClose}>
+        <section role="dialog" aria-modal="true" className="w-full max-w-lg rounded-[28px] bg-white p-5 shadow-2xl" onClick={(event) => event.stopPropagation()}>
+          <div className="flex items-start gap-3">
+            <span className="grid h-12 w-12 flex-none place-items-center rounded-2xl bg-rose-50 text-rose-700"><FiLogOut size={20} /></span>
+            <div className="min-w-0 flex-1">
+              <p className="text-xs font-black uppercase tracking-[0.16em] text-rose-700">{t("urride.companyWs.membershipEyebrow")}</p>
+              <h2 className="mt-1 text-xl font-black text-slate-950">{t("urrideDeleteCompany.leaveTitle", { name })}</h2>
+            </div>
+            <button type="button" disabled={busy} onClick={onClose} aria-label={t("urrideDeleteCompany.leaveStay")} className="grid h-10 w-10 flex-none place-items-center rounded-full bg-slate-100 disabled:opacity-60"><FiX size={18} /></button>
+          </div>
+          <p className="mt-4 rounded-2xl bg-rose-50 px-4 py-3 text-sm font-bold leading-6 text-rose-900">{t("urrideDeleteCompany.leaveWarning")}</p>
+          {error ? <p role="alert" className="mt-3 text-sm font-bold leading-6 text-rose-700">{translateUi(error)}</p> : null}
+          <div className="mt-4 grid grid-cols-2 gap-2">
+            <button type="button" disabled={busy} onClick={onClose} className="h-12 rounded-2xl border border-slate-200 bg-white text-sm font-black text-slate-700 disabled:opacity-60">{t("urrideDeleteCompany.leaveStay")}</button>
+            <button type="button" disabled={busy} onClick={confirm} className="h-12 rounded-2xl bg-rose-600 text-sm font-black text-white disabled:opacity-60">
+              {busy ? t("urrideDeleteCompany.leaving") : t("urrideDeleteCompany.leaveConfirm")}
+            </button>
+          </div>
+        </section>
+      </div>
+    </AppPortal>
   );
 }
 
