@@ -13,6 +13,18 @@ const MIN_PUBLISH_INTERVAL_MS = 6000;
 const HEARTBEAT_INTERVAL_MS = 30_000;
 const MIN_MOVE_METERS = 12;
 
+// Readable place for "Last seen near Lumley Beach Road" on passengers' cards.
+// Looked up on this phone (the app's own reverse geocoder), at most when the
+// operator moved PLACE_MOVE_METERS or every PLACE_REFRESH_MS, never on every
+// publish; publishing never waits for it. Stored with the position in
+// transport_operator_locations.metadata.place.
+const PLACE_MOVE_METERS = 300;
+const PLACE_REFRESH_MS = 5 * 60_000;
+const PLACE_RETRY_MS = 60_000;
+// A label from further away than this is wrong, so it is dropped when a new
+// lookup fails.
+const PLACE_STALE_METERS = 1000;
+
 let activePublisher = null;
 
 // When this device last saved a position successfully, for the operator
@@ -92,6 +104,39 @@ function normalizeAreaTransportType(fleetType = "") {
   return "car";
 }
 
+function placeLookupDue(publisher, point, now) {
+  if (publisher.placeInFlight) return false;
+  const sinceAttempt = now - publisher.placeAttemptAt;
+  if (!publisher.placeLabel) return sinceAttempt >= PLACE_RETRY_MS;
+  const moved = distanceInMeters(publisher.placePoint, point);
+  if (moved >= PLACE_MOVE_METERS) return sinceAttempt >= PLACE_RETRY_MS;
+  return sinceAttempt >= PLACE_REFRESH_MS && moved >= 30;
+}
+
+function refreshPlaceLabel(publisher, point, now) {
+  if (!point || !placeLookupDue(publisher, point, now)) return;
+  publisher.placeInFlight = true;
+  publisher.placeAttemptAt = now;
+  import("../../Backend/services/locationSearchService")
+    .then(({ reverseGeocodeLabel }) => reverseGeocodeLabel(point))
+    .then((label) => {
+      const clean = String(label || "").trim().slice(0, 120);
+      if (clean) {
+        publisher.placeLabel = clean;
+        publisher.placePoint = point;
+      } else if (publisher.placeLabel && distanceInMeters(publisher.placePoint, point) > PLACE_STALE_METERS) {
+        publisher.placeLabel = "";
+        publisher.placePoint = null;
+      }
+    })
+    .catch(() => {
+      // Keep the previous label; publishing is unaffected.
+    })
+    .finally(() => {
+      publisher.placeInFlight = false;
+    });
+}
+
 async function publishRow(publisher, position, { force = false } = {}) {
   const now = Date.now();
   const point = position
@@ -109,6 +154,7 @@ async function publishRow(publisher, position, { force = false } = {}) {
   lastOperatorPoint = point;
   publisher.lastPublishedPoint = point;
   publisher.lastPublishedAt = now;
+  refreshPlaceLabel(publisher, point, now);
 
   const booked = Boolean(publisher.isBooked?.());
   const { error } = await supabase.from("transport_operator_locations").upsert(
@@ -124,7 +170,11 @@ async function publishRow(publisher, position, { force = false } = {}) {
       speed_mps: Number.isFinite(position?.coords?.speed) ? position.coords.speed : null,
       accuracy_meters: Number.isFinite(position?.coords?.accuracy) ? position.coords.accuracy : null,
       last_seen_at: new Date(now).toISOString(),
-      metadata: { booked, source: "operator_dashboard" },
+      metadata: {
+        booked,
+        source: "operator_dashboard",
+        ...(publisher.placeLabel ? { place: publisher.placeLabel } : {}),
+      },
       updated_at: new Date(now).toISOString(),
     },
     { onConflict: "operator_id" },
@@ -175,6 +225,10 @@ export async function startOperatorLiveLocation({ displayName = "", fleetType = 
     lastPublishedPoint: null,
     lastPublishedAt: 0,
     lastError: "",
+    placeLabel: "",
+    placePoint: null,
+    placeAttemptAt: 0,
+    placeInFlight: false,
     watchId: null,
     heartbeatId: null,
     onVisible: null,
