@@ -3,6 +3,8 @@
 // vocabulary and are intentionally identical in every language.
 
 import { URRIDE } from "./urride";
+import { URRIDE_BACKGROUND_LOCATION } from "./urrideBackgroundLocation";
+import { URRIDE_BROADCAST_BOOKING } from "./urrideBroadcastBooking";
 import { KAI_LISTING_FIX } from "./kaiListingFix";
 import { ORDER_CAUTION } from "./orderCaution";
 import { REGISTRATION_SAVING } from "./registrationSaving";
@@ -59491,6 +59493,18 @@ for (const [locale, section] of Object.entries(APP_LOADING)) {
 for (const [locale, section] of Object.entries(URMALL_SETTINGS)) {
   if (TRANSLATIONS[locale]) {
     TRANSLATIONS[locale].urmallSettings = section;
+  }
+}
+
+for (const [locale, section] of Object.entries(URRIDE_BACKGROUND_LOCATION)) {
+  if (TRANSLATIONS[locale]) {
+    TRANSLATIONS[locale].urrideBackgroundLocation = section;
+  }
+}
+
+for (const [locale, section] of Object.entries(URRIDE_BROADCAST_BOOKING)) {
+  if (TRANSLATIONS[locale]) {
+    TRANSLATIONS[locale].urrideBroadcastBooking = section;
   }
 }
 
