@@ -22,13 +22,16 @@
 --     (no code, no rows);
 --   * SECURITY DEFINER with a fixed search_path, executable by anon and
 --     authenticated, like the other passenger RPCs;
---   * operator coordinates never leave the database: only a distance rounded
---     to 0.1 km. No phone numbers or other private operator data.
+--   * operator coordinates never leave the database: only a distance (0.1 km,
+--     and metres rounded to 10 m for short distances). No phone numbers or
+--     other private operator data;
+--   * every verification state is listed, exactly like the other passenger
+--     lists (the app shows the operator's verification badge).
 --
--- Verification: by default verified and pending-review operators are listed;
--- not verified, rejected, suspended (and any other state) only when
--- p_include_unverified is true. A fleet without any verification value is
--- treated as pending, the way the app labels it.
+-- last_seen_place is the readable place the operator's phone recorded with
+-- its latest position (transport_operator_locations.metadata->>'place', set by
+-- the app from a reverse geocode). It is never the fleet's registered
+-- city/base; null when the phone has not recorded one.
 --
 -- New function only: no existing function, table or row is changed.
 -- Re-runnable.
@@ -47,7 +50,6 @@ create or replace function public.transport_available_operators_nearby(
   p_radius_km numeric default 15,
   p_fleet_type text default null,
   p_limit integer default 20,
-  p_include_unverified boolean default false,
   p_country text default null,
   p_include_recent boolean default false
 )
@@ -58,8 +60,10 @@ returns table (
   service_category text,
   verification_status text,
   distance_km numeric,
+  distance_m integer,
   eta_minutes integer,
   last_seen_at timestamptz,
+  last_seen_place text,
   availability text
 )
 language sql
@@ -73,7 +77,6 @@ as $$
       nullif(lower(btrim(coalesce(p_fleet_type, ''))), '') as fleet_type,
       least(greatest(coalesce(p_radius_km, 15), 1), 50)::double precision as radius_km,
       least(greatest(coalesce(p_limit, 20), 1), 50) as row_limit,
-      coalesce(p_include_unverified, false) as include_unverified,
       coalesce(p_include_recent, false) as include_recent
     where p_lat between -90 and 90
       and p_lng between -180 and 180
@@ -95,13 +98,13 @@ as $$
       lower(coalesce(fleet.verification_status::text, operator.verification_status::text, '')) as verification_status,
       public.transport_open_booking_distance_km(p_lat, p_lng, location.lat, location.lng) as distance_km,
       location.last_seen_at,
+      nullif(left(btrim(coalesce(location.metadata->>'place', '')), 120), '') as last_seen_place,
       case
         when location.status::text = 'online' and location.last_seen_at > now() - interval '2 minutes' then 'available'
         when location.status::text = 'busy' and location.last_seen_at > now() - interval '2 minutes' then 'busy'
         else 'recent'
       end as availability,
       box.radius_km,
-      box.include_unverified,
       box.include_recent
     from box
     cross join public.transport_operator_locations location
@@ -126,13 +129,6 @@ as $$
     select *
     from candidates
     where distance_km <= radius_km
-      and (
-        include_unverified
-        or verification_status in (
-          'verified', 'verified_recommended', 'recommended', 'approved',
-          'pending', 'verification_pending', 'pending_review', 'under_review', 'submitted', ''
-        )
-      )
   ),
   live as (
     select * from eligible
@@ -158,6 +154,7 @@ as $$
     combined.service_category,
     combined.verification_status,
     round(combined.distance_km::numeric, 1) as distance_km,
+    (round(combined.distance_km * 100) * 10)::integer as distance_m,
     -- Same rough estimate as the app (topRatedNearby.estimateTravelMinutes):
     -- typical city speed per vehicle type plus 2 minutes to set off.
     greatest(1, ceil(
@@ -166,12 +163,13 @@ as $$
         when 'van' then 20 when 'bus' then 18 when 'truck' then 18 else 20 end) * 60 + 2
     ))::integer as eta_minutes,
     combined.last_seen_at,
+    combined.last_seen_place,
     combined.availability
   from combined
   order by combined.tier, combined.distance_km asc, combined.last_seen_at desc;
 $$;
 
-revoke all on function public.transport_available_operators_nearby(double precision, double precision, numeric, text, integer, boolean, text, boolean) from public;
-grant execute on function public.transport_available_operators_nearby(double precision, double precision, numeric, text, integer, boolean, text, boolean) to anon, authenticated;
+revoke all on function public.transport_available_operators_nearby(double precision, double precision, numeric, text, integer, text, boolean) from public;
+grant execute on function public.transport_available_operators_nearby(double precision, double precision, numeric, text, integer, text, boolean) to anon, authenticated;
 
 commit;

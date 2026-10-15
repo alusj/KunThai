@@ -28,11 +28,12 @@ create table public.transport_fleets(
   fleet_name text, service_category text default 'both',
   is_visible_to_passengers boolean not null default true, active_status text default 'active',
   fleet_type public.transport_fleet_type default 'motorcycle', country_iso text default 'SL',
-  verification_status text default 'verified'
+  verification_status text default 'verified',
+  current_location_name text default 'Juba', home_base_location text default 'Juba'
 );
 create table public.transport_operator_locations(
   operator_id uuid primary key references auth.users, status text not null default 'online',
-  available boolean not null default true,
+  available boolean not null default true, metadata jsonb not null default '{}'::jsonb,
   lat double precision not null, lng double precision not null, last_seen_at timestamptz not null default now()
 );
 
@@ -53,16 +54,17 @@ $$;
 --  2: 0.5 km, online, seen now                    -> available (nearest first)
 --  3: 2 km, busy, seen 30 s ago                   -> busy
 --  4: 1.5 km, online, seen 1 min 50 s ago         -> available (inside 2 min)
---  5: 1.5 km, online, seen 2 min 10 s ago         -> recent (just outside 2 min)
+--  5: 1.5 km, online, seen 2 min 10 s ago         -> recent (just outside 2 min),
+--     last seen near "Lumley Beach Road" (registered base: Juba)
 --  6: 1 km, online, seen 4 hours ago              -> excluded everywhere
 --  7: 1 km, online now, Guinea                    -> other country, excluded
---  8: 1 km, online now, not verified              -> hidden unless asked
+--  8: 1 km, online now, not verified              -> listed like any other
 --  9: 1 km, online now, hidden company fleet      -> excluded
 -- 10: 1 km, online now, Active switch off         -> excluded
 -- 11: 20 km, online now                           -> outside 15 km, inside 50 km
 -- 12: 80 km, online now                           -> outside every radius
 -- 13: 1 km, online now, pending review            -> listed by default
--- 14: 1 km, online now, rejected                  -> hidden unless asked
+-- 14: 1 km, online now, rejected                  -> listed like any other
 -- 15: 1 km, online now, no verification at all    -> treated as pending, listed
 -- 16: 1 km, offline row seen 1 min ago, switch on -> recent (signed out)
 do $$
@@ -104,6 +106,8 @@ update public.transport_fleets set verification_status = 'pending_review' where 
 update public.transport_fleets set verification_status = 'rejected' where id = '00000000-0000-0000-0000-000000000014';
 update public.transport_fleets set verification_status = null where id = '00000000-0000-0000-0000-000000000015';
 update public.transport_operators set verification_status = null where id = '00000000-0000-0000-0000-000000000015';
+update public.transport_operator_locations set metadata = '{"booked": false, "place": "  Lumley Beach Road, Freetown  "}'
+where operator_id = '00000000-0000-0000-0000-000000000005';
 
 create function pg_temp.fid(n int) returns uuid language sql immutable as $$
   select ('00000000-0000-0000-0000-' || lpad(n::text, 12, '0'))::uuid
@@ -116,12 +120,21 @@ declare
   n int;
   ordered boolean;
 begin
-  -- Default call: available + busy only, nearest first.
+  -- Default call: available + busy only, nearest first, every verification state.
   select array_agg(fleet_id order by ord) into ids
-  from public.transport_available_operators_nearby(8.484, -13.234, p_country => 'SL') with ordinality as t(fleet_id, a, b, c, d, e, f, g, h, ord);
-  if ids is distinct from array[pg_temp.fid(2), pg_temp.fid(13), pg_temp.fid(15), pg_temp.fid(4), pg_temp.fid(3), pg_temp.fid(1)] then
-    raise exception 'default call should list 2 (0.5 km), 13, 15 (1 km), 4 (1.5 km), 3 (2 km), 1 (3 km); got %', ids;
+  from public.transport_available_operators_nearby(8.484, -13.234, p_country => 'SL') with ordinality as t(fleet_id, a, b, c, d, e, f, g, h, i, j, ord);
+  if ids[1] <> pg_temp.fid(2) or ids[8] <> pg_temp.fid(1) or cardinality(ids) <> 8
+     or not (ids[2:5] @> array[pg_temp.fid(8), pg_temp.fid(13), pg_temp.fid(14), pg_temp.fid(15)])
+     or ids[6] <> pg_temp.fid(4) or ids[7] <> pg_temp.fid(3) then
+    raise exception 'default call should list 2 (0.5 km); 8, 13, 14, 15 (1 km); 4 (1.5 km); 3 (2 km); 1 (3 km); got %', ids;
   end if;
+  select bool_and(e >= coalesce(prev, 0)) into ordered from (
+    select e, lag(e) over (order by ord) as prev
+    from public.transport_available_operators_nearby(8.484, -13.234, p_country => 'SL') with ordinality as t(fleet_id, a, b, c, d, e, f, g, h, i, j, ord)
+  ) d;
+  if not ordered then raise exception 'rows must be nearest first'; end if;
+  select * into r from public.transport_available_operators_nearby(8.484, -13.234, p_country => 'SL') where fleet_id = pg_temp.fid(2);
+  if r.distance_m <> 500 or r.distance_km <> 0.5 then raise exception 'fleet 2 should be 500 m / 0.5 km: %', r; end if;
 
   select * into r from public.transport_available_operators_nearby(8.484, -13.234, p_country => 'SL') where fleet_id = pg_temp.fid(1);
   if r.availability <> 'available' or r.distance_km <> 3.0 or r.eta_minutes <> 10 or r.fleet_name <> 'Fleet 1' then
@@ -141,8 +154,8 @@ begin
   -- Recently online: separate tier after every live row, never 'available'.
   select array_agg(fleet_id order by ord) into ids
   from public.transport_available_operators_nearby(8.484, -13.234, p_country => 'SL', p_include_recent => true)
-    with ordinality as t(fleet_id, a, b, c, d, e, f, g, h, ord)
-  where h = 'recent';
+    with ordinality as t(fleet_id, a, b, c, d, e, f, g, h, i, j, ord)
+  where j = 'recent';
   if ids is distinct from array[pg_temp.fid(16), pg_temp.fid(5)] then
     raise exception 'recent should be 16 (1 km, signed out) then 5 (1.5 km); got %', ids;
   end if;
@@ -150,9 +163,9 @@ begin
   from public.transport_available_operators_nearby(8.484, -13.234, p_country => 'SL', p_include_recent => true)
   where fleet_id = pg_temp.fid(6);
   if n <> 0 then raise exception 'positions older than 3 hours are left out even as recent'; end if;
-  select max(ord) filter (where h <> 'recent') < min(ord) filter (where h = 'recent') into strict ordered
+  select max(ord) filter (where j <> 'recent') < min(ord) filter (where j = 'recent') into strict ordered
   from public.transport_available_operators_nearby(8.484, -13.234, p_country => 'SL', p_include_recent => true)
-    with ordinality as t(fleet_id, a, b, c, d, e, f, g, h, ord);
+    with ordinality as t(fleet_id, a, b, c, d, e, f, g, h, i, j, ord);
   if not ordered then raise exception 'recent rows must come after every live row'; end if;
 
   -- Radius: 20 km fleet only with a wider radius; the radius is clamped to 1-50 km.
@@ -170,7 +183,7 @@ begin
   if n <> 1 then raise exception 'limit 0 clamps to 1, got %', n; end if;
 
   -- Country boundary: Guinea fleet never; no/invalid country, nothing at all.
-  select count(*) into n from public.transport_available_operators_nearby(8.484, -13.234, p_country => 'SL', p_include_unverified => true, p_include_recent => true) where fleet_id = pg_temp.fid(7);
+  select count(*) into n from public.transport_available_operators_nearby(8.484, -13.234, p_country => 'SL', p_include_recent => true) where fleet_id = pg_temp.fid(7);
   if n <> 0 then raise exception 'a fleet from another country must never be listed'; end if;
   select count(*) into n from public.transport_available_operators_nearby(8.484, -13.234, p_country => 'GN');
   if n <> 1 then raise exception 'in Guinea only the Guinea fleet is listed, got %', n; end if;
@@ -181,14 +194,24 @@ begin
   select count(*) into n from public.transport_available_operators_nearby(95, -13.234, p_country => 'SL');
   if n <> 0 then raise exception 'invalid latitude must return nothing'; end if;
 
-  -- Verification: not verified / rejected hidden by default, shown with the flag.
-  select count(*) into n from public.transport_available_operators_nearby(8.484, -13.234, p_country => 'SL') where fleet_id in (pg_temp.fid(8), pg_temp.fid(14));
-  if n <> 0 then raise exception 'not verified and rejected fleets are hidden by default'; end if;
-  select count(*) into n from public.transport_available_operators_nearby(8.484, -13.234, p_country => 'sl', p_include_unverified => true) where fleet_id in (pg_temp.fid(8), pg_temp.fid(14));
-  if n <> 2 then raise exception 'p_include_unverified must list not verified and rejected fleets, got %', n; end if;
+  -- Verification: every state is listed, like the other passenger lists.
+  select count(*) into n from public.transport_available_operators_nearby(8.484, -13.234, p_country => 'sl') where fleet_id in (pg_temp.fid(8), pg_temp.fid(14), pg_temp.fid(15));
+  if n <> 3 then raise exception 'not verified, rejected and unset verification must be listed, got %', n; end if;
+  select * into r from public.transport_available_operators_nearby(8.484, -13.234, p_country => 'SL') where fleet_id = pg_temp.fid(8);
+  if r.verification_status <> 'not_verified' then raise exception 'the verification state is returned for the badge: %', r; end if;
+
+  -- Last-seen place: from the latest location row, never the fleet's registered base.
+  select * into r from public.transport_available_operators_nearby(8.484, -13.234, p_country => 'SL', p_include_recent => true) where fleet_id = pg_temp.fid(5);
+  if r.last_seen_place is distinct from 'Lumley Beach Road, Freetown' then raise exception 'place must come from the location row (trimmed): %', r; end if;
+  if r.distance_m <> 1500 or r.last_seen_at > now() - interval '2 minutes' then raise exception 'recent row carries distance and last seen: %', r; end if;
+  select * into r from public.transport_available_operators_nearby(8.484, -13.234, p_country => 'SL', p_include_recent => true) where fleet_id = pg_temp.fid(16);
+  if r.last_seen_place is not null then raise exception 'no recorded place means null, not the registered city: %', r; end if;
+  update public.transport_operator_locations set metadata = '{"place": "Wilkinson Road"}' where operator_id = pg_temp.fid(5);
+  select * into r from public.transport_available_operators_nearby(8.484, -13.234, p_country => 'SL', p_include_recent => true) where fleet_id = pg_temp.fid(5);
+  if r.last_seen_place <> 'Wilkinson Road' then raise exception 'the latest place wins: %', r; end if;
 
   -- Invisible company fleets and fleets switched off never appear.
-  select count(*) into n from public.transport_available_operators_nearby(8.484, -13.234, p_country => 'SL', p_include_unverified => true, p_include_recent => true) where fleet_id in (pg_temp.fid(9), pg_temp.fid(10));
+  select count(*) into n from public.transport_available_operators_nearby(8.484, -13.234, p_country => 'SL', p_include_recent => true) where fleet_id in (pg_temp.fid(9), pg_temp.fid(10));
   if n <> 0 then raise exception 'hidden company fleets and offline fleets must be excluded'; end if;
 
   -- Fleet type filter.
@@ -207,11 +230,11 @@ begin
     select 1 from information_schema.routines r
     join information_schema.parameters p on p.specific_name = r.specific_name
     where r.routine_name = 'transport_available_operators_nearby' and p.parameter_mode = 'OUT'
-      and p.parameter_name in ('lat', 'lng', 'phone', 'operator_phone', 'operator_id')
+      and p.parameter_name in ('lat', 'lng', 'phone', 'operator_phone', 'operator_id', 'metadata')
   ) then
     raise exception 'private operator data must not be returned';
   end if;
-  if not has_function_privilege('anon', 'public.transport_available_operators_nearby(double precision, double precision, numeric, text, integer, boolean, text, boolean)', 'execute') then
+  if not has_function_privilege('anon', 'public.transport_available_operators_nearby(double precision, double precision, numeric, text, integer, text, boolean)', 'execute') then
     raise exception 'anon must be able to execute the function';
   end if;
   if (select prosecdef from pg_proc where proname = 'transport_available_operators_nearby') is not true then

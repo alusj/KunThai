@@ -5,7 +5,8 @@ import {
   chooseDiscoveryMode,
   createRefreshScheduler,
   describeOperatorVisibility,
-  formatDistanceKm,
+  formatLastSeenAgo,
+  formatLiveDistance,
   groupLiveDiscovery,
   hasUsablePosition,
   isLocationChangeNearby,
@@ -38,18 +39,56 @@ test("groups available and busy apart from recently online, nearest first", () =
   assert.deepEqual(groups.recent.map((item) => item.id), ["d"]);
   assert.equal(groups.available[1].liveAvailability, "busy");
   assert.equal(groups.recent[0].lastSeenMinutes, 7);
+  assert.equal(groups.recent[0].lastSeenPlace, "");
   assert.equal(groups.recent[0].etaMinutes, null, "no travel time from an old position");
   assert.equal(groups.available[0].distanceSource, "live");
 });
 
-test("skips rows without a hydrated fleet, duplicates and (by default) unverified fleets", () => {
+test("keeps every verification state; skips rows without a hydrated fleet and duplicates", () => {
   const fleets = [fleet("a"), fleet("n", { verificationStatus: "notVerified" }), fleet("p", { verificationStatus: "pending" }), fleet("r", { verificationStatus: "rejected" })];
-  const rows = [row("a", "available", 1), row("a", "available", 1), row("ghost", "available", 1), row("n", "available", 1), row("p", "available", 1), row("r", "available", 1)];
-  assert.deepEqual(groupLiveDiscovery(fleets, rows, { now: NOW }).available.map((item) => item.id), ["a", "p"]);
-  assert.deepEqual(
-    groupLiveDiscovery(fleets, rows, { now: NOW, includeUnverified: true }).available.map((item) => item.id).sort(),
-    ["a", "n", "p", "r"],
+  const rows = [row("a", "available", 1), row("a", "available", 1), row("ghost", "available", 1), row("n", "available", 1.1), row("p", "available", 1.2), row("r", "available", 1.3)];
+  assert.deepEqual(groupLiveDiscovery(fleets, rows, { now: NOW }).available.map((item) => item.id), ["a", "n", "p", "r"]);
+});
+
+test("uses metres from the row when present and keeps the last-seen place from the row", () => {
+  const groups = groupLiveDiscovery(
+    [fleet("a", { currentLocation: "Juba" })],
+    [row("a", "recent", 0.9, { distance_m: 850, last_seen_place: "  Lumley Beach Road, Freetown ", last_seen_at: new Date(NOW - 12 * 60_000).toISOString() })],
+    { now: NOW },
   );
+  const item = groups.recent[0];
+  assert.equal(item.distanceKm, 0.85);
+  assert.equal(item.lastSeenPlace, "Lumley Beach Road, Freetown");
+  assert.deepEqual(liveCardLabelValues(item), {
+    kind: "lastSeenNear",
+    place: "Lumley Beach Road, Freetown",
+    distance: { unit: "m", value: "850" },
+    ago: { kind: "minutes", minutes: 12 },
+  });
+});
+
+test("distance formatter: metres under 1 km, one decimal, whole km from 10 km", () => {
+  assert.deepEqual(formatLiveDistance(0.999), { unit: "m", value: "999" });
+  assert.deepEqual(formatLiveDistance(1.0), { unit: "km", value: "1.0" });
+  assert.deepEqual(formatLiveDistance(0.85), { unit: "m", value: "850" });
+  assert.deepEqual(formatLiveDistance(1.44), { unit: "km", value: "1.4" });
+  assert.deepEqual(formatLiveDistance(9.94), { unit: "km", value: "9.9" });
+  assert.deepEqual(formatLiveDistance(9.96), { unit: "km", value: "10" });
+  assert.deepEqual(formatLiveDistance(12.4), { unit: "km", value: "12" });
+  assert.deepEqual(formatLiveDistance(0), { unit: "m", value: "0" });
+  assert.equal(formatLiveDistance(null), null);
+  assert.equal(formatLiveDistance(""), null);
+  assert.equal(formatLiveDistance(-1), null);
+});
+
+test("last-seen formatter: just now, minutes, hours and minutes", () => {
+  assert.deepEqual(formatLastSeenAgo(0), { kind: "justNow" });
+  assert.deepEqual(formatLastSeenAgo(3), { kind: "minutes", minutes: 3 });
+  assert.deepEqual(formatLastSeenAgo(59), { kind: "minutes", minutes: 59 });
+  assert.deepEqual(formatLastSeenAgo(60), { kind: "hours", hours: 1 });
+  assert.deepEqual(formatLastSeenAgo(80), { kind: "hoursMinutes", hours: 1, minutes: 20 });
+  assert.equal(formatLastSeenAgo(null), null);
+  assert.equal(formatLastSeenAgo(-5), null);
 });
 
 test("falls back to the app's travel estimate when the row has no ETA", () => {
@@ -58,14 +97,15 @@ test("falls back to the app's travel estimate when the row has no ETA", () => {
 });
 
 test("card labels: distance and ETA for live operators, last seen for recent ones", () => {
-  assert.deepEqual(liveCardLabelValues({ liveAvailability: "available", distanceKm: 1.24, etaMinutes: 4 }), { kind: "distanceEta", distance: "1.2", eta: 4 });
-  assert.deepEqual(liveCardLabelValues({ liveAvailability: "busy", distanceKm: 3, etaMinutes: 0 }), { kind: "distanceEta", distance: "3", eta: 1 });
-  assert.deepEqual(liveCardLabelValues({ liveAvailability: "recent", lastSeenMinutes: 12 }), { kind: "lastSeen", minutes: 12 });
+  assert.deepEqual(liveCardLabelValues({ liveAvailability: "available", distanceKm: 1.44, etaMinutes: 4 }), { kind: "distanceEta", distance: { unit: "km", value: "1.4" }, eta: 4 });
+  assert.deepEqual(liveCardLabelValues({ liveAvailability: "busy", distanceKm: 0.3, etaMinutes: 0 }), { kind: "distanceEta", distance: { unit: "m", value: "300" }, eta: 1 });
+  assert.deepEqual(
+    liveCardLabelValues({ liveAvailability: "recent", distanceKm: 1.4, lastSeenMinutes: 12, lastSeenPlace: "" }),
+    { kind: "lastSeenAway", distance: { unit: "km", value: "1.4" }, ago: { kind: "minutes", minutes: 12 } },
+    "no recorded place: a coordinate-free phrase, never the registered city",
+  );
   assert.equal(liveCardLabelValues({ liveAvailability: "available", distanceKm: null }), null);
-  assert.equal(liveCardLabelValues({ liveAvailability: "recent", lastSeenMinutes: null }), null);
-  assert.equal(formatDistanceKm(0.04), "0");
-  assert.equal(formatDistanceKm(undefined), "");
-  assert.equal(formatDistanceKm(-1), "");
+  assert.equal(liveCardLabelValues({ liveAvailability: "recent", distanceKm: 1, lastSeenMinutes: null }), null);
 });
 
 test("fallback decision: live only with a usable position and an existing RPC", () => {

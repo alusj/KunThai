@@ -596,7 +596,6 @@ export async function fetchAvailableOperatorsNearby({
   fleetType = null,
   radiusKm = LIVE_DEFAULT_RADIUS_KM,
   limit = 20,
-  includeUnverified = false,
   forceRefresh = false,
 } = {}) {
   if (liveDiscoveryRpcMissing) return { supported: false };
@@ -611,7 +610,6 @@ export async function fetchAvailableOperatorsNearby({
     p_radius_km: radiusKm,
     p_fleet_type: fleetType ? String(fleetType).toLowerCase() : null,
     p_limit: limit,
-    p_include_unverified: Boolean(includeUnverified),
     p_country: currentIso,
     p_include_recent: true,
   });
@@ -636,7 +634,7 @@ export async function fetchAvailableOperatorsNearby({
     isFleetAllowedForTransportMode(fleet, mode, currentIso) &&
     passengerVisibilityFilters(fleet, selection, false),
   );
-  const groups = groupLiveDiscovery(allowed, list, { includeUnverified });
+  const groups = groupLiveDiscovery(allowed, list);
   rememberTransportFleets("live-discovery", [...groups.available, ...groups.recent]);
   return { supported: true, ...groups, radiusKm: radius };
 }

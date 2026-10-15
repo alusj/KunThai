@@ -52,29 +52,27 @@ function matchesQuery(operator, query) {
     .some((value) => String(value).toLowerCase().includes(term));
 }
 
-// "Show unverified operators" in the live list; remembered on this device.
-const SHOW_UNVERIFIED_KEY = "kunthai.urride.showUnverifiedOperators.v1";
 const LIVE_AVAILABLE_LIMIT = 12;
 const LIVE_RECENT_LIMIT = 6;
 const POSITION_REFRESH_MS = 60_000;
 const REALTIME_DEBOUNCE_MS = 2_000;
 const REALTIME_MIN_GAP_MS = 5_000;
 
-function readShowUnverified() {
-  try {
-    return localStorage.getItem(SHOW_UNVERIFIED_KEY) === "1";
-  } catch {
-    return false;
-  }
+// "850 m" / "1.4 km" in the active language.
+function liveDistanceText(distance) {
+  if (!distance) return "";
+  return distance.unit === "m"
+    ? t("urrideLiveDiscovery.distanceMeters", { value: distance.value })
+    : t("urrideLiveDiscovery.distanceKilometres", { value: distance.value });
 }
 
-function writeShowUnverified(value) {
-  try {
-    if (value) localStorage.setItem(SHOW_UNVERIFIED_KEY, "1");
-    else localStorage.removeItem(SHOW_UNVERIFIED_KEY);
-  } catch {
-    // Storage unavailable: the choice lasts for this visit only.
-  }
+// "just now" / "12 min ago" / "1 h 20 min ago" in the active language.
+function liveAgoText(ago) {
+  if (!ago) return "";
+  if (ago.kind === "justNow") return t("urrideLiveDiscovery.agoJustNow");
+  if (ago.kind === "minutes") return t("urrideLiveDiscovery.agoMinutes", { minutes: ago.minutes });
+  if (ago.kind === "hours") return t("urrideLiveDiscovery.agoHours", { hours: ago.hours });
+  return t("urrideLiveDiscovery.agoHoursMinutes", { hours: ago.hours, minutes: ago.minutes });
 }
 
 function documentVisible() {
@@ -124,7 +122,6 @@ export default function NearbyOperators({
   // Live discovery ("Available near you"): null keeps the list exactly as
   // before (no passenger position, or the database function is missing).
   const [live, setLive] = useState(null);
-  const [showUnverified, setShowUnverified] = useState(() => readShowUnverified());
   const liveSignatureRef = useRef("");
   const categoryRef = useRef(category);
   const schedulerRef = useRef(null);
@@ -261,7 +258,6 @@ export default function NearbyOperators({
         mode: liveMode,
         fleetType: liveFleetType,
         radiusKm: LIVE_DEFAULT_RADIUS_KM,
-        includeUnverified: showUnverified,
       });
       if (!alive) return;
       if (!result?.supported) {
@@ -309,16 +305,10 @@ export default function NearbyOperators({
       document.removeEventListener("visibilitychange", onVisibility);
       unsubscribe();
     };
-  }, [cacheCountryIso, liveMode, liveFleetType, showUnverified]);
+  }, [cacheCountryIso, liveMode, liveFleetType]);
 
   const liveAvailable = live ? applyOperatorFilters(live.available, filters, destination).slice(0, LIVE_AVAILABLE_LIMIT) : [];
   const liveRecent = live ? applyOperatorFilters(live.recent, filters, destination).slice(0, LIVE_RECENT_LIMIT) : [];
-
-  function toggleShowUnverified() {
-    const next = !showUnverified;
-    writeShowUnverified(next);
-    setShowUnverified(next);
-  }
 
   const cardHandlers = {
     pickup,
@@ -353,8 +343,6 @@ export default function NearbyOperators({
           available={liveAvailable}
           recent={liveRecent}
           radiusKm={live.radiusKm}
-          showUnverified={showUnverified}
-          onToggleUnverified={toggleShowUnverified}
           onOpenOpenBooking={onOpenOpenBooking}
           cardHandlers={cardHandlers}
         />
@@ -405,8 +393,11 @@ export default function NearbyOperators({
 
 // One operator card. Without `operator.liveAvailability` it is the card the
 // list has always shown (ONLINE / OFFLINE badge, distance when measured). In
-// the live list the badge says Available / Busy, or "Last seen N min ago" for
-// recently online operators, who are never labelled ONLINE.
+// the live list the badge says Available / Busy with "1.4 km · 4 min away";
+// recently online operators get no badge (never ONLINE) and one line saying
+// where their phone last shared its position: "Last seen near Lumley Beach
+// Road · 1.4 km away · 12 min ago". The place line only ever shows that
+// last-seen place, never the fleet's registered city.
 function OperatorCard({ operator, pickup, destination, onViewFleet, onViewCompany, onOpenBooking, onShowVerification }) {
   const status = verificationStatuses[operator.verificationStatus] || verificationStatuses.notVerified;
   const isActive = operator.activeStatus === "active";
@@ -434,11 +425,7 @@ function OperatorCard({ operator, pickup, destination, onViewFleet, onViewCompan
       </span>
     );
   } else if (liveState === "recent") {
-    badge = liveLabel?.kind === "lastSeen" ? (
-      <span className="rounded-full border border-slate-200 bg-slate-50 px-2.5 py-1 text-[11px] font-bold text-slate-600">
-        {t("urrideLiveDiscovery.lastSeen", { minutes: liveLabel.minutes })}
-      </span>
-    ) : null;
+    badge = null;
   } else {
     badge = (
       <span className={`rounded-full border px-2.5 py-1 text-[11px] font-black uppercase tracking-wide ${statusTone}`}>
@@ -448,10 +435,27 @@ function OperatorCard({ operator, pickup, destination, onViewFleet, onViewCompan
   }
 
   let distanceLine = null;
+  let placeLine = operator.currentLocation || operator.lastKnownLocation;
   if (liveState === "available" || liveState === "busy") {
     distanceLine = liveLabel?.kind === "distanceEta"
-      ? t("urrideLiveDiscovery.distanceEta", { distance: liveLabel.distance, eta: liveLabel.eta })
+      ? t("urrideLiveDiscovery.distanceEta", { distance: liveDistanceText(liveLabel.distance), eta: liveLabel.eta })
       : null;
+    placeLine = operator.lastSeenPlace || "";
+  } else if (liveState === "recent") {
+    if (liveLabel?.kind === "lastSeenNear") {
+      placeLine = t("urrideLiveDiscovery.lastSeenNear", {
+        place: liveLabel.place,
+        distance: liveDistanceText(liveLabel.distance),
+        ago: liveAgoText(liveLabel.ago),
+      });
+    } else if (liveLabel?.kind === "lastSeenAway") {
+      placeLine = t("urrideLiveDiscovery.lastSeenAway", {
+        distance: liveDistanceText(liveLabel.distance),
+        ago: liveAgoText(liveLabel.ago),
+      });
+    } else {
+      placeLine = "";
+    }
   } else if (Number.isFinite(operator.distanceKm)) {
     distanceLine = operator.distanceSource === "live" && operator.etaMinutes
       ? t("urride.fleetList.distanceLive", { distance: operator.distanceKm, eta: operator.etaMinutes })
@@ -482,10 +486,12 @@ function OperatorCard({ operator, pickup, destination, onViewFleet, onViewCompan
         </div>
       </div>
 
-      <div className="mt-3 flex items-center gap-1 text-xs text-gray-500">
-        <FiMapPin size={14} />
-        {operator.currentLocation || operator.lastKnownLocation}
-      </div>
+      {placeLine ? (
+        <div className={`mt-3 flex items-center gap-1 text-xs ${liveState === "recent" ? "font-semibold text-slate-600" : "text-gray-500"}`}>
+          <FiMapPin size={14} className="shrink-0" />
+          <span>{placeLine}</span>
+        </div>
+      ) : null}
       {distanceLine ? (
         <p className="mt-1 text-xs font-bold text-emerald-700">{distanceLine}</p>
       ) : null}
@@ -545,24 +551,13 @@ function OperatorCard({ operator, pickup, destination, onViewFleet, onViewCompan
 // "Available near you" (nearest first) and, below it, a smaller "Recently
 // online" group. Shown only when the passenger's position is known and the
 // database supports live discovery.
-function LiveOperatorGroups({ available, recent, radiusKm, showUnverified, onToggleUnverified, onOpenOpenBooking, cardHandlers }) {
+function LiveOperatorGroups({ available, recent, radiusKm, onOpenOpenBooking, cardHandlers }) {
   return (
     <div className="grid gap-4" data-direction="urride-live-discovery">
       <div>
-        <div className="mb-2 flex flex-wrap items-end justify-between gap-2">
-          <div>
-            <h3 className="text-sm font-black text-gray-950">{t("urrideLiveDiscovery.availableTitle")}</h3>
-            <p className="text-xs text-gray-500">{t("urrideLiveDiscovery.availableSubtitle")}</p>
-          </div>
-          <label className="inline-flex cursor-pointer items-center gap-2 text-xs font-semibold text-gray-600">
-            <input
-              type="checkbox"
-              checked={showUnverified}
-              onChange={onToggleUnverified}
-              className="h-4 w-4 rounded border-gray-300 accent-sky-700"
-            />
-            {t("urrideLiveDiscovery.showUnverified")}
-          </label>
+        <div className="mb-2">
+          <h3 className="text-sm font-black text-gray-950">{t("urrideLiveDiscovery.availableTitle")}</h3>
+          <p className="text-xs text-gray-500">{t("urrideLiveDiscovery.availableSubtitle")}</p>
         </div>
         {available.length ? (
           <div className="grid gap-3 lg:grid-cols-3 2xl:grid-cols-6">

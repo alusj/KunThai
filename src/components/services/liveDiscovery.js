@@ -10,8 +10,6 @@ export const LIVE_WINDOW_MS = 2 * 60 * 1000;
 export const LIVE_REFRESH_INTERVAL_MS = 10_000;
 export const LIVE_DEFAULT_RADIUS_KM = 15;
 
-const VERIFIED_OR_PENDING = new Set(["verified", "recommended", "pending"]);
-
 // The RPC is missing (migration not applied yet): PostgREST says PGRST202,
 // Postgres says 42883 (undefined function). Anything else is a normal error.
 export function isMissingRpcError(error) {
@@ -40,18 +38,26 @@ export function chooseDiscoveryMode({ position, rpcAvailable = true } = {}) {
   return rpcAvailable && hasUsablePosition(position) ? "live" : "legacy";
 }
 
+// Whole minutes since a timestamp (0 = under a minute), or null.
 function minutesSince(timestamp, now) {
   const time = new Date(timestamp).getTime();
   if (!Number.isFinite(time)) return null;
-  return Math.max(1, Math.floor(Math.max(0, now - time) / 60_000));
+  return Math.floor(Math.max(0, now - time) / 60_000);
+}
+
+function rowDistanceKm(row) {
+  const metres = row.distance_m === null || row.distance_m === undefined || row.distance_m === "" ? NaN : Number(row.distance_m);
+  if (Number.isFinite(metres) && metres >= 0) return metres / 1000;
+  const km = row.distance_km === null || row.distance_km === undefined || row.distance_km === "" ? NaN : Number(row.distance_km);
+  return Number.isFinite(km) && km >= 0 ? km : null;
 }
 
 // Puts hydrated fleets in the database order and splits them into
 // "available" (available + busy, nearest first) and "recent" (Active switch
 // on, no check-in for over 2 minutes). Rows without a hydrated fleet (the
-// client's safety filters removed it) are skipped. Unless includeUnverified,
-// only verified and pending fleets are kept, mirroring the RPC.
-export function groupLiveDiscovery(fleets = [], rows = [], { includeUnverified = false, now = Date.now() } = {}) {
+// client's safety filters removed it) are skipped. Every verification state
+// is kept, like every other passenger list.
+export function groupLiveDiscovery(fleets = [], rows = [], { now = Date.now() } = {}) {
   const byId = new Map((fleets || []).map((fleet) => [fleet?.id, fleet]));
   const available = [];
   const recent = [];
@@ -60,13 +66,12 @@ export function groupLiveDiscovery(fleets = [], rows = [], { includeUnverified =
   for (const row of rows || []) {
     const fleet = byId.get(row?.fleet_id);
     if (!fleet || seen.has(fleet.id)) continue;
-    if (!includeUnverified && !VERIFIED_OR_PENDING.has(fleet.verificationStatus)) continue;
     seen.add(fleet.id);
 
-    const distanceKm = row.distance_km === null || row.distance_km === undefined ? null : Number(row.distance_km);
-    const knownDistance = Number.isFinite(distanceKm) ? distanceKm : null;
+    const knownDistance = rowDistanceKm(row);
     const rowEta = Number(row.eta_minutes);
     const availability = ["available", "busy", "recent"].includes(row.availability) ? row.availability : "recent";
+    const place = String(row.last_seen_place || "").trim();
     const item = {
       ...fleet,
       distanceKm: knownDistance,
@@ -77,6 +82,9 @@ export function groupLiveDiscovery(fleets = [], rows = [], { includeUnverified =
       liveAvailability: availability,
       lastSeenAt: row.last_seen_at || null,
       lastSeenMinutes: row.last_seen_at ? minutesSince(row.last_seen_at, now) : null,
+      // Where the operator's phone last shared GPS (reverse geocoded on the
+      // operator's side); never the fleet's registered city.
+      lastSeenPlace: place,
     };
     if (availability === "recent") recent.push(item);
     else available.push(item);
@@ -86,21 +94,45 @@ export function groupLiveDiscovery(fleets = [], rows = [], { includeUnverified =
   return { available: available.sort(byDistance), recent: recent.sort(byDistance) };
 }
 
-// "1.2" for the "{distance} km · {eta} min away" line; whole numbers stay whole.
-export function formatDistanceKm(distanceKm) {
-  const value = Number(distanceKm);
-  if (distanceKm === null || distanceKm === undefined || !Number.isFinite(value) || value < 0) return "";
-  return String(Math.round(value * 10) / 10);
+// Professional distance: "850 m" under 1 km, "1.4 km" with one decimal,
+// "12 km" from 10 km. Returns { unit: "m" | "km", value } or null.
+export function formatLiveDistance(distanceKm) {
+  if (distanceKm === null || distanceKm === undefined || distanceKm === "") return null;
+  const km = Number(distanceKm);
+  if (!Number.isFinite(km) || km < 0) return null;
+  const metres = Math.round(km * 1000);
+  if (metres < 1000) return { unit: "m", value: String(metres) };
+  const oneDecimal = Math.round(km * 10) / 10;
+  if (oneDecimal >= 10) return { unit: "km", value: String(Math.round(km)) };
+  return { unit: "km", value: oneDecimal.toFixed(1) };
 }
 
-// Interpolation values for the card labels, or null when nothing honest can
-// be said (no distance / no last-seen time).
+// "just now" / "3 min ago" / "2 h ago" / "1 h 20 min ago" as a key + values.
+export function formatLastSeenAgo(minutes) {
+  if (minutes === null || minutes === undefined || minutes === "") return null;
+  const total = Math.floor(Number(minutes));
+  if (!Number.isFinite(total) || total < 0) return null;
+  if (total < 1) return { kind: "justNow" };
+  if (total < 60) return { kind: "minutes", minutes: total };
+  const hours = Math.floor(total / 60);
+  const rest = total % 60;
+  return rest ? { kind: "hoursMinutes", hours, minutes: rest } : { kind: "hours", hours };
+}
+
+// What the card says, or null when nothing honest can be said:
+//   available / busy -> { kind: "distanceEta", distance, eta }
+//   recent           -> { kind: "lastSeenNear", place, distance, ago }
+//                       or { kind: "lastSeenAway", distance, ago } without a place
 export function liveCardLabelValues(item) {
   if (!item) return null;
+  const distance = formatLiveDistance(item.distanceKm);
   if (item.liveAvailability === "recent") {
-    return item.lastSeenMinutes ? { kind: "lastSeen", minutes: item.lastSeenMinutes } : null;
+    const ago = formatLastSeenAgo(item.lastSeenMinutes);
+    if (!distance || !ago) return null;
+    return item.lastSeenPlace
+      ? { kind: "lastSeenNear", place: item.lastSeenPlace, distance, ago }
+      : { kind: "lastSeenAway", distance, ago };
   }
-  const distance = formatDistanceKm(item.distanceKm);
   if (!distance) return null;
   const eta = Number(item.etaMinutes);
   return { kind: "distanceEta", distance, eta: Number.isFinite(eta) && eta > 0 ? eta : 1 };
@@ -131,7 +163,7 @@ export function isLocationChangeNearby(payload, position, radiusKm = LIVE_DEFAUL
 export function liveDiscoverySignature(groups) {
   if (!groups) return "";
   const part = (items) => (items || [])
-    .map((item) => `${item.id}:${item.liveAvailability}:${item.distanceKm}:${item.etaMinutes}:${item.lastSeenMinutes}`)
+    .map((item) => `${item.id}:${item.liveAvailability}:${item.distanceKm}:${item.etaMinutes}:${item.lastSeenMinutes}:${item.lastSeenPlace || ""}`)
     .join("|");
   return `${part(groups.available)}#${part(groups.recent)}`;
 }
