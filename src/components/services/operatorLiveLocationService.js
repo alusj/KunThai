@@ -2,16 +2,51 @@ import supabase from "../../Backend/lib/supabaseClient";
 
 // Publishes the signed-in operator's live position into
 // public.transport_operator_locations while they are online: on movement
-// (12 m+), every 60 s as a heartbeat, and straight away when the app returns
+// (12 m+), every 30 s as a heartbeat, and straight away when the app returns
 // to the foreground (phones pause timers in the background). The Area View
 // reads this table (getLiveOperators + realtime) to show moving operators with
 // an AVAILABLE / BOOKED badge. RLS: operator_id must equal auth.uid().
 
 const MIN_PUBLISH_INTERVAL_MS = 6000;
-const HEARTBEAT_INTERVAL_MS = 60_000;
+// Passengers count an operator as available for 2 minutes after a check-in
+// (transport_available_operators_nearby), so 30 s survives missed beats.
+const HEARTBEAT_INTERVAL_MS = 30_000;
 const MIN_MOVE_METERS = 12;
 
 let activePublisher = null;
+
+// When this device last saved a position successfully, for the operator
+// dashboard's "Visible to passengers" line. Listeners are told on every
+// successful publish and when sharing starts or stops (no polling).
+let lastSuccessfulPublishAt = 0;
+const publishListeners = new Set();
+
+function publishStatusSnapshot() {
+  return { running: Boolean(activePublisher), lastPublishedAt: lastSuccessfulPublishAt };
+}
+
+function notifyPublishListeners() {
+  const snapshot = publishStatusSnapshot();
+  for (const listener of publishListeners) {
+    try {
+      listener(snapshot);
+    } catch {
+      // A broken listener must not stop publishing.
+    }
+  }
+}
+
+export function readOperatorPublishStatus() {
+  return publishStatusSnapshot();
+}
+
+export function subscribeOperatorPublishStatus(listener) {
+  if (typeof listener !== "function") return () => {};
+  publishListeners.add(listener);
+  return () => {
+    publishListeners.delete(listener);
+  };
+}
 
 // Set once the operator's device has given a position, so KunThai can resume
 // publishing at launch without ever showing a surprise permission prompt.
@@ -32,6 +67,7 @@ export function isOperatorLiveLocationRunning() {
 // The operator's most recent GPS point this session ({ lat, lng }), kept after
 // publishing stops so going offline can record where it happened.
 let lastOperatorPoint = null;
+let lastPublisherUserId = "";
 
 export function readLastOperatorPoint() {
   return activePublisher?.lastPoint || lastOperatorPoint;
@@ -96,6 +132,12 @@ async function publishRow(publisher, position, { force = false } = {}) {
   if (error) {
     // Live positioning is best-effort; the fleet stays bookable without it.
     publisher.lastError = error.message;
+    return;
+  }
+  publisher.lastError = "";
+  if (activePublisher === publisher) {
+    lastSuccessfulPublishAt = now;
+    notifyPublishListeners();
   }
 }
 
@@ -121,6 +163,8 @@ export async function startOperatorLiveLocation({ displayName = "", fleetType = 
   if (!userId) return () => {};
 
   stopOperatorLiveLocation();
+  if (lastPublisherUserId !== userId) lastSuccessfulPublishAt = 0;
+  lastPublisherUserId = userId;
 
   const publisher = {
     userId,
@@ -136,6 +180,7 @@ export async function startOperatorLiveLocation({ displayName = "", fleetType = 
     onVisible: null,
   };
   activePublisher = publisher;
+  notifyPublishListeners();
 
   publisher.watchId = navigator.geolocation.watchPosition(
     (position) => {
@@ -179,6 +224,7 @@ export function stopOperatorLiveLocation() {
   if (publisher.heartbeatId != null) window.clearInterval(publisher.heartbeatId);
   if (publisher.onVisible) document.removeEventListener("visibilitychange", publisher.onVisible);
   markOffline(publisher.userId);
+  notifyPublishListeners();
 }
 
 // Immediately reflect trip state (booked/empty) on the live marker.

@@ -35,6 +35,7 @@ import {
 } from "react-icons/fi";
 import { HiOutlineCheckCircle } from "react-icons/hi2";
 import TransportGroupSwitcher from "./TransportGroupSwitcher";
+import OperatorVisibilityStatus from "./OperatorVisibilityStatus";
 import HealthScoreCard from "../Marketplace/MarketplaceHeader/Business/MyBizDashboardHeader/HealthScoreCard";
 import RequestAccountDeletionPage from "./shared/RequestAccountDeletionPage";
 import AppBackTab from "../shared/AppBackTab";
@@ -711,6 +712,14 @@ export default function OperatorDashboardScreen({
           <div className="mb-4 rounded-2xl border border-blue-100 bg-blue-50 px-4 py-3 text-sm font-bold leading-6 text-blue-800">
             {dashboardReadOnlyReason}
           </div>
+        ) : null}
+
+        {isActive && !dashboardReadOnly ? (
+          <OperatorVisibilityStatus
+            displayName={form.name}
+            fleetType={form.fleetType}
+            isBooked={() => activeTripRef.current}
+          />
         ) : null}
 
         {activeView === "waiting" ? (
