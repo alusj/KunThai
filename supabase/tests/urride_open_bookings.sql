@@ -47,6 +47,9 @@ create table public.transport_operator_alerts(
 
 \ir ../migrations/20260927120000_urride_open_bookings.sql
 \ir ../migrations/20260927140000_urride_open_booking_reach.sql
+-- Broadcast bookings replace the claim and settle triggers; older open
+-- bookings must behave exactly as before.
+\ir ../migrations/20261015150000_urride_broadcast_bookings.sql
 
 -- Pickup: central Freetown. ~0.009 degrees of latitude = 1 km.
 insert into auth.users(id, raw_user_meta_data) values

@@ -38,7 +38,10 @@ import { getTransportCapabilities } from "../../../data/globalTransportCapabilit
 import { getTransportSavedPlaces, TRANSPORT_SAVED_PLACES_EVENT } from "../../services/passengerTransportService";
 import { fetchTransportFleets } from "../../services/transportFleetService";
 import { calculateBookingRoute, formatBookingDistance } from "../../services/transportPricingService";
-import { buildFareOffers, createOpenBooking, maxPassengersForVehicle, roundOfferAmount } from "../../services/openBookingService";
+import { buildFareOffers, maxPassengersForVehicle, roundOfferAmount } from "../../services/openBookingService";
+import { createBroadcastBooking } from "../../services/broadcastBookingService";
+import { raisedOffer } from "../../services/broadcastBookingModels";
+import FindingOperatorSheet from "./FindingOperatorSheet";
 import { AddressSuggestionInput, FormInput } from "./TransportBookingDrawer";
 import { getBookingPickerLabels } from "./bookingPickerLabels";
 import { PassengerCountSelect, PickupTimeFields } from "./bookingFields";
@@ -157,6 +160,9 @@ export default function OpenBookingSheet({ open, draft = null, onClose, onOpenTr
   const [session, setSession] = useState(0);
   const [showCaution, setShowCaution] = useState(false);
   const [dontShowCaution, setDontShowCaution] = useState(false);
+  // The booking just sent: the live "Finding an operator…" panel replaces the form.
+  const [finding, setFinding] = useState(null);
+  const findingPhaseRef = useRef("");
 
   const vehicleOptions = mode === "delivery" ? capabilities.deliveryOptions : mode === "ride" ? capabilities.rideOptions : [];
   const vehicle = vehicleOptions.find((option) => option.value === fleetType) || null;
@@ -188,6 +194,8 @@ export default function OpenBookingSheet({ open, draft = null, onClose, onOpenTr
     setNotice("");
     setShowCaution(!readCautionAccepted());
     setDontShowCaution(false);
+    setFinding(null);
+    findingPhaseRef.current = "";
     setSavedPlaces(getTransportSavedPlaces());
     setSession((value) => value + 1);
 
@@ -357,7 +365,7 @@ export default function OpenBookingSheet({ open, draft = null, onClose, onOpenTr
     setNotice("");
     try {
       haptics.medium("transport");
-      const booking = await createOpenBooking({
+      const booking = await createBroadcastBooking({
         ...form,
         mode,
         fleetType,
@@ -375,10 +383,10 @@ export default function OpenBookingSheet({ open, draft = null, onClose, onOpenTr
         return;
       }
       sounds.success("transport");
-      showToast("Open booking sent", "success");
-      // The request now waits in Trips, where the passenger sees who accepts.
-      onClose?.();
-      onOpenTrips?.(booking);
+      showToast(t("urrideBroadcastBooking.toastSent"), "success");
+      // Live panel: who it went to, the widening search, and who accepts.
+      findingPhaseRef.current = "searching";
+      setFinding(booking);
     } catch (error) {
       setNotice(inlineErrorMessage(error, translateUi("Unable to send this open booking.")));
       showToast(shortErrorToast(error, "Open booking not sent"), "danger");
@@ -389,10 +397,35 @@ export default function OpenBookingSheet({ open, draft = null, onClose, onOpenTr
 
   const modeNoun = mode === "delivery" ? t("urride.booking.delivery") : t("urride.booking.ride");
 
+  // Leaving while the request is still out (or just accepted) opens Trips,
+  // where the booking carries on; otherwise the sheet simply closes.
+  function closeSheet() {
+    const phase = findingPhaseRef.current;
+    const booking = finding;
+    onClose?.();
+    if (booking && (phase === "searching" || phase === "accepted")) onOpenTrips?.(booking);
+  }
+
+  function raiseFare() {
+    const next = raisedOffer({ choice: offerChoice, offers, amount: offerAmount });
+    if (next) {
+      setOfferChoice(next.choice);
+      if (next.choice === "custom") setCustomAmount(String(next.amount));
+    }
+    setFinding(null);
+    findingPhaseRef.current = "";
+  }
+
+  function retry() {
+    setFinding(null);
+    findingPhaseRef.current = "";
+    send();
+  }
+
   return (
     <AppPortal>
       <div className="fixed inset-0 z-[1200] flex justify-end">
-        <button type="button" aria-label={t("urride.booking.closeOverlay")} onClick={onClose} className="kt-backdrop absolute inset-0" />
+        <button type="button" aria-label={t("urride.booking.closeOverlay")} onClick={closeSheet} className="kt-backdrop absolute inset-0" />
 
         <aside className="kt-panel-enter relative flex h-full w-full max-w-2xl flex-col bg-gray-50 shadow-2xl" aria-labelledby="open-booking-title">
           <header className="kt-header-glass flex items-center justify-between gap-3 px-4 py-3 sm:px-5">
@@ -407,7 +440,7 @@ export default function OpenBookingSheet({ open, draft = null, onClose, onOpenTr
             </div>
             <button
               type="button"
-              onClick={onClose}
+              onClick={closeSheet}
               className="kt-touchable flex h-10 w-10 flex-none items-center justify-center rounded-xl border border-gray-200 bg-white text-gray-700 hover:bg-gray-50"
               aria-label={t("urride.booking.close")}
             >
@@ -415,7 +448,20 @@ export default function OpenBookingSheet({ open, draft = null, onClose, onOpenTr
             </button>
           </header>
 
-          {(
+          {finding ? (
+            <FindingOperatorSheet
+              booking={finding}
+              canRaiseFare={offerAmount > 0}
+              onPhaseChange={(phase) => {
+                findingPhaseRef.current = phase;
+              }}
+              onContinue={closeSheet}
+              onKeepSearching={closeSheet}
+              onClose={closeSheet}
+              onRetry={retry}
+              onRaiseFare={raiseFare}
+            />
+          ) : (
             <>
               <div className="min-h-0 flex-1 space-y-4 overflow-y-auto px-4 py-4 sm:px-5">
                 <p className="rounded-2xl border border-emerald-100 bg-emerald-50 p-3 text-sm font-semibold leading-6 text-emerald-900">

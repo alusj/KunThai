@@ -29,11 +29,43 @@ function isMissingOpenBookingFunction(error) {
  * nearby and nothing was created.
  */
 export async function createOpenBooking(booking) {
+  const { data, error } = await supabase.rpc("create_transport_open_booking", buildOpenBookingParams(booking));
+
+  if (error) {
+    if (isMissingOpenBookingFunction(error)) {
+      throw new Error("Open booking is not available yet. Please try again later.");
+    }
+    throw new Error(friendlyErrorMessage(error, "Unable to send this open booking."));
+  }
+
+  const result = {
+    openBookingId: data?.open_booking_id || "",
+    notifiedCount: Number(data?.notified_count || 0),
+    radiusKm: data?.radius_km == null ? null : Number(data.radius_km),
+    reach: data?.reach || "",
+    tripIds: Array.isArray(data?.trip_ids) ? data.trip_ids : [],
+  };
+
+  if (result.notifiedCount > 0) announceOpenBooking(result);
+  return result;
+}
+
+// Tells the rest of the app (Trips, operator dashboards in this session) that
+// an open booking went out.
+export function announceOpenBooking(result) {
+  if (typeof window === "undefined") return;
+  window.dispatchEvent(new CustomEvent("transport-booking-created", { detail: { openBooking: result } }));
+  window.dispatchEvent(new CustomEvent(OPEN_BOOKING_CREATED_EVENT, { detail: result }));
+}
+
+// RPC arguments shared by create_transport_open_booking and
+// create_transport_broadcast_booking (same signature).
+export function buildOpenBookingParams(booking) {
   const country = getActiveCountryProfile(booking.countryCode || booking.country);
   const pickup = booking.pickupPoint || {};
   const destination = booking.destinationPoint || {};
 
-  const { data, error } = await supabase.rpc("create_transport_open_booking", {
+  return {
     p_trip_type: booking.mode === "delivery" ? "delivery" : "ride",
     p_fleet_type: toDbFleetType(booking.fleetType),
     p_pickup_label: String(booking.pickup || "").trim(),
@@ -53,26 +85,5 @@ export async function createOpenBooking(booking) {
     p_passenger_count: Number(booking.passengers) || 1,
     p_estimated_distance_km: Number(booking.distanceKm) > 0 ? Number(Number(booking.distanceKm).toFixed(3)) : null,
     p_scheduled_at: booking.scheduledAt ? new Date(booking.scheduledAt).toISOString() : null,
-  });
-
-  if (error) {
-    if (isMissingOpenBookingFunction(error)) {
-      throw new Error("Open booking is not available yet. Please try again later.");
-    }
-    throw new Error(friendlyErrorMessage(error, "Unable to send this open booking."));
-  }
-
-  const result = {
-    openBookingId: data?.open_booking_id || "",
-    notifiedCount: Number(data?.notified_count || 0),
-    radiusKm: data?.radius_km == null ? null : Number(data.radius_km),
-    reach: data?.reach || "",
-    tripIds: Array.isArray(data?.trip_ids) ? data.trip_ids : [],
   };
-
-  if (result.notifiedCount > 0 && typeof window !== "undefined") {
-    window.dispatchEvent(new CustomEvent("transport-booking-created", { detail: { openBooking: result } }));
-    window.dispatchEvent(new CustomEvent(OPEN_BOOKING_CREATED_EVENT, { detail: result }));
-  }
-  return result;
 }
