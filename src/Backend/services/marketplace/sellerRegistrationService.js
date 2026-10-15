@@ -1040,8 +1040,6 @@ export function getReadinessChecklist(registration = INITIAL_REGISTRATION) {
     readinessItem("city", "City or district", location.city),
     readinessItem("address", "Street address or landmark", location.address),
     readinessItem("phone", "Business phone number", location.phone),
-    readinessItem("email", "Business email", location.email),
-    readinessItem("website", "Website or public page", location.website),
     readinessItem("coordinates", "Map location pin", location.coordinates),
     readinessItem("business-type", "Business type", operations.businessType),
     readinessItem("vendor-type", "Vendor type", !vendorOperations || operations.vendorType),

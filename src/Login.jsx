@@ -254,6 +254,7 @@ function PhoneAccountInput({ country, value, onCountryChange, onValueChange }) {
           <CountryPicker country={country} onCountryChange={onCountryChange} compact />
         </div>
         <input
+          id="kt-signin-phone"
           type="tel"
           inputMode="tel"
           value={value}
@@ -425,7 +426,7 @@ function GuestButton({ isLoading, onOpen }) {
   );
 }
 
-export default function Login() {
+export default function Login({ finishingSignIn = false }) {
   const { t } = useI18n();
   const [mode, setMode] = useState(() => (consumeAuthIntent() === "signup" ? "signup" : "signin"));
   const [signupStep, setSignupStep] = useState("details");
@@ -454,6 +455,9 @@ export default function Login() {
   const [emailRecoveryOpen, setEmailRecoveryOpen] = useState(false);
 
   const [forgotChecking, setForgotChecking] = useState(false);
+  // Why "Forgot password?" could not start yet, shown right under the link
+  // (the form-level error sits above the fold when the keyboard is open).
+  const [forgotHint, setForgotHint] = useState("");
   const [recoveryStep, setRecoveryStep] = useState("password");
   const [recoveryActivePhone, setRecoveryActivePhone] = useState("");
   const [newPassword, setNewPassword] = useState("");
@@ -661,8 +665,27 @@ export default function Login() {
   async function handleForgotPassword() {
     if (forgotChecking || isLoading) return;
     resetMessages();
+    setForgotHint("");
     const account = signInAccount.trim();
-    if (!validatePhoneDigits(normalizePhoneDigits(account, selectedCountry), selectedCountry)) return;
+    const digits = normalizePhoneDigits(account, selectedCountry);
+    if (!validatePhoneDigits(digits, selectedCountry)) {
+      // validatePhoneDigits set the form error; repeat it beside the link and
+      // put the cursor in the number field so the next step is obvious.
+      setForgotHint(
+        !selectedCountry
+          ? t("auth.errChooseCountryPhone")
+          : !digits
+            ? t("auth.forgotNeedNumber")
+            : t("auth.errPhoneDigits", {
+              country: selectedCountry.name,
+              expected: selectedCountry.minLength === selectedCountry.maxLength
+                ? t("auth.expectedDigits", { n: selectedCountry.minLength })
+                : t("auth.expectedDigitsRange", { min: selectedCountry.minLength, max: selectedCountry.maxLength }),
+            }),
+      );
+      if (typeof document !== "undefined") document.getElementById("kt-signin-phone")?.focus();
+      return;
+    }
 
     setForgotChecking(true);
     // The signup preflight is the existence check (phone_exists = registered).
@@ -875,10 +898,22 @@ export default function Login() {
   }
 
   const isLoading = providerLoading !== "" || loading;
-  const forgotVisible = Boolean(selectedCountry) && /\d/.test(signInAccount);
+  const forgotVisible = Boolean(selectedCountry);
 
   return (
     <div className="kt-auth-shell flex flex-col items-center overflow-y-auto bg-slate-100 px-3 pt-[max(0.75rem,env(safe-area-inset-top))] pb-[max(0.75rem,env(safe-area-inset-bottom))] sm:px-4 sm:pt-[max(2rem,env(safe-area-inset-top))] sm:pb-[max(2rem,env(safe-area-inset-bottom))]">
+      {finishingSignIn ? (
+        // Signed in; the account check is still running. Cover the form so it
+        // does not look like sign-in bounced back to this screen.
+        <div
+          role="status"
+          aria-live="polite"
+          className="fixed inset-0 z-50 flex flex-col items-center justify-center gap-3 bg-slate-100"
+        >
+          <span className="h-9 w-9 animate-spin rounded-full border-4 border-slate-300 border-t-slate-900" aria-hidden="true" />
+          <p className="text-sm font-semibold text-slate-700">{t("auth.signingYouIn")}</p>
+        </div>
+      ) : null}
       <div className="my-auto w-full max-w-md rounded-2xl border border-slate-200 bg-white p-4 shadow-sm sm:p-8">
         <h1 className="text-center text-3xl font-bold leading-tight text-slate-900">
           {t("auth.welcomeTitle")}
@@ -893,6 +928,7 @@ export default function Login() {
               onValueChange={(value) => {
                 setSignInAccount(value);
                 setNoAccountNumber("");
+                setForgotHint("");
               }}
             />
 
@@ -905,8 +941,7 @@ export default function Login() {
               required
             />
 
-            {/* Slides in under the password once a country is chosen and the
-                number is being typed. */}
+            {/* Slides in under the password as soon as a country is chosen. */}
             <div
               className={`!mt-0 grid transition-[grid-template-rows] duration-300 ease-out motion-reduce:transition-none ${
                 forgotVisible ? "grid-rows-[1fr]" : "grid-rows-[0fr]"
@@ -929,6 +964,9 @@ export default function Login() {
                     {forgotChecking ? t("auth.forgotChecking") : t("auth.forgotPassword")}
                   </button>
                 </div>
+                {forgotHint ? (
+                  <p role="alert" className="pt-1 text-right text-xs font-semibold text-rose-700">{translateUi(forgotHint)}</p>
+                ) : null}
               </div>
             </div>
 

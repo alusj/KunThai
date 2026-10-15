@@ -782,7 +782,7 @@ export default function App() {
     // state survives) while the account check runs. A new account then slides
     // straight into onboarding instead of flashing the Explore skeleton.
     if (loginShownRef.current) {
-      return withStartupIntro(<Login />);
+      return withStartupIntro(<Login finishingSignIn />);
     }
     // Keep a useful shell visible even when the profile check is offline. If
     // this is an incomplete account, OnboardingFlow replaces it once the local

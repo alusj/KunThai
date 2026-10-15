@@ -493,7 +493,9 @@ export function useSellerRegistration({ mode = "create", onComplete } = {}) {
       if (!form.location.city.trim()) nextErrors.city = "City is required.";
       const phoneValidation = validateCountryPhone(form.location.phone, form.location.country);
       if (!phoneValidation.valid) nextErrors.phone = phoneValidation.message;
-      if (!form.location.email.trim()) nextErrors.email = "Email is required.";
+      // Business email and website are optional; only check an email that was typed.
+      const businessEmail = form.location.email.trim();
+      if (businessEmail && !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(businessEmail)) nextErrors.email = "Enter a valid email address.";
     }
 
     if (nextStep === 2) {
