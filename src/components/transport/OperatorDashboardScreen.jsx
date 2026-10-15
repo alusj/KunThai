@@ -58,11 +58,14 @@ import { formatCountryMoney, getCountryCurrencyCode } from "../../data/globalCou
 import {
   fetchOperatorDashboard,
   markOperatorAlertRead,
+  invalidateOperatorDashboardCache,
   subscribeOperatorTrips,
   updateOperatorAvailability,
   updateTripControls,
 } from "../services/transportOperatorAccountService";
 import { updateTransportCompanyOperatorAvailability } from "../services/transportCompanyService";
+import { acceptOpenBookingRequest } from "../services/broadcastBookingService";
+import { acceptReasonKey, formatClock, requestChangeNoteKey, requestSecondsLeft } from "../services/broadcastBookingModels";
 import {
   startOperatorLiveLocation,
   stopOperatorLiveLocation,
@@ -174,6 +177,17 @@ export default function OperatorDashboardScreen({
       : OPERATOR_DASHBOARD_MEMORY.get(operatorDashboardCacheKey(account)) || account?.dashboard || null),
   );
   const [dashboardError, setDashboardError] = useState("");
+  // Short note when an open request leaves the queue (taken by someone else,
+  // withdrawn or expired). A translation key; cleared after a few seconds.
+  const [broadcastNote, setBroadcastNote] = useState("");
+  const broadcastNoteTimerRef = useRef(null);
+  const flashBroadcastNote = useCallback((key) => {
+    if (!key) return;
+    setBroadcastNote(key);
+    window.clearTimeout(broadcastNoteTimerRef.current);
+    broadcastNoteTimerRef.current = window.setTimeout(() => setBroadcastNote(""), 5000);
+  }, []);
+  useEffect(() => () => window.clearTimeout(broadcastNoteTimerRef.current), []);
   const [dashboardLoading, setDashboardLoading] = useState(false);
   const [controlsSaving, setControlsSaving] = useState(false);
   const [availabilitySaving, setAvailabilitySaving] = useState(false);
@@ -484,8 +498,12 @@ export default function OperatorDashboardScreen({
 
   useEffect(() => {
     if (!account?.fleetId) return undefined;
-    return subscribeOperatorTrips(account.fleetId, () => refreshDashboard());
-  }, [account?.fleetId, refreshDashboard]);
+    return subscribeOperatorTrips(account.fleetId, (payload) => {
+      flashBroadcastNote(requestChangeNoteKey(payload));
+      invalidateOperatorDashboardCache();
+      refreshDashboard();
+    });
+  }, [account?.fleetId, flashBroadcastNote, refreshDashboard]);
 
   async function handleAvailabilityToggle() {
     if (dashboardReadOnly) {
@@ -582,7 +600,20 @@ export default function OperatorDashboardScreen({
 
     try {
       setDashboardError("");
-      if (status === "start_requested") await requestTransportTripStart(trip.id);
+      if (status === "accepted" && trip.raw?.open_booking_id) {
+        // Open requests go through the first-accept-wins RPC; losing is not an
+        // error, just one clear note (and one toast).
+        const outcome = await acceptOpenBookingRequest(trip, patch);
+        if (!outcome.ok) {
+          flashBroadcastNote(acceptReasonKey(outcome.reason));
+          if (outcome.reason === "taken" || outcome.reason === "expired") {
+            showToast(outcome.reason === "taken" ? t("urrideBroadcastBooking.toastTaken") : t("urrideBroadcastBooking.toastExpired"), "warning");
+          }
+          invalidateOperatorDashboardCache();
+          await refreshDashboard();
+          return;
+        }
+      } else if (status === "start_requested") await requestTransportTripStart(trip.id);
       else await updateTransportTripStatus(trip.id, status, status === "cancelled" ? { ...patch, endedBy: "operator" } : patch);
       showToast(
         status === "accepted" ? "Trip has been accepted"
@@ -733,6 +764,7 @@ export default function OperatorDashboardScreen({
             onBack={goBackDashboardView}
             onUpdateTrip={handleTripStatusUpdate}
             onViewRoute={openPassengerTripRoute}
+            broadcastNote={broadcastNote}
           />
         ) : activeView === "history" ? (
           <TripHistoryScreen
@@ -1931,7 +1963,7 @@ function ActionRow({ icon, label, detail, onClick }) {
   );
 }
 
-function WaitingPassengersScreen({ passengers, fleetName, account, isActive, availabilityText, readOnly = false, onBack, onUpdateTrip, onViewRoute }) {
+function WaitingPassengersScreen({ passengers, fleetName, account, isActive, availabilityText, readOnly = false, broadcastNote = "", onBack, onUpdateTrip, onViewRoute }) {
   useI18n();
   return (
     <section className="mx-auto max-w-5xl">
@@ -1963,6 +1995,12 @@ function WaitingPassengersScreen({ passengers, fleetName, account, isActive, ava
             <FiRadio size={22} />
           </div>
         </div>
+
+        {broadcastNote ? (
+          <p role="status" className="mt-4 rounded-2xl border border-amber-100 bg-amber-50 px-4 py-2 text-sm font-bold text-amber-800" data-testid="broadcast-note">
+            {t(broadcastNote)}
+          </p>
+        ) : null}
 
         <div className="mt-5 grid gap-3">
           {passengers.length ? passengers.map((passenger) => (
@@ -1999,6 +2037,17 @@ export function OperatorTripRequestCard({ passenger, account, isActive, readOnly
   const isStartRequested = status === "start_requested";
   const isInProgress = status === "in_progress";
   const isPaused = status === "paused";
+  // Open (broadcast) request: first to accept wins, and it expires with its wave.
+  const [clock, setClock] = useState(() => Date.now());
+  const broadcastSecondsLeft = requestSecondsLeft(passenger.raw, clock);
+  const isBroadcast = broadcastSecondsLeft !== null;
+  const broadcastExpired = isBroadcast && broadcastSecondsLeft <= 0;
+  const broadcastLive = isBroadcast && !broadcastExpired;
+  useEffect(() => {
+    if (!broadcastLive) return undefined;
+    const timer = window.setInterval(() => setClock(Date.now()), 1000);
+    return () => window.clearInterval(timer);
+  }, [broadcastLive]);
   const statusLabel = {
     requested: t("urride.opDash.reqStatusWaiting"),
     waiting_operator: t("urride.opDash.reqStatusWaiting"),
@@ -2049,6 +2098,15 @@ export function OperatorTripRequestCard({ passenger, account, isActive, readOnly
         </div>
       </div>
 
+      {isBroadcast ? (
+        <div className="mt-3 flex flex-wrap items-center gap-2" data-testid="broadcast-request-badge">
+          <span className="rounded-full bg-emerald-50 px-3 py-1 text-[11px] font-black text-emerald-800">{t("urrideBroadcastBooking.opBadge")}</span>
+          <span className={`rounded-full px-3 py-1 text-[11px] font-black ${broadcastExpired ? "bg-gray-100 text-gray-500" : "bg-amber-50 text-amber-800"}`}>
+            {broadcastExpired ? t("urrideBroadcastBooking.opExpired") : t("urrideBroadcastBooking.opExpiresIn", { time: formatClock(broadcastSecondsLeft) })}
+          </span>
+        </div>
+      ) : null}
+
       <div className="mt-4 grid gap-2 sm:grid-cols-2">
         <MiniRow stacked label={t("urride.opDash.pickup")} value={passenger.pickup} />
         <MiniRow stacked label={t("urride.opDash.dropoff")} value={passenger.destination} />
@@ -2086,7 +2144,7 @@ export function OperatorTripRequestCard({ passenger, account, isActive, readOnly
         </div>
       ) : null}
 
-      {!readOnly && isWaiting ? (
+      {!readOnly && isWaiting && !broadcastExpired ? (
         <div className="mt-4 grid gap-2 sm:grid-cols-[1fr_auto_auto]">
           <label className="block">
             <span className="mb-1 block text-xs font-black uppercase tracking-wide text-gray-400">{t("urride.opDash.confirmedFare")}</span>
