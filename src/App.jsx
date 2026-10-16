@@ -2,7 +2,7 @@ import { Suspense, useCallback, useEffect, useLayoutEffect, useMemo, useRef, use
 import { HiOutlineCamera, HiOutlineLightBulb, HiOutlineXMark } from "react-icons/hi2";
 
 import { useAuth } from "./Backend/hooks/useAuth";
-import { isLikelySignedIn } from "./Backend/services/startupSession";
+import { isLikelySignedIn, urlCarriesSignIn } from "./Backend/services/startupSession";
 import { useCountryChoiceExpiry } from "./Backend/hooks/useCountryChoiceExpiry";
 import { useSessionSizeGuard } from "./Backend/hooks/useSessionSizeGuard";
 import { useOnboarding } from "./Backend/hooks/useOnboarding";
@@ -183,6 +183,17 @@ function readStoredMarketplaceNav() {
   return { root: "marketplace", sub: null };
 }
 
+// Full-screen "Signing you in…" while a sign-in from a link is checked.
+function SigningInScreen() {
+  useUiLocale();
+  return (
+    <div role="status" aria-live="polite" className="kt-mobile-viewport fixed inset-0 z-50 flex flex-col items-center justify-center gap-3 bg-slate-100">
+      <span className="h-9 w-9 animate-spin rounded-full border-4 border-slate-300 border-t-slate-900" aria-hidden="true" />
+      <p className="text-sm font-semibold text-slate-700">{i18nText("auth.signingYouIn")}</p>
+    </div>
+  );
+}
+
 function AppLoading({ page = "explore", marketplaceSub = "" }) {
   useUiLocale();
   const [showPatienceNotice, setShowPatienceNotice] = useState(false);
@@ -234,6 +245,12 @@ export default function App() {
     storage: typeof window !== "undefined" ? window.localStorage : null,
     location: typeof window !== "undefined" ? window.location : null,
   }));
+  // Opened from a Google / Apple / email sign-in link: until the account check
+  // finishes, show "Signing you in…" rather than the Explore skeleton (a new
+  // account goes to onboarding next, not to Explore).
+  const authReturnPendingRef = useRef(
+    typeof window !== "undefined" && urlCarriesSignIn(window.location),
+  );
   const {
     profile: onboardingProfile,
     loading: onboardingLoading,
@@ -774,6 +791,7 @@ export default function App() {
       loginShownRef.current = true;
       return withStartupIntro(<Login />);
     }
+    if (authReturnPendingRef.current) return <SigningInScreen />;
     return withStartupIntro(<AppLoading page={page} marketplaceSub={marketplaceNav.sub || ""} />);
   }
 
@@ -784,6 +802,7 @@ export default function App() {
     if (loginShownRef.current) {
       return withStartupIntro(<Login finishingSignIn />);
     }
+    if (authReturnPendingRef.current) return <SigningInScreen />;
     // Keep a useful shell visible even when the profile check is offline. If
     // this is an incomplete account, OnboardingFlow replaces it once the local
     // account route resolves.
@@ -794,6 +813,7 @@ export default function App() {
     return withStartupIntro(<Login />);
   }
   loginShownRef.current = false;
+  authReturnPendingRef.current = false;
 
   if (!guestSession && twoFactorPending !== false) {
     return withStartupIntro(
