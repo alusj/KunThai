@@ -257,9 +257,15 @@ function nativePlatform() {
 
 // The plugin is only used when the native project was synced with it
 // (`npx cap sync`); an older app build keeps the web engine.
+//
+// The plugin object is a Capacitor proxy that answers every property, `then`
+// included, with a native method wrapper. Resolving a promise with it makes
+// the promise adopt it as a thenable that never settles, which froze the
+// Active switch and the "Share location" button. So the promise resolves to a
+// plain box ({ plugin }) and callers unwrap it.
 let nativePluginPromise = null;
-function loadNativePlugin() {
-  if (!isNativeApp()) return Promise.resolve(null);
+function loadNativePluginBox() {
+  if (!isNativeApp()) return Promise.resolve({ plugin: null });
   if (!nativePluginPromise) {
     let available = false;
     try {
@@ -268,8 +274,11 @@ function loadNativePlugin() {
       available = false;
     }
     nativePluginPromise = available
-      ? import("@capgo/background-geolocation").then((module) => module.BackgroundGeolocation || null, () => null)
-      : Promise.resolve(null);
+      ? import("@capgo/background-geolocation").then(
+          (module) => ({ plugin: module.BackgroundGeolocation || null }),
+          () => ({ plugin: null }),
+        )
+      : Promise.resolve({ plugin: null });
   }
   return nativePluginPromise;
 }
@@ -396,7 +405,7 @@ export async function startOperatorLiveLocation({
   const userId = data?.user?.id;
   if (!userId) return () => {};
 
-  const plugin = native ? await loadNativePlugin() : null;
+  const plugin = native ? (await loadNativePluginBox()).plugin : null;
   const engine = chooseLocationEngine({ isNative: native, pluginAvailable: Boolean(plugin), hasWebGeolocation });
   if (engine === "none") return () => {};
 
@@ -476,7 +485,7 @@ export function registerOperatorBackgroundConsentPresenter(present) {
 export async function requestOperatorBackgroundConsent() {
   try {
     if (!isNativeApp() || !consentPresenter) return "skip";
-    const plugin = await loadNativePlugin();
+    const { plugin } = await loadNativePluginBox();
     if (!plugin) return "skip";
     const permissions = await plugin.checkPermissions().catch(() => null);
     const platform = nativePlatform();
@@ -501,7 +510,7 @@ export async function requestOperatorBackgroundConsent() {
 // App settings for KunThai (location "Always", notifications).
 export async function openOperatorLocationSettings() {
   try {
-    const plugin = await loadNativePlugin();
+    const { plugin } = await loadNativePluginBox();
     if (plugin) await plugin.openSettings();
   } catch {
     // Nothing else to open; the hint stays.

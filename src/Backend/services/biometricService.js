@@ -58,15 +58,20 @@ function isNativeApp() {
 
 // The plugin and the translations load only in the app (the first time a
 // native function runs), which also keeps this module importable by tests.
+// The plugin is a Capacitor proxy whose `then` is a native method wrapper, so
+// a promise must never resolve with it directly (it would never settle): the
+// promise holds a plain box ({ plugin }) that callers destructure.
 let i18nText = (key) => key;
 let nativePluginPromise = null;
 function loadNativeBiometricPlugin() {
   nativePluginPromise ??= Promise.all([
-    import("@aparajita/capacitor-biometric-auth").then((module) => module.BiometricAuth || null).catch(() => null),
+    import("@aparajita/capacitor-biometric-auth")
+      .then((module) => ({ plugin: module.BiometricAuth || null }))
+      .catch(() => ({ plugin: null })),
     import("../../i18n/index.js").then((module) => {
       i18nText = module.t;
     }).catch(() => {}),
-  ]).then(([plugin]) => plugin);
+  ]).then(([box]) => box);
   return nativePluginPromise;
 }
 
@@ -84,7 +89,7 @@ function nativeErrorMessage(error, fallbackKey = "exploreNativeFix.biometricFail
 }
 
 async function getNativeAvailability() {
-  const plugin = await loadNativeBiometricPlugin();
+  const { plugin } = await loadNativeBiometricPlugin();
   if (!plugin) return { available: false, reason: i18nText("exploreNativeFix.biometricCheckFailed") };
   try {
     const result = await plugin.checkBiometry();
@@ -104,7 +109,7 @@ async function getNativeAvailability() {
 // Shows the system prompt. Device passcode is allowed as a fallback so a
 // lockout never strands someone behind the KunThai lock screen.
 async function authenticateNative(reasonKey) {
-  const plugin = await loadNativeBiometricPlugin();
+  const { plugin } = await loadNativeBiometricPlugin();
   if (!plugin) throw new Error(i18nText("exploreNativeFix.biometricCheckFailed"));
   try {
     await plugin.authenticate({
