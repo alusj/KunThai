@@ -6,6 +6,7 @@ import { URRIDE } from "./urride";
 import { URRIDE_BACKGROUND_LOCATION } from "./urrideBackgroundLocation";
 import { URRIDE_BROADCAST_BOOKING } from "./urrideBroadcastBooking";
 import { URRIDE_DELETE_COMPANY } from "./urrideDeleteCompany";
+import { PHONE_OWNERSHIP } from "./phoneOwnership";
 import { KAI_LISTING_FIX } from "./kaiListingFix";
 import { ORDER_CAUTION } from "./orderCaution";
 import { REGISTRATION_SAVING } from "./registrationSaving";
@@ -59542,6 +59543,12 @@ for (const [locale, section] of Object.entries(URRIDE_BROADCAST_BOOKING)) {
 for (const [locale, section] of Object.entries(URRIDE_DELETE_COMPANY)) {
   if (TRANSLATIONS[locale]) {
     TRANSLATIONS[locale].urrideDeleteCompany = section;
+  }
+}
+
+for (const [locale, section] of Object.entries(PHONE_OWNERSHIP)) {
+  if (TRANSLATIONS[locale]) {
+    TRANSLATIONS[locale].phoneOwnership = section;
   }
 }
 

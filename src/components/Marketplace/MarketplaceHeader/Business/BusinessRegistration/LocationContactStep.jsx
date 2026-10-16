@@ -57,6 +57,7 @@ export default function LocationContactStep({ registration }) {
     updateBranch,
     removeBranch,
     maxBusinessLocations = 10,
+    phoneOwnership,
   } = registration;
   const branches = form.location.branches || [];
   const totalAddresses = 1 + branches.length;
@@ -241,7 +242,7 @@ export default function LocationContactStep({ registration }) {
       {locationStatus ? <p className="text-sm font-bold text-gray-600">{locationStatus}</p> : null}
 
       <div className="grid gap-4 sm:grid-cols-2">
-        <RegistrationField label={t("urmall.detail.phoneNumber")} error={errors.phone}>
+        <RegistrationField label={t("urmall.detail.phoneNumber")} error={phoneOwnership?.taken ? phoneOwnership.message : errors.phone}>
           <RegistrationInput
             value={form.location.phone}
             onChange={(event) => updateSection("location", { phone: constrainCountryPhoneInput(event.target.value, countryProfile, { international: true }) })}

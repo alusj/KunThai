@@ -12,6 +12,7 @@ import { inlineErrorMessage } from "../../../../../../../../../Backend/services/
 import { supportsMarketplaceFulfillment } from "../../../../../../../../../Backend/services/marketplace/marketplaceBusinessKinds";
 import { CountrySelect } from "../../settingsFields";
 import { countryFormValue, validateContactFields, whatsappToSave } from "../../settingsContact";
+import usePhoneInUse from "../../../../../../../../../Backend/hooks/usePhoneInUse";
 
 const inputClass =
   "mt-2 w-full rounded-xl border border-gray-200 bg-white px-4 py-3 text-sm font-semibold text-gray-950 outline-none transition focus:border-gray-950 focus:ring-4 focus:ring-gray-950/10";
@@ -50,6 +51,7 @@ function buildForm(business) {
 export default function StoreDetails({ onBack }) {
   useI18n();
   const [form, setForm] = useState(buildForm(null));
+  const phoneOwnership = usePhoneInUse(form.phone, form.country);
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
   const [status, setStatus] = useState("");
@@ -82,6 +84,11 @@ export default function StoreDetails({ onBack }) {
 
   async function saveStoreDetails(event) {
     event.preventDefault();
+
+    if (phoneOwnership.taken) {
+      setError(phoneOwnership.message);
+      return;
+    }
 
     if (!form.businessName.trim() || !form.phone.trim() || !form.email.trim()) {
       setError(t("urmall.biz.settings.storeRequired"));
@@ -237,6 +244,7 @@ export default function StoreDetails({ onBack }) {
                       onChange={(event) => updateField("phone", event.target.value)}
                     />
                   </div>
+                  {phoneOwnership.taken ? <p role="alert" className="mt-1 text-xs font-bold text-red-600">{phoneOwnership.message}</p> : null}
                 </Field>
                 <Field label={t("urmall.seller.email")}>
                   <div className="relative">

@@ -1,4 +1,4 @@
-import { useMemo, useRef, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import { HiOutlineBuildingOffice2, HiOutlinePhoto, HiOutlineSparkles } from "react-icons/hi2";
 
 import {
@@ -14,9 +14,12 @@ import { uiText as translateUi, useI18n as useUiLocale } from "../../../../i18n/
 import { inlineErrorMessage } from "../../../../Backend/services/friendlyErrorService";
 import { optimizeImageFile } from "../../../../Backend/services/marketplace/imageOptimization";
 import PhoneCountryField from "../../../shared/PhoneCountryField";
+import usePhoneInUse from "../../../../Backend/hooks/usePhoneInUse";
+import { getOnboardingProfile } from "../../../../Backend/services/onboardingService";
 import {
   constrainCountryPhoneInput,
   getActiveCountryProfile,
+  getCountryFromInternationalPhone,
   getCountryPhoneHint,
 } from "../../../../data/globalCountryProfiles";
 
@@ -61,6 +64,33 @@ export default function SpaceCreateScreen({ hideHeader = false, onCreated }) {
   const formRef = useRef(null);
   const avatarInputRef = useRef(null);
   const coverInputRef = useRef(null);
+  // Contact phone: the person's own number by default (editable), never
+  // another account's.
+  const phoneOwnership = usePhoneInUse(form.phone, phoneCountry);
+  const prefilledPhone = useRef(false);
+
+  useEffect(() => {
+    let active = true;
+    getOnboardingProfile()
+      .then((profile) => {
+        const accountPhone = String(profile?.phone || profile?.phoneNumber || profile?.phone_number || "").trim();
+        if (!active || !accountPhone || prefilledPhone.current) return;
+        prefilledPhone.current = true;
+        const country = getCountryFromInternationalPhone(accountPhone, phoneCountry?.iso2) || phoneCountry;
+        setPhoneCountry(getActiveCountryProfile(country?.iso2 || country));
+        setForm((current) => (current.phone ? current : {
+          ...current,
+          phone: constrainCountryPhoneInput(accountPhone, country, { international: true }),
+        }));
+      })
+      .catch(() => {});
+    return () => {
+      active = false;
+    };
+    // Once, on open.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
+
   const suggestedSlug = useMemo(() => normalizeSpaceSlug(form.slug || form.name), [form.name, form.slug]);
 
   function updateField(field, value) {
@@ -88,6 +118,7 @@ export default function SpaceCreateScreen({ hideHeader = false, onCreated }) {
         nextErrors.websiteUrl = "Enter a valid website link.";
       }
     }
+    if (phoneOwnership.taken) nextErrors.phone = phoneOwnership.message;
     return nextErrors;
   }
 
@@ -239,12 +270,13 @@ export default function SpaceCreateScreen({ hideHeader = false, onCreated }) {
               className={`h-12 w-full rounded-2xl border bg-slate-100 px-4 text-sm font-bold text-slate-900 outline-none focus:ring-2 focus:ring-sky-200 ${fieldErrors.email ? "border-rose-300" : "border-transparent"}`}
             />
           </Field>
-          <Field label={i18nText("ui.literals.k77064d526523")}>
+          <Field label={i18nText("ui.literals.k77064d526523")} error={phoneOwnership.taken ? phoneOwnership.message : fieldErrors.phone}>
             <PhoneCountryField
               country={phoneCountry}
               phone={form.phone}
               onCountryChange={(selected) => {
                 // A new code clears the digits so a number is never saved under the wrong country.
+                prefilledPhone.current = true;
                 setPhoneCountry(getActiveCountryProfile(selected.iso2));
                 updateField("phone", "");
               }}

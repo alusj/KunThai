@@ -18,6 +18,7 @@ import {
   updateRegisteredBusinessProfile,
 } from "../services/marketplace/sellerRegistrationService";
 import { getOnboardingProfile } from "../services/onboardingService";
+import usePhoneInUse from "./usePhoneInUse";
 import {
   getActiveCountryProfile,
   storeCountryContext,
@@ -246,6 +247,8 @@ export function useSellerRegistration({ mode = "create", onComplete } = {}) {
   const [usedBusinessKinds, setUsedBusinessKinds] = useState([]);
 
   const readinessScore = useMemo(() => calculateReadinessScore(form), [form]);
+  // Business phone: the person's own number is fine; another account's is not.
+  const phoneOwnership = usePhoneInUse(form.location.phone, form.location.countryIso || form.location.country);
 
   // Opened from "Review" after a save was cut short (reload, app closed):
   // say why the details came back and that the files are needed again.
@@ -493,6 +496,7 @@ export function useSellerRegistration({ mode = "create", onComplete } = {}) {
       if (!form.location.city.trim()) nextErrors.city = "City is required.";
       const phoneValidation = validateCountryPhone(form.location.phone, form.location.country);
       if (!phoneValidation.valid) nextErrors.phone = phoneValidation.message;
+      else if (phoneOwnership.taken) nextErrors.phone = phoneOwnership.message;
       // Business email and website are optional; only check an email that was typed.
       const businessEmail = form.location.email.trim();
       if (businessEmail && !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(businessEmail)) nextErrors.email = "Enter a valid email address.";
@@ -810,6 +814,7 @@ export function useSellerRegistration({ mode = "create", onComplete } = {}) {
     form,
     errors,
     readinessScore,
+    phoneOwnership,
     locationStatus,
     locationPromptOpen,
     locationCandidate,

@@ -143,6 +143,9 @@ export function sanitizeUserMessage(message) {
   if (typeof message !== "string") return message;
   const text = message.trim();
   if (!text) return text;
+  // One phone number, one account: the database refusal from
+  // 20261016140000_phone_one_account.sql.
+  if (text.includes("KT_PHONE_IN_USE")) return t("phoneOwnership.inUse");
   const lower = text.toLowerCase();
   if (NETWORK_ERROR_PATTERNS.some((pattern) => lower.includes(pattern))) {
     return t("common.networkLost");

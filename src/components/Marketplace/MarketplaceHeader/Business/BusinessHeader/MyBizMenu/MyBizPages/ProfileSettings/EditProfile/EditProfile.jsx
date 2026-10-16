@@ -12,6 +12,7 @@ import { uiText as translateUi, useI18n as useUiLocale } from "../../../../../..
 import { inlineErrorMessage } from "../../../../../../../../../Backend/services/friendlyErrorService";
 import { verificationStatusLabel } from "../../../../../../../../../Backend/services/marketplace/verificationStatusLabel";
 import { validateContactFields, whatsappToSave } from "../../settingsContact";
+import usePhoneInUse from "../../../../../../../../../Backend/hooks/usePhoneInUse";
 
 const inputClass =
   "mt-2 w-full rounded-xl border border-gray-200 bg-white px-4 py-3 text-sm font-semibold text-gray-950 outline-none transition focus:border-gray-950 focus:ring-4 focus:ring-gray-950/10";
@@ -45,6 +46,7 @@ export default function EditProfile({ onBack }) {
   useI18n();
   const [business, setBusiness] = useState(null);
   const [form, setForm] = useState(buildForm(null));
+  const phoneOwnership = usePhoneInUse(form.phone, business?.location?.countryIso || business?.location?.country);
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
   const [status, setStatus] = useState("");
@@ -79,6 +81,11 @@ export default function EditProfile({ onBack }) {
 
   async function saveProfile(event) {
     event.preventDefault();
+
+    if (phoneOwnership.taken) {
+      setError(phoneOwnership.message);
+      return;
+    }
 
     if (!form.businessName.trim()) {
       setError(t("urmall.biz.profile.nameRequired"));
@@ -252,6 +259,7 @@ export default function EditProfile({ onBack }) {
                     onChange={(event) => updateField("phone", event.target.value)}
                   />
                 </div>
+                {phoneOwnership.taken ? <p role="alert" className="mt-1 text-xs font-bold text-red-600">{phoneOwnership.message}</p> : null}
               </ProfileField>
 
               <ProfileField label={t("urmall.biz.settings.website")}>

@@ -34,6 +34,7 @@ import { useI18n, t } from "../../../i18n";
 import { t as i18nText } from "../../../i18n/index";
 import { uiText as translateUi, useI18n as useUiLocale } from "../../../i18n/index.js";
 import { inlineErrorMessage } from "../../../Backend/services/friendlyErrorService";
+import usePhoneInUse from "../../../Backend/hooks/usePhoneInUse";
 
 // Stored enum values stay English (saved on the account + compared); display is
 // localized via urride.fleetEdit.enum.<value>.
@@ -93,6 +94,7 @@ function joinParts(parts) {
 export default function FleetEditDrawer({ account, onBack, onSaved }) {
   useI18n();
   const [form, setForm] = useState(() => ({ ...(account?.form || {}) }));
+  const phoneOwnership = usePhoneInUse(form.phone, form.countryCode || form.country);
   const [answers, setAnswers] = useState(() => ({ ...(account?.answers || {}) }));
   const [uploads, setUploads] = useState(() => ({ ...(account?.uploads || {}) }));
   const [openIndex, setOpenIndex] = useState(-1);
@@ -149,6 +151,11 @@ export default function FleetEditDrawer({ account, onBack, onSaved }) {
       setOpenIndex(0);
       return;
     }
+    if (phoneOwnership.taken) {
+      setError(phoneOwnership.message);
+      setOpenIndex(0);
+      return;
+    }
     if (fleetImageCount < fleetImageRequirements.length) {
       setError(i18nText("ui.literals.k26ee703afde4"));
       const mediaIndex = sections.findIndex((section) => section.key === "documents");
@@ -193,7 +200,7 @@ export default function FleetEditDrawer({ account, onBack, onSaved }) {
       body: (
         <div className="grid gap-4 md:grid-cols-2">
           <FormInput label={t("urride.fleetEdit.nameLabel")} value={form.name} onChange={(value) => update("name", value)} placeholder={t("urride.fleetEdit.nameLabel")} helper={t("urride.fleetEdit.nameHelper")} />
-          <FormInput label={t("urride.fleetEdit.phoneLabel")} type="tel" value={form.phone} onChange={(value) => update("phone", constrainCountryPhoneInput(value, form.countryCode || form.country, { international: true }))} placeholder={getCountryPhoneHint(form.countryCode || form.country)} helper={t("urride.fleetEdit.phoneHelper")} />
+          <FormInput label={t("urride.fleetEdit.phoneLabel")} type="tel" value={form.phone} onChange={(value) => update("phone", constrainCountryPhoneInput(value, form.countryCode || form.country, { international: true }))} placeholder={getCountryPhoneHint(form.countryCode || form.country)} helper={t("urride.fleetEdit.phoneHelper")} error={phoneOwnership.taken ? phoneOwnership.message : undefined} />
           <FormInput label={t("urride.fleetEdit.cityLabel")} value={form.city} onChange={(value) => update("city", value)} placeholder={t("urride.fleetEdit.cityLabel")} />
           <FormInput label={t("urride.fleetEdit.emergencyLabel")} type="tel" value={form.emergencyContact} onChange={(value) => update("emergencyContact", constrainCountryPhoneInput(value, form.countryCode || form.country, { international: true }))} placeholder={getCountryPhoneHint(form.countryCode || form.country)} helper={t("urride.fleetEdit.emergencyHelper")} />
         </div>
@@ -472,7 +479,7 @@ export default function FleetEditDrawer({ account, onBack, onSaved }) {
   );
 }
 
-function FormInput({ label, value, onChange, type = "text", placeholder = "", helper = "", ...props }) {
+function FormInput({ label, value, onChange, type = "text", placeholder = "", helper = "", error = "", ...props }) {
   useUiLocale();
   return (
     <label className="block">
@@ -485,6 +492,7 @@ function FormInput({ label, value, onChange, type = "text", placeholder = "", he
         onChange={(event) => onChange(event.target.value)}
         className="h-12 w-full rounded-2xl border border-gray-200 bg-gray-50 px-4 text-sm font-medium outline-none transition placeholder:text-gray-400 focus:border-green-500 focus:bg-white focus:ring-4 focus:ring-green-100"
       />
+      {error ? <span role="alert" className="mt-2 block text-xs font-bold leading-5 text-red-600">{translateUi(error)}</span> : null}
       {helper ? <span className="mt-2 block text-xs font-medium leading-5 text-gray-500">{translateUi(helper)}</span> : null}
     </label>
   );

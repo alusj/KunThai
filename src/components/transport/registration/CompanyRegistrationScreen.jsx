@@ -61,6 +61,7 @@ import { useAiScreen } from "../../../Backend/services/ai/aiScreenContext";
 import { buildCompanyRegistrationAiContext } from "./companyRegistrationAi";
 import { uiText as translateUi, useI18n as useUiLocale } from "../../../i18n/index.js";
 import { inlineErrorMessage } from "../../../Backend/services/friendlyErrorService";
+import usePhoneInUse from "../../../Backend/hooks/usePhoneInUse";
 import DeferredVerificationNotice from "../../shared/DeferredVerificationNotice";
 import { useRegistrationRecoveryNotice, useRegistrationTask } from "../../../Backend/hooks/useRegistrationTask";
 import { REGISTRATION_KINDS } from "../../../Backend/services/registration/registrationTaskCore";
@@ -328,6 +329,8 @@ export default function CompanyRegistrationScreen({ existingCompany = null, mode
   const [step, setStep] = useState(() => restored?.step ?? (incrementalFleetMode ? 2 : 0));
   const [maxStepReached, setMaxStepReached] = useState(() => restored?.maxStepReached ?? (incrementalFleetMode ? 2 : 0));
   const [form, setForm] = useState(() => restored?.form || openingFleetForm || createCompanyForm());
+  // Company support phone must not be another account's number.
+  const phoneOwnership = usePhoneInUse(form.phone, form.country);
   const [fleets, setFleets] = useState(() => restored?.fleets || [createFleetDraft(0, openingFleetForm || {}, addRentalMode ? "Rental" : "")]);
   const [areaText, setAreaText] = useState(() => restored?.areaText ?? (openingFleetForm?.operatingAreas || []).join(", "));
   const [status, setStatus] = useState(() => (
@@ -647,6 +650,7 @@ export default function CompanyRegistrationScreen({ existingCompany = null, mode
       const phoneValidation = validateCountryPhone(form.phone, form.country);
       if (!form.phone.trim()) nextErrors.phone = t("urride.companyReg.reqPhone");
       else if (!phoneValidation.valid) nextErrors.phone = phoneValidation.message;
+      else if (phoneOwnership.taken) nextErrors.phone = phoneOwnership.message;
     }
 
     if (targetStep === 1) {
@@ -1090,6 +1094,7 @@ export default function CompanyRegistrationScreen({ existingCompany = null, mode
                   summary: [form.companyName, companyTypeLabel(form.companyType), form.phone].filter(Boolean).join("  •  ") || t("urride.companyReg.notSetYet"),
                   node: (
                     <CompanyIdentityStep
+                      phoneInUseMessage={phoneOwnership.message}
                       documentRequirements={companyDocumentRequirements}
                       errors={fieldErrors}
                       form={form}
@@ -1143,6 +1148,7 @@ export default function CompanyRegistrationScreen({ existingCompany = null, mode
           <StepSlideTransition stepKey={step} direction={stepDirection}>
             {step === 0 ? (
               <CompanyIdentityStep
+                      phoneInUseMessage={phoneOwnership.message}
                 documentRequirements={companyDocumentRequirements}
                 errors={fieldErrors}
                 form={form}
@@ -1397,7 +1403,7 @@ function CompanyEditSections({ sections = [], openSection, onToggle, onSave, sav
   );
 }
 
-function CompanyIdentityStep({ documentRequirements = [], errors = {}, form, onChange, onDocument }) {
+function CompanyIdentityStep({ documentRequirements = [], errors = {}, form, onChange, onDocument, phoneInUseMessage = "" }) {
   useUiLocale();
   const countryProfile = getActiveCountryProfile(form.country);
   const phoneValidation = validateCountryPhone(form.phone, countryProfile);
@@ -1420,7 +1426,7 @@ function CompanyIdentityStep({ documentRequirements = [], errors = {}, form, onC
           onChange={(value) => onChange("phone", constrainCountryPhoneInput(value, countryProfile, { international: true }))}
           placeholder={getCountryPhoneHint(countryProfile)}
           helper={phoneValidation.valid ? undefined : phoneValidation.message}
-          error={errors.phone}
+          error={phoneInUseMessage || errors.phone}
         />
         <FormInput label={t("urride.companyReg.emailLabel")} type="email" value={form.email} onChange={(value) => onChange("email", value)} placeholder={t("urride.companyReg.emailPlaceholder")} />
         <label className="block">
