@@ -18,6 +18,9 @@
 -- delete_kunthai_account() now removes the person's own company the same way
 -- first, so a company with rental history no longer blocks account deletion.
 --
+-- Both delete functions switch on kunthai.account_deletion for their
+-- transaction (see 20261016120000_account_deletion_guards.sql).
+--
 -- Safe to run more than once.
 
 create or replace function public.kunthai_purge_dependents(
@@ -91,6 +94,7 @@ declare
   v_company public.transport_companies;
   v_busy boolean := false;
 begin
+  perform set_config('kunthai.account_deletion', 'on', true);
   if uid is null then
     raise exception 'Sign in to delete this company.';
   end if;
@@ -168,6 +172,7 @@ declare
   fk record;
   v_company_ids uuid[];
 begin
+  perform set_config('kunthai.account_deletion', 'on', true);
   if uid is null then
     raise exception 'You must be signed in to delete your account.';
   end if;
