@@ -19,6 +19,7 @@ import {
 } from "../services/marketplace/sellerRegistrationService";
 import { getOnboardingProfile } from "../services/onboardingService";
 import usePhoneInUse from "./usePhoneInUse";
+import { isPhoneInUseError } from "../services/phoneOwnershipService";
 import {
   getActiveCountryProfile,
   storeCountryContext,
@@ -248,7 +249,9 @@ export function useSellerRegistration({ mode = "create", onComplete } = {}) {
 
   const readinessScore = useMemo(() => calculateReadinessScore(form), [form]);
   // Business phone: the person's own number is fine; another account's is not.
-  const phoneOwnership = usePhoneInUse(form.location.phone, form.location.countryIso || form.location.country);
+  // When editing, the business's saved number is not re-checked.
+  const [savedPhone, setSavedPhone] = useState("");
+  const phoneOwnership = usePhoneInUse(form.location.phone, form.location.countryIso || form.location.country, { initialPhone: savedPhone });
 
   // Opened from "Review" after a save was cut short (reload, app closed):
   // say why the details came back and that the files are needed again.
@@ -257,15 +260,19 @@ export function useSellerRegistration({ mode = "create", onComplete } = {}) {
     onNotice: () => setErrors((current) => ({ ...current, submit: t("registrationSaving.interruptedInline") })),
   });
 
+  // A save the database refused because the phone is another account's also
+  // marks the phone field, not only the message under the buttons.
+  function saveErrors(error, fallback) {
+    const message = inlineErrorMessage(error, fallback);
+    return isPhoneInUseError(error) ? { phone: message, submit: message } : { submit: message };
+  }
+
   function handleBackgroundSettled(task) {
     if (task.status === "succeeded") {
       onComplete?.(task.result);
       return;
     }
-    setErrors((current) => ({
-      ...current,
-      submit: inlineErrorMessage(task.error, "Unable to submit business. Please try again."),
-    }));
+    setErrors((current) => ({ ...current, ...saveErrors(task.error, "Unable to submit business. Please try again.") }));
   }
 
   // Each business type can be registered only once per account. When creating
@@ -364,6 +371,7 @@ export function useSellerRegistration({ mode = "create", onComplete } = {}) {
         if (!alive) return;
         const nextForm = formFromRegisteredBusiness(business);
         const accountPhone = getAccountPhone(profile);
+        setSavedPhone(nextForm.location.phone || "");
         setForm({
           ...nextForm,
           location: {
@@ -747,13 +755,11 @@ export function useSellerRegistration({ mode = "create", onComplete } = {}) {
     try {
       const business = await updateRegisteredBusinessProfile(form);
       setForm(formFromRegisteredBusiness(business));
+      setSavedPhone(business?.location?.phone || "");
       setDraftStatus(`Saved ${new Date().toLocaleTimeString()}`);
       return { ok: true };
     } catch (error) {
-      setErrors((current) => ({
-        ...current,
-        submit: inlineErrorMessage(error, "Unable to save changes. Please try again."),
-      }));
+      setErrors((current) => ({ ...current, ...saveErrors(error, "Unable to save changes. Please try again.") }));
       return { ok: false };
     } finally {
       setSavingEdits(false);
@@ -777,10 +783,7 @@ export function useSellerRegistration({ mode = "create", onComplete } = {}) {
         const business = await updateRegisteredBusinessProfile(form);
         onComplete?.(business);
       } catch (error) {
-        setErrors((current) => ({
-          ...current,
-          submit: inlineErrorMessage(error, "Unable to submit business. Please try again."),
-        }));
+        setErrors((current) => ({ ...current, ...saveErrors(error, "Unable to submit business. Please try again.") }));
       } finally {
         setSavingEdits(false);
       }

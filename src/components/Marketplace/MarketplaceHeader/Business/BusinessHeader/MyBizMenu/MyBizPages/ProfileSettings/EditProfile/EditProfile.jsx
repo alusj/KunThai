@@ -46,7 +46,8 @@ export default function EditProfile({ onBack }) {
   useI18n();
   const [business, setBusiness] = useState(null);
   const [form, setForm] = useState(buildForm(null));
-  const phoneOwnership = usePhoneInUse(form.phone, business?.location?.countryIso || business?.location?.country);
+  // The business's saved number is not re-checked; a changed one is.
+  const phoneOwnership = usePhoneInUse(form.phone, business?.location?.countryIso || business?.location?.country, { initialPhone: business?.location?.phone || "" });
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
   const [status, setStatus] = useState("");

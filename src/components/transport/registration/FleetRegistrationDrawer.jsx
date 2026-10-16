@@ -48,6 +48,7 @@ import { t as i18nText } from "../../../i18n/index";
 import { uiText as translateUi, useI18n as useUiLocale } from "../../../i18n/index.js";
 import { inlineErrorMessage } from "../../../Backend/services/friendlyErrorService";
 import usePhoneInUse from "../../../Backend/hooks/usePhoneInUse";
+import { isPhoneInUseError } from "../../../Backend/services/phoneOwnershipService";
 import DeferredVerificationNotice from "../../shared/DeferredVerificationNotice";
 import { useRegistrationRecoveryNotice, useRegistrationTask } from "../../../Backend/hooks/useRegistrationTask";
 import { REGISTRATION_KINDS } from "../../../Backend/services/registration/registrationTaskCore";
@@ -546,7 +547,10 @@ export default function FleetRegistrationDrawer({ onClose, onComplete, onSaveExi
 
   async function handleBackgroundSettled(task) {
     if (task.status !== "succeeded") {
-      setSubmitError(inlineErrorMessage(task.error, t("urride.fleetReg.submitError")));
+      const message = inlineErrorMessage(task.error, t("urride.fleetReg.submitError"));
+      // Refused because the phone is another account's: mark the phone too.
+      if (isPhoneInUseError(task.error)) setFieldErrors((current) => ({ ...current, phone: message }));
+      setSubmitError(message);
       return;
     }
     const origin = submitOriginRef.current || { x: "50%", y: "70%" };

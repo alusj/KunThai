@@ -15,6 +15,7 @@ import { inlineErrorMessage } from "../../../../Backend/services/friendlyErrorSe
 import { optimizeImageFile } from "../../../../Backend/services/marketplace/imageOptimization";
 import PhoneCountryField from "../../../shared/PhoneCountryField";
 import usePhoneInUse from "../../../../Backend/hooks/usePhoneInUse";
+import { isPhoneInUseError } from "../../../../Backend/services/phoneOwnershipService";
 import { getOnboardingProfile } from "../../../../Backend/services/onboardingService";
 import {
   constrainCountryPhoneInput,
@@ -158,7 +159,10 @@ export default function SpaceCreateScreen({ hideHeader = false, onCreated }) {
       onCreated?.(created);
       setForm(INITIAL_FORM);
     } catch (error) {
-      setFeedback(inlineErrorMessage(error, i18nText("ui.literals.kfc2284587edd")));
+      const message = inlineErrorMessage(error, i18nText("ui.literals.kfc2284587edd"));
+      // Refused because the phone is another account's: mark the phone too.
+      if (isPhoneInUseError(error)) setFieldErrors((current) => ({ ...current, phone: message }));
+      setFeedback(message);
     } finally {
       setSaving(false);
     }

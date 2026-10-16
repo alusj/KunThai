@@ -51,7 +51,9 @@ function buildForm(business) {
 export default function StoreDetails({ onBack }) {
   useI18n();
   const [form, setForm] = useState(buildForm(null));
-  const phoneOwnership = usePhoneInUse(form.phone, form.country);
+  // The business's saved number is not re-checked; a changed one is.
+  const [savedPhone, setSavedPhone] = useState("");
+  const phoneOwnership = usePhoneInUse(form.phone, form.country, { initialPhone: savedPhone });
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
   const [status, setStatus] = useState("");
@@ -62,7 +64,9 @@ export default function StoreDetails({ onBack }) {
     let mounted = true;
     readRegisteredBusiness()
       .then((business) => {
-        if (mounted) setForm(buildForm(business));
+        if (!mounted) return;
+        setForm(buildForm(business));
+        setSavedPhone(business?.location?.phone || "");
       })
       .catch((nextError) => {
         if (mounted) setError(inlineErrorMessage(nextError, t("urmall.biz.settings.storeLoadFailed")));

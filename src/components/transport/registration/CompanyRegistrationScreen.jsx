@@ -62,6 +62,7 @@ import { buildCompanyRegistrationAiContext } from "./companyRegistrationAi";
 import { uiText as translateUi, useI18n as useUiLocale } from "../../../i18n/index.js";
 import { inlineErrorMessage } from "../../../Backend/services/friendlyErrorService";
 import usePhoneInUse from "../../../Backend/hooks/usePhoneInUse";
+import { isPhoneInUseError, phoneInUseMessage } from "../../../Backend/services/phoneOwnershipService";
 import DeferredVerificationNotice from "../../shared/DeferredVerificationNotice";
 import { useRegistrationRecoveryNotice, useRegistrationTask } from "../../../Backend/hooks/useRegistrationTask";
 import { REGISTRATION_KINDS } from "../../../Backend/services/registration/registrationTaskCore";
@@ -330,7 +331,8 @@ export default function CompanyRegistrationScreen({ existingCompany = null, mode
   const [maxStepReached, setMaxStepReached] = useState(() => restored?.maxStepReached ?? (incrementalFleetMode ? 2 : 0));
   const [form, setForm] = useState(() => restored?.form || openingFleetForm || createCompanyForm());
   // Company support phone must not be another account's number.
-  const phoneOwnership = usePhoneInUse(form.phone, form.country);
+  // When editing, the company's saved number is not re-checked.
+  const phoneOwnership = usePhoneInUse(form.phone, form.country, { initialPhone: openingCompany?.phone || "" });
   const [fleets, setFleets] = useState(() => restored?.fleets || [createFleetDraft(0, openingFleetForm || {}, addRentalMode ? "Rental" : "")]);
   const [areaText, setAreaText] = useState(() => restored?.areaText ?? (openingFleetForm?.operatingAreas || []).join(", "));
   const [status, setStatus] = useState(() => (
@@ -366,6 +368,17 @@ export default function CompanyRegistrationScreen({ existingCompany = null, mode
   function showStatus(message, tone = "info") {
     setStatus(message);
     setStatusTone(tone);
+  }
+
+  // A save the database refused because the phone is another account's: the
+  // message goes on the phone field as well as the status line.
+  function showSaveError(error, fallback) {
+    if (isPhoneInUseError(error)) {
+      setFieldErrors((current) => ({ ...current, phone: phoneInUseMessage() }));
+      showStatus(phoneInUseMessage(), "error");
+      return;
+    }
+    showStatus(inlineErrorMessage(error, fallback), "error");
   }
 
   function clearStatus() {
@@ -796,7 +809,7 @@ export default function CompanyRegistrationScreen({ existingCompany = null, mode
       showStatus(t("urride.companyReg.draftSaved"), "success");
       return true;
     } catch (error) {
-      showStatus(error.message || t("urride.companyReg.draftError"), "error");
+      showSaveError(error, t("urride.companyReg.draftError"));
       return false;
     } finally {
       setSaving(false);
@@ -857,7 +870,7 @@ export default function CompanyRegistrationScreen({ existingCompany = null, mode
       showStatus(t("urride.companyReg.changesSaved"), "success");
       return { ok: true };
     } catch (error) {
-      showStatus(error.message || t("urride.companyReg.changesError"), "error");
+      showSaveError(error, t("urride.companyReg.changesError"));
       return { ok: false };
     } finally {
       setSubmitting(false);
@@ -911,7 +924,7 @@ export default function CompanyRegistrationScreen({ existingCompany = null, mode
       await new Promise((resolve) => window.setTimeout(resolve, 480));
       onComplete?.(account, origin, { actionMode: payload.actionMode });
     } catch (error) {
-      showStatus(error.message || t("urride.companyReg.submitError"), "error");
+      showSaveError(error, t("urride.companyReg.submitError"));
     } finally {
       setSubmitting(false);
     }
@@ -919,7 +932,7 @@ export default function CompanyRegistrationScreen({ existingCompany = null, mode
 
   async function handleBackgroundSettled(task) {
     if (task.status !== "succeeded") {
-      showStatus(task.error?.message || t("urride.companyReg.submitError"), "error");
+      showSaveError(task.error, t("urride.companyReg.submitError"));
       return;
     }
     const origin = submitOriginRef.current || { x: "50%", y: "70%" };

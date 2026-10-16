@@ -94,7 +94,8 @@ function joinParts(parts) {
 export default function FleetEditDrawer({ account, onBack, onSaved }) {
   useI18n();
   const [form, setForm] = useState(() => ({ ...(account?.form || {}) }));
-  const phoneOwnership = usePhoneInUse(form.phone, form.countryCode || form.country);
+  // The fleet's saved number is not re-checked; a changed one is.
+  const phoneOwnership = usePhoneInUse(form.phone, form.countryCode || form.country, { initialPhone: account?.form?.phone || "" });
   const [answers, setAnswers] = useState(() => ({ ...(account?.answers || {}) }));
   const [uploads, setUploads] = useState(() => ({ ...(account?.uploads || {}) }));
   const [openIndex, setOpenIndex] = useState(-1);
