@@ -200,6 +200,7 @@ export default function MarketplaceHeader({
               active={activeUtility === "messages"}
               accent="emerald"
               badge={messageCount}
+              direction="urmall-messages"
               icon={MessageCircle}
               label={t("urmall.header.openMessages")}
               onClick={openMessages}

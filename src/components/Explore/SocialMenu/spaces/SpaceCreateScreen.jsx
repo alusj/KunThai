@@ -118,7 +118,7 @@ export default function SpaceCreateScreen({ hideHeader = false, onCreated }) {
         nextErrors.websiteUrl = "Enter a valid website link.";
       }
     }
-    if (phoneOwnership.taken) nextErrors.phone = phoneOwnership.message;
+    if (phoneOwnership.blockingMessage) nextErrors.phone = phoneOwnership.blockingMessage;
     return nextErrors;
   }
 
@@ -270,7 +270,7 @@ export default function SpaceCreateScreen({ hideHeader = false, onCreated }) {
               className={`h-12 w-full rounded-2xl border bg-slate-100 px-4 text-sm font-bold text-slate-900 outline-none focus:ring-2 focus:ring-sky-200 ${fieldErrors.email ? "border-rose-300" : "border-transparent"}`}
             />
           </Field>
-          <Field label={i18nText("ui.literals.k77064d526523")} error={phoneOwnership.taken ? phoneOwnership.message : fieldErrors.phone}>
+          <Field label={i18nText("ui.literals.k77064d526523")} error={phoneOwnership.fieldError(fieldErrors.phone)}>
             <PhoneCountryField
               country={phoneCountry}
               phone={form.phone}

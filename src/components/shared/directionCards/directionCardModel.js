@@ -11,6 +11,9 @@ export const DIRECTION_CARD_ORDER = [
   // are their "start here" actions in UrRide and UrMall.
   "urride-open-booking",
   "urmall-search",
+  "urmall-messages",
+  "urmall-notifications",
+  "urmall-cart",
   "explore-create",
   "urmall-seller-add",
   "urmall-seller-orders",

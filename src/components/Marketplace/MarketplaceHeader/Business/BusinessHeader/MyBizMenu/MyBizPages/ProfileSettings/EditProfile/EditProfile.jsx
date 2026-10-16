@@ -82,8 +82,8 @@ export default function EditProfile({ onBack }) {
   async function saveProfile(event) {
     event.preventDefault();
 
-    if (phoneOwnership.taken) {
-      setError(phoneOwnership.message);
+    if (phoneOwnership.blockingMessage) {
+      setError(phoneOwnership.blockingMessage);
       return;
     }
 

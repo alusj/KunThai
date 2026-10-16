@@ -391,7 +391,7 @@ export default function FleetRegistrationDrawer({ onClose, onComplete, onSaveExi
       const phoneValidation = validateCountryPhone(form.phone, form.countryCode || form.country);
       if (!form.phone.trim()) nextErrors.phone = t("urride.fleetReg.req.phone");
       else if (!phoneValidation.valid) nextErrors.phone = phoneValidation.message;
-      else if (phoneOwnership.taken) nextErrors.phone = phoneOwnership.message;
+      else if (phoneOwnership.blockingMessage) nextErrors.phone = phoneOwnership.blockingMessage;
       if (!form.city.trim()) nextErrors.city = t("urride.fleetReg.req.city");
       const emergencyValidation = validateCountryPhone(form.emergencyContact, form.countryCode || form.country);
       if (!form.emergencyContact.trim()) nextErrors.emergencyContact = t("urride.fleetReg.req.emergency");
@@ -740,7 +740,7 @@ export default function FleetRegistrationDrawer({ onClose, onComplete, onSaveExi
                 placeholder={getCountryPhoneHint(form.countryCode || form.country)}
                 autoComplete="tel"
                 helper={t("urride.fleetEdit.phoneHelper")}
-                error={phoneOwnership.taken ? phoneOwnership.message : fieldErrors.phone}
+                error={phoneOwnership.fieldError(fieldErrors.phone)}
               />
               <LocationInput
                 label={t("urride.fleetEdit.cityLabel")}

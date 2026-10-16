@@ -7,7 +7,7 @@ import { isPhoneUsedByAnotherAccount, phoneDigitCount, phoneInUseMessage } from 
 // show while `taken`. `initialPhone` (the saved value when editing) is not
 // re-checked, so an existing record never blocks itself.
 export default function usePhoneInUse(phone, country, { enabled = true, initialPhone = "", delayMs = 450 } = {}) {
-  useI18n();
+  const { t } = useI18n();
   const [state, setState] = useState({ status: "idle", value: "" });
   const latest = useRef(0);
   const countryKey = typeof country === "object" ? country?.iso2 || country?.name || "" : country || "";
@@ -34,5 +34,15 @@ export default function usePhoneInUse(phone, country, { enabled = true, initialP
     taken: current === "taken",
     checking: current === "checking",
     message: current === "taken" ? phoneInUseMessage() : "",
+    // Forms refuse Next / Save until the answer is in, so a fast tap after
+    // typing cannot carry another account's number past this step.
+    blockingMessage: current === "taken" ? phoneInUseMessage() : current === "checking" ? t("phoneOwnership.checking") : "",
+    // The phone field's error: the live answer first, then the form's own
+    // error, minus a "Checking…" left behind once the check has finished.
+    fieldError(formError = "") {
+      if (current === "taken") return phoneInUseMessage();
+      if (current === "checking") return formError ? t("phoneOwnership.checking") : "";
+      return formError === t("phoneOwnership.checking") ? "" : formError;
+    },
   };
 }

@@ -151,8 +151,8 @@ export default function FleetEditDrawer({ account, onBack, onSaved }) {
       setOpenIndex(0);
       return;
     }
-    if (phoneOwnership.taken) {
-      setError(phoneOwnership.message);
+    if (phoneOwnership.blockingMessage) {
+      setError(phoneOwnership.blockingMessage);
       setOpenIndex(0);
       return;
     }

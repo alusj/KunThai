@@ -235,26 +235,27 @@ export default function AdminApp() {
   useUiLocale();
   const { user, loading: authLoading } = useAuth();
   const preview = isAdminPreview();
-  const [access, setAccess] = useState(null);
-  const [accessLoading, setAccessLoading] = useState(true);
-  const [accessError, setAccessError] = useState("");
+  // The access answer is kept with the account it was checked for. Deciding
+  // from a loading flag let the first render after sign-in restore (user
+  // known, check not started) send real admins back to the app.
+  const accountKey = preview ? "preview" : user?.id || "";
+  const [check, setCheck] = useState({ key: "", access: null, error: "" });
 
   useEffect(() => {
-    if (authLoading || (!user && !preview)) {
-      setAccessLoading(false);
-      return;
-    }
+    if (authLoading || !accountKey) return undefined;
     let active = true;
-    setAccessLoading(true);
-    getAdminAccess().then((value) => { if (active) setAccess(value); }).catch((error) => { if (active) setAccessError(inlineErrorMessage(error, "Admin access check failed.")); }).finally(() => { if (active) setAccessLoading(false); });
+    getAdminAccess()
+      .then((value) => { if (active) setCheck({ key: accountKey, access: value, error: "" }); })
+      .catch((error) => { if (active) setCheck({ key: accountKey, access: null, error: inlineErrorMessage(error, "Admin access check failed.") }); });
     return () => { active = false; };
-  }, [authLoading, preview, user]);
+  }, [authLoading, accountKey]);
 
   // Plain spinner until access is known: a non-admin never sees admin wording.
   if (authLoading) return <AccessCheckScreen />;
-  if (!user && !preview) return <LeaveForApp />;
-  if (accessLoading) return <AccessCheckScreen />;
-  if (accessError) return <AdminSetupRequired error={accessError} />;
+  if (!accountKey) return <LeaveForApp />;
+  if (check.key !== accountKey) return <AccessCheckScreen />;
+  if (check.error) return <AdminSetupRequired error={check.error} />;
+  const access = check.access;
   if (!access?.isAdmin) return <LeaveForApp />;
 
   const activeUser = user || { id: "preview-user", email: "chief@kunthai.preview" };

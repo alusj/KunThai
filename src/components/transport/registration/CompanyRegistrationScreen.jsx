@@ -650,7 +650,7 @@ export default function CompanyRegistrationScreen({ existingCompany = null, mode
       const phoneValidation = validateCountryPhone(form.phone, form.country);
       if (!form.phone.trim()) nextErrors.phone = t("urride.companyReg.reqPhone");
       else if (!phoneValidation.valid) nextErrors.phone = phoneValidation.message;
-      else if (phoneOwnership.taken) nextErrors.phone = phoneOwnership.message;
+      else if (phoneOwnership.blockingMessage) nextErrors.phone = phoneOwnership.blockingMessage;
     }
 
     if (targetStep === 1) {
@@ -1094,7 +1094,7 @@ export default function CompanyRegistrationScreen({ existingCompany = null, mode
                   summary: [form.companyName, companyTypeLabel(form.companyType), form.phone].filter(Boolean).join("  •  ") || t("urride.companyReg.notSetYet"),
                   node: (
                     <CompanyIdentityStep
-                      phoneInUseMessage={phoneOwnership.message}
+                      phoneInUseMessage={phoneOwnership.fieldError(fieldErrors.phone)}
                       documentRequirements={companyDocumentRequirements}
                       errors={fieldErrors}
                       form={form}
@@ -1148,7 +1148,7 @@ export default function CompanyRegistrationScreen({ existingCompany = null, mode
           <StepSlideTransition stepKey={step} direction={stepDirection}>
             {step === 0 ? (
               <CompanyIdentityStep
-                      phoneInUseMessage={phoneOwnership.message}
+                      phoneInUseMessage={phoneOwnership.fieldError(fieldErrors.phone)}
                 documentRequirements={companyDocumentRequirements}
                 errors={fieldErrors}
                 form={form}
@@ -1426,7 +1426,7 @@ function CompanyIdentityStep({ documentRequirements = [], errors = {}, form, onC
           onChange={(value) => onChange("phone", constrainCountryPhoneInput(value, countryProfile, { international: true }))}
           placeholder={getCountryPhoneHint(countryProfile)}
           helper={phoneValidation.valid ? undefined : phoneValidation.message}
-          error={phoneInUseMessage || errors.phone}
+          error={phoneInUseMessage ?? errors.phone}
         />
         <FormInput label={t("urride.companyReg.emailLabel")} type="email" value={form.email} onChange={(value) => onChange("email", value)} placeholder={t("urride.companyReg.emailPlaceholder")} />
         <label className="block">

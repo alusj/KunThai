@@ -85,8 +85,8 @@ export default function StoreDetails({ onBack }) {
   async function saveStoreDetails(event) {
     event.preventDefault();
 
-    if (phoneOwnership.taken) {
-      setError(phoneOwnership.message);
+    if (phoneOwnership.blockingMessage) {
+      setError(phoneOwnership.blockingMessage);
       return;
     }
 

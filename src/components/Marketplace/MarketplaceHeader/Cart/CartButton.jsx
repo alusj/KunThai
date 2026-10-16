@@ -11,6 +11,7 @@ export default function CartButton({ count, onClick }) {
     <PremiumHeaderButton
       accent="emerald"
       badge={count}
+      direction="urmall-cart"
       icon={ShoppingCart}
       label={t("urmall.cart.openCart")}
       onClick={onClick}

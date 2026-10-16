@@ -166,6 +166,7 @@ export default function BuyerNotifications({ onOpenChange, onUnreadCountChange, 
         active={open}
         accent="emerald"
         badge={unreadCount}
+        direction="urmall-notifications"
         icon={Bell}
         label={t("urmall.notifications.open")}
         onClick={() => setOpen(true)}
