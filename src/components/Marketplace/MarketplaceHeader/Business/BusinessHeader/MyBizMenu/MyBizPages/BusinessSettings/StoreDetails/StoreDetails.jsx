@@ -90,8 +90,14 @@ export default function StoreDetails({ onBack }) {
       return;
     }
 
-    if (!form.businessName.trim() || !form.phone.trim() || !form.email.trim()) {
+    if (!form.businessName.trim() || !form.phone.trim()) {
       setError(t("urmall.biz.settings.storeRequired"));
+      return;
+    }
+
+    // Email is optional; when given it must look like one.
+    if (form.email.trim() && !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(form.email.trim())) {
+      setError(t("auth.errInvalidEmail"));
       return;
     }
 

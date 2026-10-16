@@ -92,8 +92,14 @@ export default function EditProfile({ onBack }) {
       return;
     }
 
-    if (!form.phone.trim() || !form.email.trim()) {
+    if (!form.phone.trim()) {
       setError(t("urmall.biz.profile.phoneEmailRequired"));
+      return;
+    }
+
+    // Email is optional; when given it must look like one.
+    if (form.email.trim() && !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(form.email.trim())) {
+      setError(t("auth.errInvalidEmail"));
       return;
     }
 
