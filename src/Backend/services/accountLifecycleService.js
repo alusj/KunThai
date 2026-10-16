@@ -57,7 +57,11 @@ export async function deleteKunThaiAccount() {
   const { error } = await supabase.rpc("delete_kunthai_account");
 
   if (error) {
-    throw new Error("KunThai could not delete your account right now. Please try again.");
+    const failure = new Error("KunThai could not delete your account right now. Please try again.");
+    // The database's own reason, shown small under the buttons so a blocked
+    // delete can be traced (e.g. a protection rule or a linked record).
+    failure.detail = [error.message, error.details].filter(Boolean).join(" | ").slice(0, 240);
+    throw failure;
   }
 
   try {

@@ -66,6 +66,7 @@ export default function PrivacyScreen({ hideHeader = false, onOpenPermissions })
   const [deactivatedAt, setDeactivatedAt] = useState(null);
   const [confirmAction, setConfirmAction] = useState(null);
   const [accountActionBusy, setAccountActionBusy] = useState(false);
+  const [deleteFailureDetail, setDeleteFailureDetail] = useState("");
   const [exportState, setExportState] = useState({ busy: false, step: "" });
   const [exportNotice, setExportNotice] = useState("");
 
@@ -124,11 +125,13 @@ export default function PrivacyScreen({ hideHeader = false, onOpenPermissions })
 
   async function handleDeleteConfirm() {
     setAccountActionBusy(true);
+    setDeleteFailureDetail("");
 
     try {
       await deleteKunThaiAccount();
       window.location.replace("/");
     } catch (error) {
+      setDeleteFailureDetail(error?.detail || "");
       showToast(shortErrorToast(error, "Couldn't delete account"), "danger");
       setAccountActionBusy(false);
     }
@@ -360,6 +363,9 @@ export default function PrivacyScreen({ hideHeader = false, onOpenPermissions })
                       : t("privacy.deactivateTitle")}
               </button>
             </div>
+            {confirmAction === "delete" && deleteFailureDetail ? (
+              <p role="alert" className="mt-3 break-words text-xs font-semibold leading-5 text-slate-500">{deleteFailureDetail}</p>
+            ) : null}
           </section>
         </div>
       ) : null}
