@@ -2337,41 +2337,26 @@ export async function leaveTransportCompany(companyAccount = null) {
   const company = companyAccount?.id ? companyAccount : await getTransportCompanyAccount();
   const access = company?.access || {};
 
-  if (!company?.id || !access.memberId) {
+  if (!company?.id) {
     throw new Error("Your active company membership could not be found. Refresh Fleet HQ and try again.");
   }
   if (access.isOwner) {
-    throw new Error("The company creator cannot leave from an operator account. Transfer or close the company first.");
+    throw new Error(t("urrideDeleteCompany.leaveOwner"));
   }
 
-  const now = new Date().toISOString();
-  const { error: memberError } = await supabase
-    .from("transport_company_members")
-    .update({
-      status: "removed",
-      service_status: "removed",
-      updated_at: now,
-    })
-    .eq("id", access.memberId)
-    .eq("company_id", company.id)
-    .eq("user_id", user.id);
-  if (memberError) throw memberError;
-
-  if (access.operatorId) {
-    await supabase
-      .from("transport_fleets")
-      .update({ active_status: "offline", is_visible_to_passengers: false, updated_at: now })
-      .eq("operator_id", access.operatorId)
-      .eq("company_id", company.id)
-      .then(({ error }) => {
-        if (error && !isMissingTable(error)) throw error;
-      });
+  // One checked database action: membership, invitations, fleet assignments
+  // and the company vehicle change together. (Members cannot update their own
+  // membership row directly, so the old direct writes changed nothing.)
+  const { error } = await supabase.rpc("leave_transport_company", { p_company_id: company.id });
+  if (error) {
+    if (isMissingFunction(error)) throw new Error(t("urrideDeleteCompany.leaveUnavailable"));
+    const text = String(error.message || "");
+    if (text.includes("trip in progress")) throw new Error(t("urrideDeleteCompany.leaveBusyTrip"));
+    if (text.includes("creator cannot leave")) throw new Error(t("urrideDeleteCompany.leaveOwner"));
+    if (!text.includes("no longer a member")) {
+      throw new Error(friendlyErrorMessage(error, t("urrideDeleteCompany.leaveFailed")));
+    }
   }
-
-  const { error: revokeError } = await supabase.from("transport_company_operator_invites")
-    .update({ status: "revoked", updated_at: now })
-    .eq("company_id", company.id).eq("operator_user_id", user.id).eq("status", "accepted");
-  if (revokeError) throw revokeError;
 
   await recordCompanyManagementActivity(
     company.id,
@@ -2379,10 +2364,11 @@ export async function leaveTransportCompany(companyAccount = null) {
     "operator_left_company",
     "Operator left company",
     `${access.fullName || "An operator"} left ${company.companyName || "the company"}. Their personal KunThai account was not deleted.`,
-    { memberId: access.memberId, operatorId: access.operatorId || null },
+    { memberId: access.memberId || null, operatorId: access.operatorId || null },
   ).catch(() => null);
 
   localStorage.removeItem(scopedKey(COMPANY_ACCOUNT_PREFIX, user.id));
+  invalidateCache("operator-dashboard");
   return null;
 }
 

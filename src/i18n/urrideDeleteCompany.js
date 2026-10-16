@@ -29,6 +29,9 @@ export const URRIDE_DELETE_COMPANY = {
     leaving: "Leaving…",
     leaveDone: "Company removed",
     leaveFailed: "Couldn't leave company",
+    leaveOwner: "The company creator cannot leave. Delete the company instead.",
+    leaveBusyTrip: "You have a company trip in progress. Finish or cancel it before leaving.",
+    leaveUnavailable: "Leaving a company is not available yet. Please try again later.",
   },
   fr: {
     menuButton: "Supprimer l'entreprise",
@@ -57,6 +60,9 @@ export const URRIDE_DELETE_COMPANY = {
     leaving: "Départ…",
     leaveDone: "Entreprise retirée",
     leaveFailed: "Impossible de quitter l'entreprise",
+    leaveOwner: "Le créateur de l'entreprise ne peut pas la quitter. Supprimez plutôt l'entreprise.",
+    leaveBusyTrip: "Vous avez un trajet de l'entreprise en cours. Terminez-le ou annulez-le avant de partir.",
+    leaveUnavailable: "Quitter une entreprise n'est pas encore disponible. Réessayez plus tard.",
   },
   es: {
     menuButton: "Eliminar empresa",
@@ -85,6 +91,9 @@ export const URRIDE_DELETE_COMPANY = {
     leaving: "Saliendo…",
     leaveDone: "Empresa quitada",
     leaveFailed: "No se pudo salir de la empresa",
+    leaveOwner: "El creador de la empresa no puede salir. Elimina la empresa en su lugar.",
+    leaveBusyTrip: "Tienes un viaje de la empresa en curso. Termínalo o cancélalo antes de salir.",
+    leaveUnavailable: "Salir de una empresa aún no está disponible. Inténtalo más tarde.",
   },
   zh: {
     menuButton: "删除公司",
@@ -113,6 +122,9 @@ export const URRIDE_DELETE_COMPANY = {
     leaving: "正在退出…",
     leaveDone: "公司已移除",
     leaveFailed: "无法退出公司",
+    leaveOwner: "公司创建者不能退出。请改为删除公司。",
+    leaveBusyTrip: "你有一个公司行程正在进行。请先完成或取消后再退出。",
+    leaveUnavailable: "退出公司功能暂不可用，请稍后再试。",
   },
   ar: {
     menuButton: "حذف الشركة",
@@ -141,6 +153,9 @@ export const URRIDE_DELETE_COMPANY = {
     leaving: "جارٍ المغادرة…",
     leaveDone: "تمت إزالة الشركة",
     leaveFailed: "تعذّرت مغادرة الشركة",
+    leaveOwner: "لا يمكن لمنشئ الشركة مغادرتها. احذف الشركة بدلاً من ذلك.",
+    leaveBusyTrip: "لديك رحلة للشركة قيد التنفيذ. أنهِها أو ألغِها قبل المغادرة.",
+    leaveUnavailable: "مغادرة الشركة غير متاحة بعد. حاول مرة أخرى لاحقًا.",
   },
   pt: {
     menuButton: "Eliminar empresa",
@@ -169,6 +184,9 @@ export const URRIDE_DELETE_COMPANY = {
     leaving: "A sair…",
     leaveDone: "Empresa removida",
     leaveFailed: "Não foi possível sair da empresa",
+    leaveOwner: "O criador da empresa não pode sair. Elimine a empresa em vez disso.",
+    leaveBusyTrip: "Tem uma viagem da empresa em curso. Termine-a ou cancele-a antes de sair.",
+    leaveUnavailable: "Sair de uma empresa ainda não está disponível. Tente mais tarde.",
   },
   hi: {
     menuButton: "कंपनी हटाएँ",
@@ -197,6 +215,9 @@ export const URRIDE_DELETE_COMPANY = {
     leaving: "छोड़ रहे हैं…",
     leaveDone: "कंपनी हटा दी गई",
     leaveFailed: "कंपनी छोड़ी नहीं जा सकी",
+    leaveOwner: "कंपनी बनाने वाला इसे छोड़ नहीं सकता। इसके बजाय कंपनी हटाएँ।",
+    leaveBusyTrip: "आपकी कंपनी की एक यात्रा चल रही है। छोड़ने से पहले उसे पूरा या रद्द करें।",
+    leaveUnavailable: "कंपनी छोड़ना अभी उपलब्ध नहीं है। बाद में फिर कोशिश करें।",
   },
   bn: {
     menuButton: "কোম্পানি মুছুন",
@@ -225,6 +246,9 @@ export const URRIDE_DELETE_COMPANY = {
     leaving: "ছেড়ে যাচ্ছেন…",
     leaveDone: "কোম্পানি সরানো হয়েছে",
     leaveFailed: "কোম্পানি ছাড়া যায়নি",
+    leaveOwner: "কোম্পানির নির্মাতা ছাড়তে পারবেন না। এর বদলে কোম্পানি মুছুন।",
+    leaveBusyTrip: "আপনার কোম্পানির একটি ট্রিপ চলছে। ছাড়ার আগে সেটি শেষ বা বাতিল করুন।",
+    leaveUnavailable: "কোম্পানি ছাড়া এখনও উপলব্ধ নয়। পরে আবার চেষ্টা করুন।",
   },
   id: {
     menuButton: "Hapus perusahaan",
@@ -253,6 +277,9 @@ export const URRIDE_DELETE_COMPANY = {
     leaving: "Keluar…",
     leaveDone: "Perusahaan dihapus",
     leaveFailed: "Tidak dapat keluar dari perusahaan",
+    leaveOwner: "Pembuat perusahaan tidak dapat keluar. Hapus perusahaan saja.",
+    leaveBusyTrip: "Anda punya perjalanan perusahaan yang sedang berlangsung. Selesaikan atau batalkan sebelum keluar.",
+    leaveUnavailable: "Keluar dari perusahaan belum tersedia. Coba lagi nanti.",
   },
   ur: {
     menuButton: "کمپنی حذف کریں",
@@ -281,6 +308,9 @@ export const URRIDE_DELETE_COMPANY = {
     leaving: "چھوڑ رہے ہیں…",
     leaveDone: "کمپنی ہٹا دی گئی",
     leaveFailed: "کمپنی نہیں چھوڑی جا سکی",
+    leaveOwner: "کمپنی بنانے والا اسے نہیں چھوڑ سکتا۔ اس کے بجائے کمپنی حذف کریں۔",
+    leaveBusyTrip: "آپ کا کمپنی کا ایک سفر جاری ہے۔ چھوڑنے سے پہلے اسے مکمل یا منسوخ کریں۔",
+    leaveUnavailable: "کمپنی چھوڑنا ابھی دستیاب نہیں۔ بعد میں دوبارہ کوشش کریں۔",
   },
   ru: {
     menuButton: "Удалить компанию",
@@ -309,6 +339,9 @@ export const URRIDE_DELETE_COMPANY = {
     leaving: "Выход…",
     leaveDone: "Компания убрана",
     leaveFailed: "Не удалось выйти из компании",
+    leaveOwner: "Создатель компании не может выйти из неё. Удалите компанию.",
+    leaveBusyTrip: "У вас идёт поездка компании. Завершите или отмените её перед выходом.",
+    leaveUnavailable: "Выход из компании пока недоступен. Попробуйте позже.",
   },
   ja: {
     menuButton: "会社を削除",
@@ -337,6 +370,9 @@ export const URRIDE_DELETE_COMPANY = {
     leaving: "退出しています…",
     leaveDone: "会社を削除しました",
     leaveFailed: "会社から退出できませんでした",
+    leaveOwner: "会社の作成者は退出できません。代わりに会社を削除してください。",
+    leaveBusyTrip: "進行中の会社の乗車があります。退出する前に完了するかキャンセルしてください。",
+    leaveUnavailable: "会社からの退出はまだ利用できません。後でもう一度お試しください。",
   },
   mr: {
     menuButton: "कंपनी हटवा",
@@ -365,6 +401,9 @@ export const URRIDE_DELETE_COMPANY = {
     leaving: "सोडत आहे…",
     leaveDone: "कंपनी काढली",
     leaveFailed: "कंपनी सोडता आली नाही",
+    leaveOwner: "कंपनी तयार करणारे ती सोडू शकत नाहीत. त्याऐवजी कंपनी हटवा.",
+    leaveBusyTrip: "तुमची कंपनीची एक ट्रिप सुरू आहे. सोडण्यापूर्वी ती पूर्ण किंवा रद्द करा.",
+    leaveUnavailable: "कंपनी सोडणे अजून उपलब्ध नाही. नंतर पुन्हा प्रयत्न करा.",
   },
   vi: {
     menuButton: "Xóa công ty",
@@ -393,6 +432,9 @@ export const URRIDE_DELETE_COMPANY = {
     leaving: "Đang rời…",
     leaveDone: "Đã xóa công ty",
     leaveFailed: "Không thể rời công ty",
+    leaveOwner: "Người tạo công ty không thể rời. Hãy xóa công ty thay vào đó.",
+    leaveBusyTrip: "Bạn có chuyến đi của công ty đang diễn ra. Hãy hoàn tất hoặc hủy trước khi rời.",
+    leaveUnavailable: "Chưa thể rời công ty. Vui lòng thử lại sau.",
   },
   de: {
     menuButton: "Unternehmen löschen",
@@ -421,5 +463,8 @@ export const URRIDE_DELETE_COMPANY = {
     leaving: "Wird verlassen…",
     leaveDone: "Unternehmen entfernt",
     leaveFailed: "Unternehmen konnte nicht verlassen werden",
+    leaveOwner: "Der Ersteller des Unternehmens kann es nicht verlassen. Lösche stattdessen das Unternehmen.",
+    leaveBusyTrip: "Du hast eine laufende Fahrt des Unternehmens. Beende oder storniere sie, bevor du gehst.",
+    leaveUnavailable: "Das Verlassen eines Unternehmens ist noch nicht verfügbar. Versuche es später erneut.",
   },
 };

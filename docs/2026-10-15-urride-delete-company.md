@@ -9,7 +9,9 @@
 
 - Operators (not the creator) get **Leave and delete company**: in Fleet HQ's operator actions and
   in the personal operator dashboard's Menu. It ends only their membership and removes the company
-  from their dashboard; the company stays for its owner and other operators. No SQL needed for this.
+  from their dashboard; the company stays for its owner and other operators. Needs
+  `20261016100000_urride_leave_company.sql` (2026-10-16): before it, leaving changed nothing because
+  members cannot update their own membership row. Test: `supabase/tests/urride_leave_company.sql`.
 
 What is removed: the company, its company fleets, operator memberships, invites, rentals and their
 reservation history, and the company's plan rows. Operators keep their personal KunThai accounts
