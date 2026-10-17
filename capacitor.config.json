@@ -16,7 +16,7 @@
       "animation": "NONE"
     },
     "PushNotifications": {
-      "presentationOptions": ["badge", "sound"]
+      "presentationOptions": ["badge"]
     },
     "Keyboard": {
       "resize": "native",

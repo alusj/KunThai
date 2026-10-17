@@ -35,6 +35,7 @@ import {
 import { requestConversationOpen } from "./explore/messageService";
 import {
   ANDROID_PUSH_CHANNELS,
+  HORN_PUSH_KINDS,
   NATIVE_PUSH_DIAGNOSTIC_KEY,
   NATIVE_PUSH_RECEIVED_EVENT,
   bannerContextsForRoute,
@@ -604,6 +605,27 @@ function ensureAndroidPushChannel() {
   }
 }
 
+// The UrRide horn (a new ride request, "operator arrived") keeps sounding
+// until KunThai is opened: clearing its notification is what stops it on
+// Android (the 60 s sound belongs to the notification). Other notifications
+// stay in the tray.
+function clearDeliveredHornNotifications() {
+  // Started inside the promise: a plugin without these methods must not
+  // break push start-up.
+  Promise.resolve()
+    .then(() => PushNotifications.getDeliveredNotifications())
+    .then((result) => {
+      const horns = (result?.notifications || []).filter((notification) => {
+        const kind = String(notification?.data?.kind || notification?.tag || "").toLowerCase();
+        return HORN_PUSH_KINDS.includes(kind);
+      });
+      if (!horns.length) return undefined;
+      pushLog(`clearing ${horns.length} horn notification(s)`);
+      return PushNotifications.removeDeliveredNotifications({ notifications: horns });
+    })
+    .catch(() => {});
+}
+
 let nativePushStarted = false;
 
 // Runs once at startup in the app. Listeners are added before any
@@ -631,8 +653,11 @@ export function initNativePushNotifications() {
   Promise.resolve(PushNotifications.addListener("registration", handleTokenRefresh)).catch(() => {});
 
   Promise.resolve(CapacitorApp.addListener("appStateChange", ({ isActive }) => {
-    if (isActive) syncNativePush("resume");
+    if (!isActive) return;
+    clearDeliveredHornNotifications();
+    syncNativePush("resume");
   })).catch(() => {});
+  clearDeliveredHornNotifications();
 
   supabase.auth.onAuthStateChange((event) => {
     if (event === "INITIAL_SESSION" || event === "SIGNED_IN") {

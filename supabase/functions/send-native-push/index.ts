@@ -138,13 +138,17 @@ type PushSound = { sound: string; androidSound: string; channel: string; timeSen
 
 const PUSH_SOUNDS: Record<string, PushSound> = {
   ride: { sound: "kt_ride_request.wav", androidSound: "kt_ride_request", channel: "kunthai_ride_requests", timeSensitive: true },
+  // UrRide horn: 29 s on iPhone (iOS custom push sounds stop at 30 s), 60 s on
+  // Android; opening KunThai clears the notification, which stops it.
+  horn: { sound: "kt_horn.wav", androidSound: "kt_horn", channel: "kunthai_horn", timeSensitive: true },
   message: { sound: "kt_message.wav", androidSound: "kt_message", channel: "kunthai_messages", timeSensitive: false },
   order: { sound: "kt_order.wav", androidSound: "kt_order", channel: "kunthai_orders", timeSensitive: false },
   default: { sound: "default", androidSound: "default", channel: "kunthai_alerts", timeSensitive: false },
 };
 
 const PUSH_SOUND_BY_KIND: Record<string, string> = {
-  urride_request: "ride",
+  urride_request: "horn",
+  urride_arrival: "horn",
   messages: "message",
   urmall_message: "message",
   orders: "order",

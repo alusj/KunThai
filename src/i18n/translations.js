@@ -22,6 +22,7 @@ import { KAI_REGISTRATION_FIX } from "./kaiRegistrationFix";
 import { URMALL_VENDOR_GUIDE } from "./urmallVendorGuide";
 import { URRIDE_AREA_FIX } from "./urrideAreaFix";
 import { URRIDE_LIVE_DISCOVERY } from "./urrideLiveDiscovery";
+import { URRIDE_TRIP_CARD } from "./urrideTripCard";
 import { EXPLORE_SETTINGS_FIX } from "./exploreSettingsFix";
 import { EXPLORE_PROFILE_FIX } from "./exploreProfileFix";
 import { EXPLORE_MESSAGES_FIX } from "./exploreMessagesFix";
@@ -59453,6 +59454,12 @@ for (const [locale, section] of Object.entries(URRIDE_AREA_FIX)) {
 for (const [locale, section] of Object.entries(URRIDE_LIVE_DISCOVERY)) {
   if (TRANSLATIONS[locale]) {
     TRANSLATIONS[locale].urrideLiveDiscovery = section;
+  }
+}
+
+for (const [locale, section] of Object.entries(URRIDE_TRIP_CARD)) {
+  if (TRANSLATIONS[locale]) {
+    TRANSLATIONS[locale].urrideTripCard = section;
   }
 }
 

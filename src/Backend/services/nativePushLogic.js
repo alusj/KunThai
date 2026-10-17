@@ -37,6 +37,21 @@ export const ANDROID_PUSH_CHANNELS = [
     lightColor: "#10B981",
     sound: "kt_ride_request.wav",
   },
+  // UrRide horn: a new ride request (operators) and "operator arrived"
+  // (passengers). kt_horn.wav is 60 s on Android (the whole file plays; opening
+  // KunThai clears the notification, which stops it) and 29 s on iPhone (iOS
+  // plays custom push sounds up to 30 s).
+  {
+    id: "kunthai_horn",
+    name: "UrRide horn",
+    description: "New ride requests and your operator's arrival, until you open KunThai",
+    importance: 5,
+    visibility: 1,
+    vibration: true,
+    lights: true,
+    lightColor: "#10B981",
+    sound: "kt_horn.wav",
+  },
   {
     id: "kunthai_messages",
     name: "Messages",
@@ -61,13 +76,15 @@ export const ANDROID_PUSH_CHANNELS = [
 
 const PUSH_SOUNDS = {
   ride: { sound: "kt_ride_request.wav", channel: "kunthai_ride_requests" },
+  horn: { sound: "kt_horn.wav", channel: "kunthai_horn" },
   message: { sound: "kt_message.wav", channel: "kunthai_messages" },
   order: { sound: "kt_order.wav", channel: "kunthai_orders" },
   default: { sound: "default", channel: ANDROID_PUSH_CHANNEL.id },
 };
 
 const PUSH_SOUND_BY_KIND = {
-  urride_request: "ride",
+  urride_request: "horn",
+  urride_arrival: "horn",
   messages: "message",
   urmall_message: "message",
   orders: "order",
@@ -75,6 +92,11 @@ const PUSH_SOUND_BY_KIND = {
   urmall_booking: "order",
   urride_trip: "order",
 };
+
+/** Push kinds that sound the UrRide horn; opening KunThai clears them (and so stops the horn). */
+export const HORN_PUSH_KINDS = Object.freeze(
+  Object.keys(PUSH_SOUND_BY_KIND).filter((kind) => PUSH_SOUND_BY_KIND[kind] === "horn"),
+);
 
 /** The sound file and Android channel a push of this kind uses (mirrors send-native-push). */
 export function pushSoundForKind(kind = "") {

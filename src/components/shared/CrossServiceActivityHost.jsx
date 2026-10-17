@@ -2,7 +2,7 @@ import { useEffect, useRef } from "react";
 import { isHeavyUploadActive } from "../../Backend/services/uploadActivity";
 
 import supabase from "../../Backend/lib/supabaseClient";
-import { haptics, sounds, startRinging, stopRinging } from "../../Backend/services/feedbackService";
+import { haptics, sounds, startArrivalHorn, startRinging, stopRinging } from "../../Backend/services/feedbackService";
 import { requestExploreScreen, requestMarketplaceScreen, showNotificationBanner } from "../../Backend/services/notificationBannerService";
 import { showToast } from "../../Backend/services/toastService";
 import {
@@ -79,9 +79,11 @@ const PASSENGER_TRIP_FEEDBACK = {
     haptics.success("transport");
     sounds.success("transport");
   },
+  // The UrRide horn, like the push sound, until the passenger touches the
+  // screen (or a minute passes).
   operator_arrived: () => {
     haptics.heavy("transport");
-    sounds.arrival("transport");
+    startArrivalHorn("transport");
   },
   trip_start_requested: () => {
     haptics.medium("transport");

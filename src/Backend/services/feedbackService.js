@@ -218,6 +218,27 @@ export const sounds = {
       "ring",
     );
   },
+  // One "honk ... hoooonk" of the UrRide horn (same pattern as kt_horn.wav,
+  // the push sound): a new ride request for operators, "operator arrived" for
+  // passengers.
+  horn(module) {
+    playTones(
+      [
+        { from: 392, duration: 0.32, type: "sawtooth", volume: 0.09, gap: 0.14 },
+        { from: 392, duration: 0.75, type: "sawtooth", volume: 0.09 },
+      ],
+      module,
+      "horn",
+    );
+    playTones(
+      [
+        { from: 494, duration: 0.32, type: "sawtooth", volume: 0.07, gap: 0.14 },
+        { from: 494, duration: 0.75, type: "sawtooth", volume: 0.07 },
+      ],
+      module,
+      "horn-high",
+    );
+  },
   emergency(module) {
     playTones(
       [
@@ -231,30 +252,60 @@ export const sounds = {
   },
 };
 
-const RING_INTERVAL_MS = 2400;
-const RING_MAX_MS = 45000;
+// The horn repeats every 2.2 s (one honk-hoooonk plus a pause) for up to a
+// minute, and stops at the first touch or key press: the person has the
+// phone in hand.
+export const RING_INTERVAL_MS = 2200;
+export const RING_MAX_MS = 60000;
 let activeRing = null;
 
+function startHornLoop(module) {
+  if (activeRing) return stopRinging;
+  const ringOnce = () => {
+    if (typeof document !== "undefined" && document.hidden) return;
+    sounds.horn(module);
+    haptics.ring(module);
+  };
+  ringOnce();
+  const interval = window.setInterval(ringOnce, RING_INTERVAL_MS);
+  const timeout = window.setTimeout(stopRinging, RING_MAX_MS);
+  // Registered after this tick, so the tap that caused the alert (if any)
+  // doesn't stop it straight away.
+  const onTouch = () => stopRinging();
+  const listenTimer = window.setTimeout(() => {
+    window.addEventListener("pointerdown", onTouch, true);
+    window.addEventListener("keydown", onTouch, true);
+  }, 0);
+  activeRing = { interval, timeout, listenTimer, onTouch };
+  return stopRinging;
+}
+
 /**
- * Rings (sound + strong vibration, every few seconds) until the returned stop
- * function is called or 45 seconds pass. Used for a new ride request reaching
- * an online operator. Only one ring runs at a time; starting again keeps the
- * running one. Respects the "Ride requests ring" switch plus the usual Sounds,
- * Vibration and UrRide switches.
+ * Sounds the UrRide horn (sound + strong vibration, every 2.2 s) for a new
+ * ride request reaching an online operator, until the returned stop function
+ * is called, the operator touches the screen, or a minute passes. Only one
+ * horn runs at a time. Respects the "Ride requests ring" switch plus the usual
+ * Sounds, Vibration and UrRide switches.
  */
 export function startRinging(module = "transport") {
   try {
     if (fxSettings().rideRequestRing === false || !moduleAllowed(module)) return stopRinging;
-    if (activeRing) return stopRinging;
-    const ringOnce = () => {
-      if (typeof document !== "undefined" && document.hidden) return;
-      sounds.ring(module);
-      haptics.ring(module);
-    };
-    ringOnce();
-    const interval = window.setInterval(ringOnce, RING_INTERVAL_MS);
-    const timeout = window.setTimeout(stopRinging, RING_MAX_MS);
-    activeRing = { interval, timeout };
+    return startHornLoop(module);
+  } catch {
+    // Feedback is best-effort only.
+  }
+  return stopRinging;
+}
+
+/**
+ * The same horn for a passenger whose operator has arrived, with the same
+ * stop rules. Respects the usual Sounds, Vibration and UrRide switches (the
+ * caller checks the passenger's "Trip alerts" switch).
+ */
+export function startArrivalHorn(module = "transport") {
+  try {
+    if (!moduleAllowed(module)) return stopRinging;
+    return startHornLoop(module);
   } catch {
     // Feedback is best-effort only.
   }
@@ -265,6 +316,9 @@ export function stopRinging() {
   if (!activeRing) return;
   window.clearInterval(activeRing.interval);
   window.clearTimeout(activeRing.timeout);
+  window.clearTimeout(activeRing.listenTimer);
+  window.removeEventListener("pointerdown", activeRing.onTouch, true);
+  window.removeEventListener("keydown", activeRing.onTouch, true);
   activeRing = null;
 }
 

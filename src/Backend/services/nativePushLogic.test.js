@@ -4,6 +4,7 @@ import test from "node:test";
 import {
   ANDROID_PUSH_CHANNEL,
   ANDROID_PUSH_CHANNELS,
+  HORN_PUSH_KINDS,
   decideFirstRunPush,
   bannerContextsForRoute,
   buildPushDiagnostic,
@@ -195,7 +196,11 @@ test("a tap is handled once, even when the OS delivers it again", () => {
 test("each push kind gets its sound and an Android channel that exists", () => {
   const channels = new Map(ANDROID_PUSH_CHANNELS.map((channel) => [channel.id, channel]));
   assert.equal(channels.size, ANDROID_PUSH_CHANNELS.length);
-  assert.deepEqual(pushSoundForKind("urride_request"), { sound: "kt_ride_request.wav", channel: "kunthai_ride_requests" });
+  // The UrRide horn: new ride requests (operators) and "operator arrived" (passengers).
+  assert.deepEqual(pushSoundForKind("urride_request"), { sound: "kt_horn.wav", channel: "kunthai_horn" });
+  assert.deepEqual(pushSoundForKind("urride_arrival"), { sound: "kt_horn.wav", channel: "kunthai_horn" });
+  assert.deepEqual([...HORN_PUSH_KINDS].sort(), ["urride_arrival", "urride_request"]);
+  assert.equal(channels.get("kunthai_horn").importance, 5);
   assert.equal(pushSoundForKind("messages").sound, "kt_message.wav");
   assert.equal(pushSoundForKind("urmall_message").channel, "kunthai_messages");
   for (const kind of ["orders", "urmall_order", "urmall_booking", "urride_trip"]) {
@@ -204,7 +209,7 @@ test("each push kind gets its sound and an Android channel that exists", () => {
   for (const kind of ["reactions", "urride_operator", "urride_company", "", undefined]) {
     assert.deepEqual(pushSoundForKind(kind), { sound: "default", channel: "kunthai_alerts" });
   }
-  for (const kind of ["urride_request", "messages", "orders", "reactions"]) {
+  for (const kind of ["urride_request", "urride_arrival", "messages", "orders", "reactions"]) {
     const { sound, channel } = pushSoundForKind(kind);
     assert.ok(channels.has(channel), `${kind} channel missing`);
     if (sound !== "default") assert.equal(channels.get(channel).sound, sound);
@@ -225,4 +230,38 @@ test("a new account gets push without finding the Settings switch, but a choice 
   assert.equal(decideFirstRunPush({ permission: "granted", preference: "off" }), "none");
   assert.equal(decideFirstRunPush({ permission: "denied", preference: "unset" }), "none");
   assert.equal(decideFirstRunPush({ permission: "prompt", preference: "unknown" }), "none");
+});
+
+test("send-native-push maps every kind to the same sound and channel as the app", async () => {
+  const { readFileSync } = await import("node:fs");
+  const source = readFileSync(new URL("../../../supabase/functions/send-native-push/index.ts", import.meta.url), "utf8");
+  const block = (name) => source.slice(source.indexOf(`const ${name}`), source.indexOf("};", source.indexOf(`const ${name}`)));
+  const sounds = Object.fromEntries(
+    [...block("PUSH_SOUNDS").matchAll(/(\w+): \{ sound: "([^"]+)", androidSound: "([^"]+)", channel: "([^"]+)"/g)]
+      .map(([, key, sound, androidSound, channel]) => [key, { sound, androidSound, channel }]),
+  );
+  const kinds = Object.fromEntries([...block("PUSH_SOUND_BY_KIND").matchAll(/(\w+): "(\w+)"/g)].map(([, kind, key]) => [kind, key]));
+  assert.ok(Object.keys(kinds).length >= 8, "kind map parsed");
+  for (const [kind, key] of Object.entries(kinds)) {
+    const server = sounds[key];
+    assert.ok(server, `${kind} -> ${key} exists on the server`);
+    assert.deepEqual(pushSoundForKind(kind), { sound: server.sound, channel: server.channel }, kind);
+    if (server.sound !== "default") assert.equal(server.androidSound, server.sound.replace(/\.wav$/, ""), kind);
+  }
+});
+
+test("the horn ships for both platforms: under 30 s on iPhone, longer on Android", async () => {
+  const { readFileSync } = await import("node:fs");
+  const seconds = (path) => {
+    const wav = readFileSync(new URL(path, import.meta.url));
+    const byteRate = wav.readUInt32LE(28);
+    const dataAt = wav.indexOf("data") + 4;
+    return wav.readUInt32LE(dataAt) / byteRate;
+  };
+  const ios = seconds("../../../ios/App/App/kt_horn.wav");
+  const android = seconds("../../../android/app/src/main/res/raw/kt_horn.wav");
+  assert.ok(ios > 25 && ios < 30, `iOS horn ${ios}s (iOS plays custom push sounds up to 30 s)`);
+  assert.ok(android > 30, `Android horn ${android}s`);
+  const project = readFileSync(new URL("../../../ios/App/App.xcodeproj/project.pbxproj", import.meta.url), "utf8");
+  assert.match(project, /kt_horn\.wav in Resources \*\/,/, "kt_horn.wav is bundled in the iOS app");
 });

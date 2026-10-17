@@ -79,6 +79,7 @@ import {
   formatTripElapsed,
   getElapsedTripSeconds,
 } from "./live/liveTripMetricUtils";
+import { TripCardAccuracyNote } from "./live/LiveTripMetric";
 import { useI18n, t } from "../../i18n";
 import { useNavigationStack } from "../../Backend/hooks/useNavigationStack";
 import { useBrowserBack } from "../../Backend/hooks/useBrowserBack";
@@ -1448,6 +1449,7 @@ function OperatorLiveTripMetric({ trip }) {
       <p className="text-[11px] font-black uppercase tracking-[0.14em] text-emerald-700">{translateUi(label)}</p>
       <p className="mt-1 text-2xl font-black text-slate-950">{value}</p>
       <p className="mt-1 text-xs font-bold leading-5 text-emerald-700">{translateUi(detail)}</p>
+      <TripCardAccuracyNote bookingMethod={trip.bookingMethod} />
     </div>
   );
 }

@@ -94,6 +94,36 @@ export default function LiveTripMetric({ trip, compact = false }) {
       <p className="text-[11px] font-black uppercase tracking-[0.16em] text-emerald-700">{translateUi(metric.label)}</p>
       <p className={`${compact ? "mt-1 text-xl" : "mt-2 text-3xl"} font-black text-slate-950`}>{metric.value}</p>
       <p className="mt-1 text-xs font-bold text-emerald-700">{translateUi(metric.detail)}</p>
+      <TripCardAccuracyNote bookingMethod={trip?.bookingMethod} />
     </div>
+  );
+}
+
+// The live figure comes from the phones' GPS and clock, so it is only accurate
+// while the screen is on with a good connection; the booking's agreed distance
+// or time is what counts. Shown on the passenger's and the operator's trip card.
+export function TripCardAccuracyNote({ bookingMethod = "distance" }) {
+  useI18n();
+  const [moreOpen, setMoreOpen] = useState(false);
+  return (
+    <>
+      <p className="mt-2 text-[11px] font-semibold leading-4 text-slate-600" data-direction="urride-trip-card-accuracy">
+        {bookingMethod === "time" ? t("urrideTripCard.stayActiveTime") : t("urrideTripCard.stayActiveDistance")}
+        {" "}
+        <button
+          type="button"
+          onClick={() => setMoreOpen((open) => !open)}
+          aria-expanded={moreOpen}
+          className="font-black text-emerald-700 underline underline-offset-2"
+        >
+          {moreOpen ? t("urrideTripCard.showLess") : t("urrideTripCard.readMore")}
+        </button>
+      </p>
+      {moreOpen ? (
+        <p className="mt-1 rounded-xl bg-white/70 px-2.5 py-2 text-[11px] font-semibold leading-4 text-slate-700">
+          {t("urrideTripCard.accuracyDetail")}
+        </p>
+      ) : null}
+    </>
   );
 }
