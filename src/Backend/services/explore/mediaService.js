@@ -2,14 +2,20 @@ import supabase from "../../lib/supabaseClient";
 import * as tus from "tus-js-client";
 import { EXPLORE_MEDIA_BUCKET } from "./constants";
 import { apiUrl } from "../../lib/apiUrl";
+import {
+  UPLOAD_STALL_MS,
+  directUploadWatchdogAction,
+  isStoredObjectResponse,
+} from "./uploadWatchdog";
 
 export const MAX_EXPLORE_VIDEO_BYTES = 50 * 1024 * 1024;
 const RESUMABLE_UPLOAD_THRESHOLD_BYTES = 6 * 1024 * 1024;
 const RESUMABLE_CHUNK_BYTES = 6 * 1024 * 1024;
-// No bytes moving for this long while the app is on screen means the request
-// is stuck (common on iPhones after a network switch or a moment in the
-// background). The upload is stopped and continued from the last saved chunk.
-export const UPLOAD_STALL_MS = 40_000;
+// No bytes moving for UPLOAD_STALL_MS while the app is on screen means the
+// request is stuck (common on iPhones after a network switch or a moment in
+// the background). The upload is stopped and continued from the last saved
+// chunk. See uploadWatchdog.js for what happens once every byte is sent.
+export { UPLOAD_STALL_MS };
 // Continuing a stopped upload is retried this many times in a row without new
 // progress before the person is asked to post again.
 const MAX_RESUMES_WITHOUT_PROGRESS = 5;
@@ -317,6 +323,22 @@ async function requestUploadTicket(file, mediaType) {
   return body;
 }
 
+// Whether storage already holds this object with all of the file's bytes: the
+// upload's own answer can be late or lost (iPhone) while the file is saved.
+async function isObjectStored(objectPath, expectedBytes) {
+  try {
+    const url = supabase.storage.from(EXPLORE_MEDIA_BUCKET).getPublicUrl(objectPath)?.data?.publicUrl;
+    if (!url) return false;
+    const response = await fetch(`${url}${url.includes("?") ? "&" : "?"}v=${Date.now()}`, { method: "HEAD", cache: "no-store" });
+    return isStoredObjectResponse(
+      { ok: response.ok, status: response.status, contentLength: response.headers.get("content-length") },
+      expectedBytes,
+    );
+  } catch {
+    return false;
+  }
+}
+
 // One-request upload with real progress, used for small videos and when the
 // resumable upload cannot start. Reads the answer as text, so an HTML error
 // page is reported by its status instead of Safari's "did not match the
@@ -334,9 +356,13 @@ async function uploadMediaFileDirect(file, filePath, options = {}, ticket = null
     ? `${base}/storage/v1/object/upload/sign/${EXPLORE_MEDIA_BUCKET}/${objectPath}?token=${encodeURIComponent(ticket.token)}`
     : `${base}/storage/v1/object/${EXPLORE_MEDIA_BUCKET}/${objectPath}`;
 
+  const totalBytes = Number(file.size || 0);
   return new Promise((resolve, reject) => {
     const xhr = new XMLHttpRequest();
     let lastProgressAt = Date.now();
+    let allSentAt = 0;
+    let lastVerifyAt = 0;
+    let verifying = false;
     let settled = false;
     const finish = (callback, value) => {
       if (settled) return;
@@ -344,17 +370,32 @@ async function uploadMediaFileDirect(file, filePath, options = {}, ticket = null
       window.clearInterval(watchdogId);
       callback(value);
     };
+    const stored = () => {
+      options.onProgress?.(totalBytes, totalBytes);
+      xhr.abort();
+      finish(resolve, filePath);
+    };
     const watchdogId = window.setInterval(() => {
       if (document.visibilityState === "hidden") {
         lastProgressAt = Date.now();
         return;
       }
-      if (Date.now() - lastProgressAt < UPLOAD_STALL_MS) return;
+      const action = directUploadWatchdogAction({ now: Date.now(), lastProgressAt, allSentAt, lastVerifyAt, verifying });
+      if (action === "verify") {
+        verifying = true;
+        lastVerifyAt = Date.now();
+        isObjectStored(filePath, totalBytes).then((isStored) => {
+          verifying = false;
+          if (isStored && !settled) stored();
+        });
+        return;
+      }
+      if (action !== "stall") return;
       xhr.abort();
       const stalled = new Error("The upload stopped moving.");
       stalled.code = "UPLOAD_STALLED";
       finish(reject, stalled);
-    }, 5_000);
+    }, 2_000);
 
     xhr.open(ticket ? "PUT" : "POST", target);
     if (accessToken) xhr.setRequestHeader("authorization", `Bearer ${accessToken}`);
@@ -364,6 +405,7 @@ async function uploadMediaFileDirect(file, filePath, options = {}, ticket = null
     xhr.setRequestHeader("content-type", file.type || "application/octet-stream");
     xhr.upload.onprogress = (event) => {
       lastProgressAt = Date.now();
+      if (event.lengthComputable && event.total > 0 && event.loaded >= event.total && !allSentAt) allSentAt = Date.now();
       if (event.lengthComputable) options.onProgress?.(event.loaded, event.total);
     };
     xhr.onload = () => {
@@ -434,6 +476,10 @@ async function uploadWithTicket(file, mediaType, options, codes) {
       const message = String(uploadError?.message || "");
       if (uploadError?.status && !/^upload refused/.test(message)) reason = message.replace(/[^\w ./-]/g, "").slice(0, 80);
       const status = Number(uploadError?.status || 0);
+      // The file may be saved even though its answer never came back.
+      if (await isObjectStored(ticket.path, Number(file.size || 0))) {
+        return { url: ticket.publicUrl || supabase.storage.from(EXPLORE_MEDIA_BUCKET).getPublicUrl(ticket.path)?.data?.publicUrl || "", reason: "" };
+      }
       const retryable = !status || status === 408 || status === 429 || status >= 500 || uploadError?.code === "UPLOAD_STALLED";
       if (!retryable || attempt === 2) break;
       options.onProgress?.(0, Number(file.size || 0));
