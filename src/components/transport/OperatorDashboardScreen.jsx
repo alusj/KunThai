@@ -85,6 +85,7 @@ import { useBrowserBack } from "../../Backend/hooks/useBrowserBack";
 import { t as i18nText } from "../../i18n/index";
 import {
   AVAILABILITY_REFRESH_GRACE_MS,
+  availabilityLabelKey,
   resolveFleetAvailability,
   shouldPreserveAvailabilityOverride,
 } from "./operatorAvailabilityState";
@@ -294,9 +295,10 @@ export default function OperatorDashboardScreen({
   const fleetName = form.fleetName || t("urride.opDash.registeredFleet");
   const operatingArea = form.operatingArea || form.city || t("urride.opDash.operatingAreaNotAdded");
   const homeBase = form.homeBaseLocation || t("urride.opDash.homeBaseNotAdded");
-  const availabilityText = isActive
-    ? t("urride.opDash.activeVisible")
-    : t("urride.opDash.offlineNotAccepting");
+  // Availability only (the Active switch as saved in Supabase). Whether
+  // passengers can see the operator depends on location sharing and is shown
+  // separately by OperatorVisibilityStatus.
+  const availabilityText = t(`urrideLiveDiscovery.${availabilityLabelKey({ active: isActive, saving: availabilitySaving })}`);
   const waitingPassengers = useMemo(() => dashboard?.waitingPassengers || [], [dashboard?.waitingPassengers]);
   const hasWaitingPassengers = waitingPassengers.length > 0;
   const hasActiveTrip = useMemo(
@@ -531,12 +533,10 @@ export default function OperatorDashboardScreen({
       const consent = await requestOperatorBackgroundConsent().catch(() => "skip");
       liveLocationPromptRef.current = consent !== "later";
     }
-    availabilityOverrideRef.current = {
-      active: nextActive,
-      expiresAt: Date.now() + AVAILABILITY_REFRESH_GRACE_MS,
-    };
+    // Nothing changes on screen (and location sharing doesn't start or stop)
+    // until Supabase has saved the new state; meanwhile the control says
+    // "Going online…" / "Going offline…" and ignores further taps.
     setAvailabilitySaving(true);
-    setIsActive(nextActive);
     try {
       const updatedFleet = account?.fleetId
         ? await updateOperatorAvailability(account.fleetId, nextActive)
@@ -549,7 +549,7 @@ export default function OperatorDashboardScreen({
         expiresAt: Date.now() + AVAILABILITY_REFRESH_GRACE_MS,
       };
       setIsActive(updatedActive);
-      showToast(updatedActive ? "Fleet is now live" : t("urride.opDash.fleetOffline"), "success");
+      showToast(updatedActive ? t("urrideLiveDiscovery.toastOnline") : t("urride.opDash.fleetOffline"), "success");
       onAccountUpdate?.((current) => {
         if (!current) return current;
 
@@ -574,6 +574,7 @@ export default function OperatorDashboardScreen({
     } catch (error) {
       availabilityOverrideRef.current = null;
       setIsActive(previousActive);
+      liveLocationPromptRef.current = false;
       setDashboardError(inlineErrorMessage(error, t("urride.opDash.availabilityError")));
       showToast(shortErrorToast(error, "Availability not updated"), "danger");
     } finally {

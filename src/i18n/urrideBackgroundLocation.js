@@ -9,7 +9,7 @@
 export const URRIDE_BACKGROUND_LOCATION = {
   en: {
     notificationTitle: "KunThai: you're online",
-    notificationMessage: "Nearby passengers can see you. Go offline in KunThai to stop sharing your location.",
+    notificationMessage: "Sharing your location while you're online. Open KunThai to check if passengers can see you; go offline to stop.",
     sheetTitle: "Stay visible with your phone locked",
     sheetBodyIos:
       "To stay visible to passengers while your phone is locked, allow location “Always” for KunThai. Like Uber and Bolt drivers, you keep getting bookings with KunThai in the background.",
@@ -27,8 +27,7 @@ export const URRIDE_BACKGROUND_LOCATION = {
   },
   fr: {
     notificationTitle: "KunThai : vous êtes en ligne",
-    notificationMessage:
-      "Les passagers à proximité vous voient. Passez hors ligne dans KunThai pour arrêter de partager votre position.",
+    notificationMessage: "Votre position est partagée tant que vous êtes en ligne. Ouvrez KunThai pour vérifier si les passagers vous voient ; passez hors ligne pour arrêter.",
     sheetTitle: "Restez visible téléphone verrouillé",
     sheetBodyIos:
       "Pour rester visible des passagers quand votre téléphone est verrouillé, autorisez la localisation « Toujours » pour KunThai. Comme les chauffeurs Uber et Bolt, vous continuez à recevoir des réservations avec KunThai en arrière-plan.",
@@ -47,8 +46,7 @@ export const URRIDE_BACKGROUND_LOCATION = {
   },
   es: {
     notificationTitle: "KunThai: estás en línea",
-    notificationMessage:
-      "Los pasajeros cercanos pueden verte. Desconéctate en KunThai para dejar de compartir tu ubicación.",
+    notificationMessage: "Compartiendo tu ubicación mientras estás en línea. Abre KunThai para ver si los pasajeros te ven; desconéctate para detenerlo.",
     sheetTitle: "Sigue visible con el teléfono bloqueado",
     sheetBodyIos:
       "Para que los pasajeros te sigan viendo con el teléfono bloqueado, permite la ubicación «Siempre» para KunThai. Como los conductores de Uber y Bolt, sigues recibiendo reservas con KunThai en segundo plano.",
@@ -66,7 +64,7 @@ export const URRIDE_BACKGROUND_LOCATION = {
   },
   zh: {
     notificationTitle: "KunThai：您已上线",
-    notificationMessage: "附近的乘客可以看到您。在 KunThai 中下线即可停止共享位置。",
+    notificationMessage: "在线期间正在共享您的位置。打开 KunThai 查看乘客是否能看到您；下线即可停止。",
     sheetTitle: "锁屏时也保持可见",
     sheetBodyIos:
       "要在手机锁屏时仍对乘客可见，请为 KunThai 选择“始终”允许定位。就像 Uber 和 Bolt 司机一样，KunThai 在后台时您也能继续接到预订。",
@@ -83,7 +81,7 @@ export const URRIDE_BACKGROUND_LOCATION = {
   },
   ar: {
     notificationTitle: "KunThai: أنت متصل",
-    notificationMessage: "يمكن للركاب القريبين رؤيتك. انتقل إلى وضع غير متصل في KunThai لإيقاف مشاركة موقعك.",
+    notificationMessage: "تتم مشاركة موقعك أثناء اتصالك. افتح KunThai لترى إن كان الركاب يرونك؛ انتقل إلى غير متصل للإيقاف.",
     sheetTitle: "ابقَ مرئيًا وهاتفك مقفل",
     sheetBodyIos:
       "لتبقى مرئيًا للركاب وهاتفك مقفل، اسمح بالموقع «دائمًا» لتطبيق KunThai. مثل سائقي Uber وBolt، تستمر في تلقي الحجوزات وKunThai يعمل في الخلفية.",
@@ -101,8 +99,7 @@ export const URRIDE_BACKGROUND_LOCATION = {
   },
   pt: {
     notificationTitle: "KunThai: você está online",
-    notificationMessage:
-      "Passageiros próximos podem ver você. Fique offline no KunThai para parar de compartilhar sua localização.",
+    notificationMessage: "Compartilhando sua localização enquanto você está online. Abra o KunThai para ver se os passageiros podem ver você; fique offline para parar.",
     sheetTitle: "Continue visível com o celular bloqueado",
     sheetBodyIos:
       "Para continuar visível aos passageiros com o celular bloqueado, permita a localização “Sempre” para o KunThai. Como os motoristas da Uber e da Bolt, você continua recebendo reservas com o KunThai em segundo plano.",
@@ -120,7 +117,7 @@ export const URRIDE_BACKGROUND_LOCATION = {
   },
   hi: {
     notificationTitle: "KunThai: आप ऑनलाइन हैं",
-    notificationMessage: "आस-पास के यात्री आपको देख सकते हैं। लोकेशन शेयर करना बंद करने के लिए KunThai में ऑफ़लाइन हो जाएँ।",
+    notificationMessage: "ऑनलाइन रहने तक आपकी लोकेशन शेयर हो रही है। यात्री आपको देख पा रहे हैं या नहीं, यह KunThai खोलकर देखें; रोकने के लिए ऑफ़लाइन हो जाएँ।",
     sheetTitle: "फ़ोन लॉक होने पर भी दिखते रहें",
     sheetBodyIos:
       "फ़ोन लॉक होने पर भी यात्रियों को दिखते रहने के लिए KunThai को लोकेशन “हमेशा” की अनुमति दें। Uber और Bolt ड्राइवरों की तरह, KunThai बैकग्राउंड में होने पर भी आपको बुकिंग मिलती रहेंगी।",
@@ -138,7 +135,7 @@ export const URRIDE_BACKGROUND_LOCATION = {
   },
   bn: {
     notificationTitle: "KunThai: আপনি অনলাইনে আছেন",
-    notificationMessage: "কাছাকাছি যাত্রীরা আপনাকে দেখতে পাচ্ছেন। লোকেশন শেয়ার বন্ধ করতে KunThai-এ অফলাইন হন।",
+    notificationMessage: "অনলাইনে থাকা পর্যন্ত আপনার অবস্থান শেয়ার হচ্ছে। যাত্রীরা আপনাকে দেখছেন কি না, KunThai খুলে দেখুন; বন্ধ করতে অফলাইন হন।",
     sheetTitle: "ফোন লক থাকলেও দৃশ্যমান থাকুন",
     sheetBodyIos:
       "ফোন লক থাকলেও যাত্রীদের কাছে দৃশ্যমান থাকতে KunThai-কে লোকেশন “সবসময়” অনুমতি দিন। Uber ও Bolt চালকদের মতো, KunThai ব্যাকগ্রাউন্ডে থাকলেও আপনি বুকিং পেতে থাকবেন।",
@@ -156,8 +153,7 @@ export const URRIDE_BACKGROUND_LOCATION = {
   },
   id: {
     notificationTitle: "KunThai: Anda sedang online",
-    notificationMessage:
-      "Penumpang di sekitar dapat melihat Anda. Ubah ke offline di KunThai untuk berhenti membagikan lokasi Anda.",
+    notificationMessage: "Lokasi Anda dibagikan selama Anda online. Buka KunThai untuk melihat apakah penumpang dapat melihat Anda; pilih offline untuk berhenti.",
     sheetTitle: "Tetap terlihat saat ponsel terkunci",
     sheetBodyIos:
       "Agar tetap terlihat oleh penumpang saat ponsel terkunci, izinkan lokasi “Selalu” untuk KunThai. Seperti pengemudi Uber dan Bolt, Anda tetap menerima pesanan saat KunThai berjalan di latar belakang.",
@@ -175,7 +171,7 @@ export const URRIDE_BACKGROUND_LOCATION = {
   },
   ur: {
     notificationTitle: "KunThai: آپ آن لائن ہیں",
-    notificationMessage: "قریبی مسافر آپ کو دیکھ سکتے ہیں۔ مقام شیئر کرنا بند کرنے کے لیے KunThai میں آف لائن ہو جائیں۔",
+    notificationMessage: "آن لائن رہنے تک آپ کا مقام شیئر ہو رہا ہے۔ مسافر آپ کو دیکھ پا رہے ہیں یا نہیں، KunThai کھول کر دیکھیں؛ روکنے کے لیے آف لائن ہو جائیں۔",
     sheetTitle: "فون لاک ہونے پر بھی نظر آتے رہیں",
     sheetBodyIos:
       "فون لاک ہونے پر بھی مسافروں کو نظر آتے رہنے کے لیے KunThai کو مقام کی “ہمیشہ” اجازت دیں۔ Uber اور Bolt ڈرائیورز کی طرح، KunThai پس منظر میں ہونے پر بھی آپ کو بکنگز ملتی رہیں گی۔",
@@ -193,8 +189,7 @@ export const URRIDE_BACKGROUND_LOCATION = {
   },
   ru: {
     notificationTitle: "KunThai: вы на линии",
-    notificationMessage:
-      "Пассажиры рядом видят вас. Перейдите в офлайн в KunThai, чтобы перестать делиться местоположением.",
+    notificationMessage: "Ваше местоположение передаётся, пока вы в сети. Откройте KunThai, чтобы проверить, видят ли вас пассажиры; выйдите из сети, чтобы остановить.",
     sheetTitle: "Оставайтесь видимым при заблокированном телефоне",
     sheetBodyIos:
       "Чтобы пассажиры видели вас, когда телефон заблокирован, разрешите KunThai доступ к геопозиции «Всегда». Как водители Uber и Bolt, вы продолжаете получать заказы, пока KunThai работает в фоне.",
@@ -212,7 +207,7 @@ export const URRIDE_BACKGROUND_LOCATION = {
   },
   ja: {
     notificationTitle: "KunThai：オンライン中",
-    notificationMessage: "近くの乗客にあなたが表示されています。位置情報の共有を止めるには KunThai でオフラインにしてください。",
+    notificationMessage: "オンライン中は位置情報を共有しています。乗客に表示されているかは KunThai を開いて確認できます。止めるにはオフラインにしてください。",
     sheetTitle: "画面ロック中も表示されたままに",
     sheetBodyIos:
       "スマートフォンがロックされていても乗客に表示されるよう、KunThai の位置情報を「常に」許可してください。Uber や Bolt のドライバーのように、KunThai がバックグラウンドでも予約を受け続けられます。",
@@ -230,7 +225,7 @@ export const URRIDE_BACKGROUND_LOCATION = {
   },
   mr: {
     notificationTitle: "KunThai: तुम्ही ऑनलाइन आहात",
-    notificationMessage: "जवळचे प्रवासी तुम्हाला पाहू शकतात. लोकेशन शेअर करणे थांबवण्यासाठी KunThai मध्ये ऑफलाइन व्हा.",
+    notificationMessage: "ऑनलाइन असेपर्यंत तुमचे स्थान शेअर होत आहे. प्रवासी तुम्हाला पाहू शकतात का ते KunThai उघडून पाहा; थांबवण्यासाठी ऑफलाइन व्हा.",
     sheetTitle: "फोन लॉक असतानाही दिसत राहा",
     sheetBodyIos:
       "फोन लॉक असतानाही प्रवाशांना दिसत राहण्यासाठी KunThai ला लोकेशनची “नेहमी” परवानगी द्या. Uber आणि Bolt चालकांप्रमाणे, KunThai बॅकग्राउंडमध्ये असतानाही तुम्हाला बुकिंग मिळत राहतील.",
@@ -248,8 +243,7 @@ export const URRIDE_BACKGROUND_LOCATION = {
   },
   vi: {
     notificationTitle: "KunThai: bạn đang trực tuyến",
-    notificationMessage:
-      "Hành khách gần đó có thể thấy bạn. Chuyển sang ngoại tuyến trong KunThai để ngừng chia sẻ vị trí.",
+    notificationMessage: "Đang chia sẻ vị trí khi bạn trực tuyến. Mở KunThai để xem hành khách có thấy bạn không; chuyển ngoại tuyến để dừng.",
     sheetTitle: "Vẫn hiển thị khi điện thoại khóa",
     sheetBodyIos:
       "Để hành khách vẫn thấy bạn khi điện thoại đang khóa, hãy cho phép vị trí “Luôn luôn” cho KunThai. Giống tài xế Uber và Bolt, bạn vẫn nhận đặt xe khi KunThai chạy nền.",
@@ -267,8 +261,7 @@ export const URRIDE_BACKGROUND_LOCATION = {
   },
   de: {
     notificationTitle: "KunThai: Du bist online",
-    notificationMessage:
-      "Fahrgäste in der Nähe sehen dich. Geh in KunThai offline, um deinen Standort nicht mehr zu teilen.",
+    notificationMessage: "Dein Standort wird geteilt, solange du online bist. Öffne KunThai, um zu sehen, ob Fahrgäste dich sehen; geh offline, um aufzuhören.",
     sheetTitle: "Auch bei gesperrtem Handy sichtbar bleiben",
     sheetBodyIos:
       "Damit Fahrgäste dich auch bei gesperrtem Handy sehen, erlaube KunThai den Standortzugriff „Immer“. Wie Uber- und Bolt-Fahrer bekommst du weiter Buchungen, während KunThai im Hintergrund läuft.",

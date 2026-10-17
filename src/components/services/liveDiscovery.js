@@ -168,11 +168,52 @@ export function liveDiscoverySignature(groups) {
   return `${part(groups.available)}#${part(groups.recent)}`;
 }
 
-// Operator dashboard: is this phone currently visible to passengers?
-export function describeOperatorVisibility({ running = false, lastPublishedAt = 0, now = Date.now() } = {}) {
+// How long a freshly started share may wait for its first saved position
+// before the dashboard says "no GPS fix" instead of "starting".
+export const FIRST_FIX_GRACE_MS = 45_000;
+
+// Operator dashboard, while the Active switch is on. Two separate answers,
+// both from what this phone actually did (never from the Active switch alone):
+//   sharing: "sharing" | "starting" | "paused" | "delayed" | "error"
+//     with error: "permission" | "write" | "gps" | ""
+//   visible: passengers can list this operator, i.e. a position was saved in
+//     the last 2 minutes (the window transport_available_operators_nearby and
+//     the open-booking broadcast use).
+// `seconds` is the age of the last saved position while visible.
+export function describeOperatorVisibility({
+  running = false,
+  lastPublishedAt = 0,
+  startedAt = 0,
+  error = "",
+  access = "",
+  now = Date.now(),
+} = {}) {
   const age = lastPublishedAt ? now - lastPublishedAt : Infinity;
-  const visible = Boolean(running) && age >= 0 && age < LIVE_WINDOW_MS;
-  return { visible, seconds: visible ? Math.max(0, Math.round(age / 1000)) : null };
+  const fresh = Boolean(running) && age >= 0 && age < LIVE_WINDOW_MS;
+  const seconds = fresh ? Math.max(0, Math.round(age / 1000)) : null;
+
+  let sharing;
+  let reason = "";
+  if (!running) {
+    sharing = "paused";
+  } else if (error === "permission" || access === "denied") {
+    sharing = "error";
+    reason = "permission";
+  } else if (error === "write" && !fresh) {
+    sharing = "error";
+    reason = "write";
+  } else if (fresh) {
+    sharing = "sharing";
+  } else if (lastPublishedAt) {
+    sharing = "delayed";
+  } else if (error === "gps" || (startedAt && now - startedAt >= FIRST_FIX_GRACE_MS)) {
+    sharing = "error";
+    reason = "gps";
+  } else {
+    sharing = "starting";
+  }
+
+  return { visible: fresh, seconds, sharing, error: reason };
 }
 
 // Runs `run` every `intervalMs` while `isVisible()` holds; never two runs at

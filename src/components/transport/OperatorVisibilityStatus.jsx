@@ -10,10 +10,15 @@ import {
   subscribeOperatorPublishStatus,
 } from "../services/operatorLiveLocationService";
 
-// Operator dashboard, while Active: passengers only list an operator whose
-// phone checked in during the last 2 minutes. Green while that holds; amber
-// otherwise, with a button that starts sharing (the tap may show the
-// location permission prompt — nothing here prompts on its own). In the
+// Operator dashboard, while Active (Online): two separate lines, both from
+// what this phone actually did, never from the Active switch alone.
+//   Location   — Sharing / Starting / Paused / Delayed / Error (permission
+//                refused, no GPS fix, or the database refused the position)
+//   Passengers — Visible only while a position was saved in the last
+//                2 minutes (the window passenger discovery uses)
+// Green while visible; amber otherwise, with a button that (re)starts sharing
+// (the tap may show the location permission prompt — nothing here prompts on
+// its own). In the
 // native app, an amber hint below it offers Settings when location is only
 // allowed "While using" (iOS) or is off, since sharing with the phone locked
 // needs more.
@@ -82,42 +87,69 @@ export default function OperatorVisibilityStatus({ displayName = "", fleetType =
       </div>
     ) : null;
 
-  if (view.visible) {
-    return (
-      <>
-        <div
-          role="status"
-          data-direction="urride-operator-visibility"
-          className="mb-4 flex items-center gap-2 rounded-2xl border border-emerald-200 bg-emerald-50 px-4 py-2.5 text-xs font-bold text-emerald-800"
-        >
-          <span className="h-2 w-2 shrink-0 rounded-full bg-emerald-600" aria-hidden="true" />
-          <span>{t("urrideLiveDiscovery.visible", { seconds: view.seconds })}</span>
-        </div>
-        {accessHint}
-      </>
-    );
-  }
+  const locationText = {
+    sharing: t("urrideLiveDiscovery.locationSharing", { seconds: view.seconds ?? 0 }),
+    starting: t("urrideLiveDiscovery.locationStarting"),
+    paused: t("urrideLiveDiscovery.locationPaused"),
+    delayed: t("urrideLiveDiscovery.locationDelayed"),
+    error: view.error === "permission"
+      ? t("urrideLiveDiscovery.locationPermission")
+      : view.error === "write"
+        ? t("urrideLiveDiscovery.locationWriteFailed")
+        : t("urrideLiveDiscovery.locationNoFix"),
+  }[view.sharing];
+  const locationDot = {
+    sharing: "bg-emerald-600",
+    starting: "bg-sky-500",
+    paused: "bg-slate-400",
+    delayed: "bg-amber-500",
+    error: "bg-red-500",
+  }[view.sharing];
+  // "Share location" restarts sharing whenever it isn't working; "starting"
+  // is already on its way.
+  const canShare = view.sharing !== "sharing" && view.sharing !== "starting";
 
   return (
     <>
       <div
         role="status"
         data-direction="urride-operator-visibility"
-        className="mb-4 flex flex-wrap items-center justify-between gap-2 rounded-2xl border border-amber-200 bg-amber-50 px-4 py-2.5 text-xs font-bold text-amber-900"
+        data-sharing={view.sharing}
+        data-visible={view.visible ? "true" : "false"}
+        className={`mb-4 rounded-2xl border px-4 py-2.5 text-xs font-bold ${
+          view.visible
+            ? "border-emerald-200 bg-emerald-50 text-emerald-800"
+            : "border-amber-200 bg-amber-50 text-amber-900"
+        }`}
       >
-        <span className="flex min-w-0 items-center gap-2">
-          <span className="h-2 w-2 shrink-0 rounded-full bg-amber-500" aria-hidden="true" />
-          <span>{t("urrideLiveDiscovery.notVisible")}</span>
-        </span>
-        <button
-          type="button"
-          onClick={share}
-          disabled={starting}
-          className="inline-flex h-8 items-center gap-1.5 rounded-full border border-amber-300 bg-white px-3 text-xs font-black text-amber-900 transition hover:bg-amber-100 disabled:cursor-wait disabled:opacity-70"
-        >
-          <FiMapPin size={13} aria-hidden="true" />
-          {starting ? t("urrideLiveDiscovery.sharing") : t("urrideLiveDiscovery.shareLocation")}
-        </button>
+        <div className="flex flex-wrap items-center justify-between gap-2">
+          <div className="grid min-w-0 flex-1 gap-1">
+            <span className="flex min-w-0 items-center gap-2">
+              <span className={`h-2 w-2 shrink-0 rounded-full ${locationDot}`} aria-hidden="true" />
+              <span className="font-black">{t("urrideLiveDiscovery.locationLabel")}:</span>
+              <span className="min-w-0">{locationText}</span>
+            </span>
+            <span className="flex min-w-0 items-center gap-2">
+              <span
+                className={`h-2 w-2 shrink-0 rounded-full ${view.visible ? "bg-emerald-600" : "bg-amber-500"}`}
+                aria-hidden="true"
+              />
+              <span className="font-black">{t("urrideLiveDiscovery.passengersLabel")}:</span>
+              <span>{view.visible ? t("urrideLiveDiscovery.passengersVisible") : t("urrideLiveDiscovery.passengersHidden")}</span>
+            </span>
+          </div>
+          {canShare ? (
+            <button
+              type="button"
+              onClick={share}
+              disabled={starting}
+              className="inline-flex h-8 items-center gap-1.5 rounded-full border border-amber-300 bg-white px-3 text-xs font-black text-amber-900 transition hover:bg-amber-100 disabled:cursor-wait disabled:opacity-70"
+            >
+              <FiMapPin size={13} aria-hidden="true" />
+              {starting ? t("urrideLiveDiscovery.sharing") : t("urrideLiveDiscovery.shareLocation")}
+            </button>
+          ) : null}
+        </div>
       </div>
       {accessHint}
     </>

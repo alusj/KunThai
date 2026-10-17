@@ -18,7 +18,7 @@ function flatten(node, prefix = "", result = {}) {
 test("every locale carries every UrRide live discovery key with the same placeholders", () => {
   assert.deepEqual(Object.keys(URRIDE_LIVE_DISCOVERY).sort(), [...LOCALES].sort());
   const english = flatten(URRIDE_LIVE_DISCOVERY.en);
-  assert.equal(Object.keys(english).length, 22);
+  assert.equal(Object.keys(english).length, 38);
   for (const locale of LOCALES) {
     const entries = flatten(URRIDE_LIVE_DISCOVERY[locale]);
     assert.deepEqual(Object.keys(entries).sort(), Object.keys(english).sort(), locale);

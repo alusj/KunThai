@@ -4,4 +4,7 @@
     <string name="title_activity_main">KunThai</string>
     <string name="package_name">app.kunthai.mobile</string>
     <string name="custom_url_scheme">app.kunthai.mobile</string>
+    <!-- Name of the "KunThai: you're online" notification channel (UrRide location sharing),
+         read by @capgo/background-geolocation and MainActivity. -->
+    <string name="capacitor_background_geolocation_notification_channel_name">UrRide location sharing</string>
 </resources>

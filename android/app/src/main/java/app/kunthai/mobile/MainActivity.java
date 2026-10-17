@@ -2,8 +2,11 @@ package app.kunthai.mobile;
 
 import androidx.annotation.RequiresApi;
 import android.app.Activity;
+import android.app.NotificationChannel;
+import android.app.NotificationManager;
 import android.graphics.Bitmap;
 import android.os.Build;
+import android.os.Bundle;
 import android.os.Handler;
 import android.os.Looper;
 import android.util.Base64;
@@ -18,7 +21,38 @@ import org.json.JSONObject;
 import java.io.ByteArrayOutputStream;
 
 public class MainActivity extends BridgeActivity {
+    // Channel id @capgo/background-geolocation uses for its "KunThai: you're online"
+    // foreground-service notification (its service's package name).
+    private static final String LOCATION_SHARING_CHANNEL_ID = "com.capgo.capacitor_background_geolocation";
+
     private ScreenCaptureObserver screenCaptureObserver;
+
+    @Override
+    public void onCreate(Bundle savedInstanceState) {
+        createLocationSharingChannel();
+        super.onCreate(savedInstanceState);
+    }
+
+    // The plugin creates this channel on load with app-icon badges on, so Samsung
+    // launchers show a "1" on the KunThai icon for as long as an operator is online,
+    // with nothing unread to open. Creating it first, with badges off, wins: Android
+    // never changes the badge setting of an existing channel. (A phone that already
+    // has the channel keeps its old setting until KunThai is reinstalled.)
+    private void createLocationSharingChannel() {
+        if (Build.VERSION.SDK_INT < Build.VERSION_CODES.O) return;
+        NotificationManager manager = getSystemService(NotificationManager.class);
+        if (manager == null || manager.getNotificationChannel(LOCATION_SHARING_CHANNEL_ID) != null) return;
+        NotificationChannel channel = new NotificationChannel(
+            LOCATION_SHARING_CHANNEL_ID,
+            getString(R.string.capacitor_background_geolocation_notification_channel_name),
+            NotificationManager.IMPORTANCE_DEFAULT
+        );
+        channel.enableLights(false);
+        channel.enableVibration(false);
+        channel.setSound(null, null);
+        channel.setShowBadge(false);
+        manager.createNotificationChannel(channel);
+    }
 
     @Override
     public void onStart() {

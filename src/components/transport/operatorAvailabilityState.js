@@ -14,3 +14,12 @@ export function shouldPreserveAvailabilityOverride(override, reportedActive, now
       Boolean(override.active) !== Boolean(reportedActive),
   );
 }
+
+// The availability control's label (a urrideLiveDiscovery key). Availability
+// only: "Online" never implies passengers can see the operator — location
+// sharing and visibility are shown separately. While saving it names the
+// change in flight; the saved state only flips after Supabase confirms it.
+export function availabilityLabelKey({ active = false, saving = false } = {}) {
+  if (saving) return active ? "statusGoingOffline" : "statusGoingOnline";
+  return active ? "statusOnline" : "statusOffline";
+}

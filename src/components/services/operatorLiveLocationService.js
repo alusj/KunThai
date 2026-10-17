@@ -55,6 +55,11 @@ function publishStatusSnapshot() {
     engine: activePublisher?.engine || "",
     // Native only: "background" | "foregroundOnly" | "denied" | "prompt" | "unknown"
     access: activePublisher?.engine === "native" ? activePublisher.access || "unknown" : "",
+    // When this share started, and why it last failed: "permission" (location
+    // refused), "gps" (no position from the phone), "write" (the database
+    // refused the position) or "" (no failure since the last saved position).
+    startedAt: activePublisher?.startedAt || 0,
+    error: activePublisher?.errorKind || "",
   };
 }
 
@@ -211,15 +216,29 @@ async function publishRow(publisher, position, { force = false } = {}) {
     { onConflict: "operator_id" },
   );
   if (error) {
-    // Live positioning is best-effort; the fleet stays bookable without it.
+    // Not saved, so passengers can't see this position: the dashboard says so
+    // (sharing "error") instead of claiming the operator is visible. The next
+    // fix or heartbeat tries again.
     publisher.lastError = error.message;
+    publisher.lastPublishedAt = 0;
+    if (activePublisher === publisher && publisher.errorKind !== "write") {
+      publisher.errorKind = "write";
+      notifyPublishListeners();
+    }
     return;
   }
   publisher.lastError = "";
+  publisher.errorKind = "";
   if (activePublisher === publisher) {
     lastSuccessfulPublishAt = now;
     notifyPublishListeners();
   }
+}
+
+function setPublisherError(publisher, kind) {
+  if (activePublisher !== publisher || publisher.errorKind === kind) return;
+  publisher.errorKind = kind;
+  notifyPublishListeners();
 }
 
 async function markOffline(userId) {
@@ -318,7 +337,10 @@ function startNativeWatch(publisher, plugin, { interactive = false } = {}) {
       publishRow(publisher, position);
     },
     // Denied, or location services off: the amber line offers Settings.
-    onPermissionError: () => refreshNativeAccess(publisher),
+    onPermissionError: () => {
+      setPublisherError(publisher, "permission");
+      refreshNativeAccess(publisher);
+    },
     onStartFailed: () => {
       // The plugin failed to start: share from the WebView instead, like before.
       if (activePublisher !== publisher || publisher.engine !== "native") return;
@@ -362,8 +384,11 @@ function startWebWatch(publisher) {
       writeFlag(LOCATION_GRANTED_KEY);
       publishRow(publisher, position);
     },
-    () => {
-      // Position denied or unavailable: the heartbeat keeps the last point fresh.
+    (positionError) => {
+      // Denied: say so. Unavailable or timed out: only an error while no
+      // position was ever received (the heartbeat keeps the last one fresh).
+      if (positionError?.code === 1) setPublisherError(publisher, "permission");
+      else if (!publisher.lastPoint) setPublisherError(publisher, "gps");
     },
     { enableHighAccuracy: true, maximumAge: 5000, timeout: 20000 },
   );
@@ -409,7 +434,10 @@ export async function startOperatorLiveLocation({
   const engine = chooseLocationEngine({ isNative: native, pluginAvailable: Boolean(plugin), hasWebGeolocation });
   if (engine === "none") return () => {};
 
-  stopOperatorLiveLocation();
+  // Restarting for the same operator (Active switched on, "Share location",
+  // app resumed) must not mark them offline: that write could land after the
+  // new share's first position.
+  stopOperatorLiveLocation({ markOffline: activePublisher?.userId !== userId });
   if (lastPublisherUserId !== userId) lastSuccessfulPublishAt = 0;
   lastPublisherUserId = userId;
 
@@ -426,6 +454,8 @@ export async function startOperatorLiveLocation({
     lastPublishedPoint: null,
     lastPublishedAt: 0,
     lastError: "",
+    errorKind: "",
+    startedAt: Date.now(),
     placeLabel: "",
     placePoint: null,
     placeAttemptAt: 0,
@@ -445,7 +475,9 @@ export async function startOperatorLiveLocation({
   };
 }
 
-export function stopOperatorLiveLocation() {
+// `markOffline: false` only when a new share for the same operator replaces
+// this one; otherwise the row is marked offline straight away.
+export function stopOperatorLiveLocation({ markOffline: shouldMarkOffline = true } = {}) {
   const publisher = activePublisher;
   if (!publisher) return;
   activePublisher = null;
@@ -453,7 +485,7 @@ export function stopOperatorLiveLocation() {
   if (publisher.heartbeatId != null) window.clearInterval(publisher.heartbeatId);
   if (publisher.onVisible) document.removeEventListener("visibilitychange", publisher.onVisible);
   publisher.nativeSession?.stop();
-  markOffline(publisher.userId);
+  if (shouldMarkOffline) markOffline(publisher.userId);
   notifyPublishListeners();
 }
 

@@ -145,10 +145,35 @@ test("signature changes only when what the passenger sees changes", () => {
 });
 
 test("operator visibility: green under 2 minutes while sharing, amber otherwise", () => {
-  assert.deepEqual(describeOperatorVisibility({ running: true, lastPublishedAt: NOW - 14_000, now: NOW }), { visible: true, seconds: 14 });
+  assert.deepEqual(
+    describeOperatorVisibility({ running: true, lastPublishedAt: NOW - 14_000, now: NOW }),
+    { visible: true, seconds: 14, sharing: "sharing", error: "" },
+  );
   assert.equal(describeOperatorVisibility({ running: true, lastPublishedAt: NOW - 120_000, now: NOW }).visible, false);
   assert.equal(describeOperatorVisibility({ running: false, lastPublishedAt: NOW - 1000, now: NOW }).visible, false);
   assert.equal(describeOperatorVisibility({ running: true, lastPublishedAt: 0, now: NOW }).visible, false);
+});
+
+test("operator visibility: sharing state never claims more than the phone did", () => {
+  const view = (extra) => describeOperatorVisibility({ now: NOW, ...extra });
+  // Not running (going offline, signed out): paused, not visible.
+  assert.deepEqual(view({ running: false }), { visible: false, seconds: null, sharing: "paused", error: "" });
+  // Just started, no position yet: starting, not visible.
+  assert.equal(view({ running: true, startedAt: NOW - 5_000 }).sharing, "starting");
+  assert.equal(view({ running: true, startedAt: NOW - 5_000 }).visible, false);
+  // No position 45 s after starting: GPS error, not "sharing".
+  assert.deepEqual(view({ running: true, startedAt: NOW - 46_000 }), { visible: false, seconds: null, sharing: "error", error: "gps" });
+  assert.deepEqual(view({ running: true, startedAt: NOW, error: "gps" }), { visible: false, seconds: null, sharing: "error", error: "gps" });
+  // Permission denied: error even if an old position is still fresh.
+  assert.deepEqual(view({ running: true, lastPublishedAt: NOW - 10_000, access: "denied" }), { visible: true, seconds: 10, sharing: "error", error: "permission" });
+  assert.equal(view({ running: true, error: "permission" }).error, "permission");
+  // The database rejected the write and nothing fresh is saved: write error, not visible.
+  assert.deepEqual(view({ running: true, startedAt: NOW - 5_000, error: "write" }), { visible: false, seconds: null, sharing: "error", error: "write" });
+  assert.deepEqual(view({ running: true, lastPublishedAt: NOW - 150_000, error: "write" }), { visible: false, seconds: null, sharing: "error", error: "write" });
+  // One failed write after a fresh save: still visible (the saved position counts).
+  assert.equal(view({ running: true, lastPublishedAt: NOW - 20_000, error: "write" }).sharing, "sharing");
+  // Running, saved before but nothing in 2 minutes: delayed, not visible.
+  assert.deepEqual(view({ running: true, lastPublishedAt: NOW - 150_000 }), { visible: false, seconds: null, sharing: "delayed", error: "" });
 });
 
 const tick = () => new Promise((resolve) => setTimeout(resolve, 0));
