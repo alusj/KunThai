@@ -106,7 +106,9 @@ function createEmptyAddress(profile = {}) {
 
 function readRecentProducts() {
   try {
-    return JSON.parse(localStorage.getItem(RECENT_PRODUCTS_KEY) || "[]");
+    const stored = JSON.parse(localStorage.getItem(RECENT_PRODUCTS_KEY) || "[]");
+    // Older builds could save an id-only product here; it cannot be shown.
+    return Array.isArray(stored) ? stored.filter((item) => item?.id && item.seller && item.name) : [];
   } catch {
     return [];
   }

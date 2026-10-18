@@ -30,6 +30,8 @@ import { t as i18nText } from "../../../i18n/index";
 import { uiText as translateUi, useI18n as useUiLocale } from "../../../i18n/index.js";
 import { inlineErrorMessage } from "../../../Backend/services/friendlyErrorService";
 import { showToast } from "../../../Backend/services/toastService";
+import { notificationDisplayText } from "../../../Backend/services/notificationText";
+import ExpandableText from "../../shared/ExpandableText";
 
 let lastAnnouncedUnread = 0;
 
@@ -284,10 +286,17 @@ export default function NotificationButton({ companyAccount, openRequest = 0, op
                           {notification.sourceTable === "platform_notifications" ? <BellRing size={18} /> : <Truck size={18} />}
                         </span>
                         <div className="min-w-0 flex-1">
-                          <div className="flex items-start justify-between gap-3">
-                            <h3 className="text-sm font-black text-slate-950">{translateUi(notification.title)}</h3>
-                          </div>
-                          <p className="mt-1 text-sm font-semibold text-slate-600">{notification.body}</p>
+                          {(() => {
+                            const text = notificationDisplayText(notification.title, notification.body);
+                            return (
+                              <>
+                                <div className="flex items-start justify-between gap-3">
+                                  <h3 className="break-words text-sm font-black text-slate-950">{translateUi(text.title)}</h3>
+                                </div>
+                                {text.body ? <ExpandableText text={text.body} className="mt-1 text-sm font-semibold text-slate-600" /> : null}
+                              </>
+                            );
+                          })()}
                           {notification.meta ? (
                             <p className="mt-1 text-xs font-bold text-slate-400">{notification.meta}</p>
                           ) : null}

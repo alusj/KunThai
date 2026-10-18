@@ -23,6 +23,8 @@ import { runNotificationAction } from "../../../Backend/services/notificationBan
 import { t as i18nText } from "../../../i18n/index";
 import { uiText as translateUi, useI18n as useUiLocale } from "../../../i18n/index.js";
 import { inlineErrorMessage } from "../../../Backend/services/friendlyErrorService";
+import { notificationDisplayText } from "../../../Backend/services/notificationText";
+import ExpandableText from "../../shared/ExpandableText";
 
 const BUYER_NOTIFICATION_SCOPE = "urmall:buyer:notifications";
 const BUYER_NOTIFICATION_READ_SCOPE = `${BUYER_NOTIFICATION_SCOPE}:read`;
@@ -225,8 +227,15 @@ export default function BuyerNotifications({ onOpenChange, onUnreadCountChange, 
                           {notification.sourceTable === "platform_notifications" ? <BellRing size={18} /> : <PackageCheck size={18} />}
                         </span>
                         <div className="min-w-0 flex-1">
-                          <h3 className="text-sm font-black text-slate-950">{translateUi(notification.title)}</h3>
-                          <p className="mt-1 text-sm font-semibold leading-5 text-slate-600">{translateUi(notification.body)}</p>
+                          {(() => {
+                            const text = notificationDisplayText(notification.title, notification.body);
+                            return (
+                              <>
+                                <h3 className="break-words text-sm font-black text-slate-950">{translateUi(text.title)}</h3>
+                                {text.body ? <ExpandableText text={translateUi(text.body)} className="mt-1 text-sm font-semibold leading-5 text-slate-600" /> : null}
+                              </>
+                            );
+                          })()}
                           {notification.createdAt ? (
                             <p className="mt-1 text-xs font-bold text-slate-400">{formatNotificationTime(notification.createdAt)}</p>
                           ) : null}

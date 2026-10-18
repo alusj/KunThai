@@ -4,7 +4,7 @@ export const REQUIRED_EXTRA_IMAGE_COUNT = 5;
 export const MAX_EXTRA_IMAGE_COUNT = 6;
 
 export function createEmptyVerticalMedia() {
-  return { coverImageFile: null, extraImageFiles: [], videoFile: null, videoDuration: 0 };
+  return { coverImageFile: null, extraImageFiles: [], videoFile: null, videoDuration: 0, videoTrimStart: null, videoTrimEnd: null };
 }
 
 export function formatFileSize(bytes = 0) {
@@ -33,7 +33,9 @@ export function readVideoDuration(file) {
   });
 }
 
-export async function validateVerticalVideo(file) {
+// `range` (instant trim): only trimStart..trimEnd of the file is the clip, so
+// that window is what must fit, not the whole original.
+export async function validateVerticalVideo(file, range = null) {
   if (!file) throw new Error("Add one video before publishing.");
   if (file.size >= MAX_VERTICAL_VIDEO_BYTES) {
     const error = new Error(`Your video is ${formatFileSize(file.size)}. We can only accept videos less than 50 MB. Please compress it and try again.`);
@@ -41,7 +43,10 @@ export async function validateVerticalVideo(file) {
     error.fileSize = file.size;
     throw error;
   }
-  const duration = await readVideoDuration(file);
+  const trimEnd = Number(range?.trimEnd);
+  const duration = Number.isFinite(trimEnd) && trimEnd > 0
+    ? Math.max(0, trimEnd - Math.max(0, Number(range.trimStart) || 0))
+    : await readVideoDuration(file);
   if (duration > MAX_VERTICAL_VIDEO_SECONDS + 0.25) {
     const error = new Error(`Your video is ${Math.ceil(duration)} seconds. We can only accept videos up to ${MAX_VERTICAL_VIDEO_SECONDS} seconds.`);
     error.code = "VIDEO_TOO_LONG";
@@ -60,6 +65,6 @@ export async function validateVerticalMediaPackage(input = {}) {
     throw new Error(`You can add up to ${MAX_EXTRA_IMAGE_COUNT} extra images.`);
   }
   if (input.videoFile) {
-    await validateVerticalVideo(input.videoFile);
+    await validateVerticalVideo(input.videoFile, { trimStart: input.videoTrimStart, trimEnd: input.videoTrimEnd });
   }
 }

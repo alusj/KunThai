@@ -63,7 +63,7 @@ test("watcher options: translated notification, 25 m filter, prompts only when i
     backgroundMessage: "M",
     requestPermissions: false,
     stale: false,
-    distanceFilter: 25,
+    distanceFilter: 10,
     networkFallback: true,
   });
   assert.equal(nativeWatcherOptions({ interactive: true }).requestPermissions, true);

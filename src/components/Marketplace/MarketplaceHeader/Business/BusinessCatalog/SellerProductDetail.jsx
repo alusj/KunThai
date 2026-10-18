@@ -21,6 +21,7 @@ import AiAssistButton from "../../../../ai/AiAssistButton";
 import { productFactsForAi } from "../../../../../Backend/services/ai/urmallAiModels";
 import ProductStatusBadge from "./ProductStatusBadge";
 import { uiText as translateUi, useI18n as useUiLocale } from "../../../../../i18n/index.js";
+import ClipVideo from "../../../../shared/ClipVideo";
 
 function uniqueImages(product = {}) {
   return Array.from(new Set([product.mainImageUrl, ...(product.imageUrls || [])].filter(Boolean)));
@@ -162,7 +163,7 @@ export default function SellerProductDetail({ product, onBack, onEdit }) {
 
             {product.videoUrl ? (
               <div className="overflow-hidden rounded-2xl border border-gray-200 bg-gray-950 shadow-sm">
-                <video src={product.videoUrl} controls playsInline preload="metadata" className="aspect-video w-full bg-gray-950 object-contain" />
+                <ClipVideo src={product.videoUrl} controls playsInline preload="metadata" className="aspect-video w-full bg-gray-950 object-contain" />
               </div>
             ) : null}
           </section>

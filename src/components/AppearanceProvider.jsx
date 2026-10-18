@@ -1,8 +1,26 @@
 import { useCallback, useEffect, useLayoutEffect, useMemo, useState } from "react";
 
-import { APPEARANCE_STORAGE_KEY, AppearanceContext } from "../contexts/appearanceContext";
+import { APPEARANCE_STORAGE_KEY, AppearanceContext, TEXT_SIZE_STORAGE_KEY } from "../contexts/appearanceContext";
 
 const VALID_MODES = new Set(["system", "on", "off"]);
+const VALID_TEXT_SIZES = new Set(["small", "medium", "large"]);
+
+function normalizeTextSize(value) {
+  return VALID_TEXT_SIZES.has(value) ? value : "medium";
+}
+
+function readStoredTextSize() {
+  try {
+    return normalizeTextSize(localStorage.getItem(TEXT_SIZE_STORAGE_KEY));
+  } catch {
+    return "medium";
+  }
+}
+
+// The page's base size (appearance.css): every rem-based size follows it.
+function applyTextSize(size) {
+  document.documentElement.dataset.textSize = size;
+}
 
 function normalizeMode(value) {
   return VALID_MODES.has(value) ? value : "system";
@@ -34,11 +52,16 @@ function applyAppearance(mode, systemDark) {
 export function AppearanceProvider({ children }) {
   const [mode, setModeState] = useState(readStoredMode);
   const [systemDark, setSystemDark] = useState(readSystemDark);
+  const [textSize, setTextSizeState] = useState(readStoredTextSize);
   const dark = mode === "on" || (mode === "system" && systemDark);
 
   useLayoutEffect(() => {
     applyAppearance(mode, systemDark);
   }, [mode, systemDark]);
+
+  useLayoutEffect(() => {
+    applyTextSize(textSize);
+  }, [textSize]);
 
   useEffect(() => {
     const media = window.matchMedia?.("(prefers-color-scheme: dark)");
@@ -56,6 +79,7 @@ export function AppearanceProvider({ children }) {
   useEffect(() => {
     function handleStorage(event) {
       if (event.key === APPEARANCE_STORAGE_KEY) setModeState(normalizeMode(event.newValue));
+      if (event.key === TEXT_SIZE_STORAGE_KEY) setTextSizeState(normalizeTextSize(event.newValue));
     }
     window.addEventListener("storage", handleStorage);
     return () => window.removeEventListener("storage", handleStorage);
@@ -71,13 +95,25 @@ export function AppearanceProvider({ children }) {
     }
   }, []);
 
+  const setTextSize = useCallback((nextSize) => {
+    const normalized = normalizeTextSize(nextSize);
+    setTextSizeState(normalized);
+    try {
+      localStorage.setItem(TEXT_SIZE_STORAGE_KEY, normalized);
+    } catch {
+      // Still applies for this session when storage is blocked.
+    }
+  }, []);
+
   const value = useMemo(() => ({
     mode,
     setMode,
+    textSize,
+    setTextSize,
     resolvedMode: dark ? "dark" : "light",
     isDark: dark,
     systemDark,
-  }), [dark, mode, setMode, systemDark]);
+  }), [dark, mode, setMode, setTextSize, systemDark, textSize]);
 
   return <AppearanceContext.Provider value={value}>{children}</AppearanceContext.Provider>;
 }

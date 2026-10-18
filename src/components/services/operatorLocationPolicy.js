@@ -12,7 +12,9 @@ export const HEARTBEAT_INTERVAL_MS = 30_000;
 // parked operator gets no callbacks; a timer re-sends the last known fix once
 // no publish happened for HEARTBEAT_INTERVAL_MS. It checks every 10 s, so a
 // heartbeat lands 30–40 s after the previous publish.
-export const NATIVE_DISTANCE_FILTER_METERS = 25;
+// 10 m (was 25): a parked operator whose first fix was rough gets corrected
+// sooner, and passengers see small moves.
+export const NATIVE_DISTANCE_FILTER_METERS = 10;
 export const NATIVE_HEARTBEAT_CHECK_MS = 10_000;
 
 export function distanceInMeters(a, b) {
@@ -34,6 +36,40 @@ export function shouldPublishFix({ now, lastPublishedAt = 0, lastPublishedPoint 
   if (force) return true;
   if (now - lastPublishedAt >= MIN_PUBLISH_INTERVAL_MS) return true;
   return distanceInMeters(lastPublishedPoint, point) >= MIN_MOVE_METERS;
+}
+
+// Fix quality. Phones mix rough network fixes (often 500 m-2 km off) with GPS
+// fixes. A rough fix must not replace a recent good one: the operator would
+// jump hundreds of metres and passengers would read the wrong distance.
+export const GOOD_FIX_METERS = 100;
+export const ROUGH_FIX_METERS = 150;
+export const GOOD_FIX_HOLD_MS = 2 * 60_000;
+// While the app is open and the last fix is worse than this, KunThai asks the
+// phone for a precise GPS fix (at most every REFINE_MIN_GAP_MS).
+export const REFINE_WHEN_WORSE_THAN_METERS = 50;
+export const REFINE_MIN_GAP_MS = 30_000;
+
+// Whether a new fix may be published. `lastGood` is the last fix within
+// GOOD_FIX_METERS ({ point, accuracy, at }). Unknown accuracy and fixes that
+// are not rough always pass. A rough fix is dropped only while a good fix is
+// recent and the rough one lies within its own error circle of it (noise, not
+// a real move); a rough fix far outside that circle means the operator moved.
+export function acceptFix({ now, point, accuracy, lastGood = null }) {
+  if (!point) return false;
+  const value = accuracy == null || accuracy === "" ? Number.NaN : Number(accuracy);
+  if (!Number.isFinite(value) || value <= ROUGH_FIX_METERS) return true;
+  if (!lastGood || !(Number(lastGood.accuracy) <= GOOD_FIX_METERS)) return true;
+  if (now - Number(lastGood.at || 0) >= GOOD_FIX_HOLD_MS) return true;
+  return distanceInMeters(lastGood.point, point) > value;
+}
+
+// Whether to ask the phone for a precise fix now.
+export function refineDue({ now, lastAccuracy = null, lastRefineAt = 0, force = false }) {
+  if (force) return true;
+  if (now - lastRefineAt < REFINE_MIN_GAP_MS) return false;
+  if (lastAccuracy == null || lastAccuracy === "") return true;
+  const value = Number(lastAccuracy);
+  return !(Number.isFinite(value) && value <= REFINE_WHEN_WORSE_THAN_METERS);
 }
 
 // Native heartbeat: re-send the last known position when nothing was written

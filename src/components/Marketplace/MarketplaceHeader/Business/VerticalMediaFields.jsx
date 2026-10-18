@@ -38,7 +38,7 @@ export default function VerticalMediaFields({ media, setMedia, accent = "emerald
     try {
       const { duration } = await validateVerticalVideo(file);
       setCaution("");
-      setMedia((current) => ({ ...current, videoFile: file, videoDuration: duration }));
+      setMedia((current) => ({ ...current, videoFile: file, videoDuration: duration, videoTrimStart: null, videoTrimEnd: null }));
     } catch (error) {
       // A too-long (or too-large) clip is trimmable rather than rejected: open the
       // free-form trimmer so the seller can crop the segment they want to keep.
@@ -47,18 +47,23 @@ export default function VerticalMediaFields({ media, setMedia, accent = "emerald
         setTrimmerFile(file);
         return;
       }
-      setMedia((current) => ({ ...current, videoFile: null, videoDuration: 0 }));
+      setMedia((current) => ({ ...current, videoFile: null, videoDuration: 0, videoTrimStart: null, videoTrimEnd: null }));
       setCaution(inlineErrorMessage(error));
     }
   }
 
+  // Instant trim ("range"), as on Explore: the original is kept and only the
+  // chosen window plays. A re-encoded clip is the whole file.
   function handleTrimComplete(trimmedFile, meta = {}) {
     setTrimmerFile(null);
     setCaution("");
+    const instant = meta.strategy === "range";
     setMedia((current) => ({
       ...current,
       videoFile: trimmedFile,
       videoDuration: meta.durationSeconds || 0,
+      videoTrimStart: instant ? meta.trimStart : null,
+      videoTrimEnd: instant ? meta.trimEnd : null,
     }));
   }
 
@@ -133,6 +138,7 @@ export default function VerticalMediaFields({ media, setMedia, accent = "emerald
           maxSeconds={MAX_VERTICAL_VIDEO_SECONDS}
           maxMb={MAX_VERTICAL_VIDEO_MB}
           eyebrow={t("urmall.biz.pform.trimVideo")}
+          instantRange
         />
       ) : null}
     </>

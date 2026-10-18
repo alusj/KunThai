@@ -280,6 +280,13 @@ export function createRefreshScheduler({
       if (now() - lastStartedAt < minGapMs) return Promise.resolve();
       return execute();
     },
+    // The passenger tapped Refresh: run now (no minimum gap), then keep the
+    // interval. Resolves when that run is done.
+    refreshNow() {
+      if (stopped) return Promise.resolve();
+      clear();
+      return execute().finally(schedule);
+    },
     // Back in view: refresh at once, then keep the interval.
     resume() {
       if (stopped || !isVisible()) return;

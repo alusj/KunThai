@@ -23,6 +23,8 @@
           document.documentElement.dataset.appearance = dark ? "dark" : "light";
           document.documentElement.style.colorScheme = dark ? "dark" : "light";
           document.querySelector('meta[name="theme-color"]')?.setAttribute("content", dark ? "#020617" : "#f1f5f9");
+          const textSize = localStorage.getItem("kuntai-text-size");
+          document.documentElement.dataset.textSize = textSize === "small" || textSize === "large" ? textSize : "medium";
         } catch {
           // The React provider applies the default if browser storage is unavailable.
         }

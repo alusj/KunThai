@@ -25,7 +25,7 @@ test("throttle constants match the Phase 1 publisher and the 2-minute passenger 
   assert.equal(MIN_PUBLISH_INTERVAL_MS, 6000);
   assert.equal(MIN_MOVE_METERS, 12);
   assert.equal(HEARTBEAT_INTERVAL_MS, 30_000);
-  assert.equal(NATIVE_DISTANCE_FILTER_METERS, 25);
+  assert.equal(NATIVE_DISTANCE_FILTER_METERS, 10);
   // Worst case between two heartbeats stays well inside 2 minutes.
   assert.ok(HEARTBEAT_INTERVAL_MS + NATIVE_HEARTBEAT_CHECK_MS < 120_000);
 });
@@ -149,4 +149,28 @@ test("presenceResumeAction: resume only an online operator who allowed location 
   // Switched off, or no operator account (signed out / passenger).
   assert.equal(presenceResumeAction({ running: false, previouslyGranted: true, account: { activeStatus: "offline" } }), "none");
   assert.equal(presenceResumeAction({ running: false, previouslyGranted: true, account: null }), "none");
+});
+
+test("a rough fix near a recent good one is noise and is not published", async () => {
+  const { acceptFix } = await import("./operatorLocationPolicy.js");
+  const good = { point: { lat: 8.4, lng: -13.2 }, accuracy: 12, at: 1_000 };
+  // ~300 m away with 1389 m accuracy, 20 s after a 12 m GPS fix.
+  assert.equal(acceptFix({ now: 21_000, point: { lat: 8.4027, lng: -13.2 }, accuracy: 1389, lastGood: good }), false);
+  // Same rough fix once the good one is older than two minutes.
+  assert.equal(acceptFix({ now: 1_000 + 2 * 60_000, point: { lat: 8.4027, lng: -13.2 }, accuracy: 1389, lastGood: good }), true);
+  // A rough fix far outside its own error circle is a real move.
+  assert.equal(acceptFix({ now: 21_000, point: { lat: 8.45, lng: -13.2 }, accuracy: 200, lastGood: good }), true);
+  // Good or unknown accuracy always passes, as does a rough fix with no good one before it.
+  assert.equal(acceptFix({ now: 21_000, point: { lat: 8.41, lng: -13.2 }, accuracy: 30, lastGood: good }), true);
+  assert.equal(acceptFix({ now: 21_000, point: { lat: 8.41, lng: -13.2 }, accuracy: null, lastGood: good }), true);
+  assert.equal(acceptFix({ now: 21_000, point: { lat: 8.41, lng: -13.2 }, accuracy: 1389, lastGood: null }), true);
+});
+
+test("a precise fix is requested while accuracy is poor, at most every 30 s", async () => {
+  const { refineDue } = await import("./operatorLocationPolicy.js");
+  assert.equal(refineDue({ now: 100_000, lastAccuracy: 1389, lastRefineAt: 0 }), true);
+  assert.equal(refineDue({ now: 100_000, lastAccuracy: null, lastRefineAt: 0 }), true);
+  assert.equal(refineDue({ now: 100_000, lastAccuracy: 15, lastRefineAt: 0 }), false);
+  assert.equal(refineDue({ now: 100_000, lastAccuracy: 1389, lastRefineAt: 90_000 }), false);
+  assert.equal(refineDue({ now: 100_000, lastAccuracy: 15, lastRefineAt: 99_000, force: true }), true);
 });

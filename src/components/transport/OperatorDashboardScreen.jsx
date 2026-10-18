@@ -95,6 +95,8 @@ import { inlineErrorMessage, shortErrorToast } from "../../Backend/services/frie
 import AppPortal from "../shared/AppPortal";
 import EnforcementNoticeBanner from "../shared/EnforcementNoticeBanner";
 import { useDashboardResumeHold } from "../../Backend/hooks/useDashboardResumeHold";
+import { notificationDisplayText } from "../../Backend/services/notificationText";
+import ExpandableText from "../shared/ExpandableText";
 
 function formatOperatorMoney(value, account = null) {
   return formatCountryMoney(value, account?.form?.currency || account?.form?.countryCode || account?.form?.country || getCountryCurrencyCode());
@@ -1747,8 +1749,15 @@ function OperatorAlertsContainer({ alerts }) {
       <div className="grid gap-2">
         {alerts.length ? alerts.slice(0, 4).map((alert) => (
           <div key={alert.id} className={`rounded-2xl border px-4 py-3 ${alert.read ? "border-gray-100 bg-white" : "border-green-100 bg-green-50/90"}`}>
-            <p className="text-sm font-black text-gray-950">{translateUi(alert.title)}</p>
-            <p className="mt-1 text-xs font-semibold text-gray-500">{alert.body}</p>
+            {(() => {
+              const text = notificationDisplayText(alert.title, alert.body);
+              return (
+                <>
+                  <p className="break-words text-sm font-black text-gray-950">{translateUi(text.title)}</p>
+                  {text.body ? <ExpandableText text={text.body} className="mt-1 text-xs font-semibold text-gray-500" /> : null}
+                </>
+              );
+            })()}
           </div>
         )) : (
           <p className="rounded-2xl bg-gray-50 px-4 py-3 text-sm font-bold text-gray-500">
@@ -1841,8 +1850,15 @@ function OperatorAlertsDrawer({
                 onClick={() => onRead?.(alert)}
                 className={`rounded-2xl border p-4 shadow-sm transition ${alert.read ? "border-gray-100 bg-white" : "border-green-100 bg-green-50/90"}`}
               >
-                <p className="text-sm font-black text-gray-950">{translateUi(alert.title)}</p>
-                <p className="mt-1 text-sm font-semibold leading-6 text-gray-600">{alert.body}</p>
+                {(() => {
+                  const text = notificationDisplayText(alert.title, alert.body);
+                  return (
+                    <>
+                      <p className="break-words text-sm font-black text-gray-950">{translateUi(text.title)}</p>
+                      {text.body ? <ExpandableText text={text.body} className="mt-1 text-sm font-semibold leading-6 text-gray-600" /> : null}
+                    </>
+                  );
+                })()}
               </article>
             )) : (
               <div className="rounded-2xl border border-dashed border-gray-200 bg-white p-6 text-center">

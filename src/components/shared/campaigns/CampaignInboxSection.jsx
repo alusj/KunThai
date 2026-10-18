@@ -14,6 +14,8 @@ import { openUnifiedNotification } from "../../../Backend/services/unifiedNotifi
 import { formatRelativeTime } from "../../../Backend/services/explore/time";
 import { t as i18nText } from "../../../i18n/index";
 import { uiText as translateUi, useI18n as useUiLocale } from "../../../i18n/index.js";
+import { notificationDisplayText } from "../../../Backend/services/notificationText";
+import ExpandableText from "../ExpandableText";
 
 export default function CampaignInboxSection({ inbox, title = "KunThai updates", tone = "emerald", onNavigate, className = "" }) {
   useUiLocale();
@@ -74,8 +76,15 @@ export default function CampaignInboxSection({ inbox, title = "KunThai updates",
                   {content.badge ? <span className="rounded-full bg-amber-100 px-2 py-0.5 text-[10px] font-black text-amber-800">{content.badge}</span> : null}
                   <span className="text-[11px] font-bold text-gray-400">{formatRelativeTime(item.created_at)}</span>
                 </div>
-                <h3 className="mt-1 break-words text-sm font-black text-gray-950">{content.title}</h3>
-                <p className="mt-1 whitespace-pre-line break-words text-sm font-semibold leading-6 text-gray-600">{content.body}</p>
+                {(() => {
+                  const text = notificationDisplayText(content.title, content.body);
+                  return (
+                    <>
+                      <h3 className="mt-1 break-words text-sm font-black text-gray-950">{text.title}</h3>
+                      {text.body ? <ExpandableText text={text.body} className="mt-1 text-sm font-semibold leading-6 text-gray-600" /> : null}
+                    </>
+                  );
+                })()}
                 <div className="mt-3 flex flex-wrap gap-2">
                   {content.hasAction || unread ? (
                   <button

@@ -45,7 +45,11 @@ function normalizeProfile(profile) {
     socialLinks: profile?.socialLinks ?? [],
     provider: profile?.provider ?? "email",
     providerName: profile?.providerName ?? "Email",
-    accountType: profile?.accountType ?? "personal",
+    // "Both" (Personal + Business) is preselected whenever the profile has no
+    // valid type yet (empty, or the old "email" placeholder), so a sign-up
+    // never starts with nothing chosen. "operator" (set for UrRide operators,
+    // read by the admin console) is kept.
+    accountType: ["personal", "business", "both", "operator"].includes(profile?.accountType) ? profile.accountType : "both",
     interests: profile?.interests ?? [],
     contentTopics: profile?.contentTopics ?? [],
     primarySurface: profile?.primarySurface ?? "explore",

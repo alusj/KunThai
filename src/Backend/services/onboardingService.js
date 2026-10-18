@@ -86,7 +86,7 @@ export function buildProfileFromUser(user) {
     socialLinks: normalizeSocialLinks(metadata.social_links),
     provider,
     providerName,
-    accountType: metadata.account_type ?? "personal",
+    accountType: metadata.account_type || "both",
     interests: normalizeArray(metadata.interests),
     primarySurface: metadata.primary_surface ?? DEFAULT_NAV,
     onboardingComplete: Boolean(metadata.onboarding_complete),
@@ -119,7 +119,7 @@ async function finalizeOAuthRegistration(user) {
   const inviteCode = metadata.visibility_invite_code || getStoredVisibilityInviteCode();
   const { data, error } = await supabase.auth.updateUser({
     data: {
-      account_type: metadata.account_type || "personal",
+      account_type: metadata.account_type || "both",
       primary_surface: metadata.primary_surface || DEFAULT_NAV,
       onboarding_complete: false,
       onboarding_step: 1,
@@ -254,7 +254,7 @@ async function syncReturningOnboardingMetadata(profile) {
       avatar_url: profile.avatarUrl,
       bio: profile.bio,
       social_links: normalizeSocialLinks(profile.socialLinks),
-      account_type: profile.accountType || "personal",
+      account_type: profile.accountType || "both",
       primary_surface: profile.primarySurface || DEFAULT_NAV,
       onboarding_complete: true,
       onboarding_step: 4,
@@ -508,7 +508,7 @@ export async function updateOnboardingProfile(patch) {
     avatar_url: profile.avatarUrl,
     bio: profile.bio || "",
     social_links: normalizeSocialLinks(profile.socialLinks),
-    account_type: profile.accountType || "personal",
+    account_type: profile.accountType || "both",
     updated_at: new Date().toISOString(),
   };
 

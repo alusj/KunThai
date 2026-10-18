@@ -1,5 +1,5 @@
 import { createElement, useEffect, useRef, useState } from "react";
-import { FiBriefcase, FiClock, FiMapPin, FiNavigation, FiStar } from "react-icons/fi";
+import { FiBriefcase, FiClock, FiMapPin, FiNavigation, FiRefreshCw, FiStar } from "react-icons/fi";
 import {
   attachFleetDistances,
   fetchTopRatedNearby,
@@ -36,6 +36,9 @@ export default function FleetListScreen({ selection, onBack, onViewCompany, onVi
   const isTopRated = selection.mode === "topRated" && !selection.includeOffline;
   const [nearby, setNearby] = useState({ status: isTopRated ? "locating" : "", radiusKm: null, place: "", fresh: [] });
   const [locationRequest, setLocationRequest] = useState(0);
+  // Refresh tapped: reload with a new, precise passenger position.
+  const [refreshTick, setRefreshTick] = useState(0);
+  const freshPositionRef = useRef(false);
   const fleetsRef = useRef(fleets);
 
   useEffect(() => {
@@ -62,6 +65,8 @@ export default function FleetListScreen({ selection, onBack, onViewCompany, onVi
     let alive = true;
 
     async function loadFleets() {
+      const fresh = freshPositionRef.current;
+      freshPositionRef.current = false;
       const localItems = filterFleetsForSelection(getTransportFleets(selection), selection);
       const hasExistingFleets = fleetsRef.current.length > 0 || localItems.length > 0;
 
@@ -80,7 +85,7 @@ export default function FleetListScreen({ selection, onBack, onViewCompany, onVi
         setError("");
 
         if (isTopRated) {
-          const position = await getPassengerPosition({ prompt: locationRequest > 0 });
+          const position = await getPassengerPosition({ prompt: locationRequest > 0, fresh });
           if (position) {
             try {
               const ranked = await fetchTopRatedNearby({
@@ -112,7 +117,7 @@ export default function FleetListScreen({ selection, onBack, onViewCompany, onVi
         // Category lists: add real distances when the passenger's location is
         // already available (never prompts here).
         if (!isTopRated && visibleItems.length) {
-          const position = await getPassengerPosition();
+          const position = await getPassengerPosition({ fresh });
           if (position && alive) {
             const measured = await attachFleetDistances(visibleItems, position);
             if (alive) setFleets(measured);
@@ -145,7 +150,7 @@ export default function FleetListScreen({ selection, onBack, onViewCompany, onVi
     };
     // isTopRated derives from selection; locationRequest re-runs after "Use my location".
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [selection, locationRequest]);
+  }, [selection, locationRequest, refreshTick]);
 
   return (
     <div className="kt-mobile-viewport kt-safe-screen bg-gray-50" data-back-swipe-scope>
@@ -164,6 +169,20 @@ export default function FleetListScreen({ selection, onBack, onViewCompany, onVi
           </div>
 
           <div className="flex items-center gap-2">
+            <button
+              type="button"
+              onClick={() => {
+                if (refreshing) return;
+                freshPositionRef.current = true;
+                setRefreshTick((value) => value + 1);
+              }}
+              disabled={refreshing}
+              aria-label={refreshing ? t("urrideLiveDiscovery.refreshingNearby") : t("urrideLiveDiscovery.refreshNearby")}
+              title={t("urrideLiveDiscovery.refreshNearby")}
+              className="kt-touchable flex h-9 w-9 shrink-0 items-center justify-center rounded-full border border-emerald-200 bg-emerald-50 text-emerald-800 transition hover:bg-emerald-100 disabled:opacity-80"
+            >
+              <FiRefreshCw size={16} className={refreshing ? "animate-spin" : ""} />
+            </button>
             <span className="rounded-full border border-sky-200 bg-sky-50 px-3 py-1 text-xs font-bold text-sky-700">
               {t("urride.fleetList.registeredCount", { count: fleets.length })}
             </span>

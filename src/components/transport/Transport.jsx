@@ -1418,6 +1418,7 @@ export default function Transport({
             setOperatorDashboardOpen(true);
           }}
           onOpenOperatorDashboard={openCompanyOperatorDashboard}
+          onAddFleet={() => openCompanyRegistration("company-workspace", "addFleet")}
           onAddRentalFleet={() => openCompanyRegistration("company-workspace", "addRental")}
           onEditCompany={() => openCompanyRegistration("company-workspace", "full")}
           onRegisterCompany={() => openCompanyRegistration("company-workspace", "addOperator")}

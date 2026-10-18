@@ -489,6 +489,9 @@ function normalizeFleet(fleet = {}, index = 0) {
     status: fleet.status || fleet.verification_status || "pending_review",
     activeStatus: fleet.activeStatus || fleet.active_status || "offline",
     isVisibleToPassengers: Boolean(fleet.isVisibleToPassengers ?? fleet.is_visible_to_passengers ?? false),
+    // Over the company's plan vehicle limit: hidden from passengers until the
+    // plan is renewed or upgraded (set by the database, never by the app).
+    planSuspended: Boolean(fleet.planSuspended ?? fleet.plan_suspended ?? false),
     // Set when a rental fleet is deleted; the row stays for reservation history.
     archivedAt: fleet.archivedAt || fleet.archived_at || "",
   };
@@ -939,6 +942,9 @@ export async function getTransportCompanyAccounts() {
     const accounts = await Promise.all(companies.map(async (company) => {
       const currentMember = (memberships || []).find((member) => member.company_id === company.id) || null;
       const access = buildCompanyAccess(company, currentMember, user.id);
+      // Brings plan-limit pauses up to date (e.g. a paid plan that just lapsed)
+      // before the fleets are read. Best-effort: an hourly job does it too.
+      await supabase.rpc("sync_urride_plan_limits", { p_company_id: company.id }).then(() => {}, () => {});
       const [fleets, invites, activities, members] = await Promise.all([
         safeSelectRows(supabase.from("transport_company_fleets").select("*").eq("company_id", company.id).order("updated_at", { ascending: false })),
         safeSelectRows(supabase.from("transport_company_operator_invites").select("*").eq("company_id", company.id).order("created_at", { ascending: false })),

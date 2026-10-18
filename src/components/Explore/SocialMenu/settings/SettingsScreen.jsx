@@ -103,7 +103,7 @@ function SettingsSection({ children, subtitle, title }) {
 
 export default function SettingsScreen({ hideHeader = false, onOpenDataMobile, onOpenInterests, onOpenPermissions, onOpenPrivacy, onOpenSecurity, onSwitchAccount }) {
   const { clearCache, feedback, settings, updateSection } = useExplorePreferences();
-  const { mode: appearanceMode, resolvedMode, setMode: setAppearanceMode } = useAppearanceMode();
+  const { mode: appearanceMode, resolvedMode, setMode: setAppearanceMode, textSize, setTextSize } = useAppearanceMode();
   const i18n = useI18n();
   const { notifications, video, feed, messages, feedbackFx } = settings;
   const [pushStatus, setPushStatus] = useState("loading");
@@ -212,6 +212,40 @@ export default function SettingsScreen({ hideHeader = false, onOpenDataMobile, o
                   { value: "off", label: i18n.t("settings.modeLight") },
                 ]}
               />
+            </div>
+          </div>
+
+          <div className="mt-3 rounded-[24px] border border-slate-200 bg-white p-4 shadow-sm sm:p-5">
+            <div className="flex items-start gap-3">
+              <span className="grid h-12 w-12 flex-none place-items-center rounded-2xl bg-sky-50 text-lg font-black text-sky-700" aria-hidden="true">Aa</span>
+              <div className="min-w-0">
+                <p className="text-base font-black text-slate-950">{i18n.t("textSize.title")}</p>
+                <p className="mt-1 text-sm font-semibold leading-6 text-slate-500">{i18n.t("textSize.description")}</p>
+              </div>
+            </div>
+            <div className="mt-4 grid grid-cols-3 gap-2" role="radiogroup" aria-label={i18n.t("textSize.title")}>
+              {[
+                { value: "small", label: i18n.t("textSize.small"), sample: "text-sm" },
+                { value: "medium", label: i18n.t("textSize.medium"), sample: "text-base" },
+                { value: "large", label: i18n.t("textSize.large"), sample: "text-lg" },
+              ].map((option) => {
+                const selected = (textSize || "medium") === option.value;
+                return (
+                  <button
+                    key={option.value}
+                    type="button"
+                    role="radio"
+                    aria-checked={selected}
+                    onClick={() => setTextSize?.(option.value)}
+                    className={`flex min-h-[4.5rem] flex-col items-center justify-center gap-1 rounded-2xl border px-2 py-2 text-center transition ${
+                      selected ? "border-sky-600 bg-sky-50 text-sky-800" : "border-slate-200 bg-white text-slate-700 hover:bg-slate-50"
+                    }`}
+                  >
+                    <span className={`${option.sample} font-black leading-none`} aria-hidden="true">Aa</span>
+                    <span className="text-xs font-black leading-tight">{option.label}</span>
+                  </button>
+                );
+              })}
             </div>
           </div>
         </SettingsSection>

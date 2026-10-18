@@ -65,7 +65,9 @@ test("passengers can switch directly between live operators and rentals", () => 
 });
 
 test("company rental creation is routed separately from company editing", () => {
-  assert.match(companyWorkspaceSource, /onAddFleet=\{canAddRentalFleets \? onAddRentalFleet : undefined\}/);
+  // The plan limit is checked before the rental form opens (requestAddRental).
+  assert.match(companyWorkspaceSource, /onAddFleet=\{canAddRentalFleets && onAddRentalFleet \? requestAddRental : undefined\}/);
+  assert.match(companyWorkspaceSource, /async function requestAddRental\(\) \{\s*if \(!\(await hasCapacityFor\("vehicles"\)\)\) return;\s*onAddRentalFleet\?\.\(\);/);
   assert.match(transportSource, /onAddRentalFleet=\{\(\) => openCompanyRegistration\("company-workspace", "addRental"\)\}/);
   assert.match(transportSource, /completedMode === "addRental"[\s\S]*\? "Rentals" : "Overview"/);
 });

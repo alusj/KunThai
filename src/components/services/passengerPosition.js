@@ -4,6 +4,7 @@
 // given, then the cached device location, then nothing.
 
 import { ensureBuyerLocation, readCachedBuyerLocation } from "../../Backend/utils/buyerLocationContext";
+import { getPreciseCurrentPosition } from "../../Backend/utils/precisePosition";
 
 const GRANTED_KEY = "kunthai.locationGranted.v1";
 
@@ -29,24 +30,39 @@ async function permissionAlreadyGranted() {
   }
 }
 
-function currentPosition() {
+function roughPosition() {
   return new Promise((resolve) => {
     navigator.geolocation.getCurrentPosition(
       (position) => resolve(position),
       () => resolve(null),
-      // A position up to two minutes old is fine for ranking nearby operators.
       { enableHighAccuracy: false, maximumAge: 120_000, timeout: 10_000 },
     );
   });
 }
 
-// Resolves { latitude, longitude, place, source: "device" | "cached" } or null.
-export async function getPassengerPosition({ prompt = false } = {}) {
+// "250 m away" is only right with a GPS fix: a quick network fix can be 1-2 km
+// off. So the best GPS reading within a few seconds is used (longer when the
+// passenger tapped Refresh), and the old quick read only when GPS gives nothing.
+async function currentPosition({ fresh = false } = {}) {
+  try {
+    return await getPreciseCurrentPosition({
+      targetAccuracyMeters: fresh ? 25 : 50,
+      maxWaitMs: fresh ? 8000 : 4000,
+    });
+  } catch (error) {
+    if (error?.code === 1) return null;
+    return roughPosition();
+  }
+}
+
+// Resolves { latitude, longitude, accuracy, place, source: "device" | "cached" }
+// or null. `fresh`: the passenger asked for an up-to-date position (Refresh).
+export async function getPassengerPosition({ prompt = false, fresh = false } = {}) {
   const cached = readCachedBuyerLocation();
   const place = cached?.community || cached?.city || "";
 
   if (typeof navigator !== "undefined" && navigator.geolocation && (prompt || (await permissionAlreadyGranted()))) {
-    const position = await currentPosition();
+    const position = await currentPosition({ fresh });
     if (position) {
       rememberGranted();
       // Refreshes the shared city label in the background (no prompt).
@@ -54,6 +70,7 @@ export async function getPassengerPosition({ prompt = false } = {}) {
       return {
         latitude: position.coords.latitude,
         longitude: position.coords.longitude,
+        accuracy: Number.isFinite(position.coords.accuracy) ? position.coords.accuracy : null,
         place,
         source: "device",
       };

@@ -3,6 +3,8 @@
 // Grafted onto TRANSLATIONS as `urrideLiveDiscovery`; every locale carries the same keys.
 export const URRIDE_LIVE_DISCOVERY = {
   en: {
+    refreshNearby: "Refresh",
+    refreshingNearby: "Refreshing…",
     availableTitle: "Available near you",
     availableSubtitle: "Sharing their location now · nearest first",
     recentTitle: "Recently online",
@@ -43,6 +45,8 @@ export const URRIDE_LIVE_DISCOVERY = {
     toastOnline: "You're online now",
   },
   fr: {
+    refreshNearby: "Actualiser",
+    refreshingNearby: "Actualisation…",
     availableTitle: "Disponibles près de vous",
     availableSubtitle: "Partagent leur position maintenant · les plus proches d'abord",
     recentTitle: "En ligne récemment",
@@ -83,6 +87,8 @@ export const URRIDE_LIVE_DISCOVERY = {
     toastOnline: "Vous êtes en ligne",
   },
   es: {
+    refreshNearby: "Actualizar",
+    refreshingNearby: "Actualizando…",
     availableTitle: "Disponibles cerca de ti",
     availableSubtitle: "Comparten su ubicación ahora · los más cercanos primero",
     recentTitle: "En línea recientemente",
@@ -123,6 +129,8 @@ export const URRIDE_LIVE_DISCOVERY = {
     toastOnline: "Ya estás en línea",
   },
   zh: {
+    refreshNearby: "刷新",
+    refreshingNearby: "正在刷新…",
     availableTitle: "附近可用",
     availableSubtitle: "正在共享位置 · 距离最近的优先",
     recentTitle: "最近在线",
@@ -163,6 +171,8 @@ export const URRIDE_LIVE_DISCOVERY = {
     toastOnline: "您已上线",
   },
   ar: {
+    refreshNearby: "تحديث",
+    refreshingNearby: "جارٍ التحديث…",
     availableTitle: "متاحون بالقرب منك",
     availableSubtitle: "يشاركون موقعهم الآن · الأقرب أولًا",
     recentTitle: "متصلون مؤخرًا",
@@ -203,6 +213,8 @@ export const URRIDE_LIVE_DISCOVERY = {
     toastOnline: "أنت متصل الآن",
   },
   pt: {
+    refreshNearby: "Atualizar",
+    refreshingNearby: "A atualizar…",
     availableTitle: "Disponíveis perto de si",
     availableSubtitle: "A partilhar a localização agora · os mais próximos primeiro",
     recentTitle: "Online recentemente",
@@ -243,6 +255,8 @@ export const URRIDE_LIVE_DISCOVERY = {
     toastOnline: "Você está online agora",
   },
   hi: {
+    refreshNearby: "रीफ़्रेश करें",
+    refreshingNearby: "रीफ़्रेश हो रहा है…",
     availableTitle: "आपके पास उपलब्ध",
     availableSubtitle: "अभी अपना स्थान साझा कर रहे हैं · सबसे नज़दीकी पहले",
     recentTitle: "हाल ही में ऑनलाइन",
@@ -283,6 +297,8 @@ export const URRIDE_LIVE_DISCOVERY = {
     toastOnline: "अब आप ऑनलाइन हैं",
   },
   bn: {
+    refreshNearby: "রিফ্রেশ করুন",
+    refreshingNearby: "রিফ্রেশ হচ্ছে…",
     availableTitle: "আপনার কাছে উপলব্ধ",
     availableSubtitle: "এখন অবস্থান শেয়ার করছেন · সবচেয়ে কাছের আগে",
     recentTitle: "সম্প্রতি অনলাইনে ছিলেন",
@@ -323,6 +339,8 @@ export const URRIDE_LIVE_DISCOVERY = {
     toastOnline: "আপনি এখন অনলাইন",
   },
   id: {
+    refreshNearby: "Muat ulang",
+    refreshingNearby: "Memuat ulang…",
     availableTitle: "Tersedia di dekat Anda",
     availableSubtitle: "Sedang membagikan lokasi · terdekat lebih dulu",
     recentTitle: "Baru saja online",
@@ -363,6 +381,8 @@ export const URRIDE_LIVE_DISCOVERY = {
     toastOnline: "Anda sekarang online",
   },
   ur: {
+    refreshNearby: "ریفریش کریں",
+    refreshingNearby: "ریفریش ہو رہا ہے…",
     availableTitle: "آپ کے قریب دستیاب",
     availableSubtitle: "ابھی اپنا مقام شیئر کر رہے ہیں · قریب ترین پہلے",
     recentTitle: "حال ہی میں آن لائن",
@@ -403,6 +423,8 @@ export const URRIDE_LIVE_DISCOVERY = {
     toastOnline: "آپ اب آن لائن ہیں",
   },
   ru: {
+    refreshNearby: "Обновить",
+    refreshingNearby: "Обновление…",
     availableTitle: "Свободны рядом с вами",
     availableSubtitle: "Сейчас передают местоположение · ближайшие первыми",
     recentTitle: "Недавно в сети",
@@ -443,6 +465,8 @@ export const URRIDE_LIVE_DISCOVERY = {
     toastOnline: "Вы теперь в сети",
   },
   ja: {
+    refreshNearby: "更新",
+    refreshingNearby: "更新中…",
     availableTitle: "近くで利用可能",
     availableSubtitle: "現在地を共有中 · 近い順",
     recentTitle: "最近オンライン",
@@ -483,6 +507,8 @@ export const URRIDE_LIVE_DISCOVERY = {
     toastOnline: "オンラインになりました",
   },
   mr: {
+    refreshNearby: "रिफ्रेश करा",
+    refreshingNearby: "रिफ्रेश होत आहे…",
     availableTitle: "तुमच्या जवळ उपलब्ध",
     availableSubtitle: "आत्ता आपले स्थान शेअर करत आहेत · सर्वात जवळचे आधी",
     recentTitle: "अलीकडे ऑनलाइन",
@@ -523,6 +549,8 @@ export const URRIDE_LIVE_DISCOVERY = {
     toastOnline: "तुम्ही आता ऑनलाइन आहात",
   },
   vi: {
+    refreshNearby: "Làm mới",
+    refreshingNearby: "Đang làm mới…",
     availableTitle: "Có sẵn gần bạn",
     availableSubtitle: "Đang chia sẻ vị trí · gần nhất trước",
     recentTitle: "Mới trực tuyến",
@@ -563,6 +591,8 @@ export const URRIDE_LIVE_DISCOVERY = {
     toastOnline: "Bạn đã trực tuyến",
   },
   de: {
+    refreshNearby: "Aktualisieren",
+    refreshingNearby: "Wird aktualisiert…",
     availableTitle: "Verfügbar in deiner Nähe",
     availableSubtitle: "Teilen gerade ihren Standort · nächste zuerst",
     recentTitle: "Kürzlich online",

@@ -138,13 +138,9 @@ export function readCachedExploreNotifications(userId) {
   const normalizedUserId = String(userId || "").trim();
   if (!normalizedUserId) return [];
 
-  const cutoff = Date.now() - NOTIFICATION_CACHE_RETENTION_MS;
   return readStoredNotifications()
     .map(normalizeNotification)
-    .filter((item) => {
-      const createdAt = new Date(item.created_at || 0).getTime();
-      return item.user_id === normalizedUserId && Number.isFinite(createdAt) && createdAt >= cutoff;
-    })
+    .filter((item) => item.user_id === normalizedUserId)
     .sort((first, second) => new Date(second.created_at || 0) - new Date(first.created_at || 0));
 }
 
@@ -640,10 +636,11 @@ export async function fetchExploreNotifications(options = {}) {
   const currentUserId = await getCurrentUserId();
   const limit = Number.isFinite(options.limit) ? options.limit : 100;
   const before = options.before || "";
-  const retentionCutoff = new Date(Date.now() - NOTIFICATION_CACHE_RETENTION_MS).toISOString();
+  // No age cutoff: Explore notifications stay until removed, like UrMall and
+  // UrRide ones (the server's own retention decides when they go).
   const storedNotifications = readStoredNotifications()
     .map(normalizeNotification)
-    .filter((item) => (!currentUserId || item.user_id === currentUserId) && String(item.created_at || "") >= retentionCutoff)
+    .filter((item) => !currentUserId || item.user_id === currentUserId)
     .filter((item) => !isLegacyMisroutedExploreNotification(item))
     .filter((item) => item._notification_source !== "platform" || notificationBelongsToSurface(item, "explore"));
 
@@ -655,7 +652,6 @@ export async function fetchExploreNotifications(options = {}) {
     .from("explore_notifications")
     .select("*")
     .eq("user_id", currentUserId)
-    .gte("created_at", retentionCutoff)
     .order("created_at", { ascending: false })
     .limit(limit);
 
@@ -670,7 +666,6 @@ export async function fetchExploreNotifications(options = {}) {
       .select("*")
       .eq("user_id", currentUserId)
       .in("sector", ["explore", "platform", "all"])
-      .gte("created_at", retentionCutoff)
       .order("created_at", { ascending: false })
       .limit(limit),
   ]);

@@ -11,6 +11,7 @@ import { readRegisteredBusiness } from "./sellerRegistrationService";
 import { assertBusinessCapacity, parseBusinessPlanError } from "../businessSubscriptionService";
 import { normalizeTierPricing } from "./tierPricingUtils";
 import { optimizeImageFile } from "./imageOptimization";
+import { withClipFragment } from "../media/videoClipUrl";
 import { hasBusinessPlans } from "./marketplaceBusinessKinds";
 import { regionSelectionIds } from "../regions/regionModel";
 import { assertPromotionTargeting, normalizeCountrySelection } from "../regions/promotionTargeting";
@@ -491,7 +492,12 @@ export async function submitSellerProduct(form, onProgress) {
 
   if (form.media.videoFile) {
     try {
-      videoUrl = await uploadProductFile(userId, form.media.videoFile, "videos");
+      // Instant trim: the original file plus the chosen window, as on Explore.
+      videoUrl = withClipFragment(
+        await uploadProductFile(userId, form.media.videoFile, "videos"),
+        form.media.videoTrimStart,
+        form.media.videoTrimEnd,
+      );
     } catch (error) {
       videoWarning = error.message || "Video upload failed. Product was saved without video.";
     }
@@ -669,7 +675,12 @@ export async function updateSellerProductListing(product, form, onProgress) {
   if (form.media.videoFile) {
     onProgress?.("video");
     try {
-      videoUrl = await uploadProductFile(userId, form.media.videoFile, "videos");
+      // Instant trim: the original file plus the chosen window, as on Explore.
+      videoUrl = withClipFragment(
+        await uploadProductFile(userId, form.media.videoFile, "videos"),
+        form.media.videoTrimStart,
+        form.media.videoTrimEnd,
+      );
     } catch (error) {
       videoWarning = error.message || "Video upload failed. Product was saved without a new video.";
     }

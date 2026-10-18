@@ -298,7 +298,12 @@ export default function CompanyRegistrationScreen({ existingCompany = null, mode
   useI18n();
   const addOperatorMode = mode === "addOperator";
   const addRentalMode = mode === "addRental";
-  const incrementalFleetMode = addOperatorMode || addRentalMode;
+  // "+" > Add fleet: one transport fleet (no rental), operator optional.
+  const addFleetMode = mode === "addFleet";
+  const incrementalFleetMode = addOperatorMode || addRentalMode || addFleetMode;
+  // Operators and transport fleets each have their own entry from rentals,
+  // so those two flows only offer transport categories (and their questions).
+  const transportOnlyMode = addOperatorMode || addFleetMode;
   const openingSource = existingCompany || null;
   const openingCompany = openingSource?.company || openingSource;
   const openingFleetForm = incrementalFleetMode && openingCompany
@@ -674,6 +679,10 @@ export default function CompanyRegistrationScreen({ existingCompany = null, mode
     if (targetStep === 2) {
       if (!fleets.length) nextErrors.fleetList = t("urride.companyReg.reqAddFleet");
       fleets.forEach((fleet, index) => {
+        // Editing the company is not adding a rental: a saved rental vehicle's
+        // photos, terms and pickup live on its listing (Rentals tab), so they
+        // must not block saving the company profile, base or other fleets.
+        if (editing && fleet.serviceCategory === "Rental") return;
         const labelPrefix = fleets.length > 1 ? t("urride.companyReg.fleetPrefix", { n: index + 1 }) : "";
         [
           ["fleetName", "urride.companyReg.reqFleetName"],
@@ -710,7 +719,7 @@ export default function CompanyRegistrationScreen({ existingCompany = null, mode
             nextErrors[`${fleet.localId}-safety-${question.key}`] = `${labelPrefix}${t("urride.companyReg.reqSuffix", { label: questionLabel(question) })}`;
           }
         });
-        if (incrementalFleetMode && fleet.serviceCategory !== "Rental" && !(fleet.operators || []).length) {
+        if (addOperatorMode && fleet.serviceCategory !== "Rental" && !(fleet.operators || []).length) {
           nextErrors[`${fleet.localId}-operators`] = t("urride.companyReg.reqOperatorId");
         }
         getFleetImageRequirements(form, fleet).forEach((requirement) => {
@@ -778,7 +787,9 @@ export default function CompanyRegistrationScreen({ existingCompany = null, mode
     const addingRentalFleet = incrementalFleetMode && normalizedNewFleets.every((fleet) => fleet.serviceCategory === "Rental");
     return {
       ...form,
-      actionMode: addingRentalFleet ? "add_rental" : addOperatorMode ? "add_operator" : "registration",
+      // The save service adds new fleets to the company for "add_operator";
+      // a plain added fleet goes the same way.
+      actionMode: addingRentalFleet ? "add_rental" : addOperatorMode || addFleetMode ? "add_operator" : "registration",
       operatingAreas: splitAreas(areaText),
       fleets: payloadFleets,
       submittedFleetCodes: incrementalFleetMode ? normalizedNewFleets.map((fleet) => fleet.fleetCode) : null,
@@ -1043,10 +1054,10 @@ export default function CompanyRegistrationScreen({ existingCompany = null, mode
           />
           <div className="min-w-0 flex-1">
             <p className="text-xs font-black uppercase tracking-wide text-blue-700">Fleet HQ</p>
-            <h1 className="truncate text-lg font-black text-slate-950">{rentalSubmission ? i18nText("ui.literals.kb883f465c09a") : addOperatorMode ? t("urride.companyReg.addOperatorTitle") : editing ? t("urride.companyReg.editTitle") : t("urride.companyReg.regTitle")}</h1>
+            <h1 className="truncate text-lg font-black text-slate-950">{rentalSubmission ? i18nText("ui.literals.kb883f465c09a") : addOperatorMode ? t("urride.companyReg.addOperatorTitle") : addFleetMode ? t("urrideAddMenu.addFleetHeading") : editing ? t("urride.companyReg.editTitle") : t("urride.companyReg.regTitle")}</h1>
           </div>
           <span className="rounded-full border border-blue-100 bg-blue-50 px-3 py-1 text-xs font-black text-blue-700">
-            {rentalSubmission ? i18nText("ui.literals.k81e22e383e11") : addOperatorMode ? t("urride.companyReg.fleetStage") : t("urride.companyReg.readyCount", { count: completion })}
+            {rentalSubmission ? i18nText("ui.literals.k81e22e383e11") : addOperatorMode ? t("urride.companyReg.fleetStage") : addFleetMode ? t("urrideAddMenu.fleetStage") : t("urride.companyReg.readyCount", { count: completion })}
           </span>
         </div>
       </header>
@@ -1195,6 +1206,7 @@ export default function CompanyRegistrationScreen({ existingCompany = null, mode
                 onUploadFleetDocument={markFleetDocument}
                 onViewOneKmPreview={handleViewOneKmPreview}
                 lockRentalCategory={addRentalMode}
+                transportOnly={transportOnlyMode}
               />
             ) : null}
             {step === 3 ? (
@@ -1556,7 +1568,7 @@ function CompanyAreaViewStatus({ validation }) {
   );
 }
 
-function FleetBuilderStep({ acceptedOperators = [], allowMultiple = true, errors = {}, fleets, form, lockRentalCategory = false, onAddFleet, onInvite, onRemoveFleet, onUpdateFleet, onUploadFleetDocument, onViewOneKmPreview }) {
+function FleetBuilderStep({ acceptedOperators = [], allowMultiple = true, errors = {}, fleets, form, lockRentalCategory = false, transportOnly = false, onAddFleet, onInvite, onRemoveFleet, onUpdateFleet, onUploadFleetDocument, onViewOneKmPreview }) {
   useUiLocale();
   const acceptedPublicIds = acceptedOperators.map((operator) => compactPublicId(operator.publicId)).filter(Boolean);
   return (
@@ -1580,6 +1592,7 @@ function FleetBuilderStep({ acceptedOperators = [], allowMultiple = true, errors
             form={form}
             index={index}
             lockRentalCategory={lockRentalCategory}
+            transportOnly={transportOnly}
             onInvite={onInvite}
             onRemove={onRemoveFleet}
             onUpdate={onUpdateFleet}
@@ -1593,7 +1606,7 @@ function FleetBuilderStep({ acceptedOperators = [], allowMultiple = true, errors
   );
 }
 
-function FleetCard({ acceptedPublicIds = [], errors = {}, fleet, form, index, lockRentalCategory = false, onInvite, onRemove, onUpdate, onUploadDocument, onViewOneKmPreview, removable }) {
+function FleetCard({ acceptedPublicIds = [], errors = {}, fleet, form, index, lockRentalCategory = false, transportOnly = false, onInvite, onRemove, onUpdate, onUploadDocument, onViewOneKmPreview, removable }) {
   useUiLocale();
   const [operatorId, setOperatorId] = useState("");
   const [lookupStatus, setLookupStatus] = useState("");
@@ -1605,7 +1618,7 @@ function FleetCard({ acceptedPublicIds = [], errors = {}, fleet, form, index, lo
     () => new Set(acceptedPublicIdsKey.split("|").filter(Boolean)),
     [acceptedPublicIdsKey],
   );
-  const serviceCategoryOptions = getCompanyServiceCategoryOptions(form);
+  const serviceCategoryOptions = getCompanyServiceCategoryOptions(form).filter((option) => !transportOnly || option !== "Rental");
   const fleetTypeOptions = getCompanyFleetTypeOptions(form, fleet.serviceCategory);
   const rentalDistanceNegotiable = Boolean(fleet.safetyAnswers?.rentalDistanceNegotiable);
   const rentalTimeNegotiable = Boolean(fleet.safetyAnswers?.rentalTimeNegotiable);

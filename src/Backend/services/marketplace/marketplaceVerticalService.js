@@ -6,6 +6,7 @@ import { assertPromotionTargeting, normalizeCountrySelection, promotionReachesCo
 import { getActiveCountryProfile } from "../../../data/globalCountryProfiles";
 import { uiText } from "../../../i18n/index.js";
 import { MAX_EXTRA_IMAGE_COUNT, validateVerticalMediaPackage } from "./verticalMediaValidation";
+import { withClipFragment } from "../media/videoClipUrl";
 import { assertBusinessCapacity, parseBusinessPlanError } from "../businessSubscriptionService";
 import { invalidateRegisteredBusinessesCache } from "./sellerRegistrationService";
 import { regionSelectionIds } from "../regions/regionModel";
@@ -111,8 +112,9 @@ async function uploadVerticalMediaPackage(businessId, input, folders, onProgress
     extraUrls.push(await uploadMarketplaceVerticalImage(file, businessId, folders.gallery));
   }
   onProgress?.("video");
+  // Instant trim: the original file plus the chosen window, as on Explore.
   const videoUrl = input.videoFile
-    ? await uploadMarketplaceVerticalVideo(input.videoFile, businessId, folders.video)
+    ? withClipFragment(await uploadMarketplaceVerticalVideo(input.videoFile, businessId, folders.video), input.videoTrimStart, input.videoTrimEnd)
     : existing.video || "";
   return [coverUrl, extraUrls, videoUrl];
 }
@@ -195,8 +197,10 @@ export async function toggleRestaurantMenuItem(item, available) {
 
 function getMarketplaceMediaPath(url = "") {
   const marker = "/object/public/marketplace-business-media/";
-  const index = String(url).indexOf(marker);
-  return index >= 0 ? decodeURIComponent(String(url).slice(index + marker.length)) : "";
+  // A trimmed video's URL carries its window ("#t=…"); the file is the part before it.
+  const text = String(url).split("#")[0].split("?")[0];
+  const index = text.indexOf(marker);
+  return index >= 0 ? decodeURIComponent(text.slice(index + marker.length)) : "";
 }
 
 async function removeMarketplaceMedia(urls = []) {

@@ -284,3 +284,31 @@ test("refresh scheduler: requestNow respects the minimum gap and survives errors
   assert.equal(runs, 2);
   scheduler.stop();
 });
+
+test("refresh scheduler: refreshNow ignores the realtime gap and resolves when done", async () => {
+  const timers = fakeTimers();
+  let runs = 0;
+  let clock = 0;
+  const scheduler = createRefreshScheduler({
+    run: () => {
+      runs += 1;
+    },
+    intervalMs: 10_000,
+    minGapMs: 5_000,
+    setTimer: timers.setTimer,
+    clearTimer: timers.clearTimer,
+    now: () => clock,
+  });
+
+  scheduler.resume();
+  await tick();
+  assert.equal(runs, 1);
+  clock = 1_000;
+  await scheduler.requestNow();
+  assert.equal(runs, 1, "a realtime nudge inside the gap is skipped");
+  await scheduler.refreshNow();
+  assert.equal(runs, 2, "a tapped refresh always runs");
+  await tick();
+  assert.equal(timers.pending().length, 1, "the interval continues after it");
+  scheduler.stop();
+});

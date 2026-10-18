@@ -2,6 +2,8 @@ import { useI18n, t } from "../../../../../i18n";
 import AttentionIcon from "./AttentionIcon";
 import AttentionPriorityBadge from "./AttentionPriorityBadge";
 import { uiText as translateUi } from "../../../../../i18n/index.js";
+import { notificationDisplayText } from "../../../../../Backend/services/notificationText";
+import ExpandableText from "../../../../shared/ExpandableText";
 
 export default function AttentionItem({ item, onAction }) {
   useI18n();
@@ -13,10 +15,15 @@ export default function AttentionItem({ item, onAction }) {
         <div className="min-w-0 flex-1">
           <div className="flex flex-wrap items-start justify-between gap-2">
             <div>
-              <h4 className="font-black text-gray-950">{translateUi(item.title)}</h4>
-              <p className="mt-1 text-sm font-medium leading-5 text-gray-500">
-                {translateUi(item.description)}
-              </p>
+              {(() => {
+                const text = notificationDisplayText(item.title, item.description);
+                return (
+                  <>
+                    <h4 className="break-words font-black text-gray-950">{translateUi(text.title)}</h4>
+                    {text.body ? <ExpandableText text={translateUi(text.body)} className="mt-1 text-sm font-medium leading-5 text-gray-500" /> : null}
+                  </>
+                );
+              })()}
             </div>
             <AttentionPriorityBadge priority={item.priority} />
           </div>

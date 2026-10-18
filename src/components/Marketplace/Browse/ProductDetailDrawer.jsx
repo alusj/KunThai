@@ -61,6 +61,7 @@ import { inlineErrorMessage, shortErrorToast } from "../../../Backend/services/f
 import AppPortal from "../../shared/AppPortal";
 import useOrderCautionGate from "../shared/useOrderCautionGate";
 import { orderCautionKindForProduct } from "../shared/orderCaution";
+import ClipVideo from "../../shared/ClipVideo";
 
 function mapSavedAddressToOrder(address = {}) {
   return {
@@ -736,7 +737,9 @@ export default function ProductDetailDrawer({
     return () => window.clearTimeout(timer);
   }, [messageOpen]);
 
-  if (!open || !product) return null;
+  // A product handed over by id only (a notification, a link) has no seller
+  // yet; the drawer shows once the full product has loaded.
+  if (!open || !product?.seller) return null;
 
   const hasDiscount = product.discountPrice && product.discountPrice < product.price;
   const displayPrice = hasDiscount ? product.discountPrice : product.price;
@@ -1012,7 +1015,7 @@ export default function ProductDetailDrawer({
               <Gallery product={product} onOpenImage={setActiveImageIndex} />
               {product.videoUrl ? (
                 <div className="overflow-hidden rounded-lg border border-gray-200 bg-gray-950">
-                  <video src={product.videoUrl} controls playsInline preload="metadata" className="aspect-video w-full bg-gray-950 object-contain" />
+                  <ClipVideo src={product.videoUrl} controls playsInline preload="metadata" className="aspect-video w-full bg-gray-950 object-contain" />
                 </div>
               ) : null}
             </div>

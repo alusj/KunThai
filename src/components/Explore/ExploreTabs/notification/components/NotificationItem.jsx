@@ -11,6 +11,8 @@ import {
 } from "react-icons/hi2";
 import Avatar from "../../../shared/Avatar";
 import NotificationAction from "./NotificationAction";
+import { notificationDisplayText } from "../../../../../Backend/services/notificationText";
+import ExpandableText from "../../../../shared/ExpandableText";
 
 function getIcon(type) {
   if (type === "follow" || type === "connect") return HiOutlineUserPlus;
@@ -56,6 +58,8 @@ function getMessage(item) {
 
 export default function NotificationItem({ followed, item, onFollowBack, onOpen }) {
   const Icon = getIcon(item.type);
+  // A preview that only repeats the message (payments, adverts) is not shown.
+  const text = notificationDisplayText(getMessage(item), item.post_preview);
 
   return (
     <article
@@ -73,9 +77,9 @@ export default function NotificationItem({ followed, item, onFollowBack, onOpen 
       <div className="min-w-0 flex-1">
         <button type="button" onClick={() => onOpen?.(item)} className="w-full text-left">
           <div className="flex items-start gap-2">
-            <p className="min-w-0 flex-1 text-sm font-bold leading-6 text-slate-800">{getMessage(item)}</p>
+            <p className="min-w-0 flex-1 break-words text-sm font-bold leading-6 text-slate-800">{text.title}</p>
           </div>
-          {item.post_preview ? <p className="mt-1 line-clamp-2 text-xs font-medium text-slate-500">"{item.post_preview}"</p> : null}
+          {text.body ? <ExpandableText text={`"${text.body}"`} lines={2} className="mt-1 text-xs font-medium text-slate-500" /> : null}
           <div className="mt-2 flex flex-wrap items-center gap-2">
             <p className="text-xs font-bold text-slate-400">{item.time_label || item.time}</p>
           </div>

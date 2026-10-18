@@ -103,12 +103,19 @@ function buildCatalogKey(filters) {
   );
 }
 
+// A full product (with its seller), not an id-only reference from a
+// notification or link: only those can be shown again from recent views.
+function isFullProduct(product) {
+  return Boolean(product?.id && product.seller && product.name);
+}
+
 function rememberRecentProduct(product) {
+  if (!isFullProduct(product)) return;
   try {
     const current = JSON.parse(localStorage.getItem(RECENT_PRODUCTS_KEY) || "[]");
     const next = [
       product,
-      ...current.filter((item) => item.id !== product.id),
+      ...current.filter((item) => item.id !== product.id && isFullProduct(item)),
     ].slice(0, 12);
     localStorage.setItem(RECENT_PRODUCTS_KEY, JSON.stringify(next));
   } catch {
@@ -210,13 +217,19 @@ export default function Browse({ activeTab = "new", onProductModeChange, onClose
   }, []);
 
   const openProduct = useCallback(async (product) => {
-    setSelectedProduct(product);
-    setDetailOpen(true);
-    rememberRecentProduct(product);
+    // An id-only product (e.g. "View product" on a notification) opens once
+    // its details load; a full one opens at once and refreshes behind.
+    const full = isFullProduct(product);
+    if (full) {
+      setSelectedProduct(product);
+      setDetailOpen(true);
+      rememberRecentProduct(product);
+    }
 
     try {
       const detail = await fetchBuyerProductDetail(product.id);
       setSelectedProduct(detail);
+      if (!full) setDetailOpen(true);
       rememberRecentProduct(detail);
     } catch (err) {
       showNotice(shortErrorToast(err, "Couldn't open product"), "danger");

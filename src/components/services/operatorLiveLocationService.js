@@ -3,13 +3,17 @@ import { Capacitor } from "@capacitor/core";
 import supabase from "../../Backend/lib/supabaseClient";
 import { t } from "../../i18n";
 import {
+  GOOD_FIX_METERS,
   HEARTBEAT_INTERVAL_MS,
+  acceptFix,
   chooseLocationEngine,
   describeBackgroundAccess,
   distanceInMeters,
   needsBackgroundConsentSheet,
+  refineDue,
   shouldPublishFix,
 } from "./operatorLocationPolicy";
+import { getPreciseCurrentPosition } from "../../Backend/utils/precisePosition";
 import { createNativeLocationSession } from "./operatorNativeLocationSession";
 
 // Publishes the signed-in operator's live position into
@@ -91,6 +95,8 @@ export function subscribeOperatorPublishStatus(listener) {
 const LOCATION_GRANTED_KEY = "kunthai.operatorLocationGranted.v1";
 // Set once the "stay visible with your phone locked" sheet was answered.
 const BACKGROUND_EXPLAINED_KEY = "kunthai.operatorBackgroundLocationExplained.v1";
+// Set by passengerPosition.js once the WebView's own location worked.
+const PASSENGER_LOCATION_GRANTED_KEY = "kunthai.locationGranted.v1";
 
 function readFlag(key) {
   try {
@@ -166,11 +172,26 @@ function refreshPlaceLabel(publisher, point, now) {
     });
 }
 
+function fixAccuracy(position) {
+  const value = position?.coords?.accuracy;
+  return value == null || !Number.isFinite(Number(value)) ? null : Number(value);
+}
+
 async function publishRow(publisher, position, { force = false } = {}) {
   const now = Date.now();
-  const point = position
+  const fresh = position
     ? { lat: position.coords.latitude, lng: position.coords.longitude }
-    : publisher.lastPoint;
+    : null;
+  // A rough network fix must not move a recently well-placed operator; the
+  // heartbeat keeps the good position fresh instead.
+  if (fresh && !acceptFix({ now, point: fresh, accuracy: fixAccuracy(position), lastGood: publisher.lastGoodFix })) return;
+  if (fresh) {
+    publisher.lastAccuracy = fixAccuracy(position);
+    if (publisher.lastAccuracy != null && publisher.lastAccuracy <= GOOD_FIX_METERS) {
+      publisher.lastGoodFix = { point: fresh, accuracy: publisher.lastAccuracy, at: now };
+    }
+  }
+  const point = fresh || publisher.lastPoint;
   if (!point) return;
 
   if (
@@ -204,7 +225,8 @@ async function publishRow(publisher, position, { force = false } = {}) {
       lng: point.lng,
       heading: Number.isFinite(position?.coords?.heading) ? position.coords.heading : null,
       speed_mps: Number.isFinite(position?.coords?.speed) ? position.coords.speed : null,
-      accuracy_meters: Number.isFinite(position?.coords?.accuracy) ? position.coords.accuracy : null,
+      // Heartbeats re-send the last fix, so they carry its accuracy too.
+      accuracy_meters: position ? fixAccuracy(position) : publisher.lastAccuracy ?? null,
       last_seen_at: new Date(now).toISOString(),
       metadata: {
         booked,
@@ -239,6 +261,58 @@ function setPublisherError(publisher, kind) {
   if (activePublisher !== publisher || publisher.errorKind === kind) return;
   publisher.errorKind = kind;
   notifyPublishListeners();
+}
+
+// While KunThai is open, asks the phone for a precise GPS fix whenever the last
+// one was rough (or on `force`: sharing started, app back in the foreground,
+// "refresh" tapped) and publishes it. Both engines: the native watcher often
+// hands over a network fix and then stays quiet while the operator is parked.
+// Only once this device has given a position, so it never prompts.
+// The app shares one location permission between the native watcher and the
+// WebView only on Android; in the iOS app the WebView may ask on its own. So
+// the native engine uses the WebView only once it is known to be allowed
+// (KunThai already used it for Area View / "Locate me", or the browser says so).
+async function webLocationAllowed(publisher) {
+  if (publisher.engine === "web") return readFlag(LOCATION_GRANTED_KEY);
+  if (readFlag(PASSENGER_LOCATION_GRANTED_KEY)) return true;
+  try {
+    const status = await navigator.permissions?.query?.({ name: "geolocation" });
+    return status?.state === "granted";
+  } catch {
+    return false;
+  }
+}
+
+async function refinePosition(publisher, { force = false } = {}) {
+  if (activePublisher !== publisher || publisher.refining) return;
+  if (typeof document !== "undefined" && document.visibilityState === "hidden") return;
+  if (typeof navigator === "undefined" || !navigator.geolocation) return;
+  if (!readFlag(LOCATION_GRANTED_KEY)) return;
+  const now = Date.now();
+  if (!refineDue({ now, lastAccuracy: publisher.lastAccuracy, lastRefineAt: publisher.lastRefineAt, force })) return;
+  publisher.refining = true;
+  publisher.lastRefineAt = now;
+  const allowed = await webLocationAllowed(publisher);
+  if (!allowed || activePublisher !== publisher) {
+    publisher.refining = false;
+    return;
+  }
+  getPreciseCurrentPosition({ targetAccuracyMeters: 20, maxWaitMs: 10_000 })
+    .then((position) => {
+      if (activePublisher === publisher) return publishRow(publisher, position, { force: true });
+      return undefined;
+    })
+    .catch(() => {
+      // The watcher and heartbeat carry on with what they have.
+    })
+    .finally(() => {
+      publisher.refining = false;
+    });
+}
+
+// "Refresh my location" for the operator dashboard: a precise fix now.
+export function refreshOperatorLocationNow() {
+  if (activePublisher) refinePosition(activePublisher, { force: true });
 }
 
 async function markOffline(userId) {
@@ -361,7 +435,9 @@ function startNativeWatch(publisher, plugin, { interactive = false } = {}) {
     lastPublishedAt: () => publisher.lastPublishedAt,
     hasPoint: () => Boolean(publisher.lastPoint),
     beat: () => {
-      if (activePublisher === publisher) publishRow(publisher, null, { force: true });
+      if (activePublisher !== publisher) return;
+      publishRow(publisher, null, { force: true });
+      refinePosition(publisher);
     },
   });
 
@@ -370,6 +446,7 @@ function startNativeWatch(publisher, plugin, { interactive = false } = {}) {
   publisher.onVisible = () => {
     if (document.visibilityState !== "visible" || activePublisher !== publisher) return;
     publishRow(publisher, null, { force: true });
+    refinePosition(publisher, { force: true });
     if (publisher.engine === "native") refreshNativeAccess(publisher);
   };
   document.addEventListener("visibilitychange", publisher.onVisible);
@@ -394,18 +471,18 @@ function startWebWatch(publisher) {
   );
 
   if (publisher.heartbeatId != null) window.clearInterval(publisher.heartbeatId);
-  publisher.heartbeatId = window.setInterval(() => publishRow(publisher, null, { force: true }), HEARTBEAT_INTERVAL_MS);
+  publisher.heartbeatId = window.setInterval(() => {
+    publishRow(publisher, null, { force: true });
+    refinePosition(publisher);
+  }, HEARTBEAT_INTERVAL_MS);
 
   // Back from the background: send a fresh fix now instead of waiting for
   // the next movement or heartbeat, so passengers see an up-to-date position.
   if (publisher.onVisible) document.removeEventListener("visibilitychange", publisher.onVisible);
   publisher.onVisible = () => {
     if (document.visibilityState !== "visible" || activePublisher !== publisher) return;
-    navigator.geolocation.getCurrentPosition(
-      (position) => publishRow(publisher, position, { force: true }),
-      () => publishRow(publisher, null, { force: true }),
-      { enableHighAccuracy: true, maximumAge: 15_000, timeout: 15_000 },
-    );
+    publishRow(publisher, null, { force: true });
+    refinePosition(publisher, { force: true });
   };
   document.addEventListener("visibilitychange", publisher.onVisible);
 }
@@ -451,6 +528,10 @@ export async function startOperatorLiveLocation({
     nativeSession: null,
     access: "",
     lastPoint: null,
+    lastAccuracy: null,
+    lastGoodFix: null,
+    lastRefineAt: 0,
+    refining: false,
     lastPublishedPoint: null,
     lastPublishedAt: 0,
     lastError: "",
@@ -469,6 +550,9 @@ export async function startOperatorLiveLocation({
   if (engine === "native") startNativeWatch(publisher, plugin, { interactive });
   else startWebWatch(publisher);
   notifyPublishListeners();
+  // A precise first fix (the first one a phone reports is often rough).
+  // Delayed a little so a first-time permission prompt from the watcher comes first.
+  window.setTimeout(() => refinePosition(publisher, { force: true }), 1500);
 
   return () => {
     if (activePublisher === publisher) stopOperatorLiveLocation();

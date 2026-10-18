@@ -15,11 +15,13 @@ import {
   FileCheck2,
   FileText,
   History,
+  KeyRound,
   LogOut,
   Menu as MenuIcon,
   MoreHorizontal,
   Pencil,
   PlayCircle,
+  Plus,
   Settings2,
   Shield,
   ShieldCheck,
@@ -97,6 +99,8 @@ import {
 import { uiText as translateUi, useI18n as useUiLocale } from "../../i18n/index.js";
 import { inlineErrorMessage, shortErrorToast } from "../../Backend/services/friendlyErrorService";
 import EnforcementNoticeBanner from "../shared/EnforcementNoticeBanner";
+import { notificationDisplayText } from "../../Backend/services/notificationText";
+import ExpandableText from "../shared/ExpandableText";
 
 const tabs = ["Overview", "Fleets", "Rentals", "Operators", "Requests", "Activity"];
 const DRAWER_TRANSITION_MS = 300;
@@ -141,7 +145,7 @@ function roleDesc(roleId) {
     : COMPANY_OPERATOR_ROLES[roleId]?.description || "";
 }
 
-export default function CompanyWorkspaceScreen({ company, initialTab = "Overview", onAddRentalFleet, onBack, onCompanyLeft, onCompanyUpdate, onEditCompany, onLocateArea, onOpenOperatorDashboard, onOpenPersonalDashboard, onRegisterCompany, statusMessage = "" }) {
+export default function CompanyWorkspaceScreen({ company, initialTab = "Overview", onAddFleet, onAddRentalFleet, onBack, onCompanyLeft, onCompanyUpdate, onEditCompany, onLocateArea, onOpenOperatorDashboard, onOpenPersonalDashboard, onRegisterCompany, statusMessage = "" }) {
   const { locale: memoLocale } = useI18n();
   const basicOperator = Boolean(company?.access?.role === "operator" && !company?.access?.isOwner);
   useAiRoleContext("urride", basicOperator ? "operator" : "company", { screen: "transport company workspace" });
@@ -157,6 +161,10 @@ export default function CompanyWorkspaceScreen({ company, initialTab = "Overview
   const [companyTabOpen, setCompanyTabOpen] = useState(() => !basicOperator && firstTab !== "Overview");
   const [companyTabDirection, setCompanyTabDirection] = useState("forward");
   const [menuOpen, setMenuOpen] = useState(false);
+  // The header "+": one place to add an operator, a fleet or a rental vehicle.
+  const [addMenuOpen, setAddMenuOpen] = useState(false);
+  // "Your plan is full" sheet, shown before any add form opens.
+  const [planLimit, setPlanLimit] = useState(null);
   const companyNavigation = useNavigationStack("dashboard");
   const activeMenuScreen = companyNavigation.current.screen === "dashboard" ? null : companyNavigation.current.screen;
   const [operatorAction, setOperatorAction] = useState(null);
@@ -240,6 +248,9 @@ export default function CompanyWorkspaceScreen({ company, initialTab = "Overview
   const canManageFleets = Boolean(access.canManageFleets);
   const canAddOperators = Boolean(access.canManageOperators);
   const canAddRentalFleets = Boolean(access.isOwner || access.role === "admin");
+  // Adding a fleet saves the company's fleet list, like adding a rental.
+  const canAddFleets = canAddRentalFleets;
+  const pausedFleetCount = (company?.fleets || []).filter((fleet) => fleet.planSuspended && !fleet.archivedAt).length;
   const canManagePlans = Boolean(access.canManagePlans || access.isOwner);
   const canViewOperatorDashboard = Boolean(access.isOwner || access.canManageOperators);
   const canViewAllBookings = Boolean(access.canViewAllBookings);
@@ -593,6 +604,12 @@ export default function CompanyWorkspaceScreen({ company, initialTab = "Overview
   async function toggleOperatorAvailability() {
     if (!companyOperatorAssignment?.companyFleetId || availabilitySaving) return;
     const nextActive = !operatorAvailable;
+    // Paused by the plan limit: switching on would not show it to passengers.
+    const assignedFleet = (company?.fleets || []).find((fleet) => fleet.id === companyOperatorAssignment.companyFleetId);
+    if (nextActive && assignedFleet?.planSuspended) {
+      showToast(t("urrideAddMenu.pausedToast"), "warning");
+      return;
+    }
     setOperatorAvailable(nextActive);
     try {
       setAvailabilitySaving(true);
@@ -801,15 +818,55 @@ export default function CompanyWorkspaceScreen({ company, initialTab = "Overview
     runAfterDrawerClose(() => (onEditCompany || onRegisterCompany)?.());
   }
 
-  function requestAddOperator() {
-    if (planState?.available) {
-      const capacity = getCapacityStatus(planState, "operators", 1);
-      if (!capacity.allowed) {
-        showToast("All operator spaces used", "danger");
-        if (canManagePlans) openMenuScreen("plans");
-        return;
-      }
+  // Each "+" choice opens its own form once the chooser has closed.
+  function runAfterAddMenuClose(callback) {
+    setAddMenuOpen(false);
+    window.setTimeout(() => callback?.(), 150);
+  }
+
+  // The plan is checked before a form opens, so nobody fills in a whole
+  // vehicle or operator only to be refused at the end. Reads the plan when it
+  // was not loaded yet; when it can't be read, the form opens and the
+  // database still enforces the limit on save.
+  async function ensurePlanState() {
+    if (planState) return planState;
+    if (!company?.id) return null;
+    try {
+      const next = await fetchBusinessSubscription("urride", company.id);
+      setPlanState(next);
+      return next;
+    } catch {
+      return null;
     }
+  }
+
+  async function hasCapacityFor(resource) {
+    const state = await ensurePlanState();
+    if (!state?.available) return true;
+    const capacity = getCapacityStatus(state, resource, 1);
+    if (capacity.allowed) return true;
+    setPlanLimit({
+      resource,
+      current: capacity.current,
+      limit: capacity.limit,
+      planName: state.entitlement?.planName || state.entitlement?.planCode || "",
+    });
+    return false;
+  }
+
+  async function requestAddFleet() {
+    if (!(await hasCapacityFor("vehicles"))) return;
+    onAddFleet?.();
+  }
+
+  // Rental vehicles count toward the same vehicle limit.
+  async function requestAddRental() {
+    if (!(await hasCapacityFor("vehicles"))) return;
+    onAddRentalFleet?.();
+  }
+
+  async function requestAddOperator() {
+    if (!(await hasCapacityFor("operators"))) return;
     onRegisterCompany?.();
   }
 
@@ -828,7 +885,7 @@ export default function CompanyWorkspaceScreen({ company, initialTab = "Overview
 }
 
   function renderDashboardTab(tab = activeTab) {
-    if (tab === "Rentals") return <CompanyRentals company={company} onAddFleet={canAddRentalFleets ? onAddRentalFleet : undefined} />;
+    if (tab === "Rentals") return <CompanyRentals company={company} onAddFleet={canAddRentalFleets && onAddRentalFleet ? requestAddRental : undefined} />;
     if (tab === "Overview") return <Overview company={company} fleets={fleets} pendingRequests={pendingRequests} />;
     if (tab === "Fleets") {
       return (
@@ -910,14 +967,26 @@ export default function CompanyWorkspaceScreen({ company, initialTab = "Overview
               ) : null}
             </button>
           ) : null}
+          {company && !basicOperator && (canAddOperators || (canAddFleets && onAddFleet) || (canAddRentalFleets && onAddRentalFleet)) ? (
+            <button
+              type="button"
+              onClick={() => setAddMenuOpen(true)}
+              aria-label={t("urrideAddMenu.addNew")}
+              title={t("urrideAddMenu.addNew")}
+              className="kt-pressable flex h-11 w-11 shrink-0 items-center justify-center rounded-full border-[2.5px] border-slate-950 bg-white text-slate-950 transition hover:bg-slate-100"
+            >
+              <Plus size={22} strokeWidth={3} />
+            </button>
+          ) : null}
           {company && !basicOperator ? (
             <button
               type="button"
               onClick={() => setMenuOpen(true)}
-              className="kt-pressable flex h-11 items-center gap-2 rounded-2xl bg-slate-950 px-4 text-sm font-black text-white shadow-lg shadow-slate-950/15 transition hover:bg-slate-900"
+              aria-label={t("urrideAddMenu.openMenu")}
+              title={t("urrideAddMenu.openMenu")}
+              className="kt-pressable flex h-11 w-11 shrink-0 items-center justify-center rounded-2xl bg-slate-950 text-white shadow-lg shadow-slate-950/15 transition hover:bg-slate-900"
             >
-              <MenuIcon size={18} />
-              {t("urride.companyWs.menu")}
+              <MenuIcon size={20} />
             </button>
           ) : company && basicOperator ? (
             <button
@@ -973,6 +1042,22 @@ export default function CompanyWorkspaceScreen({ company, initialTab = "Overview
       ) : (
         <main className="w-full px-4 py-5 sm:px-6 lg:px-8">
           {!basicOperator ? <>
+          {pausedFleetCount > 0 ? (
+            <div className="mb-4 rounded-3xl border border-amber-200 bg-amber-50 p-4" role="status">
+              <p className="text-sm font-bold leading-6 text-amber-900">{t("urrideAddMenu.pausedBanner", { count: pausedFleetCount })}</p>
+              {canManagePlans ? (
+                <button
+                  type="button"
+                  onClick={() => openMenuScreen("plans")}
+                  className="kt-pressable mt-3 inline-flex h-10 items-center rounded-2xl bg-slate-950 px-4 text-sm font-black text-white"
+                >
+                  {t("urrideAddMenu.upgradePlan")}
+                </button>
+              ) : (
+                <p className="mt-2 text-xs font-bold text-amber-800">{t("urrideAddMenu.askOwner")}</p>
+              )}
+            </div>
+          ) : null}
           {companyHealth.score < 100 ? (
             <div className="mb-4">
               <HealthScoreCard health={companyHealth} onEditProfile={access.isOwner ? openCompanyEditor : undefined} />
@@ -1209,6 +1294,23 @@ export default function CompanyWorkspaceScreen({ company, initialTab = "Overview
             onConfirm={() => runOperatorAction(removeOperator, "remove")}
             open={Boolean(removeOperator)}
             operator={removeOperator}
+          />
+          <AddToCompanyDrawer
+            company={company}
+            open={addMenuOpen}
+            onClose={() => setAddMenuOpen(false)}
+            onAddOperator={canAddOperators ? () => runAfterAddMenuClose(requestAddOperator) : undefined}
+            onAddFleet={canAddFleets && onAddFleet ? () => runAfterAddMenuClose(requestAddFleet) : undefined}
+            onAddRental={canAddRentalFleets && onAddRentalFleet ? () => runAfterAddMenuClose(requestAddRental) : undefined}
+          />
+          <PlanLimitDrawer
+            canUpgrade={canManagePlans}
+            limit={planLimit}
+            onClose={() => setPlanLimit(null)}
+            onUpgrade={() => {
+              setPlanLimit(null);
+              openMenuScreen("plans");
+            }}
           />
           <FleetActionDrawer
             busy={managementBusy}
@@ -2133,9 +2235,15 @@ function FleetList({ canManage = false, fleets, onManageFleet }) {
             <div className="flex items-center justify-between gap-2">
               <p className="min-w-0 truncate text-xs font-black uppercase tracking-wide text-blue-700">{fleet.fleetCode || t("urride.companyWs.fleetCodePending")}</p>
               <div className="flex shrink-0 items-center gap-2">
-                <span className={`rounded-full px-2.5 py-1 text-[10px] font-black uppercase ${fleet.activeStatus === "active" ? "bg-emerald-50 text-emerald-700" : "bg-slate-100 text-slate-500"}`}>
-                  {fleet.serviceCategory === "Rental" ? i18nText("ui.literals.ke703935c66bf") : fleet.activeStatus || t("urride.companyWs.offlineStatus")}
-                </span>
+                {fleet.planSuspended ? (
+                  <span className="rounded-full bg-amber-100 px-2.5 py-1 text-[10px] font-black uppercase text-amber-800">
+                    {t("urrideAddMenu.pausedBadge")}
+                  </span>
+                ) : (
+                  <span className={`rounded-full px-2.5 py-1 text-[10px] font-black uppercase ${fleet.activeStatus === "active" ? "bg-emerald-50 text-emerald-700" : "bg-slate-100 text-slate-500"}`}>
+                    {fleet.serviceCategory === "Rental" ? i18nText("ui.literals.ke703935c66bf") : fleet.activeStatus || t("urride.companyWs.offlineStatus")}
+                  </span>
+                )}
                 {canManage && onManageFleet ? (
                   <button
                     type="button"
@@ -2285,8 +2393,15 @@ function Activity({ company }) {
               <FiActivity />
             </span>
             <div>
-              <h3 className="font-black text-slate-950">{translateUi(activity.title)}</h3>
-              <p className="mt-1 text-sm font-semibold leading-6 text-slate-500">{activity.body}</p>
+              {(() => {
+                const text = notificationDisplayText(activity.title, activity.body);
+                return (
+                  <>
+                    <h3 className="break-words font-black text-slate-950">{translateUi(text.title)}</h3>
+                    {text.body ? <ExpandableText text={text.body} className="mt-1 text-sm font-semibold leading-6 text-slate-500" /> : null}
+                  </>
+                );
+              })()}
             </div>
           </div>
         </section>
@@ -2605,8 +2720,15 @@ function CompanyActivityDrawer({ activities, company, notificationPreferences, o
                     <Bell size={17} />
                   </span>
                   <div className="min-w-0 flex-1">
-                    <h3 className="text-sm font-black text-slate-950">{translateUi(activity.title)}</h3>
-                    <p className="mt-1 text-xs font-semibold leading-5 text-slate-600">{activity.body}</p>
+                    {(() => {
+                      const text = notificationDisplayText(activity.title, activity.body);
+                      return (
+                        <>
+                          <h3 className="break-words text-sm font-black text-slate-950">{translateUi(text.title)}</h3>
+                          {text.body ? <ExpandableText text={text.body} className="mt-1 text-xs font-semibold leading-5 text-slate-600" /> : null}
+                        </>
+                      );
+                    })()}
                     {activity.created_at ? (
                       <p className="mt-2 text-[11px] font-bold text-slate-400">{new Date(activity.created_at).toLocaleString()}</p>
                     ) : null}
@@ -2822,6 +2944,94 @@ function FleetOperatorInvitationDrawer({ fleet, onClose, onSend }) {
       <button type="submit" disabled={busy || !publicId.trim()} className="w-full rounded-2xl bg-blue-600 px-4 py-3 font-bold text-white disabled:opacity-50">{busy ? i18nText("ui.literals.kcf765512cc6d") : i18nText("ui.literals.kabb6cb2d460a")}</button>
     </form>
   </FleetHqActionSheet>;
+}
+
+function PlanLimitDrawer({ canUpgrade = false, limit, onClose, onUpgrade }) {
+  useUiLocale();
+  const open = Boolean(limit);
+  const body = limit
+    ? t(limit.resource === "operators" ? "urrideAddMenu.limitOperators" : "urrideAddMenu.limitVehicles", {
+        plan: limit.planName || "",
+        limit: limit.limit ?? 0,
+        current: limit.current ?? 0,
+      })
+    : "";
+  return (
+    <FleetHqActionSheet label={t("urrideAddMenu.limitTitle")} onClose={onClose} open={open}>
+      <ActionSheetHeader
+        eyebrow={t("urrideAddMenu.addNew")}
+        icon={Crown}
+        onClose={onClose}
+        title={t("urrideAddMenu.limitTitle")}
+      />
+      <div className="bg-slate-50 p-5">
+        <p className="text-sm font-bold leading-6 text-slate-700">{body}</p>
+        {!canUpgrade ? <p className="mt-2 text-xs font-bold text-slate-500">{t("urrideAddMenu.askOwner")}</p> : null}
+        <div className="mt-4 grid gap-2">
+          {canUpgrade ? (
+            <button
+              type="button"
+              onClick={onUpgrade}
+              className="kt-pressable flex h-12 w-full items-center justify-center gap-2 rounded-2xl bg-slate-950 px-4 text-sm font-black text-white"
+            >
+              <Crown size={17} />
+              {t("urrideAddMenu.upgradePlan")}
+            </button>
+          ) : null}
+          <button
+            type="button"
+            onClick={onClose}
+            className="flex h-12 w-full items-center justify-center rounded-2xl border border-slate-200 bg-white px-4 text-sm font-black text-slate-700"
+          >
+            {t("urrideAddMenu.close")}
+          </button>
+        </div>
+      </div>
+    </FleetHqActionSheet>
+  );
+}
+
+function AddToCompanyDrawer({ company, onAddFleet, onAddOperator, onAddRental, onClose, open }) {
+  useUiLocale();
+  return (
+    <FleetHqActionSheet label={t("urrideAddMenu.addNew")} onClose={onClose} open={open}>
+      <ActionSheetHeader
+        eyebrow={company?.companyName || t("urride.companyWs.fleetHqFallback")}
+        icon={Plus}
+        onClose={onClose}
+        title={t("urrideAddMenu.addNew")}
+      />
+      <div className="max-h-[68dvh] overflow-y-auto bg-slate-50 p-4">
+        <p className="mb-3 text-sm font-bold text-slate-600">{t("urrideAddMenu.subtitle")}</p>
+        <div className="grid gap-3">
+          {onAddOperator ? (
+            <OperatorActionButton
+              detail={t("urrideAddMenu.operatorDetail")}
+              icon={UserRoundPlus}
+              label={t("urrideAddMenu.operatorTitle")}
+              onClick={onAddOperator}
+            />
+          ) : null}
+          {onAddFleet ? (
+            <OperatorActionButton
+              detail={t("urrideAddMenu.fleetDetail")}
+              icon={Truck}
+              label={t("urrideAddMenu.fleetTitle")}
+              onClick={onAddFleet}
+            />
+          ) : null}
+          {onAddRental ? (
+            <OperatorActionButton
+              detail={t("urrideAddMenu.rentalDetail")}
+              icon={KeyRound}
+              label={t("urrideAddMenu.rentalTitle")}
+              onClick={onAddRental}
+            />
+          ) : null}
+        </div>
+      </div>
+    </FleetHqActionSheet>
+  );
 }
 
 function FleetActionDrawer({ busy, canManage, company, fleet, onAssignOperator, onClose, onDelete, onEditFleet, onRemoveOperator, open }) {

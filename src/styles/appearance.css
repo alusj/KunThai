@@ -6,6 +6,17 @@
  * replacing component classes or touching interaction and layout logic.
  */
 
+/* Settings > Appearance > Text size. Every Tailwind size is in rem, so the
+ * page's base size scales text (and its spacing) across all services.
+ * Medium is the browser default. Form fields keep 16px (no iOS zoom). */
+html[data-text-size="small"] {
+  font-size: 87.5%;
+}
+
+html[data-text-size="large"] {
+  font-size: 112.5%;
+}
+
 :root {
   --kt-app-bg: #f1f5f9;
   --kt-app-surface: #ffffff;

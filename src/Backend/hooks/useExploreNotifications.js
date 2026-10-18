@@ -28,7 +28,6 @@ const NOTIFICATIONS_MEMORY = {
 const PAGE_SIZE = 30;
 const HIGH_PRIORITY_TYPES = new Set(["comment", "reply", "mention", "follow", "message", "creator_reply", "thread_reply"]);
 const MEDIUM_PRIORITY_TYPES = new Set(["like", "share", "save", "reaction", "repost"]);
-const NOTIFICATION_RETENTION_MS = 10 * 24 * 60 * 60 * 1000;
 // Every subscriber (the header bell, Activity, Notifications) gets its own
 // realtime topic. A shared topic meant one screen's unmount removed the
 // channel the header still relied on.
@@ -86,13 +85,11 @@ function notificationEnabled(item) {
 
 function mergeNotificationList(items) {
   const merged = new Map();
-  const cutoff = Date.now() - NOTIFICATION_RETENTION_MS;
 
   items.forEach((item) => {
     if (!item?.id) return;
     const normalized = normalizeNotification(item);
-    const createdAt = new Date(normalized.created_at || 0).getTime();
-    if (!Number.isFinite(createdAt) || createdAt < cutoff) return;
+    // No 10-day cutoff: notifications stay like UrMall and UrRide ones.
     const existing = merged.get(normalized.id);
     merged.set(normalized.id, existing ? { ...existing, ...normalized } : normalized);
   });

@@ -1,5 +1,5 @@
 import { useEffect, useRef, useState } from "react";
-import { FiBriefcase, FiMapPin, FiStar } from "react-icons/fi";
+import { FiBriefcase, FiMapPin, FiRefreshCw, FiStar } from "react-icons/fi";
 import { formatCountryMoney } from "../../../data/globalCountryProfiles";
 import {
   attachFleetDistances,
@@ -126,6 +126,10 @@ export default function NearbyOperators({
   const categoryRef = useRef(category);
   const schedulerRef = useRef(null);
   const positionRef = useRef({ value: null, at: 0 });
+  // Refresh: the next position read takes a new, precise fix.
+  const freshPositionRef = useRef(false);
+  const [refreshKey, setRefreshKey] = useState(0);
+  const [refreshing, setRefreshing] = useState(false);
 
   useEffect(() => {
     categoryRef.current = category;
@@ -211,7 +215,7 @@ export default function NearbyOperators({
     return () => {
       alive = false;
     };
-  }, [cacheCountryIso, cacheUserId, destination, filters]);
+  }, [cacheCountryIso, cacheUserId, destination, filters, refreshKey]);
 
   const liveMode = filters?.mode || "topRated";
   const liveFleetType = filters?.fleetType || null;
@@ -231,11 +235,13 @@ export default function NearbyOperators({
     liveSignatureRef.current = "";
 
     async function readPosition() {
+      const fresh = freshPositionRef.current;
+      freshPositionRef.current = false;
       const cached = positionRef.current;
-      if (cached.at && Date.now() - cached.at < POSITION_REFRESH_MS) return cached.value;
+      if (!fresh && cached.at && Date.now() - cached.at < POSITION_REFRESH_MS) return cached.value;
       let value = null;
       try {
-        value = await getPassengerPosition();
+        value = await getPassengerPosition({ fresh });
       } catch {
         value = null;
       }
@@ -307,6 +313,25 @@ export default function NearbyOperators({
     };
   }, [cacheCountryIso, liveMode, liveFleetType]);
 
+  // Refresh tapped: a new precise position for the passenger, then operators
+  // reloaded at once (live discovery and the regular list).
+  async function refreshNearby() {
+    if (refreshing) return;
+    setRefreshing(true);
+    const startedAt = Date.now();
+    freshPositionRef.current = true;
+    positionRef.current = { value: null, at: 0 };
+    setRefreshKey((value) => value + 1);
+    try {
+      await (schedulerRef.current?.refreshNow?.() || Promise.resolve());
+    } finally {
+      // Keep the spinner visible briefly so the tap is clearly acknowledged.
+      const left = 600 - (Date.now() - startedAt);
+      if (left > 0) await new Promise((resolve) => window.setTimeout(resolve, left));
+      setRefreshing(false);
+    }
+  }
+
   const liveAvailable = live ? applyOperatorFilters(live.available, filters, destination).slice(0, LIVE_AVAILABLE_LIMIT) : [];
   const liveRecent = live ? applyOperatorFilters(live.recent, filters, destination).slice(0, LIVE_RECENT_LIMIT) : [];
 
@@ -328,9 +353,23 @@ export default function NearbyOperators({
             {pickup ? t("urride.operators.pickup", { pickup }) : t("urride.operators.subtitle")}
           </p>
         </div>
-        {category === "operators" ? <button type="button" onClick={onViewAll} className="text-sm font-semibold text-sky-700">
-          {t("urride.operators.viewAll")}
-        </button> : null}
+        {category === "operators" ? (
+          <div className="flex shrink-0 items-center gap-3">
+            <button
+              type="button"
+              onClick={refreshNearby}
+              disabled={refreshing}
+              aria-busy={refreshing}
+              className="kt-touchable inline-flex h-9 items-center gap-1.5 rounded-full border border-emerald-200 bg-emerald-50 px-3 text-xs font-black text-emerald-800 transition hover:bg-emerald-100 disabled:opacity-80"
+            >
+              <FiRefreshCw size={14} className={refreshing ? "animate-spin" : ""} />
+              {refreshing ? t("urrideLiveDiscovery.refreshingNearby") : t("urrideLiveDiscovery.refreshNearby")}
+            </button>
+            <button type="button" onClick={onViewAll} className="text-sm font-semibold text-sky-700">
+              {t("urride.operators.viewAll")}
+            </button>
+          </div>
+        ) : null}
       </div>
 
       <div className="mb-4 flex w-full flex-nowrap gap-2 overflow-x-auto rounded-2xl bg-slate-100 p-1.5 [scrollbar-width:none] [&::-webkit-scrollbar]:hidden" role="tablist" aria-label={i18nText("ui.literals.kf1213680c4fa")}>

@@ -42,6 +42,15 @@ function readVideoDuration(file) {
 }
 
 const MAX_EXTRA_IMAGES = 6;
+// Reading a video's length is normally instant; when it is not, the trimmer
+// opens instead of keeping the seller waiting (as on Explore).
+const VIDEO_DURATION_PROBE_TIMEOUT_MS = 2500;
+
+function formatClipClock(seconds) {
+  const safe = Math.max(0, Number(seconds) || 0);
+  const mins = Math.floor(safe / 60);
+  return `${mins}:${(safe - mins * 60).toFixed(1).padStart(4, "0")}`;
+}
 
 export default function ProductMediaStep({ productForm }) {
   useI18n();
@@ -51,6 +60,8 @@ export default function ProductMediaStep({ productForm }) {
   const [videoError, setVideoError] = useState("");
   const [videoTrimCandidate, setVideoTrimCandidate] = useState(null);
   const [trimmerOpen, setTrimmerOpen] = useState(false);
+  // The full video the attached clip came from, so "Trim" can start again.
+  const [videoSource, setVideoSource] = useState(null);
   const [extraImagesNote, setExtraImagesNote] = useState("");
   const extraImages = form.media.extraImageFiles || [];
   // When editing, the photos already in the gallery are kept unless removed,
@@ -192,38 +203,45 @@ export default function ProductMediaStep({ productForm }) {
             const file = event.target.files?.[0] || null;
             setVideoError("");
             setVideoTrimCandidate(null);
+            setTrimmerOpen(false);
 
-            if (file) {
-              if (file.size > MAX_PRODUCT_VIDEO_MB * 1024 * 1024) {
-                setVideoError(
-                  t("urmall.biz.pform.videoTooBig", { mb: formatVideoMb(file.size), max: MAX_PRODUCT_VIDEO_MB }),
-                );
-                setVideoTrimCandidate(file);
-                event.target.value = "";
-                updateSection("media", { videoFile: null, videoName: "" });
-                return;
-              }
-
-              try {
-                const duration = await readVideoDuration(file);
-                if (duration > MAX_PRODUCT_VIDEO_SECONDS + 0.5) {
-                  setVideoError(
-                    t("urmall.biz.pform.videoTooLong", { sec: Math.round(duration), max: MAX_PRODUCT_VIDEO_SECONDS }),
-                  );
-                  setVideoTrimCandidate(file);
-                  event.target.value = "";
-                  updateSection("media", { videoFile: null, videoName: "" });
-                  return;
-                }
-              } catch {
-                setVideoError(t("urmall.biz.pform.videoCheckFail", { max: MAX_PRODUCT_VIDEO_SECONDS }));
-                event.target.value = "";
-                updateSection("media", { videoFile: null, videoName: "" });
-                return;
-              }
+            if (!file) {
+              setVideoSource(null);
+              updateSection("media", { videoFile: null, videoName: "", videoTrimStart: null, videoTrimEnd: null });
+              return;
             }
 
-            updateSection("media", { videoFile: file, videoName: file?.name || "" });
+            // Same flow as Explore: a video that is too heavy, too long, or whose
+            // length the phone cannot read goes straight to the trimmer. The
+            // message and Trim button stay behind in case the trimmer is closed.
+            function sendToTrimmer(message) {
+              setVideoError(message);
+              setVideoTrimCandidate(file);
+              setTrimmerOpen(true);
+              event.target.value = "";
+              updateSection("media", { videoFile: null, videoName: "", videoTrimStart: null, videoTrimEnd: null });
+            }
+
+            if (file.size > MAX_PRODUCT_VIDEO_MB * 1024 * 1024) {
+              sendToTrimmer(t("urmall.biz.pform.videoTooBig", { mb: formatVideoMb(file.size), max: MAX_PRODUCT_VIDEO_MB }));
+              return;
+            }
+
+            const duration = await Promise.race([
+              readVideoDuration(file).catch(() => Number.NaN),
+              new Promise((resolve) => window.setTimeout(() => resolve(Number.NaN), VIDEO_DURATION_PROBE_TIMEOUT_MS)),
+            ]);
+            if (!Number.isFinite(duration) || duration <= 0) {
+              sendToTrimmer(t("urmall.biz.pform.videoCheckFail", { max: MAX_PRODUCT_VIDEO_SECONDS }));
+              return;
+            }
+            if (duration > MAX_PRODUCT_VIDEO_SECONDS + 0.5) {
+              sendToTrimmer(t("urmall.biz.pform.videoTooLong", { sec: Math.round(duration), max: MAX_PRODUCT_VIDEO_SECONDS }));
+              return;
+            }
+
+            setVideoSource(file);
+            updateSection("media", { videoFile: file, videoName: file.name || "", videoTrimStart: null, videoTrimEnd: null });
           }}
         />
         {videoError ? (
@@ -241,17 +259,48 @@ export default function ProductMediaStep({ productForm }) {
             ) : null}
           </div>
         ) : null}
+        {!videoError && form.media.videoFile && videoSource ? (
+          // An attached clip can be trimmed again, always from the full original.
+          <div className="mt-2 flex flex-wrap items-center gap-2">
+            <button
+              type="button"
+              onClick={() => {
+                setVideoTrimCandidate(videoSource);
+                setTrimmerOpen(true);
+              }}
+              className="inline-flex h-10 items-center gap-2 rounded-lg bg-gray-900 px-4 text-sm font-black text-white transition hover:bg-gray-800"
+            >
+              <Scissors size={15} />
+              {t("urmall.biz.pform.trim")}
+            </button>
+            {form.media.videoTrimEnd != null ? (
+              <span className="text-xs font-black text-emerald-700">
+                {formatClipClock(form.media.videoTrimStart)} → {formatClipClock(form.media.videoTrimEnd)}
+              </span>
+            ) : null}
+          </div>
+        ) : null}
       </ProductFormField>
 
       {trimmerOpen && videoTrimCandidate ? (
         <ProductVideoTrimmer
           file={videoTrimCandidate}
           onCancel={() => setTrimmerOpen(false)}
-          onComplete={(trimmedFile) => {
+          onComplete={(trimmedFile, { strategy, trimStart, trimEnd } = {}) => {
+            const source = videoTrimCandidate;
             setTrimmerOpen(false);
             setVideoTrimCandidate(null);
             setVideoError("");
-            updateSection("media", { videoFile: trimmedFile, videoName: trimmedFile.name });
+            setVideoSource(source);
+            // Instant trim ("range"): the original is kept and only the chosen
+            // window plays. A re-encoded clip is the whole file.
+            const instant = strategy === "range";
+            updateSection("media", {
+              videoFile: trimmedFile,
+              videoName: trimmedFile.name,
+              videoTrimStart: instant ? trimStart : null,
+              videoTrimEnd: instant ? trimEnd : null,
+            });
           }}
         />
       ) : null}

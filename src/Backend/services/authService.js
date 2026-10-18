@@ -41,7 +41,8 @@ export const signUpWithPhone = async (phone, password, country = "") => {
           phone_number: identity.normalizedPhone,
           country: typeof country === "object" ? country.name : country,
           country_code: typeof country === "object" ? country.iso2 : "",
-          account_type: "personal",
+          // New accounts start as Personal + Business ("both"); changeable in onboarding.
+          account_type: "both",
           registration_method: "phone",
           // Carried in auth metadata so the backend can credit the inviter on
           // verification even when this browser's storage is gone by then.
@@ -76,7 +77,7 @@ export const verifyPhoneOtp = async (phone, token) => {
     supabase.auth.updateUser({
       data: {
         ...DEFAULT_ONBOARDING_METADATA,
-        account_type: metadata.account_type || "personal",
+        account_type: metadata.account_type || "both",
         country: metadata.country || "",
         country_code: metadata.country_code || "",
         phone_number: metadata.phone_number || phone,
@@ -115,7 +116,7 @@ export const signUpWithEmailAccount = async (email, phone, password, redirectTo,
           phone_number: identity.normalizedPhone,
           country: typeof country === "object" ? country.name : country,
           country_code: typeof country === "object" ? country.iso2 : "",
-          account_type: "email",
+          account_type: "both",
           registration_method: "email",
           visibility_invite_code: getStoredVisibilityInviteCode() || undefined,
         },

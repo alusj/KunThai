@@ -342,38 +342,41 @@ function TripCard({ trip, onOpenActions, onCancel, onConfirmStart, onDeclineStar
         <InfoLine icon={FiClock} label={t("urride.booking.pickupTime")} text={formatTripPickupTime(trip.scheduledAt)} />
       </div>
 
-      <div className="mt-4 flex flex-wrap items-center gap-2">
-        <VerificationBadge status={trip.fleet?.verificationStatus} onClick={onShowVerification} />
-        <button type="button" onClick={onShowVerification} disabled={!trip.fleet} className="inline-flex h-8 items-center gap-1 rounded-full border border-gray-200 px-3 text-xs font-black text-gray-600 disabled:opacity-50">
-          <FiShield size={14} />
+      {/* One full-width button per line. */}
+      <div className="mt-4 grid gap-2">
+        <VerificationBadge
+          status={trip.fleet?.verificationStatus}
+          onClick={onShowVerification}
+          className="flex h-11 w-full items-center justify-center gap-2 rounded-2xl px-4 text-sm"
+        />
+        <button type="button" onClick={onShowVerification} disabled={!trip.fleet} className="flex h-11 w-full items-center justify-center gap-2 rounded-2xl border border-gray-200 bg-white px-4 text-sm font-black text-gray-700 disabled:opacity-50">
+          <FiShield size={16} />
           {t("urride.activeTrips.safetyDetails")}
         </button>
-        <button type="button" onClick={onViewFleet} disabled={!trip.fleetId} className="h-8 rounded-full border border-gray-200 px-3 text-xs font-black text-gray-600 disabled:opacity-50">
+        <button type="button" onClick={onViewFleet} disabled={!trip.fleetId} className="flex h-11 w-full items-center justify-center gap-2 rounded-2xl border border-gray-200 bg-white px-4 text-sm font-black text-gray-700 disabled:opacity-50">
           {t("urride.activeTrips.fleetProfile")}
         </button>
         <a
           href={operatorPhone ? `tel:${operatorPhone}` : undefined}
           aria-disabled={!operatorPhone}
-          className={`inline-flex h-8 items-center gap-1 rounded-full px-3 text-xs font-black ${
+          className={`flex h-11 w-full items-center justify-center gap-2 rounded-2xl px-4 text-sm font-black ${
             operatorPhone
               ? "bg-emerald-600 text-white"
               : "pointer-events-none border border-gray-200 bg-gray-100 text-gray-400"
           }`}
         >
-          <FiPhone size={14} />
+          <FiPhone size={16} />
           {t("urride.activeTrips.call")}
         </a>
+        {canCancel ? (
+          <ActionButton label={t("urride.activeTrips.cancelBooking")} icon={FiXCircle} danger onClick={onCancel} fullWidth />
+        ) : null}
       </div>
 
-      {canCancel ? (
-        <div className="mt-3">
-          <ActionButton label={t("urride.activeTrips.cancelBooking")} icon={FiXCircle} danger onClick={onCancel} />
-        </div>
-      ) : null}
       {trip.rawStatus === "completed" ? (
-        <div className="mt-4 grid gap-2 sm:grid-cols-3">
-          <button type="button" onClick={onReport} className="h-10 rounded-xl border border-red-100 bg-red-50 text-xs font-black text-red-700">{t("urride.activeTrips.reportOperator")}</button>
-          <button type="button" onClick={onReview} className="h-10 rounded-xl bg-emerald-600 text-xs font-black text-white">{t("urride.activeTrips.ratePerformance")}</button>
+        <div className="mt-4 grid gap-2">
+          <button type="button" onClick={onReport} className="h-11 w-full rounded-xl border border-red-100 bg-red-50 text-xs font-black text-red-700">{t("urride.activeTrips.reportOperator")}</button>
+          <button type="button" onClick={onReview} className="h-11 w-full rounded-xl bg-emerald-600 text-xs font-black text-white">{t("urride.activeTrips.ratePerformance")}</button>
           <SaveOperatorButton fleet={trip.fleet} />
         </div>
       ) : null}
@@ -683,9 +686,9 @@ function InfoLine({ icon, label, text }) {
   return <div className="flex min-w-0 items-center gap-2 rounded-xl bg-gray-50 px-3 py-2">{createElement(icon, { size: 15, className: "shrink-0 text-gray-500" })}<span className="min-w-0"><span className="mr-1 text-xs font-black uppercase text-gray-400">{translateUi(label)}:</span><span className="break-words font-semibold text-gray-700">{translateUi(text)}</span></span></div>;
 }
 
-function ActionButton({ label, icon, primary, danger, onClick }) {
+function ActionButton({ label, icon, primary, danger, onClick, fullWidth = false }) {
   useUiLocale();
-  return <button type="button" onClick={onClick} className={`h-10 rounded-2xl px-3 text-sm font-bold ${primary ? "bg-green-600 text-white" : danger ? "border border-red-100 bg-red-50 text-red-700" : "border border-gray-200 text-gray-700"}`}><span className="flex items-center justify-center gap-2">{icon ? createElement(icon, { size: 16 }) : null}{translateUi(label)}</span></button>;
+  return <button type="button" onClick={onClick} className={`${fullWidth ? "h-11 w-full" : "h-10"} rounded-2xl px-3 text-sm font-bold ${primary ? "bg-green-600 text-white" : danger ? "border border-red-100 bg-red-50 text-red-700" : "border border-gray-200 text-gray-700"}`}><span className="flex items-center justify-center gap-2">{icon ? createElement(icon, { size: 16 }) : null}{translateUi(label)}</span></button>;
 }
 
 function ActionRow({ icon, label, detail, onClick, danger = false }) {

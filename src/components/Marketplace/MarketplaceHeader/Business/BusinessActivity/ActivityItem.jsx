@@ -2,6 +2,8 @@ import { useI18n, t } from "../../../../../i18n";
 import ActivityIcon from "./ActivityIcon";
 import ActivityStatusBadge from "./ActivityStatusBadge";
 import { uiText as translateUi } from "../../../../../i18n/index.js";
+import { notificationDisplayText } from "../../../../../Backend/services/notificationText";
+import ExpandableText from "../../../../shared/ExpandableText";
 
 // Activity buttons are stored in English ("View product"); show them in the
 // seller's language.
@@ -34,10 +36,15 @@ export default function ActivityItem({ actionBusy = false, activity, dismissing 
       <div className="min-w-0 flex-1">
         <div className="flex items-start justify-between gap-3">
           <div className="min-w-0">
-            <p className="font-black text-gray-950">{translateUi(activity.title)}</p>
-            <p className="mt-1 text-sm font-medium leading-5 text-gray-500">
-              {translateUi(activity.description)}
-            </p>
+            {(() => {
+              const text = notificationDisplayText(activity.title, activity.description);
+              return (
+                <>
+                  <p className="break-words font-black text-gray-950">{translateUi(text.title)}</p>
+                  {text.body ? <ExpandableText text={translateUi(text.body)} className="mt-1 text-sm font-medium leading-5 text-gray-500" /> : null}
+                </>
+              );
+            })()}
           </div>
           <ActivityStatusBadge status={activity.status} onDone={activity.dismissible === false ? null : handleDone} />
         </div>

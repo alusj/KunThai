@@ -559,7 +559,7 @@ function mediaPathFromPublicUrl(url) {
   const index = text.indexOf(MEDIA_PUBLIC_MARKER);
   if (index < 0) return "";
   try {
-    return decodeURIComponent(text.slice(index + MEDIA_PUBLIC_MARKER.length).split("?")[0]);
+    return decodeURIComponent(text.slice(index + MEDIA_PUBLIC_MARKER.length).split("#")[0].split("?")[0]);
   } catch {
     return "";
   }
