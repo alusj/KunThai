@@ -75,6 +75,7 @@ import {
   COMPANY_OPERATOR_ROLES,
   getTransportCompanyBookingQueue,
   inviteOperatorToCompanyFleet,
+  lookupTransportOperatorByKunThaiId,
   deleteTransportCompany,
   leaveTransportCompany,
   manageTransportCompanyFleet,
@@ -145,7 +146,7 @@ function roleDesc(roleId) {
     : COMPANY_OPERATOR_ROLES[roleId]?.description || "";
 }
 
-export default function CompanyWorkspaceScreen({ company, initialTab = "Overview", onAddFleet, onAddRentalFleet, onBack, onCompanyLeft, onCompanyUpdate, onEditCompany, onLocateArea, onOpenOperatorDashboard, onOpenPersonalDashboard, onRegisterCompany, statusMessage = "" }) {
+export default function CompanyWorkspaceScreen({ company, initialTab = "Overview", onAddFleet, onAddRentalFleet, onBack, onEditFleetDetails, onCompanyLeft, onCompanyUpdate, onEditCompany, onLocateArea, onOpenOperatorDashboard, onOpenPersonalDashboard, onRegisterCompany, statusMessage = "" }) {
   const { locale: memoLocale } = useI18n();
   const basicOperator = Boolean(company?.access?.role === "operator" && !company?.access?.isOwner);
   useAiRoleContext("urride", basicOperator ? "operator" : "company", { screen: "transport company workspace" });
@@ -172,6 +173,11 @@ export default function CompanyWorkspaceScreen({ company, initialTab = "Overview
   const [removeOperator, setRemoveOperator] = useState(null);
   const [fleetAction, setFleetAction] = useState(null);
   const [invitationFleet, setInvitationFleet] = useState(null);
+  // "Assign to a vehicle" for an operator who has none.
+  const [assignVehicleOperator, setAssignVehicleOperator] = useState(null);
+  // Why the last operator action failed, shown inside the open sheet (a toast
+  // is too short to say it).
+  const [operatorActionError, setOperatorActionError] = useState("");
   const [fleetConfirm, setFleetConfirm] = useState(null);
   const [companyNotificationsOpen, setCompanyNotificationsOpen] = useState(false);
   const [companyNotificationSettingsOpen, setCompanyNotificationSettingsOpen] = useState(false);
@@ -239,6 +245,11 @@ export default function CompanyWorkspaceScreen({ company, initialTab = "Overview
   const pendingRequests = requests.filter((request) =>
     (request.status === "pending" && !request.expired) || request.documents?.registrationRequired
   );
+  // People in the company with no vehicle right now (taken off one, or never
+  // given one). They stay listed under Operators so they can be given a vehicle.
+  const operatorsWithoutVehicle = companyMembersWithoutVehicle(company?.members, acceptedOperators, pendingRequests);
+  const allOperators = [...acceptedOperators, ...operatorsWithoutVehicle];
+  const vehiclesWithoutOperator = operationalFleets.filter((fleet) => canInviteOperatorToFleet(fleet));
   const access = company?.access || {};
   const notificationPreferenceUserId = access.userId || company?.userId || "";
   const [companyNotificationPreferences, setCompanyNotificationPreferences] = useState(() =>
@@ -752,6 +763,7 @@ export default function CompanyWorkspaceScreen({ company, initialTab = "Overview
 
   async function runOperatorAction(operator, action, options = {}) {
     try {
+      setOperatorActionError("");
       setManagementBusy(true);
       const updatedCompany = await manageTransportCompanyOperator(company, operator, action, options);
       const copy = action === "responsibility"
@@ -774,6 +786,7 @@ export default function CompanyWorkspaceScreen({ company, initialTab = "Overview
         "success",
       );
     } catch (error) {
+      setOperatorActionError(inlineErrorMessage(error, "This operator could not be updated. Refresh Fleet HQ and try again."));
       showToast(shortErrorToast(error, "Couldn't update operator"), "danger");
     } finally {
       setManagementBusy(false);
@@ -892,6 +905,7 @@ export default function CompanyWorkspaceScreen({ company, initialTab = "Overview
         <FleetList
           canManage={canManageFleets || access.isOwner}
           fleets={operationalFleets}
+          onAssignOperator={canAddOperators ? setInvitationFleet : undefined}
           onManageFleet={setFleetAction}
         />
       );
@@ -902,7 +916,7 @@ export default function CompanyWorkspaceScreen({ company, initialTab = "Overview
           canManageOperators={canManageOperators}
           onAddOperator={canAddOperators ? requestAddOperator : undefined}
           onManageOperator={setOperatorAction}
-          operators={acceptedOperators}
+          operators={allOperators}
           onOpenOperatorDashboard={canViewOperatorDashboard ? onOpenOperatorDashboard : undefined}
         />
       );
@@ -1151,7 +1165,7 @@ export default function CompanyWorkspaceScreen({ company, initialTab = "Overview
               canManageOperators={canManageOperators}
               onAddOperator={canAddOperators ? requestAddOperator : undefined}
               onManageOperator={setOperatorAction}
-              operators={acceptedOperators}
+              operators={allOperators}
               pendingRequests={pendingRequests}
               requests={requests}
               screen={visibleMenuScreen}
@@ -1262,11 +1276,28 @@ export default function CompanyWorkspaceScreen({ company, initialTab = "Overview
             busy={managementBusy}
             canManage={canManageOperators}
             company={company}
+            error={operatorActionError}
             onAddOperator={canAddOperators ? requestAddOperator : undefined}
-            onClose={() => setOperatorAction(null)}
+            onAssignVehicle={canAddOperators ? (operator) => {
+              setOperatorAction(null);
+              setOperatorActionError("");
+              setAssignVehicleOperator(operator);
+            } : undefined}
+            onRemoveFromVehicle={canManageFleets || access.isOwner ? (operator) => {
+              const fleet = fleets.find((item) => item.id === operator.companyFleetId);
+              if (!fleet) return;
+              setOperatorAction(null);
+              setOperatorActionError("");
+              setFleetConfirm({ fleet, action: "removeOperator" });
+            } : undefined}
+            onClose={() => {
+              setOperatorAction(null);
+              setOperatorActionError("");
+            }}
             onOpenDashboard={canViewOperatorDashboard ? onOpenOperatorDashboard : undefined}
             onResponsibility={(operator) => {
               setOperatorAction(null);
+              setOperatorActionError("");
               setResponsibilityOperator(operator);
             }}
             onRemove={(operator) => {
@@ -1284,7 +1315,11 @@ export default function CompanyWorkspaceScreen({ company, initialTab = "Overview
               role,
               responsibilities: [COMPANY_OPERATOR_ROLES[role]?.label || "Operator only"],
             })}
-            onClose={() => setResponsibilityOperator(null)}
+            error={operatorActionError}
+            onClose={() => {
+              setResponsibilityOperator(null);
+              setOperatorActionError("");
+            }}
             open={Boolean(responsibilityOperator)}
             operator={responsibilityOperator}
           />
@@ -1327,8 +1362,11 @@ export default function CompanyWorkspaceScreen({ company, initialTab = "Overview
               setFleetConfirm({ fleet, action: "delete" });
             }}
             onEditFleet={access.isOwner ? () => {
+              const fleet = fleetAction;
               setFleetAction(null);
-              (onEditCompany || onRegisterCompany)?.();
+              // Only this vehicle's details, not the whole company.
+              if (onEditFleetDetails && fleet?.id) onEditFleetDetails(fleet);
+              else (onEditCompany || onRegisterCompany)?.();
             } : undefined}
             onRemoveOperator={fleetAction?.serviceCategory !== "Rental" ? (fleet) => {
               setFleetAction(null);
@@ -1336,7 +1374,25 @@ export default function CompanyWorkspaceScreen({ company, initialTab = "Overview
             } : undefined}
             open={Boolean(fleetAction)}
           />
+          {assignVehicleOperator ? <AssignVehicleDrawer
+            operator={assignVehicleOperator}
+            vehicles={vehiclesWithoutOperator}
+            onClose={() => setAssignVehicleOperator(null)}
+            onAssign={async (fleet) => {
+              const invite = await inviteOperatorToCompanyFleet(company, fleet, assignVehicleOperator.publicId);
+              onCompanyUpdate?.({
+                ...company,
+                fleets: fleets.map((item) => item.id === fleet.id ? {
+                  ...item,
+                  operators: [...(item.operators || []).filter((entry) => entry.requestId !== invite.requestId), invite],
+                } : item),
+              });
+              setAssignVehicleOperator(null);
+              showToast(invite.status === "accepted" ? "Operator already assigned" : "Invitation sent", "success");
+            }}
+          /> : null}
           {invitationFleet ? <FleetOperatorInvitationDrawer
+            candidates={operatorsWithoutVehicle}
             fleet={invitationFleet}
             onClose={() => setInvitationFleet(null)}
             onSend={async (publicId) => {
@@ -2195,10 +2251,47 @@ function ReadinessItem({ label, ready }) {
 
 // "Invite operator" is only for a fleet that has no operator yet and is offline.
 // A fleet with an operator (or one that is live) is managed, not re-staffed.
+// Any non-rental vehicle with no operator and no invitation waiting can get
+// one (an Active vehicle without an operator included: it needs one most).
 function canInviteOperatorToFleet(fleet) {
   if (!fleet || fleet.serviceCategory === "Rental") return false;
   if (getFleetAssignedOperator(fleet)) return false;
-  return String(fleet.activeStatus || "").toLowerCase() !== "active";
+  return !getFleetPendingInvite(fleet);
+}
+
+function getFleetPendingInvite(fleet = {}) {
+  return (fleet.operators || []).find((operator) =>
+    String(operator.status || "").toLowerCase() === "pending" && !operator.expired,
+  ) || null;
+}
+
+// Company members (not the owner) who are neither on a vehicle nor waiting on
+// an invitation, in the shape the Operators list uses.
+function companyMembersWithoutVehicle(members = [], acceptedOperators = [], pendingRequests = []) {
+  const taken = new Set();
+  [...acceptedOperators, ...pendingRequests].forEach((operator) => {
+    [operator.memberId, operator.operatorId, operator.userId, String(operator.publicId || "").trim().toLowerCase()]
+      .filter(Boolean)
+      .forEach((key) => taken.add(key));
+  });
+  return (members || [])
+    .map((member) => ({
+      memberId: member.id || "",
+      operatorId: member.operatorId || member.operator_id || "",
+      userId: member.userId || member.user_id || "",
+      publicId: member.publicId || member.public_id || "",
+      name: member.fullName || member.full_name || member.publicId || member.public_id || "",
+      memberRole: member.role || "operator",
+      serviceStatus: member.serviceStatus || member.service_status || "active",
+      status: member.status || "active",
+      companyFleetId: "",
+    }))
+    .filter((member) =>
+      member.memberRole !== "owner"
+        && member.status !== "removed"
+        && member.serviceStatus !== "removed"
+        && ![member.memberId, member.operatorId, member.userId, member.publicId.toLowerCase()].some((key) => key && taken.has(key)),
+    );
 }
 
 function operatorIdentity(operator = {}) {
@@ -2223,7 +2316,7 @@ function getFleetAssignedOperator(fleet = {}) {
   ) || null;
 }
 
-function FleetList({ canManage = false, fleets, onManageFleet }) {
+function FleetList({ canManage = false, fleets, onAssignOperator, onManageFleet }) {
   useUiLocale();
   if (!fleets.length) return <EmptyPanel title={t("urride.companyWs.noFleetsTitle")} body={t("urride.companyWs.noFleetsBody")} />;
   return (
@@ -2262,9 +2355,24 @@ function FleetList({ canManage = false, fleets, onManageFleet }) {
               <FiMapPin />
               <span className="min-w-0 truncate">{fleet.homeBase || fleet.operatingArea || t("urride.companyWs.homeBaseNotAdded")}</span>
             </div>
-            <p className={`mt-3 rounded-2xl px-3 py-2 text-xs font-black ${assignedOperator ? "bg-emerald-50 text-emerald-700" : "bg-slate-50 text-slate-500"}`}>
-              {fleet.serviceCategory === "Rental" ? i18nText("ui.literals.k6379cb780d32") : assignedOperator ? t("urride.companyWs.operatorPrefix", { name: assignedOperator.name || assignedOperator.publicId || t("urride.companyWs.operatorAssigned") }) : t("urride.companyWs.noOperatorAssigned")}
-            </p>
+            {fleet.serviceCategory !== "Rental" && !assignedOperator && getFleetPendingInvite(fleet) ? (
+              <p className="mt-3 rounded-2xl bg-amber-50 px-3 py-2 text-xs font-black text-amber-800">
+                {t("urrideFleetHq.invitePending", { name: getFleetPendingInvite(fleet).name || getFleetPendingInvite(fleet).publicId || "" })}
+              </p>
+            ) : fleet.serviceCategory !== "Rental" && !assignedOperator && onAssignOperator ? (
+              <button
+                type="button"
+                onClick={() => onAssignOperator(fleet)}
+                className="kt-pressable mt-3 flex h-11 w-full items-center justify-center gap-2 rounded-2xl bg-blue-600 px-4 text-sm font-black text-white"
+              >
+                <UserRoundPlus size={17} />
+                {t("urrideFleetHq.assignOperator")}
+              </button>
+            ) : (
+              <p className={`mt-3 rounded-2xl px-3 py-2 text-xs font-black ${assignedOperator ? "bg-emerald-50 text-emerald-700" : "bg-slate-50 text-slate-500"}`}>
+                {fleet.serviceCategory === "Rental" ? i18nText("ui.literals.k6379cb780d32") : assignedOperator ? t("urride.companyWs.operatorPrefix", { name: assignedOperator.name || assignedOperator.publicId || t("urride.companyWs.operatorAssigned") }) : t("urride.companyWs.noOperatorAssigned")}
+              </p>
+            )}
           </section>
         );
       })}
@@ -2313,7 +2421,7 @@ function Colleagues({ canManageOperators, onAddOperator, onManageOperator, opera
               <div className="flex items-start gap-3">
                 <div className="min-w-0 flex-1">
                   <p className={`text-xs font-black uppercase tracking-wide ${suspended ? "text-amber-700" : "text-emerald-700"}`}>
-                    {suspended ? t("urride.companyWs.serviceSuspended") : roleLabel(operator.memberRole || i18nText("ui.literals.kfe96dd39756a"))}
+                    {suspended ? t("urride.companyWs.serviceSuspended") : roleLabel(operator.memberRole || "operator")}
                   </p>
                   <h3 className="mt-1 truncate text-lg font-black text-slate-950">{operator.name}</h3>
                   <p className="mt-1 truncate text-sm font-semibold text-slate-500">{operator.publicId}</p>
@@ -2329,8 +2437,8 @@ function Colleagues({ canManageOperators, onAddOperator, onManageOperator, opera
                   </button>
                 ) : null}
               </div>
-              <p className={`mt-3 rounded-2xl px-3 py-2 text-xs font-black ${suspended ? "bg-amber-50 text-amber-800" : "bg-emerald-50 text-emerald-700"}`}>
-                {t("urride.companyWs.assignedTo", { name: operator.fleetName || operator.fleetType })}
+              <p className={`mt-3 rounded-2xl px-3 py-2 text-xs font-black ${suspended ? "bg-amber-50 text-amber-800" : operator.companyFleetId ? "bg-emerald-50 text-emerald-700" : "bg-slate-50 text-slate-500"}`}>
+                {operator.companyFleetId ? t("urride.companyWs.assignedTo", { name: operator.fleetName || operator.fleetType }) : t("urrideFleetHq.noVehicle")}
               </p>
               <button
                 type="button"
@@ -2857,14 +2965,16 @@ function OperatorActionButton({ danger = false, detail, disabled, icon, label, o
   );
 }
 
-function OperatorActionDrawer({ busy, canManage, company, onAddOperator, onClose, onOpenDashboard, onRemove, onResponsibility, onRestore, onSuspend, open, operator }) {
+function OperatorActionDrawer({ busy, canManage, company, error = "", onAddOperator, onAssignVehicle, onClose, onOpenDashboard, onRemove, onRemoveFromVehicle, onResponsibility, onRestore, onSuspend, open, operator }) {
   useUiLocale();
   if (!operator && !open) return null;
   const suspended = operator?.serviceStatus === "suspended";
+  const onVehicle = Boolean(operator?.companyFleetId);
   return (
     <FleetHqActionSheet label={t("urride.companyWs.operatorActionsLabel")} onClose={onClose} open={open}>
       <ActionSheetHeader eyebrow={company?.companyName || t("urride.companyWs.fleetHqFallback")} icon={MoreHorizontal} onClose={onClose} title={operator?.name || t("urride.companyWs.operatorActionsLabel")} />
       <div className="max-h-[68dvh] overflow-y-auto bg-slate-50 p-4">
+        {error ? <p role="alert" className="mb-3 rounded-2xl border border-rose-200 bg-rose-50 px-4 py-3 text-sm font-bold leading-6 text-rose-800">{translateUi(error)}</p> : null}
         <div className="grid gap-3">
           <OperatorActionButton
             detail={t("urride.companyWs.viewOpDashboardDetail")}
@@ -2892,6 +3002,24 @@ function OperatorActionDrawer({ busy, canManage, company, onAddOperator, onClose
                 label={suspended ? t("urride.companyWs.restoreService") : t("urride.companyWs.suspendService")}
                 onClick={() => (suspended ? onRestore?.(operator) : onSuspend?.(operator))}
               />
+              {onVehicle && onRemoveFromVehicle ? (
+                <OperatorActionButton
+                  detail={t("urrideFleetHq.removeFromVehicleDetail")}
+                  disabled={busy}
+                  icon={Truck}
+                  label={t("urrideFleetHq.removeFromVehicle")}
+                  onClick={() => onRemoveFromVehicle(operator)}
+                />
+              ) : null}
+              {!onVehicle && onAssignVehicle ? (
+                <OperatorActionButton
+                  detail={t("urrideFleetHq.assignToVehicleDetail")}
+                  disabled={busy || suspended || !operator?.publicId}
+                  icon={Truck}
+                  label={t("urrideFleetHq.assignToVehicle")}
+                  onClick={() => onAssignVehicle(operator)}
+                />
+              ) : null}
               {onAddOperator ? (
                 <OperatorActionButton
                   detail={t("urride.companyWs.addAnotherDetail")}
@@ -2920,29 +3048,133 @@ function OperatorActionDrawer({ busy, canManage, company, onAddOperator, onClose
   );
 }
 
-function FleetOperatorInvitationDrawer({ fleet, onClose, onSend }) {
+// Assign an operator to a vehicle: the KunThai ID is looked up as it is typed
+// and the owner's name is shown before anything is sent. Operators already in
+// the company without a vehicle can be picked directly. Sending creates the
+// usual invitation.
+function FleetOperatorInvitationDrawer({ candidates = [], fleet, onClose, onSend }) {
   useUiLocale();
   const [publicId, setPublicId] = useState("");
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState("");
+  const [lookup, setLookup] = useState({ status: "idle", operator: null });
   const close = () => { if (!busy) onClose(); };
-  return <FleetHqActionSheet label={i18nText("ui.literals.kce0b15807cd7")} open onClose={close}>
-    <ActionSheetHeader eyebrow={fleet.fleetName || fleet.fleetCode} icon={UserRoundPlus} title={i18nText("ui.literals.kce0b15807cd7")} onClose={close} />
-    <form className="space-y-4 bg-slate-50 p-4" onSubmit={async (event) => {
+
+  useEffect(() => {
+    const value = publicId.trim();
+    if (value.replace(/[^a-z0-9]/gi, "").length < 5) {
+      setLookup({ status: "idle", operator: null });
+      return undefined;
+    }
+    let alive = true;
+    setLookup({ status: "loading", operator: null });
+    const timer = window.setTimeout(() => {
+      lookupTransportOperatorByKunThaiId(value)
+        .then((operator) => {
+          if (alive) setLookup(operator?.userId ? { status: "found", operator } : { status: "missing", operator: null });
+        })
+        .catch(() => {
+          if (alive) setLookup({ status: "missing", operator: null });
+        });
+    }, 400);
+    return () => {
+      alive = false;
+      window.clearTimeout(timer);
+    };
+  }, [publicId]);
+
+  async function send(value) {
+    if (busy || !value) return;
+    setBusy(true);
+    setError("");
+    try { await onSend(value); }
+    catch (failure) { setError(inlineErrorMessage(failure, i18nText("ui.literals.k6b73b3290cd3"))); setBusy(false); }
+  }
+
+  const found = lookup.status === "found" ? lookup.operator : null;
+  const pickable = candidates.filter((operator) => operator.publicId && operator.serviceStatus !== "suspended");
+
+  return <FleetHqActionSheet label={t("urrideFleetHq.assignOperator")} open onClose={close}>
+    <ActionSheetHeader eyebrow={fleet.fleetName || fleet.fleetCode} icon={UserRoundPlus} title={t("urrideFleetHq.assignOperator")} onClose={close} />
+    <form className="max-h-[68dvh] space-y-4 overflow-y-auto bg-slate-50 p-4" onSubmit={(event) => {
       event.preventDefault();
-      if (busy || !publicId.trim()) return;
-      setBusy(true);
-      setError("");
-      try { await onSend(publicId.trim()); }
-      catch (failure) { setError(inlineErrorMessage(failure, i18nText("ui.literals.k6b73b3290cd3"))); setBusy(false); }
+      if (found) send(publicId.trim());
     }}>
+      <p className="text-sm font-semibold leading-6 text-slate-600">{t("urrideFleetHq.assignOperatorDetail")}</p>
       <label className="block text-sm font-bold text-slate-700">KunThai ID
-        <input autoFocus required disabled={busy} value={publicId} onChange={(event) => setPublicId(event.target.value)} placeholder="KTU-XXXX-XXXX" autoCapitalize="characters" autoComplete="off" className="mt-2 w-full rounded-2xl border border-slate-200 bg-white px-4 py-3 text-slate-950" />
+        <input autoFocus required disabled={busy} value={publicId} onChange={(event) => { setPublicId(event.target.value); setError(""); }} placeholder="KTU-XXXX-XXXX" autoCapitalize="characters" autoComplete="off" className="mt-2 w-full rounded-2xl border border-slate-200 bg-white px-4 py-3 text-slate-950" />
       </label>
-      <p className="text-sm text-slate-500">{i18nText("ui.literals.kd5c7d7b67c17")}</p>
+      {lookup.status === "loading" ? <p className="text-sm font-bold text-slate-500">{t("urrideFleetHq.lookingUp")}</p> : null}
+      {lookup.status === "missing" ? <p className="text-sm font-bold text-rose-600">{t("urrideFleetHq.idNotFound")}</p> : null}
+      {found ? (
+        <div className="rounded-2xl border border-emerald-200 bg-emerald-50 p-4">
+          <p className="text-xs font-black uppercase tracking-wide text-emerald-700">{t("urrideFleetHq.idBelongsTo")}</p>
+          <p className="mt-1 text-lg font-black text-slate-950">{found.name}</p>
+          <p className="mt-0.5 text-sm font-semibold text-slate-600">{[found.publicId, found.city].filter(Boolean).join(" · ")}</p>
+        </div>
+      ) : null}
       {error ? <p role="alert" className="text-sm font-bold text-rose-600">{translateUi(error)}</p> : null}
-      <button type="submit" disabled={busy || !publicId.trim()} className="w-full rounded-2xl bg-blue-600 px-4 py-3 font-bold text-white disabled:opacity-50">{busy ? i18nText("ui.literals.kcf765512cc6d") : i18nText("ui.literals.kabb6cb2d460a")}</button>
+      <button type="submit" disabled={busy || !found} className="w-full rounded-2xl bg-blue-600 px-4 py-3 font-bold text-white disabled:opacity-50">
+        {busy ? i18nText("ui.literals.kcf765512cc6d") : found ? t("urrideFleetHq.sendInviteTo", { name: found.name }) : i18nText("ui.literals.kabb6cb2d460a")}
+      </button>
+      {pickable.length ? (
+        <div className="border-t border-slate-200 pt-4">
+          <p className="mb-2 text-xs font-black uppercase tracking-wide text-slate-500">{t("urrideFleetHq.operatorsWithoutVehicle")}</p>
+          <div className="grid gap-2">
+            {pickable.map((operator) => (
+              <button
+                key={operator.memberId || operator.publicId}
+                type="button"
+                disabled={busy}
+                onClick={() => send(operator.publicId)}
+                className="kt-touchable flex w-full items-center gap-3 rounded-2xl border border-slate-200 bg-white p-3 text-left disabled:opacity-60"
+              >
+                <span className="flex h-10 w-10 shrink-0 items-center justify-center rounded-2xl bg-blue-50 text-blue-700"><UserRoundPlus size={18} /></span>
+                <span className="min-w-0 flex-1">
+                  <span className="block truncate text-sm font-black text-slate-950">{operator.name || operator.publicId}</span>
+                  <span className="block truncate text-xs font-semibold text-slate-500">{operator.publicId}</span>
+                </span>
+              </button>
+            ))}
+          </div>
+        </div>
+      ) : null}
     </form>
+  </FleetHqActionSheet>;
+}
+
+// An operator without a vehicle: pick one of the company's vehicles that has
+// no operator; the usual invitation goes out.
+function AssignVehicleDrawer({ onAssign, onClose, operator, vehicles = [] }) {
+  useUiLocale();
+  const [busy, setBusy] = useState(false);
+  const [error, setError] = useState("");
+  const close = () => { if (!busy) onClose(); };
+  return <FleetHqActionSheet label={t("urrideFleetHq.assignToVehicle")} open onClose={close}>
+    <ActionSheetHeader eyebrow={operator?.name || operator?.publicId || ""} icon={Truck} title={t("urrideFleetHq.chooseVehicle")} onClose={close} />
+    <div className="max-h-[68dvh] space-y-3 overflow-y-auto bg-slate-50 p-4">
+      {error ? <p role="alert" className="rounded-2xl border border-rose-200 bg-rose-50 px-4 py-3 text-sm font-bold text-rose-800">{translateUi(error)}</p> : null}
+      {vehicles.length ? vehicles.map((fleet) => (
+        <button
+          key={fleet.id}
+          type="button"
+          disabled={busy}
+          onClick={async () => {
+            setBusy(true);
+            setError("");
+            try { await onAssign(fleet); }
+            catch (failure) { setError(inlineErrorMessage(failure, i18nText("ui.literals.k6b73b3290cd3"))); setBusy(false); }
+          }}
+          className="kt-touchable flex w-full items-center gap-3 rounded-2xl border border-slate-200 bg-white p-4 text-left disabled:opacity-60"
+        >
+          <span className="flex h-11 w-11 shrink-0 items-center justify-center rounded-2xl bg-blue-50 text-blue-700"><Truck size={19} /></span>
+          <span className="min-w-0 flex-1">
+            <span className="block truncate text-sm font-black text-slate-950">{fleet.fleetName || fleet.fleetCode}</span>
+            <span className="block truncate text-xs font-semibold text-slate-500">{[fleet.fleetCode, fleet.fleetType, fleet.plateNumber].filter(Boolean).join(" · ")}</span>
+          </span>
+        </button>
+      )) : <p className="rounded-2xl border border-slate-200 bg-white p-4 text-sm font-bold text-slate-600">{t("urrideFleetHq.noFreeVehicles")}</p>}
+    </div>
   </FleetHqActionSheet>;
 }
 
@@ -3128,7 +3360,7 @@ function FleetConfirmDrawer({ busy, confirm, onClose, onConfirm, open }) {
   );
 }
 
-function ResponsibilityDrawer({ busy, onAssign, onClose, open, operator }) {
+function ResponsibilityDrawer({ busy, error = "", onAssign, onClose, open, operator }) {
   useUiLocale();
   return (
     <FleetHqActionSheet label={t("urride.companyWs.giveRespLabel")} onClose={onClose} open={open}>
@@ -3137,9 +3369,11 @@ function ResponsibilityDrawer({ busy, onAssign, onClose, open, operator }) {
         <p className="mb-3 text-sm font-semibold leading-6 text-slate-600">
           {t("urride.companyWs.chooseRole")}
         </p>
+        {error ? <p role="alert" className="mb-3 rounded-2xl border border-rose-200 bg-rose-50 px-4 py-3 text-sm font-bold leading-6 text-rose-800">{translateUi(error)}</p> : null}
         <div className="grid gap-3">
           {Object.keys(COMPANY_OPERATOR_ROLES).map((role) => {
-            const selected = (operator?.memberRole || i18nText("ui.literals.kfe96dd39756a")) === role;
+            // The stored role value, never a translated word.
+            const selected = (operator?.memberRole || "operator") === role;
             return (
               <button
                 key={role}

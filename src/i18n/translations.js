@@ -25,6 +25,7 @@ import { URRIDE_LIVE_DISCOVERY } from "./urrideLiveDiscovery";
 import { URRIDE_TRIP_CARD } from "./urrideTripCard";
 import { URRIDE_ADD_MENU } from "./urrideAddMenu";
 import { TEXT_SIZE } from "./textSize";
+import { URRIDE_FLEET_HQ } from "./urrideFleetHq";
 import { EXPLORE_SETTINGS_FIX } from "./exploreSettingsFix";
 import { EXPLORE_PROFILE_FIX } from "./exploreProfileFix";
 import { EXPLORE_MESSAGES_FIX } from "./exploreMessagesFix";
@@ -59474,6 +59475,12 @@ for (const [locale, section] of Object.entries(URRIDE_ADD_MENU)) {
 for (const [locale, section] of Object.entries(TEXT_SIZE)) {
   if (TRANSLATIONS[locale]) {
     TRANSLATIONS[locale].textSize = section;
+  }
+}
+
+for (const [locale, section] of Object.entries(URRIDE_FLEET_HQ)) {
+  if (TRANSLATIONS[locale]) {
+    TRANSLATIONS[locale].urrideFleetHq = section;
   }
 }
 

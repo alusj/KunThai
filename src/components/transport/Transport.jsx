@@ -93,6 +93,8 @@ export default function Transport({
   const [registrationOpen, setRegistrationOpen] = useState(false);
   const [registrationType, setRegistrationType] = useState(null);
   const [companyRegistrationMode, setCompanyRegistrationMode] = useState("full");
+  // Fleet HQ > Edit fleet: the one vehicle being edited (mode "editFleet").
+  const [companyRegistrationFleetId, setCompanyRegistrationFleetId] = useState("");
   const [registrationSource, setRegistrationSource] = useState(null);
   const [registrationAreaPreviewOpen, setRegistrationAreaPreviewOpen] = useState(false);
   const [operatorAccount, setOperatorAccount] = useState(
@@ -304,6 +306,7 @@ export default function Transport({
     setRegistrationOpen(false);
     setRegistrationType(null);
     setCompanyRegistrationMode("full");
+    setCompanyRegistrationFleetId("");
 
     if (registrationSource === "operator-dashboard") {
       setOperatorDashboardOpen(true);
@@ -325,6 +328,7 @@ export default function Transport({
     setRegistrationOpen(false);
     setRegistrationType(null);
     setCompanyRegistrationMode("full");
+    setCompanyRegistrationFleetId("");
 
     if (registrationSource === "operator-dashboard") {
       setOperatorDashboardOpen(true);
@@ -1309,6 +1313,7 @@ export default function Transport({
         <div className={`${routePanelClass} kt-mobile-viewport`}>
           <CompanyRegistrationScreen
             existingCompany={companyAccount}
+            focusFleetId={companyRegistrationFleetId}
             mode={companyRegistrationMode}
             onBack={closeRegistrationFlow}
             onSaved={setCompanyAccount}
@@ -1421,6 +1426,10 @@ export default function Transport({
           onAddFleet={() => openCompanyRegistration("company-workspace", "addFleet")}
           onAddRentalFleet={() => openCompanyRegistration("company-workspace", "addRental")}
           onEditCompany={() => openCompanyRegistration("company-workspace", "full")}
+          onEditFleetDetails={(fleet) => {
+            setCompanyRegistrationFleetId(fleet.id);
+            openCompanyRegistration("company-workspace", "editFleet");
+          }}
           onRegisterCompany={() => openCompanyRegistration("company-workspace", "addOperator")}
         />
       </div>

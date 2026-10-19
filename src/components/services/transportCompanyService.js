@@ -1556,10 +1556,14 @@ export async function saveTransportCompanyAccount(account, { onProgress } = {}) 
   };
   report({ stage: "creating", total: uploadTotal });
   const persistedIdPattern = /^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i;
+  // Photos are required for vehicles being added. A vehicle that is already
+  // saved is never re-checked: editing the company (or adding another
+  // vehicle) must not fail because a rental keeps its photos on its listing,
+  // or because an older vehicle predates the current photo rules.
   const fleetWithoutRequiredImages = normalized.fleets.find((fleet) => {
-    const isExistingIncrementalFleet = incrementalFleetMode && persistedIdPattern.test(String(fleet.id || ""));
+    const isSavedFleet = persistedIdPattern.test(String(fleet.id || ""));
     const requiredCount = (["Vehicle / Car", "Taxi"].includes(fleet.fleetType) ? 6 : 4) + (fleet.serviceCategory === "Rental" ? 1 : 0);
-    return !isExistingIncrementalFleet && (fleet.publicFleetPhotos || []).length < requiredCount;
+    return !isSavedFleet && (fleet.publicFleetPhotos || []).length < requiredCount;
   });
   if (fleetWithoutRequiredImages) {
     throw new Error(`Upload the required front, back, left-side, and right-side images for ${fleetWithoutRequiredImages.fleetName || "every fleet"} before saving.`);

@@ -177,6 +177,9 @@ function fleetRequirementCategory(serviceCategory = "") {
   return "Transport";
 }
 
+// A fleet row that already exists in the database (not a draft in this form).
+const SAVED_FLEET_ID = /^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i;
+
 function getFleetImageRequirements(form, fleet = {}) {
   const requirements = getUrRideFleetImageRequirements({
     country: form.country,
@@ -294,7 +297,7 @@ function compactPublicId(value = "") {
   return String(value).replace(/[^a-z0-9]/gi, "").toUpperCase();
 }
 
-export default function CompanyRegistrationScreen({ existingCompany = null, mode = "full", onBack, onComplete, onSaved, onSaveExit, onViewOneKmPreview }) {
+export default function CompanyRegistrationScreen({ existingCompany = null, focusFleetId = "", mode = "full", onBack, onComplete, onSaved, onSaveExit, onViewOneKmPreview }) {
   useI18n();
   const addOperatorMode = mode === "addOperator";
   const addRentalMode = mode === "addRental";
@@ -317,6 +320,9 @@ export default function CompanyRegistrationScreen({ existingCompany = null, mode
   // registration steps (each with the current details + Edit) instead of
   // walking the wizard from the top.
   const editing = Boolean(existingCompany) && !incrementalFleetMode;
+  // Fleet HQ > Edit fleet: only this vehicle is shown, checked and changed;
+  // the save still writes the whole company like any edit.
+  const editFleetMode = editing && mode === "editFleet" && Boolean(focusFleetId);
   // A new company is saved by a background task: leaving this screen never
   // cancels it, and reopening shows it (or, after a failure elsewhere, the
   // entered details and picked files) instead of a fresh form. Edits and
@@ -331,7 +337,7 @@ export default function CompanyRegistrationScreen({ existingCompany = null, mode
   const restored = backgroundTask.adopted?.restore || null;
   const skipContextLoadRef = useRef(Boolean(restored));
   const submitOriginRef = useRef(null);
-  const [openSection, setOpenSection] = useState(-1);
+  const [openSection, setOpenSection] = useState(() => (mode === "editFleet" ? 0 : -1));
   const [step, setStep] = useState(() => restored?.step ?? (incrementalFleetMode ? 2 : 0));
   const [maxStepReached, setMaxStepReached] = useState(() => restored?.maxStepReached ?? (incrementalFleetMode ? 2 : 0));
   const [form, setForm] = useState(() => restored?.form || openingFleetForm || createCompanyForm());
@@ -683,6 +689,7 @@ export default function CompanyRegistrationScreen({ existingCompany = null, mode
         // photos, terms and pickup live on its listing (Rentals tab), so they
         // must not block saving the company profile, base or other fleets.
         if (editing && fleet.serviceCategory === "Rental") return;
+        if (editFleetMode && fleet.id !== focusFleetId) return;
         const labelPrefix = fleets.length > 1 ? t("urride.companyReg.fleetPrefix", { n: index + 1 }) : "";
         [
           ["fleetName", "urride.companyReg.reqFleetName"],
@@ -722,6 +729,9 @@ export default function CompanyRegistrationScreen({ existingCompany = null, mode
         if (addOperatorMode && fleet.serviceCategory !== "Rental" && !(fleet.operators || []).length) {
           nextErrors[`${fleet.localId}-operators`] = t("urride.companyReg.reqOperatorId");
         }
+        // Editing the company: a vehicle that is already saved keeps the photos
+        // it was accepted with (newer photo rules apply to new vehicles only).
+        if (editing && SAVED_FLEET_ID.test(String(fleet.id || ""))) return;
         getFleetImageRequirements(form, fleet).forEach((requirement) => {
           const imageKey = fleetImageDocumentKey(documentStorageKey(requirement));
           if (!fleet.documents?.[imageKey]) {
@@ -862,11 +872,11 @@ export default function CompanyRegistrationScreen({ existingCompany = null, mode
   // up to date when the seller finally goes back. Returns which step, if any,
   // failed validation so the accordion can reopen it.
   async function saveCompanyEdits() {
-    for (const stepIndex of [0, 1, 2]) {
+    for (const stepIndex of editFleetMode ? [2] : [0, 1, 2]) {
       const nextErrors = getStepErrors(stepIndex);
       if (Object.keys(nextErrors).length) {
         setFieldErrors(nextErrors);
-        setOpenSection(stepIndex);
+        setOpenSection(editFleetMode ? 0 : stepIndex);
         showStatus(summarizeErrors(nextErrors), "error");
         scrollToFirstBlockingFieldSoon();
         return { ok: false, failedStep: stepIndex };
@@ -879,6 +889,16 @@ export default function CompanyRegistrationScreen({ existingCompany = null, mode
       const account = await saveTransportCompanyAccount(buildPayload("submitted"));
       onSaved?.(account);
       showStatus(t("urride.companyReg.changesSaved"), "success");
+      if (editFleetMode) {
+        // Back to Fleet HQ once the vehicle is saved.
+        window.setTimeout(() => onBack?.(), 700);
+      } else {
+        // Back to the top of the edit screen, where every section is listed.
+        window.requestAnimationFrame(() => {
+          formTopRef.current?.scrollIntoView({ block: "start", behavior: "smooth" });
+          window.scrollTo({ top: 0, left: 0, behavior: "smooth" });
+        });
+      }
       return { ok: true };
     } catch (error) {
       showSaveError(error, t("urride.companyReg.changesError"));
@@ -1054,7 +1074,7 @@ export default function CompanyRegistrationScreen({ existingCompany = null, mode
           />
           <div className="min-w-0 flex-1">
             <p className="text-xs font-black uppercase tracking-wide text-blue-700">Fleet HQ</p>
-            <h1 className="truncate text-lg font-black text-slate-950">{rentalSubmission ? i18nText("ui.literals.kb883f465c09a") : addOperatorMode ? t("urride.companyReg.addOperatorTitle") : addFleetMode ? t("urrideAddMenu.addFleetHeading") : editing ? t("urride.companyReg.editTitle") : t("urride.companyReg.regTitle")}</h1>
+            <h1 className="truncate text-lg font-black text-slate-950">{rentalSubmission ? i18nText("ui.literals.kb883f465c09a") : addOperatorMode ? t("urride.companyReg.addOperatorTitle") : addFleetMode ? t("urrideAddMenu.addFleetHeading") : editFleetMode ? t("urrideFleetHq.editVehicleTitle") : editing ? t("urride.companyReg.editTitle") : t("urride.companyReg.regTitle")}</h1>
           </div>
           <span className="rounded-full border border-blue-100 bg-blue-50 px-3 py-1 text-xs font-black text-blue-700">
             {rentalSubmission ? i18nText("ui.literals.k81e22e383e11") : addOperatorMode ? t("urride.companyReg.fleetStage") : addFleetMode ? t("urrideAddMenu.fleetStage") : t("urride.companyReg.readyCount", { count: completion })}
@@ -1112,7 +1132,27 @@ export default function CompanyRegistrationScreen({ existingCompany = null, mode
               onToggle={setOpenSection}
               onSave={saveCompanyEdits}
               saving={submitting}
-              sections={[
+              sections={editFleetMode ? [
+                {
+                  title: t("urrideFleetHq.vehicleSection"),
+                  summary: fleets.filter((fleet) => fleet.id === focusFleetId).map((fleet) => [fleet.fleetName, fleet.fleetType, fleet.plateNumber].filter(Boolean).join("  •  ")).join("") || t("urride.companyReg.notSetYet"),
+                  node: (
+                    <FleetBuilderStep
+                      acceptedOperators={(existingCompany?.fleets || []).flatMap((fleet) => fleet.operators || []).filter((operator) => operator.status === "accepted")}
+                      allowMultiple={false}
+                      fleets={fleets.filter((fleet) => fleet.id === focusFleetId)}
+                      form={form}
+                      errors={fieldErrors}
+                      onAddFleet={addFleet}
+                      onInvite={addOperatorInvite}
+                      onRemoveFleet={removeFleet}
+                      onUpdateFleet={updateFleet}
+                      onUploadFleetDocument={markFleetDocument}
+                      onViewOneKmPreview={handleViewOneKmPreview}
+                    />
+                  ),
+                },
+              ] : [
                 {
                   title: t("urride.companyReg.secCompanyProfile"),
                   summary: [form.companyName, companyTypeLabel(form.companyType), form.phone].filter(Boolean).join("  •  ") || t("urride.companyReg.notSetYet"),
