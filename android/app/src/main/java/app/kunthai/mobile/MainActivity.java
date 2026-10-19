@@ -12,7 +12,10 @@ import android.os.Looper;
 import android.util.Base64;
 import android.view.PixelCopy;
 import android.view.View;
+import android.view.animation.AccelerateInterpolator;
 import android.webkit.WebView;
+
+import androidx.core.splashscreen.SplashScreen;
 
 import com.getcapacitor.BridgeActivity;
 
@@ -29,8 +32,35 @@ public class MainActivity extends BridgeActivity {
 
     @Override
     public void onCreate(Bundle savedInstanceState) {
+        // The system splash stays until the first frame (about 1.75 s on a
+        // Galaxy A06), then slides down and away instead of vanishing.
+        // Same timing and animation as the iPhone (KunThaiBridgeViewController).
+        SplashScreen splashScreen = SplashScreen.installSplashScreen(this);
+        splashScreen.setOnExitAnimationListener(provider -> {
+            // Slides down and away, revealing the app behind it.
+            View splash = provider.getView();
+            splash.animate()
+                .translationY(splash.getHeight())
+                .setDuration(420)
+                .setInterpolator(new AccelerateInterpolator(1.6f))
+                .withEndAction(provider::remove)
+                .start();
+        });
         createLocationSharingChannel();
+        // Plugins inside this app module (Capacitor only auto-registers npm ones).
+        registerPlugin(KunThaiVideoPlugin.class);
         super.onCreate(savedInstanceState);
+        // Same picker, but picked videos can be compressed in place.
+        if (getBridge() != null && getBridge().getWebView() != null) {
+            getBridge().getWebView().setWebChromeClient(new KunThaiChromeClient(getBridge()));
+            // The app's own background (not black) behind the splash as it
+            // slides away, before the page has painted.
+            boolean night = (getResources().getConfiguration().uiMode & android.content.res.Configuration.UI_MODE_NIGHT_MASK)
+                == android.content.res.Configuration.UI_MODE_NIGHT_YES;
+            int appBackground = night ? 0xFF020617 : 0xFFF1F5F9;
+            getBridge().getWebView().setBackgroundColor(appBackground);
+            getWindow().getDecorView().setBackgroundColor(appBackground);
+        }
     }
 
     // The plugin creates this channel on load with app-icon badges on, so Samsung

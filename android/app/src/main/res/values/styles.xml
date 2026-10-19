@@ -22,5 +22,7 @@
              (light, or dark with the phone's dark mode via values-night). -->
         <item name="windowSplashScreenBackground">@color/splash_background</item>
         <item name="windowSplashScreenAnimatedIcon">@drawable/splash_icon</item>
+        <!-- Theme after the splash (installSplashScreen in MainActivity). -->
+        <item name="postSplashScreenTheme">@style/AppTheme.NoActionBar</item>
     </style>
 </resources>
