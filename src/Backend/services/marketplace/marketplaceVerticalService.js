@@ -7,6 +7,7 @@ import { getActiveCountryProfile } from "../../../data/globalCountryProfiles";
 import { uiText } from "../../../i18n/index.js";
 import { MAX_EXTRA_IMAGE_COUNT, validateVerticalMediaPackage } from "./verticalMediaValidation";
 import { withClipFragment } from "../media/videoClipUrl";
+import { prepareVideoForUpload } from "../media/nativeVideoCompression";
 import { assertBusinessCapacity, parseBusinessPlanError } from "../businessSubscriptionService";
 import { invalidateRegisteredBusinessesCache } from "./sellerRegistrationService";
 import { regionSelectionIds } from "../regions/regionModel";
@@ -112,10 +113,14 @@ async function uploadVerticalMediaPackage(businessId, input, folders, onProgress
     extraUrls.push(await uploadMarketplaceVerticalImage(file, businessId, folders.gallery));
   }
   onProgress?.("video");
-  // Instant trim: the original file plus the chosen window, as on Explore.
-  const videoUrl = input.videoFile
-    ? withClipFragment(await uploadMarketplaceVerticalVideo(input.videoFile, businessId, folders.video), input.videoTrimStart, input.videoTrimEnd)
-    : existing.video || "";
+  // In the app the video is compressed on the phone first (just the trimmed
+  // part, up to 1080p, ~5 Mbps); otherwise the original plus the chosen
+  // window, as on Explore.
+  let videoUrl = existing.video || "";
+  if (input.videoFile) {
+    const prepared = await prepareVideoForUpload(input.videoFile, { trimStart: input.videoTrimStart, trimEnd: input.videoTrimEnd });
+    videoUrl = withClipFragment(await uploadMarketplaceVerticalVideo(prepared.file, businessId, folders.video), prepared.trimStart, prepared.trimEnd);
+  }
   return [coverUrl, extraUrls, videoUrl];
 }
 

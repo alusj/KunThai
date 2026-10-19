@@ -124,12 +124,14 @@ export default function All({ active = true, currentUserId = "", focusPostId = "
         setActiveIndex((current) => {
           if (current !== nextIndex) {
             stopAllExploreMedia(null, { muteVideos: false });
-            requestSwipActivePlay(80, true);
+            requestSwipActivePlay(0, true);
           }
           return nextIndex;
         });
       },
-      { root: scroller, threshold: [0.72, 0.86, 0.98] },
+      // The clip coming in becomes current once it fills most of the screen,
+      // so it starts playing as the swipe lands rather than after it settles.
+      { root: scroller, threshold: [0.55, 0.75, 0.95] },
     );
 
     itemRefs.current.forEach((node) => {
@@ -212,8 +214,10 @@ export default function All({ active = true, currentUserId = "", focusPostId = "
     lockWheel();
   }
 
+  // A safety retry once scrolling stops (the card already starts playing
+  // as soon as it becomes current).
   function handleScroll() {
-    requestSwipActivePlay(80, true);
+    requestSwipActivePlay(60, true);
   }
 
   if (feed.error) {
@@ -281,6 +285,9 @@ export default function All({ active = true, currentUserId = "", focusPostId = "
   const offset = index - activeIndex;
   const shouldMountVideo = offset >= -1 && offset <= SWIP_PRELOAD_AHEAD;
   const preloadMode = offset >= 0 && offset <= swipBufferAhead() ? "auto" : "metadata";
+  // The clips right after this one are primed (first frames ready) so the
+  // next swipe plays instantly, like the big apps.
+  const prime = active && offset >= 1 && offset <= Math.min(swipBufferAhead(), 2);
 
   return (
     <section
@@ -298,6 +305,7 @@ export default function All({ active = true, currentUserId = "", focusPostId = "
             post={post}
             active={active && index === activeIndex}
             preloadMode={preloadMode}
+            prime={prime}
             fullBleed
             fullscreen={fullscreen}
             contextLabel={getSwipContext(post, currentUserId)}

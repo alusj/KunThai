@@ -85,6 +85,10 @@ export default function VideoCard({
   // "auto" buffers the clip before it is reached (the next videos in Swip);
   // "metadata" only reads its size and length.
   preloadMode = "metadata",
+  // The next clip(s): started silently for a moment and paused, so their
+  // first frames are decoded and buffered before the swipe (iOS does not
+  // buffer a video that never played, whatever `preload` says).
+  prime = false,
 }) {
   const { t, locale } = useI18n();
   const [commentOpen, setCommentOpen] = useState(false);
@@ -120,6 +124,10 @@ export default function VideoCard({
   const quickDeckTimerRef = useRef(null);
   const holdTriggeredRef = useRef(false);
   const activeRef = useRef(false);
+  // True while a clip is being primed (see `prime`): its play/playing/time
+  // events must not pause the clip on screen, count a view or move progress.
+  const primingRef = useRef(false);
+  const primedUrlRef = useRef("");
   const playbackSignalRef = useRef({
     started: false,
     viewed: false,
@@ -234,7 +242,9 @@ export default function VideoCard({
     video.pause();
     video.muted = false;
     video.volume = 1;
-    video.currentTime = clip.start;
+    // Seeking drops what the phone buffered (the next clip then stalls on
+    // arrival), so a clip already at its start is left where it is.
+    if (Math.abs(video.currentTime - clip.start) > 0.25) video.currentTime = clip.start;
     setProgress((current) => ({
       ...current,
       currentTime: 0,
@@ -336,8 +346,10 @@ export default function VideoCard({
     activeRef.current = active;
 
     if (active) {
+      primingRef.current = false;
       startPlaybackSignals();
-      video.currentTime = clip.start;
+      // Keep the buffered (or primed) start: only rewind a clip that moved.
+      if (video.ended || Math.abs(video.currentTime - clip.start) > 0.25) video.currentTime = clip.start;
       requestActivePlayback();
       return;
     }
@@ -521,6 +533,7 @@ export default function VideoCard({
   }
 
   function handleTimeUpdate(event) {
+    if (primingRef.current) return;
     const video = event.currentTarget;
     const realDuration = Number.isFinite(video.duration) ? video.duration : 0;
     const nextClip = getClipWindow(post, realDuration);
@@ -678,6 +691,37 @@ export default function VideoCard({
     return () => window.clearTimeout(timer);
   }, [videoLoading]);
 
+  // Prime the next clip(s): play muted until the first frame is shown, then
+  // pause. Once per clip; never for the clip on screen, never with reduced data.
+  useEffect(() => {
+    const video = videoRef.current;
+    if (!video || !prime || active || readExploreSettings().video.reduceData) return undefined;
+    if (primedUrlRef.current === post.video_url) return undefined;
+    primedUrlRef.current = post.video_url;
+    let cancelled = false;
+    primingRef.current = true;
+    video.muted = true;
+    const stop = () => {
+      if (!primingRef.current) return;
+      primingRef.current = false;
+      if (!activeRef.current) {
+        video.pause();
+        video.muted = false;
+      }
+    };
+    const timer = window.setTimeout(stop, 1500);
+    video.play().then(() => {
+      if (cancelled) return;
+      // Let a frame or two decode, then hold it.
+      window.setTimeout(stop, 120);
+    }).catch(stop);
+    return () => {
+      cancelled = true;
+      window.clearTimeout(timer);
+      if (primingRef.current) stop();
+    };
+  }, [prime, active, post.video_url]);
+
   // A clip buffered ahead of time may already be playable when this card
   // mounts or becomes active.
   useEffect(() => {
@@ -702,6 +746,8 @@ export default function VideoCard({
 
         activeRef.current = false;
         flushPlaybackSignals();
+        // A clip being primed off screen is paused by the priming itself.
+        if (primingRef.current) return;
         pauseInactiveVideo(video);
       },
       { threshold: 0.72 }
@@ -750,7 +796,7 @@ export default function VideoCard({
       onPointerLeave={handlePointerUp}
       onPointerMove={handlePointerMove}
       onPointerUp={handlePointerUp}
-      className="kt-toast-expand-in relative h-full w-full min-w-0 select-none overflow-hidden rounded-none border-0 bg-slate-950 shadow-sm"
+      className="relative h-full w-full min-w-0 select-none overflow-hidden rounded-none border-0 bg-slate-950 shadow-sm"
       style={{ WebkitTouchCallout: "none" }}
     >
       <video
@@ -770,19 +816,23 @@ export default function VideoCard({
         }}
         onCanPlay={() => {
           setVideoLoading(false);
+          if (primingRef.current) return;
           updateVideoProgress(videoRef.current);
           if (activeRef.current || active) requestActivePlayback();
         }}
         onLoadStart={() => setVideoLoading(true)}
         onPlaying={() => {
           setVideoLoading(false);
-          markPlaybackViewed();
+          if (!primingRef.current) markPlaybackViewed();
         }}
         onStalled={() => setVideoLoading(true)}
         onWaiting={() => setVideoLoading(true)}
         onDurationChange={(event) => updateVideoProgress(event.currentTarget)}
         onLoadedMetadata={(event) => updateVideoProgress(event.currentTarget)}
-        onPlay={(event) => pauseOtherExploreMedia(event.currentTarget, { muteVideos: false })}
+        onPlay={(event) => {
+          if (primingRef.current) return;
+          pauseOtherExploreMedia(event.currentTarget, { muteVideos: false });
+        }}
         onTimeUpdate={handleTimeUpdate}
         className={`absolute inset-0 h-full w-full ${videoFitClass}`}
       />

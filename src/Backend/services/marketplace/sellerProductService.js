@@ -12,6 +12,7 @@ import { assertBusinessCapacity, parseBusinessPlanError } from "../businessSubsc
 import { normalizeTierPricing } from "./tierPricingUtils";
 import { optimizeImageFile } from "./imageOptimization";
 import { withClipFragment } from "../media/videoClipUrl";
+import { prepareVideoForUpload } from "../media/nativeVideoCompression";
 import { hasBusinessPlans } from "./marketplaceBusinessKinds";
 import { regionSelectionIds } from "../regions/regionModel";
 import { assertPromotionTargeting, normalizeCountrySelection } from "../regions/promotionTargeting";
@@ -492,11 +493,17 @@ export async function submitSellerProduct(form, onProgress) {
 
   if (form.media.videoFile) {
     try {
-      // Instant trim: the original file plus the chosen window, as on Explore.
+      // In the app the video is compressed on the phone first (just the
+      // trimmed part, up to 1080p, ~5 Mbps); otherwise the original plus the
+      // chosen window, as on Explore.
+      const prepared = await prepareVideoForUpload(form.media.videoFile, {
+        trimStart: form.media.videoTrimStart,
+        trimEnd: form.media.videoTrimEnd,
+      });
       videoUrl = withClipFragment(
-        await uploadProductFile(userId, form.media.videoFile, "videos"),
-        form.media.videoTrimStart,
-        form.media.videoTrimEnd,
+        await uploadProductFile(userId, prepared.file, "videos"),
+        prepared.trimStart,
+        prepared.trimEnd,
       );
     } catch (error) {
       videoWarning = error.message || "Video upload failed. Product was saved without video.";
@@ -675,11 +682,17 @@ export async function updateSellerProductListing(product, form, onProgress) {
   if (form.media.videoFile) {
     onProgress?.("video");
     try {
-      // Instant trim: the original file plus the chosen window, as on Explore.
+      // In the app the video is compressed on the phone first (just the
+      // trimmed part, up to 1080p, ~5 Mbps); otherwise the original plus the
+      // chosen window, as on Explore.
+      const prepared = await prepareVideoForUpload(form.media.videoFile, {
+        trimStart: form.media.videoTrimStart,
+        trimEnd: form.media.videoTrimEnd,
+      });
       videoUrl = withClipFragment(
-        await uploadProductFile(userId, form.media.videoFile, "videos"),
-        form.media.videoTrimStart,
-        form.media.videoTrimEnd,
+        await uploadProductFile(userId, prepared.file, "videos"),
+        prepared.trimStart,
+        prepared.trimEnd,
       );
     } catch (error) {
       videoWarning = error.message || "Video upload failed. Product was saved without a new video.";

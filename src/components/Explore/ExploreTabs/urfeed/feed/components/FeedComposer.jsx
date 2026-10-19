@@ -34,6 +34,7 @@ import { startPendingVideoReviewJob } from "../../../../../../Backend/services/e
 import { fetchExploreTopics } from "../../../../../../Backend/services/explore/topicService";
 import Avatar from "../../../../shared/Avatar";
 import VideoTrimmerScreen from "../../../../../shared/VideoTrimmerScreen";
+import { canCompressVideosNatively, compressVideoForUpload } from "../../../../../../Backend/services/media/nativeVideoCompression";
 import { beginHeavyUpload } from "../../../../../../Backend/services/uploadActivity";
 import { optimizeImageFile } from "../../../../../../Backend/services/marketplace/imageOptimization";
 import useBodyScrollLock from "../../../../../shared/useBodyScrollLock";
@@ -1893,7 +1894,51 @@ if (!isMobileVideoDevice) {
 
         videoFrameExtractionFailed = CONTENT_MODERATION_ENABLED && videoFrameDataUrls.length === 0;
 
-        if (originalVideoFileRef.current) {
+        let videoUploadFile = originalVideoFileRef.current;
+        if (videoUploadFile && canCompressVideosNatively()) {
+          // In the app: compress on the phone first (only the trimmed part,
+          // up to 1080p, ~5 Mbps, faststart) so the clip streams instantly.
+          // Any failure keeps the original, exactly as before.
+          setPostingStage("uploading-media");
+          setPostingProgress(8);
+          publishPostingUpdate({
+            status: "posting",
+            stage: "uploading-media",
+            progress: 8,
+            message: "Preparing your video for smooth playback.",
+          });
+          const prepared = await compressVideoForUpload(videoUploadFile, {
+            trimStart: postDraft.mediaMeta?.videoTrimStart || 0,
+            trimEnd: postDraft.mediaMeta?.videoTrimEnd,
+            onProgress: (fraction) => {
+              const value = 8 + Math.round(Math.max(0, Math.min(1, fraction)) * 15);
+              setPostingProgress(value);
+              publishPostingUpdate({ status: "posting", stage: "uploading-media", progress: value });
+            },
+          });
+          if (await stopIfCancelled()) return;
+          if (prepared.compressed) {
+            videoUploadFile = prepared.file;
+            const clipSeconds = prepared.durationSeconds || Math.max(0.5, (postDraft.mediaMeta?.videoTrimEnd || MAX_VIDEO_SECONDS) - (postDraft.mediaMeta?.videoTrimStart || 0));
+            postDraft.mediaMeta = {
+              ...postDraft.mediaMeta,
+              videoName: videoUploadFile.name,
+              videoType: videoUploadFile.type,
+              videoSize: videoUploadFile.size,
+              // The uploaded file is now just the clip: it plays from 0.
+              ...(prepared.trimmed ? {
+                videoTrimStart: 0,
+                videoTrimEnd: clipSeconds,
+                sourceVideoTrimStart: 0,
+                sourceVideoTrimEnd: clipSeconds,
+                videoDuration: clipSeconds,
+              } : {}),
+            };
+            postDraft.media_meta = postDraft.mediaMeta;
+          }
+        }
+
+        if (videoUploadFile) {
           setPostingStage("uploading-media");
           setPostingProgress(24);
           publishPostingUpdate({
@@ -1905,7 +1950,7 @@ if (!isMobileVideoDevice) {
               : "Uploading your video securely before publishing.",
           });
           let uploadProgress = 24;
-          uploadedReviewVideoUrl = await uploadVideoWithProgress(originalVideoFileRef.current, (progress) => {
+          uploadedReviewVideoUrl = await uploadVideoWithProgress(videoUploadFile, (progress) => {
             uploadProgress = progress;
             setPostingProgress(progress);
             publishPostingUpdate({
