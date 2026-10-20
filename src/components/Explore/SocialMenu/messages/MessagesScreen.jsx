@@ -12,8 +12,9 @@ import ConversationScreen from "./ConversationScreen";
 import MessageTabs from "./MessageTabs";
 import MessagePrivacyNotice from "../../../shared/MessagePrivacyNotice";
 import { uiText as translateUi, useI18n as useUiLocale } from "../../../../i18n/index.js";
+import { NAV_TRANSITION_MS } from "../../../shared/navigationMotion";
 
-const CONVERSATION_TRANSITION_MS = 280;
+const CONVERSATION_TRANSITION_MS = NAV_TRANSITION_MS;
 
 export default function MessagesScreen({ currentProfile, hideHeader = false, initialRecipient, onConversationActiveChange, onViewProfile }) {
   // KAI is not offered in Explore messages.

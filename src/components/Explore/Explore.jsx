@@ -83,9 +83,11 @@ import { stopAllExploreMedia } from "./shared/singleMediaPlayback";
 import { uiText as translateUi, useI18n as useUiLocale } from "../../i18n/index.js";
 import { inlineErrorMessage, isConnectionFailure } from "../../Backend/services/friendlyErrorService";
 import { announceConnectionTrouble } from "../../Backend/services/networkService";
+import { NAV_TRANSITION_MS } from "../shared/navigationMotion";
+import { haptics } from "../../Backend/services/feedbackService";
 
 const EXPLORE_TAB_ORDER = ["UrFeed", "Swip", "Connections"];
-const EXPLORE_STACK_ANIMATION_MS = 280;
+const EXPLORE_STACK_ANIMATION_MS = NAV_TRANSITION_MS;
 // Interactive swipe tuning: panels track the finger once the gesture is
 // clearly horizontal, then commit past the distance or velocity threshold.
 const TAB_DRAG_ENGAGE_PX = 14;
@@ -123,6 +125,9 @@ export default function Explore({ active = true, onNavigateMain, onScreenModeCha
   const [postingNotice, setPostingNotice] = useState(() => readPostingNotice());
   const [topChromeHeight, setTopChromeHeight] = useState(0);
   const [tabSlideDirection, setTabSlideDirection] = useState("forward");
+  // The tab being slid out while the next one slides in ({ tab, direction, top }).
+  const [leavingTab, setLeavingTab] = useState(null);
+  const leavingTabTimerRef = useRef(null);
   const [swipPreviewTarget, setSwipPreviewTarget] = useState("");
   const [postFocusRequest, setPostFocusRequest] = useState(null);
   const [leftDrawerOpen, setLeftDrawerOpen] = useState(false);
@@ -379,7 +384,28 @@ export default function Explore({ active = true, onNavigateMain, onScreenModeCha
     }
   }, [leftDrawerOpen, drawerDragging, drawerMountedByDrag]);
 
-  useEffect(() => () => window.clearTimeout(dragSettleTimerRef.current), []);
+  useEffect(() => () => {
+    window.clearTimeout(dragSettleTimerRef.current);
+    window.clearTimeout(leavingTabTimerRef.current);
+  }, []);
+
+  // Start the tab slide once the incoming tab has painted off to the side
+  // (UrFeed is long; drawing it again took the whole slide before).
+  useEffect(() => {
+    if (leavingTab?.phase !== "pending") return undefined;
+    let second = 0;
+    const first = window.requestAnimationFrame(() => {
+      second = window.requestAnimationFrame(() => {
+        setLeavingTab((current) => (current && current.phase === "pending" ? { ...current, phase: "running" } : current));
+        window.clearTimeout(leavingTabTimerRef.current);
+        leavingTabTimerRef.current = window.setTimeout(() => setLeavingTab(null), NAV_TRANSITION_MS + 40);
+      });
+    });
+    return () => {
+      window.cancelAnimationFrame(first);
+      window.cancelAnimationFrame(second);
+    };
+  }, [leavingTab?.phase]);
 
   useBodyScrollLock(scrollLockActive);
 
@@ -956,7 +982,18 @@ export default function Explore({ active = true, onNavigateMain, onScreenModeCha
     const nextIndex = EXPLORE_TAB_ORDER.indexOf(tab);
     // A finger-driven swipe already moved the panels, so the class-based
     // slide animation is skipped to avoid replaying the transition.
-    setTabSlideDirection(options.animate === false ? "none" : nextIndex >= currentIndex ? "forward" : "backward");
+    const direction = nextIndex >= currentIndex ? "forward" : "backward";
+    setTabSlideDirection(options.animate === false ? "none" : direction);
+    // A push, like the main screens: the current tab stays pinned exactly
+    // where it is on screen and slides out while the next one slides in.
+    window.clearTimeout(leavingTabTimerRef.current);
+    if (options.animate === false) {
+      setLeavingTab(null);
+    } else {
+      const top = tabPanelRefs.current[activeTab]?.getBoundingClientRect?.().top ?? 0;
+      // Drawn once off to the side first ("pending"), then slid in.
+      setLeavingTab({ tab: activeTab, direction, top, phase: "pending" });
+    }
     tabScrollRef.current[activeTab] = window.scrollY || 0;
     exploreNav.setActiveTab(tab);
     const nextScroll = tabScrollRef.current[tab] || 0;
@@ -977,15 +1014,27 @@ export default function Explore({ active = true, onNavigateMain, onScreenModeCha
   }
 
   function getExploreTabPanelClass(tab) {
+    const pending = leavingTab?.phase === "pending";
+    if (leavingTab?.tab === tab && activeTab !== tab) {
+      if (pending) return "kt-main-leave-hold block";
+      return `${leavingTab.direction === "backward" ? "kt-main-leave-backward" : "kt-main-leave-forward"} block`;
+    }
+
     if (activeTab !== tab) {
       return "hidden";
     }
 
-    if (tabSlideDirection === "none") {
+    if (tabSlideDirection === "none" || !leavingTab) {
       return "block";
     }
 
-    return `${tabSlideDirection === "backward" ? "kt-parent-tab-slide-backward" : "kt-parent-tab-slide-forward"} block`;
+    const backward = tabSlideDirection === "backward";
+    if (pending) return `${backward ? "kt-main-enter-wait-backward" : "kt-main-enter-wait-forward"} block`;
+    return `${backward ? "kt-main-enter-backward" : "kt-main-enter-forward"} block`;
+  }
+
+  function getExploreTabPanelStyle(tab) {
+    return leavingTab?.tab === tab && activeTab !== tab ? { top: `${leavingTab.top}px` } : undefined;
   }
 
   function getDrawerWidth() {
@@ -1120,6 +1169,8 @@ export default function Explore({ active = true, onNavigateMain, onScreenModeCha
     }
 
     if (commit) {
+      // Opening the menu by swipe taps like the Menu button.
+      haptics.light();
       setLeftDrawerOpen(true);
     }
 
@@ -1699,6 +1750,7 @@ export default function Explore({ active = true, onNavigateMain, onScreenModeCha
       ref={(node) => { tabPanelRefs.current.UrFeed = node; }}
       aria-hidden={activeTab !== "UrFeed"}
       className={getExploreTabPanelClass("UrFeed")}
+      style={getExploreTabPanelStyle("UrFeed")}
     >
       <UrFeed
         active={active && activeTab === "UrFeed" && !menuOverlayVisible}
@@ -1712,6 +1764,7 @@ export default function Explore({ active = true, onNavigateMain, onScreenModeCha
       ref={(node) => { tabPanelRefs.current.Swip = node; }}
       aria-hidden={activeTab !== "Swip"}
       className={getExploreTabPanelClass("Swip")}
+      style={getExploreTabPanelStyle("Swip")}
     >
       <Swip
         active={active && activeTab === "Swip" && !menuOverlayVisible}
@@ -1729,6 +1782,7 @@ export default function Explore({ active = true, onNavigateMain, onScreenModeCha
       ref={(node) => { tabPanelRefs.current.Connections = node; }}
       aria-hidden={activeTab !== "Connections"}
       className={getExploreTabPanelClass("Connections")}
+      style={getExploreTabPanelStyle("Connections")}
     >
       <Connections
         currentUserId={profile.userId}

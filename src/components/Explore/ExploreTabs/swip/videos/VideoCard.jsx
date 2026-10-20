@@ -13,7 +13,7 @@ import { copyPostLink, sharePost } from "../../urfeed/feed/post/postUtils";
 import { haptics } from "../../../../../Backend/services/feedbackService";
 import { useI18n } from "../../../../../i18n";
 import { readExploreSettings } from "../../../../../Backend/services/explore/preferencesService";
-import { pauseOtherExploreMedia, playExploreMedia, stopAllExploreMedia } from "../../../shared/singleMediaPlayback";
+import { isExploreVideoHeld, pauseOtherExploreMedia, playExploreMedia, stopAllExploreMedia } from "../../../shared/singleMediaPlayback";
 import ExploreActionDrawer from "../../../shared/ExploreActionDrawer";
 import PostAnalyticsPanel from "../../../shared/PostAnalyticsPanel";
 import RepostComposer from "../../../shared/RepostComposer";
@@ -127,6 +127,8 @@ export default function VideoCard({
   // True while a clip is being primed (see `prime`): its play/playing/time
   // events must not pause the clip on screen, count a view or move progress.
   const primingRef = useRef(false);
+  // The person tapped to pause this clip: autoplay leaves it paused.
+  const userPausedRef = useRef(false);
   const primedUrlRef = useRef("");
   const playbackSignalRef = useRef({
     started: false,
@@ -347,6 +349,7 @@ export default function VideoCard({
 
     if (active) {
       primingRef.current = false;
+      userPausedRef.current = false;
       startPlaybackSignals();
       // Keep the buffered (or primed) start: only rewind a clip that moved.
       if (video.ended || Math.abs(video.currentTime - clip.start) > 0.25) video.currentTime = clip.start;
@@ -598,8 +601,10 @@ export default function VideoCard({
         video.volume = 1;
         setNeedsSoundUnlock(false);
       }
+      userPausedRef.current = false;
       requestActivePlayback({ sound: true, userGesture: true });
     } else {
+      userPausedRef.current = true;
       video.pause();
     }
   }
@@ -721,6 +726,45 @@ export default function VideoCard({
       if (primingRef.current) stop();
     };
   }, [prime, active, post.video_url]);
+
+  // Autoplay never waits for a touch: while this clip is on screen with
+  // autoplay on, a pause nobody asked for (the app returning from the
+  // background, a play() the browser dropped while loading, an interrupted
+  // start) is retried at once on return and then every 0.7 s. A pause the
+  // person tapped, an open sheet or menu, and a voice comment holding the
+  // video are left alone.
+  useEffect(() => {
+    if (!active) return undefined;
+    const video = videoRef.current;
+    if (!video) return undefined;
+
+    function shouldResume() {
+      if (!activeRef.current || userPausedRef.current || primingRef.current) return false;
+      if (typeof document !== "undefined" && document.visibilityState !== "visible") return false;
+      if (commentOpen || actionMenuOpen || quickDeckOpen || repostOpen) return false;
+      if (!readExploreSettings().video.autoplay) return false;
+      if (isExploreVideoHeld(video)) return false;
+      return video.paused && !video.ended;
+    }
+
+    function resumeIfStuck() {
+      if (shouldResume()) requestActivePlayback();
+    }
+
+    const timer = window.setInterval(resumeIfStuck, 700);
+    const onVisible = () => {
+      if (document.visibilityState === "visible") window.setTimeout(resumeIfStuck, 60);
+    };
+    document.addEventListener("visibilitychange", onVisible);
+    window.addEventListener("pageshow", onVisible);
+    window.addEventListener("focus", onVisible);
+    return () => {
+      window.clearInterval(timer);
+      document.removeEventListener("visibilitychange", onVisible);
+      window.removeEventListener("pageshow", onVisible);
+      window.removeEventListener("focus", onVisible);
+    };
+  }, [active, actionMenuOpen, commentOpen, quickDeckOpen, repostOpen, requestActivePlayback]);
 
   // A clip buffered ahead of time may already be playable when this card
   // mounts or becomes active.

@@ -28,6 +28,7 @@ import { isFeatureAvailable } from "../../../../data/globalFeatureAvailability";
 import { useI18n } from "../../../../i18n";
 import PremiumHeader, { PremiumHeaderButton } from "../../../shared/PremiumHeader";
 import useBodyScrollLock from "../../../shared/useBodyScrollLock";
+import { haptics } from "../../../../Backend/services/feedbackService";
 import SearchOverlay from "./search/SearchOverlay";
 import { uiText as translateUi, useI18n as useUiLocale } from "../../../../i18n/index.js";
 
@@ -158,7 +159,16 @@ export default function ExploreHeader({ currentProfile, onAlertsClick, onNavigat
           left={(
             <>
               {/* The menu lists the person's Spaces; its badge counts their new activity. */}
-              <PremiumHeaderButton icon={Menu} badge={spaceActivityTotal} label={t("explore.openMenu")} onClick={() => onNavigate?.("Menu")} />
+              <PremiumHeaderButton
+                icon={Menu}
+                badge={spaceActivityTotal}
+                label={t("explore.openMenu")}
+                onClick={() => {
+                  // Opening the Explore menu gives a light tap.
+                  haptics.light();
+                  onNavigate?.("Menu");
+                }}
+              />
               <PremiumHeaderButton
                 active={messageStatus.active}
                 accent="sky"

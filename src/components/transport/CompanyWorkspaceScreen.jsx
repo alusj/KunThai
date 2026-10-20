@@ -345,7 +345,8 @@ export default function CompanyWorkspaceScreen({ company, initialTab = "Overview
       { label: t("urride.companyWs.health.documents"), complete: Object.keys(company?.documents || {}).length > 0 },
       { label: t("urride.companyWs.health.fleet"), complete: fleets.length > 0 },
       { label: t("urride.companyWs.health.operator"), complete: acceptedOperators.length > 0 },
-      { label: t("urride.companyWs.health.verification"), complete: company?.verificationStatus === "verified" },
+      // KunThai's verification is a review, not a setup step the company can
+      // finish itself, so it is not part of this score (it is shown on its own).
     ];
     const completeCount = checklist.filter((item) => item.complete).length;
     const score = Math.round((completeCount / checklist.length) * 100);

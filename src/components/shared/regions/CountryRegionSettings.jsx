@@ -11,6 +11,7 @@ import { showToast } from "../../../Backend/services/toastService";
 import { uiText as translateUi, useI18n } from "../../../i18n/index.js";
 import FlagIcon from "../../FlagIcon";
 import MyRegionCard from "./MyRegionCard";
+import { haptics } from "../../../Backend/services/feedbackService";
 
 // Countries KunThai serves come first; the rest follow alphabetically.
 function buildCountryOptions() {
@@ -71,6 +72,7 @@ export default function CountryRegionSettings() {
       // Kept until KunThai has been unused for a while (see countryChoice.js).
       rememberCountryChoice(nextIso);
       setChangedHere(true);
+      haptics.success();
       setStatus("saved");
       showToast("Country has been updated", "success");
     } catch (error) {

@@ -54,6 +54,7 @@ import {
 } from "../../shared/buyerAddressPreferences";
 import { uiText as translateUi, useI18n as useUiLocale } from "../../../../i18n/index.js";
 import { inlineErrorMessage } from "../../../../Backend/services/friendlyErrorService";
+import { haptics } from "../../../../Backend/services/feedbackService";
 
 const BUYER_PAYMENT_KEY = "marketplace-buyer-payment";
 const RECENT_PRODUCTS_KEY = "marketplace-recent-products";
@@ -394,6 +395,7 @@ export default function MenuDrawer({ open, onClose, onRequestedScreenHandled, re
 
   function savePayment() {
     localStorage.setItem(BUYER_PAYMENT_KEY, payment);
+    haptics.success();
     setMessage(t("urmall.menu.paymentSaved"));
   }
 

@@ -98,6 +98,7 @@ import VerificationRequestNotice from "../shared/VerificationRequestNotice";
 import { useDashboardResumeHold } from "../../Backend/hooks/useDashboardResumeHold";
 import { notificationDisplayText } from "../../Backend/services/notificationText";
 import ExpandableText from "../shared/ExpandableText";
+import { NAV_TRANSITION_MS } from "../shared/navigationMotion";
 
 function formatOperatorMoney(value, account = null) {
   return formatCountryMoney(value, account?.form?.currency || account?.form?.countryCode || account?.form?.country || getCountryCurrencyCode());
@@ -122,7 +123,7 @@ const operatorVerificationStatuses = {
   recommended: makeOperatorStatus({ colorClass: "border-green-200 bg-green-100 text-green-700", panelClass: "border-green-200 bg-green-50 text-green-950" }, "urride.opDash.verify.recommended"),
 };
 
-const OPERATOR_DRAWER_TRANSITION_MS = 360;
+const OPERATOR_DRAWER_TRANSITION_MS = NAV_TRANSITION_MS;
 
 function isUsableAreaText(value) {
   const text = String(value || "").trim();

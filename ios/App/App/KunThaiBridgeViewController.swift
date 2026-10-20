@@ -1,9 +1,11 @@
 import UIKit
 import Capacitor
+import WebKit
 
 // Main.storyboard's root view controller. Registers the plugins that live in
 // the App target itself (Capacitor only auto-registers npm plugins), and holds
-// the KunThai splash briefly so it is actually seen.
+// the KunThai splash so it is actually seen and never gives way to a blank
+// screen.
 //
 // iOS shows the launch screen (LaunchScreen.storyboard) only until the app's
 // first frame, often under half a second, and never when KunThai is resumed
@@ -11,50 +13,77 @@ import Capacitor
 // splash on every fresh start, and Samsung phones restart apps often, so the
 // icon appeared there but hardly ever on iPhone. This overlay uses the same
 // launch image (light and dark): on a fresh start it continues the launch
-// screen for a moment, and it shows again when KunThai comes back after a
-// long time in the background, like a fresh start on Android.
+// screen, and it shows again when KunThai comes back after a long time in the
+// background, like a fresh start on Android.
 //
-// Timing and exit match Android (MainActivity): the splash is on screen for
-// 1.75 s from launch (a Galaxy A06's measured cold start), then slides down
-// and away, revealing the app.
+// It leaves only when both are true: at least 1.75 s since it appeared (the
+// Android cold start measured on a Galaxy A06) and the web app has drawn its
+// first screen (KunThaiLaunchPlugin.ready(), from
+// src/Backend/services/nativeLaunch.js), never later than 8 s. iOS often
+// clears the page of an app in the background; on every return the page is
+// checked, and if it is reloading the splash covers it instead of a blank
+// screen. Exit matches Android (MainActivity): it slides down and away.
 class KunThaiBridgeViewController: CAPBridgeViewController {
     private static let splashSeconds: TimeInterval = 1.75
+    private static let maxSplashSeconds: TimeInterval = 8
     private static let collapseDuration: TimeInterval = 0.42
-    private static let fadeDuration: TimeInterval = 0.28
     // Back after at least this long in the background: show the splash again.
     private static let resumeSplashAfter: TimeInterval = 10 * 60
+    static let webReadyNotification = Notification.Name("KunThaiWebReady")
 
     private var splashView: UIView?
+    private var splashMinimumUntil = Date.distantPast
+    private var webReady = false
     private var backgroundedAt: Date?
+    private var loadingObservation: NSKeyValueObservation?
 
     override open func capacitorDidLoad() {
         bridge?.registerPluginInstance(KunThaiAppleSignInPlugin())
         bridge?.registerPluginInstance(KunThaiStoreKitPlugin())
         bridge?.registerPluginInstance(KunThaiVideoPlugin())
+        bridge?.registerPluginInstance(KunThaiLaunchPlugin())
     }
 
     override func viewDidLoad() {
         super.viewDidLoad()
         // The app's own background (not black) behind the splash as it slides
-        // away, before the page has painted.
-        let appBackground = UIColor { traits in
-            traits.userInterfaceStyle == .dark
-                ? UIColor(red: 0.008, green: 0.024, blue: 0.09, alpha: 1)
-                : UIColor(red: 0.945, green: 0.961, blue: 0.976, alpha: 1)
-        }
+        // away.
+        let appBackground = Self.appBackground
         view.backgroundColor = appBackground
         webView?.backgroundColor = appBackground
         webView?.scrollView.backgroundColor = appBackground
         // The launch screen was already showing since the process started.
-        showSplash(hold: max(0.2, Self.splashSeconds - Self.secondsSinceLaunch()), animatedIn: false)
+        showSplash(minimum: max(0.2, Self.splashSeconds - Self.secondsSinceLaunch()))
 
         let center = NotificationCenter.default
         center.addObserver(self, selector: #selector(appDidEnterBackground), name: UIApplication.didEnterBackgroundNotification, object: nil)
         center.addObserver(self, selector: #selector(appWillEnterForeground), name: UIApplication.willEnterForegroundNotification, object: nil)
+        center.addObserver(self, selector: #selector(webDidBecomeReady), name: Self.webReadyNotification, object: nil)
+
+        // iOS can clear the page of an app in the background; Capacitor then
+        // reloads it, at any moment, often just as KunThai returns. The splash
+        // covers every reload from its first instant until the app has drawn
+        // again, so a blank page is never seen.
+        loadingObservation = webView?.observe(\.isLoading, options: [.new]) { [weak self] webView, _ in
+            DispatchQueue.main.async {
+                guard let self, webView.isLoading, self.webReady else { return }
+                self.webReady = false
+                self.showSplash(minimum: 0.6)
+            }
+        }
     }
 
     deinit {
+        loadingObservation?.invalidate()
         NotificationCenter.default.removeObserver(self)
+    }
+
+    private static var appBackground: UIColor {
+        UIColor { traits in
+            traits.userInterfaceStyle == .dark
+                ? UIColor(red: 0.008, green: 0.024, blue: 0.09, alpha: 1)
+                : UIColor(red: 0.945, green: 0.961, blue: 0.976, alpha: 1)
+        }
     }
 
     @objc private func appDidEnterBackground() {
@@ -62,25 +91,41 @@ class KunThaiBridgeViewController: CAPBridgeViewController {
     }
 
     @objc private func appWillEnterForeground() {
-        guard let since = backgroundedAt else { return }
+        let since = backgroundedAt
         backgroundedAt = nil
-        if Date().timeIntervalSince(since) >= Self.resumeSplashAfter {
-            showSplash(hold: Self.splashSeconds, animatedIn: false)
+        let longAway = since.map { Date().timeIntervalSince($0) >= Self.resumeSplashAfter } ?? false
+        if longAway {
+            showSplash(minimum: Self.splashSeconds)
+        }
+        // Is the page still there? iOS may have cleared it in the background,
+        // in which case it reloads: cover that with the splash too.
+        guard let webView else { return }
+        webView.evaluateJavaScript("window.__ktReady === true") { [weak self] result, error in
+            guard let self else { return }
+            let alive = (result as? Bool) == true && error == nil
+            if alive { return }
+            self.webReady = false
+            self.showSplash(minimum: longAway ? Self.splashSeconds : 0.6)
         }
     }
 
-    private func showSplash(hold: TimeInterval, animatedIn: Bool) {
+    @objc private func webDidBecomeReady() {
+        webReady = true
+        hideSplashIfReady()
+    }
+
+    private func showSplash(minimum: TimeInterval) {
+        splashMinimumUntil = max(splashMinimumUntil, Date().addingTimeInterval(minimum))
+        DispatchQueue.main.asyncAfter(deadline: .now() + minimum) { [weak self] in
+            self?.hideSplashIfReady()
+        }
         guard splashView == nil, let host = view else { return }
 
         let cover = UIView(frame: host.bounds)
         cover.autoresizingMask = [.flexibleWidth, .flexibleHeight]
         cover.isUserInteractionEnabled = false
         // The launch screen's own colours: the image's edges (light / dark).
-        cover.backgroundColor = UIColor { traits in
-            traits.userInterfaceStyle == .dark
-                ? UIColor(red: 0.008, green: 0.024, blue: 0.09, alpha: 1)
-                : UIColor(red: 0.945, green: 0.961, blue: 0.976, alpha: 1)
-        }
+        cover.backgroundColor = Self.appBackground
 
         // Same image and fill as LaunchScreen.storyboard, so a fresh start
         // continues the launch screen without a jump.
@@ -94,14 +139,16 @@ class KunThaiBridgeViewController: CAPBridgeViewController {
         host.addSubview(cover)
         splashView = cover
 
-        if animatedIn {
-            cover.alpha = 0
-            UIView.animate(withDuration: Self.fadeDuration) { cover.alpha = 1 }
+        // Never stuck: leave after 8 s whatever happens.
+        DispatchQueue.main.asyncAfter(deadline: .now() + Self.maxSplashSeconds) { [weak self, weak cover] in
+            guard let self, let cover, self.splashView === cover else { return }
+            self.hideSplash()
         }
+    }
 
-        DispatchQueue.main.asyncAfter(deadline: .now() + hold) { [weak self] in
-            self?.hideSplash()
-        }
+    private func hideSplashIfReady() {
+        guard splashView != nil, webReady, Date() >= splashMinimumUntil else { return }
+        hideSplash()
     }
 
     // Slide down and away, revealing the app behind it (same as Android).
@@ -125,5 +172,23 @@ class KunThaiBridgeViewController: CAPBridgeViewController {
         let startSeconds = TimeInterval(started.tv_sec) + TimeInterval(started.tv_usec) / 1_000_000
         guard startSeconds > 0 else { return 0 }
         return max(0, Date().timeIntervalSince1970 - startSeconds)
+    }
+}
+
+// The web app reports that it has drawn its first screen
+// (src/Backend/services/nativeLaunch.js); the splash may then leave.
+@objc(KunThaiLaunchPlugin)
+public class KunThaiLaunchPlugin: CAPPlugin, CAPBridgedPlugin {
+    public let identifier = "KunThaiLaunchPlugin"
+    public let jsName = "KunThaiLaunch"
+    public let pluginMethods: [CAPPluginMethod] = [
+        CAPPluginMethod(name: "ready", returnType: CAPPluginReturnPromise),
+    ]
+
+    @objc func ready(_ call: CAPPluginCall) {
+        DispatchQueue.main.async {
+            NotificationCenter.default.post(name: KunThaiBridgeViewController.webReadyNotification, object: nil)
+        }
+        call.resolve()
     }
 }

@@ -36,6 +36,13 @@ public class MainActivity extends BridgeActivity {
         // Galaxy A06), then slides down and away instead of vanishing.
         // Same timing and animation as the iPhone (KunThaiBridgeViewController).
         SplashScreen splashScreen = SplashScreen.installSplashScreen(this);
+        // Stay until the web app has drawn its first screen (it reports in
+        // through KunThaiLaunchPlugin), so no blank screen shows while it
+        // loads; never longer than 8 s.
+        KunThaiLaunchPlugin.reset();
+        final long splashStartedAt = android.os.SystemClock.uptimeMillis();
+        splashScreen.setKeepOnScreenCondition(() ->
+            !KunThaiLaunchPlugin.isWebReady() && android.os.SystemClock.uptimeMillis() - splashStartedAt < 8000);
         splashScreen.setOnExitAnimationListener(provider -> {
             // Slides down and away, revealing the app behind it.
             View splash = provider.getView();
@@ -49,6 +56,7 @@ public class MainActivity extends BridgeActivity {
         createLocationSharingChannel();
         // Plugins inside this app module (Capacitor only auto-registers npm ones).
         registerPlugin(KunThaiVideoPlugin.class);
+        registerPlugin(KunThaiLaunchPlugin.class);
         super.onCreate(savedInstanceState);
         // Same picker, but picked videos can be compressed in place.
         if (getBridge() != null && getBridge().getWebView() != null) {

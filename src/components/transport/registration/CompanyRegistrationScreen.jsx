@@ -67,6 +67,7 @@ import DeferredVerificationNotice from "../../shared/DeferredVerificationNotice"
 import { useRegistrationRecoveryNotice, useRegistrationTask } from "../../../Backend/hooks/useRegistrationTask";
 import { REGISTRATION_KINDS } from "../../../Backend/services/registration/registrationTaskCore";
 import { startRegistrationTask } from "../../../Backend/services/registration/registrationTaskRunner";
+import { haptics } from "../../../Backend/services/feedbackService";
 
 const steps = [
   { labelKey: "urride.companyReg.stepCompany", icon: FiBriefcase },
@@ -1393,6 +1394,7 @@ function CompanyEditSections({ sections = [], openSection, onToggle, onSave, sav
     const result = await onSave();
     if (result?.ok) {
       onToggle(-1);
+      haptics.success();
       setSavedSection(index);
       window.setTimeout(() => setSavedSection((current) => (current === index ? -1 : current)), 2600);
     }

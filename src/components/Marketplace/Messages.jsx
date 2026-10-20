@@ -24,6 +24,7 @@ import { useKeyboardAwareConversation } from "../../Backend/hooks/useKeyboardAwa
 import { useAiScreen } from "../../Backend/services/ai/aiScreenContext";
 import { t as i18nText } from "../../i18n/index";
 import { uiText as translateUi, useI18n as useUiLocale } from "../../i18n/index.js";
+import { NAV_TRANSITION_MS } from "../shared/navigationMotion";
 
 function readFileAsDataUrl(file) {
   return new Promise((resolve, reject) => {
@@ -171,7 +172,7 @@ export default function Messages({ initialConversationId = "", onBack, onInitial
     transitionTimerRef.current = window.setTimeout(() => {
       setScreenAction("idle");
       transitionTimerRef.current = null;
-    }, 360);
+    }, NAV_TRANSITION_MS);
   }
 
   function closeConversation() {
@@ -185,7 +186,7 @@ export default function Messages({ initialConversationId = "", onBack, onInitial
       setClosingMessage(null);
       setScreenAction("idle");
       transitionTimerRef.current = null;
-    }, 360);
+    }, NAV_TRANSITION_MS);
   }
 
   async function handleImageSelected(event) {

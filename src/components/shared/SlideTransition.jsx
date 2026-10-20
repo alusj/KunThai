@@ -1,10 +1,12 @@
 import { useEffect, useRef, useState } from "react";
+import { NAV_TRANSITION_MS, navMotionClass } from "./navigationMotion";
 
-export const SLIDE_TRANSITION_MS = 360;
+// Same timing as every other screen move (navigationMotion.js).
+export const SLIDE_TRANSITION_MS = NAV_TRANSITION_MS;
 
 export function getSlidePanelClass(action) {
-  if (action === "push") return "kt-explore-stack-enter";
-  if (action === "pop") return "kt-explore-stack-leave-right";
+  if (action === "push") return navMotionClass.push;
+  if (action === "pop") return navMotionClass.pop;
   return "translate-x-0";
 }
 

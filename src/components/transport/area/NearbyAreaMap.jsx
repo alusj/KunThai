@@ -33,6 +33,11 @@ import { useI18n, t } from "../../../i18n";
 import { t as i18nText } from "../../../i18n/index";
 import { inlineErrorMessage } from "../../../Backend/services/friendlyErrorService";
 import { useDashboardResumeHold } from "../../../Backend/hooks/useDashboardResumeHold";
+import { registerOfflineMapProtocol, saveAreaAround, toOfflineUrl } from "./mapOfflineCache";
+
+// Map data is kept on the phone (mapOfflineCache.js): the map opens at once
+// after a restart and keeps working without a connection where it was used.
+const offlineMaps = registerOfflineMapProtocol();
 
 const ROUTE_STATUS_LABEL_KEYS = {
   correct: "urride.areaMap.rsCorrectLabel",
@@ -307,12 +312,29 @@ const osmRasterStyle = {
 
 function getMapTilerStyleUrl(styleId = MAPTILER_STYLE_ID) {
   if (!MAPTILER_KEY) return null;
-  return `https://api.maptiler.com/maps/${styleId}/style.json?key=${MAPTILER_KEY}`;
+  const url = `https://api.maptiler.com/maps/${styleId}/style.json?key=${MAPTILER_KEY}`;
+  return offlineMaps ? toOfflineUrl(url) : url;
+}
+
+// The free OpenStreetMap backup, its tiles saved on the phone too.
+function getOsmRasterStyle() {
+  if (!offlineMaps) return osmRasterStyle;
+  return {
+    ...osmRasterStyle,
+    sources: {
+      "osm-tiles": {
+        ...osmRasterStyle.sources["osm-tiles"],
+        tiles: osmRasterStyle.sources["osm-tiles"].tiles.map(toOfflineUrl),
+      },
+    },
+  };
 }
 
 function getInitialMapStyle() {
-  if (!getNetworkStatus().online) return osmRasterStyle;
-  return getMapTilerStyleUrl() || osmRasterStyle;
+  // With saved map data the full map opens even offline; without it, offline
+  // falls back to the OpenStreetMap backup (also saved once seen).
+  if (!getNetworkStatus().online && !offlineMaps) return getOsmRasterStyle();
+  return getMapTilerStyleUrl() || getOsmRasterStyle();
 }
 
 function isMapTilerRequestError(event) {
@@ -2632,12 +2654,33 @@ export default function NearbyAreaMap({
       zoom: 13,
       pitch: 35,
       bearing: 0,
-      attributionControl: true,
+      // Added below as the compact (i) button, without the "MapLibre" line.
+      attributionControl: false,
       maxZoom: 20,
       fadeDuration: 0,
     });
 
+    // Map credits (MapTiler and OpenStreetMap ask for them) behind the small
+    // (i) button: shown only when tapped. MapLibre's own name is left out.
+    map.addControl(new maplibregl.AttributionControl({ compact: true }), "bottom-right");
+    map.once("load", () => {
+      map.getContainer?.().querySelectorAll(".maplibregl-ctrl-attrib.maplibregl-compact-show")
+        .forEach((node) => node.classList.remove("maplibregl-compact-show"));
+    });
     map.addControl(new maplibregl.NavigationControl({ visualizePitch: true }), "bottom-right");
+
+    // Save the streets around the shown area for offline use, once the map
+    // has settled (and again after moving far); quiet and in the background.
+    let offlineSaveTimer = null;
+    map.on("idle", () => {
+      if (!offlineMaps) return;
+      window.clearTimeout(offlineSaveTimer);
+      offlineSaveTimer = window.setTimeout(() => {
+        if (isMapGone(map)) return;
+        const center = map.getCenter?.();
+        if (center) saveAreaAround(map, { lat: center.lat, lng: center.lng }).catch(() => {});
+      }, 2500);
+    });
     map.addControl(new maplibregl.ScaleControl({ maxWidth: 110, unit: "metric" }), "bottom-left");
 
     const markUserInteractionStart = (event) => {
@@ -2714,7 +2757,7 @@ export default function NearbyAreaMap({
       }
       if (MAPTILER_KEY && isMapTilerRequestError(event) && !hasOsmFallback) {
         console.warn("MapTiler style could not load. Falling back to OpenStreetMap raster tiles.", event?.error);
-        safeMapCall(map, "setStyle", osmRasterStyle);
+        safeMapCall(map, "setStyle", getOsmRasterStyle());
         return;
       }
 

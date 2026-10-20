@@ -1,4 +1,4 @@
-import { createElement, useEffect, useState } from "react";
+import { createElement, useState } from "react";
 import {
   HiOutlineBellAlert,
   HiOutlineChatBubbleLeftRight,
@@ -19,11 +19,8 @@ import {
 import { useExplorePreferences } from "../../../../Backend/hooks/useExplorePreferences";
 import { readDefaultMainPage, setDefaultMainPage } from "../../../../Backend/services/mainDashboardPreference";
 import { haptics, hapticsSupported, sounds } from "../../../../Backend/services/feedbackService";
-import { disablePushNotifications, enablePushNotifications, getPushProblemMessage, getPushStatus } from "../../../../Backend/services/pushService";
 import { showToast } from "../../../../Backend/services/toastService";
-import supabase from "../../../../Backend/lib/supabaseClient";
-import { saveUnifiedNotificationPreferences } from "../../../../Backend/services/unifiedNotificationService";
-import NotificationSettings from "../../ExploreTabs/notification/components/NotificationSettings";
+import { NotificationsEntryRow } from "../../../shared/notifications/NotificationSettingsScreen";
 import { signOutSocialSession } from "../../../../Backend/services/sessionService";
 import { useAppearanceMode } from "../../../../contexts/appearanceContext";
 import { useI18n } from "../../../../i18n";
@@ -34,7 +31,6 @@ import AccountTypeSettings from "../../../shared/AccountTypeSettings";
 import { t as i18nText } from "../../../../i18n/index";
 import { uiText as translateUi, useI18n as useUiLocale } from "../../../../i18n/index.js";
 import { shortErrorToast } from "../../../../Backend/services/friendlyErrorService";
-import { isNativePlatform } from "../../../../Backend/services/nativeOAuthService";
 
 function Toggle({ active, label, onChange }) {
   useUiLocale();
@@ -105,11 +101,7 @@ export default function SettingsScreen({ hideHeader = false, onOpenDataMobile, o
   const { clearCache, feedback, settings, updateSection } = useExplorePreferences();
   const { mode: appearanceMode, resolvedMode, setMode: setAppearanceMode, textSize, setTextSize } = useAppearanceMode();
   const i18n = useI18n();
-  const { notifications, video, feed, messages, feedbackFx } = settings;
-  const [pushStatus, setPushStatus] = useState("loading");
-  const [pushBusy, setPushBusy] = useState(false);
-  const [pushError, setPushError] = useState("");
-  const nativeApp = isNativePlatform();
+  const { video, feed, messages, feedbackFx } = settings;
   const [defaultDashboard, setDefaultDashboard] = useState(() => readDefaultMainPage() || "auto");
 
   const [signOutBusy, setSignOutBusy] = useState("");
@@ -132,44 +124,7 @@ export default function SettingsScreen({ hideHeader = false, onOpenDataMobile, o
     }
   }
 
-  useEffect(() => {
-    let active = true;
-    getPushStatus().then((status) => {
-      if (!active) return;
-      setPushStatus(status);
-      // In the app: the last reason this phone could not get push alerts
-      // (permission off, a build without push set up, no connection).
-      if (status !== "enabled") setPushError(getPushProblemMessage());
-    });
-    return () => {
-      active = false;
-    };
-  }, []);
 
-  async function togglePushNotifications() {
-    if (pushBusy || ["unsupported", "loading"].includes(pushStatus)) return;
-    setPushBusy(true);
-    setPushError("");
-    try {
-      const next = pushStatus === "enabled" ? await disablePushNotifications() : await enablePushNotifications();
-      // Delivery also checks the account's push preference (as in the
-      // notification center), so both switches move together.
-      const { data } = await supabase.auth.getUser();
-      if (data?.user?.id) {
-        await saveUnifiedNotificationPreferences(data.user.id, { push_enabled: next === "enabled" });
-      }
-      setPushStatus(next);
-      showToast(next === "enabled" ? "Push alerts are on" : "Push alerts are off", "success");
-    } catch (error) {
-      showToast(shortErrorToast(error, "Push alerts not updated"), "danger");
-      // In the app the reason is worth reading in full (permission off, or
-      // this build has no push set up yet), so it stays under the switch.
-      if (nativeApp && error?.message) setPushError(error.message);
-      setPushStatus(await getPushStatus());
-    } finally {
-      setPushBusy(false);
-    }
-  }
 
   function testFeedback() {
     haptics.medium();
@@ -291,37 +246,10 @@ export default function SettingsScreen({ hideHeader = false, onOpenDataMobile, o
         </SettingsSection>
 
         <div className="grid gap-6 xl:grid-cols-2">
+          {/* Every notification switch (this phone, Explore, UrMall, UrRide)
+              lives on one screen, opened from this row. */}
           <SettingsSection title={i18n.t("settings.notificationsTitle")} subtitle={i18n.t("settings.notificationsSubtitle")}>
-            <SettingRow
-              icon={HiOutlineDevicePhoneMobile}
-              title={i18n.t("settings.pushTitle")}
-              description={
-                pushStatus === "unsupported"
-                  ? i18n.t("settings.pushUnsupported")
-                  : pushStatus === "denied"
-                    ? nativeApp ? i18n.t("exploreNativeFix.pushDeniedNative") : i18n.t("settings.pushDenied")
-                    : nativeApp
-                      ? i18n.t("exploreNativeFix.pushNativeDescription")
-                      : i18n.t("exploreSettingsFix.pushAnnouncementsDesc")
-              }
-            >
-              <Toggle
-                active={pushStatus === "enabled"}
-                label={pushBusy || pushStatus === "loading" ? "..." : pushStatus === "enabled" ? i18n.t("settings.on") : i18n.t("settings.off")}
-                onChange={togglePushNotifications}
-              />
-            </SettingRow>
-            {pushError ? (
-              <p className="rounded-2xl bg-amber-50 px-4 py-3 text-sm font-bold leading-6 text-amber-800" role="alert">{pushError}</p>
-            ) : null}
-            {/* The same switches as the Notifications panel, so both places match. */}
-            <div className="rounded-[24px] border border-slate-200 bg-white p-3 shadow-sm">
-              <p className="px-1 pb-2 text-sm font-semibold leading-6 text-slate-500">{i18n.t("exploreSettingsFix.inAppAlertsDesc")}</p>
-              <NotificationSettings
-                values={notifications}
-                onToggle={(key) => updateSection("notifications", { [key]: notifications[key] === false })}
-              />
-            </div>
+            <NotificationsEntryRow sector="explore" />
           </SettingsSection>
 
           <SettingsSection title={i18n.t("settings.soundsTitle")} subtitle={i18n.t("settings.soundsSubtitle")}>

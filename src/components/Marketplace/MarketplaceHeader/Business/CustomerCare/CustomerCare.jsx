@@ -25,8 +25,9 @@ import { useKeyboardAwareConversation } from "../../../../../Backend/hooks/useKe
 import { useAiScreen } from "../../../../../Backend/services/ai/aiScreenContext";
 import { t as i18nText } from "../../../../../i18n/index";
 import AppPortal from "../../../../shared/AppPortal";
+import { NAV_TRANSITION_MS } from "../../../../shared/navigationMotion";
 
-const CONVERSATION_TRANSITION_MS = 360;
+const CONVERSATION_TRANSITION_MS = NAV_TRANSITION_MS;
 
 function readFileAsDataUrl(file) {
   return new Promise((resolve, reject) => {

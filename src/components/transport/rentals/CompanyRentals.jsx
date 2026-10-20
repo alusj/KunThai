@@ -12,6 +12,7 @@ import RentalReservations from "./RentalReservations";
 import { t as i18nText } from "../../../i18n/index";
 import { uiText as translateUi, useI18n as useUiLocale } from "../../../i18n/index.js";
 import { inlineErrorMessage } from "../../../Backend/services/friendlyErrorService";
+import { haptics } from "../../../Backend/services/feedbackService";
 
 export default function CompanyRentals({ company, onAddFleet }) {
   useUiLocale();
@@ -67,12 +68,12 @@ export default function CompanyRentals({ company, onAddFleet }) {
     {error && <p role="alert" className="rounded-xl bg-rose-50 p-3 text-rose-700">{translateUi(error)}</p>}
     {selected && screen ? <>
       <button type="button" onClick={back} className="rounded-xl border px-4 py-2 font-bold">{screen.action === "Dashboard" || selected.deleted_at ? i18nText("ui.literals.k883626995a38") : i18nText("ui.literals.kbac3c31f1af8")}</button>
-      {screen.action === "Dashboard" ? <CompanyRentalDashboard rentals={rentals} reservations={activity} selected={selected} availabilityBusy={busy} onAvailability={(checked) => act(() => setRentalAvailability(selected.id, checked))} onOpen={open} activityError={activityError} refreshing={refreshing} onRefresh={refresh} /> : <h2 className="text-xl font-black text-slate-950">{selected.title} · {screen.action}</h2>}
+      {screen.action === "Dashboard" ? <CompanyRentalDashboard rentals={rentals} reservations={activity} selected={selected} availabilityBusy={busy} onAvailability={(checked) => act(() => setRentalAvailabilityWithFeedback(selected.id, checked))} onOpen={open} activityError={activityError} refreshing={refreshing} onRefresh={refresh} /> : <h2 className="text-xl font-black text-slate-950">{selected.title} · {screen.action}</h2>}
       {screen.action === "Edit fleet" && fleet && <RentalEditor key={selected.id} company={company} fleet={fleet} existing={selected} onSaved={refresh} />}
       {screen.action === "Requests / reservations" && <RentalReservations rentalId={selected.id} manager />}
       {screen.action === "Rental history" && <RentalReservations rentalId={selected.id} manager history />}
       {screen.action === "Reviews" && <RentalReviews rentalId={selected.id} manager />}
-      {screen.action === "Availability" && <div className="space-y-4 rounded-2xl border bg-white p-5"><p className="text-slate-600">{i18nText("ui.literals.ke83de9b25282")}</p><ToggleRow disabled={busy} checked={selected.status === "available"} label={busy ? i18nText("ui.literals.k3ab0d73100de") : selected.status === "available" ? i18nText("ui.literals.k7c62a1424469") : i18nText("ui.literals.kd1a17af19f53")} onChange={(checked) => act(() => setRentalAvailability(selected.id, checked))} /></div>}
+      {screen.action === "Availability" && <div className="space-y-4 rounded-2xl border bg-white p-5"><p className="text-slate-600">{i18nText("ui.literals.ke83de9b25282")}</p><ToggleRow disabled={busy} checked={selected.status === "available"} label={busy ? i18nText("ui.literals.k3ab0d73100de") : selected.status === "available" ? i18nText("ui.literals.k7c62a1424469") : i18nText("ui.literals.kd1a17af19f53")} onChange={(checked) => act(() => setRentalAvailabilityWithFeedback(selected.id, checked))} /></div>}
       {screen.action === "Delete fleet" && <div className="space-y-4 rounded-2xl border bg-white p-5"><p>{i18nText("ui.literals.kde30418d6f0b")}</p><button type="button" disabled={busy} onClick={() => act(() => deleteRentalFleet(selected.id), true)} className="rounded-xl bg-rose-700 px-4 py-3 font-bold text-white">{busy ? i18nText("ui.literals.kc7ac551ef042") : i18nText("ui.literals.k67ff54d73834")}</button></div>}
     </> : <>
       <div className="flex flex-wrap items-center justify-between gap-3"><h2 className="text-xl font-black text-slate-950">{i18nText("ui.literals.kc98b6e85eca5")}</h2>{onAddFleet && <button type="button" onClick={onAddFleet} className="rounded-xl bg-emerald-700 px-4 py-3 text-sm font-bold text-white">{i18nText("ui.literals.k7af252cec249")}</button>}</div>
@@ -83,7 +84,7 @@ export default function CompanyRentals({ company, onAddFleet }) {
       <div className="grid gap-4 sm:grid-cols-2">{visible.map((rental) => <article key={rental.id} className="relative rounded-2xl border border-slate-200 bg-white shadow-sm transition hover:border-emerald-400 hover:shadow-md">
         <button type="button" aria-label={"Open " + rental.title + " fleet dashboard"} onClick={() => open(rental.id)} className="absolute inset-0 rounded-2xl focus-visible:outline focus-visible:outline-2 focus-visible:outline-emerald-600" />
         <div className="pointer-events-none relative"><div className="overflow-hidden rounded-t-2xl bg-slate-100">{rental.photos?.[0] ? <img src={rental.photos[0]} alt={rental.title} className="h-48 w-full object-cover" /> : <div className="flex h-48 items-center justify-center text-slate-500">{i18nText("ui.literals.k1815313d1886")}</div>}</div><RentalActions title={rental.title} actions={["Dashboard", "Requests / reservations", "Edit fleet", "Availability", "Rental history", "Reviews", "Delete fleet"].map((action) => [action, () => open(rental.id, action)])} /></div>
-        <div className="pointer-events-none relative space-y-3 p-4">{rental.plan_suspended ? <p className="rounded-xl bg-amber-50 px-3 py-2 text-xs font-bold leading-5 text-amber-900"><span className="mr-1 font-black uppercase">{i18nText("urrideAddMenu.pausedBadge")}</span>{i18nText("urrideAddMenu.pausedOperatorNote")}</p> : null}<h3 className="text-lg font-black text-slate-950">{rental.title}</h3><p className="text-sm text-slate-600">{rental.pickup_address}</p><p className="text-xs font-bold text-emerald-700">{i18nText("ui.literals.k3c32fcce4732")}</p><div className="pointer-events-auto"><ToggleRow disabled={busy} checked={rental.status === "available"} label={rental.status === "available" ? i18nText("ui.literals.k7c62a1424469") : i18nText("ui.literals.kd1a17af19f53")} onChange={(checked) => act(() => setRentalAvailability(rental.id, checked))} /></div></div>
+        <div className="pointer-events-none relative space-y-3 p-4">{rental.plan_suspended ? <p className="rounded-xl bg-amber-50 px-3 py-2 text-xs font-bold leading-5 text-amber-900"><span className="mr-1 font-black uppercase">{i18nText("urrideAddMenu.pausedBadge")}</span>{i18nText("urrideAddMenu.pausedOperatorNote")}</p> : null}<h3 className="text-lg font-black text-slate-950">{rental.title}</h3><p className="text-sm text-slate-600">{rental.pickup_address}</p><p className="text-xs font-bold text-emerald-700">{i18nText("ui.literals.k3c32fcce4732")}</p><div className="pointer-events-auto"><ToggleRow disabled={busy} checked={rental.status === "available"} label={rental.status === "available" ? i18nText("ui.literals.k7c62a1424469") : i18nText("ui.literals.kd1a17af19f53")} onChange={(checked) => act(() => setRentalAvailabilityWithFeedback(rental.id, checked))} /></div></div>
       </article>)}</div></section>
       {rentals.some((rental) => rental.deleted_at) && <details className="rounded-xl border p-3"><summary className="cursor-pointer font-bold">{i18nText("ui.literals.k8c845668a217")}</summary>{rentals.filter((rental) => rental.deleted_at).map((rental) => <button key={rental.id} type="button" onClick={() => open(rental.id, "Rental history")} className="mt-2 block rounded-xl border px-4 py-3 text-sm font-bold">{rental.title} {i18nText("ui.literals.kf7bceb5b9765")}</button>)}</details>}
     </>}
@@ -147,7 +148,7 @@ function RentalEditor({ company, fleet, existing, onSaved }) {
   }
   async function save(event) {
     event.preventDefault(); setBusy(true); setError(""); setMessage("");
-    try { await saveTransportRental(fleet.id, form); setMessage(form.status === "hidden" ? i18nText("ui.literals.kae4374d4f378") : i18nText("ui.literals.k9064ce9906dc")); await onSaved(); }
+    try { await saveTransportRental(fleet.id, form); haptics.success(); setMessage(form.status === "hidden" ? i18nText("ui.literals.kae4374d4f378") : i18nText("ui.literals.k9064ce9906dc")); await onSaved(); }
     catch (err) { setError(inlineErrorMessage(err)); } finally { setBusy(false); }
   }
   return <div>
@@ -187,9 +188,17 @@ function RentalEditor({ company, fleet, existing, onSaved }) {
   </div>;
 }
 
+// Rental availability goes live with a firm tap, so turning a vehicle on for
+// customers is felt (the switch itself already ticks app-wide).
+function setRentalAvailabilityWithFeedback(rentalId, available) {
+  if (available) haptics.medium();
+  return setRentalAvailability(rentalId, available);
+}
+
+// A real on/off switch (it was a small checkbox).
 function ToggleRow({ checked, label, onChange, disabled = false }) {
   useUiLocale();
-  return <label className="mt-3 flex items-center justify-between gap-4 rounded-xl border border-white/80 bg-white p-3 text-sm font-bold text-slate-800"><span>{translateUi(label)}</span><input type="checkbox" role="switch" disabled={disabled} checked={checked} onChange={(event) => onChange(event.target.checked)} className="h-5 w-5 shrink-0 accent-emerald-700" /></label>;
+  return <button type="button" role="switch" aria-checked={Boolean(checked)} disabled={disabled} onClick={() => onChange(!checked)} className="mt-3 flex w-full items-center justify-between gap-4 rounded-xl border border-white/80 bg-white p-3 text-left text-sm font-bold text-slate-800 disabled:opacity-60"><span>{translateUi(label)}</span><span aria-hidden="true" className={`relative h-7 w-12 shrink-0 rounded-full transition-colors ${checked ? "bg-emerald-600" : "bg-slate-300"}`}><span className={`absolute top-1 h-5 w-5 rounded-full bg-white shadow transition-all ${checked ? "left-6" : "left-1"}`} /></span></button>;
 }
 
 function Input({ disabled = false, label, value, onChange, type = "text" }) {

@@ -70,9 +70,10 @@ import { hasBusinessPlans, isProductBusinessKind } from "../../../../Backend/ser
 import { t as i18nText } from "../../../../i18n/index";
 import { uiText as translateUi, useI18n as useUiLocale } from "../../../../i18n/index.js";
 import { shortErrorToast } from "../../../../Backend/services/friendlyErrorService";
+import { NAV_TRANSITION_MS } from "../../../shared/navigationMotion";
 import VerificationRequestNotice from "../../../shared/VerificationRequestNotice";
 
-const SELLER_SCREEN_ANIMATION_MS = 360;
+const SELLER_SCREEN_ANIMATION_MS = NAV_TRANSITION_MS;
 
 // The last business list (with this account's role in each), so reopening the
 // dashboard knows the permissions at once. Permissions stay least-privileged

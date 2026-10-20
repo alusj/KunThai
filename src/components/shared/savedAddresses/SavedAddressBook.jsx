@@ -39,6 +39,7 @@ import { shortErrorToast } from "../../../Backend/services/friendlyErrorService"
 import { t, useI18n } from "../../../i18n";
 import { compressAddressPhoto } from "./addressPhoto";
 import { getAddressCategoryLabel, getAddressShareText, getAddressText } from "./savedAddressModel";
+import { haptics } from "../../../Backend/services/feedbackService";
 
 // Long enough that the saving animation reads as a deliberate step even when
 // the save itself is instant, short enough not to feel slow.
@@ -154,6 +155,7 @@ function SavedAddressForm({ initial, categories, pickerLabels, pickerBackLabel, 
     try {
       const result = await onSave(draft);
       await wait(Math.max(0, SAVING_MIN_MS - (Date.now() - startedAt)));
+      haptics.success();
       setSaveState("saved");
       await wait(SAVED_HOLD_MS);
       result?.finish?.();

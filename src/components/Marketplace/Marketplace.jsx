@@ -23,6 +23,7 @@ import {
   OPEN_MARKETPLACE_SCREEN_EVENT,
 } from "../../Backend/services/notificationBannerService";
 import { uiText as translateUi } from "../../i18n/index.js";
+import { NAV_TRANSITION_MS } from "../shared/navigationMotion";
 
 const MARKETPLACE_TAB_ORDER = ["new", "discounted", "high-demand", "top-rated"];
 
@@ -281,7 +282,7 @@ export default function Marketplace({ nav, setNav, onActivityChange, onNotificat
       });
       setBusinessClosing(false);
       businessCloseTimer.current = null;
-    }, 240);
+    }, NAV_TRANSITION_MS);
   }
 
   useEffect(() => {

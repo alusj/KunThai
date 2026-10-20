@@ -136,6 +136,12 @@ export const voiceCommentAudioHandlers = {
   },
 };
 
+// True while a voice comment is holding this video paused (iOS ducking):
+// autoplay must not restart it underneath the voice.
+export function isExploreVideoHeld(video) {
+  return Boolean(video && duckedVideos.get(video)?.paused);
+}
+
 export function pauseOtherExploreMedia(activeMedia, { muteVideos = true, includeVideos = true } = {}) {
   if (!activeMedia || typeof document === "undefined") {
     return;

@@ -1,59 +1,30 @@
-import { useEffect, useState } from "react";
+import { useState } from "react";
 import { Settings, Trash2 } from "lucide-react";
 
 import { showToast } from "../../../../Backend/services/toastService";
 import {
   clearUrMallShoppingActivity,
-  fetchStoreUpdatesEnabled,
   getUrMallBuyerSettings,
-  saveStoreUpdatesEnabled,
   saveUrMallBuyerSettings,
 } from "../../../../Backend/services/marketplace/marketplaceBuyerSettings";
+import { NotificationsEntryRow } from "../../../shared/notifications/NotificationSettingsScreen";
 import { resetBuyerInterestCache } from "../../../../Backend/services/marketplace/buyerInterestService";
 import { useI18n } from "../../../../i18n";
 
-// UrMall menu > Settings: the buyer's alert and personalisation switches.
-// Every change saves at once and confirms with a toast (which also vibrates).
+// UrMall menu > Settings: personalisation, and a Notifications row that opens
+// the one screen with every alert switch (orders, messages, store updates,
+// Explore and UrRide too). Every change saves at once and confirms with a
+// toast (which also vibrates).
 export default function UrMallBuyerSettingsPanel() {
   const { t } = useI18n();
   const [settings, setSettings] = useState(getUrMallBuyerSettings);
-  const [storeUpdatesSaving, setStoreUpdatesSaving] = useState(false);
   const [clearing, setClearing] = useState(false);
-
-  // The account's copy of "New from stores you viewed" wins over this device's.
-  useEffect(() => {
-    let active = true;
-    fetchStoreUpdatesEnabled().then((enabled) => {
-      if (active) setSettings((current) => ({ ...current, storeUpdates: enabled }));
-    });
-    return () => {
-      active = false;
-    };
-  }, []);
 
   function toggleLocal(key) {
     const next = !settings[key];
     setSettings(saveUrMallBuyerSettings({ [key]: next }));
     const tone = next ? "success" : "info";
-    if (key === "orderAlerts") showToast(next ? t("urmallSettings.orderAlertsOn") : t("urmallSettings.orderAlertsOff"), tone);
-    if (key === "messageAlerts") showToast(next ? t("urmallSettings.messageAlertsOn") : t("urmallSettings.messageAlertsOff"), tone);
     if (key === "personalizedSuggestions") showToast(next ? t("urmallSettings.personalizedOn") : t("urmallSettings.personalizedOff"), tone);
-  }
-
-  async function toggleStoreUpdates() {
-    if (storeUpdatesSaving) return;
-    const next = !settings.storeUpdates;
-    setSettings((current) => ({ ...current, storeUpdates: next }));
-    setStoreUpdatesSaving(true);
-    try {
-      await saveStoreUpdatesEnabled(next);
-      showToast(next ? t("urmallSettings.storeUpdatesOn") : t("urmallSettings.storeUpdatesOff"), next ? "success" : "info");
-    } catch {
-      setSettings((current) => ({ ...current, storeUpdates: !next }));
-      showToast(t("urmallSettings.saveFailed"), "danger");
-    } finally {
-      setStoreUpdatesSaving(false);
-    }
   }
 
   async function clearActivity() {
@@ -83,25 +54,7 @@ export default function UrMallBuyerSettingsPanel() {
       </div>
 
       <div className="mt-4 grid gap-3">
-        <SettingSwitch
-          label={t("urmallSettings.orderAlerts")}
-          description={t("urmallSettings.orderAlertsDesc")}
-          checked={settings.orderAlerts}
-          onChange={() => toggleLocal("orderAlerts")}
-        />
-        <SettingSwitch
-          label={t("urmallSettings.messageAlerts")}
-          description={t("urmallSettings.messageAlertsDesc")}
-          checked={settings.messageAlerts}
-          onChange={() => toggleLocal("messageAlerts")}
-        />
-        <SettingSwitch
-          label={t("urmallSettings.storeUpdates")}
-          description={t("urmallSettings.storeUpdatesDesc")}
-          checked={settings.storeUpdates}
-          busy={storeUpdatesSaving}
-          onChange={toggleStoreUpdates}
-        />
+        <NotificationsEntryRow sector="urmall" />
         <SettingSwitch
           label={t("urmallSettings.personalized")}
           description={t("urmallSettings.personalizedDesc")}

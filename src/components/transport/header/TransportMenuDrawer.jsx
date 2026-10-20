@@ -51,6 +51,8 @@ import { useI18n, t } from "../../../i18n";
 import { t as i18nText } from "../../../i18n/index";
 import { uiText as translateUi, useI18n as useUiLocale } from "../../../i18n/index.js";
 import { inlineErrorMessage } from "../../../Backend/services/friendlyErrorService";
+import { haptics } from "../../../Backend/services/feedbackService";
+import { NotificationsEntryRow } from "../../shared/notifications/NotificationSettingsScreen";
 
 const TRANSPORT_PAYMENT_NOTE_KEY = "kuntai.transport.paymentNote";
 
@@ -717,6 +719,7 @@ function PaymentReadinessPage({ variant }) {
 
   function savePaymentNote() {
     writeLocalText(TRANSPORT_PAYMENT_NOTE_KEY, paymentNote);
+    haptics.success();
     setMessage(t("urride.menu.payment.noteSaved"));
   }
 
@@ -1127,15 +1130,6 @@ function TransportSettingsPage() {
     setSettings(saveTransportPassengerSettings(patch));
   }
 
-  function toggleSetting(key) {
-    const next = !settings[key];
-    updateSettings({ [key]: next });
-    const tone = next ? "success" : "info";
-    if (key === "tripAlerts") showToast(next ? t("urride.menu.settings.tripAlertsOn") : t("urride.menu.settings.tripAlertsOff"), tone);
-    if (key === "nearbyOperators") showToast(next ? t("urride.menu.settings.nearbyOn") : t("urride.menu.settings.nearbyOff"), tone);
-    if (key === "safetyReminders") showToast(next ? t("urride.menu.settings.safetyOn") : t("urride.menu.settings.safetyOff"), tone);
-    if (key === "savedPlaceSuggestions") showToast(next ? t("urride.menu.settings.suggestionsOn") : t("urride.menu.settings.suggestionsOff"), tone);
-  }
 
   function chooseSetting(patch) {
     updateSettings(patch);
@@ -1152,32 +1146,10 @@ function TransportSettingsPage() {
         body={t("urride.menu.settings.body")}
       />
 
-      <section className="grid gap-3 rounded-2xl border border-gray-200 bg-white p-4 shadow-sm">
-        <SettingToggle
-          label={t("urride.menu.settings.tripAlerts")}
-          description={t("urride.menu.settings.tripAlertsDesc")}
-          checked={settings.tripAlerts}
-          onChange={() => toggleSetting("tripAlerts")}
-        />
-        <SettingToggle
-          label={t("urride.menu.settings.nearby")}
-          description={t("urride.menu.settings.nearbyDesc")}
-          checked={settings.nearbyOperators}
-          onChange={() => toggleSetting("nearbyOperators")}
-        />
-        <SettingToggle
-          label={t("urride.menu.settings.safetyReminders")}
-          description={t("urride.menu.settings.safetyRemindersDesc")}
-          checked={settings.safetyReminders}
-          onChange={() => toggleSetting("safetyReminders")}
-        />
-        <SettingToggle
-          label={t("urride.menu.settings.savedSuggestions")}
-          description={t("urride.menu.settings.savedSuggestionsDesc")}
-          checked={settings.savedPlaceSuggestions}
-          onChange={() => toggleSetting("savedPlaceSuggestions")}
-        />
-      </section>
+      {/* Trip alerts, safety reminders, nearby operator alerts and saved
+          place suggestions live on UrRide's Notifications screen. */}
+      <NotificationsEntryRow sector="urride" />
+
 
       <CountryRegionSettings />
 

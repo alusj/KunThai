@@ -2,6 +2,8 @@ import { Suspense, useCallback, useEffect, useLayoutEffect, useMemo, useRef, use
 import { HiOutlineCamera, HiOutlineLightBulb, HiOutlineXMark } from "react-icons/hi2";
 
 import { useAuth } from "./Backend/hooks/useAuth";
+import { notifyNativeAppReady } from "./Backend/services/nativeLaunch";
+import { NAV_TRANSITION_MS } from "./components/shared/navigationMotion";
 import { isLikelySignedIn, urlCarriesSignIn } from "./Backend/services/startupSession";
 import { useCountryChoiceExpiry } from "./Backend/hooks/useCountryChoiceExpiry";
 import { useSessionSizeGuard } from "./Backend/hooks/useSessionSizeGuard";
@@ -68,6 +70,8 @@ import { t as i18nText } from "./i18n/index";
 import { useI18n as useUiLocale } from "./i18n/index.js";
 
 const PAGE_ORDER = ["explore", "marketplace", "transport"];
+// Main screen switch: the next screen slides in, the current one slides out.
+const MAIN_SLIDE_MS = NAV_TRANSITION_MS;
 const LAST_PAGE_KEY = "kuntai-last-page";
 const PAGE_VISITS_KEY = "kuntai-main-page-visits";
 const MARKETPLACE_NAV_KEY = "kuntai-marketplace-nav";
@@ -263,7 +267,13 @@ export default function App() {
     // main dashboard, then the last dashboard they were on ("auto").
     return getMainPageFromHash(window.location.hash) || readDefaultMainPage() || readLastMainPage();
   });
-  const [transportMounted, setTransportMounted] = useState(() => page === "transport");
+  // Main screens stay alive after their first visit (hidden, inactive), so
+  // moving between Explore, UrMall and UrRide is a slide, not a rebuild.
+  const [mountedPages, setMountedPages] = useState(() => [page]);
+  // The screen being slid out during a switch ({ page, direction, top }).
+  const [leavingPage, setLeavingPage] = useState(null);
+  const leavingTimerRef = useRef(null);
+  const pageScrollRef = useRef({});
   // Bumped by LazyRouteBoundary after a chunk-load failure to build fresh lazy
   // modules (React caches a failed import, so a new factory is what retries).
   const [chunkReloadKey, setChunkReloadKey] = useState(0);
@@ -333,9 +343,47 @@ export default function App() {
     setReturningIntroOpen(false);
   }, []);
 
+  // First screen painted (skeleton, Login or the page): the native splash
+  // may leave now, so reopening never shows a blank screen.
   useEffect(() => {
-    if (page === "transport") setTransportMounted(true);
+    let second = 0;
+    const first = window.requestAnimationFrame(() => {
+      second = window.requestAnimationFrame(() => notifyNativeAppReady());
+    });
+    return () => {
+      window.cancelAnimationFrame(first);
+      window.cancelAnimationFrame(second);
+    };
+  }, []);
+
+  useEffect(() => {
+    setMountedPages((current) => (current.includes(page) ? current : [...current, page]));
   }, [page]);
+
+  // Each main screen keeps its own scroll position.
+  useLayoutEffect(() => {
+    window.scrollTo(0, pageScrollRef.current[page] || 0);
+  }, [page]);
+
+  useEffect(() => () => window.clearTimeout(leavingTimerRef.current), []);
+
+  // Start the slide only once the incoming screen has painted off to the side,
+  // so the whole slide is seen even when that screen is heavy to draw.
+  useEffect(() => {
+    if (leavingPage?.phase !== "pending") return undefined;
+    let second = 0;
+    const first = window.requestAnimationFrame(() => {
+      second = window.requestAnimationFrame(() => {
+        setLeavingPage((current) => (current && current.phase === "pending" ? { ...current, phase: "running" } : current));
+        window.clearTimeout(leavingTimerRef.current);
+        leavingTimerRef.current = window.setTimeout(() => setLeavingPage(null), MAIN_SLIDE_MS + 40);
+      });
+    });
+    return () => {
+      window.cancelAnimationFrame(first);
+      window.cancelAnimationFrame(second);
+    };
+  }, [leavingPage?.phase]);
 
   // Switches, tabs, radios, checkboxes and pickers give one tiny tick app-wide.
   useEffect(() => installSelectionHaptics(), []);
@@ -876,7 +924,16 @@ export default function App() {
 
     const currentIndex = PAGE_ORDER.indexOf(page);
     const nextIndex = PAGE_ORDER.indexOf(nextPage);
-    setMainPageDirection(nextIndex >= currentIndex ? "forward" : "backward");
+    const direction = nextIndex >= currentIndex ? "forward" : "backward";
+    // The current screen slides out (pinned where it was scrolled) while the
+    // next one slides in over it.
+    const scrollY = window.scrollY || 0;
+    pageScrollRef.current[page] = scrollY;
+    window.clearTimeout(leavingTimerRef.current);
+    // "pending": the next screen is drawn once off to the side (a heavy screen
+    // such as Explore needs that first frame); the slide starts after it.
+    setLeavingPage({ page, direction, top: -scrollY, phase: "pending" });
+    setMainPageDirection(direction);
     setPage(nextPage);
   }
 
@@ -1009,11 +1066,30 @@ export default function App() {
   }
 
   function pagePanelClass(targetPage) {
+    const pending = leavingPage?.phase === "pending";
+    if (leavingPage?.page === targetPage && page !== targetPage) {
+      if (pending) return "kt-main-leave-hold block min-h-screen";
+      return `${leavingPage.direction === "backward" ? "kt-main-leave-backward" : "kt-main-leave-forward"} block min-h-screen`;
+    }
     if (page !== targetPage) {
       return "hidden";
     }
 
-    return `${mainPageDirection === "backward" ? "kt-main-slide-backward" : "kt-main-slide-forward"} block min-h-screen`;
+    const backward = mainPageDirection === "backward";
+    const motion = !leavingPage
+      ? ""
+      : pending
+        ? (backward ? "kt-main-enter-wait-backward" : "kt-main-enter-wait-forward")
+        : (backward ? "kt-main-enter-backward" : "kt-main-enter-forward");
+    return `${motion} kt-main-panel block min-h-screen`;
+  }
+
+  function pagePanelStyle(targetPage) {
+    return leavingPage?.page === targetPage && page !== targetPage ? { top: `${leavingPage.top}px` } : undefined;
+  }
+
+  function isPageMounted(targetPage) {
+    return page === targetPage || mountedPages.includes(targetPage) || leavingPage?.page === targetPage;
   }
 
   return withStartupIntro(
@@ -1037,11 +1113,17 @@ export default function App() {
           onRecover={() => setChunkReloadKey((key) => key + 1)}
         >
         <Suspense fallback={<AppLoading page={page} marketplaceSub={marketplaceNav.sub || ""} />}>
-          {page === "explore" ? (
-            <section className={pagePanelClass("explore")} aria-hidden={false}>
+          {isPageMounted("explore") ? (
+            <section
+              ref={page === "explore" ? pagePanelRef : null}
+              className={pagePanelClass("explore")}
+              style={pagePanelStyle("explore")}
+              aria-hidden={page !== "explore"}
+              inert={page === "explore" ? undefined : "true"}
+            >
               <Explore
                 key={`explore-${dashboardResumeKey}`}
-                active
+                active={page === "explore"}
                 onNavigateMain={changePage}
                 onScreenModeChange={setExploreFullScreen}
                 user={user}
@@ -1050,8 +1132,14 @@ export default function App() {
             </section>
           ) : null}
 
-          {page === "marketplace" ? (
-            <section ref={pagePanelRef} className={pagePanelClass("marketplace")} aria-hidden={false}>
+          {isPageMounted("marketplace") ? (
+            <section
+              ref={page === "marketplace" ? pagePanelRef : null}
+              className={pagePanelClass("marketplace")}
+              style={pagePanelStyle("marketplace")}
+              aria-hidden={page !== "marketplace"}
+              inert={page === "marketplace" ? undefined : "true"}
+            >
               <Marketplace
                 key={`marketplace-${dashboardResumeKey}`}
                 nav={marketplaceNav}
@@ -1061,10 +1149,11 @@ export default function App() {
             </section>
           ) : null}
 
-          {transportMounted ? (
+          {isPageMounted("transport") ? (
             <section
               ref={page === "transport" ? pagePanelRef : null}
               className={pagePanelClass("transport")}
+              style={pagePanelStyle("transport")}
               aria-hidden={page !== "transport"}
               inert={page === "transport" ? undefined : "true"}
             >

@@ -10,6 +10,7 @@ import {
 import { t as i18nText } from "../../../../i18n/index";
 import { uiText as translateUi, useI18n as useUiLocale } from "../../../../i18n/index.js";
 import { inlineErrorMessage } from "../../../../Backend/services/friendlyErrorService";
+import { haptics } from "../../../../Backend/services/feedbackService";
 
 const EMPTY_RETENTION = { case: null, items: [] };
 
@@ -81,6 +82,7 @@ export default function UrMallExpiryNotice({ businessId, businessKind = "retail"
       const next = await selectUrMallRetainedInventory(retention.id, selected);
       setState(next);
       setSelected(next.case?.retainedIds || []);
+      haptics.success();
       setSaved(true);
     } catch (failure) {
       setError(inlineErrorMessage(failure));

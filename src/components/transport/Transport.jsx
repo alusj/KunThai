@@ -51,6 +51,7 @@ import { useI18n, t } from "../../i18n";
 import { uiText as translateUi } from "../../i18n/index.js";
 import { inlineErrorMessage, shortErrorToast } from "../../Backend/services/friendlyErrorService";
 import AppPortal from "../shared/AppPortal";
+import { NAV_TRANSITION_MS, navMotionClass } from "../shared/navigationMotion";
 
 // Session-lived cache of the operator/company accounts, mirroring UrMall's
 // SELLER_HEADER_MEMORY. Re-entering UrRide then paints the header from this
@@ -146,7 +147,9 @@ export default function Transport({
   const operatorCompanyInvitesRef = useRef([]);
   const activeRef = useRef(active);
 
-  const routePanelClass = routeDirection === "backward" ? "kt-explore-stack-enter-left" : "kt-explore-stack-enter";
+  // Forward: push in from the right. Back: the previous screen eases in from
+  // just left of centre (never from the left edge, which is the drawer's).
+  const routePanelClass = routeDirection === "backward" ? navMotionClass.backIn : navMotionClass.push;
 
   useEffect(() => {
     operatorCompanyInvitesRef.current = operatorCompanyInvites;
@@ -356,7 +359,7 @@ export default function Transport({
       setOperatorDashboardOpen(false);
       setOperatorDashboardClosing(false);
       operatorDashboardCloseTimer.current = null;
-    }, 240);
+    }, NAV_TRANSITION_MS);
   }
 
   function openNearbyAreaRoute(destination = null, options = {}) {
@@ -876,6 +879,19 @@ export default function Transport({
         return;
       }
 
+      // The invitation's status before this change, from the company already on
+      // screen. Saving the company re-saves its invitations unchanged; only a
+      // real change (an operator accepting or declining) is announced.
+      const changedInvite = account?.table === "transport_company_operator_invites" ? account.new : null;
+      const previousInviteStatus = changedInvite?.id
+        ? String(
+            account?.old?.status
+              || (companyAccountRef.current?.invites || []).find((invite) => invite.id === changedInvite.id)?.status
+              || (companyAccountRef.current?.fleets || []).flatMap((fleet) => fleet.operators || []).find((invite) => invite.id === changedInvite.id)?.status
+              || "",
+          ).toLowerCase()
+        : "";
+
       const nextAccount = await getTransportCompanyAccount().catch(() => null);
       const nextAccounts = await getTransportCompanyAccounts().catch(() => []);
       if (!alive) return;
@@ -888,6 +904,7 @@ export default function Transport({
       const inviteUpdate = account?.table === "transport_company_operator_invites" ? account.new : null;
       if (nextAccount?.id && inviteUpdate?.company_id === nextAccount.id) {
         const inviteStatus = String(inviteUpdate.status || "").toLowerCase();
+        const statusChanged = account?.eventType === "INSERT" || !previousInviteStatus || previousInviteStatus !== inviteStatus;
         const inviteDocuments = inviteUpdate.documents || {};
         const operatorName = inviteUpdate.operator_name || t("urride.transport.status.operatorFallback");
         const message = inviteStatus === "rejected"
@@ -898,7 +915,7 @@ export default function Transport({
               ? t("urride.transport.status.inviteAccepted", { operator: operatorName })
               : "";
 
-        if (message) {
+        if (message && statusChanged) {
           setCompanyWorkspaceStatus(message);
           if (activeRef.current) {
             showToast(inviteStatus === "rejected" ? "Invite was declined" : "Operator accepted invite", inviteStatus === "rejected" ? "warning" : "success", {
@@ -1712,7 +1729,7 @@ export default function Transport({
   const openBookingInBody = !transportAccountsLoading && !openBookingInHeader;
 
   return renderWithAreaView(
-    <div className={`${routeDirection === "backward" ? "kt-explore-stack-enter-left" : ""} kt-mobile-viewport bg-gray-50 relative`}>
+    <div className={`${routeDirection === "backward" ? navMotionClass.backIn : ""} kt-mobile-viewport bg-gray-50 relative`}>
       <Header
         active={active}
         accountTypeLoading={accountTypeLoading}

@@ -31,6 +31,33 @@
 }
 
 @media (prefers-reduced-motion: reduce) {
+  .kt-nav-push,
+  .kt-nav-pop,
+  .kt-nav-back-in,
+  .kt-explore-stack-enter,
+  .kt-explore-stack-leave-right,
+  .kt-screen-slide-forward,
+  .kt-screen-slide-backward {
+    animation-duration: 1ms;
+  }
+
+  .kt-main-enter-wait-forward,
+  .kt-main-enter-wait-backward {
+    transform: none;
+  }
+
+  .kt-main-enter-forward,
+  .kt-main-enter-backward,
+  .kt-main-leave-forward,
+  .kt-main-leave-backward {
+    animation: none;
+  }
+
+  .kt-main-leave-forward,
+  .kt-main-leave-backward {
+    display: none;
+  }
+
   .kt-notification-post-focus {
     animation: none;
     outline-color: rgb(14 165 233 / 0.9);
@@ -50,6 +77,9 @@
   :root {
     --kt-ease-standard: cubic-bezier(0.2, 0.8, 0.2, 1);
     --kt-ease-emphasized: cubic-bezier(0.2, 0, 0, 1);
+    /* Screen-to-screen navigation (navigationMotion.js): iOS push timing. */
+    --kt-nav-duration: 400ms;
+    --kt-nav-ease: cubic-bezier(0.32, 0.72, 0, 1);
     /* Capacitor 8 injects --safe-area-inset-* on Android WebViews whose CSS
        env() values are unreliable. iOS and ordinary browsers use env(). */
     --kt-safe-area-top: var(--safe-area-inset-top, env(safe-area-inset-top, 0px));
@@ -423,6 +453,61 @@
   /* No will-change here: it outlives the 260ms animation and turns the page
      into a containing block for every position:fixed child, which pins a
      full-screen overlay to the page instead of the screen. */
+  /* Explore / UrMall / UrRide: a push. The next screen slides fully in over
+     the current one, which drifts out behind it (App.jsx changePage). */
+  /* Layering and background only while sliding: a settled screen keeps no
+     stacking context, so its own sheets still sit above the bottom tabs. */
+  .kt-main-enter-forward,
+  .kt-main-enter-backward,
+  .kt-main-enter-wait-forward,
+  .kt-main-enter-wait-backward {
+    position: relative;
+    z-index: 1;
+    background: var(--kt-app-bg, #f1f5f9);
+  }
+
+  /* First frame of a switch: the next screen is drawn, waiting off to the
+     side, while the current one stays in place. */
+  .kt-main-enter-wait-forward {
+    transform: translate3d(100%, 0, 0);
+  }
+
+  .kt-main-enter-wait-backward {
+    transform: translate3d(-100%, 0, 0);
+  }
+
+  .kt-main-enter-forward {
+    animation: kt-main-enter-forward var(--kt-nav-duration) var(--kt-nav-ease) both;
+    box-shadow: -18px 0 36px rgba(2, 6, 23, 0.18);
+    will-change: transform;
+  }
+
+  .kt-main-enter-backward {
+    animation: kt-main-enter-backward var(--kt-nav-duration) var(--kt-nav-ease) both;
+    box-shadow: 18px 0 36px rgba(2, 6, 23, 0.18);
+    will-change: transform;
+  }
+
+  .kt-main-leave-hold,
+  .kt-main-leave-forward,
+  .kt-main-leave-backward {
+    position: fixed;
+    left: 0;
+    right: 0;
+    z-index: 0;
+    pointer-events: none;
+    background: var(--kt-app-bg, #f1f5f9);
+    will-change: transform;
+  }
+
+  .kt-main-leave-forward {
+    animation: kt-main-leave-forward var(--kt-nav-duration) var(--kt-nav-ease) both;
+  }
+
+  .kt-main-leave-backward {
+    animation: kt-main-leave-backward var(--kt-nav-duration) var(--kt-nav-ease) both;
+  }
+
   .kt-main-slide-forward {
     animation: kt-page-slide-forward 260ms var(--kt-ease-standard) backwards;
     backface-visibility: hidden;
@@ -477,11 +562,11 @@
     will-change: clip-path, filter, opacity, transform;
   }
 
-  .kt-screen-slide-forward {
+  .kt-screen-slide-forward-legacy {
     animation: kt-screen-slide-forward 440ms var(--kt-ease-emphasized) both;
   }
 
-  .kt-screen-slide-backward {
+  .kt-screen-slide-backward-legacy {
     animation: kt-screen-slide-backward 440ms var(--kt-ease-emphasized) both;
   }
 
@@ -502,7 +587,28 @@
     animation: kt-slide-in-right 260ms var(--kt-ease-emphasized) backwards;
   }
 
-  .kt-explore-stack-enter {
+  /* KunThai navigation (src/components/shared/navigationMotion.js): one
+     push / pop / back for every screen, like iPhone Settings. The old
+     screen classes below all use it, so every menu moves the same way. */
+  .kt-nav-push,
+  .kt-explore-stack-enter,
+  .kt-screen-slide-forward {
+    animation: kt-nav-push var(--kt-nav-duration) var(--kt-nav-ease) both;
+    box-shadow: -10px 0 28px rgba(2, 6, 23, 0.16);
+  }
+
+  .kt-nav-pop,
+  .kt-explore-stack-leave-right {
+    animation: kt-nav-pop var(--kt-nav-duration) var(--kt-nav-ease) both;
+    box-shadow: -10px 0 28px rgba(2, 6, 23, 0.16);
+  }
+
+  .kt-nav-back-in,
+  .kt-screen-slide-backward {
+    animation: kt-nav-back-in var(--kt-nav-duration) var(--kt-nav-ease) both;
+  }
+
+  .kt-explore-stack-enter-legacy {
     animation: kt-explore-stack-enter-right 280ms var(--kt-ease-emphasized) both;
   }
 
@@ -510,7 +616,7 @@
     animation: kt-explore-stack-enter-left 280ms var(--kt-ease-emphasized) both;
   }
 
-  .kt-explore-stack-leave-right {
+  .kt-explore-stack-leave-right-legacy {
     animation: kt-explore-stack-leave-right 280ms var(--kt-ease-emphasized) both;
   }
 
@@ -533,9 +639,9 @@
     padding-top: var(--kt-safe-area-top);
     padding-right: var(--kt-safe-area-right);
     padding-left: var(--kt-safe-area-left);
-    transition-duration: 280ms;
+    transition-duration: var(--kt-nav-duration);
     transition-property: transform;
-    transition-timing-function: var(--kt-ease-emphasized);
+    transition-timing-function: var(--kt-nav-ease);
   }
 
   .kt-sheet-enter {
@@ -817,7 +923,9 @@
   }
 
   .kt-seller-screen-content {
-    animation: kt-seller-screen-content 420ms var(--kt-ease-emphasized) 80ms both;
+    /* The seller screen itself pushes in (kt-nav-push); its content used to
+       slide up again 80 ms later, which made seller screens feel different. */
+    animation: none;
   }
 
   .kt-seller-detail-swap {
@@ -1045,6 +1153,26 @@
   }
 }
 
+@keyframes kt-main-enter-forward {
+  from { transform: translate3d(100%, 0, 0); }
+  to { transform: none; }
+}
+
+@keyframes kt-main-enter-backward {
+  from { transform: translate3d(-100%, 0, 0); }
+  to { transform: none; }
+}
+
+@keyframes kt-main-leave-forward {
+  from { transform: none; opacity: 1; }
+  to { transform: translate3d(-28%, 0, 0); opacity: 0.6; }
+}
+
+@keyframes kt-main-leave-backward {
+  from { transform: none; opacity: 1; }
+  to { transform: translate3d(28%, 0, 0); opacity: 0.6; }
+}
+
 @keyframes kt-page-slide-forward {
   from {
     opacity: 0.72;
@@ -1147,6 +1275,31 @@
   to {
     opacity: 1;
     transform: none;
+  }
+}
+
+/* Push: in from the right. Pop: out to the right. Only transform moves, so
+   the phone's compositor runs it without repainting (smooth on low-end
+   phones); the soft edge shadow is static on the moving screen. */
+@keyframes kt-nav-push {
+  from { transform: translate3d(100%, 0, 0); }
+  to { transform: translate3d(0, 0, 0); }
+}
+
+@keyframes kt-nav-pop {
+  from { transform: translate3d(0, 0, 0); }
+  to { transform: translate3d(100%, 0, 0); }
+}
+
+/* Back to a screen that is drawn again: from just left of centre. */
+@keyframes kt-nav-back-in {
+  from {
+    transform: translate3d(-30%, 0, 0);
+    opacity: 0.86;
+  }
+  to {
+    transform: translate3d(0, 0, 0);
+    opacity: 1;
   }
 }
 

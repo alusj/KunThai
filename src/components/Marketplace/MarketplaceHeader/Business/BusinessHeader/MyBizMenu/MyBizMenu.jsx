@@ -23,8 +23,9 @@ import SubscriptionPlans from "./MyBizPages/SubscriptionPlans/SubscriptionPlans"
 import SellerReviews from "./MyBizPages/SellerReviews/SellerReviews";
 import { t as i18nText } from "../../../../../../i18n/index";
 import { shortErrorToast } from "../../../../../../Backend/services/friendlyErrorService";
+import { NAV_TRANSITION_MS } from "../../../../../shared/navigationMotion";
 
-const SELLER_MENU_ANIMATION_MS = 360;
+const SELLER_MENU_ANIMATION_MS = NAV_TRANSITION_MS;
 
 function getDrawerScreen(key, props = {}) {
   const screens = {
