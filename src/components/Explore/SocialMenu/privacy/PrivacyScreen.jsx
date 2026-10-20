@@ -339,6 +339,11 @@ export default function PrivacyScreen({ hideHeader = false, onOpenPermissions })
                   ? t("privacy.confirmReactivateBody")
                   : t("privacy.confirmDeactivateBody")}
             </p>
+            {confirmAction === "delete" ? (
+              <p className="mt-3 rounded-xl bg-amber-50 px-3 py-2.5 text-sm font-semibold leading-6 text-amber-800">
+                {t("accountDeletion.creditsNote")}
+              </p>
+            ) : null}
             <div className="mt-6 flex flex-col gap-2 sm:flex-row sm:justify-end">
               <button
                 type="button"
