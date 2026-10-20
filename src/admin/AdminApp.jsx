@@ -18,6 +18,8 @@ import UsersView from "./views/UsersView";
 import UrMallMessageSupervisionView from "./views/UrMallMessageSupervisionView";
 import JoinKunThaiView from "./views/JoinKunThaiView";
 import DirectoryView from "./views/DirectoryView";
+import VerificationQueueView from "./views/VerificationQueueView";
+import { verificationAttentionCount } from "./verificationStages.js";
 import StaffView from "./views/StaffView";
 import AuditLogView from "./views/AuditLogView";
 import PlatformPulse from "./components/ops/PlatformPulse";
@@ -142,7 +144,7 @@ function AdminWorkspace({ access, user, preview }) {
   }, []);
 
   const handleAdminActivity = useCallback((notification) => {
-    if (notification?.notification_type === "case_intake") refresh(true);
+    if (["case_intake", "case_resubmitted"].includes(notification?.notification_type)) refresh(true);
   }, [refresh]);
 
   useEffect(() => { refresh(); }, [refresh]);
@@ -197,7 +199,7 @@ function AdminWorkspace({ access, user, preview }) {
   else if (page === "urride-operators") content = <DirectoryView key={`op-${navKey}`} pageId={page} targetType="transport_operator" access={access} />;
   else if (page === "urride-companies") content = <DirectoryView key={`co-${navKey}`} pageId={page} targetType="transport_company" access={access} />;
   else if (["explore", "marketplace", "transport"].includes(page)) content = <SectorView sector={page} cases={countryCases} onOpenCase={setSelectedCase} />;
-  else if (page === "verification") content = <QueueView title={i18nText("ui.literals.k03128bed9062")} description={i18nText("ui.literals.k549d652bdd02")} cases={countryCases} defaultQueue="verification" onOpenCase={setSelectedCase} />;
+  else if (page === "verification") content = <VerificationQueueView title={i18nText("ui.literals.k03128bed9062")} description={i18nText("ui.literals.k549d652bdd02")} cases={countryCases} onOpenCase={setSelectedCase} />;
   else if (page === "reports") content = <QueueView title={i18nText("ui.literals.k6d18054c6543")} description={i18nText("ui.literals.ke6c9a95abd64")} cases={countryCases} defaultQueue="reports" onOpenCase={setSelectedCase} />;
   else if (page === "support") content = <QueueView title={i18nText("ui.literals.k70a2200e7210")} description={i18nText("ui.literals.k6c4075669e51")} cases={countryCases} defaultQueue="support" onOpenCase={setSelectedCase} />;
   else if (page === "message-supervision") content = <UrMallMessageSupervisionView />;
@@ -216,6 +218,7 @@ function AdminWorkspace({ access, user, preview }) {
       user={user}
       page={page}
       setPage={setPage}
+      navCounts={{ verification: verificationAttentionCount(countryCases) }}
       caseCount={countryFilter === "all" && typeof summary.openCases === "number" ? summary.openCases : countryCases.filter(isOpenCase).length}
       onActivity={handleAdminActivity}
       onSearch={(value) => { setGlobalSearch(value); setPage("my-work"); }}

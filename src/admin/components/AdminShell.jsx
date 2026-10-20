@@ -99,7 +99,7 @@ function activityMenuButtonClass(danger = false) {
   return `flex h-9 w-full items-center gap-2 rounded-md px-2.5 text-left text-xs font-black transition disabled:cursor-not-allowed disabled:opacity-50 ${danger ? "text-red-700 hover:bg-red-50" : "text-zinc-700 hover:bg-zinc-100"}`;
 }
 
-export default function AdminShell({ access, user, page, setPage, children, caseCount = 0, onActivity, onSearch }) {
+export default function AdminShell({ access, user, page, setPage, children, caseCount = 0, navCounts = {}, onActivity, onSearch }) {
   const consoleLock = useConsoleLock();
   useUiLocale();
   const [menuOpen, setMenuOpen] = useState(false);
@@ -369,6 +369,9 @@ export default function AdminShell({ access, user, page, setPage, children, case
                     <span className="flex-1 truncate">{translateUi(item.label)}</span>
                     {item.id === "my-work" && caseCount > 0 ? (
                       <span className={`min-w-5 rounded-full px-1.5 py-0.5 text-center text-[10px] font-black ${active ? "bg-emerald-100 text-emerald-800" : "bg-zinc-800 text-zinc-300"}`}>{caseCount}</span>
+                    ) : null}
+                    {item.id !== "my-work" && navCounts[item.id] > 0 ? (
+                      <span title={translateUi("New and resubmitted cases")} className={`min-w-5 rounded-full px-1.5 py-0.5 text-center text-[10px] font-black ${active ? "bg-violet-100 text-violet-800" : "bg-violet-600 text-white"}`}>{navCounts[item.id]}</span>
                     ) : null}
                   </button>
                 );

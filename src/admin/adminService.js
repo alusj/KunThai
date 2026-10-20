@@ -770,6 +770,41 @@ export async function applyCaseDecision(caseId, decision, reason) {
   return runAdminMutation(async () => unwrap(await supabase.rpc("admin_apply_case_decision", { case_uuid: caseId, decision_key: decision, decision_reason: reason }), "Unable to apply this decision."), { action: "case.decision_applied", caseId });
 }
 
+// Asks the applicant for specific documents. Records the request and applies
+// Request information (which notifies them). Until the request RPC exists the
+// plain decision is applied with the list in its reason.
+export async function requestVerificationDocuments(caseId, items = [], note = "") {
+  const cleanItems = Array.from(new Set(items.map((entry) => String(entry || "").trim()).filter(Boolean)));
+  const cleanNote = String(note || "").trim();
+  const reason = [cleanNote, cleanItems.length ? `Please send: ${cleanItems.join("; ")}.` : ""].filter(Boolean).join("\n\n");
+  if (isAdminPreview()) {
+    return runAdminMutation(() => previewDelay(updatePreviewCase(caseId, {
+      status: "waiting_information",
+      resolution_code: "request_information",
+      resolution_note: reason,
+      info_requested_at: new Date().toISOString(),
+    })), { action: "case.decision_applied", caseId });
+  }
+  return runAdminMutation(async () => {
+    const { data, error } = await supabase.rpc("admin_request_verification_documents", { case_uuid: caseId, requested_items: cleanItems, request_note: cleanNote });
+    if (!error) return data;
+    if (!isMissingRpcError(error)) throw new Error(error.message || "Unable to ask for documents.");
+    return unwrap(await supabase.rpc("admin_apply_case_decision", { case_uuid: caseId, decision_key: "request_information", decision_reason: reason }), "Unable to ask for documents.");
+  }, { action: "case.decision_applied", caseId });
+}
+
+// Document requests made on a case, newest first. Empty before the table exists.
+export async function getVerificationRequests(caseId) {
+  if (isAdminPreview() || !caseId) return [];
+  const { data, error } = await supabase
+    .from("admin_verification_requests")
+    .select("*")
+    .eq("case_id", caseId)
+    .order("created_at", { ascending: false });
+  if (error) return [];
+  return data || [];
+}
+
 export async function reviewCaseApproval(approvalId, approved, reason, caseId = "") {
   if (isAdminPreview()) return runAdminMutation(() => previewDelay(updatePreviewCase(caseId, { status: approved ? "resolved" : "in_review" })), { action: approved ? "case.approval_granted" : "case.approval_rejected", caseId });
   return runAdminMutation(async () => unwrap(await supabase.rpc("admin_review_approval", { approval_uuid: approvalId, approve_action: approved, review_reason: reason }), "Unable to review this approval."), { action: approved ? "case.approval_granted" : "case.approval_rejected", caseId });

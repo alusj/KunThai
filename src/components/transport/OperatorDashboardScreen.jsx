@@ -94,6 +94,7 @@ import { uiText as translateUi, useI18n as useUiLocale } from "../../i18n/index.
 import { inlineErrorMessage, shortErrorToast } from "../../Backend/services/friendlyErrorService";
 import AppPortal from "../shared/AppPortal";
 import EnforcementNoticeBanner from "../shared/EnforcementNoticeBanner";
+import VerificationRequestNotice from "../shared/VerificationRequestNotice";
 import { useDashboardResumeHold } from "../../Backend/hooks/useDashboardResumeHold";
 import { notificationDisplayText } from "../../Backend/services/notificationText";
 import ExpandableText from "../shared/ExpandableText";
@@ -887,6 +888,14 @@ export default function OperatorDashboardScreen({
             </button>
           ) : null}
         </section>
+
+        <VerificationRequestNotice
+          sector="transport"
+          resourceTypes={["transport_operator_verification", "transport_document_verification", "transport_solo_fleet_verification"]}
+          actionLabel="Upload documents"
+          onAction={onEditRegistration}
+          className="mb-4"
+        />
 
         <div className="grid gap-4 xl:grid-cols-2">
           <TodaysDemandContainer

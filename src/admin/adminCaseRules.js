@@ -12,7 +12,7 @@ export const CASE_QUEUES = Object.freeze(["verification", "reports", "support", 
 export const DECISION_REASONS = Object.freeze({
   noManage: "You do not have case management access in this sector.",
   authority: "This decision needs authority level 3 in this sector.",
-  notRecommendable: "Only operators and UrMall sellers can be recommended. Use Approve instead.",
+  notRecommendable: "Only operators, UrRide companies and their vehicles, and UrMall sellers can be recommended. Use Approve instead.",
 });
 
 // Mirrors admin_apply_case_decision: these need authority 3 in the case sector.
@@ -20,8 +20,10 @@ const AUTHORITY_3_DECISIONS = new Set(["approve", "approve_recommend", "reject",
 // …and these are parked for a second admin's approval unless a Super Admin applies them.
 const APPROVAL_DECISIONS = new Set(["remove", "suspend"]);
 const ACCOUNT_DELETION_RESOURCES = new Set(["urmall_account_deletion_request", "urride_account_deletion_request"]);
-// Cases where "Approve & recommend" applies (operators and UrMall sellers).
-const RECOMMENDABLE_RESOURCES = new Set(["transport_operator_verification", "marketplace_business_registration", "marketplace_verification"]);
+// Cases where "Approve & recommend" applies (operators, UrRide companies and
+// their vehicles, UrMall sellers). The server also needs a company vehicle's
+// company to be verified first.
+const RECOMMENDABLE_RESOURCES = new Set(["transport_operator_verification", "transport_company_verification", "transport_fleet_verification", "marketplace_business_registration", "marketplace_verification"]);
 
 export function isOpenCase(item) {
   return Boolean(item) && !CLOSED_CASE_STATUSES.includes(item.status);

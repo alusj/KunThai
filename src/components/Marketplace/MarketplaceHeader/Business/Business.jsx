@@ -70,6 +70,7 @@ import { hasBusinessPlans, isProductBusinessKind } from "../../../../Backend/ser
 import { t as i18nText } from "../../../../i18n/index";
 import { uiText as translateUi, useI18n as useUiLocale } from "../../../../i18n/index.js";
 import { shortErrorToast } from "../../../../Backend/services/friendlyErrorService";
+import VerificationRequestNotice from "../../../shared/VerificationRequestNotice";
 
 const SELLER_SCREEN_ANIMATION_MS = 360;
 
@@ -937,6 +938,13 @@ export default function Business({ initialScreen = "", onBack, onInitialScreenHa
                 businessId={activeBusinessId}
                 businessKind={businessKind}
                 onOpenPlans={permissions.canManagePlans ? () => openSellerScreen("plans") : undefined}
+              />
+            ) : null}
+            {permissions.canAccessDashboard && !permissions.isAdmin ? (
+              <VerificationRequestNotice
+                sector="marketplace"
+                actionLabel="Upload documents"
+                onAction={permissions.canEditBusiness ? openProfileEditor : undefined}
               />
             ) : null}
             {permissions.canAccessDashboard ? (

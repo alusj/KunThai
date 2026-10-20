@@ -102,6 +102,8 @@ import { inlineErrorMessage, shortErrorToast } from "../../Backend/services/frie
 import EnforcementNoticeBanner from "../shared/EnforcementNoticeBanner";
 import { notificationDisplayText } from "../../Backend/services/notificationText";
 import ExpandableText from "../shared/ExpandableText";
+import VerificationRequestNotice from "../shared/VerificationRequestNotice";
+import { verificationStatusLabel } from "../../Backend/services/marketplace/verificationStatusLabel";
 
 const tabs = ["Overview", "Fleets", "Rentals", "Operators", "Requests", "Activity"];
 const DRAWER_TRANSITION_MS = 300;
@@ -115,6 +117,12 @@ const TAB_LABEL_KEYS = {
   Activity: "urride.companyWs.tabActivity",
   "My Dashboard": "urride.companyWs.tabMyDashboard",
 };
+
+// "verified_recommended" and friends shown as words; suspended keeps its own name.
+function companyVerificationText(status, fallback) {
+  if (!status) return fallback;
+  return status === "suspended" ? status : verificationStatusLabel(status);
+}
 
 function tabLabel(tab) {
   return TAB_LABEL_KEYS[tab] ? t(TAB_LABEL_KEYS[tab]) : tab;
@@ -384,7 +392,7 @@ export default function CompanyWorkspaceScreen({ company, initialTab = "Overview
         label: t("urride.companyWs.verificationLabel"),
         detail: t("urride.companyWs.verificationDetail"),
         icon: BadgeCheck,
-        stat: company?.verificationStatus || t("urride.companyWs.statusPending"),
+        stat: companyVerificationText(company?.verificationStatus, t("urride.companyWs.statusPending")),
       },
       {
         id: "activity",
@@ -1086,7 +1094,7 @@ export default function CompanyWorkspaceScreen({ company, initialTab = "Overview
               </button>
               <p className="max-w-lg text-sm font-semibold leading-5 text-slate-600">{company.address || company.city || t("urride.companyWs.cityNotAdded")}</p>
               {company.phone ? <a href={`tel:${company.phone}`} className="text-sm font-bold text-blue-700">{company.phone}</a> : null}
-              <p className="text-xs font-semibold text-slate-500">{company.companyCode} · {company.verificationStatus || t("urride.companyWs.statusNotStarted")}</p>
+              <p className="text-xs font-semibold text-slate-500">{company.companyCode} · {companyVerificationText(company.verificationStatus, t("urride.companyWs.statusNotStarted"))}</p>
               <p className="text-xs text-slate-500">{t("urride.companyWs.ownerId")}: {company.ownerPublicId}</p>
             </div>
             <div className={`mt-4 grid gap-2 ${metrics.length > 3 ? "grid-cols-2 sm:grid-cols-4" : "grid-cols-3"}`}>
@@ -1549,7 +1557,7 @@ function FleetHqMenuDrawer({ company, menuItems, open, onClose, onDeleteCompany,
 
           <div className="border-t border-slate-100 bg-white px-4 py-4">
             <div className="grid grid-cols-2 gap-2">
-              <MenuStat icon={ShieldCheck} label={t("urride.companyWs.statStatus")} value={company.verificationStatus || t("urride.companyWs.statusPending")} />
+              <MenuStat icon={ShieldCheck} label={t("urride.companyWs.statStatus")} value={companyVerificationText(company.verificationStatus, t("urride.companyWs.statusPending"))} />
               <MenuStat icon={UserRoundPlus} label={t("urride.companyWs.statOwnerId")} value={company.ownerPublicId || t("urride.companyWs.notSet")} />
             </div>
           </div>
@@ -1632,6 +1640,15 @@ function FleetHqMenuScreen({
             </div>
           </header>
           <main className="min-h-0 flex-1 overflow-y-auto px-4 py-5 sm:px-6 lg:px-8">
+            {screen === "verification" || screen === "fleets" ? (
+              <VerificationRequestNotice
+                sector="transport"
+                resourceTypes={["transport_company_verification", "transport_fleet_verification"]}
+                actionLabel="Update documents"
+                onAction={onEdit}
+                className="mb-4"
+              />
+            ) : null}
             {screen === "profile" ? <CompanyProfilePanel company={company} /> : null}
             {screen === "fleets" ? <FleetRecordsPanel fleets={fleets.filter((fleet) => fleet.serviceCategory !== "Rental")} onEdit={onEdit} /> : null}
             {screen === "operators" ? (
@@ -1668,7 +1685,7 @@ function CompanyProfilePanel({ company }) {
         </p>
         <div className="mt-5 grid gap-3 sm:grid-cols-2">
           <ProfileFact label={t("urride.companyWs.factOwnerId")} value={company.ownerPublicId || t("urride.companyWs.notSet")} />
-          <ProfileFact label={t("urride.companyWs.factVerification")} value={company.verificationStatus || t("urride.companyWs.statusPending")} />
+          <ProfileFact label={t("urride.companyWs.factVerification")} value={companyVerificationText(company.verificationStatus, t("urride.companyWs.statusPending"))} />
           <ProfileFact label={t("urride.companyWs.factCompanyCode")} value={company.companyCode || t("urride.companyWs.notGenerated")} />
           <ProfileFact label={t("urride.companyWs.factBaseCity")} value={company.city || t("urride.companyWs.notAdded")} />
         </div>
@@ -1772,7 +1789,7 @@ function VerificationCenterPanel({ company, fleets, pendingRequests, onEdit }) {
     <div className="grid gap-4 lg:grid-cols-[0.95fr_1.05fr]">
       <section className="rounded-3xl border border-slate-100 bg-white p-5 shadow-sm">
         <p className="text-xs font-black uppercase tracking-wide text-blue-700">{t("urride.companyWs.verificationCenter")}</p>
-        <h3 className="mt-1 text-2xl font-black text-slate-950">{company.verificationStatus || t("urride.companyWs.statusPending")}</h3>
+        <h3 className="mt-1 text-2xl font-black text-slate-950">{companyVerificationText(company.verificationStatus, t("urride.companyWs.statusPending"))}</h3>
         <div className="mt-4 grid gap-3">
           <ReadinessItem ready={Boolean(company.address)} label={t("urride.companyWs.readyBase")} />
           <ReadinessItem ready={fleets.length > 0} label={t("urride.companyWs.readyFleetConnected")} />

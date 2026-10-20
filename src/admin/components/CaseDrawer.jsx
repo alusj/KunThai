@@ -3,8 +3,9 @@ import { CheckCircle2, ClipboardCheck, ExternalLink, FileAudio, FileText, FileVi
 import { ADMIN_SECTORS, CASE_DECISIONS, CASE_STATUSES, caseStatusLabel, formatCaseNumber, formatDateTime, formatRelativeTime, titleCase } from "../adminConfig";
 import { classifyDecisionResult, dateTimeLocalToIso, isSignedUrlStale, isoToDateTimeLocal, sectorAuthorityLevel } from "../adminCaseRules.js";
 import { ACCOUNT_CONTROL_REASON_SUGGESTIONS, INTERNAL_NOTE_SUGGESTIONS, applyCaseContext, getDecisionReasonSuggestions } from "../adminTextSuggestions";
-import { addCaseNote, applyCaseDecision, claimCase, getAdminAccountControl, getAdminCaseContent, getAdminCaseEvidence, getCaseActionHistory, getCaseActivity, getCaseCountryLabel, getCaseDecisionCapabilities, getCaseTypeLabel, resignEvidenceUrl, reviewCaseApproval, setAdminUserStatus, transitionCase, undoCaseAction } from "../adminService";
+import { addCaseNote, applyCaseDecision, claimCase, getAdminAccountControl, getAdminCaseContent, getAdminCaseEvidence, getCaseActionHistory, getCaseActivity, getCaseCountryLabel, getCaseDecisionCapabilities, getCaseTypeLabel, getVerificationRequests, requestVerificationDocuments, resignEvidenceUrl, reviewCaseApproval, setAdminUserStatus, transitionCase, undoCaseAction } from "../adminService";
 import SuggestedTextSelect from "./SuggestedTextSelect";
+import VerificationReviewPanel, { RequestDocumentsPicker } from "./VerificationReviewPanel";
 import AiAssistButton from "../../components/ai/AiAssistButton";
 import { caseFactsForAi } from "../adminAiModels";
 import { showToast } from "../../Backend/services/toastService";
@@ -62,6 +63,9 @@ export default function CaseDrawer({ item, access, currentUserId = "", onClose, 
   const [accountFormOpen, setAccountFormOpen] = useState(false);
   const [accountForm, setAccountForm] = useState({ status: "active", reason: "", sectors: ["all"], expiresAt: "" });
   const [capabilities, setCapabilities] = useState(null);
+  const [verificationRequests, setVerificationRequests] = useState([]);
+  const [requestedDocuments, setRequestedDocuments] = useState([]);
+  const isVerificationCase = item?.queue === "verification";
 
   useEffect(() => {
     if (!item?.id) return undefined;
@@ -89,8 +93,11 @@ export default function CaseDrawer({ item, access, currentUserId = "", onClose, 
     let active = true;
     getCaseActivity(item.id).then((value) => { if (active) setActivity(value); }).catch(() => null);
     getCaseActionHistory(item.id).then((value) => { if (active) setCaseActions(value); }).catch(() => { if (active) setCaseActions([]); });
+    setVerificationRequests([]);
+    setRequestedDocuments([]);
+    if (item.queue === "verification") getVerificationRequests(item.id).then((value) => { if (active) setVerificationRequests(value); }).catch(() => null);
     return () => { active = false; };
-  }, [item?.id]);
+  }, [item?.id, item?.queue]);
 
   useEffect(() => {
     if (!item?.subject_user_id) {
@@ -237,11 +244,17 @@ export default function CaseDrawer({ item, access, currentUserId = "", onClose, 
   const blockedDecisions = CASE_DECISIONS.filter((entry) => capabilities && !decisionRules[entry.key]?.allowed);
   const activeDecision = allowedDecisions.some((entry) => entry.key === decision) ? decision : allowedDecisions[0]?.key || "";
   const activeRule = decisionRules[activeDecision] || null;
+  // Asking for documents on a verification case: the checklist is enough on its own.
+  const requestingDocuments = isVerificationCase && activeDecision === "request_information";
+  const decisionReady = requestingDocuments ? Boolean(reason.trim() || requestedDocuments.length) : Boolean(reason.trim());
 
   function submitDecision() {
     if (!activeDecision || !activeRule?.allowed) return;
     const before = item.status;
-    run("decision", () => applyCaseDecision(item.id, activeDecision, reason.trim()), (updated) => {
+    const task = requestingDocuments
+      ? () => requestVerificationDocuments(item.id, requestedDocuments, reason.trim())
+      : () => applyCaseDecision(item.id, activeDecision, reason.trim());
+    run("decision", task, (updated) => {
       const outcome = classifyDecisionResult(updated, activeDecision);
       if (outcome === "approval") {
         if (updated?.status) setStatus(updated.status);
@@ -308,6 +321,8 @@ export default function CaseDrawer({ item, access, currentUserId = "", onClose, 
             </dl>
           </section>
 
+          {isVerificationCase ? <VerificationReviewPanel item={item} events={activity.events} requests={verificationRequests} /> : null}
+
           <section className="border-b border-zinc-200 bg-zinc-50/60 p-4 sm:p-6">
             <div className="flex items-center justify-between gap-3">
               <div>
@@ -365,7 +380,7 @@ export default function CaseDrawer({ item, access, currentUserId = "", onClose, 
               <h3 className="text-sm font-black text-zinc-950">{i18nText("ui.literals.k373498b6b08f")}</h3>
               <div className="mt-4 grid gap-3 sm:grid-cols-[1fr_auto]">
                 <select value={status} onChange={(event) => setStatus(event.target.value)} className="h-11 rounded-lg border border-zinc-300 bg-white px-3 text-sm font-bold text-zinc-800 focus:border-emerald-600 focus:outline-none">
-                  {CASE_STATUSES.map((value) => <option key={value} value={value}>{caseStatusLabel(value)}</option>)}
+                  {CASE_STATUSES.filter((value) => !isVerificationCase || value === item.status || !["resolved", "closed"].includes(value)).map((value) => <option key={value} value={value}>{caseStatusLabel(value)}</option>)}
                 </select>
                 <button type="button" disabled={busy || status === item.status} onClick={() => run("status", () => transitionCase(item.id, status, reason), (updated) => { setStatus(updated.status); refreshCaseActions(); })} className="inline-flex h-11 items-center justify-center gap-2 rounded-lg border border-zinc-300 px-4 text-sm font-black text-zinc-800 hover:bg-zinc-50 disabled:opacity-50">
                   {busy === "status" ? <LoaderCircle className="animate-spin" size={17} /> : <ClipboardCheck size={17} />} {i18nText("ui.literals.keae1f5caf558")}
@@ -487,7 +502,7 @@ export default function CaseDrawer({ item, access, currentUserId = "", onClose, 
                     <select value={activeDecision} onChange={(event) => setDecision(event.target.value)} className="h-11 rounded-lg border border-zinc-300 bg-white px-3 text-sm font-bold text-zinc-800 focus:border-emerald-600 focus:outline-none">
                       {allowedDecisions.map((value) => <option key={value.key} value={value.key}>{translateUi(value.label)}</option>)}
                     </select>
-                    <button type="button" disabled={busy || !reason.trim() || !activeRule?.allowed} onClick={submitDecision} className="inline-flex h-11 items-center justify-center gap-2 rounded-lg bg-emerald-700 px-4 text-sm font-black text-white hover:bg-emerald-800 disabled:opacity-50">
+                    <button type="button" disabled={busy || !decisionReady || !activeRule?.allowed} onClick={submitDecision} className="inline-flex h-11 items-center justify-center gap-2 rounded-lg bg-emerald-700 px-4 text-sm font-black text-white hover:bg-emerald-800 disabled:opacity-50">
                       {busy === "decision" ? <LoaderCircle className="animate-spin" size={17} /> : <CheckCircle2 size={17} />} {activeRule?.requiresApproval ? i18nText("adminCases.requestApproval") : i18nText("ui.literals.k76b63a8a45b1")}
                     </button>
                   </div>
@@ -503,6 +518,7 @@ export default function CaseDrawer({ item, access, currentUserId = "", onClose, 
                     </ul>
                   </div>
                 ) : null}
+                {requestingDocuments ? <RequestDocumentsPicker item={item} selected={requestedDocuments} onChange={setRequestedDocuments} /> : null}
                 <div className="mt-3">
                   <SuggestedTextSelect label={i18nText("ui.literals.k44c381fd4102", { value0: translateUi(CASE_DECISIONS.find((entry) => entry.key === activeDecision)?.label || "Decision").toLowerCase() })} suggestions={getDecisionReasonSuggestions(activeDecision || decision)} onSelect={(text) => setReason(applyCaseContext(text, item))} />
                 </div>
