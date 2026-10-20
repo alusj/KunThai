@@ -93,6 +93,7 @@ import {
 import { uiText as translateUi, useI18n as useUiLocale } from "../../i18n/index.js";
 import { inlineErrorMessage, shortErrorToast } from "../../Backend/services/friendlyErrorService";
 import AppPortal from "../shared/AppPortal";
+import ShareProfileSheet from "../shared/share/ShareProfileSheet";
 import EnforcementNoticeBanner from "../shared/EnforcementNoticeBanner";
 import VerificationRequestNotice from "../shared/VerificationRequestNotice";
 import { useDashboardResumeHold } from "../../Backend/hooks/useDashboardResumeHold";
@@ -177,6 +178,7 @@ export default function OperatorDashboardScreen({
   const activeView = operatorNavigation.current.screen;
   const [verificationOpen, setVerificationOpen] = useState(false);
   const [operatorMenuOpen, setOperatorMenuOpen] = useState(false);
+  const [shareProfileOpen, setShareProfileOpen] = useState(false);
   const [leaveCompanyOpen, setLeaveCompanyOpen] = useState(false);
   const [accountDeletionOpen, setAccountDeletionOpen] = useState(false);
   const [operatorAlertsOpen, setOperatorAlertsOpen] = useState(false);
@@ -1059,10 +1061,23 @@ export default function OperatorDashboardScreen({
           setOperatorMenuOpen(false);
           setAccountDeletionOpen(true);
         }}
+        onShareProfile={account?.fleetId || account?.companyFleetId ? () => {
+          setOperatorMenuOpen(false);
+          window.setTimeout(() => setShareProfileOpen(true), 150);
+        } : undefined}
         onLeaveCompany={onLeaveCompany && companyAccount?.id && !companyAccount?.access?.isOwner && !dashboardReadOnly ? () => {
           setOperatorMenuOpen(false);
           window.setTimeout(() => setLeaveCompanyOpen(true), 150);
         } : undefined}
+      />
+
+      <ShareProfileSheet
+        open={shareProfileOpen}
+        onClose={() => setShareProfileOpen(false)}
+        kind="operator"
+        profileId={account?.fleetId || account?.companyFleetId}
+        name={fleetName}
+        subtitle={operatorName}
       />
 
       <OperatorLeaveCompanyDialog
@@ -2358,6 +2373,7 @@ function OperatorMenuDrawer({
   onLocateArea,
   onRequestDeletion,
   onLeaveCompany,
+  onShareProfile,
 }) {
   useI18n();
   const { rendered, panelOpen } = useDrawerTransition(open);
@@ -2422,6 +2438,14 @@ function OperatorMenuDrawer({
       detail: fleetName,
       onClick: onOpenDashboard,
     },
+    onShareProfile
+      ? {
+          icon: FiShare2,
+          label: t("profileShare.menuTitle"),
+          detail: t("profileShare.menuDetail"),
+          onClick: onShareProfile,
+        }
+      : null,
     companyAction,
     // Company operator (not the creator): leave and remove it from this dashboard.
     onLeaveCompany

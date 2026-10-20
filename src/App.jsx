@@ -3,6 +3,7 @@ import { HiOutlineCamera, HiOutlineLightBulb, HiOutlineXMark } from "react-icons
 
 import { useAuth } from "./Backend/hooks/useAuth";
 import { notifyNativeAppReady } from "./Backend/services/nativeLaunch";
+import { installProfileAppLinks, openSharedProfile, parseProfileLinkHash, PROFILE_LINK_EVENT, takePendingProfileLink } from "./Backend/services/profileShareService";
 import { NAV_TRANSITION_MS } from "./components/shared/navigationMotion";
 import { isLikelySignedIn, urlCarriesSignIn } from "./Backend/services/startupSession";
 import { useCountryChoiceExpiry } from "./Backend/hooks/useCountryChoiceExpiry";
@@ -109,7 +110,7 @@ function getMainPageFromHash(hashValue = "") {
   const hash = String(hashValue || "").toLowerCase();
   if (hash.includes("swip") || hash.includes("urfeed") || hash.includes("connections")) return "explore";
   if (hash.includes("marketplace") || hash.includes("urmall")) return "marketplace";
-  if (hash.includes("transport")) return "transport";
+  if (hash.includes("transport") || hash.includes("urride")) return "transport";
   return "";
 }
 
@@ -808,6 +809,33 @@ export default function App() {
   useEffect(() => {
     setNotificationNavigationReady(notificationNavigationReady);
   }, [notificationNavigationReady]);
+
+  // A shared profile link or scanned QR code (profileShareService) opens that
+  // seller, fleet or company once the main screens are up; a link pasted into
+  // an open tab (hash change) opens straight away.
+  useEffect(() => {
+    if (!notificationNavigationReady) return undefined;
+    const openLink = (link) => {
+      if (!link) return;
+      if (parseProfileLinkHash(window.location.hash)) clearBrowserHash();
+      window.setTimeout(() => openSharedProfile(link), 250);
+    };
+    openLink(takePendingProfileLink());
+    const handleHashChange = () => openLink(parseProfileLinkHash(window.location.hash));
+    const handleAppLink = () => openLink(takePendingProfileLink());
+    window.addEventListener("hashchange", handleHashChange);
+    window.addEventListener(PROFILE_LINK_EVENT, handleAppLink);
+    return () => {
+      window.removeEventListener("hashchange", handleHashChange);
+      window.removeEventListener(PROFILE_LINK_EVENT, handleAppLink);
+    };
+  }, [notificationNavigationReady]);
+
+  // In the app, a kunthai.app profile link opened from the camera or another
+  // app arrives here; it waits as a pending link until the effect above runs.
+  useEffect(() => {
+    installProfileAppLinks();
+  }, []);
 
   // On the main screens (never during sign-up or onboarding): set push up for
   // a new account so alerts reach the phone when KunThai is closed.

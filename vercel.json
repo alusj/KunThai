@@ -8,6 +8,10 @@
     { "source": "/api/process-business-subscriptions", "destination": "/api/cron/process-business-subscriptions" },
     { "source": "/((?!api/).*)", "destination": "/index.html" }
   ],
+  "headers": [
+    { "source": "/.well-known/apple-app-site-association", "headers": [{ "key": "Content-Type", "value": "application/json" }] },
+    { "source": "/.well-known/assetlinks.json", "headers": [{ "key": "Content-Type", "value": "application/json" }] }
+  ],
   "functions": {
     "api/moderate-post.js": {
       "maxDuration": 60

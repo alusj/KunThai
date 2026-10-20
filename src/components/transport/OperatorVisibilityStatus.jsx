@@ -8,6 +8,7 @@ import {
   readOperatorPublishStatus,
   startOperatorLiveLocation,
   subscribeOperatorPublishStatus,
+  refreshOperatorLocationNow,
 } from "../services/operatorLiveLocationService";
 
 // Operator dashboard, while Active (Online): two separate lines, both from
@@ -87,6 +88,27 @@ export default function OperatorVisibilityStatus({ displayName = "", fleetType =
       </div>
     ) : null;
 
+  // A rough fix (no GPS indoors, Wi-Fi scanning off): passengers would see
+  // the wrong distance, so the operator is told how to fix it.
+  const roughAccuracy = status.running && Number(status.accuracy) > 100 ? Math.round(Number(status.accuracy)) : 0;
+  const accuracyHint = roughAccuracy ? (
+    <div
+      role="note"
+      data-direction="urride-operator-accuracy-hint"
+      className="-mt-2 mb-4 flex flex-wrap items-center justify-between gap-2 rounded-2xl border border-amber-200 bg-amber-50 px-4 py-2.5 text-xs font-bold text-amber-900"
+    >
+      <span className="min-w-0 flex-1">{t("urrideLocationTrust.roughOperatorHint", { m: roughAccuracy })}</span>
+      <button
+        type="button"
+        onClick={() => refreshOperatorLocationNow()}
+        className="inline-flex h-8 items-center gap-1.5 rounded-full border border-amber-300 bg-white px-3 text-xs font-black text-amber-900 transition hover:bg-amber-100"
+      >
+        <FiMapPin size={13} aria-hidden="true" />
+        {t("urrideLocationTrust.refreshPosition")}
+      </button>
+    </div>
+  ) : null;
+
   const locationText = {
     sharing: t("urrideLiveDiscovery.locationSharing", { seconds: view.seconds ?? 0 }),
     starting: t("urrideLiveDiscovery.locationStarting"),
@@ -152,6 +174,7 @@ export default function OperatorVisibilityStatus({ displayName = "", fleetType =
         </div>
       </div>
       {accessHint}
+      {accuracyHint}
     </>
   );
 }

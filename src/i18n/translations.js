@@ -28,6 +28,8 @@ import { TEXT_SIZE } from "./textSize";
 import { URRIDE_FLEET_HQ } from "./urrideFleetHq";
 import { NOTIFICATION_HUB } from "./notificationHub";
 import { ACCOUNT_DELETION } from "./accountDeletion";
+import { PROFILE_SHARE } from "./profileShare";
+import { URRIDE_LOCATION_TRUST } from "./urrideLocationTrust";
 import { EXPLORE_SETTINGS_FIX } from "./exploreSettingsFix";
 import { EXPLORE_PROFILE_FIX } from "./exploreProfileFix";
 import { EXPLORE_MESSAGES_FIX } from "./exploreMessagesFix";
@@ -59495,6 +59497,18 @@ for (const [locale, section] of Object.entries(NOTIFICATION_HUB)) {
 for (const [locale, section] of Object.entries(ACCOUNT_DELETION)) {
   if (TRANSLATIONS[locale]) {
     TRANSLATIONS[locale].accountDeletion = section;
+  }
+}
+
+for (const [locale, section] of Object.entries(PROFILE_SHARE)) {
+  if (TRANSLATIONS[locale]) {
+    TRANSLATIONS[locale].profileShare = section;
+  }
+}
+
+for (const [locale, section] of Object.entries(URRIDE_LOCATION_TRUST)) {
+  if (TRANSLATIONS[locale]) {
+    TRANSLATIONS[locale].urrideLocationTrust = section;
   }
 }
 

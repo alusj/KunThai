@@ -14,6 +14,8 @@ import { build } from "esbuild";
 const WEB = fileURLToPath(new URL("../../../", import.meta.url));
 const migration = readFileSync(new URL("../../../supabase/migrations/20261010100000_urmall_plan_limits_2026.sql", import.meta.url), "utf8");
 const freeMigration = readFileSync(new URL("../../../supabase/migrations/20261013100000_urmall_free_meals_retention_five_urride_free_three.sql", import.meta.url), "utf8");
+// The Free plan's words as of 2026-10-20 (the rule is still 20261013100000's).
+const freeWordingMigration = readFileSync(new URL("../../../supabase/migrations/20261020190000_urmall_free_meals_wording.sql", import.meta.url), "utf8");
 
 // Bundle the browser modules with the Supabase client stubbed out.
 async function load(entry) {
@@ -51,7 +53,7 @@ test("the fallback catalogue matches the UrMall and UrRide plans", () => {
 
 test("the fallback catalogue and the migration describe the plans with the same words", () => {
   for (const plan of service.getFallbackBusinessPlans("urmall")) {
-    const latest = plan.planCode === "free" ? freeMigration : migration;
+    const latest = plan.planCode === "free" ? freeWordingMigration : migration;
     assert.ok(latest.includes(JSON.stringify(plan.features)), `${plan.planCode} features match the database`);
   }
   const urrideFree = service.getFallbackBusinessPlans("urride")[0];

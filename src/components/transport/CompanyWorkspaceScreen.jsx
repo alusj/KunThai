@@ -23,6 +23,7 @@ import {
   PlayCircle,
   Plus,
   Settings2,
+  Share2,
   Shield,
   ShieldCheck,
   Star,
@@ -41,6 +42,7 @@ import { useCampaignSurfaceRole } from "../../Backend/services/campaigns/campaig
 import CampaignInboxSection from "../shared/campaigns/CampaignInboxSection";
 import { useCampaignInbox } from "../../Backend/hooks/useCampaignInbox";
 import AppPortal from "../shared/AppPortal";
+import ShareProfileSheet from "../shared/share/ShareProfileSheet";
 import HealthScoreCard from "../Marketplace/MarketplaceHeader/Business/MyBizDashboardHeader/HealthScoreCard";
 import { useI18n, t } from "../../i18n";
 import { useNavigationStack } from "../../Backend/hooks/useNavigationStack";
@@ -170,6 +172,7 @@ export default function CompanyWorkspaceScreen({ company, initialTab = "Overview
   const [companyTabOpen, setCompanyTabOpen] = useState(() => !basicOperator && firstTab !== "Overview");
   const [companyTabDirection, setCompanyTabDirection] = useState("forward");
   const [menuOpen, setMenuOpen] = useState(false);
+  const [shareProfileOpen, setShareProfileOpen] = useState(false);
   // The header "+": one place to add an operator, a fleet or a rental vehicle.
   const [addMenuOpen, setAddMenuOpen] = useState(false);
   // "Your plan is full" sheet, shown before any add form opens.
@@ -1161,7 +1164,16 @@ export default function CompanyWorkspaceScreen({ company, initialTab = "Overview
               window.setTimeout(() => setDeleteCompanyOpen(true), 150);
             } : undefined}
             onNavigate={openMenuScreen}
+            onShareProfile={company.id ? () => runAfterDrawerClose(() => setShareProfileOpen(true)) : undefined}
           /> : null}
+          <ShareProfileSheet
+            open={shareProfileOpen}
+            onClose={() => setShareProfileOpen(false)}
+            kind="company"
+            profileId={company.id}
+            name={company.companyName}
+            subtitle={company.companyCode || company.city || ""}
+          />
           {visibleMenuScreen ? (
             <FleetHqMenuScreen
               action={menuScreenAction}
@@ -1462,7 +1474,7 @@ function useDrawerTransition(open, duration = DRAWER_TRANSITION_MS) {
   return { rendered, panelOpen };
 }
 
-function FleetHqMenuDrawer({ company, menuItems, open, onClose, onDeleteCompany, onEdit, onNavigate }) {
+function FleetHqMenuDrawer({ company, menuItems, open, onClose, onDeleteCompany, onEdit, onNavigate, onShareProfile }) {
   useUiLocale();
   const { rendered, panelOpen } = useDrawerTransition(open);
   const requestClose = useBrowserBack(rendered, onClose, "transport-company-menu-drawer");
@@ -1535,6 +1547,12 @@ function FleetHqMenuDrawer({ company, menuItems, open, onClose, onDeleteCompany,
 
           <nav className="min-h-0 flex-1 overflow-y-auto bg-slate-50 px-4 py-4">
             <div className="grid gap-3">
+              {onShareProfile ? (
+                <FleetHqMenuItem
+                  item={{ id: "share", label: t("profileShare.companyMenuTitle"), detail: t("profileShare.menuDetail"), icon: Share2, stat: "QR" }}
+                  onClick={onShareProfile}
+                />
+              ) : null}
               {menuItems.map((item) => (
                 <FleetHqMenuItem key={item.id} item={item} onClick={() => onNavigate(item.id)} />
               ))}

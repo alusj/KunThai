@@ -156,8 +156,12 @@ test("a rough fix near a recent good one is noise and is not published", async (
   const good = { point: { lat: 8.4, lng: -13.2 }, accuracy: 12, at: 1_000 };
   // ~300 m away with 1389 m accuracy, 20 s after a 12 m GPS fix.
   assert.equal(acceptFix({ now: 21_000, point: { lat: 8.4027, lng: -13.2 }, accuracy: 1389, lastGood: good }), false);
-  // Same rough fix once the good one is older than two minutes.
-  assert.equal(acceptFix({ now: 1_000 + 2 * 60_000, point: { lat: 8.4027, lng: -13.2 }, accuracy: 1389, lastGood: good }), true);
+  // Still held after five minutes parked (a 300 m cell fix indoors)...
+  assert.equal(acceptFix({ now: 1_000 + 5 * 60_000, point: { lat: 8.4015, lng: -13.2 }, accuracy: 300, lastGood: good }), false);
+  // ...and let through once the good one is older than ten minutes.
+  assert.equal(acceptFix({ now: 1_000 + 10 * 60_000, point: { lat: 8.4027, lng: -13.2 }, accuracy: 1389, lastGood: good }), true);
+  // A 120 m Wi-Fi fix just after a 12 m GPS fix, inside its own circle, is noise too.
+  assert.equal(acceptFix({ now: 21_000, point: { lat: 8.4008, lng: -13.2 }, accuracy: 120, lastGood: good }), false);
   // A rough fix far outside its own error circle is a real move.
   assert.equal(acceptFix({ now: 21_000, point: { lat: 8.45, lng: -13.2 }, accuracy: 200, lastGood: good }), true);
   // Good or unknown accuracy always passes, as does a rough fix with no good one before it.

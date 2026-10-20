@@ -10,6 +10,7 @@ import {
   MapPin,
   Megaphone,
   MoreHorizontal,
+  Share2,
   Store,
   Tags,
 } from "lucide-react";
@@ -17,6 +18,8 @@ import { createPortal } from "react-dom";
 import { useState } from "react";
 
 import BusinessLogo from "./BusinessLogo";
+import ShareProfileSheet from "../../../../shared/share/ShareProfileSheet";
+import useBodyScrollLock from "../../../../shared/useBodyScrollLock";
 import VerificationBadge from "./VerificationBadge";
 import { MarketplaceVerificationInline, MarketplaceVerificationModal } from "../../../shared/MarketplaceVerification";
 import { planTierMeets } from "../../../../../Backend/services/businessSubscriptionService";
@@ -47,8 +50,18 @@ export default function BusinessProfileCard({ business, status, onEditProfile, o
   const [verificationAnchor, setVerificationAnchor] = useState(null);
   const [actionsOpen, setActionsOpen] = useState(false);
   const [actionsAnchor, setActionsAnchor] = useState(null);
+  const [shareOpen, setShareOpen] = useState(false);
+  // The page behind the Seller Board stays still while the board is open.
+  useBodyScrollLock(actionsOpen);
 
   const actionItems = [
+    ...(business?.id ? [{
+      id: "shareProfile",
+      icon: Share2,
+      title: t("profileShare.menuTitle"),
+      description: t("profileShare.menuDetail"),
+      tone: "bg-emerald-50 text-emerald-700",
+    }] : []),
     {
       id: "todaySummary",
       icon: Clock,
@@ -118,6 +131,10 @@ export default function BusinessProfileCard({ business, status, onEditProfile, o
 
   function chooseAction(id) {
     setActionsOpen(false);
+    if (id === "shareProfile") {
+      setShareOpen(true);
+      return;
+    }
     onOpenSection?.(id);
   }
 
@@ -294,6 +311,15 @@ export default function BusinessProfileCard({ business, status, onEditProfile, o
         </div>,
         document.body,
       ) : null}
+      <ShareProfileSheet
+        open={shareOpen}
+        onClose={() => setShareOpen(false)}
+        kind="seller"
+        profileId={business?.id}
+        name={business?.name}
+        subtitle={business?.category || business?.location || ""}
+        avatarUrl={business?.logoUrl || ""}
+      />
       {verificationOpen ? (
         <MarketplaceVerificationModal
           audience="seller"

@@ -1039,6 +1039,10 @@ export default function Transport({
       setActiveTripsOpen(true);
     } else if (destination === "fleet" && targetId) {
       setActiveFleetId(targetId);
+    } else if (destination === "company" && targetId) {
+      // A shared company profile link or QR code.
+      setCompanyReturnRentalId("");
+      setActiveCompanyId(targetId);
     } else if (destination === "bookings" || destination === "trips") {
       setActiveTripsActionRequest(null);
       setActiveTripsOpen(true);

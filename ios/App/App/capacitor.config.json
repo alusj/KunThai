@@ -30,6 +30,7 @@
 		"BiometricAuthNative",
 		"AppPlugin",
 		"CAPBrowserPlugin",
+		"FilesystemPlugin",
 		"HapticsPlugin",
 		"KeyboardPlugin",
 		"PushNotificationsPlugin",

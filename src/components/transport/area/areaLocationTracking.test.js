@@ -154,3 +154,30 @@ test("off the drawn route reads as checking until no other route exists", () => 
   assert.equal(displayedRouteStatus("wrong"), "checking");
   assert.equal(displayedRouteStatus("wrong", { rerouteFailed: true }), "wrong");
 });
+
+test("a moving traveller is led a little ahead, never when slow, and never far", async () => {
+  const { routeLeadMeters, AREA_ROUTE_MOTION } = await import("./areaLocationTracking.js");
+  assert.equal(routeLeadMeters({ speedMps: 1, elapsedMs: 1000 }), 0);
+  assert.ok(Math.abs(routeLeadMeters({ speedMps: 10, elapsedMs: 1000 }) - 8.5) < 1e-9);
+  assert.equal(routeLeadMeters({ speedMps: 40, elapsedMs: 1500 }), AREA_ROUTE_MOTION.leadMaxMeters);
+});
+
+test("the icon glides along the route's corners instead of cutting across", async () => {
+  const { routePathBetween, pointAlongPath, advanceAlongRoute, areaLocationDistanceMeters } = await import("./areaLocationTracking.js");
+  // An L-shaped route: east, then north.
+  const route = [[-13.27, 8.45], [-13.269, 8.45], [-13.269, 8.451]];
+  const from = { point: { lat: 8.45, lng: -13.2695 }, segmentIndex: 0 };
+  const to = { point: { lat: 8.4505, lng: -13.269 }, segmentIndex: 1 };
+  const path = routePathBetween(route, from, to);
+  assert.equal(path.length, 3);
+  assert.deepEqual(path[1], { lng: -13.269, lat: 8.45 });
+  // Halfway along the path is the corner itself, not the diagonal's middle.
+  const middle = pointAlongPath(path, 0.5);
+  assert.ok(areaLocationDistanceMeters(middle, { lat: 8.45, lng: -13.269 }) < 1);
+  // Going backwards on the route is not a path.
+  assert.equal(routePathBetween(route, to, from), null);
+  // Advancing past the corner turns north.
+  const ahead = advanceAlongRoute(route, from, 80);
+  assert.equal(ahead.segmentIndex, 1);
+  assert.ok(ahead.point.lat > 8.45);
+});

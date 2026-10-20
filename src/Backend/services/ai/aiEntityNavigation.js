@@ -89,6 +89,12 @@ export function openMarketplaceSeller(seller) {
   dispatchUntilHandled("marketplace-open-seller", { seller }, "urmall");
 }
 
+/** Open a seller from a shared profile link or QR code (Marketplace leaves any workspace first). */
+export function openSharedMarketplaceSeller(seller) {
+  if (!seller?.id) return;
+  dispatchUntilHandled("marketplace-open-shared-seller", { seller }, "urmall");
+}
+
 export function openMarketplaceVertical(type, item) {
   if (!type || !item?.id) return;
   // Meals, rooms and properties live in a view that is not always mounted; if

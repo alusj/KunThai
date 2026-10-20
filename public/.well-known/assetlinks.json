@@ -1,0 +1,12 @@
+[
+  {
+    "relation": ["delegate_permission/common.handle_all_urls"],
+    "target": {
+      "namespace": "android_app",
+      "package_name": "app.kunthai.mobile",
+      "sha256_cert_fingerprints": [
+        "6E:82:3C:98:76:C8:17:43:48:68:74:7B:18:8E:5A:35:26:2B:50:69:12:D2:73:B4:6B:36:D1:91:36:CB:62:26"
+      ]
+    }
+  }
+]

@@ -226,7 +226,9 @@ function mapLiveFleet(row, companyAffiliation = null, publicStats = null, public
   const serviceCategory = displayCategory(row.service_category);
   const fleetType = displayFleetType(row.fleet_type);
   const isActive = row.active_status === "active";
-  const rating = Number(publicStats?.average_rating ?? row.rating ?? 0);
+  // One decimal ("3.7"): an average of reviews arrives as 3.6666666666666665.
+  const rawRating = Number(publicStats?.average_rating ?? row.rating ?? 0);
+  const rating = Number.isFinite(rawRating) ? Math.round(rawRating * 10) / 10 : 0;
   const trips = Number(publicStats?.completed_trips ?? row.completed_trips ?? row.trips_completed ?? 0);
   const countryCode = normalizeCountryIso(row.country_iso || row.country_code || row.country || operator.country || operator.country_iso);
   const country = row.country || operator.country || "";
@@ -597,6 +599,7 @@ export async function fetchAvailableOperatorsNearby({
   radiusKm = LIVE_DEFAULT_RADIUS_KM,
   limit = 20,
   forceRefresh = false,
+  accuracy = null,
 } = {}) {
   if (liveDiscoveryRpcMissing) return { supported: false };
   const currentIso = normalizeCountryIso(countryIso) || getActiveCountryProfile(countryIso).iso2;
@@ -634,7 +637,7 @@ export async function fetchAvailableOperatorsNearby({
     isFleetAllowedForTransportMode(fleet, mode, currentIso) &&
     passengerVisibilityFilters(fleet, selection, false),
   );
-  const groups = groupLiveDiscovery(allowed, list);
+  const groups = groupLiveDiscovery(allowed, list, { passengerAccuracy: accuracy });
   rememberTransportFleets("live-discovery", [...groups.available, ...groups.recent]);
   return { supported: true, ...groups, radiusKm: radius };
 }

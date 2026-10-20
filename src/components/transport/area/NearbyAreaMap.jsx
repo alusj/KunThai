@@ -24,6 +24,11 @@ import {
   smoothBearing,
   displayedRouteStatus,
   isSustainedMovement,
+  AREA_ROUTE_MOTION,
+  advanceAlongRoute,
+  pointAlongPath,
+  routeLeadMeters,
+  routePathBetween,
   nextMovingStreak,
   shouldReleaseRoutePreview,
 } from "./areaLocationTracking";
@@ -1732,6 +1737,34 @@ const NO_ITEMS = [];
 
 function listOrEmpty(value) {
   return Array.isArray(value) ? value : NO_ITEMS;
+}
+
+// Glides the marker along a path (the route's own corners) at constant speed,
+// so on a bend it follows the road instead of cutting across it.
+function animateMarkerAlongPath(marker, path, duration = 280, onFrame) {
+  if (!marker || !Array.isArray(path) || !path.length) return null;
+  const startedAt = performance.now();
+  let frameId = null;
+
+  function step(now) {
+    frameId = null;
+    const progress = Math.min((now - startedAt) / duration, 1);
+    const renderedPosition = pointAlongPath(path, progress);
+    if (!renderedPosition) return;
+    try {
+      marker.setLngLat([renderedPosition.lng, renderedPosition.lat]);
+      onFrame?.(renderedPosition);
+    } catch (error) {
+      console.warn("[KunThai] Marker animation stopped", error);
+      return;
+    }
+    if (progress < 1) frameId = requestAnimationFrame(step);
+  }
+
+  frameId = requestAnimationFrame(step);
+  return () => {
+    if (frameId) cancelAnimationFrame(frameId);
+  };
 }
 
 function animateMarkerTo(marker, fromPosition, toPosition, duration = 280, onFrame, easing = easeOutCubic) {
@@ -3585,12 +3618,18 @@ export default function NearbyAreaMap({
               nearestOnRoute?.segmentIndex ?? lastRouteSegmentIndexRef.current,
             )
           : null;
-        const markerTarget = shouldSnapToRoute
-          ? {
-              ...livePosition,
-              lat: displayedNearestOnRoute?.point.lat ?? nearestOnRoute.point.lat,
-              lng: displayedNearestOnRoute?.point.lng ?? nearestOnRoute.point.lng,
-            }
+        // Moving along the route: show the icon where the traveller is now,
+        // not where the (already ~1 s old) fix was — a short lead along the
+        // route, scaled by speed and capped (areaLocationTracking.routeLeadMeters).
+        const onRouteProjection = shouldSnapToRoute ? (displayedNearestOnRoute || nearestOnRoute) : null;
+        const routeLead = onRouteProjection && isSustainedMovement(movingStreakRef.current)
+          ? routeLeadMeters({ speedMps: liveSpeedRef.current, elapsedMs })
+          : 0;
+        const ledOnRoute = routeLead > 0
+          ? advanceAlongRoute(routeCoordinates, onRouteProjection, routeLead)
+          : onRouteProjection;
+        const markerTarget = ledOnRoute
+          ? { ...livePosition, lat: ledOnRoute.point.lat, lng: ledOnRoute.point.lng }
           : livePosition;
         const navigationSegmentIndex = displayedNearestOnRoute?.segmentIndex
           ?? nearestOnRoute?.segmentIndex;
@@ -3605,25 +3644,42 @@ export default function NearbyAreaMap({
           distanceInMeters(markerStartPosition, markerTarget),
         );
 
+        // On the route, glide along the road between the two points (through
+        // its corners); anywhere else, straight.
+        let routeGlidePath = null;
+        if (ledOnRoute) {
+          const startOnRoute = getNearestPointOnRoute(
+            markerStartPosition,
+            routeCoordinates,
+            lastRouteSegmentIndexRef.current,
+          );
+          if (startOnRoute && startOnRoute.distance <= AREA_ROUTE_MOTION.onRouteToleranceMeters) {
+            routeGlidePath = routePathBetween(routeCoordinates, startOnRoute, ledOnRoute);
+          }
+        }
+        const onMarkerFrame = (renderedPosition) => {
+          markerRenderedPositionRef.current = renderedPosition;
+          // Catch the icon before it slides off screen — either because the
+          // camera fell behind a fast move, or because a manual pan left it
+          // near the edge.
+          keepTravellerOnScreen(renderedPosition);
+        };
+
         markerAnimationCancelRef.current?.();
-        markerAnimationCancelRef.current = animateMarkerTo(
-          userMarkerRef.current,
-          markerStartPosition,
-          markerTarget,
-          motionDuration,
-          (renderedPosition) => {
-            markerRenderedPositionRef.current = renderedPosition;
-            // Catch the icon before it slides off screen — either because the
-            // camera fell behind a fast move, or because a manual pan left it
-            // near the edge.
-            keepTravellerOnScreen(renderedPosition);
-          },
-          // Constant velocity: each fix's glide is routinely interrupted and
-          // re-targeted by the next fix, so a linear curve keeps the marker's
-          // speed continuous across that seam instead of braking to a halt and
-          // lurching forward again every second.
-          linear,
-        );
+        markerAnimationCancelRef.current = routeGlidePath
+          ? animateMarkerAlongPath(userMarkerRef.current, routeGlidePath, motionDuration, onMarkerFrame)
+          : animateMarkerTo(
+              userMarkerRef.current,
+              markerStartPosition,
+              markerTarget,
+              motionDuration,
+              onMarkerFrame,
+              // Constant velocity: each fix's glide is routinely interrupted and
+              // re-targeted by the next fix, so a linear curve keeps the marker's
+              // speed continuous across that seam instead of braking to a halt and
+              // lurching forward again every second.
+              linear,
+            );
 
         smoothedPositionRef.current = livePosition;
 

@@ -1,0 +1,14 @@
+{
+  "applinks": {
+    "details": [
+      {
+        "appIDs": ["7JJNKN7BCK.app.kunthai.mobile"],
+        "components": [
+          { "/": "/", "#": "urmall-seller-*", "comment": "Shared UrMall seller profile" },
+          { "/": "/", "#": "urride-fleet-*", "comment": "Shared UrRide fleet profile" },
+          { "/": "/", "#": "urride-company-*", "comment": "Shared UrRide company profile" }
+        ]
+      }
+    ]
+  }
+}

@@ -24,7 +24,7 @@ const FALLBACK_PLANS = Object.freeze({
       operatorLimit: null,
       vehicleLimit: null,
       adminLimit: 0,
-      features: ["5 active products, meals or properties", "Restaurant meals all 7 days", "Seller dashboard", "Customer messages", "Store analytics"],
+      features: ["5 active products, meals or properties", "Every meal can be shown all 7 days", "Seller dashboard", "Customer messages", "Store analytics"],
       sortOrder: 1,
     },
     {

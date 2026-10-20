@@ -9,6 +9,7 @@ const URMALL_FEATURE_KEYS = Object.freeze({
   "Unlimited active products, meals or properties": "listingsPremium",
   "Restaurant meals on up to 5 days a week": "mealsFiveDays",
   "Restaurant meals all 7 days": "mealsAllDays",
+  "Every meal can be shown all 7 days": "mealsEveryDayFree",
   "Seller dashboard": "sellerDashboard",
   "Customer messages": "customerMessages",
   "Store analytics": "storeAnalytics",

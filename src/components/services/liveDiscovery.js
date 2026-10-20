@@ -45,6 +45,15 @@ function minutesSince(timestamp, now) {
   return Math.floor(Math.max(0, now - time) / 60_000);
 }
 
+function accuracyOrNull(value) {
+  if (value === null || value === undefined || value === "") return null;
+  const metres = Number(value);
+  return Number.isFinite(metres) && metres >= 0 ? metres : null;
+}
+
+// A position worse than this is "approximate" on the card.
+export const ROUGH_POSITION_METERS = 100;
+
 function rowDistanceKm(row) {
   const metres = row.distance_m === null || row.distance_m === undefined || row.distance_m === "" ? NaN : Number(row.distance_m);
   if (Number.isFinite(metres) && metres >= 0) return metres / 1000;
@@ -57,7 +66,7 @@ function rowDistanceKm(row) {
 // on, no check-in for over 2 minutes). Rows without a hydrated fleet (the
 // client's safety filters removed it) are skipped. Every verification state
 // is kept, like every other passenger list.
-export function groupLiveDiscovery(fleets = [], rows = [], { now = Date.now() } = {}) {
+export function groupLiveDiscovery(fleets = [], rows = [], { now = Date.now(), passengerAccuracy = null } = {}) {
   const byId = new Map((fleets || []).map((fleet) => [fleet?.id, fleet]));
   const available = [];
   const recent = [];
@@ -85,6 +94,10 @@ export function groupLiveDiscovery(fleets = [], rows = [], { now = Date.now() } 
       // Where the operator's phone last shared GPS (reverse geocoded on the
       // operator's side); never the fleet's registered city.
       lastSeenPlace: place,
+      // How sure both positions are (metres); a rough fix makes the card say
+      // "Very close to you" / "About 400 m" instead of a false-precise number.
+      operatorAccuracyM: accuracyOrNull(row.accuracy_m),
+      passengerAccuracyM: accuracyOrNull(passengerAccuracy),
     };
     if (availability === "recent") recent.push(item);
     else available.push(item);
@@ -135,7 +148,20 @@ export function liveCardLabelValues(item) {
   }
   if (!distance) return null;
   const eta = Number(item.etaMinutes);
-  return { kind: "distanceEta", distance, eta: Number.isFinite(eta) && eta > 0 ? eta : 1 };
+  const safeEta = Number.isFinite(eta) && eta > 0 ? eta : 1;
+  // Two phones side by side can read "210 m" when one only has a 300 m cell
+  // fix. Within the two positions' combined error the honest answer is "very
+  // close"; with a rough fix the distance is "about", rounded to 100 m.
+  const operatorAccuracy = accuracyOrNull(item.operatorAccuracyM);
+  const passengerAccuracy = accuracyOrNull(item.passengerAccuracyM);
+  const metres = Number(item.distanceKm) * 1000;
+  const uncertainty = (operatorAccuracy ?? 0) + (passengerAccuracy ?? 0);
+  if (metres <= 25 || (uncertainty >= 30 && metres <= uncertainty)) return { kind: "veryClose" };
+  if ((operatorAccuracy ?? 0) > ROUGH_POSITION_METERS || (passengerAccuracy ?? 0) > ROUGH_POSITION_METERS) {
+    const rounded = metres < 1000 ? Math.max(100, Math.round(metres / 100) * 100) / 1000 : Number(item.distanceKm);
+    return { kind: "approxDistanceEta", distance: formatLiveDistance(rounded) || distance, eta: safeEta };
+  }
+  return { kind: "distanceEta", distance, eta: safeEta };
 }
 
 function haversineKm(lat1, lng1, lat2, lng2) {
@@ -163,7 +189,7 @@ export function isLocationChangeNearby(payload, position, radiusKm = LIVE_DEFAUL
 export function liveDiscoverySignature(groups) {
   if (!groups) return "";
   const part = (items) => (items || [])
-    .map((item) => `${item.id}:${item.liveAvailability}:${item.distanceKm}:${item.etaMinutes}:${item.lastSeenMinutes}:${item.lastSeenPlace || ""}`)
+    .map((item) => `${item.id}:${item.liveAvailability}:${item.distanceKm}:${item.etaMinutes}:${item.lastSeenMinutes}:${item.lastSeenPlace || ""}:${item.operatorAccuracyM ?? ""}:${item.passengerAccuracyM ?? ""}`)
     .join("|");
   return `${part(groups.available)}#${part(groups.recent)}`;
 }

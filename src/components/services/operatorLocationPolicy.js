@@ -43,7 +43,14 @@ export function shouldPublishFix({ now, lastPublishedAt = 0, lastPublishedPoint 
 // jump hundreds of metres and passengers would read the wrong distance.
 export const GOOD_FIX_METERS = 100;
 export const ROUGH_FIX_METERS = 150;
-export const GOOD_FIX_HOLD_MS = 2 * 60_000;
+// A parked operator indoors loses GPS and Android falls back to a 300 m cell
+// fix; holding the last good fix this long (while the rough fixes stay inside
+// their own error circle, i.e. no sign of a move) keeps passengers' distance
+// right instead of showing "210 m away" next to them. Was 2 minutes.
+export const GOOD_FIX_HOLD_MS = 10 * 60_000;
+// A fix this many times worse than a recent good one counts as rough too,
+// even under ROUGH_FIX_METERS (a 120 m Wi-Fi fix after a 5 m GPS one).
+export const ROUGH_FIX_RATIO = 4;
 // While the app is open and the last fix is worse than this, KunThai asks the
 // phone for a precise GPS fix (at most every REFINE_MIN_GAP_MS).
 export const REFINE_WHEN_WORSE_THAN_METERS = 50;
@@ -57,8 +64,10 @@ export const REFINE_MIN_GAP_MS = 30_000;
 export function acceptFix({ now, point, accuracy, lastGood = null }) {
   if (!point) return false;
   const value = accuracy == null || accuracy === "" ? Number.NaN : Number(accuracy);
-  if (!Number.isFinite(value) || value <= ROUGH_FIX_METERS) return true;
+  if (!Number.isFinite(value)) return true;
   if (!lastGood || !(Number(lastGood.accuracy) <= GOOD_FIX_METERS)) return true;
+  const rough = value > ROUGH_FIX_METERS || value > Math.max(40, Number(lastGood.accuracy) * ROUGH_FIX_RATIO);
+  if (!rough) return true;
   if (now - Number(lastGood.at || 0) >= GOOD_FIX_HOLD_MS) return true;
   return distanceInMeters(lastGood.point, point) > value;
 }

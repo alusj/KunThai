@@ -264,6 +264,7 @@ export default function NearbyOperators({
         mode: liveMode,
         fleetType: liveFleetType,
         radiusKm: LIVE_DEFAULT_RADIUS_KM,
+        accuracy: position.accuracy ?? null,
       });
       if (!alive) return;
       if (!result?.supported) {
@@ -478,7 +479,11 @@ function OperatorCard({ operator, pickup, destination, onViewFleet, onViewCompan
   if (liveState === "available" || liveState === "busy") {
     distanceLine = liveLabel?.kind === "distanceEta"
       ? t("urrideLiveDiscovery.distanceEta", { distance: liveDistanceText(liveLabel.distance), eta: liveLabel.eta })
-      : null;
+      : liveLabel?.kind === "approxDistanceEta"
+        ? t("urrideLocationTrust.approxDistanceEta", { distance: liveDistanceText(liveLabel.distance), eta: liveLabel.eta })
+        : liveLabel?.kind === "veryClose"
+          ? t("urrideLocationTrust.veryClose")
+          : null;
     placeLine = operator.lastSeenPlace || "";
   } else if (liveState === "recent") {
     if (liveLabel?.kind === "lastSeenNear") {

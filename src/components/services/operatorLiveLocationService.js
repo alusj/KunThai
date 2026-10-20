@@ -64,6 +64,8 @@ function publishStatusSnapshot() {
     // refused the position) or "" (no failure since the last saved position).
     startedAt: activePublisher?.startedAt || 0,
     error: activePublisher?.errorKind || "",
+    // Accuracy (m) of the position passengers see; null when unknown.
+    accuracy: Number.isFinite(activePublisher?.lastAccuracy) ? activePublisher.lastAccuracy : null,
   };
 }
 
@@ -274,6 +276,10 @@ function setPublisherError(publisher, kind) {
 // (KunThai already used it for Area View / "Locate me", or the browser says so).
 async function webLocationAllowed(publisher) {
   if (publisher.engine === "web") return readFlag(LOCATION_GRANTED_KEY);
+  // Android: the WebView uses the app's own location permission, which the
+  // native watcher already has; its Permissions API still answers "prompt",
+  // so asking it here kept the precise fix from ever running on Android.
+  if (nativePlatform() === "android" && publisher.access !== "denied") return true;
   if (readFlag(PASSENGER_LOCATION_GRANTED_KEY)) return true;
   try {
     const status = await navigator.permissions?.query?.({ name: "geolocation" });

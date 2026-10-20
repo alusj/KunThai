@@ -312,3 +312,22 @@ test("refresh scheduler: refreshNow ignores the realtime gap and resolves when d
   assert.equal(timers.pending().length, 1, "the interval continues after it");
   scheduler.stop();
 });
+
+test("rough positions never claim a false-precise distance", async () => {
+  const { liveCardLabelValues } = await import("./liveDiscovery.js");
+  const base = { liveAvailability: "available", etaMinutes: 3 };
+  // Side by side, but the operator only has a 300 m cell fix: "very close".
+  assert.deepEqual(liveCardLabelValues({ ...base, distanceKm: 0.21, operatorAccuracyM: 300, passengerAccuracyM: 12 }), { kind: "veryClose" });
+  // Further than the combined error, still rough: "about", rounded to 100 m.
+  assert.deepEqual(
+    liveCardLabelValues({ ...base, distanceKm: 0.64, operatorAccuracyM: 300, passengerAccuracyM: 10 }),
+    { kind: "approxDistanceEta", distance: { unit: "m", value: "600" }, eta: 3 },
+  );
+  // Good fixes on both sides keep the exact distance.
+  assert.deepEqual(
+    liveCardLabelValues({ ...base, distanceKm: 0.21, operatorAccuracyM: 8, passengerAccuracyM: 10 }),
+    { kind: "distanceEta", distance: { unit: "m", value: "210" }, eta: 3 },
+  );
+  // Unknown accuracy behaves as before.
+  assert.equal(liveCardLabelValues({ ...base, distanceKm: 0.21 }).kind, "distanceEta");
+});

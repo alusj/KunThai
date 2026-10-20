@@ -34,6 +34,19 @@
                     android:pathPrefix="/callback" />
             </intent-filter>
 
+            <!-- Shared profile links and QR codes (https://kunthai.app/#urmall-seller-…,
+                 #urride-fleet-…, #urride-company-…) open the app. Verified through
+                 public/.well-known/assetlinks.json; the hash is read in profileShareService. -->
+            <intent-filter android:autoVerify="true">
+                <action android:name="android.intent.action.VIEW" />
+                <category android:name="android.intent.category.DEFAULT" />
+                <category android:name="android.intent.category.BROWSABLE" />
+                <data
+                    android:scheme="https"
+                    android:host="kunthai.app"
+                    android:path="/" />
+            </intent-filter>
+
         </activity>
 
         <!-- Background pushes without a channel_id go to this channel; the app

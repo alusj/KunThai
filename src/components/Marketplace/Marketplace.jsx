@@ -196,6 +196,23 @@ export default function Marketplace({ nav, setNav, onActivityChange, onNotificat
     onNotificationCountChange?.(totalNotificationCount);
   }, [onNotificationCountChange, totalNotificationCount]);
 
+  // A shared seller link or QR code (profileShareService): leave any seller
+  // workspace or utility, show the shop where Browse lives, then open the
+  // seller there.
+  useEffect(() => {
+    function handleSharedSeller(event) {
+      const seller = event.detail?.seller;
+      if (!seller?.id) return;
+      if (event.detail) event.detail.handled = true;
+      setActiveUtility(null);
+      setNav({ root: "marketplace", sub: null });
+      setActiveParent("all");
+      window.setTimeout(() => window.dispatchEvent(new CustomEvent("marketplace-open-seller", { detail: { seller } })), 120);
+    }
+    window.addEventListener("marketplace-open-shared-seller", handleSharedSeller);
+    return () => window.removeEventListener("marketplace-open-shared-seller", handleSharedSeller);
+  }, [setNav]);
+
   const setMarketplaceScreenMode = useCallback((enabled) => {
     setProductMode(enabled);
     setNav((current) => {
