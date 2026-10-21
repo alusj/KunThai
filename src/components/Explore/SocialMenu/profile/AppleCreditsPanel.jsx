@@ -2,40 +2,49 @@ import { useEffect, useState } from "react";
 import { HiOutlineSparkles } from "react-icons/hi2";
 
 import { buyAppleCredits, loadAppleCreditPacks } from "../../../../Backend/services/appleIapService";
+import { buyGooglePlayCredits, loadGooglePlayCreditPacks } from "../../../../Backend/services/googlePlayBillingService";
 import { t, useI18n as useUiLocale } from "../../../../i18n/index.js";
 
-// "Buy credits" in the iOS app: Apple In-App Purchase packs only (App Store
-// Review Guideline 3.1.1). Android and the web show the Monime methods instead.
-export default function AppleCreditsPanel({ onClose }) {
+// The store's lines; everything else in the panel names no store.
+const STORES = {
+  apple: { loadPacks: loadAppleCreditPacks, buyPack: buyAppleCredits, copy: "appleIap" },
+  google: { loadPacks: loadGooglePlayCreditPacks, buyPack: buyGooglePlayCredits, copy: "googlePlayBilling" },
+};
+
+// "Buy credits" in the store apps: the store's own packs only. iOS: Apple
+// In-App Purchase (App Store Review Guideline 3.1.1). Android (store="google"):
+// Google Play Billing (Play payments policy). The web shows the Monime methods.
+export default function AppleCreditsPanel({ onClose, store = "apple" }) {
   useUiLocale();
+  const { loadPacks, buyPack, copy } = STORES[store] || STORES.apple;
   const [packs, setPacks] = useState(null); // null = loading
   const [busyId, setBusyId] = useState("");
   const [message, setMessage] = useState(null); // { tone, text }
 
   useEffect(() => {
     let active = true;
-    loadAppleCreditPacks()
+    loadPacks()
       .then((items) => { if (active) setPacks(items); })
       .catch(() => { if (active) setPacks([]); });
     return () => { active = false; };
-  }, []);
+  }, [loadPacks]);
 
   async function buy(pack) {
     if (busyId) return;
     setBusyId(pack.productId);
-    setMessage({ tone: "info", text: t("appleIap.buying") });
+    setMessage({ tone: "info", text: t(`${copy}.buying`) });
     try {
-      const result = await buyAppleCredits(pack.productId);
+      const result = await buyPack(pack.productId);
       if (result.status === "added") {
         setMessage({ tone: "success", text: t("appleIap.added", { credits: result.credits }) });
       } else if (result.status === "delayed") {
         setMessage({ tone: "info", text: t("appleIap.delayed") });
       } else if (result.status === "pending") {
-        setMessage({ tone: "info", text: t("appleIap.pending") });
+        setMessage({ tone: "info", text: t(`${copy}.pending`) });
       } else if (result.status === "refused") {
         setMessage({ tone: "error", text: t("appleIap.failed") });
       } else {
-        setMessage(null); // cancelled in the App Store sheet
+        setMessage(null); // cancelled in the store's sheet
       }
     } catch {
       setMessage({ tone: "error", text: t("appleIap.failed") });
@@ -59,7 +68,7 @@ export default function AppleCreditsPanel({ onClose }) {
         <div className="min-w-0">
           <p className="text-xs font-black uppercase tracking-[0.18em] text-sky-700">{t("exploreProfileFix.visibilityCredits")}</p>
           <h2 id="buy-credits-title" className="mt-1 text-xl font-black text-slate-950">{t("buyCredits.title")}</h2>
-          <p className="mt-1 text-sm font-semibold text-slate-500">{t("appleIap.intro")}</p>
+          <p className="mt-1 text-sm font-semibold text-slate-500">{t(`${copy}.intro`)}</p>
         </div>
       </div>
 
@@ -90,7 +99,7 @@ export default function AppleCreditsPanel({ onClose }) {
         <p className={`mt-3 rounded-2xl px-4 py-3 text-sm font-bold leading-6 ${tones[message.tone]}`} role="status">{message.text}</p>
       ) : null}
 
-      <p className="mt-3 text-xs font-semibold leading-5 text-slate-500">{t("appleIap.note")}</p>
+      <p className="mt-3 text-xs font-semibold leading-5 text-slate-500">{t(`${copy}.note`)}</p>
 
       <button type="button" onClick={onClose} disabled={Boolean(busyId)} className="mt-3 h-12 w-full rounded-2xl border border-slate-200 bg-white px-4 text-sm font-black text-slate-700 disabled:opacity-60">
         {t("common.close")}

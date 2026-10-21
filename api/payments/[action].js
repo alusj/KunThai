@@ -1,6 +1,7 @@
 // Visibility Credit payments — one serverless function for every Monime
-// endpoint, and the Apple In-App Purchase endpoints (apple-verify-purchase,
-// apple-notifications) served at /api/payments/<action>.
+// endpoint, the Apple In-App Purchase endpoints (apple-verify-purchase,
+// apple-notifications) and the Google Play Billing endpoints
+// (google-verify-purchase, google-notifications) served at /api/payments/<action>.
 //
 // Vercel Hobby caps a deployment at 12 serverless functions, so the payment
 // endpoints share this router instead of one function each. The public URLs are
@@ -10,6 +11,8 @@
 
 import appleNotifications from "../../server/payments/apple-notifications.js";
 import appleVerifyPurchase from "../../server/payments/apple-verify-purchase.js";
+import googleNotifications from "../../server/payments/google-notifications.js";
+import googleVerifyPurchase from "../../server/payments/google-verify-purchase.js";
 import monimeCreatePayment from "../../server/payments/monime-create-payment.js";
 import monimeResumePending from "../../server/payments/monime-resume-pending.js";
 import monimeVerifyPayment from "../../server/payments/monime-verify-payment.js";
@@ -24,6 +27,8 @@ const HANDLERS = {
   "monime-webhook": monimeWebhook,
   "apple-verify-purchase": appleVerifyPurchase,
   "apple-notifications": appleNotifications,
+  "google-verify-purchase": googleVerifyPurchase,
+  "google-notifications": googleNotifications,
 };
 
 export default async function handler(req, res) {

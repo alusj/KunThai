@@ -9,6 +9,7 @@ import ToastProvider from "./components/Explore/shared/ToastProvider.jsx";
 import { AppearanceProvider } from "./components/AppearanceProvider.jsx";
 import { initNativePushNotifications, registerKunThaiServiceWorker } from "./Backend/services/pushService.js";
 import { initAppleCreditPurchases } from "./Backend/services/appleIapService.js";
+import { initGooglePlayCreditPurchases } from "./Backend/services/googlePlayBillingService.js";
 import { initCountryConfig } from "./Backend/services/countryConfigService.js";
 import { t as i18nText } from "./i18n/index";
 import { installMobileViewportVariables } from "./Backend/services/mobileViewportService";
@@ -19,6 +20,7 @@ import { useI18n as useUiLocale } from "./i18n/index.js";
 registerKunThaiServiceWorker();
 initNativePushNotifications();
 initAppleCreditPurchases();
+initGooglePlayCreditPurchases();
 initCountryConfig();
 installMobileViewportVariables();
 // In the iOS / Android app, Share buttons open the phone's share sheet and
