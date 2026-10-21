@@ -1,6 +1,6 @@
 import { Capacitor } from "@capacitor/core";
 
-import supabase from "../../Backend/lib/supabaseClient";
+import supabase, { SUPABASE_API } from "../../Backend/lib/supabaseClient";
 import { t } from "../../i18n";
 import {
   GOOD_FIX_METERS,
@@ -233,6 +233,9 @@ async function publishRow(publisher, position, { force = false } = {}) {
       metadata: {
         booked,
         source: "operator_dashboard",
+        // Read by operator_native_location_ping: a rough native fix near a
+        // recent good one keeps the good position.
+        ...(publisher.lastGoodFix ? { good_fix_at: new Date(publisher.lastGoodFix.at).toISOString() } : {}),
         ...(publisher.placeLabel ? { place: publisher.placeLabel } : {}),
       },
       updated_at: new Date(now).toISOString(),
@@ -321,8 +324,33 @@ export function refreshOperatorLocationNow() {
   if (activePublisher) refinePosition(activePublisher, { force: true });
 }
 
+// Native delivery: a token that only lets this phone's location plugin update
+// this operator's position (supabase/migrations/20261021150000_*). Without a
+// connection there is none, and the app shares from JavaScript as before.
+const DELIVERY_TOKEN_WAIT_MS = 6000;
+async function prepareNativeDelivery() {
+  let timer;
+  const timeout = new Promise((resolve) => {
+    timer = setTimeout(() => resolve({ data: null }), DELIVERY_TOKEN_WAIT_MS);
+  });
+  const { data: token, error } = await Promise.race([supabase.rpc("start_operator_native_location"), timeout])
+    .finally(() => clearTimeout(timer));
+  if (error || typeof token !== "string" || !token) return null;
+  return {
+    url: `${SUPABASE_API.url.replace(/\/+$/, "")}/rest/v1/rpc/operator_native_location_ping`,
+    headers: {
+      apikey: SUPABASE_API.anonKey,
+      Authorization: `Bearer ${SUPABASE_API.anonKey}`,
+      "x-kunthai-location-token": token,
+    },
+  };
+}
+
 async function markOffline(userId) {
   if (!userId) return;
+  // The background plugin's token goes too, so nothing can place this
+  // operator after they went offline.
+  supabase.rpc("stop_operator_native_location").then(() => {}, () => {});
   await supabase
     .from("transport_operator_locations")
     .update({
@@ -435,6 +463,7 @@ function startNativeWatch(publisher, plugin, { interactive = false } = {}) {
     onSettled: () => {
       if (publisher.engine === "native") refreshNativeAccess(publisher);
     },
+    prepareDelivery: prepareNativeDelivery,
     // Heartbeat with the last known fix. iOS keeps KunThai running while
     // location updates are on; timers may still be slowed in the background
     // (see docs/2026-10-15-urride-background-location.md).

@@ -53,6 +53,9 @@ function accuracyOrNull(value) {
 
 // A position worse than this is "approximate" on the card.
 export const ROUGH_POSITION_METERS = 100;
+// Largest combined error (operator + passenger, metres) at which "Very close
+// to you" is still a fair claim.
+export const VERY_CLOSE_MAX_ERROR_METERS = 50;
 
 function rowDistanceKm(row) {
   const metres = row.distance_m === null || row.distance_m === undefined || row.distance_m === "" ? NaN : Number(row.distance_m);
@@ -150,18 +153,38 @@ export function liveCardLabelValues(item) {
   const eta = Number(item.etaMinutes);
   const safeEta = Number.isFinite(eta) && eta > 0 ? eta : 1;
   // Two phones side by side can read "210 m" when one only has a 300 m cell
-  // fix. Within the two positions' combined error the honest answer is "very
-  // close"; with a rough fix the distance is "about", rounded to 100 m.
+  // fix. Within the two positions' combined error the gap can't be measured:
+  // "very close" only when both fixes are good (combined error up to
+  // VERY_CLOSE_MAX_ERROR_METERS); with a rough fix it is "within about"
+  // that error, rounded up to 100 m. Walking away then visibly changes
+  // nothing only while the move is smaller than what the phones can tell.
   const operatorAccuracy = accuracyOrNull(item.operatorAccuracyM);
   const passengerAccuracy = accuracyOrNull(item.passengerAccuracyM);
   const metres = Number(item.distanceKm) * 1000;
   const uncertainty = (operatorAccuracy ?? 0) + (passengerAccuracy ?? 0);
-  if (metres <= 25 || (uncertainty >= 30 && metres <= uncertainty)) return { kind: "veryClose" };
+  if (metres <= Math.max(25, uncertainty)) {
+    if (uncertainty <= VERY_CLOSE_MAX_ERROR_METERS) return { kind: "veryClose" };
+    const bound = Math.ceil(Math.max(metres, uncertainty) / 100) * 100;
+    return { kind: "withinAbout", distance: formatLiveDistance(bound / 1000) };
+  }
   if ((operatorAccuracy ?? 0) > ROUGH_POSITION_METERS || (passengerAccuracy ?? 0) > ROUGH_POSITION_METERS) {
     const rounded = metres < 1000 ? Math.max(100, Math.round(metres / 100) * 100) / 1000 : Number(item.distanceKm);
     return { kind: "approxDistanceEta", distance: formatLiveDistance(rounded) || distance, eta: safeEta };
   }
   return { kind: "distanceEta", distance, eta: safeEta };
+}
+
+// What to tell someone whose own position is rough (over ROUGH_POSITION_METERS):
+// "precise" when an iPhone reports 1 km or worse, which is iOS's approximate
+// location (Precise Location off for KunThai; Wi-Fi or going outside can't
+// fix that), "rough" otherwise (no GPS indoors). null when the fix is fine.
+export const IOS_APPROXIMATE_LOCATION_METERS = 1000;
+export function locationAccuracyAdvice({ accuracy, platform = "" } = {}) {
+  const metres = accuracyOrNull(accuracy);
+  if (metres === null || metres <= ROUGH_POSITION_METERS) return null;
+  const m = Math.round(metres);
+  if (platform === "ios" && metres >= IOS_APPROXIMATE_LOCATION_METERS) return { kind: "precise", m };
+  return { kind: "rough", m };
 }
 
 function haversineKm(lat1, lng1, lat2, lng2) {

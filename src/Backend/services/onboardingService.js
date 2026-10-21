@@ -1,4 +1,5 @@
 import supabase from "../lib/supabaseClient";
+import { markStartupOffline, startupLooksOffline } from "./startupConnection";
 import { isMissingColumn, isMissingTable } from "./explore/errors";
 import { readStoredProfile, writeStoredProfile } from "./explore/profileStorage";
 import { normalizeSocialLinks } from "./explore/socialLinks";
@@ -317,7 +318,10 @@ function fetchAuthUser(hasSavedUser) {
 
   let timeoutId;
   const timeout = new Promise((_, reject) => {
-    timeoutId = setTimeout(() => reject(new Error("Account check timed out")), SAVED_SESSION_USER_WAIT_MS);
+    timeoutId = setTimeout(() => {
+      markStartupOffline();
+      reject(new Error("Account check timed out"));
+    }, startupLooksOffline() ? 0 : SAVED_SESSION_USER_WAIT_MS);
   });
   return Promise.race([request, timeout]).finally(() => clearTimeout(timeoutId));
 }

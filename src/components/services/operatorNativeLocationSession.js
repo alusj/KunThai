@@ -1,4 +1,5 @@
 import {
+  NATIVE_DELIVERY_INTERVAL_MS,
   NATIVE_DISTANCE_FILTER_METERS,
   NATIVE_HEARTBEAT_CHECK_MS,
   nativeHeartbeatDue,
@@ -33,7 +34,12 @@ export function toWebPosition(location) {
   };
 }
 
-export function nativeWatcherOptions({ interactive = false, notificationTitle = "", notificationMessage = "" } = {}) {
+// `delivery` ({ url, headers }): the plugin also POSTs every fix there from
+// native code, which keeps working with KunThai in the background.
+export function nativeWatcherOptions({ interactive = false, notificationTitle = "", notificationMessage = "", delivery = null } = {}) {
+  const native = delivery?.url
+    ? { url: delivery.url, headers: delivery.headers || {}, distanceFilter: 0, minIntervalMs: NATIVE_DELIVERY_INTERVAL_MS }
+    : {};
   return {
     // Android: the persistent foreground-service notification. Its presence
     // also turns on background updates on both platforms.
@@ -46,6 +52,7 @@ export function nativeWatcherOptions({ interactive = false, notificationTitle = 
     distanceFilter: NATIVE_DISTANCE_FILTER_METERS,
     // Android: a coarse network fix when GPS is silent (indoors, locked).
     networkFallback: true,
+    ...native,
   };
 }
 
@@ -59,6 +66,9 @@ export function createNativeLocationSession({
   onPermissionError = () => {},
   onStartFailed = () => {},
   onSettled = () => {},
+  // Resolves the native delivery ({ url, headers }) or null; awaited before the
+  // watcher starts, and a failure (offline) only means no native delivery.
+  prepareDelivery = async () => null,
   // Heartbeat: `lastPublishedAt()` / `hasPoint()` read the publisher, `beat()`
   // re-sends the last known fix.
   lastPublishedAt = () => 0,
@@ -91,9 +101,11 @@ export function createNativeLocationSession({
       await plugin.requestPermissions({ permissions: ["location", "notification"] }).catch(() => {});
       if (stopped) return;
     }
+    const delivery = await Promise.resolve().then(prepareDelivery).catch(() => null);
+    if (stopped) return;
     await plugin.stop().catch(() => {});
     if (stopped) return;
-    await plugin.start(nativeWatcherOptions({ interactive, notificationTitle, notificationMessage }), callback);
+    await plugin.start(nativeWatcherOptions({ interactive, notificationTitle, notificationMessage, delivery }), callback);
   })
     .then(
       () => true,

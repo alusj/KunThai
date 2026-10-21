@@ -893,7 +893,7 @@ export default function App() {
 
   if (!guestSession && twoFactorPending !== false) {
     return withStartupIntro(
-      <TwoFactorGate key={userId} user={user} onDeferred={deferTwoFactorCheck}>
+      <TwoFactorGate key={userId} user={user} onDeferred={deferTwoFactorCheck} loadingFallback={<AppLoading page={page} marketplaceSub={marketplaceNav.sub || ""} />}>
         <TwoFactorPassed onPassed={() => setTwoFactorPending(false)} />
       </TwoFactorGate>,
     );

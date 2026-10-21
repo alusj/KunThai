@@ -512,7 +512,7 @@ export function getPushProblemMessage() {
 
 // Before signing out (while the session still works): this phone stops
 // getting the account's pushes. Never holds up sign-out for long.
-export async function forgetNativePushDevice() {
+export async function forgetNativePushDevice({ waitMs = 4000 } = {}) {
   if (!isNativeApp()) return;
   const state = readNativePushState();
   writeNativePushState(null);
@@ -522,7 +522,7 @@ export async function forgetNativePushDevice() {
     await Promise.race([
       supabase.rpc("unregister_push_device_token", { p_token: state.token }),
       new Promise((resolve) => {
-        setTimeout(resolve, 4000);
+        setTimeout(resolve, waitMs);
       }),
     ]);
   } catch {

@@ -15,6 +15,11 @@ export const HEARTBEAT_INTERVAL_MS = 30_000;
 // 10 m (was 25): a parked operator whose first fix was rough gets corrected
 // sooner, and passengers see small moves.
 export const NATIVE_DISTANCE_FILTER_METERS = 10;
+// With native delivery (the plugin POSTs each fix itself, so it works while
+// the app is in the background or swiped away) the OS reports a fix every
+// NATIVE_DELIVERY_INTERVAL_MS whether or not the operator moved: a parked
+// operator keeps checking in with no JavaScript running at all.
+export const NATIVE_DELIVERY_INTERVAL_MS = 5000;
 export const NATIVE_HEARTBEAT_CHECK_MS = 10_000;
 
 export function distanceInMeters(a, b) {

@@ -5,6 +5,7 @@ import { isAuthRetryableFetchError } from "@supabase/supabase-js";
 import supabase from "../lib/supabaseClient";
 import { clearExploreMessageCache } from "../services/explore/messageService";
 import { clearTransientSessionNavigation, readSessionContinuity, rememberSocialAccount, vaultSessionSnapshot } from "../services/sessionService";
+import { markStartupOffline, startupLooksOffline } from "../services/startupConnection";
 
 function isBrokenJwtUser(error) {
   const message = String(error?.message || error || "").toLowerCase();
@@ -69,14 +70,16 @@ export const useAuth = () => {
     async function loadAuth() {
       // Offline (or a stuck token refresh): show the saved account's cached
       // screens instead of an endless loader, while the real check finishes.
+      // The phone already says it is offline: no point waiting at all.
       const fallbackTimer = window.setTimeout(() => {
         if (!active) return;
         const savedUser = readSavedSessionUser();
         if (!savedUser) return;
+        markStartupOffline();
         activeUserIdRef.current = savedUser.id;
         setUser((current) => current || savedUser);
         setLoading(false);
-      }, SAVED_SESSION_FALLBACK_MS);
+      }, startupLooksOffline() ? 0 : SAVED_SESSION_FALLBACK_MS);
 
       try {
         const { data: sessionData, error: sessionError } = await supabase.auth.getSession();

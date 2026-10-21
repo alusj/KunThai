@@ -30,6 +30,7 @@ export default function CompanyRentals({ company, onAddFleet }) {
   // Only the newest request may change the screen, so a slow response for the
   // previously opened company never replaces this company's rentals.
   const requestRef = useRef(0);
+  const pendingAvailability = useRef(new Set());
   const refresh = useCallback(async () => {
     const request = ++requestRef.current;
     const current = () => request === requestRef.current;
@@ -56,6 +57,25 @@ export default function CompanyRentals({ company, onAddFleet }) {
   const fleet = (company.fleets || []).find((item) => item.id === selected?.company_fleet_id);
   const open = (id, action = "Dashboard") => { setError(""); setScreen({ id, action }); };
   const back = () => { setScreen(screen?.action === "Dashboard" || selected?.deleted_at ? null : { id: selected.id, action: "Dashboard" }); setError(""); refresh(); };
+  // The switch flips the moment it is tapped; the save and the list refresh
+  // run behind it, and a refused save puts the switch back with the reason.
+  const toggleAvailability = async (rentalId, available) => {
+    if (pendingAvailability.current.has(rentalId)) return;
+    pendingAvailability.current.add(rentalId);
+    const matches = (row) => row.id === rentalId;
+    const previous = rentals.find(matches)?.status;
+    setError("");
+    setRentals((rows) => rows.map((row) => matches(row) ? { ...row, status: available ? "available" : "hidden" } : row));
+    try {
+      await setRentalAvailabilityWithFeedback(rentalId, available);
+      refresh();
+    } catch (err) {
+      setRentals((rows) => rows.map((row) => matches(row) ? { ...row, status: previous } : row));
+      setError(inlineErrorMessage(err));
+    } finally {
+      pendingAvailability.current.delete(rentalId);
+    }
+  };
   const act = async (action, deleted = false) => { setBusy(true); setError(""); try { await action(); await refresh(); if (deleted) setScreen(null); } catch (err) { setError(inlineErrorMessage(err)); } finally { setBusy(false); } };
   const visible = rentals.filter((rental) => {
     if (rental.deleted_at || ![rental.title, rental.pickup_address].join(" ").toLowerCase().includes(search.trim().toLowerCase())) return false;
@@ -68,13 +88,13 @@ export default function CompanyRentals({ company, onAddFleet }) {
     {error && <p role="alert" className="rounded-xl bg-rose-50 p-3 text-rose-700">{translateUi(error)}</p>}
     {selected && screen ? <>
       <button type="button" onClick={back} className="rounded-xl border px-4 py-2 font-bold">{screen.action === "Dashboard" || selected.deleted_at ? i18nText("ui.literals.k883626995a38") : i18nText("ui.literals.kbac3c31f1af8")}</button>
-      {screen.action === "Dashboard" ? <CompanyRentalDashboard rentals={rentals} reservations={activity} selected={selected} availabilityBusy={busy} onAvailability={(checked) => act(() => setRentalAvailabilityWithFeedback(selected.id, checked))} onOpen={open} activityError={activityError} refreshing={refreshing} onRefresh={refresh} /> : <h2 className="text-xl font-black text-slate-950">{selected.title} · {screen.action}</h2>}
+      {screen.action === "Dashboard" ? <CompanyRentalDashboard rentals={rentals} reservations={activity} selected={selected} onAvailability={(checked) => toggleAvailability(selected.id, checked)} onOpen={open} activityError={activityError} refreshing={refreshing} onRefresh={refresh} /> : <h2 className="text-xl font-black text-slate-950">{selected.title} · {screen.action}</h2>}
       {screen.action === "Edit fleet" && fleet && <RentalEditor key={selected.id} company={company} fleet={fleet} existing={selected} onSaved={refresh} />}
       {screen.action === "Requests / reservations" && <RentalReservations rentalId={selected.id} manager />}
       {screen.action === "Rental history" && <RentalReservations rentalId={selected.id} manager history />}
       {screen.action === "Reviews" && <RentalReviews rentalId={selected.id} manager />}
-      {screen.action === "Availability" && <div className="space-y-4 rounded-2xl border bg-white p-5"><p className="text-slate-600">{i18nText("ui.literals.ke83de9b25282")}</p><ToggleRow disabled={busy} checked={selected.status === "available"} label={busy ? i18nText("ui.literals.k3ab0d73100de") : selected.status === "available" ? i18nText("ui.literals.k7c62a1424469") : i18nText("ui.literals.kd1a17af19f53")} onChange={(checked) => act(() => setRentalAvailabilityWithFeedback(selected.id, checked))} /></div>}
-      {screen.action === "Delete fleet" && <div className="space-y-4 rounded-2xl border bg-white p-5"><p>{i18nText("ui.literals.kde30418d6f0b")}</p><button type="button" disabled={busy} onClick={() => act(() => deleteRentalFleet(selected.id), true)} className="rounded-xl bg-rose-700 px-4 py-3 font-bold text-white">{busy ? i18nText("ui.literals.kc7ac551ef042") : i18nText("ui.literals.k67ff54d73834")}</button></div>}
+      {screen.action === "Availability" && <div className="space-y-4 rounded-2xl border bg-white p-5"><p className="text-slate-600">{i18nText("ui.literals.ke83de9b25282")}</p><ToggleRow checked={selected.status === "available"} label={selected.status === "available" ? i18nText("ui.literals.k7c62a1424469") : i18nText("ui.literals.kd1a17af19f53")} onChange={(checked) => toggleAvailability(selected.id, checked)} /></div>}
+      {screen.action === "Delete fleet" && <div className="space-y-4 rounded-2xl border bg-white p-5"><p>{i18nText("ui.literals.kde30418d6f0b")}</p><div className="flex flex-wrap gap-3"><button type="button" disabled={busy} onClick={() => act(() => deleteRentalFleet(selected.id), true)} className="rounded-xl bg-rose-700 px-4 py-3 font-bold text-white disabled:opacity-60">{busy ? i18nText("ui.literals.kc7ac551ef042") : i18nText("ui.literals.k67ff54d73834")}</button><button type="button" disabled={busy} onClick={back} className="rounded-xl border px-4 py-3 font-bold disabled:opacity-60">{i18nText("ui.literals.k77dfd2135f4d")}</button></div></div>}
     </> : <>
       <div className="flex flex-wrap items-center justify-between gap-3"><h2 className="text-xl font-black text-slate-950">{i18nText("ui.literals.kc98b6e85eca5")}</h2>{onAddFleet && <button type="button" onClick={onAddFleet} className="rounded-xl bg-emerald-700 px-4 py-3 text-sm font-bold text-white">{i18nText("ui.literals.k7af252cec249")}</button>}</div>
       {loading ? <p className="text-sm text-slate-600">{i18nText("ui.literals.k5c0bed063242")}</p> : <CompanyRentalDashboard rentals={rentals} reservations={activity} companyName={company.companyName} onOpen={open} onFilter={setFilter} activityError={activityError} refreshing={refreshing} onRefresh={refresh} />}
@@ -84,7 +104,7 @@ export default function CompanyRentals({ company, onAddFleet }) {
       <div className="grid gap-4 sm:grid-cols-2">{visible.map((rental) => <article key={rental.id} className="relative rounded-2xl border border-slate-200 bg-white shadow-sm transition hover:border-emerald-400 hover:shadow-md">
         <button type="button" aria-label={"Open " + rental.title + " fleet dashboard"} onClick={() => open(rental.id)} className="absolute inset-0 rounded-2xl focus-visible:outline focus-visible:outline-2 focus-visible:outline-emerald-600" />
         <div className="pointer-events-none relative"><div className="overflow-hidden rounded-t-2xl bg-slate-100">{rental.photos?.[0] ? <img src={rental.photos[0]} alt={rental.title} className="h-48 w-full object-cover" /> : <div className="flex h-48 items-center justify-center text-slate-500">{i18nText("ui.literals.k1815313d1886")}</div>}</div><RentalActions title={rental.title} actions={["Dashboard", "Requests / reservations", "Edit fleet", "Availability", "Rental history", "Reviews", "Delete fleet"].map((action) => [action, () => open(rental.id, action)])} /></div>
-        <div className="pointer-events-none relative space-y-3 p-4">{rental.plan_suspended ? <p className="rounded-xl bg-amber-50 px-3 py-2 text-xs font-bold leading-5 text-amber-900"><span className="mr-1 font-black uppercase">{i18nText("urrideAddMenu.pausedBadge")}</span>{i18nText("urrideAddMenu.pausedOperatorNote")}</p> : null}<h3 className="text-lg font-black text-slate-950">{rental.title}</h3><p className="text-sm text-slate-600">{rental.pickup_address}</p><p className="text-xs font-bold text-emerald-700">{i18nText("ui.literals.k3c32fcce4732")}</p><div className="pointer-events-auto"><ToggleRow disabled={busy} checked={rental.status === "available"} label={rental.status === "available" ? i18nText("ui.literals.k7c62a1424469") : i18nText("ui.literals.kd1a17af19f53")} onChange={(checked) => act(() => setRentalAvailabilityWithFeedback(rental.id, checked))} /></div></div>
+        <div className="pointer-events-none relative space-y-3 p-4">{rental.plan_suspended ? <p className="rounded-xl bg-amber-50 px-3 py-2 text-xs font-bold leading-5 text-amber-900"><span className="mr-1 font-black uppercase">{i18nText("urrideAddMenu.pausedBadge")}</span>{i18nText("urrideAddMenu.pausedOperatorNote")}</p> : null}<h3 className="text-lg font-black text-slate-950">{rental.title}</h3><p className="text-sm text-slate-600">{rental.pickup_address}</p><p className="text-xs font-bold text-emerald-700">{i18nText("ui.literals.k3c32fcce4732")}</p><div className="pointer-events-auto"><ToggleRow checked={rental.status === "available"} label={rental.status === "available" ? i18nText("ui.literals.k7c62a1424469") : i18nText("ui.literals.kd1a17af19f53")} onChange={(checked) => toggleAvailability(rental.id, checked)} /></div></div>
       </article>)}</div></section>
       {rentals.some((rental) => rental.deleted_at) && <details className="rounded-xl border p-3"><summary className="cursor-pointer font-bold">{i18nText("ui.literals.k8c845668a217")}</summary>{rentals.filter((rental) => rental.deleted_at).map((rental) => <button key={rental.id} type="button" onClick={() => open(rental.id, "Rental history")} className="mt-2 block rounded-xl border px-4 py-3 text-sm font-bold">{rental.title} {i18nText("ui.literals.kf7bceb5b9765")}</button>)}</details>}
     </>}

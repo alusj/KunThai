@@ -33,6 +33,7 @@ import { t as i18nText } from "../../../i18n/index";
 import { uiText as translateUi, useI18n as useUiLocale } from "../../../i18n/index.js";
 import { inlineErrorMessage } from "../../../Backend/services/friendlyErrorService";
 import GrowLocalShareCard from "../../shared/GrowLocalShareCard";
+import LocationAccuracyNote from "../shared/LocationAccuracyNote";
 
 function matchesQuery(operator, query) {
   const term = String(query || "").trim().toLowerCase();
@@ -54,7 +55,7 @@ function matchesQuery(operator, query) {
 
 const LIVE_AVAILABLE_LIMIT = 12;
 const LIVE_RECENT_LIMIT = 6;
-const POSITION_REFRESH_MS = 60_000;
+const POSITION_REFRESH_MS = 20_000;
 const REALTIME_DEBOUNCE_MS = 2_000;
 const REALTIME_MIN_GAP_MS = 5_000;
 
@@ -224,7 +225,8 @@ export default function NearbyOperators({
   // when the app is hidden or the Rentals tab is open; never two requests at
   // once) and sooner when an operator nearby moves (realtime, debounced). A
   // refresh only re-renders when something changed, so the scroll position
-  // stays and nothing flickers.
+  // stays and nothing flickers. The passenger's own position is read again
+  // every 20 s, so walking away from an operator shows within a refresh or two.
   useEffect(() => {
     if (!isLiveDiscoveryAvailable()) {
       setLive(null);
@@ -273,8 +275,8 @@ export default function NearbyOperators({
         if (!isLiveDiscoveryAvailable()) scheduler.stop();
         return;
       }
-      const next = { available: result.available, recent: result.recent, radiusKm: result.radiusKm };
-      const signature = `${next.radiusKm}#${liveDiscoverySignature(next)}`;
+      const next = { available: result.available, recent: result.recent, radiusKm: result.radiusKm, passengerAccuracy: position.accuracy ?? null };
+      const signature = `${next.radiusKm}#${next.passengerAccuracy}#${liveDiscoverySignature(next)}`;
       if (signature === liveSignatureRef.current) return;
       liveSignatureRef.current = signature;
       setLive(next);
@@ -383,6 +385,9 @@ export default function NearbyOperators({
           available={liveAvailable}
           recent={liveRecent}
           radiusKm={live.radiusKm}
+          passengerAccuracy={live.passengerAccuracy}
+          onRefreshPosition={refreshNearby}
+          refreshing={refreshing}
           onOpenOpenBooking={onOpenOpenBooking}
           cardHandlers={cardHandlers}
         />
@@ -483,7 +488,9 @@ function OperatorCard({ operator, pickup, destination, onViewFleet, onViewCompan
         ? t("urrideLocationTrust.approxDistanceEta", { distance: liveDistanceText(liveLabel.distance), eta: liveLabel.eta })
         : liveLabel?.kind === "veryClose"
           ? t("urrideLocationTrust.veryClose")
-          : null;
+          : liveLabel?.kind === "withinAbout"
+            ? t("urrideLocationTrust.withinAbout", { distance: liveDistanceText(liveLabel.distance) })
+            : null;
     placeLine = operator.lastSeenPlace || "";
   } else if (liveState === "recent") {
     if (liveLabel?.kind === "lastSeenNear") {
@@ -595,7 +602,7 @@ function OperatorCard({ operator, pickup, destination, onViewFleet, onViewCompan
 // "Available near you" (nearest first) and, below it, a smaller "Recently
 // online" group. Shown only when the passenger's position is known and the
 // database supports live discovery.
-function LiveOperatorGroups({ available, recent, radiusKm, onOpenOpenBooking, cardHandlers }) {
+function LiveOperatorGroups({ available, recent, radiusKm, passengerAccuracy, onRefreshPosition, refreshing, onOpenOpenBooking, cardHandlers }) {
   return (
     <div className="grid gap-4" data-direction="urride-live-discovery">
       <div>
@@ -603,6 +610,13 @@ function LiveOperatorGroups({ available, recent, radiusKm, onOpenOpenBooking, ca
           <h3 className="text-sm font-black text-gray-950">{t("urrideLiveDiscovery.availableTitle")}</h3>
           <p className="text-xs text-gray-500">{t("urrideLiveDiscovery.availableSubtitle")}</p>
         </div>
+        <LocationAccuracyNote
+          accuracy={passengerAccuracy}
+          roughTextKey="urrideLocationTrust.roughPassengerHint"
+          onRefresh={onRefreshPosition}
+          refreshing={refreshing}
+          className="mb-3"
+        />
         {available.length ? (
           <div className="grid gap-3 lg:grid-cols-3 2xl:grid-cols-6">
             {available.map((operator) => (

@@ -9,6 +9,7 @@ import {
 import { t as i18nText } from "../../i18n/index";
 import { uiText as translateUi, useI18n as useUiLocale } from "../../i18n/index.js";
 import { inlineErrorMessage } from "../../Backend/services/friendlyErrorService";
+import { markStartupOffline, startupLooksOffline } from "../../Backend/services/startupConnection";
 
 // Blocks the workspace after password sign-in until the authenticator code is
 // verified, for accounts with two-step verification turned on. Accounts
@@ -20,7 +21,7 @@ import { inlineErrorMessage } from "../../Backend/services/friendlyErrorService"
 // the code for good.
 const CHECK_WAIT_MS = 3000;
 
-export default function TwoFactorGate({ user, children, onResolved, onDeferred }) {
+export default function TwoFactorGate({ user, children, onResolved, onDeferred, loadingFallback = null }) {
   useUiLocale();
   const [required, setRequired] = useState(null);
   const [code, setCode] = useState("");
@@ -43,11 +44,12 @@ export default function TwoFactorGate({ user, children, onResolved, onDeferred }
     const defer = () => {
       if (!active || settled) return;
       settled = true;
+      markStartupOffline();
       onDeferred?.();
       setRequired(false);
       onResolved?.(false);
     };
-    const waitTimer = window.setTimeout(defer, typeof navigator !== "undefined" && navigator.onLine === false ? 0 : CHECK_WAIT_MS);
+    const waitTimer = window.setTimeout(defer, startupLooksOffline() ? 0 : CHECK_WAIT_MS);
     checkTwoFactorChallenge()
       .then((result) => {
         window.clearTimeout(waitTimer);
@@ -80,10 +82,9 @@ export default function TwoFactorGate({ user, children, onResolved, onDeferred }
   }, [guest, onDeferred, onResolved, userId]);
 
   if (required === null) {
-    // Blend into the single app loading backdrop instead of adding a separate
-    // "Checking account security" screen — the check is brief and the extra
-    // wording just stacked another loading state on top of the app skeleton.
-    return <div className="min-h-dvh bg-slate-100" aria-label={i18nText("ui.literals.k721d964bf95b")} />;
+    // Keep the app's loading skeleton on screen (not an empty page) while the
+    // check runs; no separate "Checking account security" screen.
+    return loadingFallback || <div className="min-h-dvh bg-slate-100" aria-label={i18nText("ui.literals.k721d964bf95b")} />;
   }
 
   if (!required) return children;

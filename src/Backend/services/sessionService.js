@@ -248,8 +248,9 @@ export async function signOutSocialSession({ allDevices = false } = {}) {
 export async function startAddSocialAccount() {
   const { data } = await supabase.auth.getSession();
   if (data?.session) vaultSessionSnapshot(data.session);
-  // The next account on this phone turns push on for itself.
-  await forgetNativePushDevice();
+  // The next account on this phone turns push on for itself, and doing so
+  // moves the token over anyway, so a slow network only gets a short wait.
+  await forgetNativePushDevice({ waitMs: 800 });
   clearExploreMessageCache();
   clearSocialSessionCache();
   clearExploreAccountCache();

@@ -10,6 +10,7 @@ import {
   subscribeOperatorPublishStatus,
   refreshOperatorLocationNow,
 } from "../services/operatorLiveLocationService";
+import LocationAccuracyNote from "./shared/LocationAccuracyNote";
 
 // Operator dashboard, while Active (Online): two separate lines, both from
 // what this phone actually did, never from the Active switch alone.
@@ -92,21 +93,12 @@ export default function OperatorVisibilityStatus({ displayName = "", fleetType =
   // the wrong distance, so the operator is told how to fix it.
   const roughAccuracy = status.running && Number(status.accuracy) > 100 ? Math.round(Number(status.accuracy)) : 0;
   const accuracyHint = roughAccuracy ? (
-    <div
-      role="note"
-      data-direction="urride-operator-accuracy-hint"
-      className="-mt-2 mb-4 flex flex-wrap items-center justify-between gap-2 rounded-2xl border border-amber-200 bg-amber-50 px-4 py-2.5 text-xs font-bold text-amber-900"
-    >
-      <span className="min-w-0 flex-1">{t("urrideLocationTrust.roughOperatorHint", { m: roughAccuracy })}</span>
-      <button
-        type="button"
-        onClick={() => refreshOperatorLocationNow()}
-        className="inline-flex h-8 items-center gap-1.5 rounded-full border border-amber-300 bg-white px-3 text-xs font-black text-amber-900 transition hover:bg-amber-100"
-      >
-        <FiMapPin size={13} aria-hidden="true" />
-        {t("urrideLocationTrust.refreshPosition")}
-      </button>
-    </div>
+    <LocationAccuracyNote
+      accuracy={roughAccuracy}
+      roughTextKey="urrideLocationTrust.roughOperatorHint"
+      onRefresh={() => refreshOperatorLocationNow()}
+      className="-mt-2 mb-4"
+    />
   ) : null;
 
   const locationText = {

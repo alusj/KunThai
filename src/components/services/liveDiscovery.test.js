@@ -316,8 +316,20 @@ test("refresh scheduler: refreshNow ignores the realtime gap and resolves when d
 test("rough positions never claim a false-precise distance", async () => {
   const { liveCardLabelValues } = await import("./liveDiscovery.js");
   const base = { liveAvailability: "available", etaMinutes: 3 };
-  // Side by side, but the operator only has a 300 m cell fix: "very close".
-  assert.deepEqual(liveCardLabelValues({ ...base, distanceKm: 0.21, operatorAccuracyM: 300, passengerAccuracyM: 12 }), { kind: "veryClose" });
+  // Side by side, but the operator only has a 300 m cell fix: never "very
+  // close" (it may not be), "within about" the combined error instead.
+  assert.deepEqual(
+    liveCardLabelValues({ ...base, distanceKm: 0.21, operatorAccuracyM: 300, passengerAccuracyM: 12 }),
+    { kind: "withinAbout", distance: { unit: "m", value: "400" } },
+  );
+  assert.deepEqual(
+    liveCardLabelValues({ ...base, distanceKm: 0.01, operatorAccuracyM: 300, passengerAccuracyM: 12 }),
+    { kind: "withinAbout", distance: { unit: "m", value: "400" } },
+  );
+  // Both on GPS and the gap is inside their error: "very close".
+  assert.deepEqual(liveCardLabelValues({ ...base, distanceKm: 0.02, operatorAccuracyM: 8, passengerAccuracyM: 10 }), { kind: "veryClose" });
+  // Both on GPS, 40 m apart: the real distance shows (someone walked away).
+  assert.equal(liveCardLabelValues({ ...base, distanceKm: 0.04, operatorAccuracyM: 8, passengerAccuracyM: 10 }).kind, "distanceEta");
   // Further than the combined error, still rough: "about", rounded to 100 m.
   assert.deepEqual(
     liveCardLabelValues({ ...base, distanceKm: 0.64, operatorAccuracyM: 300, passengerAccuracyM: 10 }),
@@ -330,4 +342,13 @@ test("rough positions never claim a false-precise distance", async () => {
   );
   // Unknown accuracy behaves as before.
   assert.equal(liveCardLabelValues({ ...base, distanceKm: 0.21 }).kind, "distanceEta");
+});
+
+test("rough own position: iPhone approximate location gets the Precise Location advice", async () => {
+  const { locationAccuracyAdvice } = await import("./liveDiscovery.js");
+  assert.equal(locationAccuracyAdvice({ accuracy: 12, platform: "ios" }), null);
+  assert.equal(locationAccuracyAdvice({ accuracy: null, platform: "ios" }), null);
+  assert.deepEqual(locationAccuracyAdvice({ accuracy: 1414, platform: "ios" }), { kind: "precise", m: 1414 });
+  assert.deepEqual(locationAccuracyAdvice({ accuracy: 300, platform: "ios" }), { kind: "rough", m: 300 });
+  assert.deepEqual(locationAccuracyAdvice({ accuracy: 1414, platform: "android" }), { kind: "rough", m: 1414 });
 });

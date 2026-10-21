@@ -1,7 +1,7 @@
 import assert from "node:assert/strict";
 import test from "node:test";
 
-import { HEARTBEAT_INTERVAL_MS, NATIVE_HEARTBEAT_CHECK_MS } from "./operatorLocationPolicy.js";
+import { HEARTBEAT_INTERVAL_MS, NATIVE_DELIVERY_INTERVAL_MS, NATIVE_HEARTBEAT_CHECK_MS } from "./operatorLocationPolicy.js";
 import { createNativeLocationSession, nativeWatcherOptions, toWebPosition } from "./operatorNativeLocationSession.js";
 
 function fakePlugin({ failStart = false } = {}) {
@@ -221,4 +221,43 @@ test("permission errors from the plugin are reported, other errors ignored", asy
   plugin.emit(undefined, { code: "NOT_AUTHORIZED" });
   plugin.emit(undefined, { code: "SOMETHING_ELSE" });
   assert.deepEqual(errors, ["NOT_AUTHORIZED"]);
+});
+
+test("native delivery: the plugin POSTs every fix itself, on a timer even when parked", () => {
+  const delivery = { url: "https://api.example/rest/v1/rpc/operator_native_location_ping", headers: { "x-kunthai-location-token": "t" } };
+  const options = nativeWatcherOptions({ delivery });
+  assert.equal(options.url, delivery.url);
+  assert.deepEqual(options.headers, delivery.headers);
+  assert.equal(options.distanceFilter, 0);
+  assert.equal(options.minIntervalMs, NATIVE_DELIVERY_INTERVAL_MS);
+  assert.equal("url" in nativeWatcherOptions({}), false);
+});
+
+test("start waits for the delivery token and passes it to the plugin", async () => {
+  const plugin = fakePlugin();
+  const session = createNativeLocationSession({
+    plugin,
+    platform: "android",
+    prepareDelivery: async () => ({ url: "https://api.example/ping", headers: { a: "b" } }),
+    queue: localQueue(),
+    ...fakeTimers(),
+  });
+  assert.equal(await session.started, true);
+  assert.equal(plugin.calls.at(-1)[1].url, "https://api.example/ping");
+});
+
+test("no token (offline) still starts the watcher without native delivery", async () => {
+  const plugin = fakePlugin();
+  const session = createNativeLocationSession({
+    plugin,
+    platform: "android",
+    prepareDelivery: async () => {
+      throw new Error("offline");
+    },
+    queue: localQueue(),
+    ...fakeTimers(),
+  });
+  assert.equal(await session.started, true);
+  assert.equal(plugin.calls.at(-1)[0], "start");
+  assert.equal("url" in plugin.calls.at(-1)[1], false);
 });

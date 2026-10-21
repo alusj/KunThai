@@ -18,6 +18,9 @@ setConnectivityProbeUrl(supabaseUrl);
 // and swallows it, so Login can explain a failed sign-in.
 captureOAuthReturn();
 
+// For native code that calls the API itself (the operator location plugin).
+export const SUPABASE_API = Object.freeze({ url: supabaseUrl, anonKey: supabaseAnonKey });
+
 const supabase = createClient(supabaseUrl, supabaseAnonKey, {
   auth: {
     autoRefreshToken: true,
