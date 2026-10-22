@@ -1,9 +1,15 @@
 export const PROMOTED_CAROUSEL_FETCH_LIMIT = 60;
 
+// Products per Sponsored slide, from how many promoted listings reach the
+// shopper's location: up to 8 -> one each, more than 8 -> two, 18 or more ->
+// three.
+export const TWO_PER_SLIDE_FROM = 9;
+export const THREE_PER_SLIDE_FROM = 18;
+
 export function getPromotedProductsPerSlide(totalProducts) {
   const total = Math.max(0, Number(totalProducts) || 0);
-  if (total >= 25) return 3;
-  if (total >= 11) return 2;
+  if (total >= THREE_PER_SLIDE_FROM) return 3;
+  if (total >= TWO_PER_SLIDE_FROM) return 2;
   return 1;
 }
 

@@ -1047,7 +1047,7 @@ export function AddressSuggestionInput({ icon, label, value, selectedPoint, cent
           query={value}
           icon={icon}
           onPick={pickSavedPlace}
-          className="absolute inset-x-0 top-full z-30 mt-1"
+          className="absolute inset-x-0 bottom-full z-30 mb-1"
         />
 
         <AddressAccuracyCaution

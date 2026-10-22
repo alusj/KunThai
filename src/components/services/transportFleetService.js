@@ -18,6 +18,7 @@ import {
 } from "../../data/globalTransportCapabilities";
 import { cachedQuery, invalidateCache } from "../../Backend/lib/queryCache";
 import { resolvePublicCode } from "../../Backend/services/publicCodeService";
+import { fleetOffersService } from "./fleetServiceOffer";
 
 const TRANSPORT_FLEET_MEMORY = new Map();
 
@@ -294,8 +295,10 @@ function mapLiveFleet(row, companyAffiliation = null, publicStats = null, public
     operatingArea: row.operating_area || "",
     availability: row.availability || "",
     homeBaseLocation: row.home_base_location || "",
-    acceptsRide: Boolean(row.accepts_ride),
-    acceptsDelivery: Boolean(row.accepts_delivery),
+    // Trip controls; null when the row doesn't carry them (fleetServiceOffer
+    // then falls back to the registration category).
+    acceptsRide: row.accepts_ride === null || row.accepts_ride === undefined ? null : Boolean(row.accepts_ride),
+    acceptsDelivery: row.accepts_delivery === null || row.accepts_delivery === undefined ? null : Boolean(row.accepts_delivery),
     maxDistanceKm: row.max_distance_km || "",
     operatingHours: [row.operating_hours_start, row.operating_hours_end].filter(Boolean).join(" - "),
     updatedAt: row.updated_at || row.created_at || "",
@@ -338,11 +341,8 @@ function matchesMode(fleet, mode) {
     return true;
   }
 
-  if (mode === "ride") {
-    return fleet.serviceCategory === "Transport" || fleet.serviceCategory === "Both";
-  }
-
-  return fleet.serviceCategory === "Delivery" || fleet.serviceCategory === "Both";
+  // The operator's trip controls decide (fleetServiceOffer.js).
+  return fleetOffersService(fleet, mode === "ride" ? "ride" : "delivery");
 }
 
 function sortFleets(fleets, mode) {

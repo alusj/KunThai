@@ -37,6 +37,7 @@ import { t as i18nText } from "../../i18n/index";
 import SaveOperatorButton from "./SaveOperatorButton";
 import { uiText as translateUi, useI18n as useUiLocale } from "../../i18n/index.js";
 import { inlineErrorMessage } from "../../Backend/services/friendlyErrorService";
+import { defaultFleetService } from "../services/fleetServiceOffer";
 
 function cleanAreaText(value) {
   const text = String(value || "").trim();
@@ -217,7 +218,7 @@ export default function FleetProfileScreen({ fleetId, onBack, onOpenCompany, onS
     onOpenBooking?.({
       fleet,
       selection: {
-        mode: fleet.serviceCategory === "Delivery" ? "delivery" : "ride",
+        mode: defaultFleetService(fleet),
         fleetType: fleet.fleetType,
         label: fleet.displayType,
       },
@@ -340,7 +341,7 @@ export default function FleetProfileScreen({ fleetId, onBack, onOpenCompany, onS
                 onClick={openBookingRequest}
                 className="kt-touchable h-12 rounded-2xl bg-blue-600 text-sm font-black text-white shadow-sm shadow-blue-700/20 transition hover:bg-blue-700"
               >
-                {fleet.serviceCategory === "Delivery" ? t("urride.fleetProfile.requestDelivery") : t("urride.fleetProfile.bookRide")}
+                {defaultFleetService(fleet) === "delivery" ? t("urride.fleetProfile.requestDelivery") : t("urride.fleetProfile.bookRide")}
               </button>
               {contactPhone ? (
                 <a

@@ -145,11 +145,15 @@ export default function BottomTabs({ badges = {}, page, setPage }) {
       aria-label={t("nav.mainNavigation")}
     >
       <div className="relative mx-auto grid max-w-md grid-cols-3 gap-1 rounded-[26px] border border-white/80 bg-white/65 p-1 shadow-2xl shadow-slate-950/15 ring-1 ring-slate-950/10 backdrop-blur-2xl supports-[backdrop-filter]:bg-white/55 dark:border-slate-700/60 dark:bg-slate-900/85 dark:shadow-black/40 dark:ring-white/10 dark:supports-[backdrop-filter]:bg-slate-900/75">
+        {/* The highlight moves with a transform, which the compositor animates
+            on its own: animating `left` ran on the main thread, so a jump from
+            UrRide to Explore froze half-way (over UrMall) while Explore drew
+            its first frame. Each step is one tab width plus the 0.25rem gap. */}
         <span
-          className="pointer-events-none absolute bottom-1 top-1 z-0 rounded-[22px] bg-slate-950/90 shadow-lg shadow-slate-950/20 transition-[left] duration-300 ease-out dark:bg-white dark:shadow-black/40"
+          className="pointer-events-none absolute bottom-1 left-1 top-1 z-0 rounded-[22px] bg-slate-950/90 shadow-lg shadow-slate-950/20 transition-transform duration-300 ease-out will-change-transform dark:bg-white dark:shadow-black/40"
           style={{
-            left: `calc(0.25rem + ${activeIndex} * ((100% - 1rem) / 3 + 0.25rem))`,
             width: "calc((100% - 1rem) / 3)",
+            transform: `translate3d(calc(${activeIndex} * (100% + 0.25rem)), 0, 0)`,
           }}
           aria-hidden="true"
         />

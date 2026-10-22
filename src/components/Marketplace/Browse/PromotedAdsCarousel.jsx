@@ -22,9 +22,10 @@ const SLIDE_TRANSITION = "transform 620ms cubic-bezier(0.22, 1, 0.36, 1)";
 // active promoted listing.
 //
 // Adaptive layout rules:
-//   - Up to 10 promoted listings -> one full sponsored product per slide.
-//   - 11-24 promoted listings    -> two sponsored products per slide.
-//   - 25+ promoted listings      -> three sponsored products per slide.
+//   - Up to 8 promoted listings -> one full sponsored product per slide.
+//   - 9-17 promoted listings    -> two sponsored products per slide.
+//   - 18+ promoted listings     -> three sponsored products per slide.
+// (promotedCarouselLayout.js; the count is what reaches this shopper's area.)
 // The card floats (sticky) so it stays visible while the header and the rest of
 // the catalog scroll behind it, and manual swipes are contained here so they
 // never bubble up to the app-level page swipe (Explore / UrRide).

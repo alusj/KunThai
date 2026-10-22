@@ -2,6 +2,7 @@ import supabase from "../../Backend/lib/supabaseClient";
 import { friendlyErrorMessage } from "../../Backend/services/friendlyErrorService";
 import { getActiveCountryProfile, getCountryCurrencyCode } from "../../data/globalCountryProfiles";
 import { calculateFleetFare } from "./transportPricingService";
+import { defaultFleetService } from "./fleetServiceOffer";
 
 async function getCurrentPassenger(message = "Sign in to book transport.") {
   const { data, error } = await supabase.auth.getUser();
@@ -17,8 +18,7 @@ async function getCurrentPassenger(message = "Sign in to book transport.") {
 function normalizeTripType(mode, fleet) {
   if (mode === "delivery") return "delivery";
   if (mode === "ride") return "ride";
-  if (fleet?.serviceCategory === "Delivery") return "delivery";
-  return "ride";
+  return defaultFleetService(fleet);
 }
 
 function buildBookingTitle({ mode, fleet, passengers, packageDescription }) {

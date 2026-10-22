@@ -12,6 +12,8 @@ import { assertBusinessCapacity, parseBusinessPlanError } from "../businessSubsc
 import { invalidateRegisteredBusinessesCache } from "./sellerRegistrationService";
 import { regionSelectionIds } from "../regions/regionModel";
 import { selectRegionScopedPromotions } from "../regions/regionService";
+import { isPromotionLive } from "./productPromotionState";
+import { alreadyBoostedError } from "./promotionAlreadyActive";
 import {
   assertVisibilityCreditsAvailable,
   MINIMUM_VISIBILITY_CREDITS,
@@ -467,6 +469,25 @@ export async function fetchSellerVerticalCatalog(businessId, vertical) {
   return empty;
 }
 
+// The live boost of a meal or property ({ id, endsAt }), null when there is
+// none, or undefined when promotions cannot be read (the database still
+// refuses to charge a second boost then).
+async function fetchLiveListingPromotion(listingType, listingId) {
+  const column = VERTICAL_PROMOTION_FK[listingType];
+  if (!column || !listingId) return null;
+  const { data, error } = await supabase
+    .from("marketplace_promotions")
+    .select("id,status,ends_at")
+    .eq(column, listingId)
+    .eq("status", "active")
+    .or(`ends_at.is.null,ends_at.gt.${new Date().toISOString()}`)
+    .order("created_at", { ascending: false })
+    .limit(1);
+  if (error) return undefined;
+  const row = (data || []).find((item) => isPromotionLive(item));
+  return row ? { id: row.id, endsAt: row.ends_at || null } : null;
+}
+
 // Boost a meal or property into the UrMall "Sponsored" slider using the same
 // Visibility Credits wallet as retail products. `listingType` is "meal" or
 // "property"; `listing` is the saved row (needs an id).
@@ -478,6 +499,12 @@ export async function promoteVerticalListing(listingType, listing, options = {})
   if (!listing?.id) {
     throw new Error("Cannot promote: the listing has no saved ID yet. (code: PROMO_NO_ID)");
   }
+
+  // Like retail: a live boost is never charged or changed again, and the
+  // seller is told until when it runs. (The database only returned the live
+  // boost unchanged, so the app used to say "Product is now boosted".)
+  const livePromotion = await fetchLiveListingPromotion(type, listing.id);
+  if (livePromotion) throw alreadyBoostedError(livePromotion);
 
   const creditBudget = normalizeVisibilityCreditSpend(options.credits, MINIMUM_VISIBILITY_CREDITS);
   await assertVisibilityCreditsAvailable(creditBudget);

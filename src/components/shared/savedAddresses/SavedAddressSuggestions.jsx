@@ -1,5 +1,6 @@
-// Saved locations that pop up under an order or booking address field as soon
-// as the field is reached. About two show at once and the rest scroll, so the
+// Saved locations that pop up above an order or booking address field as soon
+// as the field is reached (above, so the list never covers the fields and
+// buttons that follow, and stays clear of the keyboard). About two show at once and the rest scroll, so the
 // popover never pushes the form away. Picking one fills the field with that
 // saved address (and its map point) in one tap.
 
@@ -17,7 +18,7 @@ export default function SavedAddressSuggestions({ open, addresses = [], query = 
 
   return (
     <div
-      className={`kt-address-suggestions-enter overflow-hidden rounded-2xl border border-emerald-100 bg-white shadow-lg shadow-slate-950/10 ${className}`}
+      className={`kt-address-suggestions-enter-up overflow-hidden rounded-2xl border border-emerald-100 bg-white shadow-lg shadow-slate-950/10 ${className}`}
       role="listbox"
       aria-label={t("addressBook.suggestionsTitle")}
     >

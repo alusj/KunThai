@@ -449,7 +449,7 @@ function DeliveryAddressField({ value, validationStatus, savedAddresses, onChang
             setFocused(false);
             inputRef.current?.blur();
           }}
-          className="absolute inset-x-0 top-full z-30 mt-1"
+          className="absolute inset-x-0 bottom-full z-30 mb-1"
         />
 
         <AddressAccuracyCaution

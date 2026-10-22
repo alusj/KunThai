@@ -19,6 +19,7 @@ import { assertPromotionTargeting, normalizeCountrySelection } from "../regions/
 import { uiText } from "../../../i18n/index.js";
 import { getBusinessPermissions } from "./businessPermissions";
 import { isPromotionLive, liveProductPromotionMap, productHasLivePromotion } from "./productPromotionState";
+import { alreadyBoostedError } from "./promotionAlreadyActive";
 
 function withTimeout(promise, message, timeoutMs = 60000) {
   return Promise.race([
@@ -125,17 +126,6 @@ async function fetchLiveProductPromotion(productId) {
   if (error) return undefined;
   const row = (data || []).find((item) => isPromotionLive(item));
   return row ? { id: row.id, endsAt: row.ends_at || null } : null;
-}
-
-function alreadyBoostedError(livePromotion) {
-  const endsAt = livePromotion?.endsAt ? new Date(livePromotion.endsAt) : null;
-  const error = new Error(
-    endsAt && !Number.isNaN(endsAt.getTime())
-      ? t("promoFix.alreadyBoosted", { date: endsAt.toLocaleString(undefined, { dateStyle: "medium", timeStyle: "short" }) })
-      : t("promoFix.alreadyBoostedNoEnd"),
-  );
-  error.code = "PROMO_ALREADY_ACTIVE";
-  return error;
 }
 
 // Boosts are paid from the caller's own wallet, also for a delegated admin.
