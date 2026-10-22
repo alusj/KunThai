@@ -5,6 +5,7 @@
 
 import { ensureBuyerLocation, readCachedBuyerLocation } from "../../Backend/utils/buyerLocationContext";
 import { getPreciseCurrentPosition } from "../../Backend/utils/precisePosition";
+import { GOOD_FIX_METERS, acceptFix } from "./operatorLocationPolicy.js";
 
 const GRANTED_KEY = "kunthai.locationGranted.v1";
 
@@ -55,11 +56,84 @@ async function currentPosition({ fresh = false } = {}) {
   }
 }
 
+// A continuous GPS watch while a "near you" list is on screen. A new one-off
+// request is answered first with a rough cell fix (an iPhone says ~1.4 km)
+// and GPS needs longer than a list refresh can wait, so the lists showed
+// "within about 1.8 km" next to the operator. The watch lets GPS settle and
+// every read uses its latest fix. A rough fix close to a recent good one (in
+// its own error circle) does not replace it, same rule as the operator side.
+const WATCH_FRESH_MS = 30_000;
+const watchState = { id: null, users: 0, fix: null, good: null, listeners: new Set() };
+
+function toPassengerFix(position) {
+  return {
+    latitude: position.coords.latitude,
+    longitude: position.coords.longitude,
+    accuracy: Number.isFinite(position.coords.accuracy) ? position.coords.accuracy : null,
+    at: Date.now(),
+  };
+}
+
+function takeWatchedPosition(position) {
+  const next = toPassengerFix(position);
+  const point = { lat: next.latitude, lng: next.longitude };
+  if (!acceptFix({ now: next.at, point, accuracy: next.accuracy, lastGood: watchState.good })) {
+    // Rough noise around a good fix: still there, keep the good position.
+    watchState.fix = { ...watchState.fix, at: next.at };
+    return;
+  }
+  watchState.fix = next;
+  if (next.accuracy != null && next.accuracy <= GOOD_FIX_METERS) {
+    watchState.good = { point, accuracy: next.accuracy, at: next.at };
+  }
+  rememberGranted();
+  for (const listener of watchState.listeners) listener(next);
+}
+
+function watchedFix() {
+  const fix = watchState.fix;
+  return fix && Date.now() - fix.at < WATCH_FRESH_MS ? fix : null;
+}
+
+// Starts (or joins) the watch; only when location was already allowed, so it
+// never prompts. `onFix` hears each accepted fix. Returns stop().
+export function watchPassengerPosition(onFix = () => {}) {
+  if (typeof navigator === "undefined" || !navigator.geolocation?.watchPosition) return () => {};
+  let stopped = false;
+  watchState.users += 1;
+  watchState.listeners.add(onFix);
+  permissionAlreadyGranted().then((granted) => {
+    if (stopped || !granted || watchState.id !== null || watchState.users === 0) return;
+    watchState.id = navigator.geolocation.watchPosition(takeWatchedPosition, () => {}, {
+      enableHighAccuracy: true,
+      maximumAge: 5000,
+      timeout: 30_000,
+    });
+  });
+  return () => {
+    if (stopped) return;
+    stopped = true;
+    watchState.listeners.delete(onFix);
+    watchState.users -= 1;
+    if (watchState.users === 0 && watchState.id !== null) {
+      navigator.geolocation.clearWatch(watchState.id);
+      watchState.id = null;
+    }
+  };
+}
+
 // Resolves { latitude, longitude, accuracy, place, source: "device" | "cached" }
 // or null. `fresh`: the passenger asked for an up-to-date position (Refresh).
 export async function getPassengerPosition({ prompt = false, fresh = false } = {}) {
   const cached = readCachedBuyerLocation();
   const place = cached?.community || cached?.city || "";
+
+  // The running watch already has where the passenger is (Refresh still asks
+  // for a new fix unless the watch's is good).
+  const watched = watchedFix();
+  if (watched && (!fresh || (watched.accuracy != null && watched.accuracy <= GOOD_FIX_METERS))) {
+    return { latitude: watched.latitude, longitude: watched.longitude, accuracy: watched.accuracy, place, source: "device" };
+  }
 
   if (typeof navigator !== "undefined" && navigator.geolocation && (prompt || (await permissionAlreadyGranted()))) {
     const position = await currentPosition({ fresh });

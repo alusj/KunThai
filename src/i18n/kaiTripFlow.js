@@ -3,6 +3,10 @@
 // braces are filled in by the flow.
 
 const en = {
+  askDestination: "Where would you like to go? Type a place, street or landmark.",
+  destinationPlaceholder: "Destination",
+  pickDestination: "Which one is your destination?",
+  noDestinationResults: "I couldn't find that place. Try another name or a nearby landmark.",
   intro: "Let's book your trip to {place}. How would you like to book?",
   methodOpen: "Open booking",
   methodOpenHint: "Nearby operators get your request; the first to accept takes it.",
@@ -90,6 +94,10 @@ const en = {
 };
 
 const fr = {
+  askDestination: "Où voulez-vous aller ? Tapez un lieu, une rue ou un repère.",
+  destinationPlaceholder: "Destination",
+  pickDestination: "Laquelle est votre destination ?",
+  noDestinationResults: "Je n’ai pas trouvé ce lieu. Essayez un autre nom ou un repère proche.",
   intro: "Réservons votre trajet vers {place}. Comment voulez-vous réserver ?",
   methodOpen: "Réservation ouverte",
   methodOpenHint: "Les opérateurs proches reçoivent votre demande ; le premier qui accepte la prend.",
@@ -177,6 +185,10 @@ const fr = {
 };
 
 const es = {
+  askDestination: "¿Adónde quieres ir? Escribe un lugar, una calle o un punto de referencia.",
+  destinationPlaceholder: "Destino",
+  pickDestination: "¿Cuál es tu destino?",
+  noDestinationResults: "No encontré ese lugar. Prueba otro nombre o un punto de referencia cercano.",
   intro: "Reservemos tu viaje a {place}. ¿Cómo quieres reservar?",
   methodOpen: "Reserva abierta",
   methodOpenHint: "Los operadores cercanos reciben tu solicitud; el primero que acepta la toma.",
@@ -264,6 +276,10 @@ const es = {
 };
 
 const pt = {
+  askDestination: "Para onde quer ir? Escreva um local, rua ou ponto de referência.",
+  destinationPlaceholder: "Destino",
+  pickDestination: "Qual é o seu destino?",
+  noDestinationResults: "Não encontrei esse local. Tente outro nome ou um ponto de referência próximo.",
   intro: "Vamos reservar sua viagem para {place}. Como você quer reservar?",
   methodOpen: "Reserva aberta",
   methodOpenHint: "Operadores próximos recebem seu pedido; o primeiro que aceitar fica com ele.",
@@ -351,6 +367,10 @@ const pt = {
 };
 
 const zh = {
+  askDestination: "您想去哪里？请输入地点、街道或地标。",
+  destinationPlaceholder: "目的地",
+  pickDestination: "哪一个是您的目的地？",
+  noDestinationResults: "找不到这个地方。请换个名称或附近的地标试试。",
   intro: "我们来预订前往 {place} 的行程。你想怎么预订？",
   methodOpen: "开放预订",
   methodOpenHint: "附近的司机会收到你的请求，第一个接单的人接下行程。",
@@ -438,6 +458,10 @@ const zh = {
 };
 
 const ar = {
+  askDestination: "إلى أين تريد الذهاب؟ اكتب مكانًا أو شارعًا أو معلمًا.",
+  destinationPlaceholder: "الوجهة",
+  pickDestination: "أيّها وجهتك؟",
+  noDestinationResults: "لم أجد هذا المكان. جرّب اسمًا آخر أو معلمًا قريبًا.",
   intro: "لنحجز رحلتك إلى {place}. كيف تريد الحجز؟",
   methodOpen: "حجز مفتوح",
   methodOpenHint: "يصل طلبك إلى المشغلين القريبين، وأول من يقبل يأخذه.",
@@ -525,6 +549,10 @@ const ar = {
 };
 
 const hi = {
+  askDestination: "आप कहाँ जाना चाहते हैं? कोई जगह, सड़क या लैंडमार्क लिखें।",
+  destinationPlaceholder: "मंज़िल",
+  pickDestination: "इनमें से आपकी मंज़िल कौन-सी है?",
+  noDestinationResults: "वह जगह नहीं मिली। कोई दूसरा नाम या पास का लैंडमार्क आज़माएँ।",
   intro: "चलिए {place} की आपकी यात्रा बुक करते हैं। आप कैसे बुक करना चाहेंगे?",
   methodOpen: "ओपन बुकिंग",
   methodOpenHint: "पास के ऑपरेटरों को आपका अनुरोध मिलता है; जो पहले स्वीकार करे, वह ले लेता है।",
@@ -612,6 +640,10 @@ const hi = {
 };
 
 const bn = {
+  askDestination: "আপনি কোথায় যেতে চান? কোনো জায়গা, রাস্তা বা ল্যান্ডমার্ক লিখুন।",
+  destinationPlaceholder: "গন্তব্য",
+  pickDestination: "এর মধ্যে আপনার গন্তব্য কোনটি?",
+  noDestinationResults: "জায়গাটি খুঁজে পাইনি। অন্য নাম বা কাছের কোনো ল্যান্ডমার্ক দিয়ে চেষ্টা করুন।",
   intro: "চলুন {place}-এ আপনার যাত্রা বুক করি। আপনি কীভাবে বুক করতে চান?",
   methodOpen: "ওপেন বুকিং",
   methodOpenHint: "কাছের অপারেটররা আপনার অনুরোধ পাবেন; যিনি প্রথমে গ্রহণ করবেন তিনিই নেবেন।",
@@ -699,6 +731,10 @@ const bn = {
 };
 
 const id = {
+  askDestination: "Anda mau ke mana? Ketik tempat, jalan, atau patokan.",
+  destinationPlaceholder: "Tujuan",
+  pickDestination: "Yang mana tujuan Anda?",
+  noDestinationResults: "Tempat itu tidak ditemukan. Coba nama lain atau patokan terdekat.",
   intro: "Mari pesan perjalanan Anda ke {place}. Bagaimana Anda ingin memesan?",
   methodOpen: "Pemesanan terbuka",
   methodOpenHint: "Operator terdekat menerima permintaan Anda; yang pertama menerimanya akan melayani Anda.",
@@ -786,6 +822,10 @@ const id = {
 };
 
 const ur = {
+  askDestination: "آپ کہاں جانا چاہتے ہیں؟ کوئی جگہ، سڑک یا نشانی لکھیں۔",
+  destinationPlaceholder: "منزل",
+  pickDestination: "ان میں سے آپ کی منزل کون سی ہے؟",
+  noDestinationResults: "وہ جگہ نہیں ملی۔ کوئی اور نام یا قریبی نشانی آزمائیں۔",
   intro: "آئیے {place} کے لیے آپ کا سفر بُک کریں۔ آپ کیسے بُک کرنا چاہیں گے؟",
   methodOpen: "کھلی بکنگ",
   methodOpenHint: "قریبی آپریٹرز کو آپ کی درخواست ملے گی؛ جو پہلے قبول کرے گا اسے یہ بکنگ ملے گی۔",
@@ -873,6 +913,10 @@ const ur = {
 };
 
 const ru = {
+  askDestination: "Куда вы хотите поехать? Введите место, улицу или ориентир.",
+  destinationPlaceholder: "Пункт назначения",
+  pickDestination: "Какой из них ваш пункт назначения?",
+  noDestinationResults: "Не удалось найти это место. Попробуйте другое название или ближайший ориентир.",
   "intro": "Давайте забронируем поездку в {place}. Как бы вы хотели забронировать?",
   "methodOpen": "Открыть бронирование",
   "methodOpenHint": "Близлежащие операторы получат ваш запрос; тот, кто первым примет, забирает его.",
@@ -960,6 +1004,10 @@ const ru = {
 };
 
 const ja = {
+  askDestination: "どこへ行きますか？場所、通り、目印を入力してください。",
+  destinationPlaceholder: "目的地",
+  pickDestination: "どれが目的地ですか？",
+  noDestinationResults: "その場所が見つかりませんでした。別の名前か近くの目印で試してください。",
   "intro": "{place} への旅行を予約しましょう。どのように予約しますか？",
   "methodOpen": "オープン予約",
   "methodOpenHint": "近くのオペレーターがあなたのリクエストを受け取ります。最初に受け入れた人がそれを受け取ります。",
@@ -1047,6 +1095,10 @@ const ja = {
 };
 
 const mr = {
+  askDestination: "तुम्हाला कुठे जायचे आहे? एखादे ठिकाण, रस्ता किंवा खूण लिहा.",
+  destinationPlaceholder: "गंतव्य",
+  pickDestination: "यापैकी तुमचे गंतव्य कोणते?",
+  noDestinationResults: "ते ठिकाण सापडले नाही. दुसरे नाव किंवा जवळची खूण वापरून पहा.",
   "intro": "चला तुमची {place} ची सहल बुक करूया. तुम्हाला कसे बुक करायला आवडेल?",
   "methodOpen": "बुकिंग उघडा",
   "methodOpenHint": "जवळपासच्या ऑपरेटरना तुमची विनंती मिळते; स्वीकारणारा पहिला तो घेतो.",
@@ -1134,6 +1186,10 @@ const mr = {
 };
 
 const vi = {
+  askDestination: "Bạn muốn đi đâu? Nhập địa điểm, tên đường hoặc mốc gần đó.",
+  destinationPlaceholder: "Điểm đến",
+  pickDestination: "Điểm đến của bạn là nơi nào?",
+  noDestinationResults: "Không tìm thấy địa điểm đó. Hãy thử tên khác hoặc một mốc gần đó.",
   "intro": "Hãy đặt chuyến đi tới {place}. Bạn muốn đặt chỗ như thế nào?",
   "methodOpen": "Mở đặt chỗ",
   "methodOpenHint": "Các nhà khai thác lân cận nhận được yêu cầu của bạn; người đầu tiên chấp nhận sẽ nhận nó.",
@@ -1221,6 +1277,10 @@ const vi = {
 };
 
 const de = {
+  askDestination: "Wohin möchtest du? Gib einen Ort, eine Straße oder einen Orientierungspunkt ein.",
+  destinationPlaceholder: "Ziel",
+  pickDestination: "Welches davon ist dein Ziel?",
+  noDestinationResults: "Ich habe den Ort nicht gefunden. Versuch einen anderen Namen oder einen Ort in der Nähe.",
   "intro": "Buchen wir Ihre Reise zu {place}. Wie möchten Sie buchen?",
   "methodOpen": "Offene Buchung",
   "methodOpenHint": "Betreiber in der Nähe nehmen Ihre Anfrage entgegen; Der Erste, der akzeptiert, nimmt es.",

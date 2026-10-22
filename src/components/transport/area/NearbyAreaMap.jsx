@@ -715,6 +715,9 @@ function getLiveFleetMarkerConfig(operator) {
   return { ...(byType[type] || fallback), booked };
 }
 
+// Same line as UrRide's lists (ROUGH_POSITION_METERS in liveDiscovery.js).
+const ROUGH_OPERATOR_MARKER_METERS = 100;
+
 function createLiveFleetOperatorMarker(operator) {
   const wrapper = document.createElement("div");
   wrapper.style.position = "relative";
@@ -791,7 +794,17 @@ function updateLiveFleetOperatorMarkerElement(element, operator) {
     .filter(Boolean)
     .join(" - ");
 
-  if (shell) shell.style.background = config.bg;
+  // A rough position (no GPS indoors: a phone-network fix, often hundreds of
+  // metres off) must not look like an exact spot: dashed, faded pin and
+  // "≈ 300 m" on its badge.
+  const roughMeters = Number(operator?.accuracyMeters) > ROUGH_OPERATOR_MARKER_METERS
+    ? Math.round(Number(operator.accuracyMeters) / 10) * 10
+    : 0;
+  if (shell) {
+    shell.style.background = config.bg;
+    shell.style.border = roughMeters ? "3px dashed white" : "3px solid white";
+    shell.style.opacity = roughMeters ? "0.72" : "1";
+  }
 
   if (icon) {
     icon.innerHTML = config.svg;
@@ -819,7 +832,8 @@ function updateLiveFleetOperatorMarkerElement(element, operator) {
 
   // Every operator says whether it can take a trip: BOOKED or EMPTY.
   if (bookedBadge) {
-    bookedBadge.textContent = config.booked ? t("urride.areaMap.markerBooked") : t("urride.areaMap.markerEmpty");
+    const state = config.booked ? t("urride.areaMap.markerBooked") : t("urride.areaMap.markerEmpty");
+    bookedBadge.textContent = roughMeters ? `${state} · ≈${roughMeters} m` : state;
     bookedBadge.style.background = config.booked ? "#f97316" : "#16a34a";
     bookedBadge.style.display = "inline-flex";
   }

@@ -42,6 +42,7 @@ import AiTripBookingFlow from "./AiTripBookingFlow";
 import {
   cancelTripBooking,
   onTripHandOff,
+  startTripFromScratch,
   submitTripText,
   tripFlowWantsText,
   tripText,
@@ -130,6 +131,7 @@ export default function AiChatPanel({ open, request, onClose }) {
   }, [surface, role, open, screenVersion, t, memoLocale]);
   const roleLabel = assistantRoleLabel(role);
   const fillPrompt = t("ai.chat.screen.promptFill");
+  const bookRidePrompt = t("ai.chat.prompts.passenger1");
   const formCapable = prompts.includes(fillPrompt);
 
   // One guided flow at a time.
@@ -161,6 +163,14 @@ export default function AiChatPanel({ open, request, onClose }) {
     // reply that fills everything at once.
     if (text === fillPrompt && formCapable) {
       beginFormGuide();
+      return;
+    }
+    // "Help me book a ride" runs the guided booking from the destination
+    // question, instead of a model reply that may only point at UrRide.
+    if (text === bookRidePrompt) {
+      if (formGuide.transcript.length) cancelFormGuide({ silent: true });
+      startTripFromScratch(text);
+      setDraft("");
       return;
     }
     // A finished (or cancelled) guided flow makes way for the new question.

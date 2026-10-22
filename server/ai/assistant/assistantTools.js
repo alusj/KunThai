@@ -67,7 +67,7 @@ export const ASSISTANT_TOOLS = {
     kind: "action",
     // Not in /admin: that workspace is a separate app with no section switch.
     surfaces: ["explore", "urmall", "urride", "global"],
-    description: "Offer to take the person to a KunThai section. Only use when they ask to go somewhere.",
+    description: "Offer to take the person to a different KunThai section. Only use when they ask to go to another section; never for the section they are already in, and never instead of helping with a task (booking, searching, filling a form) you can do here.",
     parameters: {
       type: "object",
       properties: {
@@ -289,6 +289,11 @@ export function validateToolCall(call, surface, role = "", capabilities = []) {
   }
   try {
     const args = tool.clean(call?.args && typeof call.args === "object" ? call.args : {});
+    // "Open UrRide" while in UrRide stalled booking help ("I've opened UrRide
+    // for you"): the model is told to carry on here instead.
+    if (name === "open_section" && args.section === surface) {
+      return { id, name, kind: "data", args: {}, rejected: true, reason: "The person is already in this section. Help them here with the tools you have." };
+    }
     return { id, name, kind: tool.kind, args, rejected: false };
   } catch (error) {
     return {

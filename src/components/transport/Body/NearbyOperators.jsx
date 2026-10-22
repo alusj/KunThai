@@ -18,7 +18,8 @@ import {
   liveCardLabelValues,
   liveDiscoverySignature,
 } from "../../services/liveDiscovery";
-import { getPassengerPosition } from "../../services/passengerPosition";
+import { getPassengerPosition, watchPassengerPosition } from "../../services/passengerPosition";
+import { distanceInMeters } from "../../services/operatorLocationPolicy";
 import {
   readTransportDashboardSnapshot,
   writeTransportDashboardSnapshot,
@@ -56,6 +57,7 @@ function matchesQuery(operator, query) {
 const LIVE_AVAILABLE_LIMIT = 12;
 const LIVE_RECENT_LIMIT = 6;
 const POSITION_REFRESH_MS = 20_000;
+const PASSENGER_MOVE_REFRESH_METERS = 15;
 const REALTIME_DEBOUNCE_MS = 2_000;
 const REALTIME_MIN_GAP_MS = 5_000;
 
@@ -297,6 +299,24 @@ export default function NearbyOperators({
     };
     document.addEventListener("visibilitychange", onVisibility);
 
+    // GPS keeps settling (and the passenger may walk) while the list is open:
+    // a better or moved fix updates the distances at once.
+    const stopWatch = watchPassengerPosition((fix) => {
+      if (!alive) return;
+      const previous = positionRef.current.value;
+      const moved = previous
+        ? distanceInMeters({ lat: previous.latitude, lng: previous.longitude }, { lat: fix.latitude, lng: fix.longitude })
+        : Infinity;
+      const before = Number(previous?.accuracy);
+      const sharper = fix.accuracy != null && (!Number.isFinite(before) || fix.accuracy < before / 2);
+      if (moved < PASSENGER_MOVE_REFRESH_METERS && !sharper) return;
+      positionRef.current = {
+        value: { latitude: fix.latitude, longitude: fix.longitude, accuracy: fix.accuracy, place: previous?.place || "", source: "device" },
+        at: Date.now(),
+      };
+      scheduler.requestNow();
+    });
+
     const unsubscribe = subscribeToOperatorLocationChanges((payload) => {
       if (!alive || !isLocationChangeNearby(payload, positionRef.current.value, LIVE_DEFAULT_RADIUS_KM)) return;
       if (debounceTimer) window.clearTimeout(debounceTimer);
@@ -312,6 +332,7 @@ export default function NearbyOperators({
       if (schedulerRef.current === scheduler) schedulerRef.current = null;
       if (debounceTimer) window.clearTimeout(debounceTimer);
       document.removeEventListener("visibilitychange", onVisibility);
+      stopWatch();
       unsubscribe();
     };
   }, [cacheCountryIso, liveMode, liveFleetType]);

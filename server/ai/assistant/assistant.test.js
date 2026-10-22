@@ -111,3 +111,12 @@ test("oversized tool results are truncated before reaching the model", () => {
   assert.equal(response.parts[0].functionResponse.response.truncated, true);
   assert.ok(JSON.stringify(response).length < 10_000);
 });
+
+test("open_section never sends the person to the section they are already in", () => {
+  const same = validateToolCall({ name: "open_section", args: { section: "urride" } }, "urride", "passenger");
+  assert.equal(same.rejected, true);
+  assert.match(same.reason, /already in this section/);
+  const other = validateToolCall({ name: "open_section", args: { section: "urmall" } }, "urride", "passenger");
+  assert.equal(other.rejected, false);
+  assert.equal(validateToolCall({ name: "open_section", args: { section: "urride" } }, "global", "").rejected, false);
+});

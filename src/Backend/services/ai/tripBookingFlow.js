@@ -103,12 +103,52 @@ function placeText(point, fallbackName = "") {
 
 // --- start / stop ------------------------------------------------------------
 
-/** Start (or restart) the guided booking for a place KAI's place search found. */
-export function startTripBooking(place) {
+/**
+ * "Help me book a ride" with no place yet: KAI asks where to, searches it with
+ * KunThai's place search, and the chosen place starts the guided booking
+ * below. No model call, so the suggestion always leads to a booking.
+ */
+export function startTripFromScratch(requestText = "") {
   cancelFormGuide({ silent: true });
-  const dropoffPoint = normalizeBookingLocationPoint(place);
   runToken += 1;
   state = idleState();
+  emit({ active: true, transcript: requestText ? [message("user", requestText)] : [] });
+  askDestination();
+}
+
+function askDestination(prefix = "") {
+  ask("destination", prefix || tripText("askDestination"), {
+    options: savedPlaceOptions(),
+    input: { type: "text", placeholder: tripText("destinationPlaceholder") },
+  });
+}
+
+async function searchDestination(query) {
+  const token = runToken;
+  emit({ busy: tripText("searching") });
+  const here = state.data.originPoint;
+  const center = here ? { lat: here.lat, lng: here.lng, countryCode: country().iso2 } : null;
+  const places = await searchLocations(query, center, { limit: 5, countryCode: String(country().iso2 || "").toLowerCase() }).catch(() => []);
+  if (token !== runToken) return;
+  const options = places
+    .map((place, index) => (normalizeBookingLocationPoint(place)
+      ? { value: `found:${index}`, label: [place.name, place.address].filter(Boolean).join(" · ").slice(0, 80), place }
+      : null))
+    .filter(Boolean);
+  if (!options.length) {
+    askDestination(tripText("noDestinationResults"));
+    return;
+  }
+  ask("destination", tripText("pickDestination"), { options, input: { type: "text", placeholder: tripText("destinationPlaceholder") } });
+}
+
+/** Start (or restart) the guided booking for a place KAI's place search found. */
+export function startTripBooking(place, { keepTranscript = false } = {}) {
+  cancelFormGuide({ silent: true });
+  const dropoffPoint = normalizeBookingLocationPoint(place);
+  const transcript = keepTranscript ? state.transcript : [];
+  runToken += 1;
+  state = { ...idleState(), transcript };
   emit({
     active: true,
     place,
@@ -200,6 +240,10 @@ export function submitTripDateTime(value) {
 
 function handle(step, value, option, { typed = false } = {}) {
   switch (step) {
+    case "destination":
+      // A saved place's point may have no name of its own: its label names it.
+      if (!typed && option?.place) return startTripBooking({ ...option.place, name: option.place.name || option.label }, { keepTranscript: true });
+      return searchDestination(value);
     case "method":
       setData({ kind: value });
       if (value === "operator") ask("operatorCode", tripText("askCode"), { input: { type: "text", placeholder: tripText("codePlaceholder") } });

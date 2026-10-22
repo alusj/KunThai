@@ -35,6 +35,8 @@ import { t as i18nText } from "../../../i18n/index";
 import { uiText as translateUi, useI18n as useUiLocale } from "../../../i18n/index.js";
 import { inlineErrorMessage } from "../../../Backend/services/friendlyErrorService";
 import usePhoneInUse from "../../../Backend/hooks/usePhoneInUse";
+import { useAiScreen } from "../../../Backend/services/ai/aiScreenContext";
+import { buildFleetRegistrationAiContext } from "./fleetRegistrationAi";
 
 // Stored enum values stay English (saved on the account + compared); display is
 // localized via urride.fleetEdit.enum.<value>.
@@ -133,6 +135,36 @@ export default function FleetEditDrawer({ account, onBack, onSaved }) {
   const update = (field, value) => setForm((current) => ({ ...current, [field]: value }));
   const updateAnswer = (key, value) => setAnswers((current) => ({ ...current, [key]: value }));
   const markUpload = (key, file) => setUploads((current) => ({ ...current, [key]: file }));
+
+  // KAI can see and fill this editor like the registration (same fields,
+  // never photos or documents); the person still saves each section.
+  useAiScreen(() => {
+    const context = buildFleetRegistrationAiContext({
+      step: 0,
+      form,
+      answers,
+      questions,
+      categoryOptions,
+      fleetTypeOptions,
+      documents,
+      fieldErrors: {},
+      stepError: error,
+      update,
+      updateCategory: (value) => update("category", value),
+      updateAnswer,
+    });
+    return {
+      ...context,
+      id: "urride-fleet-edit",
+      title: "your UrRide fleet profile",
+      describe: () => [
+        "The person is editing their registered UrRide driver/operator fleet profile (operator, service, fleet, safety, documents).",
+        `Country: ${form.country || "not set"}; prices are in ${form.currency || "the local currency"}.`,
+        error ? `Message shown: ${error}.` : "",
+        "After values are filled, the person opens the section and presses Save changes. Photos and documents are uploaded by the person in the Documents section.",
+      ].filter(Boolean).join(" "),
+    };
+  });
 
   function normalizedAnswers() {
     return questions.reduce(
