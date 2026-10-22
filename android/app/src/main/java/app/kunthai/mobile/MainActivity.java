@@ -57,6 +57,7 @@ public class MainActivity extends BridgeActivity {
         // Plugins inside this app module (Capacitor only auto-registers npm ones).
         registerPlugin(KunThaiVideoPlugin.class);
         registerPlugin(KunThaiLaunchPlugin.class);
+        registerPlugin(KunThaiPlayBillingPlugin.class);
         super.onCreate(savedInstanceState);
         // Same picker, but picked videos can be compressed in place.
         if (getBridge() != null && getBridge().getWebView() != null) {

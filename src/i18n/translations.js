@@ -12,6 +12,7 @@ import { ORDER_CAUTION } from "./orderCaution";
 import { REGISTRATION_SAVING } from "./registrationSaving";
 import { NATIVE_PUSH_FIX } from "./nativePushFix";
 import { APPLE_IAP } from "./appleIap";
+import { GOOGLE_PLAY_BILLING } from "./googlePlayBilling";
 import { AUTH_TERMS } from "./authTerms";
 import { VOICE_NOTES } from "./voiceNotes";
 import { APP_LOADING } from "./appLoading";
@@ -59557,6 +59558,12 @@ for (const [locale, section] of Object.entries(NATIVE_PUSH_FIX)) {
 for (const [locale, section] of Object.entries(APPLE_IAP)) {
   if (TRANSLATIONS[locale]) {
     TRANSLATIONS[locale].appleIap = section;
+  }
+}
+
+for (const [locale, section] of Object.entries(GOOGLE_PLAY_BILLING)) {
+  if (TRANSLATIONS[locale]) {
+    TRANSLATIONS[locale].googlePlayBilling = section;
   }
 }
 

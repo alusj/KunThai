@@ -49,6 +49,7 @@ import {
 import { getActiveCountryProfile } from "../../../../data/globalCountryProfiles";
 import { isNativeApp } from "../../../../Backend/lib/apiUrl";
 import { isAppleIapAvailable } from "../../../../Backend/services/appleIapService";
+import { isGooglePlayBillingAvailable } from "../../../../Backend/services/googlePlayBillingService";
 import AppleCreditsPanel from "./AppleCreditsPanel";
 import { showToast } from "../../../../Backend/services/toastService";
 import { t } from "../../../../i18n";
@@ -837,9 +838,12 @@ export default function ProfileHeaderCard({
       </CenteredModal>
 
       <CenteredModal open={buyCreditsOpen} onClose={closeBuyCredits} labelledBy="buy-credits-title">
-        {/* iOS app: Apple In-App Purchase only (App Store Guideline 3.1.1). */}
+        {/* iOS app: Apple In-App Purchase only (App Store Guideline 3.1.1).
+            Android app: Google Play Billing only (Play payments policy). */}
         {isAppleIapAvailable() ? (
           buyCreditsOpen ? <AppleCreditsPanel onClose={closeBuyCredits} /> : null
+        ) : isGooglePlayBillingAvailable() ? (
+          buyCreditsOpen ? <AppleCreditsPanel store="google" onClose={closeBuyCredits} /> : null
         ) : (
         <AnimatePresence mode="wait" initial={false}>
           {!buyCreditsMethod ? (
