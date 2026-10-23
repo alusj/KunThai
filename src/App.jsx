@@ -374,6 +374,13 @@ export default function App() {
     const target = pageScrollRef.current[page] || 0;
     if (!leavingPage) {
       if (spacer) spacer.style.height = "";
+      // A screen that left by finger swipe is hidden now: drop its drag offset.
+      Object.entries(mainPanelRefs.current).forEach(([panelPage, node]) => {
+        if (!node || panelPage === page) return;
+        node.style.transition = "";
+        node.style.transform = "";
+        node.style.removeProperty("--kt-drag-x");
+      });
       window.scrollTo(0, target);
       return;
     }
@@ -985,6 +992,14 @@ export default function App() {
     const direction = nextIndex >= currentIndex ? "forward" : "backward";
     // The current screen slides out (pinned where it was scrolled) while the
     // next one slides in over it.
+    // A screen swiped away a moment ago and chosen again mid-slide comes back
+    // without its old drag offset.
+    const incoming = mainPanelRefs.current[nextPage];
+    if (incoming) {
+      incoming.style.transition = "";
+      incoming.style.transform = "";
+      incoming.style.removeProperty("--kt-drag-x");
+    }
     // Mid-slide the current screen is a window with its own scroll.
     const panel = mainPanelRefs.current[page];
     const scrollY = leavingPage && panel ? panel.scrollTop : window.scrollY || 0;
@@ -1110,13 +1125,15 @@ export default function App() {
 
     const targetPage = getSwipeTargetPage(deltaX);
     if (targetPage) {
-      // A committed swipe continues directly into the destination animation.
-      // Resetting the panel with another 190ms transition first made the UI
-      // visibly hesitate between the finger release and the page change.
+      // A committed swipe continues directly into the destination animation,
+      // from where the finger let go: the screen stays at its drag offset
+      // (inline transform) while the next one is drawn, then leaves from that
+      // offset (--kt-drag-x in its keyframes). Clearing the offset here first
+      // snapped the screen back to the middle for a frame before it left.
       const node = mainPanelRefs.current[page];
       if (node) {
-        node.style.transition = "";
-        node.style.transform = "";
+        node.style.transition = "none";
+        node.style.setProperty("--kt-drag-x", node.style.transform ? `${deltaX * 0.35}px` : "0px");
       }
       changePage(targetPage);
       return;

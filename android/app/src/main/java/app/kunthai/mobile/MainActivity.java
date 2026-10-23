@@ -63,9 +63,8 @@ public class MainActivity extends BridgeActivity {
             getBridge().getWebView().setWebChromeClient(new KunThaiChromeClient(getBridge()));
             // The app's own background (not black) behind the splash as it
             // slides away, before the page has painted.
-            boolean night = (getResources().getConfiguration().uiMode & android.content.res.Configuration.UI_MODE_NIGHT_MASK)
-                == android.content.res.Configuration.UI_MODE_NIGHT_YES;
-            int appBackground = night ? 0xFF020617 : 0xFFF1F5F9;
+            // KunThai's own Appearance when it has been set (KunThaiLaunchPlugin).
+            int appBackground = KunThaiLaunchPlugin.appBackground(this);
             getBridge().getWebView().setBackgroundColor(appBackground);
             getWindow().getDecorView().setBackgroundColor(appBackground);
             if (logo) showLogoSplash(appBackground, splashStartedAt);

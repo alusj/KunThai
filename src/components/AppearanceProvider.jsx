@@ -1,6 +1,7 @@
 import { useCallback, useEffect, useLayoutEffect, useMemo, useState } from "react";
 
 import { APPEARANCE_STORAGE_KEY, AppearanceContext, TEXT_SIZE_STORAGE_KEY } from "../contexts/appearanceContext";
+import { setNativeAppearance } from "../Backend/services/nativeLaunch";
 
 const VALID_MODES = new Set(["system", "on", "off"]);
 const VALID_TEXT_SIZES = new Set(["small", "medium", "large"]);
@@ -46,6 +47,7 @@ function applyAppearance(mode, systemDark) {
   root.dataset.appearance = dark ? "dark" : "light";
   root.style.colorScheme = dark ? "dark" : "light";
   document.querySelector('meta[name="theme-color"]')?.setAttribute("content", dark ? "#020617" : "#f1f5f9");
+  setNativeAppearance(dark);
   return dark;
 }
 

@@ -35,3 +35,22 @@ export function setNativeSignedIn(signedIn) {
   }
   return KunThaiLaunch.setSignedIn({ signedIn: Boolean(signedIn) }).catch(() => {});
 }
+
+// KunThai's Appearance (dark or light, "System" already resolved). The native
+// app paints the background behind the page in it, so a frame the WebView has
+// not drawn yet (a screen switch, a swipe) is never the other theme's colour,
+// and uses it behind the splash at the next start.
+let lastNativeAppearance = null;
+export function setNativeAppearance(dark) {
+  const value = Boolean(dark);
+  if (lastNativeAppearance === value) return Promise.resolve();
+  try {
+    if (!Capacitor.isNativePlatform() || !Capacitor.isPluginAvailable("KunThaiLaunch")) return Promise.resolve();
+  } catch {
+    return Promise.resolve();
+  }
+  lastNativeAppearance = value;
+  return KunThaiLaunch.setAppearance({ dark: value }).catch(() => {
+    lastNativeAppearance = null;
+  });
+}

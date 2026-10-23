@@ -463,7 +463,7 @@
   .kt-main-enter-wait-backward {
     position: relative;
     z-index: 1;
-    background: var(--kt-app-bg, #f1f5f9);
+    background: var(--kt-panel-bg, var(--kt-app-bg, #f1f5f9));
   }
 
   /* First frame of a switch: the next screen is drawn, waiting off to the
@@ -496,7 +496,7 @@
     right: 0;
     z-index: 0;
     pointer-events: none;
-    background: var(--kt-app-bg, #f1f5f9);
+    background: var(--kt-panel-bg, var(--kt-app-bg, #f1f5f9));
     will-change: transform;
   }
 
@@ -1201,13 +1201,15 @@
   to { transform: none; }
 }
 
+/* A finger-swiped screen leaves from where the finger let go
+   (--kt-drag-x, set on release in App.jsx / Explore.jsx), not from the middle. */
 @keyframes kt-main-leave-forward {
-  from { transform: none; opacity: 1; }
+  from { transform: translate3d(var(--kt-drag-x, 0px), 0, 0); opacity: 1; }
   to { transform: translate3d(-28%, 0, 0); opacity: 0.6; }
 }
 
 @keyframes kt-main-leave-backward {
-  from { transform: none; opacity: 1; }
+  from { transform: translate3d(var(--kt-drag-x, 0px), 0, 0); opacity: 1; }
   to { transform: translate3d(28%, 0, 0); opacity: 0.6; }
 }
 

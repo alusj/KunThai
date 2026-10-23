@@ -27,6 +27,10 @@ html[data-text-size="large"] {
   --kt-app-text: #020617;
   --kt-app-text-soft: #475569;
   --kt-app-text-muted: #64748b;
+  /* What the main screens and Explore's tabs sit on (bg-slate-100, below):
+     a screen sliding in or out is painted in it, so a switch never shows a
+     different shade, or a light one in dark mode. */
+  --kt-panel-bg: #f1f5f9;
 }
 
 html.dark {
@@ -39,6 +43,7 @@ html.dark {
   --kt-app-text: #f8fafc;
   --kt-app-text-soft: #cbd5e1;
   --kt-app-text-muted: #94a3b8;
+  --kt-panel-bg: #1e293b;
   background: var(--kt-app-bg);
   color-scheme: dark;
 }

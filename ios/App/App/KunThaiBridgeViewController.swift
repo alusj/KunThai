@@ -33,7 +33,11 @@ class KunThaiBridgeViewController: CAPBridgeViewController {
     private static let maxSplashSeconds: TimeInterval = 8
     private static let collapseDuration: TimeInterval = 0.42
     static let webReadyNotification = Notification.Name("KunThaiWebReady")
+    static let appearanceNotification = Notification.Name("KunThaiAppearance")
     static let signedInKey = "KunThaiSignedIn"
+    // KunThai's own Appearance choice ("dark" / "light"), saved by the web app
+    // (KunThaiLaunchPlugin.setAppearance). Unset: follow the phone.
+    static let appearanceKey = "KunThaiAppearance"
 
     private var splashView: UIView?
     private var splashMinimumUntil = Date.distantPast
@@ -66,6 +70,7 @@ class KunThaiBridgeViewController: CAPBridgeViewController {
         let center = NotificationCenter.default
         center.addObserver(self, selector: #selector(appWillEnterForeground), name: UIApplication.willEnterForegroundNotification, object: nil)
         center.addObserver(self, selector: #selector(webDidBecomeReady), name: Self.webReadyNotification, object: nil)
+        center.addObserver(self, selector: #selector(appearanceDidChange), name: Self.appearanceNotification, object: nil)
 
         // iOS can clear the page of an app in the background; Capacitor then
         // reloads it, at any moment, often just as KunThai returns. The splash
@@ -85,12 +90,30 @@ class KunThaiBridgeViewController: CAPBridgeViewController {
         NotificationCenter.default.removeObserver(self)
     }
 
+    private static let darkBackground = UIColor(red: 0.008, green: 0.024, blue: 0.09, alpha: 1)
+    private static let lightBackground = UIColor(red: 0.945, green: 0.961, blue: 0.976, alpha: 1)
+
+    // Behind the page (seen wherever WebKit has not painted yet, e.g. a frame
+    // of a screen switch) and behind the splash: KunThai's own Appearance
+    // choice when the web app has reported one, so a dark KunThai on a phone
+    // in light mode never shows light; otherwise the phone's style.
     private static var appBackground: UIColor {
-        UIColor { traits in
-            traits.userInterfaceStyle == .dark
-                ? UIColor(red: 0.008, green: 0.024, blue: 0.09, alpha: 1)
-                : UIColor(red: 0.945, green: 0.961, blue: 0.976, alpha: 1)
+        switch UserDefaults.standard.string(forKey: appearanceKey) {
+        case "dark": return darkBackground
+        case "light": return lightBackground
+        default:
+            return UIColor { traits in
+                traits.userInterfaceStyle == .dark ? darkBackground : lightBackground
+            }
         }
+    }
+
+    @objc private func appearanceDidChange() {
+        let appBackground = Self.appBackground
+        view.backgroundColor = appBackground
+        webView?.backgroundColor = appBackground
+        webView?.scrollView.backgroundColor = appBackground
+        splashView?.backgroundColor = appBackground
     }
 
     @objc private func appWillEnterForeground() {
@@ -189,6 +212,7 @@ public class KunThaiLaunchPlugin: CAPPlugin, CAPBridgedPlugin {
     public let pluginMethods: [CAPPluginMethod] = [
         CAPPluginMethod(name: "ready", returnType: CAPPluginReturnPromise),
         CAPPluginMethod(name: "setSignedIn", returnType: CAPPluginReturnPromise),
+        CAPPluginMethod(name: "setAppearance", returnType: CAPPluginReturnPromise),
     ]
 
     @objc func ready(_ call: CAPPluginCall) {
@@ -202,6 +226,18 @@ public class KunThaiLaunchPlugin: CAPPlugin, CAPBridgedPlugin {
     // between the KunThai splash and a plain start.
     @objc func setSignedIn(_ call: CAPPluginCall) {
         UserDefaults.standard.set(call.getBool("signedIn") ?? false, forKey: KunThaiBridgeViewController.signedInKey)
+        call.resolve()
+    }
+
+    // KunThai's Appearance (dark or light, already resolved from "System"):
+    // the native background behind the page follows it now and at the next
+    // start.
+    @objc func setAppearance(_ call: CAPPluginCall) {
+        let dark = call.getBool("dark") ?? false
+        UserDefaults.standard.set(dark ? "dark" : "light", forKey: KunThaiBridgeViewController.appearanceKey)
+        DispatchQueue.main.async {
+            NotificationCenter.default.post(name: KunThaiBridgeViewController.appearanceNotification, object: nil)
+        }
         call.resolve()
     }
 }

@@ -153,6 +153,14 @@ export default function Explore({ active = true, onNavigateMain, onScreenModeCha
   const drawerAsideRef = useRef(null);
   const drawerBackdropRef = useRef(null);
   const dragSettleTimerRef = useRef(null);
+  // Finger-drag styles kept on until the drag's result is on screen: a tab
+  // switch clears them in its own commit; a swipe out to UrMall once Explore
+  // has slid away (or as it comes back). Clearing them first put the old tab
+  // back in the middle for a frame before the switch.
+  const tabDragCleanupPendingRef = useRef(false);
+  const exitDragCleanupPendingRef = useRef(false);
+  const exitDragCleanupTimerRef = useRef(null);
+  const clearTabDragStylesRef = useRef(null);
   const previousMenuStackRef = useRef([]);
   const stackCleanupTimerRef = useRef(null);
   const postingNoticeClearTimerRef = useRef(null);
@@ -165,6 +173,7 @@ export default function Explore({ active = true, onNavigateMain, onScreenModeCha
   const { t } = useI18n();
   const { activeTab, activeMenuScreen, menuStack } = exploreNav;
   switchExploreTabRef.current = switchExploreTab;
+  clearTabDragStylesRef.current = clearTabDragStyles;
   const switchIdentityRef = useRef(null);
   switchIdentityRef.current = switchExploreIdentity;
   openPostTargetRef.current = openExplorePostTarget;
@@ -382,6 +391,12 @@ export default function Explore({ active = true, onNavigateMain, onScreenModeCha
     const previousTab = scrollRestoreTabRef.current;
     scrollRestoreTabRef.current = activeTab;
     if (!previousTab || previousTab === activeTab) return;
+    // A finger-dragged switch: the panels sit where the drag left them until
+    // now, in the same frame as the new tab becomes the active one.
+    if (tabDragCleanupPendingRef.current) {
+      tabDragCleanupPendingRef.current = false;
+      clearTabDragStyles();
+    }
     // Panels stay mounted (hidden with display:none), so showing one again
     // would replay its cards' entrance animations.
     settleReplayedAnimations(tabPanelRefs.current[activeTab]);
@@ -417,7 +432,17 @@ export default function Explore({ active = true, onNavigateMain, onScreenModeCha
   useEffect(() => () => {
     window.clearTimeout(dragSettleTimerRef.current);
     window.clearTimeout(leavingTabTimerRef.current);
+    window.clearTimeout(exitDragCleanupTimerRef.current);
   }, []);
+
+  // Back on Explore before the swipe-out cleanup ran: drop the offset before
+  // the first frame.
+  useLayoutEffect(() => {
+    if (!active || !exitDragCleanupPendingRef.current) return;
+    exitDragCleanupPendingRef.current = false;
+    window.clearTimeout(exitDragCleanupTimerRef.current);
+    clearTabDragStylesRef.current?.();
+  }, [active]);
 
   // Start the tab slide once the incoming tab has painted off to the side
   // (UrFeed is long; drawing it again took the whole slide before).
@@ -1120,7 +1145,8 @@ export default function Explore({ active = true, onNavigateMain, onScreenModeCha
     node.style.bottom = "0";
     node.style.zIndex = "25";
     node.style.overflow = "hidden";
-    node.style.background = "rgb(241 245 249)";
+    // The panels' own surface (appearance.css), so dark mode stays dark.
+    node.style.background = "var(--kt-panel-bg, rgb(241 245 249))";
     node.style.pointerEvents = "none";
     node.style.transition = "none";
     node.style.transform = `translate3d(${initialOffset}px, 0, 0)`;
@@ -1295,10 +1321,20 @@ export default function Explore({ active = true, onNavigateMain, onScreenModeCha
 
     window.clearTimeout(dragSettleTimerRef.current);
     dragSettleTimerRef.current = window.setTimeout(() => {
-      clearTabDragStyles();
-      if (commit) {
-        switchExploreTabRef.current?.(gesture.incomingTab, { animate: false });
+      if (!commit) {
+        clearTabDragStyles();
+        return;
       }
+      // Cleared in the switch's commit (the activeTab layout effect), so the
+      // incoming tab never drops back out of view first.
+      tabDragCleanupPendingRef.current = true;
+      switchExploreTabRef.current?.(gesture.incomingTab, { animate: false });
+      // Should the switch not happen, the panels still settle.
+      window.setTimeout(() => {
+        if (!tabDragCleanupPendingRef.current) return;
+        tabDragCleanupPendingRef.current = false;
+        clearTabDragStylesRef.current?.();
+      }, 600);
     }, TAB_DRAG_SETTLE_MS + 30);
   }
 
@@ -1394,8 +1430,15 @@ export default function Explore({ active = true, onNavigateMain, onScreenModeCha
       if (commit) {
         // Continue straight into UrMall. A snap-back animation here used to
         // compete with the main-page entry transition and caused the small
-        // pause users could feel at the service boundary.
-        clearTabDragStyles();
+        // pause users could feel at the service boundary. The tab stays at its
+        // drag offset while Explore slides away and is reset once it is gone.
+        exitDragCleanupPendingRef.current = true;
+        window.clearTimeout(exitDragCleanupTimerRef.current);
+        exitDragCleanupTimerRef.current = window.setTimeout(() => {
+          if (!exitDragCleanupPendingRef.current) return;
+          exitDragCleanupPendingRef.current = false;
+          clearTabDragStylesRef.current?.();
+        }, NAV_TRANSITION_MS + 300);
         onNavigateMain?.("marketplace");
         return;
       }
