@@ -381,7 +381,10 @@ export default function App() {
       window.cancelAnimationFrame(first);
       window.cancelAnimationFrame(second);
     };
-  }, [leavingPage?.phase]);
+    // Keyed on each switch, not on the phase: a screen chosen just after the
+    // slide started (before React drew "running") arrives as "pending" again,
+    // and a phase-keyed effect would not re-run, leaving it parked off-screen.
+  }, [leavingPage]);
 
   // Switches, tabs, radios, checkboxes and pickers give one tiny tick app-wide.
   useEffect(() => installSelectionHaptics(), []);
@@ -1189,7 +1192,7 @@ export default function App() {
               />
             </section>
           ) : null}
-          {!bottomTabsHidden ? <BottomTabs badges={mainPageBadges} page={page} setPage={changePage} /> : null}
+          <BottomTabs badges={mainPageBadges} forceHidden={bottomTabsHidden} page={page} setPage={changePage} />
         </Suspense>
         </LazyRouteBoundary>
       </PageTransition>

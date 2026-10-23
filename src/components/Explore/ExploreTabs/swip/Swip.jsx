@@ -1,14 +1,15 @@
-import { useEffect } from "react";
+import { useEffect, useLayoutEffect } from "react";
 
 import { stopAllExploreMedia } from "../../shared/singleMediaPlayback";
 import All from "./tabs/All";
 
 export default function Swip({ active = true, currentUserId = "", focusPostId = "", focusPost = null, focusRequest = null, onReturnToRepost, onViewProfile, profile }) {
-  useEffect(() => {
-    if (!active) {
-      stopAllExploreMedia(null, { muteVideos: false });
-      return undefined;
-    }
+  // The page lock is set and released in the layout phase, in the same commit
+  // as the tab switch: Explore restores the next tab's scroll right after, and
+  // a lock still in place then (body 100dvh, overflow hidden) clamped that
+  // scroll to the top, so UrFeed jumped back down a frame later.
+  useLayoutEffect(() => {
+    if (!active) return undefined;
 
     const previousBody = {
       overflow: document.body.style.overflow,
@@ -28,6 +29,22 @@ export default function Swip({ active = true, currentUserId = "", focusPostId = 
     document.documentElement.style.overscrollBehavior = "none";
     document.documentElement.style.height = "100dvh";
 
+    return () => {
+      document.body.style.overflow = previousBody.overflow;
+      document.body.style.overscrollBehavior = previousBody.overscrollBehavior;
+      document.body.style.height = previousBody.height;
+      document.documentElement.style.overflow = previousHtml.overflow;
+      document.documentElement.style.overscrollBehavior = previousHtml.overscrollBehavior;
+      document.documentElement.style.height = previousHtml.height;
+    };
+  }, [active]);
+
+  useEffect(() => {
+    if (!active) {
+      stopAllExploreMedia(null, { muteVideos: false });
+      return undefined;
+    }
+
     const playTimer = window.setTimeout(() => {
       window.dispatchEvent(new CustomEvent("swip-active-play", { detail: { sound: true } }));
     }, 120);
@@ -35,12 +52,6 @@ export default function Swip({ active = true, currentUserId = "", focusPostId = 
     return () => {
       window.clearTimeout(playTimer);
       stopAllExploreMedia(null, { muteVideos: false });
-      document.body.style.overflow = previousBody.overflow;
-      document.body.style.overscrollBehavior = previousBody.overscrollBehavior;
-      document.body.style.height = previousBody.height;
-      document.documentElement.style.overflow = previousHtml.overflow;
-      document.documentElement.style.overscrollBehavior = previousHtml.overscrollBehavior;
-      document.documentElement.style.height = previousHtml.height;
     };
   }, [active]);
 

@@ -123,7 +123,8 @@ export default function Explore({ active = true, onNavigateMain, onScreenModeCha
   const [messageConversationActive, setMessageConversationActive] = useState(false);
   const [yourVoiceDraft, setYourVoiceDraft] = useState(null);
   const [postingNotice, setPostingNotice] = useState(() => readPostingNotice());
-  const [topChromeHeight, setTopChromeHeight] = useState(0);
+  // Header + tabs height, and the tabs row alone (all Swip keeps on screen).
+  const [topChrome, setTopChrome] = useState({ full: 0, tabs: 0 });
   const [tabSlideDirection, setTabSlideDirection] = useState("forward");
   // The tab being slid out while the next one slides in ({ tab, direction, top }).
   const [leavingTab, setLeavingTab] = useState(null);
@@ -143,6 +144,8 @@ export default function Explore({ active = true, onNavigateMain, onScreenModeCha
   const [visibleMenuStack, setVisibleMenuStack] = useState([]);
   const [menuStackAction, setMenuStackAction] = useState("idle");
   const topChromeRef = useRef(null);
+  const exploreTabsRef = useRef(null);
+  const scrollRestoreTabRef = useRef("");
   const tabScrollRef = useRef({});
   const exploreGestureRef = useRef(null);
   const tabPanelRefs = useRef({});
@@ -176,14 +179,21 @@ export default function Explore({ active = true, onNavigateMain, onScreenModeCha
   // (jump on open, snap-back on close). Excluding it leaves the feed exactly
   // where it is and fully visible behind the drawer.
   const scrollLockActive = menuOverlayVisible || composerOpen || headerOverlayOpen;
+  // Swip does not scroll the page, so its header state is fixed (slid away);
+  // scroll-hiding only runs on the scrolling tabs.
   const navHidden = useScrollHidden({
-    enabled: active && !headerMotionBlocked,
+    enabled: active && !headerMotionBlocked && !isSwipTab,
+    resetKey: activeTab,
     threshold: 72,
     hideDistance: 72,
     showDistance: 52,
     minScrollY: 96,
     cooldownMs: 280,
   });
+  const chromeHidden = navHidden && !isSwipTab;
+  // How far the bar slides up on Swip: the header's height, less the safe area
+  // the tabs row stops under (added in CSS, as it is not known here).
+  const headerShift = Math.max(0, topChrome.full - topChrome.tabs);
   const authProfile = buildExploreProfileFromUser(user);
   const profileOverrideMatchesUser = Boolean(user?.id && profileOverride?.userId === user.id);
   const personalProfile = profileOverrideMatchesUser ? profileOverride : authProfile;
@@ -338,25 +348,41 @@ export default function Explore({ active = true, onNavigateMain, onScreenModeCha
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
+  // The header stays mounted on every tab (Swip slides it away), so these
+  // heights do not change with the tab and nothing reflows on a switch.
   useLayoutEffect(() => {
     const node = topChromeRef.current;
-    if (!node) {
+    const tabsNode = exploreTabsRef.current;
+    if (!node || !tabsNode) {
       return undefined;
     }
 
     function measure() {
-      setTopChromeHeight(Math.ceil(node.getBoundingClientRect().height || 0));
+      const full = Math.ceil(node.offsetHeight || 0);
+      const tabs = Math.ceil(tabsNode.offsetHeight || 0);
+      setTopChrome((current) => (current.full === full && current.tabs === tabs ? current : { full, tabs }));
     }
 
     measure();
     const observer = new ResizeObserver(measure);
     observer.observe(node);
+    observer.observe(tabsNode);
     window.addEventListener("resize", measure);
     return () => {
       observer.disconnect();
       window.removeEventListener("resize", measure);
     };
-  }, [isSwipTab, navHidden]);
+  }, []);
+
+  // Each tab keeps its own scroll, restored before the switch paints (like the
+  // main screens in App.jsx): the leaving tab is pinned in place and the next
+  // one is drawn at its final offset, so neither moves when the slide starts.
+  useLayoutEffect(() => {
+    const previousTab = scrollRestoreTabRef.current;
+    scrollRestoreTabRef.current = activeTab;
+    if (!previousTab || previousTab === activeTab) return;
+    window.scrollTo({ top: tabScrollRef.current[activeTab] || 0, behavior: "instant" });
+  }, [activeTab]);
 
   useEffect(() => {
     onScreenModeChange?.(active && (anyExploreOverlayVisible || isSwipTab || Boolean(activeMenuScreen)));
@@ -405,7 +431,10 @@ export default function Explore({ active = true, onNavigateMain, onScreenModeCha
       window.cancelAnimationFrame(first);
       window.cancelAnimationFrame(second);
     };
-  }, [leavingTab?.phase]);
+    // Keyed on each switch, not on the phase: a tab chosen just after the
+    // slide started (before React drew "running") arrives as "pending" again,
+    // and a phase-keyed effect would not re-run, leaving it parked off-screen.
+  }, [leavingTab]);
 
   useBodyScrollLock(scrollLockActive);
 
@@ -997,15 +1026,15 @@ export default function Explore({ active = true, onNavigateMain, onScreenModeCha
     tabScrollRef.current[activeTab] = window.scrollY || 0;
     exploreNav.setActiveTab(tab);
     const nextScroll = tabScrollRef.current[tab] || 0;
-    requestAnimationFrame(() => {
-      requestAnimationFrame(() => window.scrollTo({ top: nextScroll, behavior: "instant" }));
-    });
-    // Re-apply after the tab slide animation: a browser-back arrival (e.g.
-    // returning from a reposted Swip) can trigger the browser's own scroll
-    // restoration, which would otherwise override the saved feed position.
+    // The layout effect above restores the offset. Re-apply after the slide:
+    // a browser-back arrival (e.g. returning from a reposted Swip) can trigger
+    // the browser's own scroll restoration, which would otherwise override the
+    // saved feed position. Skipped once another tab has been chosen.
     window.setTimeout(() => {
+      if (scrollRestoreTabRef.current !== tab) return;
+      if (Math.abs((window.scrollY || 0) - nextScroll) < 1) return;
       window.scrollTo({ top: nextScroll, behavior: "instant" });
-    }, 360);
+    }, NAV_TRANSITION_MS + 40);
   }
 
   function returnFromRepostedSwip() {
@@ -1035,6 +1064,12 @@ export default function Explore({ active = true, onNavigateMain, onScreenModeCha
 
   function getExploreTabPanelStyle(tab) {
     return leavingTab?.tab === tab && activeTab !== tab ? { top: `${leavingTab.top}px` } : undefined;
+  }
+
+  // Where a tab's content starts on screen once it is active: under the tabs
+  // row alone on Swip, under the full header (+ pt-2) elsewhere.
+  function getExploreTabTop(tab) {
+    return tab === "Swip" ? `calc(${topChrome.tabs}px + var(--kt-safe-area-top))` : `${topChrome.full + 8}px`;
   }
 
   function getDrawerWidth() {
@@ -1069,7 +1104,7 @@ export default function Explore({ active = true, onNavigateMain, onScreenModeCha
 
     node.style.display = "block";
     node.style.position = "fixed";
-    node.style.top = `${topChromeHeight}px`;
+    node.style.top = getExploreTabTop(tab);
     node.style.left = "0";
     node.style.right = "0";
     node.style.bottom = "0";
@@ -1693,7 +1728,7 @@ export default function Explore({ active = true, onNavigateMain, onScreenModeCha
     <>
     <div
       className={`kt-mobile-viewport block w-full max-w-full touch-pan-y overscroll-x-none overflow-x-clip bg-slate-100 ${isSwipTab ? "" : "kuntai-safe-bottom"}`}
-      style={{ "--explore-top-chrome-height": `${navHidden ? 0 : topChromeHeight}px` }}
+      style={topChrome.tabs ? { "--explore-top-chrome-height": `calc(${topChrome.tabs}px + var(--kt-safe-area-top))` } : undefined}
       onTouchStart={handleExploreTouchStart}
       onTouchMove={handleExploreTouchMove}
       onTouchEnd={handleExploreTouchEnd}
@@ -1708,41 +1743,61 @@ export default function Explore({ active = true, onNavigateMain, onScreenModeCha
       {/* Hidden by sliding it up (like UrMall), never by collapsing its height:
           collapsing shrank the page mid-scroll, the browser shifted the scroll
           position to compensate, and that shift read as a scroll the other way —
-          so the header (and the bottom tabs) kept flickering in and out. */}
+          so the header (and the bottom tabs) kept flickering in and out.
+          Swip works the same way: the header stays mounted and slides up (the
+          tabs row with it, stopping under the safe area) in step with the tab
+          slide. Unmounting it changed the bar's height and padding in one frame,
+          so the bar jumped on the way in and the header redrew on the way out. */}
       <div
         ref={topChromeRef}
-        className={`sticky top-0 z-30 max-h-56 overflow-hidden bg-slate-100/95 backdrop-blur transition-[opacity,transform] duration-300 ease-out ${isSwipTab ? "pt-[var(--kt-safe-area-top)]" : ""} ${
-          navHidden ? "-translate-y-full opacity-0 pointer-events-none" : "translate-y-0 opacity-100"
-        }`}
+        className={`sticky top-0 z-30 max-h-56 overflow-hidden bg-slate-100/95 backdrop-blur ${chromeHidden ? "pointer-events-none" : ""}`}
+        style={{
+          opacity: chromeHidden ? 0 : 1,
+          transform: chromeHidden
+            ? "translate3d(0, -100%, 0)"
+            : isSwipTab
+              ? `translate3d(0, calc(var(--kt-safe-area-top) - ${headerShift}px), 0)`
+              : "translate3d(0, 0, 0)",
+          transition: "transform var(--kt-nav-duration) var(--kt-nav-ease), opacity 300ms ease-out",
+        }}
       >
-        <div>
-          {!isSwipTab ? (
-            <ExploreHeader
-              currentProfile={profile}
-              spaceActivityTotal={otherSpacesActivityTotal}
-              onAlertsClick={() => openMenuScreen("Notifications")}
-              onNavigate={openMenuScreen}
-              onCreateSelect={handleCreateSelect}
-              onSearchResult={openSearchResult}
-              onOverlayChange={setHeaderOverlayOpen}
-            />
-          ) : null}
+        <div
+          aria-hidden={isSwipTab || undefined}
+          inert={isSwipTab ? "true" : undefined}
+          style={{
+            opacity: isSwipTab ? 0 : 1,
+            transition: "opacity var(--kt-nav-duration) var(--kt-nav-ease)",
+          }}
+        >
+          <ExploreHeader
+            currentProfile={profile}
+            spaceActivityTotal={otherSpacesActivityTotal}
+            onAlertsClick={() => openMenuScreen("Notifications")}
+            onNavigate={openMenuScreen}
+            onCreateSelect={handleCreateSelect}
+            onSearchResult={openSearchResult}
+            onOverlayChange={setHeaderOverlayOpen}
+          />
         </div>
 
         {/* =========================
             PARENT TABS
         ========================= */}
-        <ExploreTabs
-          activeTab={activeTab}
-          setActiveTab={switchExploreTab}
-          slideDirection={tabSlideDirection}
-        />
+        <div ref={exploreTabsRef}>
+          <ExploreTabs activeTab={activeTab} setActiveTab={switchExploreTab} />
+        </div>
       </div>
 
       {/* =========================
           ACTIVE PAGE
       ========================= */}
-      <div className={`w-full max-w-full overflow-x-clip ${isSwipTab ? "pt-0" : "pt-2"}`}>
+      {/* On Swip the content moves up under the slid-away header. It changes in
+          the switch's own commit, while the leaving tab is pinned and the next
+          one waits off to the side, so nothing on screen shifts. */}
+      <div
+        className={`w-full max-w-full overflow-x-clip ${isSwipTab ? "pt-0" : "pt-2"}`}
+        style={isSwipTab && headerShift ? { marginTop: `calc(var(--kt-safe-area-top) - ${headerShift}px)` } : undefined}
+      >
         {!profileLoading && profileError ? <ExploreProfileError message={translateUi(profileError)} /> : null}
        {profileExists ? (
   <>

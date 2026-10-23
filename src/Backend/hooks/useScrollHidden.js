@@ -9,6 +9,9 @@ export function useScrollHidden(options = 8) {
     showDistance = Math.max(36, Math.round(threshold * 0.75)),
     minScrollY = 96,
     cooldownMs = 260,
+    // A new key (e.g. the active tab) shows the chrome again and re-anchors on
+    // the current scroll, so a restored offset does not read as a scroll.
+    resetKey,
   } = config;
   const [hidden, setHidden] = useState(false);
   const hiddenRef = useRef(false);
@@ -17,6 +20,7 @@ export function useScrollHidden(options = 8) {
   const directionStartYRef = useRef(0);
   const lastToggleAtRef = useRef(0);
   const frameRef = useRef(null);
+  const resetKeyRef = useRef(resetKey);
 
   useEffect(() => {
     function publishHidden(nextHidden, y) {
@@ -38,7 +42,15 @@ export function useScrollHidden(options = 8) {
       return undefined;
     }
 
+    if (resetKeyRef.current !== resetKey) {
+      resetKeyRef.current = resetKey;
+      hiddenRef.current = false;
+      lastToggleAtRef.current = performance.now();
+      setHidden(false);
+    }
+
     lastYRef.current = window.scrollY || 0;
+    directionRef.current = "idle";
     directionStartYRef.current = lastYRef.current;
 
     function onScroll() {
@@ -89,7 +101,7 @@ export function useScrollHidden(options = 8) {
         frameRef.current = null;
       }
     };
-  }, [cooldownMs, enabled, hideDistance, minScrollY, showDistance]);
+  }, [cooldownMs, enabled, hideDistance, minScrollY, resetKey, showDistance]);
 
   return hidden;
 }

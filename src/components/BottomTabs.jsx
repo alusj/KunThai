@@ -23,9 +23,12 @@ const SHOW_DISTANCE = 52;
 const MIN_SCROLL_Y = 96;
 const TOGGLE_COOLDOWN_MS = 280;
 
-export default function BottomTabs({ badges = {}, page, setPage }) {
+export default function BottomTabs({ badges = {}, forceHidden = false, page, setPage }) {
   const { t } = useI18n();
-  const [hidden, setHidden] = useState(false);
+  const [scrollHidden, setScrollHidden] = useState(false);
+  // A full-screen view (Swip, a sub-screen) hides the bar by sliding it away;
+  // it stays mounted so it slides back instead of popping in.
+  const hidden = forceHidden || scrollHidden;
   const hiddenRef = useRef(false);
   const scrollStateRef = useRef(new WeakMap());
   const lastToggleAtRef = useRef(0);
@@ -38,7 +41,7 @@ export default function BottomTabs({ badges = {}, page, setPage }) {
       hiddenRef.current = nextHidden;
       lastToggleAtRef.current = performance.now();
       scrollStateRef.current.set(target, { lastY: y, dir: "idle", dirStartY: y });
-      setHidden(nextHidden);
+      setScrollHidden(nextHidden);
     }
 
     function evaluate(scrollTarget) {
@@ -100,7 +103,7 @@ export default function BottomTabs({ badges = {}, page, setPage }) {
     hiddenRef.current = false;
     scrollStateRef.current = new WeakMap();
     lastToggleAtRef.current = performance.now();
-    setHidden(false);
+    setScrollHidden(false);
   }, [page]);
 
   const Btn = ({ id, label, icon }) => (
