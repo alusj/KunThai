@@ -27,6 +27,7 @@ import VideoProgress from "./VideoProgress";
 import { t as i18nText } from "../../../../../i18n/index";
 import { uiText as translateUi, useI18n as useUiLocale } from "../../../../../i18n/index.js";
 import { inlineErrorMessage } from "../../../../../Backend/services/friendlyErrorService";
+import { dropPostedVideoFile, notifyPostedVideoPlaying, postedVideoLocalUrl } from "../../../../../Backend/services/explore/postedVideoPlayback";
 
 const MAX_SWIP_SECONDS = 15;
 
@@ -99,6 +100,11 @@ export default function VideoCard({
   const [message, setMessage] = useState("");
   const [needsSoundUnlock, setNeedsSoundUnlock] = useState(false);
   const [videoLoading, setVideoLoading] = useState(true);
+  // A video its author has just posted plays from the file on their phone
+  // (postedVideoPlayback), so it starts at once; otherwise the uploaded copy.
+  const [localCopyFailed, setLocalCopyFailed] = useState(false);
+  const localCopyUrl = localCopyFailed ? "" : postedVideoLocalUrl(post.id);
+  const videoSrc = localCopyUrl || post.video_url;
   // The spinner waits a moment: a clip that starts quickly (already buffered,
   // or a short network hiccup) never flashes it.
   const [showSpinner, setShowSpinner] = useState(false);
@@ -862,7 +868,7 @@ export default function VideoCard({
     >
       <video
         ref={videoRef}
-        src={post.video_url}
+        src={videoSrc}
         autoPlay={active && readExploreSettings().video.autoplay}
         data-explore-active={active ? "true" : "false"}
         controls={false}
@@ -871,6 +877,12 @@ export default function VideoCard({
         preload={readExploreSettings().video.reduceData ? "none" : preloadMode}
         loop={false}
         onError={() => {
+          if (localCopyUrl) {
+            // The phone's copy is gone or unreadable: play the uploaded one.
+            setLocalCopyFailed(true);
+            dropPostedVideoFile(post.id);
+            return;
+          }
           setVideoLoading(false);
           setMediaError(i18nText("ui.literals.kb17dd3bd9917"));
           onMediaUnavailable?.();
@@ -885,6 +897,7 @@ export default function VideoCard({
         onPlaying={() => {
           setVideoLoading(false);
           if (!primingRef.current) markPlaybackViewed();
+          if (!primingRef.current && (activeRef.current || active)) notifyPostedVideoPlaying(post.id);
         }}
         onStalled={() => setVideoLoading(true)}
         onWaiting={() => setVideoLoading(true)}

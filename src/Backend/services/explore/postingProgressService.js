@@ -54,6 +54,10 @@ export function normalizePostingNotice(detail = {}) {
     expiresAt: persistent ? null : detail.expiresAt || (isComplete ? timestamp + COMPLETE_NOTICE_TTL_MS : null),
     interrupted: Boolean(detail.interrupted),
     pageSession: detail.pageSession || PAGE_SESSION_ID,
+    // A finished post the person was not looking at: the card offers Watch.
+    postId: detail.postId || "",
+    tab: detail.tab || "",
+    watch: Boolean(detail.watch),
   };
 }
 

@@ -79,6 +79,7 @@ import { EXPLORE_COMPOSER_ACTIONS } from "../../../../../../Backend/services/ai/
 import { loadExploreTopicsForAi, prepareImageForAi } from "../../../../../../Backend/services/ai/exploreAi";
 import { composerMediaKind, mergeHashtagsIntoText } from "../../../../../../Backend/services/ai/exploreAiModels";
 import { uiText as translateUi, useI18n as useUiLocale } from "../../../../../../i18n/index.js";
+import { rememberPostedVideoFile, waitForPostedVideoPlaying } from "../../../../../../Backend/services/explore/postedVideoPlayback";
 
 const LARGE_VIDEO_BACKGROUND_REVIEW_BYTES = 24 * 1024 * 1024;
 const LARGE_VIDEO_INITIAL_REVIEW_TIMEOUT_MS = 18_000;
@@ -1764,6 +1765,8 @@ export default function FeedComposer({ profile, creating, onSubmit }) {
     postingSessionIdRef.current = `posting-${Date.now().toString(36)}-${Math.random().toString(36).slice(2, 8)}`;
     postingCancelledRef.current = false;
     let uploadedReviewVideoUrl = "";
+    // The exact file uploaded, kept to play the new post from the phone.
+    let postedVideoFile = null;
 
     // Stops the post wherever it has got to, and leaves nothing behind.
     async function stopIfCancelled() {
@@ -1939,6 +1942,7 @@ if (!isMobileVideoDevice) {
         }
 
         if (videoUploadFile) {
+          postedVideoFile = videoUploadFile;
           setPostingStage("uploading-media");
           setPostingProgress(24);
           publishPostingUpdate({
@@ -2131,23 +2135,41 @@ if (!isMobileVideoDevice) {
         uploadedReviewVideoUrl = "";
         setPostingStage("complete");
         setPostingProgress(100);
-
         const publishedPostId = result.post?.id || "";
         const publishedTab = postDraft.video_url && (!isAdvertMode || !postDraft.image_url) ? "Swip" : "UrFeed";
-        window.dispatchEvent(new CustomEvent("explore-open-tab", {
-          detail: { tab: publishedTab, postId: publishedPostId, source: "post-published" },
-        }));
+        const publishedVideo = publishedTab === "Swip" && Boolean(publishedPostId);
+        // The new video plays from the file on this phone (no download).
+        if (publishedVideo && postedVideoFile) rememberPostedVideoFile(publishedPostId, postedVideoFile);
 
+        // Explore opens the post only if the person is still on Explore; it
+        // says so in `opened`. Otherwise the finished card offers Watch.
+        const openRequest = { tab: publishedTab, postId: publishedPostId, post: result.post || null, source: "post-published", opened: false };
+        if (publishedPostId) {
+          window.dispatchEvent(new CustomEvent("explore-open-tab", { detail: openRequest }));
+        }
+        closeComposer({ afterClose: resetComposer });
+
+        // A video keeps the ring up until it is actually playing in Swip, so
+        // "posted" and the video starting are one moment (never more than a
+        // few seconds).
+        // (Only the floating card from here: the composer is closed and reset.)
+        if (publishedVideo && openRequest.opened) {
+          publishPostingUpdate({ status: "posting", stage: "syncing", progress: 98 });
+          await waitForPostedVideoPlaying(publishedPostId, 6000);
+        }
+
+        const offerWatch = publishedVideo && !openRequest.opened;
         publishPostingUpdate({
           status: "complete",
           stage: "complete",
           progress: 100,
           postId: publishedPostId,
           tab: publishedTab,
+          watch: offerWatch,
+          // Long enough to reach Watch.
+          ...(offerWatch ? { expiresAt: Date.now() + 10000 } : {}),
           message: result.warning || (isAdvertMode ? "Your sponsored campaign is now live in Explore. Share KunThai to gain more visibility." : "Your post is now live on Explore. Share KunThai to gain more visibility."),
         });
-
-        closeComposer({ afterClose: resetComposer });
         return;
       }
 

@@ -208,6 +208,11 @@ export default function Explore({ active = true, onNavigateMain, onScreenModeCha
   openPostTargetRef.current = openExplorePostTarget;
   const isSwipTab = activeTab === "Swip";
   const menuOverlayVisible = exploreNav.isFullScreen || visibleMenuStack.length > 0;
+  // The person is looking at Explore's tabs (not another main screen, a menu
+  // screen, the Social drawer or a header sheet): a video they just posted
+  // may open there by itself.
+  const exploreTabsOnScreenRef = useRef(false);
+  exploreTabsOnScreenRef.current = active && !menuOverlayVisible && !leftDrawerOpen && !headerOverlayOpen;
   // The feed learns a menu screen covers it in a later, interruptible render,
   // so the screen's slide starts on the very next frame after the tap.
   const feedCovered = useDeferredValue(menuOverlayVisible);
@@ -687,6 +692,14 @@ export default function Explore({ active = true, onNavigateMain, onScreenModeCha
       const tab = event.detail?.tab;
       if (tab) {
         if (event.detail) event.detail.handled = true;
+        // Just posted: open it only if they are still on Explore (the
+        // composer reads `opened`); elsewhere the finished card offers Watch.
+        if (event.detail?.source === "post-published") {
+          if (!event.detail.postId || !exploreTabsOnScreenRef.current) return;
+          event.detail.opened = true;
+          openPostTargetRef.current?.(event.detail.postId, { tabHint: tab, closeMenus: false, post: event.detail.post });
+          return;
+        }
         if (event.detail?.postId) {
           openPostTargetRef.current?.(event.detail.postId, { tabHint: tab, closeMenus: false });
           return;
@@ -793,6 +806,18 @@ export default function Explore({ active = true, onNavigateMain, onScreenModeCha
       window.removeEventListener("kuntai-open-profile", handleOpenProfileRequest);
     };
   }, []);
+
+  // Watch on a finished post's card: bring Explore up on that video.
+  function watchPostedVideo(notice) {
+    if (!notice?.postId) return;
+    cancelPostingNotice(notice.id);
+    setPostingNotice(null);
+    const wasOnExplore = active;
+    if (!wasOnExplore) onNavigateMain?.("explore");
+    setLeftDrawerOpen(false);
+    // Off screen, the tab changes without a slide; Explore then slides in on it.
+    openExplorePostTarget(notice.postId, { tabHint: notice.tab || "Swip", animateTab: wasOnExplore });
+  }
 
   function dismissPostingNotice() {
     const noticeId = postingNotice?.id;
@@ -981,14 +1006,16 @@ export default function Explore({ active = true, onNavigateMain, onScreenModeCha
     setPostFocusRequest({
       key: requestKey,
       postId: normalizedPostId,
-      post: null,
+      // A post already in hand (just published) shows at once; the fetch
+      // below still refreshes it.
+      post: options.post?.id === normalizedPostId ? options.post : null,
       tab: tabHint,
       openComments: Boolean(options.openComments),
       commentId: options.commentId || "",
     });
 
     if (options.closeMenus !== false) exploreNav.closeMenuScreens();
-    switchExploreTabRef.current?.(tabHint);
+    switchExploreTabRef.current?.(tabHint, options.animateTab === false ? { animate: false } : undefined);
 
     try {
       const post = await fetchExplorePostById(normalizedPostId);
@@ -1891,7 +1918,7 @@ export default function Explore({ active = true, onNavigateMain, onScreenModeCha
       onTouchEnd={handleExploreTouchEnd}
       onTouchCancel={cancelHorizontalDrag}
     >
-      <PostingStatusBanner notice={postingNotice} onDismiss={dismissPostingNotice} onShareKunThai={shareKunThaiLink} />
+      <PostingStatusBanner notice={postingNotice} onDismiss={dismissPostingNotice} onShareKunThai={shareKunThaiLink} onWatch={watchPostedVideo} />
       <PostOutboxIndicator />
 
       {/* =========================

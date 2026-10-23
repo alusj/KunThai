@@ -1,6 +1,6 @@
 import { useEffect, useState } from "react";
 import { createPortal } from "react-dom";
-import { Maximize2, Minimize2, Share2 } from "lucide-react";
+import { Maximize2, Minimize2, Play, Share2 } from "lucide-react";
 
 import { postingStages } from "../ExploreTabs/urfeed/feed/composer/postReviewPipeline";
 import { t } from "../../../i18n";
@@ -15,7 +15,7 @@ const FLOATING_TOP = { top: "calc(var(--kt-safe-area-top, 0px) + 0.75rem)" };
 // it stops covering the feed while the upload continues in the background.
 const AUTO_COLLAPSE_MS = 5000;
 
-export default function PostingStatusBanner({ notice, onDismiss, onShareKunThai }) {
+export default function PostingStatusBanner({ notice, onDismiss, onShareKunThai, onWatch }) {
   useUiLocale();
   const [collapsed, setCollapsed] = useState(false);
   const noticeId = notice?.id || "";
@@ -154,6 +154,17 @@ export default function PostingStatusBanner({ notice, onDismiss, onShareKunThai 
                 style={{ width: `${progress}%` }}
               />
             </div>
+            {/* Posted while away from Explore: one tap opens the video playing. */}
+            {isComplete && notice.watch && notice.postId && onWatch ? (
+              <button
+                type="button"
+                onClick={() => onWatch(notice)}
+                className="kt-pressable mt-2 inline-flex h-10 w-full items-center justify-center gap-2 rounded-2xl bg-emerald-600 px-4 text-sm font-black text-white shadow-sm"
+              >
+                <Play size={15} fill="currentColor" />
+                {t("ui.literals.kdb351956b95e")}
+              </button>
+            ) : null}
             {isComplete && onShareKunThai ? (
               <div className="mt-2 flex flex-col gap-2 rounded-2xl bg-emerald-50 px-3 py-2 sm:flex-row sm:items-center sm:justify-between">
                 <p className="text-xs font-black leading-5 text-emerald-900">{t("explore.shareKunThaiVisibility")}</p>
