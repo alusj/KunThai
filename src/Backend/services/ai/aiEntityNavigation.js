@@ -90,6 +90,12 @@ export function openMarketplaceSeller(seller) {
 }
 
 /** Open a seller from a shared profile link or QR code (Marketplace leaves any workspace first). */
+/** Open an Explore profile (a person by userId, or a Space by spaceId) from a shared link or QR code. */
+export function openSharedExploreProfile({ userId = "", spaceId = "" } = {}) {
+  if (!userId && !spaceId) return;
+  dispatchUntilHandled("kuntai-open-profile", spaceId ? { spaceId } : { userId }, "explore");
+}
+
 export function openSharedMarketplaceSeller(seller) {
   if (!seller?.id) return;
   dispatchUntilHandled("marketplace-open-shared-seller", { seller }, "urmall");

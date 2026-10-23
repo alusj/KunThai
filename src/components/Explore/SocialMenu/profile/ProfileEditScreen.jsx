@@ -4,7 +4,8 @@ import { SPACE_IDENTITY_TYPE, getProfileIdentity, updateExploreProfile, updateEx
 import { optimizeImageFile } from "../../../../Backend/services/marketplace/imageOptimization";
 import { inlineErrorMessage } from "../../../../Backend/services/friendlyErrorService";
 import { shouldReplaceEditedProfile } from "../../../../Backend/services/explore/profilePostsModel";
-import { copyProfileLink, shareProfileLink } from "./profileLinks";
+import { copyProfileLink, profileShareTarget } from "./profileLinks";
+import ShareProfileSheet from "../../../shared/share/ShareProfileSheet";
 import { notifyProfileSaveError, notifyProfileUploadProblems } from "./profileSaveFeedback";
 import { haptics } from "../../../../Backend/services/feedbackService";
 import { showToast } from "../../../../Backend/services/toastService";
@@ -32,6 +33,8 @@ export default function ProfileEditScreen({
   const [values, setValues] = useState(profile || {});
   const [saving, setSaving] = useState(false);
   const [feedback, setFeedback] = useState("");
+  const [shareOpen, setShareOpen] = useState(false);
+  const shareTarget = profileShareTarget(values);
   const fileInputRef = useRef(null);
   const coverInputRef = useRef(null);
   const profileIdentity = getProfileIdentity(values);
@@ -101,14 +104,13 @@ export default function ProfileEditScreen({
     }
   }
 
-  async function handleShare() {
-    try {
-      const result = await shareProfileLink(values, t);
-      if (result === "cancelled") return;
-      showToast(t("profile.profileLinkReady"), "success");
-    } catch {
+  // Share opens the same link + QR code sheet as UrMall and UrRide profiles.
+  function handleShare() {
+    if (!shareTarget.profileId) {
       showToast(t("exploreProfileFix.profileNotShared"), "danger");
+      return;
     }
+    setShareOpen(true);
   }
 
   async function handleCopyLink() {
@@ -146,6 +148,15 @@ export default function ProfileEditScreen({
       />
 
       <ProfileEditForm values={values} onChange={updateField} />
+      <ShareProfileSheet
+        open={shareOpen}
+        onClose={() => setShareOpen(false)}
+        kind={shareTarget.kind}
+        profileId={shareTarget.profileId}
+        name={shareTarget.name}
+        subtitle={shareTarget.subtitle}
+        avatarUrl={shareTarget.avatarUrl}
+      />
 
       {isSpace ? null : <MyRegionCard />}
 

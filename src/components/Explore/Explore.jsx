@@ -648,6 +648,12 @@ export default function Explore({ active = true, onNavigateMain, onScreenModeCha
 
     function handleOpenProfileRequest(event) {
       const detail = event?.detail || {};
+      if (detail.spaceId) {
+        // A shared Space link: the Space's details load in openViewedProfile.
+        if (event.detail) event.detail.handled = true;
+        openViewedProfileRef.current?.({ spaceId: detail.spaceId, identityType: "space", identityId: detail.spaceId });
+        return;
+      }
       if (!detail.userId) return;
       if (event.detail) event.detail.handled = true;
       openViewedProfileRef.current?.({

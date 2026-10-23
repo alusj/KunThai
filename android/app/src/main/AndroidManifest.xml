@@ -34,8 +34,8 @@
                     android:pathPrefix="/callback" />
             </intent-filter>
 
-            <!-- Shared profile links and QR codes (https://kunthai.app/#urmall-seller-…,
-                 #urride-fleet-…, #urride-company-…) open the app. Verified through
+            <!-- Shared profile links and QR codes (https://kunthai.app/#kunthai-profile-…,
+                 #kunthai-space-…, #urmall-seller-…, #urride-fleet-…, #urride-company-…) open the app. Verified through
                  public/.well-known/assetlinks.json; the hash is read in profileShareService. -->
             <intent-filter android:autoVerify="true">
                 <action android:name="android.intent.action.VIEW" />

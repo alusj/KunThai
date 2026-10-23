@@ -1,42 +1,27 @@
-import { decorateShareUrl } from "../../../../Backend/services/visibilityCreditService";
+import { buildDecoratedProfileShareUrl } from "../../../../Backend/services/profileShareService";
 import { SPACE_IDENTITY_TYPE, getProfileIdentity } from "../../../../Backend/services/explore/identityService";
 
-export async function buildProfileUrl(values = {}) {
-  const url = new URL(window.location.href);
+// What the Share profile sheet (shared/share/ShareProfileSheet) shows for an
+// Explore profile: the same kunthai.app link and QR code as UrMall and UrRide
+// profiles, for a person ("person") or a Space ("space").
+export function profileShareTarget(values = {}) {
   const identity = getProfileIdentity(values);
-  url.hash = identity.type === SPACE_IDENTITY_TYPE
-    ? `space-${values.spaceId || values.username || identity.id || "space"}`
-    : `profile-${values.userId || values.username || "user"}`;
-  const shareUrl = await decorateShareUrl(url.toString());
-  return shareUrl;
-}
-
-// Opens the system share sheet; without one, copies the link instead.
-// Resolves to "shared", "copied" or "cancelled".
-export async function shareProfileLink(values, t) {
-  const url = await buildProfileUrl(values);
-  const data = {
-    title: t("profile.shareTitle", { name: values.displayName || t("feed.profileFallback") }),
-    text: values.bio || t("profile.shareText", { username: values.username || t("post.userFallback") }),
-    url,
+  const isSpace = identity.type === SPACE_IDENTITY_TYPE;
+  const id = isSpace ? values.spaceId || identity.id : values.userId || identity.id;
+  return {
+    kind: isSpace ? "space" : "person",
+    profileId: id || "",
+    name: values.displayName || values.name || "",
+    subtitle: values.username ? `@${values.username}` : "",
+    avatarUrl: values.avatarUrl || "",
   };
-
-  if (navigator.share) {
-    try {
-      await navigator.share(data);
-      return "shared";
-    } catch (error) {
-      if (error?.name === "AbortError") return "cancelled";
-      throw error;
-    }
-  }
-
-  await copyText(url);
-  return "copied";
 }
 
 export async function copyProfileLink(values) {
-  await copyText(await buildProfileUrl(values));
+  const { kind, profileId } = profileShareTarget(values);
+  const url = await buildDecoratedProfileShareUrl(kind, profileId);
+  if (!url) throw new Error("No profile to link.");
+  await copyText(url);
 }
 
 async function copyText(text) {

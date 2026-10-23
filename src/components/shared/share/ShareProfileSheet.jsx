@@ -14,9 +14,9 @@ import {
 } from "../../../Backend/services/profileShareService";
 import { t, useI18n } from "../../../i18n";
 
-// One "Share my profile" sheet for every public profile: a UrMall seller
-// (kind "seller"), a UrRide fleet ("operator") or a UrRide company
-// ("company"). It shows the QR code, the link, and three actions: copy the
+// One "Share my profile" sheet for every public profile: an Explore person
+// (kind "person") or Space ("space"), a UrMall seller ("seller"), a UrRide
+// fleet ("operator") or a UrRide company ("company"). It shows the QR code, the link, and three actions: copy the
 // link, share the link, share the QR code as an image. Scanning the QR with
 // any phone camera opens the same link, which opens the profile on KunThai.
 

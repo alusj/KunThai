@@ -1,5 +1,6 @@
-// "Share my profile": one link and one QR code per public profile — a UrMall
-// seller, a UrRide fleet (solo operator) or a UrRide company.
+// "Share my profile": one link and one QR code per public profile — an
+// Explore profile (a person or a Space), a UrMall seller, a UrRide fleet (solo
+// operator) or a UrRide company.
 //
 // The link is the public website with the profile in the hash, e.g.
 //   https://kunthai.app/?<invite code>#urmall-seller-<businessId>
@@ -17,15 +18,17 @@ import { encode } from "uqr";
 
 import { publicAppOrigin } from "./nativeShare";
 import { decorateShareUrl } from "./visibilityCreditService";
-import { openSharedMarketplaceSeller } from "./ai/aiEntityNavigation";
+import { openSharedExploreProfile, openSharedMarketplaceSeller } from "./ai/aiEntityNavigation";
 
 const LINK_PREFIX = {
+  person: "kunthai-profile",
+  space: "kunthai-space",
   seller: "urmall-seller",
   operator: "urride-fleet",
   company: "urride-company",
 };
 const KIND_FOR_PREFIX = Object.fromEntries(Object.entries(LINK_PREFIX).map(([kind, prefix]) => [prefix, kind]));
-const LINK_PATTERN = /^#(urmall-seller|urride-fleet|urride-company)-([0-9a-z-]{6,80})(?:[?&].*)?$/i;
+const LINK_PATTERN = /^#(kunthai-profile|kunthai-space|urmall-seller|urride-fleet|urride-company)-([0-9a-z-]{6,80})(?:[?&].*)?$/i;
 const PENDING_KEY = "kunthai-pending-profile-link";
 
 export function buildProfileShareUrl(kind, id) {
@@ -126,6 +129,14 @@ export function takePendingProfileLink() {
 /** Opens a shared profile on its home surface (switching section first). */
 export function openSharedProfile(link) {
   if (!link?.kind || !link?.id || typeof window === "undefined") return;
+  if (link.kind === "person") {
+    openSharedExploreProfile({ userId: link.id });
+    return;
+  }
+  if (link.kind === "space") {
+    openSharedExploreProfile({ spaceId: link.id });
+    return;
+  }
   if (link.kind === "seller") {
     openSharedMarketplaceSeller({ id: link.id });
     return;

@@ -20,7 +20,8 @@ import { showToast } from "../../../../Backend/services/toastService";
 import { inlineErrorMessage, shortErrorToast } from "../../../../Backend/services/friendlyErrorService";
 import { useI18n } from "../../../../i18n";
 import ProfilePostList from "./ProfilePostList";
-import { copyProfileLink, shareProfileLink } from "./profileLinks";
+import { copyProfileLink, profileShareTarget } from "./profileLinks";
+import ShareProfileSheet from "../../../shared/share/ShareProfileSheet";
 import { notifyProfileSaveError, notifyProfileUploadProblems } from "./profileSaveFeedback";
 import Avatar from "../../shared/Avatar";
 import EmptyState from "../../shared/EmptyState";
@@ -71,6 +72,7 @@ export default function ProfileScreen({
 }) {
   const { t } = useI18n();
   const [editing, setEditing] = useState(false);
+  const [shareOpen, setShareOpen] = useState(false);
   const [postTab, setPostTab] = useState("feed");
   const [tabSlideDirection, setTabSlideDirection] = useState("forward");
   const [saving, setSaving] = useState(false);
@@ -83,6 +85,7 @@ export default function ProfileScreen({
   const feed = useExploreFeed("feed");
   const profileIdentity = getProfileIdentity(values);
   const isSpace = profileIdentity.type === SPACE_IDENTITY_TYPE;
+  const shareTarget = profileShareTarget(values);
   const followStats = useExploreFollowStats(profileIdentity);
   const { followedUsers, toggleFollow } = useExploreFollows(currentUserId);
   const feedList = useIdentityPosts(profileIdentity, "feed");
@@ -233,16 +236,13 @@ export default function ProfileScreen({
     setPostTab(nextTab);
   }
 
-  async function handleShare() {
-    try {
-      const result = await shareProfileLink(values, t);
-      if (result === "cancelled") return;
-      setFeedback(t("profile.profileLinkReady"));
-      showToast(t("profile.profileLinkReady"), "success");
-    } catch {
-      setFeedback(t("profile.unableShareProfile"));
+  // Share opens the same link + QR code sheet as UrMall and UrRide profiles.
+  function handleShare() {
+    if (!shareTarget.profileId) {
       showToast(t("exploreProfileFix.profileNotShared"), "danger");
+      return;
     }
+    setShareOpen(true);
   }
 
   async function handleCopyLink() {
@@ -547,6 +547,15 @@ export default function ProfileScreen({
         >
           {renderTabContent()}
         </section>
+        <ShareProfileSheet
+          open={shareOpen}
+          onClose={() => setShareOpen(false)}
+          kind={shareTarget.kind}
+          profileId={shareTarget.profileId}
+          name={shareTarget.name}
+          subtitle={shareTarget.subtitle}
+          avatarUrl={shareTarget.avatarUrl}
+        />
           </>
         ) : null}
       </div>
