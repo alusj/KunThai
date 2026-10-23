@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import { createPortal } from "react-dom";
 import { Copy, Link2, QrCode, Share2, X } from "lucide-react";
 
@@ -59,14 +59,18 @@ export default function ShareProfileSheet({ open, onClose, kind, profileId, name
   useI18n();
   const [url, setUrl] = useState("");
   const [busy, setBusy] = useState("");
+  // Resolves to the link with the sharer's invite code (kt_ref); every action
+  // waits for it so a quick tap never sends a link that cannot credit them.
+  const decoratedUrlRef = useRef(null);
   useBodyScrollLock(open);
 
   useEffect(() => {
     if (!open || !kind || !profileId) return undefined;
     let alive = true;
     setUrl(buildProfileShareUrl(kind, profileId));
-    buildDecoratedProfileShareUrl(kind, profileId).then((decorated) => {
+    decoratedUrlRef.current = buildDecoratedProfileShareUrl(kind, profileId).then((decorated) => {
       if (alive && decorated) setUrl(decorated);
+      return decorated;
     });
     return () => {
       alive = false;
@@ -86,10 +90,14 @@ export default function ShareProfileSheet({ open, onClose, kind, profileId, name
 
   const shareText = t("profileShare.shareText", { name: name || "KunThai" });
 
+  async function shareUrl() {
+    return (await decoratedUrlRef.current) || url;
+  }
+
   async function handleCopy() {
     if (!url) return;
     try {
-      await copyText(url);
+      await copyText(await shareUrl());
       haptics.success();
       showToast(t("profileShare.linkCopied"), "success");
     } catch {
@@ -101,8 +109,9 @@ export default function ShareProfileSheet({ open, onClose, kind, profileId, name
     if (!url || busy) return;
     haptics.light();
     try {
+      const link = await shareUrl();
       if (navigator.share) {
-        await navigator.share({ title: name || "KunThai", text: shareText, url });
+        await navigator.share({ title: name || "KunThai", text: shareText, url: link });
       } else {
         await handleCopy();
       }
@@ -116,7 +125,8 @@ export default function ShareProfileSheet({ open, onClose, kind, profileId, name
     haptics.light();
     setBusy("qr");
     try {
-      await shareProfileQrImage({ url, title: name || "KunThai", caption: t("profileShare.scanCaption"), text: `${shareText}\n${url}` });
+      const link = await shareUrl();
+      await shareProfileQrImage({ url: link, title: name || "KunThai", caption: t("profileShare.scanCaption"), text: `${shareText}\n${link}` });
     } catch {
       showToast(t("profileShare.shareFailed"), "danger");
     } finally {

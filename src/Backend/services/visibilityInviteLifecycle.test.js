@@ -34,7 +34,7 @@ test("all same-origin social and commerce shares await a durable invite code", (
   ];
 
   for (const source of shareSources) {
-    assert.match(source, /await decorateShareUrl\(/);
+    assert.match(source, /await (?:decorateShareUrl|buildDecoratedProfileShareUrl)\(/);
   }
 
   assert.match(visibilitySource, /searchParams\.set\(CREDIT_SHARE_PARAM, code\)/);
@@ -74,4 +74,26 @@ test("both referral outcomes remain visible across dashboards and in the notific
   assert.match(notificationHostSource, /REFERRAL_NOTIFICATION_TYPES = new Set\(\["visibility_credit_reward", "visibility_invite_success"\]\)/);
   assert.match(notificationHostSource, /!referralNotification && !\["floating", "urgent"\]\.includes\(row\.presentation\)/);
   assert.match(exploreNotificationsSource, /\["visibility_credit_reward", "visibility_invite_success"\]\.includes\(item\.type\)\) return true/);
+});
+
+test("UrMall and UrRide share-profile links carry the sharer's invite code", () => {
+  const profileShareSource = read("./profileShareService.js");
+  const shareSheetSource = read("../../components/shared/share/ShareProfileSheet.jsx");
+
+  assert.match(read("../../components/Marketplace/MarketplaceHeader/Business/MyBizDashboardHeader/BusinessProfileCard.jsx"), /<ShareProfileSheet[\s\S]*?kind="seller"/);
+  assert.match(read("../../components/transport/OperatorDashboardScreen.jsx"), /<ShareProfileSheet[\s\S]*?kind="operator"/);
+  assert.match(read("../../components/transport/CompanyWorkspaceScreen.jsx"), /<ShareProfileSheet[\s\S]*?kind="company"/);
+
+  assert.match(profileShareSource, /return await decorateShareUrl\(url\)/);
+  // Copy, Share link and Share QR all wait for the decorated link.
+  assert.equal((shareSheetSource.match(/await shareUrl\(\)/g) || []).length, 3);
+  assert.match(shareSheetSource, /decoratedUrlRef\.current = buildDecoratedProfileShareUrl\(kind, profileId\)/);
+});
+
+test("a share link that opens the installed app keeps the sharer's invite code", () => {
+  const profileShareSource = read("./profileShareService.js");
+  const deliver = profileShareSource.slice(profileShareSource.indexOf("function deliverAppLink"));
+  assert.ok(deliver.indexOf("captureVisibilityInviteFromUrl(url)") > -1);
+  assert.ok(deliver.indexOf("captureVisibilityInviteFromUrl(url)") < deliver.indexOf("if (!link) return;"));
+  assert.match(visibilitySource, /export function captureVisibilityInviteFromUrl\(href\)/);
 });

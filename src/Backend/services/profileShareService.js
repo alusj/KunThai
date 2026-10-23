@@ -17,7 +17,7 @@ import { Share } from "@capacitor/share";
 import { encode } from "uqr";
 
 import { publicAppOrigin } from "./nativeShare";
-import { decorateShareUrl } from "./visibilityCreditService";
+import { captureVisibilityInviteFromUrl, decorateShareUrl } from "./visibilityCreditService";
 import { openSharedExploreProfile, openSharedMarketplaceSeller } from "./ai/aiEntityNavigation";
 
 const LINK_PREFIX = {
@@ -76,6 +76,8 @@ let lastAppLink = { url: "", at: 0 };
 
 function deliverAppLink(rawUrl) {
   const url = String(rawUrl || "");
+  // Keep the sharer's ?kt_ref= code so an account created now credits them.
+  captureVisibilityInviteFromUrl(url);
   let link = null;
   try {
     link = parseProfileLinkHash(new URL(url).hash);

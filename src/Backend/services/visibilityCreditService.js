@@ -119,11 +119,11 @@ function normalizeWallet(row = {}, invite = {}) {
   };
 }
 
-function readInviteCodeFromUrl() {
-  if (typeof window === "undefined") return "";
+function readInviteCodeFromUrl(href = typeof window !== "undefined" ? window.location.href : "") {
+  if (!href) return "";
 
   try {
-    const url = new URL(window.location.href);
+    const url = new URL(href);
     const queryCode = url.searchParams.get(CREDIT_SHARE_PARAM) || url.searchParams.get("invite") || "";
     if (queryCode) return queryCode;
 
@@ -234,7 +234,14 @@ export function buildVisibilityShareMessage(inviteUrl = "") {
 }
 
 export function captureVisibilityInviteFromLocation() {
-  const code = normalizeInviteCode(readInviteCodeFromUrl());
+  return captureVisibilityInviteFromUrl();
+}
+
+// The installed app is opened by a kunthai.app link (universal / app link)
+// while its own address stays on the device, so the sharer's code has to be
+// read from the link the phone handed over rather than window.location.
+export function captureVisibilityInviteFromUrl(href) {
+  const code = normalizeInviteCode(readInviteCodeFromUrl(href));
   if (!code || typeof localStorage === "undefined") return "";
 
   try {
