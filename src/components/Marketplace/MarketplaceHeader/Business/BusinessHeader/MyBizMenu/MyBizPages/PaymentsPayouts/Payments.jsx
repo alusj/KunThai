@@ -14,7 +14,7 @@ export default function Payments({ onBack }) {
   const { currentView, open: setCurrentView, goBack: goBackSubView } = useSellerSubScreens("payments");
 
   return (
-    <div className="relative min-h-full bg-white">
+    <div className="min-h-full bg-white">
       <SellerMenuPageHeader title={t("urmall.biz.menu.paymentsTitle")} onBack={onBack} />
       <div className="space-y-4 px-4 py-4 sm:px-6 lg:px-8">
         <section className="rounded-2xl border border-amber-200 bg-amber-50 p-4 shadow-sm sm:p-5">

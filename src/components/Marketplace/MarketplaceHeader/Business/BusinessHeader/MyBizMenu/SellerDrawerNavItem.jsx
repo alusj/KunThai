@@ -1,11 +1,20 @@
 import { ChevronRight } from "lucide-react";
 import { uiText as translateUi, useI18n as useUiLocale } from "../../../../../../i18n/index.js";
 
+const TONES = {
+  emerald: "bg-emerald-50 text-emerald-700",
+  amber: "bg-amber-50 text-amber-700",
+  sky: "bg-sky-50 text-sky-700",
+  danger: "bg-rose-50 text-rose-600",
+};
+
 export default function SellerDrawerNavItem({
   icon: Icon,
   title,
   description,
   badge,
+  tone = "emerald",
+  danger = false,
   onClick,
 }) {
   useUiLocale();
@@ -13,28 +22,30 @@ export default function SellerDrawerNavItem({
     <button
       type="button"
       onClick={onClick}
-      className="flex w-full items-center gap-3 rounded-xl border border-gray-200 bg-white p-3 text-left shadow-sm transition hover:border-gray-300 hover:bg-gray-50"
+      className="kt-touchable flex min-h-[64px] w-full items-center gap-3 px-3.5 py-3 text-left transition hover:bg-gray-50 active:bg-gray-100"
     >
-      <span className="flex h-11 w-11 shrink-0 items-center justify-center rounded-xl bg-gray-100 text-gray-800">
-        <Icon size={20} strokeWidth={2.2} />
+      <span className={`flex h-10 w-10 shrink-0 items-center justify-center rounded-xl ${TONES[danger ? "danger" : tone] || TONES.emerald}`}>
+        <Icon size={19} strokeWidth={2.2} />
       </span>
 
       <span className="min-w-0 flex-1">
-        <span className="block truncate text-sm font-black text-gray-950">
+        <span className={`block truncate text-[15px] font-black ${danger ? "text-rose-600" : "text-gray-950"}`}>
           {translateUi(title)}
         </span>
-        <span className="mt-0.5 block line-clamp-2 text-xs font-semibold leading-5 text-gray-500">
-          {translateUi(description)}
-        </span>
+        {description ? (
+          <span className="mt-0.5 block line-clamp-2 text-xs font-semibold leading-5 text-gray-500">
+            {translateUi(description)}
+          </span>
+        ) : null}
       </span>
 
       {badge ? (
-        <span className="shrink-0 rounded-full bg-red-50 px-2 py-1 text-xs font-black text-red-600">
+        <span className="shrink-0 rounded-full bg-emerald-50 px-2 py-1 text-[11px] font-black text-emerald-700">
           {badge}
         </span>
       ) : null}
 
-      <ChevronRight className="shrink-0 text-gray-400" size={18} />
+      <ChevronRight className="shrink-0 text-gray-300" size={18} />
     </button>
   );
 }

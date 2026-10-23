@@ -101,7 +101,7 @@ export default function SellerBoard({ onBack, permissions = null }) {
   }
 
   return (
-    <div className="relative min-h-full bg-white" data-back-swipe-scope>
+    <div className="min-h-full bg-white" data-back-swipe-scope>
       <SellerMenuPageHeader title={t("urmall.biz.menu.boardTitle")} onBack={onBack} />
       <div className="space-y-5 px-4 py-4 sm:px-6 lg:px-8">
         <section className="rounded-2xl border border-gray-200 bg-gray-950 p-5 text-white shadow-sm">

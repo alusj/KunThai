@@ -253,7 +253,7 @@ export default function MyBizMenu({
                 }}
               />
 
-              <div className="space-y-5 px-4 pt-5">
+              <div className="space-y-6 px-4 pb-6 pt-5">
                 <SellerDrawerSection title={t("urmall.biz.menu.sectionManageStore")}>
                     {onAddBusiness ? (
                       <SellerDrawerNavItem
@@ -322,6 +322,7 @@ export default function MyBizMenu({
                 {canManageBusiness ? (
                   <SellerDrawerSection title={t("urmall.biz.menu.sectionMoney")}>
                     <SellerDrawerNavItem
+                      tone="amber"
                       icon={CreditCard}
                       title={t("urmall.biz.menu.paymentsTitle")}
                       description={t("urmall.biz.menu.paymentsDesc")}
@@ -332,12 +333,14 @@ export default function MyBizMenu({
 
                 <SellerDrawerSection title={t("urmall.biz.menu.sectionSupport")}>
                   <SellerDrawerNavItem
+                    tone="sky"
                     icon={BadgeHelp}
                     title={t("urmall.biz.menu.supportTitle")}
                     description={t("urmall.biz.menu.supportDesc")}
                     onClick={() => openActiveScreen("support")}
                   />
                   <SellerDrawerNavItem
+                    tone="sky"
                     icon={FileText}
                     title={t("urmall.biz.menu.legalTitle")}
                     description={t("urmall.biz.menu.legalDesc")}
@@ -348,6 +351,7 @@ export default function MyBizMenu({
                 {canManageBusiness ? (
                 <SellerDrawerSection title={t("urmall.biz.menu.sectionDanger")}>
                   <SellerDrawerNavItem
+                    danger
                     icon={Trash2}
                     title={t("urmall.biz.menu.deleteTitle")}
                     description={t("urmall.biz.menu.deleteDesc")}
@@ -371,8 +375,13 @@ export default function MyBizMenu({
 
       {activeScreen ? (
         <section className={`kt-urmall-screen-panel absolute inset-0 z-10 flex w-screen flex-col bg-white shadow-2xl ${activePanelClass}`} data-back-swipe-scope>
-          <div className="kt-safe-scroll-bottom min-h-0 flex-1 overflow-y-auto">
-            {activeScreen.component}
+          {/* The positioned box that sub-screens (SellerSubPagePanel) cover:
+              it never scrolls, so a sub-screen always fills the phone even
+              when the page under it was scrolled. */}
+          <div className="relative min-h-0 flex-1">
+            <div className="kt-safe-scroll-bottom h-full overflow-y-auto overscroll-contain">
+              {activeScreen.component}
+            </div>
           </div>
         </section>
       ) : null}

@@ -1,4 +1,4 @@
-import { AlertTriangle, BadgeCheck, ChevronRight, Clock, Store } from "lucide-react";
+import { AlertTriangle, BadgeCheck, Clock, PencilLine, Store } from "lucide-react";
 
 import { useSellerOverview } from "../../../../../../Backend/hooks/useSellerOverview";
 import { resizedImageUrl } from "../../../../../../Backend/lib/imageProxy";
@@ -46,7 +46,7 @@ export default function SellerDrawerProfile({ onOpenProfile }) {
     <button
       type="button"
       onClick={onOpenProfile}
-      className="mx-4 mt-4 w-[calc(100%-2rem)] rounded-xl border border-gray-200 bg-gray-950 p-4 text-left text-white shadow-sm transition hover:bg-gray-900"
+      className="kt-touchable mx-4 mt-4 w-[calc(100%-2rem)] rounded-2xl bg-gradient-to-br from-gray-950 via-gray-900 to-emerald-950 p-4 text-left text-white shadow-lg shadow-gray-950/15 transition hover:from-gray-900"
     >
       <div className="flex items-center gap-3">
         <div className="flex h-14 w-14 shrink-0 items-center justify-center overflow-hidden rounded-xl bg-white/10 text-sm font-black">
@@ -80,7 +80,10 @@ export default function SellerDrawerProfile({ onOpenProfile }) {
           </span>
         </div>
 
-        <ChevronRight className="shrink-0 text-white/60" size={19} />
+        <span className="inline-flex shrink-0 items-center gap-1 self-start rounded-full bg-white px-3 py-1.5 text-xs font-black text-gray-950 shadow-sm">
+          <PencilLine size={13} strokeWidth={2.5} />
+          {t("profile.edit")}
+        </span>
       </div>
 
       <div className="mt-4 grid grid-cols-2 gap-2 text-xs font-bold">

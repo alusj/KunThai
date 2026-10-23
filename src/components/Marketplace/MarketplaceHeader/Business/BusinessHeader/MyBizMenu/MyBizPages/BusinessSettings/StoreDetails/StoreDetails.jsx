@@ -247,7 +247,7 @@ export default function StoreDetails({ onBack }) {
                 </div>
                 <Field label={t("urmall.biz.settings.phone")}>
                   <div className="relative">
-                    <Phone className="absolute left-4 top-1/2 mt-1 text-gray-400" size={18} />
+                    <Phone className="pointer-events-none absolute left-4 top-1/2 mt-1 -translate-y-1/2 text-gray-400" size={18} />
                     <input
                       className={`${inputClass} pl-11`}
                       value={form.phone}
@@ -258,7 +258,7 @@ export default function StoreDetails({ onBack }) {
                 </Field>
                 <Field label={t("urmall.seller.email")}>
                   <div className="relative">
-                    <Mail className="absolute left-4 top-1/2 mt-1 text-gray-400" size={18} />
+                    <Mail className="pointer-events-none absolute left-4 top-1/2 mt-1 -translate-y-1/2 text-gray-400" size={18} />
                     <input
                       className={`${inputClass} pl-11`}
                       type="email"

@@ -158,7 +158,7 @@ export default function EditProfile({ onBack }) {
       ) : (
         <form onSubmit={saveProfile} className="space-y-5">
           <section className="overflow-hidden rounded-2xl border border-gray-200 bg-white shadow-sm">
-            <div className="relative h-28 bg-gray-950 sm:h-40">
+            <div className="relative h-28 bg-gradient-to-br from-gray-900 via-gray-800 to-emerald-900 sm:h-40">
               {business?.identity?.bannerUrl ? (
                 <img
                   src={resizedImageUrl(business.identity.bannerUrl, { width: 900, quality: 70 })}
@@ -169,7 +169,7 @@ export default function EditProfile({ onBack }) {
             </div>
 
             <div className="grid gap-5 p-4 sm:p-6 lg:grid-cols-[220px_1fr]">
-              <div className="-mt-14 sm:-mt-20">
+              <div className="relative z-10 -mt-16 sm:-mt-20">
                 <div className="flex h-28 w-28 items-center justify-center overflow-hidden rounded-2xl border-4 border-white bg-gray-100 text-2xl font-black text-gray-700 shadow-md sm:h-36 sm:w-36">
                   {business?.identity?.logoUrl ? (
                     <img
@@ -247,7 +247,7 @@ export default function EditProfile({ onBack }) {
 
               <ProfileField label={t("urmall.seller.email")}>
                 <div className="relative">
-                  <Mail className="absolute left-4 top-1/2 mt-1 text-gray-400" size={18} />
+                  <Mail className="pointer-events-none absolute left-4 top-1/2 mt-1 -translate-y-1/2 text-gray-400" size={18} />
                   <input
                     className={`${inputClass} pl-11`}
                     type="email"
@@ -259,7 +259,7 @@ export default function EditProfile({ onBack }) {
 
               <ProfileField label={t("urmall.detail.phoneNumber")}>
                 <div className="relative">
-                  <Phone className="absolute left-4 top-1/2 mt-1 text-gray-400" size={18} />
+                  <Phone className="pointer-events-none absolute left-4 top-1/2 mt-1 -translate-y-1/2 text-gray-400" size={18} />
                   <input
                     className={`${inputClass} pl-11`}
                     value={form.phone}

@@ -14,7 +14,7 @@ export default function BusinessSettings({ onBack }) {
   const { currentView, open: setCurrentView, goBack: goBackSubView } = useSellerSubScreens("settings");
 
   return (
-    <div className="relative min-h-full bg-white">
+    <div className="min-h-full bg-white">
       <SellerMenuPageHeader title={t("urmall.biz.menu.storeSettingsTitle")} onBack={onBack} />
       <div className="space-y-3 px-4 py-4 sm:px-6 lg:px-8">
         <SettingsSubMenuItem

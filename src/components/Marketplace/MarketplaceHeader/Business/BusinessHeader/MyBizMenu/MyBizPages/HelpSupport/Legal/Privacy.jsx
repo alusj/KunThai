@@ -15,7 +15,7 @@ export default function Privacy({ onBack }) {
   const [currentView, setCurrentView] = useState("menu");
 
   return (
-    <div className="relative min-h-full bg-white">
+    <div className="min-h-full bg-white">
       <SellerMenuPageHeader title={t("urmall.biz.menu.legalTitle")} onBack={onBack} />
       <div className="space-y-3 px-4 py-4 sm:px-6 lg:px-8">
         <SettingsSubMenuItem

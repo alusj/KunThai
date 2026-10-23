@@ -140,7 +140,7 @@ export default function BusinessProfileCard({ business, status, onEditProfile, o
 
   return (
     <section className="relative overflow-hidden rounded-[24px] border border-gray-200 bg-white p-5 shadow-sm">
-      <div className="pointer-events-none absolute inset-x-0 top-0 h-24 bg-gradient-to-br from-emerald-50/80 via-white to-sky-50/60" aria-hidden="true" />
+      <div className="pointer-events-none absolute inset-x-0 top-0 h-24 bg-gradient-to-br from-emerald-500/10 via-transparent to-sky-500/10" aria-hidden="true" />
       {onOpenSection ? (
         <button
           type="button"
