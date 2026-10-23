@@ -7,6 +7,7 @@ import {
   checkCreditPurchase,
   fetchProductPurchase,
   googlePlayServiceAccount,
+  isPurchaseVoided,
 } from "../googlePlay.js";
 import { grantGooglePlayPurchase } from "../googlePlayGrant.js";
 import { createAdminClient, json } from "../visibilityCreditPayments.js";
@@ -18,12 +19,16 @@ import { createAdminClient, json } from "../visibilityCreditPayments.js";
 // The notification only says which purchase token to look at: every decision
 // is made on Google Play Developer API's own answer for that token, so a
 // forged notification can at most trigger a re-check.
-//   * voided purchase / one-time product canceled: if Google says the purchase
-//     is canceled, the credits are taken back (google_play_revoke_visibility_credits);
+//   * voided purchase (refund, chargeback) / one-time product canceled: once
+//     Google confirms it (the purchase reads canceled, or the token is in the
+//     Voided Purchases API), the credits are taken back once
+//     (google_play_revoke_visibility_credits; a repeat is a no-op);
 //   * one-time product purchased (e.g. a pending cash payment completed while
 //     the app was closed): the credits are added to the account the purchase
 //     was made for, exactly as the app's own verify call would.
-// Anything else is acknowledged and ignored. A 5xx makes Pub/Sub retry.
+// Google's test notification and anything else are acknowledged with 200 and
+// ignored. Only a real failure (Google or the database unreachable, the
+// service account missing) answers 5xx, which makes Pub/Sub retry.
 const ONE_TIME_PURCHASED = 1;
 const ONE_TIME_CANCELED = 2;
 
@@ -53,17 +58,29 @@ async function productIdForToken(adminClient, purchaseToken) {
   return data?.metadata?.productId || "";
 }
 
-async function revokeIfCanceled({ adminClient, account, purchaseToken, productId, reason }) {
+// Canceled per purchases.products.get, else listed as voided by Google.
+async function confirmedCanceled({ adminClient, account, purchaseToken, productId, eventTimeMillis }) {
   const resolvedProductId = productId || (await productIdForToken(adminClient, purchaseToken));
-  if (!resolvedProductId) return { ignored: "unknown_purchase" };
-  let purchase;
+  if (resolvedProductId) {
+    try {
+      const purchase = await fetchProductPurchase({ productId: resolvedProductId, purchaseToken, account });
+      if (Number(purchase.purchaseState) === 1) return true;
+    } catch (error) {
+      if (!(error instanceof GooglePlayError)) throw error;
+    }
+  }
   try {
-    purchase = await fetchProductPurchase({ productId: resolvedProductId, purchaseToken, account });
+    return await isPurchaseVoided({ purchaseToken, account, sinceMillis: eventTimeMillis });
   } catch (error) {
-    if (error instanceof GooglePlayError) return { ignored: error.code };
+    if (error instanceof GooglePlayError) return false;
     throw error;
   }
-  if (Number(purchase.purchaseState) !== 1) return { ignored: "not_canceled" };
+}
+
+async function revokeIfCanceled({ adminClient, account, purchaseToken, productId, reason, eventTimeMillis }) {
+  if (!(await confirmedCanceled({ adminClient, account, purchaseToken, productId, eventTimeMillis }))) {
+    return { ignored: "not_canceled" };
+  }
   const { error } = await adminClient.rpc("google_play_revoke_visibility_credits", {
     p_purchase_token: purchaseToken,
     p_reason: reason,
@@ -112,10 +129,11 @@ export default async function handler(req, res) {
     const account = googlePlayServiceAccount();
     const adminClient = createAdminClient(appleSupabaseConfig());
     let result;
+    const eventTimeMillis = Number(notification.eventTimeMillis) || 0;
     if (voided?.purchaseToken) {
-      result = await revokeIfCanceled({ adminClient, account, purchaseToken: voided.purchaseToken, reason: "voided" });
+      result = await revokeIfCanceled({ adminClient, account, purchaseToken: voided.purchaseToken, reason: "voided", eventTimeMillis });
     } else if (Number(oneTime.notificationType) === ONE_TIME_CANCELED) {
-      result = await revokeIfCanceled({ adminClient, account, purchaseToken: oneTime.purchaseToken, productId: oneTime.sku, reason: "canceled" });
+      result = await revokeIfCanceled({ adminClient, account, purchaseToken: oneTime.purchaseToken, productId: oneTime.sku, reason: "canceled", eventTimeMillis });
     } else if (Number(oneTime.notificationType) === ONE_TIME_PURCHASED) {
       result = await grantCompleted({ adminClient, account, purchaseToken: oneTime.purchaseToken, productId: oneTime.sku });
     } else {

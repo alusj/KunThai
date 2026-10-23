@@ -139,6 +139,35 @@ export async function fetchProductPurchase({ productId, purchaseToken, account, 
   return { ...purchase, productId: purchase.productId || productId, purchaseToken: token };
 }
 
+// Google's own record of refunds, chargebacks and revocations: the Voided
+// Purchases API (needs "View financial data"). A refunded consumable can still
+// read "purchased" in purchases.products.get, or be unknown there, so a refund
+// is confirmed here before credits are taken back. It keeps 30 days; the
+// search starts a day before the notification (or 30 days back) and pages
+// through. Throws a plain Error (retryable) when Google cannot answer.
+const DAY_MS = 24 * 60 * 60 * 1000;
+const VOIDED_MAX_PAGES = 20;
+
+export async function isPurchaseVoided({ purchaseToken, account, sinceMillis = 0, fetchImpl = fetch, now = Date.now() }) {
+  const token = checkToken(purchaseToken);
+  const oldest = now - 30 * DAY_MS + 60_000;
+  const since = Number(sinceMillis) > 0 ? Number(sinceMillis) - DAY_MS : oldest;
+  const startTime = Math.max(oldest, Math.min(since, now));
+  let pageToken = "";
+  for (let page = 0; page < VOIDED_MAX_PAGES; page += 1) {
+    // type 0: one-time products only (KunThai sells no subscriptions).
+    const query = new URLSearchParams({ startTime: String(startTime), maxResults: "1000", type: "0" });
+    if (pageToken) query.set("token", pageToken);
+    const response = await publisherRequest(`purchases/voidedpurchases?${query}`, { account, fetchImpl });
+    if (!response.ok) throw new Error(`Google Play Voided Purchases API answered ${response.status}.`);
+    const body = await response.json();
+    if ((body?.voidedPurchases || []).some((item) => item?.purchaseToken === token)) return true;
+    pageToken = String(body?.tokenPagination?.nextPageToken || "");
+    if (!pageToken) return false;
+  }
+  return false;
+}
+
 // Keeps Google from refunding the purchase after three days if the app never
 // gets to consume it (uninstalled right after paying). Best effort.
 export async function acknowledgeProductPurchase({ productId, purchaseToken, account, fetchImpl = fetch }) {

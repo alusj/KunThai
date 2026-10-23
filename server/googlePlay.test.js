@@ -9,6 +9,7 @@ import {
   checkCreditPurchase,
   fetchProductPurchase,
   googlePlayServiceAccount,
+  isPurchaseVoided,
   purchaseEnvironment,
   serviceAccountAssertion,
 } from "./googlePlay.js";
@@ -181,4 +182,29 @@ test("Real-time Developer Notifications for other apps or without a purchase are
     if (previous === undefined) delete process.env.GOOGLE_PLAY_RTDN_TOKEN;
     else process.env.GOOGLE_PLAY_RTDN_TOKEN = previous;
   }
+});
+
+test("refunds are confirmed in Google's Voided Purchases list, across pages", async () => {
+  const now = Date.UTC(2026, 9, 22);
+  const pages = {
+    first: { voidedPurchases: [{ purchaseToken: "other" }], tokenPagination: { nextPageToken: "p2" } },
+    p2: { voidedPurchases: [{ purchaseToken: "token-refunded" }] },
+  };
+  const { impl, calls } = fakeFetch([
+    ["oauth2", { body: { access_token: "a" } }],
+    ["/purchases/voidedpurchases", (url) => ({ body: new URL(url).searchParams.get("token") === "p2" ? pages.p2 : pages.first })],
+  ]);
+  assert.equal(await isPurchaseVoided({ purchaseToken: "token-refunded", account: account("voided"), sinceMillis: now - 3600_000, fetchImpl: impl, now }), true);
+  const first = new URL(calls.find((call) => call.url.includes("voidedpurchases")).url);
+  assert.equal(first.searchParams.get("type"), "0");
+  assert.equal(Number(first.searchParams.get("startTime")), now - 3600_000 - 24 * 3600_000);
+
+  assert.equal(await isPurchaseVoided({ purchaseToken: "token-kept", account: account("voided"), fetchImpl: impl, now }), false);
+  // Never older than the 30 days Google keeps.
+  const oldest = new URL(calls.filter((call) => call.url.includes("voidedpurchases")).at(-1).url).searchParams.get("startTime");
+  assert.ok(Number(oldest) >= now - 30 * 24 * 3600_000);
+
+  // Google unreachable: a plain (retryable) error, never "not voided".
+  const down = fakeFetch([["oauth2", { body: { access_token: "a" } }], ["/purchases/voidedpurchases", { status: 503 }]]);
+  await assert.rejects(isPurchaseVoided({ purchaseToken: "t", account: account("voided-down"), fetchImpl: down.impl, now }), (error) => !error.code && /503/.test(error.message));
 });
