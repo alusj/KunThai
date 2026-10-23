@@ -4,6 +4,8 @@
       {
         "appIDs": ["7JJNKN7BCK.app.kunthai.mobile"],
         "components": [
+          { "/": "/", "#": "kunthai-profile-*", "comment": "Shared Explore profile" },
+          { "/": "/", "#": "kunthai-space-*", "comment": "Shared Explore Space" },
           { "/": "/", "#": "urmall-seller-*", "comment": "Shared UrMall seller profile" },
           { "/": "/", "#": "urride-fleet-*", "comment": "Shared UrRide fleet profile" },
           { "/": "/", "#": "urride-company-*", "comment": "Shared UrRide company profile" }
