@@ -84,6 +84,7 @@ import { uiText as translateUi, useI18n as useUiLocale } from "../../i18n/index.
 import { inlineErrorMessage, isConnectionFailure } from "../../Backend/services/friendlyErrorService";
 import { announceConnectionTrouble } from "../../Backend/services/networkService";
 import { NAV_TRANSITION_MS } from "../shared/navigationMotion";
+import { settleReplayedAnimations } from "../shared/settleReplayedAnimations";
 import { haptics } from "../../Backend/services/feedbackService";
 
 const EXPLORE_TAB_ORDER = ["UrFeed", "Swip", "Connections"];
@@ -381,6 +382,9 @@ export default function Explore({ active = true, onNavigateMain, onScreenModeCha
     const previousTab = scrollRestoreTabRef.current;
     scrollRestoreTabRef.current = activeTab;
     if (!previousTab || previousTab === activeTab) return;
+    // Panels stay mounted (hidden with display:none), so showing one again
+    // would replay its cards' entrance animations.
+    settleReplayedAnimations(tabPanelRefs.current[activeTab]);
     window.scrollTo({ top: tabScrollRef.current[activeTab] || 0, behavior: "instant" });
   }, [activeTab]);
 
@@ -1121,6 +1125,7 @@ export default function Explore({ active = true, onNavigateMain, onScreenModeCha
     node.style.transition = "none";
     node.style.transform = `translate3d(${initialOffset}px, 0, 0)`;
     node.scrollTop = tabScrollRef.current[tab] || 0;
+    settleReplayedAnimations(node);
   }
 
   function beginHorizontalDrag(gesture, deltaX) {

@@ -504,6 +504,22 @@
     animation: kt-main-leave-forward var(--kt-nav-duration) var(--kt-nav-ease) both;
   }
 
+  /* During a switch both screens are phone-sized windows scrolled to their
+     own offset (App.jsx): a moving layer as tall as the whole feed was only
+     partly painted on iOS, which showed as a blank flash. */
+  .kt-main-window {
+    position: fixed;
+    top: 0;
+    left: 0;
+    right: 0;
+    height: 100dvh;
+    min-height: 0;
+    overflow: hidden;
+    /* Each window shows exactly the offset it was given; anchoring nudged
+       the returning feed by a few dozen pixels as it reactivated. */
+    overflow-anchor: none;
+  }
+
   .kt-main-leave-backward {
     animation: kt-main-leave-backward var(--kt-nav-duration) var(--kt-nav-ease) both;
   }

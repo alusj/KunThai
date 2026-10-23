@@ -60,6 +60,7 @@ import { resolveResumeDashboard, shouldResetToDashboard } from "./Backend/servic
 import { clearBrowserBackStack } from "./Backend/hooks/useBrowserBack";
 import { lazyWithRetry } from "./Backend/utils/lazyWithRetry";
 import LazyRouteBoundary from "./components/shared/LazyRouteBoundary";
+import { settleReplayedAnimations } from "./components/shared/settleReplayedAnimations";
 import AppStartupSkeleton from "./components/shared/AppStartupSkeleton";
 import supabase from "./Backend/lib/supabaseClient";
 import { t as i18nText } from "./i18n/index";
@@ -266,6 +267,8 @@ export default function App() {
   // Main screens stay alive after their first visit (hidden, inactive), so
   // moving between Explore, UrMall and UrRide is a slide, not a rebuild.
   const [mountedPages, setMountedPages] = useState(() => [page]);
+  const mountedPagesRef = useRef(mountedPages);
+  mountedPagesRef.current = mountedPages;
   // The screen being slid out during a switch ({ page, direction, top }).
   const [leavingPage, setLeavingPage] = useState(null);
   const leavingTimerRef = useRef(null);
@@ -329,7 +332,8 @@ export default function App() {
     setDashboardResumeKey((current) => current + 1);
   };
   const appGestureRef = useRef(null);
-  const pagePanelRef = useRef(null);
+  const mainPanelRefs = useRef({});
+  const mainSpacerRef = useRef(null);
   const userId = user?.id || "";
   const guestSession = Boolean(user?.is_anonymous);
   setNotificationSeenUser(userId);
@@ -358,10 +362,34 @@ export default function App() {
     setMountedPages((current) => (current.includes(page) ? current : [...current, page]));
   }, [page]);
 
-  // Each main screen keeps its own scroll position.
+  // Each main screen keeps its own scroll position. While a switch slides,
+  // both screens are phone-sized windows (kt-main-window), each scrolled to
+  // where it was. Sliding the whole page instead (Explore's feed is ~13,000px)
+  // gave iOS a layer so tall that it only paints the tiles on screen, so the
+  // incoming page slid in blank and the leaving one flashed blank as it was
+  // pinned. The spacer keeps the page as tall as the incoming screen, so the
+  // window scroll stays put and nothing moves when the slide ends.
   useLayoutEffect(() => {
-    window.scrollTo(0, pageScrollRef.current[page] || 0);
-  }, [page]);
+    const spacer = mainSpacerRef.current;
+    const target = pageScrollRef.current[page] || 0;
+    if (!leavingPage) {
+      if (spacer) spacer.style.height = "";
+      window.scrollTo(0, target);
+      return;
+    }
+    if (leavingPage.phase !== "pending") return;
+    const entering = mainPanelRefs.current[page];
+    const leaving = mainPanelRefs.current[leavingPage.page];
+    if (entering) {
+      // A screen seen before comes back as it was, without replaying the
+      // entrance animations its display:none restarted.
+      if (mountedPagesRef.current.includes(page)) settleReplayedAnimations(entering);
+      if (spacer) spacer.style.height = `${entering.scrollHeight}px`;
+      entering.scrollTop = target;
+    }
+    if (leaving) leaving.scrollTop = leavingPage.scrollY;
+    window.scrollTo(0, target);
+  }, [page, leavingPage]);
 
   useEffect(() => () => window.clearTimeout(leavingTimerRef.current), []);
 
@@ -374,7 +402,14 @@ export default function App() {
       second = window.requestAnimationFrame(() => {
         setLeavingPage((current) => (current && current.phase === "pending" ? { ...current, phase: "running" } : current));
         window.clearTimeout(leavingTimerRef.current);
-        leavingTimerRef.current = window.setTimeout(() => setLeavingPage(null), MAIN_SLIDE_MS + 40);
+        leavingTimerRef.current = window.setTimeout(() => {
+          // Settle on the offset the incoming window shows now: its content
+          // can change height as it becomes active, and the browser keeps
+          // the view anchored inside the window while it slides.
+          const entering = mainPanelRefs.current[leavingPage.to];
+          if (entering) pageScrollRef.current[leavingPage.to] = entering.scrollTop;
+          setLeavingPage(null);
+        }, MAIN_SLIDE_MS + 40);
       });
     });
     return () => {
@@ -950,12 +985,14 @@ export default function App() {
     const direction = nextIndex >= currentIndex ? "forward" : "backward";
     // The current screen slides out (pinned where it was scrolled) while the
     // next one slides in over it.
-    const scrollY = window.scrollY || 0;
+    // Mid-slide the current screen is a window with its own scroll.
+    const panel = mainPanelRefs.current[page];
+    const scrollY = leavingPage && panel ? panel.scrollTop : window.scrollY || 0;
     pageScrollRef.current[page] = scrollY;
     window.clearTimeout(leavingTimerRef.current);
     // "pending": the next screen is drawn once off to the side (a heavy screen
     // such as Explore needs that first frame); the slide starts after it.
-    setLeavingPage({ page, direction, top: -scrollY, phase: "pending" });
+    setLeavingPage({ page, to: nextPage, direction, scrollY, phase: "pending" });
     setMainPageDirection(direction);
     setPage(nextPage);
   }
@@ -968,7 +1005,7 @@ export default function App() {
   }
 
   function resetAppSwipePreview() {
-    const node = pagePanelRef.current;
+    const node = mainPanelRefs.current[page];
     if (!node) return;
     node.style.transition = "transform 160ms ease-out";
     node.style.transform = "translate3d(0, 0, 0)";
@@ -1039,7 +1076,7 @@ export default function App() {
     // The neighbouring page is not mounted, so the active page tracks the
     // finger with light resistance for immediate feedback and the switch
     // itself commits on release.
-    const node = pagePanelRef.current;
+    const node = mainPanelRefs.current[page];
     if (node) {
       node.style.transition = "none";
       node.style.transform = `translate3d(${deltaX * 0.35}px, 0, 0)`;
@@ -1076,7 +1113,7 @@ export default function App() {
       // A committed swipe continues directly into the destination animation.
       // Resetting the panel with another 190ms transition first made the UI
       // visibly hesitate between the finger release and the page change.
-      const node = pagePanelRef.current;
+      const node = mainPanelRefs.current[page];
       if (node) {
         node.style.transition = "";
         node.style.transform = "";
@@ -1091,8 +1128,8 @@ export default function App() {
   function pagePanelClass(targetPage) {
     const pending = leavingPage?.phase === "pending";
     if (leavingPage?.page === targetPage && page !== targetPage) {
-      if (pending) return "kt-main-leave-hold block min-h-screen";
-      return `${leavingPage.direction === "backward" ? "kt-main-leave-backward" : "kt-main-leave-forward"} block min-h-screen`;
+      if (pending) return "kt-main-leave-hold kt-main-window block";
+      return `${leavingPage.direction === "backward" ? "kt-main-leave-backward" : "kt-main-leave-forward"} kt-main-window block`;
     }
     if (page !== targetPage) {
       return "hidden";
@@ -1104,11 +1141,7 @@ export default function App() {
       : pending
         ? (backward ? "kt-main-enter-wait-backward" : "kt-main-enter-wait-forward")
         : (backward ? "kt-main-enter-backward" : "kt-main-enter-forward");
-    return `${motion} kt-main-panel block min-h-screen`;
-  }
-
-  function pagePanelStyle(targetPage) {
-    return leavingPage?.page === targetPage && page !== targetPage ? { top: `${leavingPage.top}px` } : undefined;
+    return `${motion} kt-main-panel block ${leavingPage ? "kt-main-window" : "min-h-screen"}`;
   }
 
   function isPageMounted(targetPage) {
@@ -1138,9 +1171,8 @@ export default function App() {
         <Suspense fallback={<AppLoading page={page} marketplaceSub={marketplaceNav.sub || ""} />}>
           {isPageMounted("explore") ? (
             <section
-              ref={page === "explore" ? pagePanelRef : null}
+              ref={(node) => { mainPanelRefs.current.explore = node; }}
               className={pagePanelClass("explore")}
-              style={pagePanelStyle("explore")}
               aria-hidden={page !== "explore"}
               inert={page === "explore" ? undefined : "true"}
             >
@@ -1157,9 +1189,8 @@ export default function App() {
 
           {isPageMounted("marketplace") ? (
             <section
-              ref={page === "marketplace" ? pagePanelRef : null}
+              ref={(node) => { mainPanelRefs.current.marketplace = node; }}
               className={pagePanelClass("marketplace")}
-              style={pagePanelStyle("marketplace")}
               aria-hidden={page !== "marketplace"}
               inert={page === "marketplace" ? undefined : "true"}
             >
@@ -1174,9 +1205,8 @@ export default function App() {
 
           {isPageMounted("transport") ? (
             <section
-              ref={page === "transport" ? pagePanelRef : null}
+              ref={(node) => { mainPanelRefs.current.transport = node; }}
               className={pagePanelClass("transport")}
-              style={pagePanelStyle("transport")}
               aria-hidden={page !== "transport"}
               inert={page === "transport" ? undefined : "true"}
             >
@@ -1192,6 +1222,7 @@ export default function App() {
               />
             </section>
           ) : null}
+          <div ref={mainSpacerRef} aria-hidden="true" />
           <BottomTabs badges={mainPageBadges} forceHidden={bottomTabsHidden} page={page} setPage={changePage} />
         </Suspense>
         </LazyRouteBoundary>
