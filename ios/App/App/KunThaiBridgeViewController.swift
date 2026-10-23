@@ -45,6 +45,7 @@ class KunThaiBridgeViewController: CAPBridgeViewController {
         bridge?.registerPluginInstance(KunThaiStoreKitPlugin())
         bridge?.registerPluginInstance(KunThaiVideoPlugin())
         bridge?.registerPluginInstance(KunThaiLaunchPlugin())
+        bridge?.registerPluginInstance(KunThaiLocationAccuracyPlugin())
     }
 
     override func viewDidLoad() {

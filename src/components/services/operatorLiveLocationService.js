@@ -15,6 +15,7 @@ import {
 } from "./operatorLocationPolicy";
 import { getPreciseCurrentPosition } from "../../Backend/utils/precisePosition";
 import { createNativeLocationSession } from "./operatorNativeLocationSession";
+import { PRECISE_PURPOSE_OPERATOR, requestPreciseLocation } from "./preciseLocationAccess";
 
 // Publishes the signed-in operator's live position into
 // public.transport_operator_locations while they are online: on movement
@@ -588,6 +589,18 @@ export async function startOperatorLiveLocation({
   // A precise first fix (the first one a phone reports is often rough).
   // Delayed a little so a first-time permission prompt from the watcher comes first.
   window.setTimeout(() => refinePosition(publisher, { force: true }), 1500);
+  // Switched Active on: a phone that only gives KunThai approximate location
+  // (iOS Precise Location off, Android "Approximate") would place the operator
+  // 1-3 km off whatever the GPS does, so it is asked for precise location
+  // once the location permission itself is settled.
+  if (interactive) {
+    Promise.resolve(publisher.nativeSession?.started)
+      .then(() => requestPreciseLocation({ purpose: PRECISE_PURPOSE_OPERATOR }))
+      .then((status) => {
+        if (status.accuracy === "full" && activePublisher === publisher) refinePosition(publisher, { force: true });
+      })
+      .catch(() => {});
+  }
 
   return () => {
     if (activePublisher === publisher) stopOperatorLiveLocation();

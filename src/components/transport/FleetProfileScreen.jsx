@@ -38,6 +38,7 @@ import SaveOperatorButton from "./SaveOperatorButton";
 import { uiText as translateUi, useI18n as useUiLocale } from "../../i18n/index.js";
 import { inlineErrorMessage } from "../../Backend/services/friendlyErrorService";
 import { defaultFleetService } from "../services/fleetServiceOffer";
+import FleetTypeIcon from "./shared/FleetTypeIcon";
 
 function cleanAreaText(value) {
   const text = String(value || "").trim();
@@ -236,7 +237,10 @@ export default function FleetProfileScreen({ fleetId, onBack, onOpenCompany, onS
             className="rounded-full border border-slate-200 bg-white hover:bg-slate-50"
           />
           <div className="min-w-0 flex-1">
-            <h1 className="truncate text-lg font-black text-slate-950">{fleet.fleetName}</h1>
+            <h1 className="flex min-w-0 items-center gap-2 text-lg font-black text-slate-950">
+              <FleetTypeIcon fleet={fleet} />
+              <span className="truncate">{fleet.fleetName}</span>
+            </h1>
             <p className="truncate text-xs font-bold text-slate-500">
               {[fleet.operatorId, fleet.displayType, fleet.plateNumber].filter(Boolean).join(" - ")}
             </p>

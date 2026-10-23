@@ -41,6 +41,7 @@ import { calculateBookingRoute, formatBookingDistance } from "../../services/tra
 import { buildFareOffers, maxPassengersForVehicle, roundOfferAmount } from "../../services/openBookingService";
 import { createBroadcastBooking } from "../../services/broadcastBookingService";
 import { raisedOffer } from "../../services/broadcastBookingModels";
+import { requestPreciseLocation } from "../../services/preciseLocationAccess";
 import FindingOperatorSheet from "./FindingOperatorSheet";
 import { AddressSuggestionInput, FormInput } from "./TransportBookingDrawer";
 import { getBookingPickerLabels } from "./bookingPickerLabels";
@@ -212,6 +213,8 @@ export default function OpenBookingSheet({ open, draft = null, onClose, onOpenTr
       .catch(() => null);
 
     if (navigator.geolocation) {
+      // Booking: precise location for the pickup and nearby operators.
+      requestPreciseLocation();
       navigator.geolocation.getCurrentPosition(
         ({ coords }) => {
           if (alive) setSearchCenter({ lat: coords.latitude, lng: coords.longitude, accuracy: coords.accuracy, label: t("urride.booking.currentArea") });

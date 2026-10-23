@@ -1,5 +1,6 @@
 import { useRef, useState } from "react";
 import { getPreciseCurrentPosition } from "../../Backend/utils/precisePosition";
+import { requestPreciseLocation } from "../services/preciseLocationAccess";
 import { createPortal } from "react-dom";
 import { LocateFixed, MapPin } from "lucide-react";
 
@@ -64,8 +65,10 @@ export default function AddressLocationField({ onChange, value }) {
   function locateMe() {
     if (!navigator.geolocation) return;
     setLocating(true);
-    // Best fix within a few seconds, saved with its exact coordinates.
-    getPreciseCurrentPosition()
+    // Best fix within a few seconds, saved with its exact coordinates (precise
+    // location asked for first when the phone only gives approximate).
+    requestPreciseLocation()
+      .then(() => getPreciseCurrentPosition())
       .then(async (position) => {
         const { latitude, longitude } = position.coords;
         const resolved = await reverseGeocodeAddress(latitude, longitude);

@@ -17,6 +17,8 @@ import SaveOperatorButton from "./SaveOperatorButton";
 import { uiText as translateUi, useI18n as useUiLocale } from "../../i18n/index.js";
 import { inlineErrorMessage } from "../../Backend/services/friendlyErrorService";
 import GrowLocalShareCard from "../shared/GrowLocalShareCard";
+import FleetTypeIcon from "./shared/FleetTypeIcon";
+import { liveDistanceLine } from "./shared/liveDistanceText";
 
 function filterFleetsForSelection(items, selection) {
   return selection.verifiedOnly
@@ -91,6 +93,7 @@ export default function FleetListScreen({ selection, onBack, onViewCompany, onVi
               const ranked = await fetchTopRatedNearby({
                 latitude: position.latitude,
                 longitude: position.longitude,
+                accuracy: position.accuracy,
                 countryIso: selection.countryIso || selection.countryCode || selection.country || "",
                 fleetType: selection.fleetType || null,
               });
@@ -292,7 +295,10 @@ function FleetListCard({ fleet, onViewCompany, onViewFleet, onShowVerification, 
       <div className="min-w-0">
         <div className="flex items-start justify-between gap-3 lg:block">
           <div className="min-w-0">
-            <h2 className="truncate text-base font-bold text-gray-950">{fleet.fleetName}</h2>
+            <h2 className="flex min-w-0 items-center gap-2 text-base font-bold text-gray-950">
+              <FleetTypeIcon fleet={fleet} />
+              <span className="truncate">{fleet.fleetName}</span>
+            </h2>
             {fleet.isCompanyFleet ? (
               <button type="button" onClick={onViewCompany} className="mt-2 inline-flex max-w-full items-center gap-1.5 rounded-full bg-blue-50 px-2.5 py-1 text-[10px] font-black uppercase tracking-wide text-blue-700 hover:bg-blue-100">
                 <FiBriefcase className="shrink-0" />
@@ -328,13 +334,16 @@ function FleetListCard({ fleet, onViewCompany, onViewFleet, onShowVerification, 
         {isActive ? (
           <>
             {/* Only a distance measured from the passenger is shown; other
-                lists have none, so no "0 km away" placeholder. */}
-            {fleet.distanceSource === "live" ? (
-              <InfoLine icon={FiNavigation} text={t("urride.fleetList.distanceLive", { distance: fleet.distanceKm, eta: fleet.etaMinutes })} />
+                lists have none, so no "0 km away" placeholder. A live
+                distance and place read exactly like "Available near you":
+                the place the operator's phone last shared, and a rough
+                position said as rough. */}
+            {fleet.distanceSource === "live" && liveDistanceLine(fleet) ? (
+              <InfoLine icon={FiNavigation} text={liveDistanceLine(fleet)} />
             ) : fleet.distanceSource === "recent" ? (
-              <InfoLine icon={FiNavigation} text={t("urride.fleetList.distanceRecent", { distance: fleet.distanceKm })} />
+              <InfoLine icon={FiNavigation} text={t("urride.fleetList.distanceRecent", { distance: Math.round(fleet.distanceKm * 10) / 10 })} />
             ) : null}
-            <InfoLine icon={FiMapPin} text={fleet.currentLocation} />
+            <InfoLine icon={FiMapPin} text={(fleet.distanceSource && fleet.lastSeenPlace) || fleet.currentLocation} />
           </>
         ) : (
           <>

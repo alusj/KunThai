@@ -24,6 +24,7 @@ import {
 import { t as i18nText } from "../../i18n/index";
 import { uiText as translateUi, useI18n as useUiLocale } from "../../i18n/index.js";
 import { inlineErrorMessage } from "../../Backend/services/friendlyErrorService";
+import FleetTypeIcon from "./shared/FleetTypeIcon";
 
 function formatDate(value) {
   if (!value) return "";
@@ -292,7 +293,7 @@ function FleetCard({ fleet, onView, onOpenPhotos }) {
       <CardCover photos={fleet.photos} title={fleet.fleetName} onOpenPhotos={onOpenPhotos} />
       <div className="p-4">
         <div className="flex items-start justify-between gap-3">
-          <div className="min-w-0"><h3 className="truncate text-lg font-black">{fleet.fleetName}</h3><p className="mt-1 text-xs font-bold text-slate-500">{[fleet.fleetCode, fleet.plateNumber].filter(Boolean).join(" · ")}</p></div>
+          <div className="min-w-0"><h3 className="flex min-w-0 items-center gap-2 text-lg font-black"><FleetTypeIcon fleet={fleet} /><span className="truncate">{fleet.fleetName}</span></h3><p className="mt-1 text-xs font-bold text-slate-500">{[fleet.fleetCode, fleet.plateNumber].filter(Boolean).join(" · ")}</p></div>
           <span className={`rounded-full px-2.5 py-1 text-[10px] font-black uppercase ${fleet.isAvailable ? "bg-emerald-100 text-emerald-800" : "bg-slate-100 text-slate-600"}`}>{fleet.isAvailable ? i18nText("ui.literals.k7c62a1424469") : i18nText("ui.literals.ke01fa717bacc")}</span>
         </div>
         <p className="mt-3 text-sm font-semibold text-slate-600">{fleet.operatorName}</p>

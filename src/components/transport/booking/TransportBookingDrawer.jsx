@@ -59,6 +59,7 @@ import {
 } from "./bookingLocationPreferences";
 import { uiText as translateUi, useI18n as useUiLocale } from "../../../i18n/index.js";
 import { inlineErrorMessage } from "../../../Backend/services/friendlyErrorService";
+import { requestPreciseLocation } from "../../services/preciseLocationAccess";
 import { useLateHourGate } from "./useLateHourGate";
 import { useTransportPassengerSetting } from "../shared/useTransportPassengerSetting";
 
@@ -280,6 +281,8 @@ export default function TransportBookingDrawer({ open, target, onClose, onCreate
     if (!open || !navigator.geolocation) return undefined;
 
     let alive = true;
+    // Booking: precise location for the pickup and the operator's distance.
+    requestPreciseLocation();
     navigator.geolocation.getCurrentPosition(
       ({ coords }) => {
         if (!alive) return;

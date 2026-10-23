@@ -352,3 +352,10 @@ test("rough own position: iPhone approximate location gets the Precise Location 
   assert.deepEqual(locationAccuracyAdvice({ accuracy: 300, platform: "ios" }), { kind: "rough", m: 300 });
   assert.deepEqual(locationAccuracyAdvice({ accuracy: 1414, platform: "android" }), { kind: "rough", m: 1414 });
 });
+
+test("a phone that only allows approximate location is told to turn on precise location", async () => {
+  const { locationAccuracyAdvice } = await import("./liveDiscovery.js");
+  assert.deepEqual(locationAccuracyAdvice({ accuracy: 600, platform: "android", reduced: true }), { kind: "precise", m: 600 });
+  assert.deepEqual(locationAccuracyAdvice({ accuracy: 600, platform: "android" }), { kind: "rough", m: 600 });
+  assert.equal(locationAccuracyAdvice({ accuracy: 30, platform: "android", reduced: true }), null);
+});

@@ -75,3 +75,20 @@ test("an online operator without a recent position is listed with no distance", 
   assert.equal(rated[1].distanceSource, null);
   assert.equal(rated[1].etaMinutes, null);
 });
+
+test("fleet list distances carry the shared place and both accuracies, like the nearby list", () => {
+  const fleets = [{ id: "a", activeStatus: "active", fleetType: "Motorcycle", currentLocation: "Saved address" }];
+  const [fleet] = applyFleetDistances(fleets, [
+    { fleet_id: "a", distance_km: 0.7, distance_m: 730, location_source: "live", last_seen_place: "Tee Cee Drive", accuracy_m: 12 },
+  ], { passengerAccuracy: 1414 });
+  assert.equal(fleet.distanceKm, 0.73);
+  assert.equal(fleet.lastSeenPlace, "Tee Cee Drive");
+  assert.equal(fleet.operatorAccuracyM, 12);
+  assert.equal(fleet.passengerAccuracyM, 1414);
+
+  // An older database function without the new columns still works.
+  const [old] = applyFleetDistances(fleets, [{ fleet_id: "a", distance_km: 0.7, location_source: "live" }]);
+  assert.equal(old.distanceKm, 0.7);
+  assert.equal(old.lastSeenPlace, "");
+  assert.equal(old.operatorAccuracyM, null);
+});

@@ -49,6 +49,13 @@
 	<string>UrRide operators only: while you are online (Active), KunThai shares your location with nearby passengers, even when your phone is locked or KunThai is in the background, so they can find and book you. Sharing stops as soon as you go offline or sign out.</string>
 	<key>NSLocationWhenInUseUsageDescription</key>
 	<string>KunThai uses your location while you use the app for UrRide pickups, maps, nearby places and to suggest your region. UrRide operators who are online (Active) are shown to nearby passengers; sharing stops when they go offline. You can say no and enter places yourself.</string>
+	<key>NSLocationTemporaryUsageDescriptionDictionary</key>
+	<dict>
+		<key>UrRidePassenger</key>
+		<string>KunThai needs your precise location to show the real distance to UrRide operators near you and to set your pickup point exactly.</string>
+		<key>UrRideOperator</key>
+		<string>While you are online, KunThai needs your precise location so passengers see where you really are and how far away you are.</string>
+	</dict>
 	<key>NSMicrophoneUsageDescription</key>
 	<string>KunThai uses the microphone only when you record a voice note or a video with sound.</string>
 	<key>NSPhotoLibraryAddUsageDescription</key>

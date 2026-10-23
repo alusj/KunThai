@@ -512,7 +512,7 @@ export async function fetchTransportFleets(selection = { mode: "topRated", fleet
 // safety filters as every other list. Throws when the ranking is unavailable
 // (e.g. migration not applied yet) so the caller can fall back to the
 // country-wide list.
-export async function fetchTopRatedNearby({ latitude, longitude, countryIso = "", fleetType = null, includeOffline = false } = {}) {
+export async function fetchTopRatedNearby({ latitude, longitude, accuracy = null, countryIso = "", fleetType = null, includeOffline = false } = {}) {
   const currentIso = normalizeCountryIso(countryIso) || getActiveCountryProfile(countryIso).iso2;
   if (!currentIso || !Number.isFinite(Number(latitude)) || !Number.isFinite(Number(longitude))) {
     return { rated: [], fresh: [], radiusKm: null };
@@ -542,7 +542,7 @@ export async function fetchTopRatedNearby({ latitude, longitude, countryIso = ""
     isFleetAllowedForTransportMode(fleet, "topRated", currentIso) &&
     passengerVisibilityFilters(fleet, selection, includeOffline),
   );
-  const ranked = applyNearbyRanking(allowed, rankingRows);
+  const ranked = applyNearbyRanking(allowed, rankingRows, { passengerAccuracy: accuracy });
   rememberTransportFleets("top-rated-nearby", [...ranked.rated, ...ranked.fresh]);
   return ranked;
 }
@@ -685,7 +685,7 @@ export async function attachFleetDistances(fleets = [], position = null) {
       p_fleet_ids: ids,
     });
     if (error || !Array.isArray(data)) return fleets;
-    return applyFleetDistances(fleets, data);
+    return applyFleetDistances(fleets, data, { passengerAccuracy: position?.accuracy });
   } catch {
     return fleets;
   }

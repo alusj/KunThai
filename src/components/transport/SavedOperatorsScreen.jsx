@@ -7,6 +7,7 @@ import VerificationBadge from "./verification/VerificationBadge";
 import { useI18n, t } from "../../i18n";
 import { uiText as translateUi, useI18n as useUiLocale } from "../../i18n/index.js";
 import { inlineErrorMessage, shortErrorToast } from "../../Backend/services/friendlyErrorService";
+import FleetTypeIcon from "./shared/FleetTypeIcon";
 
 export default function SavedOperatorsScreen({ onBack, onViewFleet, onShowVerification, onOpenBooking }) {
   useI18n();
@@ -122,7 +123,7 @@ export default function SavedOperatorsScreen({ onBack, onViewFleet, onShowVerifi
             <article key={saved.id} className="grid gap-4 rounded-2xl border border-gray-100 bg-white p-4 shadow-sm lg:grid-cols-[minmax(260px,1fr)_minmax(240px,1fr)_auto] lg:items-center">
               <div className="min-w-0">
                 <p className="text-xs font-bold uppercase tracking-wide text-green-700">{saved.savedAs}</p>
-                <h2 className="mt-1 truncate text-base font-black text-gray-950">{saved.fleet?.fleetName}</h2>
+                <h2 className="mt-1 flex min-w-0 items-center gap-2 text-base font-black text-gray-950"><FleetTypeIcon fleet={saved.fleet} /><span className="truncate">{saved.fleet?.fleetName}</span></h2>
                 <p className="mt-1 text-xs text-gray-500">
                   {[saved.fleet?.operatorId, saved.fleet?.displayType, saved.fleet?.plateNumber].filter(Boolean).join(" - ")}
                 </p>

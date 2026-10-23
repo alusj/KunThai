@@ -11,6 +11,7 @@ import {
   refreshOperatorLocationNow,
 } from "../services/operatorLiveLocationService";
 import LocationAccuracyNote from "./shared/LocationAccuracyNote";
+import { PRECISE_PURPOSE_OPERATOR } from "../services/preciseLocationAccess";
 
 // Operator dashboard, while Active (Online): two separate lines, both from
 // what this phone actually did, never from the Active switch alone.
@@ -96,6 +97,7 @@ export default function OperatorVisibilityStatus({ displayName = "", fleetType =
     <LocationAccuracyNote
       accuracy={roughAccuracy}
       roughTextKey="urrideLocationTrust.roughOperatorHint"
+      purpose={PRECISE_PURPOSE_OPERATOR}
       onRefresh={() => refreshOperatorLocationNow()}
       className="-mt-2 mb-4"
     />

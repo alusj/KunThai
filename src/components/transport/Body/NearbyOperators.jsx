@@ -35,6 +35,8 @@ import { uiText as translateUi, useI18n as useUiLocale } from "../../../i18n/ind
 import { inlineErrorMessage } from "../../../Backend/services/friendlyErrorService";
 import GrowLocalShareCard from "../../shared/GrowLocalShareCard";
 import LocationAccuracyNote from "../shared/LocationAccuracyNote";
+import FleetTypeIcon from "../shared/FleetTypeIcon";
+import { liveDistanceLine, liveDistanceText } from "../shared/liveDistanceText";
 
 function matchesQuery(operator, query) {
   const term = String(query || "").trim().toLowerCase();
@@ -62,12 +64,6 @@ const REALTIME_DEBOUNCE_MS = 2_000;
 const REALTIME_MIN_GAP_MS = 5_000;
 
 // "850 m" / "1.4 km" in the active language.
-function liveDistanceText(distance) {
-  if (!distance) return "";
-  return distance.unit === "m"
-    ? t("urrideLiveDiscovery.distanceMeters", { value: distance.value })
-    : t("urrideLiveDiscovery.distanceKilometres", { value: distance.value });
-}
 
 // "just now" / "12 min ago" / "1 h 20 min ago" in the active language.
 function liveAgoText(ago) {
@@ -503,15 +499,7 @@ function OperatorCard({ operator, pickup, destination, onViewFleet, onViewCompan
   let distanceLine = null;
   let placeLine = operator.currentLocation || operator.lastKnownLocation;
   if (liveState === "available" || liveState === "busy") {
-    distanceLine = liveLabel?.kind === "distanceEta"
-      ? t("urrideLiveDiscovery.distanceEta", { distance: liveDistanceText(liveLabel.distance), eta: liveLabel.eta })
-      : liveLabel?.kind === "approxDistanceEta"
-        ? t("urrideLocationTrust.approxDistanceEta", { distance: liveDistanceText(liveLabel.distance), eta: liveLabel.eta })
-        : liveLabel?.kind === "veryClose"
-          ? t("urrideLocationTrust.veryClose")
-          : liveLabel?.kind === "withinAbout"
-            ? t("urrideLocationTrust.withinAbout", { distance: liveDistanceText(liveLabel.distance) })
-            : null;
+    distanceLine = liveDistanceLine(operator) || null;
     placeLine = operator.lastSeenPlace || "";
   } else if (liveState === "recent") {
     if (liveLabel?.kind === "lastSeenNear") {
@@ -529,9 +517,11 @@ function OperatorCard({ operator, pickup, destination, onViewFleet, onViewCompan
       placeLine = "";
     }
   } else if (Number.isFinite(operator.distanceKm)) {
-    distanceLine = operator.distanceSource === "live" && operator.etaMinutes
-      ? t("urride.fleetList.distanceLive", { distance: operator.distanceKm, eta: operator.etaMinutes })
-      : t("urride.fleetList.distanceRecent", { distance: operator.distanceKm });
+    // Same wording and place as the live list and the fleet lists.
+    distanceLine = operator.distanceSource === "live"
+      ? liveDistanceLine(operator) || null
+      : t("urride.fleetList.distanceRecent", { distance: Math.round(operator.distanceKm * 10) / 10 });
+    if (operator.distanceSource && operator.lastSeenPlace) placeLine = operator.lastSeenPlace;
   }
 
   return (
@@ -541,8 +531,9 @@ function OperatorCard({ operator, pickup, destination, onViewFleet, onViewCompan
     >
       <div className="flex items-start justify-between gap-3">
         <div>
-          <button type="button" onClick={() => onViewFleet?.(operator.id)} className="text-left text-sm font-bold text-gray-950 hover:text-sky-700">
-            {operator.fleetName}
+          <button type="button" onClick={() => onViewFleet?.(operator.id)} className="flex items-center gap-2 text-left text-sm font-bold text-gray-950 hover:text-sky-700">
+            <FleetTypeIcon fleet={operator} />
+            <span>{operator.fleetName}</span>
           </button>
           <p className="mt-1 text-xs text-gray-500">
             {operator.operatorId} - {operator.displayType} - {operator.plateNumber}

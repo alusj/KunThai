@@ -16,6 +16,7 @@ import { useI18n, t } from "../../../i18n";
 import { t as i18nText } from "../../../i18n/index";
 import { uiText as translateUi, useI18n as useUiLocale } from "../../../i18n/index.js";
 import { inlineErrorMessage } from "../../../Backend/services/friendlyErrorService";
+import FleetTypeIcon from "../shared/FleetTypeIcon";
 
 // Search scopes shown as pills so a passenger can target a specific identity —
 // car name, plate, service category, operator code, or pickup area — instead of
@@ -238,7 +239,7 @@ export default function SearchButton({ onOpenChange, onViewCompany, onViewFleet 
                       <article key={fleet.id} className="rounded-2xl border border-slate-100 p-3 shadow-sm">
                         <div className="flex items-start justify-between gap-3">
                           <div className="min-w-0">
-                            <h3 className="truncate text-sm font-black text-slate-950">{fleet.fleetName}</h3>
+                            <h3 className="flex min-w-0 items-center gap-2 text-sm font-black text-slate-950"><FleetTypeIcon fleet={fleet} size={13} /><span className="truncate">{fleet.fleetName}</span></h3>
                             <p className="mt-1 text-xs font-semibold text-slate-500">
                               {fleet.operatorId} - {fleet.displayType} - {fleet.plateNumber}
                             </p>

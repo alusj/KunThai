@@ -23,6 +23,7 @@
 		A1B2C3D40000000000000002 /* AppleSignInPlugin.swift in Sources */ = {isa = PBXBuildFile; fileRef = A1B2C3D40000000000000001 /* AppleSignInPlugin.swift */; };
 		A1B2C3D40000000000000031 /* StoreKitCreditsPlugin.swift in Sources */ = {isa = PBXBuildFile; fileRef = A1B2C3D40000000000000030 /* StoreKitCreditsPlugin.swift */; };
 		A1B2C3D40000000000000051 /* VideoCompressionPlugin.swift in Sources */ = {isa = PBXBuildFile; fileRef = A1B2C3D40000000000000050 /* VideoCompressionPlugin.swift */; };
+		A1B2C3D40000000000000071 /* LocationAccuracyPlugin.swift in Sources */ = {isa = PBXBuildFile; fileRef = A1B2C3D40000000000000070 /* LocationAccuracyPlugin.swift */; };
 		A1B2C3D40000000000000004 /* KunThaiBridgeViewController.swift in Sources */ = {isa = PBXBuildFile; fileRef = A1B2C3D40000000000000003 /* KunThaiBridgeViewController.swift */; };
 		A1B2C3D40000000000000011 /* SceneDelegate.swift in Sources */ = {isa = PBXBuildFile; fileRef = A1B2C3D40000000000000010 /* SceneDelegate.swift */; };
 /* End PBXBuildFile section */
@@ -46,6 +47,7 @@
 		A1B2C3D40000000000000001 /* AppleSignInPlugin.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AppleSignInPlugin.swift; sourceTree = "<group>"; };
 		A1B2C3D40000000000000030 /* StoreKitCreditsPlugin.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = StoreKitCreditsPlugin.swift; sourceTree = "<group>"; };
 		A1B2C3D40000000000000050 /* VideoCompressionPlugin.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = VideoCompressionPlugin.swift; sourceTree = "<group>"; };
+		A1B2C3D40000000000000070 /* LocationAccuracyPlugin.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = LocationAccuracyPlugin.swift; sourceTree = "<group>"; };
 		A1B2C3D40000000000000003 /* KunThaiBridgeViewController.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = KunThaiBridgeViewController.swift; sourceTree = "<group>"; };
 		A1B2C3D40000000000000010 /* SceneDelegate.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SceneDelegate.swift; sourceTree = "<group>"; };
 		A1B2C3D40000000000000005 /* App.entitlements */ = {isa = PBXFileReference; lastKnownFileType = text.plist.entitlements; path = App.entitlements; sourceTree = "<group>"; };
@@ -91,6 +93,7 @@
 				A1B2C3D40000000000000001 /* AppleSignInPlugin.swift */,
 				A1B2C3D40000000000000030 /* StoreKitCreditsPlugin.swift */,
 				A1B2C3D40000000000000050 /* VideoCompressionPlugin.swift */,
+				A1B2C3D40000000000000070 /* LocationAccuracyPlugin.swift */,
 				A1B2C3D40000000000000005 /* App.entitlements */,
 				A1B2C3D40000000000000006 /* App-Release.entitlements */,
 				504EC30B1FED79650016851F /* Main.storyboard */,
@@ -200,6 +203,7 @@
 				A1B2C3D40000000000000002 /* AppleSignInPlugin.swift in Sources */,
 				A1B2C3D40000000000000031 /* StoreKitCreditsPlugin.swift in Sources */,
 				A1B2C3D40000000000000051 /* VideoCompressionPlugin.swift in Sources */,
+				A1B2C3D40000000000000071 /* LocationAccuracyPlugin.swift in Sources */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};

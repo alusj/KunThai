@@ -6,6 +6,7 @@
 import { ensureBuyerLocation, readCachedBuyerLocation } from "../../Backend/utils/buyerLocationContext";
 import { getPreciseCurrentPosition } from "../../Backend/utils/precisePosition";
 import { GOOD_FIX_METERS, acceptFix } from "./operatorLocationPolicy.js";
+import { requestPreciseLocation } from "./preciseLocationAccess.js";
 
 const GRANTED_KEY = "kunthai.locationGranted.v1";
 
@@ -125,6 +126,10 @@ export function watchPassengerPosition(onFix = () => {}) {
 // Resolves { latitude, longitude, accuracy, place, source: "device" | "cached" }
 // or null. `fresh`: the passenger asked for an up-to-date position (Refresh).
 export async function getPassengerPosition({ prompt = false, fresh = false } = {}) {
+  // The passenger asked (Use my location / Refresh): a phone that only gives
+  // KunThai approximate location is asked for precise first, since no GPS
+  // waiting beats a 1-3 km blur. Only upgrades a permission already given.
+  if (prompt || fresh) await requestPreciseLocation();
   const cached = readCachedBuyerLocation();
   const place = cached?.community || cached?.city || "";
 

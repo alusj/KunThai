@@ -175,14 +175,16 @@ export function liveCardLabelValues(item) {
 }
 
 // What to tell someone whose own position is rough (over ROUGH_POSITION_METERS):
-// "precise" when an iPhone reports 1 km or worse, which is iOS's approximate
-// location (Precise Location off for KunThai; Wi-Fi or going outside can't
-// fix that), "rough" otherwise (no GPS indoors). null when the fix is fine.
+// "precise" when the phone only allows KunThai approximate location
+// (`reduced`: iOS Precise Location off, Android "Approximate"; Wi-Fi or going
+// outside can't fix that), or when an iPhone reports 1 km or worse before
+// that is known; "rough" otherwise (no GPS indoors). null when the fix is fine.
 export const IOS_APPROXIMATE_LOCATION_METERS = 1000;
-export function locationAccuracyAdvice({ accuracy, platform = "" } = {}) {
+export function locationAccuracyAdvice({ accuracy, platform = "", reduced = false } = {}) {
   const metres = accuracyOrNull(accuracy);
   if (metres === null || metres <= ROUGH_POSITION_METERS) return null;
   const m = Math.round(metres);
+  if (reduced) return { kind: "precise", m };
   if (platform === "ios" && metres >= IOS_APPROXIMATE_LOCATION_METERS) return { kind: "precise", m };
   return { kind: "rough", m };
 }

@@ -15,6 +15,7 @@ import RentalCatalogue from "../rentals/RentalCatalogue";
 import { t as i18nText } from "../../../i18n/index";
 import { uiText as translateUi, useI18n as useUiLocale } from "../../../i18n/index.js";
 import { inlineErrorMessage } from "../../../Backend/services/friendlyErrorService";
+import FleetTypeIcon from "../shared/FleetTypeIcon";
 
 function formatDistance(fleet) {
   const distance = Number(fleet.distanceKm || 0);
@@ -175,8 +176,9 @@ export default function Radar({ onOpenChange, onViewFleet }) {
                           <article key={operator.id} className="rounded-2xl border border-slate-100 p-3 shadow-sm">
                             <div className="flex items-start justify-between gap-3">
                               <div className="min-w-0">
-                                <h3 className="truncate text-sm font-black text-slate-950">
-                                  {operator.fleetName}
+                                <h3 className="flex min-w-0 items-center gap-2 text-sm font-black text-slate-950">
+                                  <FleetTypeIcon fleet={operator} size={13} />
+                                  <span className="truncate">{operator.fleetName}</span>
                                 </h3>
                                 <p className="mt-1 text-xs font-semibold text-slate-500">
                                   {operator.displayType} - {operator.plateNumber}

@@ -16,10 +16,33 @@ export function estimateTravelMinutes(distanceKm, fleetType = "") {
   return Math.max(1, Math.ceil((distance / speed) * 60 + PICKUP_BUFFER_MIN));
 }
 
+// Where the operator's phone last shared its position and how sure it is,
+// when the database row carries them (transport_fleet_distances), plus the
+// passenger's own accuracy: the same fields "Available near you" reads, so
+// every list words one operator's distance and place the same way.
+function positionDetails(row, passengerAccuracy) {
+  const metres = (value) => {
+    if (value === null || value === undefined || value === "") return null;
+    const number = Number(value);
+    return Number.isFinite(number) && number >= 0 ? number : null;
+  };
+  return {
+    lastSeenPlace: String(row?.last_seen_place || "").trim(),
+    operatorAccuracyM: metres(row?.accuracy_m),
+    passengerAccuracyM: metres(passengerAccuracy),
+  };
+}
+
+function rowDistanceKm(row) {
+  const metres = row?.distance_m === null || row?.distance_m === undefined || row?.distance_m === "" ? NaN : Number(row.distance_m);
+  if (Number.isFinite(metres) && metres >= 0) return metres / 1000;
+  return row?.distance_km === null || row?.distance_km === undefined ? NaN : Number(row.distance_km);
+}
+
 // Orders hydrated fleets by the database ranking and attaches distance data.
 // Fleets the client filters removed (country, mode, visibility) stay removed;
 // ranking rows without a hydrated fleet are skipped.
-export function applyNearbyRanking(fleets = [], rankingRows = []) {
+export function applyNearbyRanking(fleets = [], rankingRows = [], { passengerAccuracy = null } = {}) {
   const byId = new Map((fleets || []).map((fleet) => [fleet.id, fleet]));
   const rated = [];
   const fresh = [];
@@ -35,6 +58,7 @@ export function applyNearbyRanking(fleets = [], rankingRows = []) {
     const live = known && row.location_source === "live";
     const item = {
       ...fleet,
+      ...positionDetails(row, passengerAccuracy),
       distanceKm: known ? distanceKm : null,
       // An online operator with no recent position (they left KunThai) is
       // listed without any distance line.
@@ -52,16 +76,17 @@ export function applyNearbyRanking(fleets = [], rankingRows = []) {
 // Category lists (Book a Ride / Send Delivery): attach measured distances and
 // put ACTIVE fleets nearest first. Fleets without a usable position keep
 // their place after the measured ones; offline fleets stay last, as before.
-export function applyFleetDistances(fleets = [], distanceRows = []) {
+export function applyFleetDistances(fleets = [], distanceRows = [], { passengerAccuracy = null } = {}) {
   const byId = new Map((distanceRows || []).map((row) => [row?.fleet_id, row]));
   const withDistance = (fleets || []).map((fleet, index) => {
     const row = byId.get(fleet.id);
-    const distanceKm = row && row.distance_km !== null && row.distance_km !== undefined ? Number(row.distance_km) : NaN;
+    const distanceKm = row ? rowDistanceKm(row) : NaN;
     if (!Number.isFinite(distanceKm)) return { fleet: { ...fleet, distanceSource: null }, index, distanceKm: null };
     const live = row.location_source === "live";
     return {
       fleet: {
         ...fleet,
+        ...positionDetails(row, passengerAccuracy),
         distanceKm,
         distanceSource: live ? "live" : "recent",
         etaMinutes: live ? estimateTravelMinutes(distanceKm, fleet.fleetType) : null,

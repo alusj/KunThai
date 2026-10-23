@@ -4,6 +4,7 @@ import { getLocale, uiText } from "../../../i18n/index.js";
 import { KAI_TRIP_FLOW_COPY } from "../../../i18n/kaiTripFlow";
 import { searchLocations } from "../locationSearchService";
 import { getPreciseCurrentPosition } from "../../utils/precisePosition";
+import { requestPreciseLocation } from "../../../components/services/preciseLocationAccess";
 import { cleanAddressString } from "../../utils/geoAddress";
 import { getOnboardingProfile } from "../onboardingService";
 import { formatCountryMoney, getActiveCountryProfile, validateCountryPhone } from "../../../data/globalCountryProfiles";
@@ -447,6 +448,7 @@ async function locateCurrentPickup() {
   const token = runToken;
   emit({ busy: tripText("locating") });
   try {
+    await requestPreciseLocation();
     const position = await getPreciseCurrentPosition({ targetAccuracyMeters: 40, maxWaitMs: 9000 });
     const lat = position.coords.latitude;
     const lng = position.coords.longitude;
