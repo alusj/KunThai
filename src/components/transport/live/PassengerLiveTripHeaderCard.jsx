@@ -1,6 +1,8 @@
 import { createElement, useCallback, useEffect, useMemo, useRef, useState } from "react";
 import {
   FiAlertTriangle,
+  FiCheckCircle,
+  FiMapPin,
   FiFlag,
   FiMoreHorizontal,
   FiNavigation,
@@ -20,10 +22,14 @@ import {
   declineTransportTripStart,
 } from "../../services/bookingService";
 import {
+  dismissDeliveredParcel,
   fetchActiveTrips,
+  fetchRecentDeliveredParcels,
   subscribePassengerTrips,
 } from "../../services/passengerTransportService";
 import LiveTripMetric from "./LiveTripMetric";
+import SaveOperatorButton from "../SaveOperatorButton";
+import { isParcelPickupPhase, useParcelTracking } from "./useParcelTracking";
 import { useTransportPassengerSetting } from "../shared/useTransportPassengerSetting";
 import { useI18n, t } from "../../../i18n";
 import { uiText as translateUi, useI18n as useUiLocale } from "../../../i18n/index.js";
@@ -31,7 +37,8 @@ import { shortErrorToast } from "../../../Backend/services/friendlyErrorService"
 import { useDashboardResumeHold } from "../../../Backend/hooks/useDashboardResumeHold";
 
 function isHeaderTrip(trip) {
-  return ["start_requested", "in_progress", "paused"].includes(trip.rawStatus);
+  // A delivery shows from acceptance: the rider is on the way to pick up.
+  return ["start_requested", "in_progress", "paused"].includes(trip.rawStatus) || isParcelPickupPhase(trip);
 }
 
 export default function PassengerLiveTripHeaderCard({ onOpenTrips }) {
@@ -84,7 +91,9 @@ export default function PassengerLiveTripHeaderCard({ onOpenTrips }) {
 
   const refresh = useCallback(async () => {
     try {
-      setTrips(await fetchActiveTrips());
+      // Deliveries the operator just closed come first only when nothing is live.
+      const [active, delivered] = await Promise.all([fetchActiveTrips(), fetchRecentDeliveredParcels()]);
+      setTrips([...active, ...delivered]);
     } catch {
       setTrips([]);
     }
@@ -95,9 +104,13 @@ export default function PassengerLiveTripHeaderCard({ onOpenTrips }) {
     return subscribePassengerTrips(refresh);
   }, [refresh]);
 
-  const trip = useMemo(() => trips.find(isHeaderTrip) || null, [trips]);
+  const trip = useMemo(
+    () => trips.find(isHeaderTrip) || trips.find((item) => item.tripType === "delivery" && item.rawStatus === "completed") || null,
+    [trips],
+  );
+  const { tracking } = useParcelTracking(isParcelPickupPhase(trip) ? trip : null);
   // A passenger on a live trip is never sent back to a dashboard on return.
-  useDashboardResumeHold(Boolean(trip), "passenger-live-trip");
+  useDashboardResumeHold(Boolean(trip) && trip.rawStatus !== "completed", "passenger-live-trip");
 
   useEffect(() => {
     closeMenu(true);
@@ -150,6 +163,55 @@ export default function PassengerLiveTripHeaderCard({ onOpenTrips }) {
   const paused = trip.rawStatus === "paused";
   // A delivery goes live when the operator collects the item.
   const isDelivery = trip.tripType === "delivery";
+
+  if (isDelivery && trip.rawStatus === "completed") {
+    return (
+      <section className="relative mx-3 mt-3 rounded-[28px] border border-emerald-100 bg-white p-4 shadow-[0_18px_48px_rgba(15,23,42,0.08)] sm:mx-5" data-testid="header-parcel-delivered">
+        <div className="flex items-start justify-between gap-3">
+          <div className="min-w-0">
+            <p className="flex items-center gap-2 text-xs font-black uppercase tracking-[0.18em] text-emerald-700"><FiCheckCircle size={14} />{t("urrideParcel.parcelDelivered")}</p>
+            <h2 className="mt-1 break-words text-base font-black text-slate-950">{trip.title}</h2>
+            <p className="mt-1 text-xs font-bold leading-5 text-slate-500">{t("urrideParcel.deliveredBody")}</p>
+          </div>
+          <button
+            type="button"
+            onClick={() => { dismissDeliveredParcel(trip.id); refresh(); }}
+            className="kt-touchable flex h-9 w-9 shrink-0 items-center justify-center rounded-full border border-slate-200 bg-white text-slate-600"
+            aria-label={t("urrideParcel.notNow")}
+          >
+            <FiX size={16} />
+          </button>
+        </div>
+        <div className="mt-3 grid grid-cols-3 gap-2">
+          <button type="button" onClick={() => openAction("review")} className="kt-touchable h-11 rounded-xl bg-emerald-600 px-2 text-xs font-black text-white">{t("urride.activeTrips.ratePerformance")}</button>
+          <SaveOperatorButton fleet={trip.fleet} className="flex h-11 items-center justify-center gap-1 rounded-xl border border-rose-200 bg-white px-2 text-xs font-black text-rose-700 disabled:border-emerald-200 disabled:bg-emerald-50 disabled:text-emerald-700" />
+          <button type="button" onClick={() => openAction("report")} className="kt-touchable h-11 rounded-xl border border-red-100 bg-red-50 px-2 text-xs font-black text-red-700">{t("urride.activeTrips.reportOperator")}</button>
+        </div>
+      </section>
+    );
+  }
+
+  if (isParcelPickupPhase(trip)) {
+    return (
+      <section className="relative mx-3 mt-3 rounded-[28px] border border-emerald-100 bg-white p-4 shadow-[0_18px_48px_rgba(15,23,42,0.08)] sm:mx-5" data-testid="header-parcel-pickup">
+        <p className="flex items-center gap-2 text-xs font-black uppercase tracking-[0.18em] text-emerald-700"><FiPackage size={14} />{t("urrideParcel.riderOnTheWay")}</p>
+        <h2 className="mt-1 break-words text-base font-black text-slate-950">{t("urrideParcel.riderOnTheWayBody", { operator: operatorName })}</h2>
+        {tracking?.pickupCode ? (
+          <p className="mt-2 text-xs font-bold text-slate-600">
+            {t("urrideParcel.yourPickupCode")}: <span className="text-lg font-black tracking-[0.3em] text-slate-950">{tracking.pickupCode}</span>
+          </p>
+        ) : null}
+        <button
+          type="button"
+          onClick={() => openAction("track")}
+          className="kt-touchable mt-3 flex h-11 w-full items-center justify-center gap-2 rounded-xl bg-emerald-600 px-4 text-sm font-black text-white"
+        >
+          <FiMapPin size={16} />
+          {t("urrideParcel.seeRider")}
+        </button>
+      </section>
+    );
+  }
 
   return (
     <section className="relative mx-3 mt-3 overflow-visible rounded-[28px] border border-emerald-100 bg-white p-4 shadow-[0_18px_48px_rgba(15,23,42,0.08)] sm:mx-5">
@@ -251,12 +313,12 @@ export default function PassengerLiveTripHeaderCard({ onOpenTrips }) {
                 </p>
               </div>
               <div className="grid gap-2 sm:grid-cols-2">
-                <PassengerAction icon={paused ? FiPlay : FiPause} label={paused ? t("urride.liveTrip.continueTrip") : t("urride.liveTrip.pauseTrip")} onClick={() => openAction("pause")} />
+                {isDelivery ? null : <PassengerAction icon={paused ? FiPlay : FiPause} label={paused ? t("urride.liveTrip.continueTrip") : t("urride.liveTrip.pauseTrip")} onClick={() => openAction("pause")} />}
                 <PassengerAction icon={FiShare2} label={t("urride.liveTrip.shareLocation")} onClick={() => openAction("share")} />
                 <PassengerAction icon={FiPhone} label={t("urride.liveTrip.contactOperator")} onClick={() => openAction("contact")} />
                 <PassengerAction icon={FiAlertTriangle} label={t("urride.liveTrip.emergency")} danger onClick={() => openAction("emergency")} />
                 <PassengerAction icon={FiFlag} label={t("urride.liveTrip.report")} onClick={() => openAction("report")} />
-                <PassengerAction icon={FiXCircle} label={t("urride.liveTrip.endTrip")} danger onClick={() => openAction("end")} />
+                {isDelivery ? null : <PassengerAction icon={FiXCircle} label={t("urride.liveTrip.endTrip")} danger onClick={() => openAction("end")} />}
               </div>
             </div>
           ) : null}

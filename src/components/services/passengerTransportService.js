@@ -284,6 +284,41 @@ export async function fetchActiveTrips() {
   return Promise.all(trips.map((trip) => mapTrip(trip, contacts.get(trip.id))));
 }
 
+// A delivery the operator just closed ("Delivered") stays on the sender's
+// trips and live card for a while, with Review, Save operator and Report,
+// until the sender reviews or dismisses it.
+const DELIVERED_PARCEL_WINDOW_MS = 12 * 60 * 60 * 1000;
+const DISMISSED_PARCELS_KEY = "kunthai-dismissed-delivered-parcels";
+
+export function dismissDeliveredParcel(tripId) {
+  if (!tripId) return;
+  const dismissed = readLocalJson(DISMISSED_PARCELS_KEY, []);
+  const next = [String(tripId), ...(Array.isArray(dismissed) ? dismissed : []).filter((id) => id !== String(tripId))].slice(0, 50);
+  writeLocalJson(DISMISSED_PARCELS_KEY, next);
+}
+
+export async function fetchRecentDeliveredParcels() {
+  const passengerId = await getCurrentPassengerId();
+  if (!passengerId) return [];
+
+  const since = new Date(Date.now() - DELIVERED_PARCEL_WINDOW_MS).toISOString();
+  const { data, error } = await supabase
+    .from("transport_trips")
+    .select("*")
+    .eq("passenger_id", passengerId)
+    .eq("status", "completed")
+    .eq("ended_by", "operator")
+    .gte("updated_at", since)
+    .order("updated_at", { ascending: false })
+    .limit(5);
+
+  if (error) return [];
+  const dismissed = new Set(readLocalJson(DISMISSED_PARCELS_KEY, []));
+  const rows = (data || []).filter((row) => (row.trip_type || row.trip_mode) === "delivery" && !dismissed.has(String(row.id)));
+  const contacts = await fetchTripOperatorContacts(rows);
+  return Promise.all(rows.map((row) => mapTrip(row, contacts.get(row.id))));
+}
+
 export async function fetchActiveTripCount({ force = false } = {}) {
   const passengerId = await getCurrentPassengerId();
   if (!passengerId) return 0;

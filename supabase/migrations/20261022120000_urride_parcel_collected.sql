@@ -6,8 +6,10 @@
 -- to in_progress (status values are unchanged). This version of
 -- transport_notify_trip_changes() tells the parcel owner about that step in
 -- delivery words: type 'parcel_collected', "Your item has been collected",
--- with a hint to tap Track parcel. A delivery's completion says "Parcel
--- delivered". Rides keep every title and type from 20261017120000.
+-- with a hint to tap Track parcel. An accepted delivery says the rider is on
+-- the way to pick up, and its completion (the rider's Delivered, see
+-- 20261022140000_urride_parcel_handover.sql) says "Parcel delivered" and
+-- invites a review. Rides keep every title and type from 20261017120000.
 --
 -- push_queue_urride_passenger_notification() is unchanged: the new type goes
 -- out as an 'urride_trip' push like the other trip updates.
@@ -109,6 +111,7 @@ begin
 
     passenger_notification_title := case
       when passenger_notification_type = 'parcel_collected' then 'Your item has been collected'
+      when trip_label = 'delivery' and new.status = 'accepted' then 'Rider on the way to pick up your parcel'
       when trip_label = 'delivery' and new.status = 'completed' then 'Parcel delivered'
       else case new.status
       when 'accepted' then 'Operator accepted your booking'
@@ -128,6 +131,8 @@ begin
 
     passenger_notification_body := case
       when passenger_notification_type = 'parcel_collected' then route_summary || '. Tap Track parcel to follow it.'
+      when trip_label = 'delivery' and new.status = 'accepted' then route_summary || '. Show the rider your pickup code when they collect it.'
+      when trip_label = 'delivery' and new.status = 'completed' then route_summary || '. Rate the rider, save them or report a problem.'
       else case new.status
       when 'arrived' then route_summary || '. Check the operator and vehicle before you board or hand over a package.'
       when 'start_requested' then route_summary || '. Confirm the start only when you are ready.'

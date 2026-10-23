@@ -31,8 +31,10 @@ import {
   submitTransportTripReview,
 } from "../services/bookingService";
 import {
+  dismissDeliveredParcel,
   fetchActiveTrips,
   fetchPassengerTrips,
+  fetchRecentDeliveredParcels,
   getActiveTrips,
   getPassengerTrips,
   subscribePassengerTrips,
@@ -40,6 +42,8 @@ import {
 import { showToast } from "../../Backend/services/toastService";
 import AppBackTab from "../shared/AppBackTab";
 import LiveTripMetric from "./live/LiveTripMetric";
+import { isParcelPickupPhase, useParcelTracking } from "./live/useParcelTracking";
+import { buildParcelTrackingUrl, buildReceiverSmsUrl } from "../services/parcelHandoverService";
 import VerificationBadge from "./verification/VerificationBadge";
 import { useI18n, t } from "../../i18n";
 import SaveOperatorButton from "./SaveOperatorButton";
@@ -121,9 +125,11 @@ export default function ActiveTripsScreen({ onBack, onViewFleet, onShowVerificat
         setRefreshing(false);
       }
       setError("");
+      // Active tab: live trips plus deliveries the operator has just closed,
+      // which wait there for the sender's review.
       const remoteTrips = historyMode
         ? (await fetchPassengerTrips()).filter((trip) => trip.group === "previous")
-        : await fetchActiveTrips();
+        : await Promise.all([fetchRecentDeliveredParcels(), fetchActiveTrips()]).then(([delivered, active]) => [...delivered, ...active]);
       setTrips(remoteTrips);
     } catch (err) {
       setError(hasExistingTrips ? "" : inlineErrorMessage(err, t("urride.activeTrips.loadError")));
@@ -151,11 +157,29 @@ export default function ActiveTripsScreen({ onBack, onViewFleet, onShowVerificat
     if (handledInitialActionRef.current === key) return;
 
     const trip = trips.find((item) => String(item.id) === String(requestedTripId));
-    if (!trip || !["in_progress", "paused"].includes(trip.rawStatus)) return;
+    if (!trip) return;
+    const type = initialActionRequest.type || "hub";
+
+    // Deliveries: a delivered parcel opens its review buttons, a live one its
+    // tracking (also while the rider is on the way to pick up).
+    if (trip.tripType === "delivery") {
+      if (trip.rawStatus === "completed") {
+        handledInitialActionRef.current = key;
+        setCompletedTrip(trip);
+        if (type === "review" || type === "report") setActionScreen({ type, trip });
+        return;
+      }
+      if (!["accepted", "arrived", "start_requested", "in_progress", "paused"].includes(trip.rawStatus)) return;
+      handledInitialActionRef.current = key;
+      setActionScreen({ type: type === "hub" ? "track" : type, trip });
+      return;
+    }
+
+    if (!["in_progress", "paused"].includes(trip.rawStatus)) return;
 
     handledInitialActionRef.current = key;
     setActionScreen({
-      type: initialActionRequest.type || "hub",
+      type,
       trip,
     });
   }, [initialActionRequest, trips]);
@@ -189,6 +213,7 @@ export default function ActiveTripsScreen({ onBack, onViewFleet, onShowVerificat
 
   async function submitReview(payload) {
     await submitTransportTripReview(payload);
+    dismissDeliveredParcel(payload?.trip?.id);
     const message = t("urride.activeTrips.reviewThanks");
     setActionMessage(message);
     showToast("Thanks for your review", "success");
@@ -328,6 +353,8 @@ function TripCard({ trip, onOpenActions, onTrackParcel, onCancel, onConfirmStart
   useI18n();
   const isLive = ["in_progress", "paused"].includes(trip.rawStatus);
   const liveParcel = isLiveParcel(trip);
+  const parcelPickup = isParcelPickupPhase(trip);
+  const parcelDelivered = trip.tripType === "delivery" && trip.rawStatus === "completed";
   const stageLabel = liveParcel && trip.rawStatus === "in_progress" ? t("urrideParcel.itemCollected") : translateUi(trip.stage);
   const canCancel = ["requested", "waiting_operator", "pending_confirmation", "accepted", "arrived"].includes(trip.rawStatus);
   const operatorName = trip.fleet?.operatorName || trip.fleet?.fleetName || t("urride.activeTrips.operatorFallback");
@@ -356,6 +383,15 @@ function TripCard({ trip, onOpenActions, onTrackParcel, onCancel, onConfirmStart
             <ActionButton label={t("urride.activeTrips.start")} icon={FiPlay} primary onClick={onConfirmStart} />
             <ActionButton label={t("urride.activeTrips.cancel")} icon={FiXCircle} danger onClick={onDeclineStart} />
           </div>
+        </section>
+      ) : null}
+
+      {parcelPickup ? <ParcelPickupCard trip={trip} onOpen={onTrackParcel} /> : null}
+
+      {parcelDelivered ? (
+        <section className="mt-4 rounded-2xl border border-emerald-100 bg-emerald-50 p-4" data-testid="parcel-delivered">
+          <p className="flex items-center gap-2 text-xs font-black uppercase tracking-[0.16em] text-emerald-700"><FiCheckCircle size={14} />{t("urrideParcel.parcelDelivered")}</p>
+          <p className="mt-1 text-sm font-semibold leading-6 text-slate-700">{t("urrideParcel.deliveredBody")}</p>
         </section>
       ) : null}
 
@@ -487,12 +523,13 @@ function ActionHub({ trip, onOpen, onOpenEmergencyArea }) {
         <h2 className="text-lg font-black text-slate-950">{t("urride.activeTrips.manageTrip")}</h2>
         <p className="mt-1 text-sm font-semibold text-slate-500">{t("urride.activeTrips.manageHint")}</p>
         <div className="mt-4 grid gap-2 sm:grid-cols-2">
-          <ActionRow icon={paused ? FiPlay : FiPause} label={paused ? t("urride.activeTrips.continueTrip") : t("urride.activeTrips.pauseTrip")} detail={paused ? t("urride.activeTrips.resumeDetail") : t("urride.activeTrips.pauseDetail")} onClick={() => onOpen({ type: "pause" })} />
+          {trip.tripType === "delivery" ? null : <ActionRow icon={paused ? FiPlay : FiPause} label={paused ? t("urride.activeTrips.continueTrip") : t("urride.activeTrips.pauseTrip")} detail={paused ? t("urride.activeTrips.resumeDetail") : t("urride.activeTrips.pauseDetail")} onClick={() => onOpen({ type: "pause" })} />}
           <ActionRow icon={FiShare2} label={t("urride.activeTrips.shareLive")} detail={t("urride.activeTrips.shareDetail")} onClick={() => onOpen({ type: "share" })} />
           <ActionRow icon={FiPhone} label={t("urride.activeTrips.contactOperator")} detail={t("urride.activeTrips.contactDetail")} onClick={() => onOpen({ type: "contact" })} />
           <ActionRow icon={FiAlertTriangle} label={t("urride.activeTrips.sosEmergency")} detail={t("urride.activeTrips.sosDetail")} onClick={openEmergency} danger />
           <ActionRow icon={FiFlag} label={t("urride.activeTrips.report")} detail={t("urride.activeTrips.reportDetail")} onClick={() => onOpen({ type: "report" })} />
-          <ActionRow icon={FiXCircle} label={t("urride.activeTrips.endTrip")} detail={t("urride.activeTrips.endDetail")} onClick={() => onOpen({ type: "end" })} danger />
+          {/* A delivery is closed by the rider's Delivered (receiver's code). */}
+          {trip.tripType === "delivery" ? null : <ActionRow icon={FiXCircle} label={t("urride.activeTrips.endTrip")} detail={t("urride.activeTrips.endDetail")} onClick={() => onOpen({ type: "end" })} danger />}
         </div>
       </section>
     </div>
@@ -619,6 +656,35 @@ function EmergencyScreen({ trip, onOpen, onOpenEmergencyArea }) {
   );
 }
 
+function ParcelPickupCard({ trip, onOpen }) {
+  useI18n();
+  const { tracking, position } = useParcelTracking(trip);
+  const operatorName = trip.fleet?.operatorName || trip.fleet?.fleetName || t("urride.activeTrips.operatorFallback");
+  return (
+    <section className="mt-4 rounded-2xl border border-emerald-100 bg-emerald-50 p-4" data-testid="parcel-pickup">
+      <p className="flex items-center gap-2 text-xs font-black uppercase tracking-[0.16em] text-emerald-700"><FiTruck size={14} />{t("urrideParcel.riderOnTheWay")}</p>
+      <p className="mt-1 text-sm font-semibold text-slate-700">{t("urrideParcel.riderOnTheWayBody", { operator: operatorName })}</p>
+      {tracking?.pickupCode ? <HandoverCode label={t("urrideParcel.yourPickupCode")} code={tracking.pickupCode} hint={t("urrideParcel.pickupCodeHint")} /> : null}
+      <button type="button" onClick={onOpen} className="kt-touchable mt-3 flex h-11 w-full items-center justify-center gap-2 rounded-2xl bg-emerald-600 px-4 text-sm font-black text-white">
+        <FiMapPin size={17} />
+        {t("urrideParcel.seeRider")}
+      </button>
+      {!position ? <p className="mt-2 text-xs font-bold text-slate-500">{t("urrideParcel.noLocationYet")}</p> : null}
+    </section>
+  );
+}
+
+function HandoverCode({ label, code, hint }) {
+  useI18n();
+  return (
+    <div className="mt-3 rounded-2xl border border-dashed border-emerald-300 bg-white px-4 py-3" data-testid="parcel-handover-code">
+      <p className="text-[11px] font-black uppercase tracking-[0.16em] text-emerald-700">{label}</p>
+      <p className="mt-1 text-3xl font-black tracking-[0.4em] text-slate-950">{code}</p>
+      <p className="mt-1 text-xs font-semibold leading-5 text-slate-600">{hint}</p>
+    </div>
+  );
+}
+
 function ParcelTrackScreen({ trip, onOpen, onOpenParcelMap }) {
   useI18n();
   const [clock, setClock] = useState(() => Date.now());
@@ -626,39 +692,86 @@ function ParcelTrackScreen({ trip, onOpen, onOpenParcelMap }) {
     const timer = window.setInterval(() => setClock(Date.now()), 30000);
     return () => window.clearInterval(timer);
   }, []);
+  const { tracking, position } = useParcelTracking(trip);
   const operatorName = trip.fleet?.operatorName || trip.fleet?.fleetName || t("urride.activeTrips.operatorFallback");
-  const hasLocation = Number.isFinite(trip.lastLocationLatitude) && Number.isFinite(trip.lastLocationLongitude);
-  const lastSeen = hasLocation ? formatLastSeen(trip.lastLocationAt, clock) : "";
+  const pickupPhase = isParcelPickupPhase(trip);
+  const delivered = trip.rawStatus === "completed";
+  const lastSeen = position ? formatLastSeen(position.at, clock) : "";
+  const trackingUrl = buildParcelTrackingUrl(tracking?.trackingToken);
+  const receiverPhone = tracking?.receiverPhone || "";
+
+  async function sendReceiverLink() {
+    const message = t("urrideParcel.receiverMessage", { link: trackingUrl, code: tracking?.dropoffCode || "" });
+    const smsUrl = buildReceiverSmsUrl(receiverPhone, message);
+    if (smsUrl) {
+      window.location.href = smsUrl;
+      return;
+    }
+    try {
+      if (navigator.share) await navigator.share({ title: t("urrideParcel.publicTitle"), text: message });
+      else await navigator.clipboard?.writeText(message);
+    } catch {
+      // The person closed the share sheet.
+    }
+  }
+
+  if (delivered) {
+    return (
+      <div className="grid gap-4" data-testid="parcel-track-screen">
+        <section className="rounded-2xl border border-emerald-100 bg-emerald-50 p-4 shadow-sm">
+          <p className="flex items-center gap-2 text-xs font-black uppercase tracking-[0.16em] text-emerald-700"><FiCheckCircle size={14} />{t("urrideParcel.parcelDelivered")}</p>
+          <h2 className="mt-1 text-lg font-black text-slate-950">{trip.title}</h2>
+          <p className="mt-1 text-sm font-semibold leading-6 text-slate-700">{t("urrideParcel.deliveredBody")}</p>
+          <TripProgress trip={trip} />
+          <div className="mt-3 grid gap-2 sm:grid-cols-3">
+            <button type="button" onClick={() => onOpen({ type: "report" })} className="h-11 rounded-xl border border-red-100 bg-white text-sm font-black text-red-700">{t("urride.activeTrips.reportOperator")}</button>
+            <button type="button" onClick={() => onOpen({ type: "review" })} className="h-11 rounded-xl bg-emerald-600 text-sm font-black text-white">{t("urride.activeTrips.ratePerformance")}</button>
+            <SaveOperatorButton fleet={trip.fleet} className="flex h-11 items-center justify-center gap-2 rounded-xl border border-rose-200 bg-white px-3 text-sm font-black text-rose-700 disabled:border-emerald-200 disabled:bg-emerald-50 disabled:text-emerald-700" />
+          </div>
+        </section>
+      </div>
+    );
+  }
 
   return (
     <div className="grid gap-4" data-testid="parcel-track-screen">
       <section className="rounded-2xl border border-emerald-100 bg-white p-4 shadow-sm">
         <p className="flex items-center gap-2 text-xs font-black uppercase tracking-[0.16em] text-emerald-700">
           <FiPackage size={14} />
-          {trip.rawStatus === "paused" ? t("urride.liveTrip.paused") : t("urrideParcel.itemCollected")}
+          {pickupPhase ? t("urrideParcel.riderOnTheWay") : trip.rawStatus === "paused" ? t("urride.liveTrip.paused") : t("urrideParcel.itemCollected")}
         </p>
-        <h2 className="mt-1 text-lg font-black text-slate-950">{t("urrideParcel.onTheWay", { operator: operatorName })}</h2>
+        <h2 className="mt-1 text-lg font-black text-slate-950">
+          {pickupPhase ? t("urrideParcel.riderOnTheWayBody", { operator: operatorName }) : t("urrideParcel.onTheWay", { operator: operatorName })}
+        </h2>
         <TripProgress trip={trip} />
         <p className="mt-3 flex items-center gap-2 text-xs font-bold text-slate-500">
           <FiClock size={14} />
           {lastSeen ? t("urrideParcel.lastSeen", { time: lastSeen }) : t("urrideParcel.noLocationYet")}
         </p>
+        {pickupPhase && tracking?.pickupCode ? <HandoverCode label={t("urrideParcel.yourPickupCode")} code={tracking.pickupCode} hint={t("urrideParcel.pickupCodeHint")} /> : null}
+        {!pickupPhase && tracking?.dropoffCode ? <HandoverCode label={t("urrideParcel.dropoffCode")} code={tracking.dropoffCode} hint={t("urrideParcel.dropoffCodeHint")} /> : null}
       </section>
-      <LiveTripMetric trip={trip} />
+      {pickupPhase ? null : <LiveTripMetric trip={trip} />}
       <div className="grid gap-2 sm:grid-cols-2">
         <button
           type="button"
-          onClick={() => onOpenParcelMap?.(trip)}
-          disabled={!hasLocation || !onOpenParcelMap}
+          onClick={() => onOpenParcelMap?.(trip, position)}
+          disabled={!position || !onOpenParcelMap}
           className="kt-touchable flex h-12 items-center justify-center gap-2 rounded-2xl bg-emerald-600 px-4 text-sm font-black text-white disabled:bg-gray-300"
         >
           <FiMapPin size={17} />
-          {t("urrideParcel.viewOnMap")}
+          {pickupPhase ? t("urrideParcel.seeRider") : t("urrideParcel.viewOnMap")}
         </button>
         <button type="button" onClick={() => onOpen({ type: "contact" })} className="kt-touchable flex h-12 items-center justify-center gap-2 rounded-2xl border border-gray-200 bg-white px-4 text-sm font-black text-slate-700">
           <FiPhone size={17} />
           {t("urride.activeTrips.contactOperator")}
         </button>
+        {!pickupPhase && trackingUrl ? (
+          <button type="button" onClick={sendReceiverLink} data-testid="send-receiver-link" className="kt-touchable flex h-12 items-center justify-center gap-2 rounded-2xl border border-emerald-200 bg-emerald-50 px-4 text-sm font-black text-emerald-800 sm:col-span-2">
+            <FiShare2 size={17} />
+            {t("urrideParcel.sendReceiverLink")}
+          </button>
+        ) : null}
       </div>
       <div className="grid gap-2 text-sm text-gray-600 md:grid-cols-2">
         <InfoLine icon={FiMapPin} label={t("urride.activeTrips.linePickup")} text={trip.pickup} />

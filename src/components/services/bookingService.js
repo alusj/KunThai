@@ -163,6 +163,11 @@ export async function createTransportBooking(booking) {
     };
   });
 
+  // Optional receiver number for a delivery (column added 2026-10-22); only
+  // sent when given, so a booking never fails on a database without it.
+  const receiverPhone = tripType === "delivery" ? String(booking.receiverPhone || "").trim() : "";
+  if (receiverPhone) payloads.forEach((payload) => { payload.receiver_phone = receiverPhone; });
+
   const legacyPayloads = payloads.map((payload) => ({
     passenger_id: passenger.id,
     fleet_id: payload.fleet_id,
@@ -181,6 +186,11 @@ export async function createTransportBooking(booking) {
     .from("transport_trips")
     .insert(payloads)
     .select();
+
+  if (error && receiverPhone && /receiver_phone/i.test(error.message || "")) {
+    payloads.forEach((payload) => { delete payload.receiver_phone; });
+    ({ data, error } = await supabase.from("transport_trips").insert(payloads).select());
+  }
 
   if (error && shouldTryLegacyTripPayload(error)) {
     const legacyResult = await supabase

@@ -160,6 +160,7 @@ export default function TransportBookingDrawer({ open, target, onClose, onCreate
     scheduledAt: "",
     passengers: "1",
     packageDescription: "",
+    receiverPhone: "",
     note: "",
     bookingMethod: "distance",
     bookedHours: "1",
@@ -266,6 +267,7 @@ export default function TransportBookingDrawer({ open, target, onClose, onCreate
       ...(draftForm || {}),
       ...preferredLocations,
       packageDescription: draftForm?.packageDescription || "",
+      receiverPhone: draftForm?.receiverPhone || "",
       note: draftForm?.note || "",
     }));
   }, [open, target]);
@@ -813,13 +815,23 @@ export default function TransportBookingDrawer({ open, target, onClose, onCreate
               <PickupTimeFields pickupTime={form.pickupTime} scheduledAt={form.scheduledAt} onChange={updateForm} />
 
               {bookingMode === "delivery" ? (
-                <FormInput
-                  icon={FiBox}
-                  label={t("urride.booking.packageDescription")}
-                  value={form.packageDescription}
-                  onChange={(value) => updateForm({ packageDescription: value })}
-                  placeholder={t("urride.booking.packagePlaceholder")}
-                />
+                <>
+                  <FormInput
+                    icon={FiBox}
+                    label={t("urride.booking.packageDescription")}
+                    value={form.packageDescription}
+                    onChange={(value) => updateForm({ packageDescription: value })}
+                    placeholder={t("urride.booking.packagePlaceholder")}
+                  />
+                  {/* Optional: the receiver gets the tracking link and drop-off code. */}
+                  <FormInput
+                    icon={FiPhone}
+                    label={t("urrideParcel.receiverPhone")}
+                    value={form.receiverPhone}
+                    onChange={(value) => updateForm({ receiverPhone: constrainCountryPhoneInput(value, "", { international: true }) })}
+                    placeholder={t("urrideParcel.receiverPhoneHint")}
+                  />
+                </>
               ) : (
                 <label className="space-y-1">
                   <span className="text-xs font-black uppercase text-gray-500">{t("urride.booking.passengers")}</span>

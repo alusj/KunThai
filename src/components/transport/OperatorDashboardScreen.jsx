@@ -45,7 +45,8 @@ import { useCampaignSurfaceRole } from "../../Backend/services/campaigns/campaig
 import CampaignInboxSection from "../shared/campaigns/CampaignInboxSection";
 import { useCampaignInbox } from "../../Backend/hooks/useCampaignInbox";
 import useBodyScrollLock from "../shared/useBodyScrollLock";
-import { markTransportParcelCollected, requestTransportTripStart, updateTransportTripProgress, updateTransportTripStatus } from "../services/bookingService";
+import { requestTransportTripStart, updateTransportTripProgress, updateTransportTripStatus } from "../services/bookingService";
+import { collectParcel, deliverParcel } from "../services/parcelHandoverService";
 import { showToast } from "../../Backend/services/toastService";
 import { haptics, sounds, stopRinging } from "../../Backend/services/feedbackService";
 import {
@@ -641,22 +642,28 @@ export default function OperatorDashboardScreen({
           return;
         }
       } else if (status === "start_requested") await requestTransportTripStart(trip.id);
-      else if (status === "parcel_collected") await markTransportParcelCollected(trip.id);
-      else await updateTransportTripStatus(trip.id, status, status === "cancelled" ? { ...patch, endedBy: "operator" } : patch);
+      else if (status === "parcel_collected" || status === "parcel_delivered") {
+        // A wrong hand-over code is answered on the card, not as an error.
+        const outcome = await (status === "parcel_collected" ? collectParcel : deliverParcel)(trip.id, patch.code);
+        if (!outcome.ok) return outcome;
+      } else await updateTransportTripStatus(trip.id, status, status === "cancelled" ? { ...patch, endedBy: "operator" } : patch);
       showToast(
         status === "accepted" ? "Trip has been accepted"
           : status === "arrived" ? "Marked as arrived"
             : status === "start_requested" ? "Trip start requested"
               : status === "parcel_collected" ? t("urrideParcel.collectedToast")
+              : status === "parcel_delivered" ? t("urrideParcel.deliveredToast")
               : status === "completed" ? "Trip marked completed"
                 : status === "cancelled" ? "Trip has been cancelled"
                   : "Trip has been updated",
         "success",
       );
       await refreshDashboard();
+      return { ok: true };
     } catch (error) {
       setDashboardError(inlineErrorMessage(error, t("urride.opDash.tripUpdateError")));
       showToast(shortErrorToast(error, t("urride.opDash.tripUpdateError")), "danger");
+      return { ok: false, reason: "error" };
     }
   }
 
@@ -2108,6 +2115,10 @@ export function OperatorTripRequestCard({ passenger, account, isActive, readOnly
   useI18n();
   const [fareAmount, setFareAmount] = useState("");
   const [busy, setBusy] = useState(false);
+  // Delivery hand-over: "pickup" (sender's code) or "dropoff" (receiver's code).
+  const [codeStep, setCodeStep] = useState("");
+  const [handoverCode, setHandoverCode] = useState("");
+  const [codeError, setCodeError] = useState("");
   const { confirmLateHour, lateHourWarning } = useLateHourGate({ audience: "operator" });
   const status = passenger.status || "requested";
   const passengerPhone = passenger.contactPhone || passenger.raw?.contact_phone || "";
@@ -2119,6 +2130,7 @@ export function OperatorTripRequestCard({ passenger, account, isActive, readOnly
   const isPaused = status === "paused";
   // A parcel is collected, not boarded: no arrive / start-approval steps.
   const isDelivery = (passenger.tripType || passenger.raw?.trip_type || passenger.raw?.trip_mode) === "delivery";
+  const receiverPhone = isDelivery ? passenger.raw?.receiver_phone || "" : "";
   // Open (broadcast) request: first to accept wins, and it expires with its wave.
   const [clock, setClock] = useState(() => Date.now());
   const broadcastSecondsLeft = requestSecondsLeft(passenger.raw, clock);
@@ -2160,6 +2172,69 @@ export function OperatorTripRequestCard({ passenger, account, isActive, readOnly
       setBusy(false);
     }
   }
+
+  function openCodeStep(step) {
+    setCodeStep(step);
+    setHandoverCode("");
+    setCodeError("");
+  }
+
+  async function submitHandoverCode() {
+    if (handoverCode.length !== 4) return;
+    setBusy(true);
+    try {
+      const outcome = await onUpdateTrip(passenger, codeStep === "pickup" ? "parcel_collected" : "parcel_delivered", { code: handoverCode });
+      if (outcome?.ok) {
+        setCodeStep("");
+        return;
+      }
+      if (outcome?.reason === "locked") setCodeError(t("urrideParcel.codeLocked"));
+      else if (outcome?.reason === "wrong_code") setCodeError(t("urrideParcel.wrongCode", { count: outcome.attemptsLeft ?? 0 }));
+      setHandoverCode("");
+    } finally {
+      setBusy(false);
+    }
+  }
+
+  const codePanel = codeStep ? (
+    <div className="mt-4 rounded-2xl border border-emerald-100 bg-white p-3" data-testid="operator-handover-code">
+      <p className="text-xs font-black uppercase tracking-wide text-emerald-700">
+        {codeStep === "pickup" ? t("urrideParcel.itemCollected") : t("urrideParcel.delivered")}
+      </p>
+      <p className="mt-1 text-xs font-bold leading-5 text-gray-600">
+        {codeStep === "pickup" ? t("urrideParcel.enterPickupCode") : t("urrideParcel.enterDropoffCode")}
+      </p>
+      <input
+        type="text"
+        inputMode="numeric"
+        autoComplete="one-time-code"
+        maxLength={4}
+        value={handoverCode}
+        onChange={(event) => setHandoverCode(event.target.value.replace(/\D/g, "").slice(0, 4))}
+        placeholder={t("urrideParcel.codePlaceholder")}
+        className="mt-2 h-12 w-full rounded-2xl border border-gray-200 bg-gray-50 px-3 text-center text-xl font-black tracking-[0.5em] outline-none focus:border-emerald-500"
+      />
+      {codeError ? <p className="mt-2 text-xs font-bold text-red-700">{codeError}</p> : null}
+      <div className="mt-2 grid grid-cols-2 gap-2">
+        <button
+          type="button"
+          onClick={submitHandoverCode}
+          disabled={busy || handoverCode.length !== 4}
+          className="h-10 rounded-2xl bg-green-600 px-4 text-sm font-black text-white disabled:bg-gray-300"
+        >
+          {t("urrideParcel.confirm")}
+        </button>
+        <button
+          type="button"
+          onClick={() => setCodeStep("")}
+          disabled={busy}
+          className="h-10 rounded-2xl border border-gray-200 bg-white px-4 text-sm font-black text-gray-700"
+        >
+          {t("urrideParcel.notNow")}
+        </button>
+      </div>
+    </div>
+  ) : null;
 
   return (
     <article className="rounded-2xl border border-gray-100 bg-gray-50 px-4 py-4">
@@ -2262,11 +2337,13 @@ export function OperatorTripRequestCard({ passenger, account, isActive, readOnly
         <p className="mt-4 text-xs font-bold leading-5 text-gray-600">{t("urrideParcel.collectHint")}</p>
       ) : null}
 
-      {!readOnly && isAccepted ? (
+      {!readOnly && isAccepted && codeStep ? codePanel : null}
+
+      {!readOnly && isAccepted && !codeStep ? (
         <div className={`${isDelivery ? "mt-2" : "mt-4"} grid gap-2 sm:grid-cols-2`}>
           <button
             type="button"
-            onClick={() => runAction(isDelivery ? "parcel_collected" : "arrived")}
+            onClick={() => (isDelivery ? openCodeStep("pickup") : runAction("arrived"))}
             disabled={!isActive || busy}
             data-testid={isDelivery ? "operator-item-collected" : undefined}
             className="h-10 rounded-2xl bg-green-600 px-4 text-sm font-black text-white disabled:bg-gray-300"
@@ -2305,6 +2382,28 @@ export function OperatorTripRequestCard({ passenger, account, isActive, readOnly
         <div className="mt-4 rounded-2xl border border-green-100 bg-green-50 px-4 py-3 text-sm font-bold text-green-700">
           {isDelivery ? t("urrideParcel.operatorLive") : t("urride.opDash.liveTripActive")}
         </div>
+      ) : null}
+
+      {!readOnly && isDelivery && (isInProgress || isPaused) ? (
+        codeStep ? codePanel : (
+          <div className="mt-2 grid gap-2 sm:grid-cols-2">
+            <button
+              type="button"
+              onClick={() => openCodeStep("dropoff")}
+              disabled={busy}
+              data-testid="operator-delivered"
+              className="h-10 rounded-2xl bg-green-600 px-4 text-sm font-black text-white disabled:bg-gray-300"
+            >
+              {t("urrideParcel.delivered")}
+            </button>
+            {receiverPhone ? (
+              <a href={`tel:${receiverPhone}`} className="flex h-10 items-center justify-center gap-2 rounded-2xl border border-slate-200 bg-white px-4 text-sm font-black text-slate-800">
+                <FiPhone size={16} />
+                {t("urrideParcel.callReceiver")}
+              </a>
+            ) : null}
+          </div>
+        )
       ) : null}
     </article>
   );

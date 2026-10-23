@@ -1635,10 +1635,11 @@ export default function Transport({
               },
             });
           }}
-          onOpenParcelMap={(trip) => {
+          onOpenParcelMap={(trip, position) => {
+            if (!position) return;
             openNearbyAreaRoute(
               {
-                id: `parcel-${trip.id}-${trip.lastLocationAt || "live"}`,
+                id: `parcel-${trip.id}-${position.at || "live"}`,
                 type: "parcel-tracking",
                 name: t("urrideParcel.yourParcel"),
                 category: "Parcel",
@@ -1646,8 +1647,8 @@ export default function Transport({
                 distance: t("urrideParcel.trackParcel"),
                 status: "verified",
                 description: t("urrideParcel.onTheWay", { operator: trip.fleet?.operatorName || trip.fleet?.fleetName || "" }),
-                lat: trip.lastLocationLatitude,
-                lng: trip.lastLocationLongitude,
+                lat: position.lat,
+                lng: position.lng,
               },
               // Back from the map lands on Track parcel again.
               { autoRoute: false, returnTo: "active-trips", tripAction: { tripId: trip.id, type: "track" } },

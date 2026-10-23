@@ -30,6 +30,7 @@ installNativeShare();
 const AdminApp = lazyWithRetry(() => import("./admin/AdminApp.jsx"));
 const PublicPolicyPage = lazyWithRetry(() => import("./components/public/PublicPolicyPage.jsx"));
 const PublicSupportPage = lazyWithRetry(() => import("./components/public/PublicSupportPage.jsx"));
+const PublicParcelTrackingPage = lazyWithRetry(() => import("./components/public/PublicParcelTrackingPage.jsx"));
 
 function RootApplication() {
   useUiLocale();
@@ -44,6 +45,16 @@ function RootApplication() {
       // No admin wording while loading: non-admins are sent back to the app.
       <Suspense fallback={<div className="min-h-screen bg-white" aria-busy="true" />}>
         <AdminApp />
+      </Suspense>
+    );
+  }
+
+  // A parcel receiver's tracking link (/track/<token>); no sign-in required.
+  const parcelTrackingToken = (pathname.match(/^\/track\/([0-9a-f]{16,64})\/?$/i) || [])[1] || "";
+  if (parcelTrackingToken) {
+    return (
+      <Suspense fallback={<div className="min-h-screen bg-slate-50" aria-busy="true" />}>
+        <PublicParcelTrackingPage token={parcelTrackingToken} />
       </Suspense>
     );
   }
