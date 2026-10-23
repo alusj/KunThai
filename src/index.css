@@ -226,6 +226,10 @@
 
   .kt-conversation-screen {
     box-sizing: border-box;
+    /* Lifts the message box above a keyboard the app page has not made room
+       for yet (mobileViewportService). Not animated: when the page then
+       shrinks this drops to 0 in the same frame, and the box stays put. */
+    padding-bottom: var(--kt-keyboard-overlap, 0px);
     height: 100%;
     min-height: 0;
     max-height: 100%;

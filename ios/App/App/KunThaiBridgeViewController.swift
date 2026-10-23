@@ -71,6 +71,7 @@ class KunThaiBridgeViewController: CAPBridgeViewController {
         center.addObserver(self, selector: #selector(appWillEnterForeground), name: UIApplication.willEnterForegroundNotification, object: nil)
         center.addObserver(self, selector: #selector(webDidBecomeReady), name: Self.webReadyNotification, object: nil)
         center.addObserver(self, selector: #selector(appearanceDidChange), name: Self.appearanceNotification, object: nil)
+        center.addObserver(self, selector: #selector(keyboardWillChangeFrame(_:)), name: UIResponder.keyboardWillChangeFrameNotification, object: nil)
 
         // iOS can clear the page of an app in the background; Capacitor then
         // reloads it, at any moment, often just as KunThai returns. The splash
@@ -108,8 +109,35 @@ class KunThaiBridgeViewController: CAPBridgeViewController {
         }
     }
 
+    override func viewDidAppear(_ animated: Bool) {
+        super.viewDidAppear(animated)
+        // Seen below the page while the keyboard is still rising (the page
+        // makes room for it as it starts): the app's colour, not black.
+        view.window?.backgroundColor = Self.appBackground
+    }
+
+    // The keyboard plugin (resize "native") shrinks the page only after the
+    // keyboard has finished rising, plus 0.2 s: the keyboard first slid over
+    // the message box, then the whole conversation jumped up. The page makes
+    // room as the keyboard starts instead, in one step. The plugin's own late
+    // resize then finds the same size and changes nothing. On hide the
+    // plugin already gives the room back at once; this does the same.
+    @objc private func keyboardWillChangeFrame(_ notification: Notification) {
+        guard UIDevice.current.userInterfaceIdiom == .phone,
+              let webView, let window = webView.window,
+              let endFrame = (notification.userInfo?[UIResponder.keyboardFrameEndUserInfoKey] as? NSValue)?.cgRectValue
+        else { return }
+        let keyboardInWindow = window.convert(endFrame, from: window.screen.coordinateSpace)
+        let covered = max(0, window.bounds.maxY - keyboardInWindow.minY)
+        let current = webView.frame
+        let height = window.bounds.height - current.origin.y - covered
+        guard height > 0, abs(current.height - height) >= 1 else { return }
+        webView.frame = CGRect(x: current.origin.x, y: current.origin.y, width: window.bounds.width - current.origin.x, height: height)
+    }
+
     @objc private func appearanceDidChange() {
         let appBackground = Self.appBackground
+        view.window?.backgroundColor = appBackground
         view.backgroundColor = appBackground
         webView?.backgroundColor = appBackground
         webView?.scrollView.backgroundColor = appBackground

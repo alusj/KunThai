@@ -35,7 +35,6 @@ import {
 import { requestConversationOpen } from "./explore/messageService";
 import {
   ANDROID_PUSH_CHANNELS,
-  HORN_PUSH_KINDS,
   NATIVE_PUSH_DIAGNOSTIC_KEY,
   NATIVE_PUSH_RECEIVED_EVENT,
   bannerContextsForRoute,
@@ -605,24 +604,19 @@ function ensureAndroidPushChannel() {
   }
 }
 
-// The UrRide horn (a new ride request, "operator arrived") keeps sounding
-// until KunThai is opened: clearing its notification is what stops it on
-// Android (the 60 s sound belongs to the notification). Other notifications
-// stay in the tray.
-function clearDeliveredHornNotifications() {
+// Opening KunThai clears its delivered notifications (tray, lock screen) and
+// the app-icon badge, like most messaging apps; unread counts stay inside the
+// app. The native shell does this as the app becomes active (SceneDelegate /
+// MainActivity.onResume), before the page has loaded; this is the same step
+// from the web side. It is also what stops the UrRide horn (a new ride
+// request, "operator arrived"): on Android its 60 s sound belongs to the
+// notification.
+function clearDeliveredNotifications() {
   // Started inside the promise: a plugin without these methods must not
-  // break push start-up.
+  // break push start-up. iOS refuses until this run has registered for
+  // push; the native shell has already cleared by then.
   Promise.resolve()
-    .then(() => PushNotifications.getDeliveredNotifications())
-    .then((result) => {
-      const horns = (result?.notifications || []).filter((notification) => {
-        const kind = String(notification?.data?.kind || notification?.tag || "").toLowerCase();
-        return HORN_PUSH_KINDS.includes(kind);
-      });
-      if (!horns.length) return undefined;
-      pushLog(`clearing ${horns.length} horn notification(s)`);
-      return PushNotifications.removeDeliveredNotifications({ notifications: horns });
-    })
+    .then(() => PushNotifications.removeAllDeliveredNotifications())
     .catch(() => {});
 }
 
@@ -654,10 +648,10 @@ export function initNativePushNotifications() {
 
   Promise.resolve(CapacitorApp.addListener("appStateChange", ({ isActive }) => {
     if (!isActive) return;
-    clearDeliveredHornNotifications();
+    clearDeliveredNotifications();
     syncNativePush("resume");
   })).catch(() => {});
-  clearDeliveredHornNotifications();
+  clearDeliveredNotifications();
 
   supabase.auth.onAuthStateChange((event) => {
     if (event === "INITIAL_SESSION" || event === "SIGNED_IN") {

@@ -1,5 +1,5 @@
 // src/Explore/Explore.jsx
-import { useEffect, useLayoutEffect, useRef, useState } from "react";
+import { memo, useCallback, useDeferredValue, useEffect, useLayoutEffect, useRef, useState } from "react";
 import { createPortal } from "react-dom";
 //import { useAuth } from "../../Backend/hooks/useAuth";
 import { useBackSwipe } from "../../Backend/hooks/useBackSwipe";
@@ -44,6 +44,7 @@ import { useI18n } from "../../i18n";
 import UrFeed from "./ExploreTabs/urfeed/UrFeed";
 import Swip from "./ExploreTabs/swip/Swip";
 import Connections from "./ExploreTabs/connections/Connections"
+
 import Notifications from "./ExploreTabs/notification/Notifications";
 import ActivityScreen from "./SocialMenu/activity/ActivityScreen";
 import AboutKunThaiScreen from "./SocialMenu/about/AboutKunThaiScreen";
@@ -86,6 +87,27 @@ import { announceConnectionTrouble } from "../../Backend/services/networkService
 import { NAV_TRANSITION_MS } from "../shared/navigationMotion";
 import { settleReplayedAnimations } from "../shared/settleReplayedAnimations";
 import { haptics } from "../../Backend/services/feedbackService";
+
+// The three tabs only re-render when their own props change. Opening a menu
+// screen (Messages, a profile) re-renders Explore several times during the
+// slide, and re-rendering the whole feed each time stalled it for ~80 ms per
+// render on mid-range Android phones: the screen came in late and stuttered.
+const MemoUrFeed = memo(UrFeed);
+const MemoSwip = memo(Swip);
+const MemoConnections = memo(Connections);
+
+// The same object while its content is the same, so memoized children keep
+// skipping work when a profile is rebuilt with identical fields.
+function useSameContent(value) {
+  const [stable, setStable] = useState(() => ({ key: JSON.stringify(value ?? null), value }));
+  const key = JSON.stringify(value ?? null);
+  if (stable.key !== key) {
+    const next = { key, value };
+    setStable(next);
+    return value;
+  }
+  return stable.value;
+}
 
 const EXPLORE_TAB_ORDER = ["UrFeed", "Swip", "Connections"];
 const EXPLORE_STACK_ANIMATION_MS = NAV_TRANSITION_MS;
@@ -179,6 +201,9 @@ export default function Explore({ active = true, onNavigateMain, onScreenModeCha
   openPostTargetRef.current = openExplorePostTarget;
   const isSwipTab = activeTab === "Swip";
   const menuOverlayVisible = exploreNav.isFullScreen || visibleMenuStack.length > 0;
+  // The feed learns a menu screen covers it in a later, interruptible render,
+  // so the screen's slide starts on the very next frame after the tap.
+  const feedCovered = useDeferredValue(menuOverlayVisible);
   const anyExploreOverlayVisible = menuOverlayVisible || leftDrawerOpen || composerOpen || headerOverlayOpen;
   // The half-width Social drawer must not change the feed header's hidden state.
   // Its backdrop already blocks scrolling, so preserving the current header
@@ -204,7 +229,7 @@ export default function Explore({ active = true, onNavigateMain, onScreenModeCha
   // How far the bar slides up on Swip: the header's height, less the safe area
   // the tabs row stops under (added in CSS, as it is not known here).
   const headerShift = Math.max(0, topChrome.full - topChrome.tabs);
-  const authProfile = buildExploreProfileFromUser(user);
+  const authProfile = useSameContent(buildExploreProfileFromUser(user));
   const profileOverrideMatchesUser = Boolean(user?.id && profileOverride?.userId === user.id);
   const personalProfile = profileOverrideMatchesUser ? profileOverride : authProfile;
   const activeSpaceProfile = activeIdentity?.type === "space"
@@ -668,6 +693,10 @@ export default function Explore({ active = true, onNavigateMain, onScreenModeCha
   openMenuScreenRef.current = openMenuScreen;
   const openViewedProfileRef = useRef(null);
   openViewedProfileRef.current = openViewedProfile;
+  const viewProfileFromTab = useCallback((authorProfile) => openViewedProfileRef.current?.(authorProfile), []);
+  const returnFromRepostedSwipRef = useRef(null);
+  returnFromRepostedSwipRef.current = returnFromRepostedSwip;
+  const returnToRepostFromSwip = useCallback(() => returnFromRepostedSwipRef.current?.(), []);
   useEffect(() => {
     function handleOpenScreenRequest(event) {
       const detail = event?.detail || {};
@@ -1861,11 +1890,11 @@ export default function Explore({ active = true, onNavigateMain, onScreenModeCha
       className={getExploreTabPanelClass("UrFeed")}
       style={getExploreTabPanelStyle("UrFeed")}
     >
-      <UrFeed
-        active={active && activeTab === "UrFeed" && !menuOverlayVisible}
+      <MemoUrFeed
+        active={active && activeTab === "UrFeed" && !feedCovered}
         focusRequest={postFocusRequest?.tab === "UrFeed" ? postFocusRequest : null}
         profile={profile}
-        onViewProfile={openViewedProfile}
+        onViewProfile={viewProfileFromTab}
       />
     </section>
 
@@ -1875,15 +1904,15 @@ export default function Explore({ active = true, onNavigateMain, onScreenModeCha
       className={getExploreTabPanelClass("Swip")}
       style={getExploreTabPanelStyle("Swip")}
     >
-      <Swip
-        active={active && activeTab === "Swip" && !menuOverlayVisible}
+      <MemoSwip
+        active={active && activeTab === "Swip" && !feedCovered}
         currentUserId={profile.userId}
         focusPostId={postFocusRequest?.tab === "Swip" ? postFocusRequest.postId : swipPreviewTarget}
         focusPost={postFocusRequest?.tab === "Swip" ? postFocusRequest.post : null}
         focusRequest={postFocusRequest?.tab === "Swip" ? postFocusRequest : null}
-        onReturnToRepost={swipPreviewTarget ? returnFromRepostedSwip : undefined}
+        onReturnToRepost={swipPreviewTarget ? returnToRepostFromSwip : undefined}
         profile={profile}
-        onViewProfile={openViewedProfile}
+        onViewProfile={viewProfileFromTab}
       />
     </section>
 
@@ -1893,9 +1922,9 @@ export default function Explore({ active = true, onNavigateMain, onScreenModeCha
       className={getExploreTabPanelClass("Connections")}
       style={getExploreTabPanelStyle("Connections")}
     >
-      <Connections
+      <MemoConnections
         currentUserId={profile.userId}
-        onViewProfile={openViewedProfile}
+        onViewProfile={viewProfileFromTab}
       />
     </section>
   </>

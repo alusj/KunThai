@@ -128,6 +128,34 @@ public class MainActivity extends BridgeActivity {
         manager.createNotificationChannel(channel);
     }
 
+    // Opening KunThai clears its notifications from the tray and lock screen
+    // (and so the launcher badge), like most messaging apps: what they
+    // announced is now in front of the person. Before, they stayed until each
+    // one was tapped. Ongoing ones stay: the "you're online" location
+    // notification belongs to a running service.
+    @Override
+    public void onResume() {
+        super.onResume();
+        clearDeliveredNotifications();
+    }
+
+    private void clearDeliveredNotifications() {
+        if (Build.VERSION.SDK_INT < Build.VERSION_CODES.M) return;
+        NotificationManager manager = getSystemService(NotificationManager.class);
+        if (manager == null) return;
+        try {
+            for (android.service.notification.StatusBarNotification posted : manager.getActiveNotifications()) {
+                int flags = posted.getNotification().flags;
+                if ((flags & (android.app.Notification.FLAG_ONGOING_EVENT | android.app.Notification.FLAG_FOREGROUND_SERVICE)) != 0) continue;
+                if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O
+                    && LOCATION_SHARING_CHANNEL_ID.equals(posted.getNotification().getChannelId())) continue;
+                manager.cancel(posted.getTag(), posted.getId());
+            }
+        } catch (RuntimeException ignored) {
+            // Never let tidying the tray stop the app from opening.
+        }
+    }
+
     @Override
     public void onStart() {
         super.onStart();

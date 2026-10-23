@@ -7,6 +7,7 @@ import {
   EXPLORE_MESSAGE_EVENT,
   fetchExploreConversations,
   fetchExploreMessageActivity,
+  readCachedExploreConversations,
   subscribeToExploreMessages,
 } from "../services/explore/messageService";
 import { readExploreSettings } from "../services/explore/preferencesService";
@@ -20,13 +21,42 @@ function isFreshActivity(item) {
   return Date.now() - new Date(item.updatedAt || 0).getTime() < 15000;
 }
 const MESSAGE_STATUS_CACHE = new Map();
+// The Explore header and the bottom tab both use this hook: one realtime
+// event or resume refreshes the inbox once for both.
+const MESSAGE_STATUS_INFLIGHT = new Map();
 
 function getCachedStatus(userId = "") {
   return MESSAGE_STATUS_CACHE.get(userId) || { conversations: [], loadedAt: 0 };
 }
 
+function loadStatusConversations(userId = "") {
+  const pending = MESSAGE_STATUS_INFLIGHT.get(userId);
+  if (pending) return pending;
+  const request = fetchExploreConversations(userId)
+    .then((items) => {
+      const deduped = dedupeExploreConversations(items);
+      MESSAGE_STATUS_CACHE.set(userId, { conversations: deduped, loadedAt: Date.now() });
+      return deduped;
+    })
+    .finally(() => MESSAGE_STATUS_INFLIGHT.delete(userId));
+  MESSAGE_STATUS_INFLIGHT.set(userId, request);
+  return request;
+}
+
+// Until the first fetch: the inbox this phone saved last time, so the badge
+// is right from the first frame after a cold start.
+function initialConversations(userId = "") {
+  const cached = getCachedStatus(userId).conversations;
+  if (cached.length || !userId) return cached;
+  try {
+    return dedupeExploreConversations(readCachedExploreConversations(userId));
+  } catch {
+    return [];
+  }
+}
+
 export function useExploreMessageStatus(currentUserId = "") {
-  const [conversations, setConversations] = useState(() => getCachedStatus(currentUserId).conversations);
+  const [conversations, setConversations] = useState(() => initialConversations(currentUserId));
   const [activity, setActivity] = useState(() => fetchExploreMessageActivity());
   const [messagesVisitedAt, setMessagesVisitedAt] = useState(() => readNotificationScopeVisitedAt(EXPLORE_MESSAGE_SEEN_SCOPE));
 
@@ -38,15 +68,18 @@ export function useExploreMessageStatus(currentUserId = "") {
 
   useEffect(() => {
     function reloadMessages() {
-     fetchExploreConversations(currentUserId)
-  .then((items) => {
-    const deduped = dedupeExploreConversations(items);
-    MESSAGE_STATUS_CACHE.set(currentUserId, { conversations: deduped, loadedAt: Date.now() });
-    setConversations(deduped);
-  })
-  .catch(() => {
-    setConversations(getCachedStatus(currentUserId).conversations || []);
-  });
+      if (!currentUserId) return;
+      loadStatusConversations(currentUserId)
+        .then(setConversations)
+        .catch(() => {
+          setConversations(getCachedStatus(currentUserId).conversations || []);
+        });
+    }
+
+    // Back from the background: messages that arrived meanwhile (realtime
+    // was asleep) show on the badge at once.
+    function reloadWhenVisible() {
+      if (document.visibilityState === "visible") reloadMessages();
     }
 
     function reloadActivity() {
@@ -60,16 +93,17 @@ export function useExploreMessageStatus(currentUserId = "") {
     }
 
     const cachedStatus = getCachedStatus(currentUserId);
-    setConversations(cachedStatus.conversations);
+    setConversations(initialConversations(currentUserId));
     if (!cachedStatus.conversations.length || Date.now() - cachedStatus.loadedAt > 120000) {
-  reloadMessages();
-}
+      reloadMessages();
+    }
     reloadActivity();
     const unsubscribeRealtime = subscribeToExploreMessages(currentUserId, reloadMessages);
     window.addEventListener(EXPLORE_MESSAGE_EVENT, reloadMessages);
     window.addEventListener(EXPLORE_MESSAGE_ACTIVITY_EVENT, reloadActivity);
     window.addEventListener(EXPLORE_MESSAGE_CACHE_CLEARED_EVENT, clearMessageStatusCache);
     window.addEventListener("storage", reloadMessages);
+    document.addEventListener("visibilitychange", reloadWhenVisible);
 
     const interval = window.setInterval(reloadActivity, 30000);
 
@@ -79,6 +113,7 @@ export function useExploreMessageStatus(currentUserId = "") {
       window.removeEventListener(EXPLORE_MESSAGE_ACTIVITY_EVENT, reloadActivity);
       window.removeEventListener(EXPLORE_MESSAGE_CACHE_CLEARED_EVENT, clearMessageStatusCache);
       window.removeEventListener("storage", reloadMessages);
+      document.removeEventListener("visibilitychange", reloadWhenVisible);
       window.clearInterval(interval);
     };
   }, [currentUserId]);

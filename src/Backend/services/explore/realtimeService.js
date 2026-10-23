@@ -64,13 +64,19 @@ export function subscribeToExploreComments(postId, handlers) {
   return () => supabase.removeChannel(channel);
 }
 
+// supabase-js hands back the existing channel when a topic is reused, and a
+// channel being removed (an effect cleanup) then swallows the new
+// subscription: the in-app message banners went quiet. Each subscription
+// gets its own topic.
+let bannerChannelSequence = 0;
+
 export function subscribeToIncomingExploreMessages(userId, onInsert) {
   if (!userId) {
     return () => {};
   }
 
   const channel = supabase
-    .channel(`explore-incoming-messages-${userId}`)
+    .channel(`explore-incoming-messages-${userId}-${++bannerChannelSequence}`)
     .on("postgres_changes", { event: "INSERT", schema: "public", table: "explore_messages" }, onInsert)
     .subscribe();
 
@@ -83,7 +89,7 @@ export function subscribeToExploreNotifications(userId, onInsert) {
   }
 
   const channel = supabase
-    .channel(`explore-notification-inserts-${userId}`)
+    .channel(`explore-notification-inserts-${userId}-${++bannerChannelSequence}`)
     .on(
       "postgres_changes",
       { event: "INSERT", schema: "public", table: "explore_notifications", filter: `user_id=eq.${userId}` },

@@ -1,5 +1,6 @@
 import UIKit
 import Capacitor
+import UserNotifications
 
 // UIScene lifecycle (required by current iOS SDKs). The window and its root
 // view controller, KunThaiBridgeViewController, are still created from
@@ -23,6 +24,21 @@ class SceneDelegate: UIResponder, UIWindowSceneDelegate {
         }
         if let userActivity = connectionOptions.userActivities.first(where: { $0.activityType == NSUserActivityTypeBrowsingWeb }) {
             continueUserActivity(userActivity)
+        }
+    }
+
+    // Opening KunThai clears its notifications from the lock screen and
+    // Notification Centre, and the number on the app icon, like most
+    // messaging apps: what they announced is now in front of the person
+    // (unread counts stay inside the app). Before, they stayed until each one
+    // was tapped.
+    func sceneDidBecomeActive(_ scene: UIScene) {
+        let center = UNUserNotificationCenter.current()
+        center.removeAllDeliveredNotifications()
+        if #available(iOS 16.0, *) {
+            center.setBadgeCount(0) { _ in }
+        } else {
+            UIApplication.shared.applicationIconBadgeNumber = 0
         }
     }
 

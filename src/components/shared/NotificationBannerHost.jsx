@@ -10,6 +10,7 @@ import {
 } from "../../Backend/services/notificationBannerService";
 import {
   fetchExploreConversations,
+  readCachedExploreConversations,
   requestConversationOpen,
 } from "../../Backend/services/explore/messageService";
 import {
@@ -143,15 +144,22 @@ export default function NotificationBannerHost({ userId = "" }) {
       let title = "New message";
       let avatarUrl = "";
       try {
-        const conversations = await fetchExploreConversations(userId);
-        const conversation = conversations.find((item) => item.id === conversationId);
-        const partnerName = getPartnerName(conversation, userId);
+        // The inbox saved on this phone names the sender at once; only a
+        // brand-new conversation waits for the inbox to load.
+        let conversation = readCachedExploreConversations(userId).find((item) => item.id === conversationId);
+        if (!conversation) {
+          const conversations = await fetchExploreConversations(userId);
+          conversation = conversations.find((item) => item.id === conversationId);
+        }
+        const partnerName = conversation?.counterpart?.displayName || getPartnerName(conversation, userId);
         if (partnerName) title = partnerName;
         const otherId = conversation?.participantIds?.find((id) => id !== userId);
-        avatarUrl = conversation?.participants?.[otherId]?.avatarUrl || "";
+        avatarUrl = conversation?.counterpart?.avatarUrl || conversation?.participants?.[otherId]?.avatarUrl || "";
       } catch {
         // The generic title still identifies the banner.
       }
+      // The conversation may have been opened while the name was looked up.
+      if (isBannerContextActive(`conversation:${conversationId}`)) return;
 
       haptics.light("messages");
       sounds.notification("messages");

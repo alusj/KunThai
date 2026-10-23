@@ -1426,9 +1426,55 @@ export async function cancelBuyerOrder(orderId) {
   window.dispatchEvent(new CustomEvent("marketplace-orders-updated"));
 }
 
+// The buyer's message list as last loaded on this phone, so Messages opens
+// with it at once (cold start included) while a fresh copy loads.
+const BUYER_MESSAGES_SNAPSHOT_KEY = "kunthai.urmall.buyerMessages";
+const BUYER_MESSAGES_SNAPSHOT_MAX = 60;
+
+// The signed-in account from the session saved on this phone: no network.
+function savedSessionUserId() {
+  try {
+    const key = supabase.auth.storageKey;
+    if (!key || typeof localStorage === "undefined") return "";
+    const saved = JSON.parse(localStorage.getItem(key) || "null");
+    return String(saved?.user?.id || saved?.currentSession?.user?.id || "");
+  } catch {
+    return "";
+  }
+}
+
+export function readCachedBuyerMessages() {
+  try {
+    const userId = savedSessionUserId();
+    if (!userId) return [];
+    const snapshot = JSON.parse(localStorage.getItem(BUYER_MESSAGES_SNAPSHOT_KEY) || "null");
+    return snapshot?.userId === userId && Array.isArray(snapshot.rows) ? snapshot.rows : [];
+  } catch {
+    return [];
+  }
+}
+
+function saveBuyerMessagesSnapshot(userId, rows) {
+  try {
+    localStorage.setItem(BUYER_MESSAGES_SNAPSHOT_KEY, JSON.stringify({
+      userId,
+      rows: rows.slice(0, BUYER_MESSAGES_SNAPSHOT_MAX),
+    }));
+  } catch {
+    // Storage full or unavailable: Messages just loads from the network.
+  }
+}
+
 export async function fetchBuyerMessages() {
-  const buyerId = await getCurrentUserId("Sign in to view your messages.");
-  return cachedQuery(`buyer-messages|${buyerId}`, () => loadBuyerMessages(buyerId), BUYER_DASHBOARD_TTL_MS);
+  // The saved session is enough to know whose messages to read (the
+  // database checks the account itself); asking the auth server first
+  // added a second round trip to every open.
+  const buyerId = savedSessionUserId() || await getCurrentUserId("Sign in to view your messages.");
+  return cachedQuery(`buyer-messages|${buyerId}`, async () => {
+    const rows = await loadBuyerMessages(buyerId);
+    saveBuyerMessagesSnapshot(buyerId, rows);
+    return rows;
+  }, BUYER_DASHBOARD_TTL_MS);
 }
 
 async function loadBuyerMessages(buyerId) {
@@ -1571,11 +1617,16 @@ export async function sendBuyerMarketplaceMessage({ seller, product, topic, mess
   };
 }
 
+let buyerMessageChannelSequence = 0;
+
 // Live INSERT feed for this buyer's marketplace messages; returns an unsubscribe function.
 export async function subscribeBuyerMarketplaceMessages(onMessage) {
   const buyerId = await getCurrentUserId("Sign in to view your messages.");
+  // Its own topic each time: the activity host and the Messages screen both
+  // subscribe, and a shared topic made leaving Messages remove the host's
+  // subscription too (supabase-js reuses a channel with the same topic).
   const channel = supabase
-    .channel(`buyer-marketplace-messages-${buyerId}`)
+    .channel(`buyer-marketplace-messages-${buyerId}-${++buyerMessageChannelSequence}`)
     .on(
       "postgres_changes",
       { event: "INSERT", schema: "public", table: "marketplace_customer_messages", filter: `buyer_id=eq.${buyerId}` },

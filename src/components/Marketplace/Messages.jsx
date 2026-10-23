@@ -6,6 +6,7 @@ import {
   fetchBuyerMessages,
   fetchBuyerProductForAssistant,
   markBuyerMarketplaceConversationRead,
+  readCachedBuyerMessages,
   sendBuyerMarketplaceMessage,
   subscribeBuyerMarketplaceMessages,
 } from "../../Backend/services/marketplace/buyerMarketplaceService";
@@ -37,7 +38,8 @@ function readFileAsDataUrl(file) {
 
 export default function Messages({ initialConversationId = "", onBack, onInitialConversationHandled, onProductOpen }) {
   useI18n();
-  const [messages, setMessages] = useState([]);
+  // The list saved on this phone shows at once; a fresh copy replaces it.
+  const [messages, setMessages] = useState(readCachedBuyerMessages);
   const [activeId, setActiveId] = useState("");
   const [closingMessage, setClosingMessage] = useState(null);
   const [screenAction, setScreenAction] = useState("idle");
@@ -52,7 +54,7 @@ export default function Messages({ initialConversationId = "", onBack, onInitial
     },
     onError: (message) => setSendError(message),
   });
-  const [loading, setLoading] = useState(true);
+  const [loading, setLoading] = useState(() => !messages.length);
   const [error, setError] = useState("");
   const [sendError, setSendError] = useState("");
   const [sending, setSending] = useState(false);
@@ -101,7 +103,10 @@ export default function Messages({ initialConversationId = "", onBack, onInitial
   }
 
   useEffect(() => {
-    loadMessages();
+    // With the saved list on screen, refresh quietly (no skeleton).
+    loadMessages({ silent: messages.length > 0 });
+    // Runs once on open; later refreshes come from realtime.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
   useEffect(() => {

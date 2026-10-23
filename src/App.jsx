@@ -19,6 +19,8 @@ import { setNotificationSeenUser } from "./Backend/services/notificationSeenStor
 import { getCurrentAccountControl, subscribeToAccountControl } from "./Backend/services/accountControlService";
 import { markSessionContinuity, readSessionContinuity } from "./Backend/services/sessionService";
 import { forgetNativePushDevice, ensurePushOnFirstRun, setNotificationNavigationReady } from "./Backend/services/pushService";
+import { setVisibleMainPage } from "./Backend/services/notificationBannerService";
+import { useExploreMessageStatus } from "./Backend/hooks/useExploreMessageStatus";
 import { initNativeOAuth } from "./Backend/services/nativeOAuthService";
 import AccountRestrictionNotice from "./components/shared/AccountRestrictionNotice";
 import TwoFactorGate from "./components/auth/TwoFactorGate";
@@ -626,6 +628,18 @@ export default function App() {
   const updateTransportBadge = useCallback((count) => {
     setMainPageBadges((current) => current.transport === count ? current : { ...current, transport: count });
   }, []);
+
+  // Explore's tab counts new Explore messages, like UrMall's and UrRide's
+  // tabs count theirs (the same count as the Messages icon in Explore).
+  const exploreMessageStatus = useExploreMessageStatus(guestSession ? "" : userId);
+  const tabBadges = useMemo(
+    () => ({ ...mainPageBadges, explore: exploreMessageStatus.unreadCount }),
+    [exploreMessageStatus.unreadCount, mainPageBadges],
+  );
+
+  useEffect(() => {
+    setVisibleMainPage(page);
+  }, [page]);
 
   useEffect(() => {
     Promise.resolve(PAGE_LOADERS[page]?.())
@@ -1240,7 +1254,7 @@ export default function App() {
             </section>
           ) : null}
           <div ref={mainSpacerRef} aria-hidden="true" />
-          <BottomTabs badges={mainPageBadges} forceHidden={bottomTabsHidden} page={page} setPage={changePage} />
+          <BottomTabs badges={tabBadges} forceHidden={bottomTabsHidden} page={page} setPage={changePage} />
         </Suspense>
         </LazyRouteBoundary>
       </PageTransition>

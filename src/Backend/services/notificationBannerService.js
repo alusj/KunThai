@@ -40,8 +40,20 @@ export function setBannerContext(key, active) {
   else activeContexts.delete(key);
 }
 
+// The main page on screen (App reports it). Explore stays mounted behind
+// UrMall and UrRide, so a conversation left open there must not silence its
+// banners while another page is showing.
+let visibleMainPage = "";
+
+export function setVisibleMainPage(page) {
+  visibleMainPage = String(page || "");
+}
+
 export function isBannerContextActive(key) {
-  return Boolean(key) && activeContexts.has(key);
+  if (!key || !activeContexts.has(key)) return false;
+  if (typeof document !== "undefined" && document.visibilityState === "hidden") return false;
+  if (key.startsWith("conversation:") && visibleMainPage && visibleMainPage !== "explore") return false;
+  return true;
 }
 
 // Was a banner whose context key starts with one of these prefixes shown in
