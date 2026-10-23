@@ -169,6 +169,12 @@ export default function Explore({ active = true, onNavigateMain, onScreenModeCha
   const topChromeRef = useRef(null);
   const exploreTabsRef = useRef(null);
   const scrollRestoreTabRef = useRef("");
+  // During a tab slide both tabs are phone-sized windows (kt-main-window),
+  // and this spacer keeps the page as tall as the incoming tab.
+  const tabSpacerRef = useRef(null);
+  const tabWindowRef = useRef("");
+  const tabWindowScrollRef = useRef(0);
+  const leavingTabRef = useRef(null);
   const tabScrollRef = useRef({});
   const exploreGestureRef = useRef(null);
   const tabPanelRefs = useRef({});
@@ -195,6 +201,7 @@ export default function Explore({ active = true, onNavigateMain, onScreenModeCha
   const { t } = useI18n();
   const { activeTab, activeMenuScreen, menuStack } = exploreNav;
   switchExploreTabRef.current = switchExploreTab;
+  leavingTabRef.current = leavingTab;
   clearTabDragStylesRef.current = clearTabDragStyles;
   const switchIdentityRef = useRef(null);
   switchIdentityRef.current = switchExploreIdentity;
@@ -424,9 +431,57 @@ export default function Explore({ active = true, onNavigateMain, onScreenModeCha
     }
     // Panels stay mounted (hidden with display:none), so showing one again
     // would replay its cards' entrance animations.
-    settleReplayedAnimations(tabPanelRefs.current[activeTab]);
-    window.scrollTo({ top: tabScrollRef.current[activeTab] || 0, behavior: "instant" });
+    const entering = tabPanelRefs.current[activeTab];
+    settleReplayedAnimations(entering);
+    const nextScroll = tabScrollRef.current[activeTab] || 0;
+    const sliding = leavingTabRef.current;
+    if (!sliding || sliding.phase !== "pending" || !entering) {
+      window.scrollTo({ top: nextScroll, behavior: "instant" });
+      return;
+    }
+    // An animated switch slides two phone-sized windows, each scrolled to
+    // where its tab was, never a whole tab: UrFeed is ~13,000px tall, and iOS
+    // only paints the part of a layer that tall that is on screen, so it slid
+    // in blank and filled in (it looked like a reload; Android paints it all).
+    const leaving = tabPanelRefs.current[sliding.tab];
+    if (leaving) leaving.scrollTop = sliding.scroll;
+    const spacer = tabSpacerRef.current;
+    const wrapper = entering.parentElement;
+    if (spacer) spacer.style.height = `${entering.scrollHeight}px`;
+    const wrapperStyle = wrapper ? getComputedStyle(wrapper) : null;
+    const contentTop = wrapper
+      ? wrapper.getBoundingClientRect().top + (window.scrollY || 0) + (parseFloat(wrapperStyle.paddingTop) || 0)
+      : 0;
+    window.scrollTo({ top: nextScroll, behavior: "instant" });
+    const scrolled = window.scrollY || 0;
+    const top = Math.max(0, Math.round(contentTop - scrolled));
+    entering.style.top = `${top}px`;
+    entering.style.height = `calc(100dvh - ${top}px)`;
+    entering.scrollTop = Math.max(0, scrolled - contentTop);
+    tabWindowRef.current = activeTab;
   }, [activeTab]);
+
+  // The slide is over: the incoming tab goes back into the page at exactly the
+  // offset its window shows, and the spacer goes.
+  useLayoutEffect(() => {
+    if (leavingTab || !tabWindowRef.current) return;
+    const tab = tabWindowRef.current;
+    tabWindowRef.current = "";
+    const node = tabPanelRefs.current[tab];
+    const spacer = tabSpacerRef.current;
+    if (!node) {
+      if (spacer) spacer.style.height = "";
+      return;
+    }
+    const windowTop = parseFloat(node.style.top) || 0;
+    const windowScroll = tabWindowScrollRef.current;
+    node.style.top = "";
+    node.style.height = "";
+    const contentTop = node.getBoundingClientRect().top + (window.scrollY || 0);
+    if (spacer) spacer.style.height = "";
+    if (tab !== activeTab) return;
+    window.scrollTo({ top: Math.max(0, contentTop - windowTop + windowScroll), behavior: "instant" });
+  }, [leavingTab, activeTab]);
 
   useEffect(() => {
     onScreenModeChange?.(active && (anyExploreOverlayVisible || isSwipTab || Boolean(activeMenuScreen)));
@@ -478,7 +533,12 @@ export default function Explore({ active = true, onNavigateMain, onScreenModeCha
       second = window.requestAnimationFrame(() => {
         setLeavingTab((current) => (current && current.phase === "pending" ? { ...current, phase: "running" } : current));
         window.clearTimeout(leavingTabTimerRef.current);
-        leavingTabTimerRef.current = window.setTimeout(() => setLeavingTab(null), NAV_TRANSITION_MS + 40);
+        leavingTabTimerRef.current = window.setTimeout(() => {
+          // Read the incoming window's offset while it is still a window.
+          const entering = tabPanelRefs.current[tabWindowRef.current];
+          tabWindowScrollRef.current = entering ? entering.scrollTop : 0;
+          setLeavingTab(null);
+        }, NAV_TRANSITION_MS + 40);
       });
     });
     return () => {
@@ -1081,11 +1141,24 @@ export default function Explore({ active = true, onNavigateMain, onScreenModeCha
     // where it is on screen and slides out while the next one slides in.
     window.clearTimeout(leavingTabTimerRef.current);
     if (options.animate === false) {
+      const windowed = tabPanelRefs.current[tabWindowRef.current];
+      if (windowed) tabWindowScrollRef.current = windowed.scrollTop;
       setLeavingTab(null);
     } else {
-      const top = tabPanelRefs.current[activeTab]?.getBoundingClientRect?.().top ?? 0;
+      // Where the current tab's content starts on screen (a tab still sliding
+      // in is a window with its own scroll). It leaves as a window from there.
+      const current = tabPanelRefs.current[activeTab];
+      const contentTop = current
+        ? current.getBoundingClientRect().top - (tabWindowRef.current === activeTab ? current.scrollTop : 0)
+        : 0;
       // Drawn once off to the side first ("pending"), then slid in.
-      setLeavingTab({ tab: activeTab, direction, top, phase: "pending" });
+      setLeavingTab({
+        tab: activeTab,
+        direction,
+        top: Math.max(0, Math.round(contentTop)),
+        scroll: Math.max(0, Math.round(-contentTop)),
+        phase: "pending",
+      });
     }
     tabScrollRef.current[activeTab] = window.scrollY || 0;
     exploreNav.setActiveTab(tab);
@@ -1109,8 +1182,8 @@ export default function Explore({ active = true, onNavigateMain, onScreenModeCha
   function getExploreTabPanelClass(tab) {
     const pending = leavingTab?.phase === "pending";
     if (leavingTab?.tab === tab && activeTab !== tab) {
-      if (pending) return "kt-main-leave-hold block";
-      return `${leavingTab.direction === "backward" ? "kt-main-leave-backward" : "kt-main-leave-forward"} block`;
+      if (pending) return "kt-main-leave-hold kt-main-window block";
+      return `${leavingTab.direction === "backward" ? "kt-main-leave-backward" : "kt-main-leave-forward"} kt-main-window block`;
     }
 
     if (activeTab !== tab) {
@@ -1122,12 +1195,13 @@ export default function Explore({ active = true, onNavigateMain, onScreenModeCha
     }
 
     const backward = tabSlideDirection === "backward";
-    if (pending) return `${backward ? "kt-main-enter-wait-backward" : "kt-main-enter-wait-forward"} block`;
-    return `${backward ? "kt-main-enter-backward" : "kt-main-enter-forward"} block`;
+    if (pending) return `${backward ? "kt-main-enter-wait-backward" : "kt-main-enter-wait-forward"} kt-main-window block`;
+    return `${backward ? "kt-main-enter-backward" : "kt-main-enter-forward"} kt-main-window block`;
   }
 
   function getExploreTabPanelStyle(tab) {
-    return leavingTab?.tab === tab && activeTab !== tab ? { top: `${leavingTab.top}px` } : undefined;
+    if (leavingTab?.tab !== tab || activeTab === tab) return undefined;
+    return { top: `${leavingTab.top}px`, height: `calc(100dvh - ${leavingTab.top}px)` };
   }
 
   // Where a tab's content starts on screen once it is active: under the tabs
@@ -1927,6 +2001,7 @@ export default function Explore({ active = true, onNavigateMain, onScreenModeCha
         onViewProfile={viewProfileFromTab}
       />
     </section>
+    <div ref={tabSpacerRef} aria-hidden="true" />
   </>
 ) : null}
       </div>
