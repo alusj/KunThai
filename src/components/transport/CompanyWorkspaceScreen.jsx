@@ -71,7 +71,7 @@ import {
   readSeenNotificationIds,
   subscribeNotificationSeen,
 } from "../../Backend/services/notificationSeenStore";
-import { requestTransportTripStart, updateTransportTripStatus } from "../services/bookingService";
+import { markTransportParcelCollected, requestTransportTripStart, updateTransportTripStatus } from "../services/bookingService";
 import { OperatorLiveTripHeaderCard, OperatorTripRequestCard } from "./OperatorDashboardScreen";
 import {
   COMPANY_OPERATOR_ROLES,
@@ -680,11 +680,13 @@ export default function CompanyWorkspaceScreen({ company, initialTab = "Overview
     if (!basicOperator) return;
     try {
       if (status === "start_requested") await requestTransportTripStart(trip.id);
+      else if (status === "parcel_collected") await markTransportParcelCollected(trip.id);
       else await updateTransportTripStatus(trip.id, status, status === "cancelled" ? { ...patch, endedBy: "operator" } : patch);
       showToast(
         status === "accepted" ? "Booking has been accepted"
           : status === "arrived" ? "Marked as arrived"
             : status === "start_requested" ? "Trip start requested"
+              : status === "parcel_collected" ? t("urrideParcel.collectedToast")
               : status === "cancelled" ? "Booking was cancelled"
                 : "Trip has been updated",
         "success",

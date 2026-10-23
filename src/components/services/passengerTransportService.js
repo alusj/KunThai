@@ -169,7 +169,7 @@ function formatTripStage(row) {
   if (row.status === "arrived") return "Operator arrived";
   if (row.status === "start_requested") return "Confirm trip start";
   if (row.status === "pending_confirmation") return "Waiting for operator";
-  if (row.status === "in_progress") return "Trip in progress";
+  if (row.status === "in_progress") return (row.trip_type || row.trip_mode) === "delivery" ? "Item collected" : "Trip in progress";
   if (row.status === "paused") return "Trip paused";
   return row.status || "Active booking";
 }
@@ -226,6 +226,7 @@ async function mapTrip(row, operatorContact = null) {
   const operatorName = operatorContact?.operator_name || fleet?.operatorName || "";
   return {
     id: row.id,
+    tripType: tripType === "delivery" ? "delivery" : "ride",
     mode: tripType === "delivery" ? "Delivery" : "Ride",
     title: row.title || (tripType === "delivery" ? "Delivery booking" : "Ride booking"),
     fleetId: row.fleet_id,
@@ -256,6 +257,7 @@ async function mapTrip(row, operatorContact = null) {
     pausedSeconds: Number(row.paused_seconds || 0),
     lastLocationLatitude: row.last_location_latitude == null ? null : Number(row.last_location_latitude),
     lastLocationLongitude: row.last_location_longitude == null ? null : Number(row.last_location_longitude),
+    lastLocationAt: row.last_location_at || "",
     operatorPhone,
     operatorName,
     fleet: fleet ? { ...fleet, operatorPhone, operatorName: operatorName || fleet.operatorName } : fleet,

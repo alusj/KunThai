@@ -24,6 +24,7 @@ import { URMALL_VENDOR_GUIDE } from "./urmallVendorGuide";
 import { URRIDE_AREA_FIX } from "./urrideAreaFix";
 import { URRIDE_LIVE_DISCOVERY } from "./urrideLiveDiscovery";
 import { URRIDE_TRIP_CARD } from "./urrideTripCard";
+import { URRIDE_PARCEL } from "./urrideParcel";
 import { URRIDE_ADD_MENU } from "./urrideAddMenu";
 import { TEXT_SIZE } from "./textSize";
 import { URRIDE_FLEET_HQ } from "./urrideFleetHq";
@@ -59468,6 +59469,12 @@ for (const [locale, section] of Object.entries(URRIDE_LIVE_DISCOVERY)) {
 for (const [locale, section] of Object.entries(URRIDE_TRIP_CARD)) {
   if (TRANSLATIONS[locale]) {
     TRANSLATIONS[locale].urrideTripCard = section;
+  }
+}
+
+for (const [locale, section] of Object.entries(URRIDE_PARCEL)) {
+  if (TRANSLATIONS[locale]) {
+    TRANSLATIONS[locale].urrideParcel = section;
   }
 }
 

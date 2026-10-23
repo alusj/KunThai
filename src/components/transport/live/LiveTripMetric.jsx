@@ -34,8 +34,12 @@ function useLiveTripMetric(trip) {
     return () => window.clearInterval(timer);
   }, [trip?.rawStatus, trip?.startedAt]);
 
+  // A parcel owner is not in the vehicle: their phone must not meter the trip.
+  // The operator's phone reports a delivery's distance and location.
+  const isDelivery = trip?.tripType === "delivery";
+
   useEffect(() => {
-    if (trip?.bookingMethod !== "distance" || trip?.rawStatus !== "in_progress") return undefined;
+    if (isDelivery || trip?.bookingMethod !== "distance" || trip?.rawStatus !== "in_progress") return undefined;
     if (!navigator.geolocation) {
       setTrackingMessage(t("urride.live.gpsUnavailable"));
       return undefined;
@@ -70,7 +74,7 @@ function useLiveTripMetric(trip) {
     );
 
     return () => navigator.geolocation.clearWatch(watchId);
-  }, [trip?.bookingMethod, trip?.id, trip?.rawStatus]);
+  }, [isDelivery, trip?.bookingMethod, trip?.id, trip?.rawStatus]);
 
   const elapsedSeconds = getElapsedTripSeconds(trip, clockNow);
   return useMemo(
@@ -79,9 +83,9 @@ function useLiveTripMetric(trip) {
       value: trip?.bookingMethod === "time" ? formatTripElapsed(elapsedSeconds) : formatTripDistance(distanceMeters),
       detail: trip?.bookingMethod === "time"
         ? trip?.rawStatus === "paused" ? t("urride.live.timerPaused") : t("urride.live.counting")
-        : trackingMessage || t("urride.live.gpsMovement"),
+        : isDelivery ? t("urrideParcel.distanceDetail") : trackingMessage || t("urride.live.gpsMovement"),
     }),
-    [distanceMeters, elapsedSeconds, trackingMessage, trip?.bookingMethod, trip?.rawStatus, memoLocale],
+    [distanceMeters, elapsedSeconds, isDelivery, trackingMessage, trip?.bookingMethod, trip?.rawStatus, memoLocale],
   );
 }
 

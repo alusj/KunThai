@@ -397,6 +397,8 @@ export default function Transport({
             returnTo: returnToBooking ? "booking" : returnToExploreMessages ? "explore-messages" : returnToActiveTrips ? "active-trips" : "",
             bookingTarget: bookingSnapshot,
             emergency: options.emergency || null,
+            // Active trips screen to reopen on the way back (Track parcel).
+            tripAction: options.tripAction || null,
           }
         : null,
     );
@@ -1179,7 +1181,7 @@ export default function Transport({
     setNearbyAreaOpen(false);
     if (returnToBooking) setBookingTarget(nearbyAreaRequest.bookingTarget);
     if (returnToActiveTrips) {
-      setActiveTripsActionRequest(null);
+      setActiveTripsActionRequest(nearbyAreaRequest?.tripAction || null);
       setActiveTripsOpen(true);
     }
     setNearbyAreaRequest(null);
@@ -1632,6 +1634,24 @@ export default function Transport({
                 tripTitle: trip.title,
               },
             });
+          }}
+          onOpenParcelMap={(trip) => {
+            openNearbyAreaRoute(
+              {
+                id: `parcel-${trip.id}-${trip.lastLocationAt || "live"}`,
+                type: "parcel-tracking",
+                name: t("urrideParcel.yourParcel"),
+                category: "Parcel",
+                address: trip.destination,
+                distance: t("urrideParcel.trackParcel"),
+                status: "verified",
+                description: t("urrideParcel.onTheWay", { operator: trip.fleet?.operatorName || trip.fleet?.fleetName || "" }),
+                lat: trip.lastLocationLatitude,
+                lng: trip.lastLocationLongitude,
+              },
+              // Back from the map lands on Track parcel again.
+              { autoRoute: false, returnTo: "active-trips", tripAction: { tripId: trip.id, type: "track" } },
+            );
           }}
           onBack={() => {
             setRouteDirection("backward");

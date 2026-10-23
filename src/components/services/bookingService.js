@@ -283,6 +283,15 @@ export async function confirmTransportTripStart(tripId) {
   });
 }
 
+// Deliveries skip the ride's arrive / start-approval steps: once the operator
+// has the item, the trip goes live and the owner can track the parcel.
+export async function markTransportParcelCollected(tripId) {
+  return updateTransportTripStatus(tripId, "in_progress", {
+    startedAt: new Date().toISOString(),
+    pausedAt: null,
+  });
+}
+
 export async function declineTransportTripStart(tripId) {
   return updateTransportTripStatus(tripId, "arrived", {
     startRequestedAt: null,

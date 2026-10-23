@@ -9,6 +9,7 @@ import {
   FiMoreHorizontal,
   FiNavigation,
   FiPause,
+  FiPackage,
   FiPhone,
   FiPlay,
   FiRefreshCw,
@@ -55,7 +56,34 @@ const tripSteps = [
   { key: "completed", labelKey: "urride.activeTrips.stepDone" },
 ];
 
-export default function ActiveTripsScreen({ onBack, onViewFleet, onShowVerification, onOpenEmergencyArea, initialActionRequest = null }) {
+// A delivery is accepted, then the operator collects the item and the trip
+// goes live (in_progress) until it is delivered.
+const parcelSteps = [
+  { key: "requested", labelKey: "urrideParcel.stepRequested" },
+  { key: "accepted", labelKey: "urrideParcel.stepAccepted" },
+  { key: "in_progress", labelKey: "urrideParcel.stepCollected" },
+  { key: "completed", labelKey: "urrideParcel.stepDelivered" },
+];
+
+function parcelStep(status) {
+  if (status === "completed") return 4;
+  if (["in_progress", "paused"].includes(status)) return 3;
+  if (["accepted", "arrived", "start_requested"].includes(status)) return 2;
+  return status === "cancelled" ? 0 : 1;
+}
+
+function isLiveParcel(trip) {
+  return trip?.tripType === "delivery" && ["in_progress", "paused"].includes(trip.rawStatus);
+}
+
+function formatLastSeen(timestamp, now) {
+  const time = timestamp ? new Date(timestamp).getTime() : NaN;
+  if (!Number.isFinite(time)) return "";
+  const minutes = Math.floor(Math.max(0, now - time) / 60000);
+  return minutes < 1 ? t("urrideParcel.justNow") : t("urrideParcel.minutesAgo", { count: minutes });
+}
+
+export default function ActiveTripsScreen({ onBack, onViewFleet, onShowVerification, onOpenEmergencyArea, onOpenParcelMap, initialActionRequest = null }) {
   useI18n();
   const initialTrips = getActiveTrips();
   const [trips, setTrips] = useState(() => initialTrips);
@@ -170,15 +198,19 @@ export default function ActiveTripsScreen({ onBack, onViewFleet, onShowVerificat
   }
 
   if (actionScreen) {
+    // Live updates (the parcel's location, the trip status) reach the open
+    // action screen through the refreshed trip list.
+    const screenTrip = trips.find((item) => String(item.id) === String(actionScreen.trip?.id)) || actionScreen.trip;
     return (
       <TripActionScreen
-        screen={actionScreen}
+        screen={{ ...actionScreen, trip: screenTrip }}
         onBack={() => setActionScreen(null)}
         onOpen={(nextScreen) => setActionScreen({ ...nextScreen, trip: nextScreen.trip || actionScreen.trip })}
         onRun={runTripAction}
         onSubmitSupport={submitSupport}
         onSubmitReview={submitReview}
         onOpenEmergencyArea={onOpenEmergencyArea}
+        onOpenParcelMap={onOpenParcelMap}
       />
     );
   }
@@ -221,6 +253,7 @@ export default function ActiveTripsScreen({ onBack, onViewFleet, onShowVerificat
                 key={trip.id}
                 trip={trip}
                 onOpenActions={() => setActionScreen({ type: "hub", trip })}
+                onTrackParcel={() => setActionScreen({ type: "track", trip })}
                 onCancel={() => setActionScreen({ type: "cancel", trip })}
                 onConfirmStart={() => runTripAction(
                   () => confirmTransportTripStart(trip.id),
@@ -291,9 +324,11 @@ function TripTabs({ activeTab, onChange }) {
   );
 }
 
-function TripCard({ trip, onOpenActions, onCancel, onConfirmStart, onDeclineStart, onViewFleet, onShowVerification, onReport, onReview }) {
+function TripCard({ trip, onOpenActions, onTrackParcel, onCancel, onConfirmStart, onDeclineStart, onViewFleet, onShowVerification, onReport, onReview }) {
   useI18n();
   const isLive = ["in_progress", "paused"].includes(trip.rawStatus);
+  const liveParcel = isLiveParcel(trip);
+  const stageLabel = liveParcel && trip.rawStatus === "in_progress" ? t("urrideParcel.itemCollected") : translateUi(trip.stage);
   const canCancel = ["requested", "waiting_operator", "pending_confirmation", "accepted", "arrived"].includes(trip.rawStatus);
   const operatorName = trip.fleet?.operatorName || trip.fleet?.fleetName || t("urride.activeTrips.operatorFallback");
   const operatorPhone = trip.operatorPhone || trip.fleet?.operatorPhone || "";
@@ -305,12 +340,12 @@ function TripCard({ trip, onOpenActions, onCancel, onConfirmStart, onDeclineStar
         <div className="min-w-0">
           <p className="text-xs font-bold uppercase tracking-wide text-green-700">{t("urride.activeTrips.bookByLine", { mode: trip.mode, method: trip.bookingMethod })}</p>
           <h2 className="mt-1 text-lg font-black text-gray-950">{trip.title}</h2>
-          <p className="mt-1 text-sm font-semibold text-gray-600">{t("urride.activeTrips.statusStage", { status: trip.status, stage: translateUi(trip.stage) })}</p>
+          <p className="mt-1 text-sm font-semibold text-gray-600">{t("urride.activeTrips.statusStage", { status: trip.status, stage: stageLabel })}</p>
         </div>
-        <span className={`shrink-0 rounded-full px-3 py-1 text-xs font-bold ${statusTone}`}>{translateUi(trip.stage)}</span>
+        <span className={`shrink-0 rounded-full px-3 py-1 text-xs font-bold ${statusTone}`}>{stageLabel}</span>
       </div>
 
-      <TripProgress step={trip.step} />
+      <TripProgress trip={trip} />
 
       {trip.rawStatus === "start_requested" ? (
         <section className="mt-4 rounded-2xl border border-blue-100 bg-blue-50 p-4">
@@ -322,6 +357,13 @@ function TripCard({ trip, onOpenActions, onCancel, onConfirmStart, onDeclineStar
             <ActionButton label={t("urride.activeTrips.cancel")} icon={FiXCircle} danger onClick={onDeclineStart} />
           </div>
         </section>
+      ) : null}
+
+      {liveParcel ? (
+        <button type="button" onClick={onTrackParcel} data-testid="track-parcel" className="kt-touchable mt-4 flex h-12 w-full items-center justify-center gap-2 rounded-2xl bg-emerald-600 px-4 text-sm font-black text-white">
+          <FiPackage size={18} />
+          {t("urrideParcel.trackParcel")}
+        </button>
       ) : null}
 
       {isLive ? (
@@ -384,11 +426,12 @@ function TripCard({ trip, onOpenActions, onCancel, onConfirmStart, onDeclineStar
   );
 }
 
-function TripActionScreen({ screen, onBack, onOpen, onRun, onSubmitSupport, onSubmitReview, onOpenEmergencyArea }) {
+function TripActionScreen({ screen, onBack, onOpen, onRun, onSubmitSupport, onSubmitReview, onOpenEmergencyArea, onOpenParcelMap }) {
   useI18n();
   const trip = screen.trip;
   const title = {
     hub: t("urride.activeTrips.actionTitleHub"),
+    track: t("urrideParcel.trackParcel"),
     pause: trip.rawStatus === "paused" ? t("urride.activeTrips.actionTitleContinue") : t("urride.activeTrips.actionTitlePause"),
     share: t("urride.activeTrips.actionTitleShare"),
     emergency: t("urride.activeTrips.actionTitleEmergency"),
@@ -412,6 +455,7 @@ function TripActionScreen({ screen, onBack, onOpen, onRun, onSubmitSupport, onSu
       </header>
       <main className="mx-auto w-full max-w-3xl px-3 py-4 sm:px-5">
         {screen.type === "hub" ? <ActionHub trip={trip} onOpen={onOpen} onOpenEmergencyArea={onOpenEmergencyArea} /> : null}
+        {screen.type === "track" ? <ParcelTrackScreen trip={trip} onOpen={onOpen} onOpenParcelMap={onOpenParcelMap} /> : null}
         {screen.type === "pause" ? <PauseScreen trip={trip} onRun={onRun} /> : null}
         {screen.type === "share" ? <ShareLocationScreen /> : null}
         {screen.type === "emergency" ? <EmergencyScreen trip={trip} onOpen={onOpen} onOpenEmergencyArea={onOpenEmergencyArea} /> : null}
@@ -575,6 +619,55 @@ function EmergencyScreen({ trip, onOpen, onOpenEmergencyArea }) {
   );
 }
 
+function ParcelTrackScreen({ trip, onOpen, onOpenParcelMap }) {
+  useI18n();
+  const [clock, setClock] = useState(() => Date.now());
+  useEffect(() => {
+    const timer = window.setInterval(() => setClock(Date.now()), 30000);
+    return () => window.clearInterval(timer);
+  }, []);
+  const operatorName = trip.fleet?.operatorName || trip.fleet?.fleetName || t("urride.activeTrips.operatorFallback");
+  const hasLocation = Number.isFinite(trip.lastLocationLatitude) && Number.isFinite(trip.lastLocationLongitude);
+  const lastSeen = hasLocation ? formatLastSeen(trip.lastLocationAt, clock) : "";
+
+  return (
+    <div className="grid gap-4" data-testid="parcel-track-screen">
+      <section className="rounded-2xl border border-emerald-100 bg-white p-4 shadow-sm">
+        <p className="flex items-center gap-2 text-xs font-black uppercase tracking-[0.16em] text-emerald-700">
+          <FiPackage size={14} />
+          {trip.rawStatus === "paused" ? t("urride.liveTrip.paused") : t("urrideParcel.itemCollected")}
+        </p>
+        <h2 className="mt-1 text-lg font-black text-slate-950">{t("urrideParcel.onTheWay", { operator: operatorName })}</h2>
+        <TripProgress trip={trip} />
+        <p className="mt-3 flex items-center gap-2 text-xs font-bold text-slate-500">
+          <FiClock size={14} />
+          {lastSeen ? t("urrideParcel.lastSeen", { time: lastSeen }) : t("urrideParcel.noLocationYet")}
+        </p>
+      </section>
+      <LiveTripMetric trip={trip} />
+      <div className="grid gap-2 sm:grid-cols-2">
+        <button
+          type="button"
+          onClick={() => onOpenParcelMap?.(trip)}
+          disabled={!hasLocation || !onOpenParcelMap}
+          className="kt-touchable flex h-12 items-center justify-center gap-2 rounded-2xl bg-emerald-600 px-4 text-sm font-black text-white disabled:bg-gray-300"
+        >
+          <FiMapPin size={17} />
+          {t("urrideParcel.viewOnMap")}
+        </button>
+        <button type="button" onClick={() => onOpen({ type: "contact" })} className="kt-touchable flex h-12 items-center justify-center gap-2 rounded-2xl border border-gray-200 bg-white px-4 text-sm font-black text-slate-700">
+          <FiPhone size={17} />
+          {t("urride.activeTrips.contactOperator")}
+        </button>
+      </div>
+      <div className="grid gap-2 text-sm text-gray-600 md:grid-cols-2">
+        <InfoLine icon={FiMapPin} label={t("urride.activeTrips.linePickup")} text={trip.pickup} />
+        <InfoLine icon={FiNavigation} label={t("urride.activeTrips.lineDropoff")} text={trip.destination} />
+      </div>
+    </div>
+  );
+}
+
 function ContactOperatorScreen({ trip }) {
   useI18n();
   const phone = trip.fleet?.operatorPhone;
@@ -676,9 +769,12 @@ function CompletionNotice({ trip, onReport, onReview }) {
   );
 }
 
-function TripProgress({ step }) {
+function TripProgress({ trip }) {
   useI18n();
-  return <div className="mt-4 grid gap-2 sm:grid-cols-5">{tripSteps.map((item, index) => <div key={item.key} className={`rounded-xl px-3 py-2 text-xs font-black ${step >= index + 1 ? "bg-green-50 text-green-700" : "bg-gray-50 text-gray-400"}`}><span className="flex items-center gap-2"><span className={`h-2.5 w-2.5 rounded-full ${step >= index + 1 ? "bg-green-600" : "bg-gray-300"}`} />{t(item.labelKey)}</span></div>)}</div>;
+  const parcel = trip.tripType === "delivery";
+  const steps = parcel ? parcelSteps : tripSteps;
+  const step = parcel ? parcelStep(trip.rawStatus) : trip.step;
+  return <div className={`mt-4 grid gap-2 ${parcel ? "sm:grid-cols-4" : "sm:grid-cols-5"}`}>{steps.map((item, index) => <div key={item.key} className={`rounded-xl px-3 py-2 text-xs font-black ${step >= index + 1 ? "bg-green-50 text-green-700" : "bg-gray-50 text-gray-400"}`}><span className="flex items-center gap-2"><span className={`h-2.5 w-2.5 rounded-full ${step >= index + 1 ? "bg-green-600" : "bg-gray-300"}`} />{t(item.labelKey)}</span></div>)}</div>;
 }
 
 function InfoLine({ icon, label, text }) {

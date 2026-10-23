@@ -4,6 +4,7 @@ import {
   FiFlag,
   FiMoreHorizontal,
   FiNavigation,
+  FiPackage,
   FiPause,
   FiPhone,
   FiPlay,
@@ -147,6 +148,8 @@ export default function PassengerLiveTripHeaderCard({ onOpenTrips }) {
 
   const operatorName = trip.fleet?.operatorName || trip.fleet?.fleetName || t("urride.liveTrip.operatorFallback");
   const paused = trip.rawStatus === "paused";
+  // A delivery goes live when the operator collects the item.
+  const isDelivery = trip.tripType === "delivery";
 
   return (
     <section className="relative mx-3 mt-3 overflow-visible rounded-[28px] border border-emerald-100 bg-white p-4 shadow-[0_18px_48px_rgba(15,23,42,0.08)] sm:mx-5">
@@ -202,7 +205,7 @@ export default function PassengerLiveTripHeaderCard({ onOpenTrips }) {
               </p>
               <h2 className="mt-1 break-words text-lg font-black leading-tight text-slate-950">{trip.title}</h2>
               <p className="mt-1 text-xs font-bold text-slate-500">
-                {t("urride.liveTrip.statusLine", { operator: operatorName, status: paused ? t("urride.liveTrip.paused") : t("urride.liveTrip.inProgress") })}
+                {t("urride.liveTrip.statusLine", { operator: operatorName, status: paused ? t("urride.liveTrip.paused") : isDelivery ? t("urrideParcel.itemCollected") : t("urride.liveTrip.inProgress") })}
               </p>
             </div>
 
@@ -221,6 +224,18 @@ export default function PassengerLiveTripHeaderCard({ onOpenTrips }) {
           <div className="mt-3">
             <LiveTripMetric trip={trip} compact />
           </div>
+
+          {isDelivery ? (
+            <button
+              type="button"
+              onClick={() => openAction("track")}
+              data-testid="header-track-parcel"
+              className="kt-touchable mt-3 flex h-11 w-full items-center justify-center gap-2 rounded-xl bg-emerald-600 px-4 text-sm font-black text-white"
+            >
+              <FiPackage size={16} />
+              {t("urrideParcel.trackParcel")}
+            </button>
+          ) : null}
 
           {menuOpen || menuClosing ? (
             <div

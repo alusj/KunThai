@@ -45,7 +45,7 @@ import { useCampaignSurfaceRole } from "../../Backend/services/campaigns/campaig
 import CampaignInboxSection from "../shared/campaigns/CampaignInboxSection";
 import { useCampaignInbox } from "../../Backend/hooks/useCampaignInbox";
 import useBodyScrollLock from "../shared/useBodyScrollLock";
-import { requestTransportTripStart, updateTransportTripProgress, updateTransportTripStatus } from "../services/bookingService";
+import { markTransportParcelCollected, requestTransportTripStart, updateTransportTripProgress, updateTransportTripStatus } from "../services/bookingService";
 import { showToast } from "../../Backend/services/toastService";
 import { haptics, sounds, stopRinging } from "../../Backend/services/feedbackService";
 import {
@@ -641,11 +641,13 @@ export default function OperatorDashboardScreen({
           return;
         }
       } else if (status === "start_requested") await requestTransportTripStart(trip.id);
+      else if (status === "parcel_collected") await markTransportParcelCollected(trip.id);
       else await updateTransportTripStatus(trip.id, status, status === "cancelled" ? { ...patch, endedBy: "operator" } : patch);
       showToast(
         status === "accepted" ? "Trip has been accepted"
           : status === "arrived" ? "Marked as arrived"
             : status === "start_requested" ? "Trip start requested"
+              : status === "parcel_collected" ? t("urrideParcel.collectedToast")
               : status === "completed" ? "Trip marked completed"
                 : status === "cancelled" ? "Trip has been cancelled"
                   : "Trip has been updated",
@@ -1195,7 +1197,8 @@ export function OperatorLiveTripHeaderCard({ trip, fleetName, onViewRoute, onOpe
   const passengerPhone = trip.contactPhone || trip.raw?.contact_phone || "";
   const paused = trip.status === "paused";
   const awaitingStart = trip.status === "start_requested";
-  const statusLabel = awaitingStart ? t("urride.opDash.liveStatusWaiting") : paused ? t("urride.opDash.liveStatusPaused") : t("urride.opDash.liveStatusInProgress");
+  const isDelivery = (trip.tripType || trip.raw?.trip_type || trip.raw?.trip_mode) === "delivery";
+  const statusLabel = awaitingStart ? t("urride.opDash.liveStatusWaiting") : paused ? t("urride.opDash.liveStatusPaused") : isDelivery ? t("urrideParcel.itemCollected") : t("urride.opDash.liveStatusInProgress");
 
   const clearCloseTimer = useCallback(() => {
     if (!closeTimerRef.current || typeof window === "undefined") return;
@@ -2114,6 +2117,8 @@ export function OperatorTripRequestCard({ passenger, account, isActive, readOnly
   const isStartRequested = status === "start_requested";
   const isInProgress = status === "in_progress";
   const isPaused = status === "paused";
+  // A parcel is collected, not boarded: no arrive / start-approval steps.
+  const isDelivery = (passenger.tripType || passenger.raw?.trip_type || passenger.raw?.trip_mode) === "delivery";
   // Open (broadcast) request: first to accept wins, and it expires with its wave.
   const [clock, setClock] = useState(() => Date.now());
   const broadcastSecondsLeft = requestSecondsLeft(passenger.raw, clock);
@@ -2132,7 +2137,7 @@ export function OperatorTripRequestCard({ passenger, account, isActive, readOnly
     accepted: t("urride.opDash.reqStatusAccepted"),
     arrived: t("urride.opDash.reqStatusArrived"),
     start_requested: t("urride.opDash.reqStatusStartRequested"),
-    in_progress: t("urride.opDash.reqStatusInProgress"),
+    in_progress: isDelivery ? t("urrideParcel.itemCollected") : t("urride.opDash.reqStatusInProgress"),
     paused: t("urride.opDash.reqStatusPaused"),
     completed: t("urride.opDash.reqStatusCompleted"),
     cancelled: t("urride.opDash.reqStatusCancelled"),
@@ -2253,15 +2258,20 @@ export function OperatorTripRequestCard({ passenger, account, isActive, readOnly
         </div>
       ) : null}
 
+      {!readOnly && isAccepted && isDelivery ? (
+        <p className="mt-4 text-xs font-bold leading-5 text-gray-600">{t("urrideParcel.collectHint")}</p>
+      ) : null}
+
       {!readOnly && isAccepted ? (
-        <div className="mt-4 grid gap-2 sm:grid-cols-2">
+        <div className={`${isDelivery ? "mt-2" : "mt-4"} grid gap-2 sm:grid-cols-2`}>
           <button
             type="button"
-            onClick={() => runAction("arrived")}
+            onClick={() => runAction(isDelivery ? "parcel_collected" : "arrived")}
             disabled={!isActive || busy}
+            data-testid={isDelivery ? "operator-item-collected" : undefined}
             className="h-10 rounded-2xl bg-green-600 px-4 text-sm font-black text-white disabled:bg-gray-300"
           >
-            {t("urride.opDash.markArrived")}
+            {isDelivery ? t("urrideParcel.itemCollected") : t("urride.opDash.markArrived")}
           </button>
           <button
             type="button"
@@ -2293,7 +2303,7 @@ export function OperatorTripRequestCard({ passenger, account, isActive, readOnly
 
       {isInProgress || isPaused ? (
         <div className="mt-4 rounded-2xl border border-green-100 bg-green-50 px-4 py-3 text-sm font-bold text-green-700">
-          {t("urride.opDash.liveTripActive")}
+          {isDelivery ? t("urrideParcel.operatorLive") : t("urride.opDash.liveTripActive")}
         </div>
       ) : null}
     </article>
