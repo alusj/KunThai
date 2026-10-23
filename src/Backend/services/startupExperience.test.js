@@ -5,7 +5,7 @@ import test from "node:test";
 const indexSource = readFileSync(new URL("../../../index.html", import.meta.url), "utf8");
 const appSource = readFileSync(new URL("../../App.jsx", import.meta.url), "utf8");
 const workerSource = readFileSync(new URL("../../../public/sw.js", import.meta.url), "utf8");
-const introSource = readFileSync(new URL("../../components/shared/ReturningUserIntro.jsx", import.meta.url), "utf8");
+const sessionSource = readFileSync(new URL("./sessionService.js", import.meta.url), "utf8");
 const skeletonSource = readFileSync(new URL("../../components/shared/AppStartupSkeleton.jsx", import.meta.url), "utf8");
 const sellerDashboardSource = readFileSync(new URL("../../components/Marketplace/MarketplaceHeader/Business/Business.jsx", import.meta.url), "utf8");
 const sellerInfoSource = readFileSync(new URL("../../components/Marketplace/MarketplaceHeader/Business/MyBizDashboardHeader/MyBizDashboardHeader.jsx", import.meta.url), "utf8");
@@ -13,8 +13,7 @@ const sellerLogoSource = readFileSync(new URL("../../components/Marketplace/Mark
 const verticalSellerSource = readFileSync(new URL("../../components/Marketplace/MarketplaceHeader/Business/VerticalSellerDashboard.jsx", import.meta.url), "utf8");
 const transportHeaderSource = readFileSync(new URL("../../components/transport/header/Header.jsx", import.meta.url), "utf8");
 
-test("the inactivity logo is a small local asset with an offline cache path", () => {
-  assert.match(introSource, /\/brand\/kunthai-launch-logo\.webp/);
+test("the launch logo is a small local asset with an offline cache path", () => {
   assert.match(workerSource, /STARTUP_ASSETS[\s\S]*\/brand\/kunthai-launch-logo\.webp/);
   assert.match(workerSource, /cache\.match\(event\.request/);
 });
@@ -27,19 +26,17 @@ test("hard refresh begins directly with React instead of a preliminary skeleton 
   assert.doesNotMatch(indexSource, /preload[^>]+kunthai-launch-logo/);
 });
 
-test("the KunThai intro can only open after a long inactive visibility return", () => {
-  assert.match(appSource, /shouldShowReturningUserIntro\(userId, returnedAt, lastActivity\)/);
-  assert.match(appSource, /setReturningIntroOpen\(true\)/);
-  assert.doesNotMatch(appSource, /startupIntroOpen/);
+test("no KunThai logo when someone returns to the open app (2026-10-22)", () => {
+  // The splash is only for a returning signed-in member's fresh start, shown
+  // by the native app; the web app never shows a logo intro on return.
+  assert.doesNotMatch(appSource, /ReturningUserIntro|setReturningIntroOpen|startupIntroOpen/);
   assert.doesNotMatch(appSource, /hasStoredAuthSession/);
-  assert.doesNotMatch(introSource, /continuousFromBoot|__KUNTHAI_BOOT_STARTED_AT__/);
 });
 
-test("the inactive-user intro stays visible for 3–5 seconds and always has a hard release", () => {
-  assert.match(introSource, /HOLD_DURATION_MS = 3200/);
-  assert.match(introSource, /HARD_RELEASE_MS = 4500/);
-  assert.match(introSource, /minimumHoldElapsed && \(logoReady \|\| hardReleaseElapsed\)/);
-  assert.match(introSource, /setHardReleaseElapsed\(true\)/);
+test("the native app knows whether to show the splash: signed in, signed out, Add account", () => {
+  assert.match(appSource, /setNativeSignedIn\(Boolean\(user && !guestSession\)\)/);
+  // Both reload or sign out before React re-renders, so they clear it first.
+  assert.equal((sessionSource.match(/await setNativeSignedIn\(false\)/g) || []).length, 2);
 });
 
 test("Explore and UrMall receive layout-matched startup skeletons", () => {

@@ -2,7 +2,7 @@ import { Suspense, useCallback, useEffect, useLayoutEffect, useMemo, useRef, use
 import { HiOutlineCamera, HiOutlineLightBulb, HiOutlineXMark } from "react-icons/hi2";
 
 import { useAuth } from "./Backend/hooks/useAuth";
-import { notifyNativeAppReady } from "./Backend/services/nativeLaunch";
+import { notifyNativeAppReady, setNativeSignedIn } from "./Backend/services/nativeLaunch";
 import { installProfileAppLinks, openSharedProfile, parseProfileLinkHash, PROFILE_LINK_EVENT, takePendingProfileLink } from "./Backend/services/profileShareService";
 import { NAV_TRANSITION_MS } from "./components/shared/navigationMotion";
 import { isLikelySignedIn, urlCarriesSignIn } from "./Backend/services/startupSession";
@@ -21,7 +21,6 @@ import { markSessionContinuity, readSessionContinuity } from "./Backend/services
 import { forgetNativePushDevice, ensurePushOnFirstRun, setNotificationNavigationReady } from "./Backend/services/pushService";
 import { initNativeOAuth } from "./Backend/services/nativeOAuthService";
 import AccountRestrictionNotice from "./components/shared/AccountRestrictionNotice";
-import ReturningUserIntro from "./components/shared/ReturningUserIntro";
 import TwoFactorGate from "./components/auth/TwoFactorGate";
 import { checkTwoFactorChallenge } from "./Backend/services/twoFactorService";
 import GuestGateCard from "./components/shared/GuestGateCard";
@@ -50,11 +49,7 @@ import { preloadMainDashboardData } from "./Backend/services/dashboardPreloadSer
 import { haptics, installSelectionHaptics } from "./Backend/services/feedbackService";
 import { canStartNavigationGesture, navigationGesturesLocked } from "./Backend/services/gestureArbitration";
 import { startGlobalNetworkToasts } from "./Backend/services/networkService";
-import {
-  markReturningUserActivity,
-  readReturningUserActivity,
-  shouldShowReturningUserIntro,
-} from "./Backend/services/returningUserIntroService";
+import { markReturningUserActivity } from "./Backend/services/returningUserIntroService";
 import {
   captureVisibleScreen,
   readClipboardScreenshot,
@@ -312,7 +307,6 @@ export default function App() {
   // app opens, and the check runs again as soon as the connection returns.
   const [twoFactorDeferred, setTwoFactorDeferred] = useState(false);
   const deferTwoFactorCheck = useCallback(() => setTwoFactorDeferred(true), []);
-  const [returningIntroOpen, setReturningIntroOpen] = useState(false);
   // Bumped when KunThai returns from a long time in the background: the main
   // dashboards remount, so inner screens (messages, settings, profiles) close.
   const [dashboardResumeKey, setDashboardResumeKey] = useState(0);
@@ -340,9 +334,12 @@ export default function App() {
   const guestSession = Boolean(user?.is_anonymous);
   setNotificationSeenUser(userId);
 
-  const handleIntroComplete = useCallback(() => {
-    setReturningIntroOpen(false);
-  }, []);
+  // The native app shows the KunThai splash at its next fresh start only for
+  // a signed-in member (not a guest); signed out, it opens straight to Login.
+  useEffect(() => {
+    if (loading) return;
+    setNativeSignedIn(Boolean(user && !guestSession));
+  }, [loading, user, guestSession]);
 
   // First screen painted (skeleton, Login or the page): the native splash
   // may leave now, so reopening never shows a blank screen.
@@ -391,7 +388,6 @@ export default function App() {
 
   useLayoutEffect(() => {
     if (!userId || guestSession || !onboardingComplete || twoFactorPending !== false) {
-      setReturningIntroOpen(false);
       return undefined;
     }
 
@@ -418,10 +414,7 @@ export default function App() {
       if (backgroundedAt && shouldResetToDashboard(returnedAt - backgroundedAt)) {
         resetToDashboardRef.current?.();
       }
-      const lastActivity = backgroundedAt || readReturningUserActivity(userId);
-      if (shouldShowReturningUserIntro(userId, returnedAt, lastActivity)) {
-        setReturningIntroOpen(true);
-      }
+      // No logo intro on return: the KunThai splash is only for a fresh start.
       markReturningUserActivity(userId, returnedAt);
       backgroundedAt = 0;
     }
@@ -851,7 +844,6 @@ export default function App() {
     return (
       <>
         {content}
-        {returningIntroOpen ? <ReturningUserIntro onComplete={handleIntroComplete} /> : null}
       </>
     );
   }

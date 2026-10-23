@@ -1,5 +1,7 @@
 package app.kunthai.mobile;
 
+import android.content.Context;
+
 import com.getcapacitor.Plugin;
 import com.getcapacitor.PluginCall;
 import com.getcapacitor.PluginMethod;
@@ -14,6 +16,14 @@ import com.getcapacitor.annotation.CapacitorPlugin;
 @CapacitorPlugin(name = "KunThaiLaunch")
 public class KunThaiLaunchPlugin extends Plugin {
     private static volatile boolean webReady = false;
+    private static final String PREFS = "kunthai_launch";
+    private static final String SIGNED_IN = "signedIn";
+
+    // Read at the next fresh start: a signed-in member gets the KunThai splash,
+    // anyone else a plain start straight into the app.
+    static boolean wasSignedIn(Context context) {
+        return context.getSharedPreferences(PREFS, Context.MODE_PRIVATE).getBoolean(SIGNED_IN, false);
+    }
 
     static boolean isWebReady() {
         return webReady;
@@ -21,6 +31,15 @@ public class KunThaiLaunchPlugin extends Plugin {
 
     static void reset() {
         webReady = false;
+    }
+
+    @PluginMethod
+    public void setSignedIn(PluginCall call) {
+        getContext().getSharedPreferences(PREFS, Context.MODE_PRIVATE)
+            .edit()
+            .putBoolean(SIGNED_IN, Boolean.TRUE.equals(call.getBoolean("signedIn", false)))
+            .apply();
+        call.resolve();
     }
 
     @PluginMethod

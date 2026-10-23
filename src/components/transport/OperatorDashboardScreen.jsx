@@ -47,7 +47,7 @@ import { useCampaignInbox } from "../../Backend/hooks/useCampaignInbox";
 import useBodyScrollLock from "../shared/useBodyScrollLock";
 import { requestTransportTripStart, updateTransportTripProgress, updateTransportTripStatus } from "../services/bookingService";
 import { showToast } from "../../Backend/services/toastService";
-import { stopRinging } from "../../Backend/services/feedbackService";
+import { haptics, sounds, stopRinging } from "../../Backend/services/feedbackService";
 import {
   applySeenNotificationState,
   getUnseenNotificationCount,
@@ -556,6 +556,9 @@ export default function OperatorDashboardScreen({
         expiresAt: Date.now() + AVAILABILITY_REFRESH_GRACE_MS,
       };
       setIsActive(updatedActive);
+      // Once the change is saved: the same sound and vibration as placing an order.
+      haptics.medium("transport");
+      sounds.success("transport");
       showToast(updatedActive ? t("urrideLiveDiscovery.toastOnline") : t("urride.opDash.fleetOffline"), "success");
       onAccountUpdate?.((current) => {
         if (!current) return current;

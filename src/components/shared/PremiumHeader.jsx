@@ -70,6 +70,9 @@ export default function PremiumHeader({
   accent = "slate",
   centerIcon,
   className = "",
+  // Six buttons (e.g. UrMall with the business button): smaller buttons and
+  // gaps so they fit a 360 px phone without overlapping.
+  crowded = false,
   eyebrow = "KUNTHAI",
   left,
   right,
@@ -80,7 +83,7 @@ export default function PremiumHeader({
   const CenterIcon = centerIcon;
 
   return (
-    <header className={`kt-premium-header sticky top-0 z-20 ${className}`}>
+    <header className={`kt-premium-header ${crowded ? "kt-premium-header--crowded" : ""} sticky top-0 z-20 ${className}`}>
       <div className="kt-premium-header-grid grid w-full items-center">
         <div className="kt-premium-header-side kt-premium-header-left flex min-w-0 items-center no-scrollbar">{left}</div>
 

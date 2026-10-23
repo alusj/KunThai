@@ -22,3 +22,16 @@ export function notifyNativeAppReady() {
   }
   KunThaiLaunch.ready().catch(() => {});
 }
+
+// Whether a member is signed in on this phone. The native app reads it at the
+// next fresh start: the KunThai splash only for a returning signed-in member;
+// a first-time visitor, or anyone after signing out or "Add account", goes
+// straight to the sign-up screen.
+export function setNativeSignedIn(signedIn) {
+  try {
+    if (!Capacitor.isNativePlatform() || !Capacitor.isPluginAvailable("KunThaiLaunch")) return Promise.resolve();
+  } catch {
+    return Promise.resolve();
+  }
+  return KunThaiLaunch.setSignedIn({ signedIn: Boolean(signedIn) }).catch(() => {});
+}

@@ -32,26 +32,24 @@ public class MainActivity extends BridgeActivity {
 
     @Override
     public void onCreate(Bundle savedInstanceState) {
-        // The system splash stays until the first frame (about 1.75 s on a
-        // Galaxy A06), then slides down and away instead of vanishing.
-        // Same timing and animation as the iPhone (KunThaiBridgeViewController).
-        SplashScreen splashScreen = SplashScreen.installSplashScreen(this);
-        // Stay until the web app has drawn its first screen (it reports in
+        // The system splash is only the app's colour (no logo, see styles.xml).
+        // It stays until the web app has drawn its first screen (it reports in
         // through KunThaiLaunchPlugin), so no blank screen shows while it
-        // loads; never longer than 8 s.
+        // loads; never longer than 8 s. A returning signed-in member gets the
+        // KunThai logo on top (showLogoSplash); a first-time visitor or a
+        // signed-out start goes straight to the sign-up screen.
+        SplashScreen splashScreen = SplashScreen.installSplashScreen(this);
         KunThaiLaunchPlugin.reset();
+        // Only a fresh start: Android rebuilding the screen when someone comes
+        // back (savedInstanceState) never shows the logo again.
+        final boolean logo = savedInstanceState == null && KunThaiLaunchPlugin.wasSignedIn(this);
         final long splashStartedAt = android.os.SystemClock.uptimeMillis();
         splashScreen.setKeepOnScreenCondition(() ->
-            !KunThaiLaunchPlugin.isWebReady() && android.os.SystemClock.uptimeMillis() - splashStartedAt < 8000);
+            !logo && !KunThaiLaunchPlugin.isWebReady() && android.os.SystemClock.uptimeMillis() - splashStartedAt < 8000);
         splashScreen.setOnExitAnimationListener(provider -> {
-            // Slides down and away, revealing the app behind it.
+            // A plain colour: a quick fade into the app.
             View splash = provider.getView();
-            splash.animate()
-                .translationY(splash.getHeight())
-                .setDuration(420)
-                .setInterpolator(new AccelerateInterpolator(1.6f))
-                .withEndAction(provider::remove)
-                .start();
+            splash.animate().alpha(0f).setDuration(150).withEndAction(provider::remove).start();
         });
         createLocationSharingChannel();
         // Plugins inside this app module (Capacitor only auto-registers npm ones).
@@ -69,7 +67,44 @@ public class MainActivity extends BridgeActivity {
             int appBackground = night ? 0xFF020617 : 0xFFF1F5F9;
             getBridge().getWebView().setBackgroundColor(appBackground);
             getWindow().getDecorView().setBackgroundColor(appBackground);
+            if (logo) showLogoSplash(appBackground, splashStartedAt);
         }
+    }
+
+    // The KunThai logo over the app until it has drawn its first screen and at
+    // least 1.75 s have passed (never more than 8 s), then it slides down and
+    // away. Same timing and animation as the iPhone (KunThaiBridgeViewController).
+    private void showLogoSplash(int background, long startedAt) {
+        final android.widget.FrameLayout cover = new android.widget.FrameLayout(this);
+        cover.setBackgroundColor(background);
+        cover.setClickable(true);
+        android.widget.ImageView icon = new android.widget.ImageView(this);
+        icon.setImageResource(R.drawable.splash_icon);
+        int size = Math.round(240 * getResources().getDisplayMetrics().density);
+        cover.addView(icon, new android.widget.FrameLayout.LayoutParams(size, size, android.view.Gravity.CENTER));
+        addContentView(cover, new android.view.ViewGroup.LayoutParams(
+            android.view.ViewGroup.LayoutParams.MATCH_PARENT, android.view.ViewGroup.LayoutParams.MATCH_PARENT));
+        final Handler handler = new Handler(Looper.getMainLooper());
+        handler.post(new Runnable() {
+            @Override
+            public void run() {
+                long elapsed = android.os.SystemClock.uptimeMillis() - startedAt;
+                if ((KunThaiLaunchPlugin.isWebReady() && elapsed >= 1750) || elapsed >= 8000) {
+                    cover.animate()
+                        .translationY(cover.getHeight())
+                        .setDuration(420)
+                        .setInterpolator(new AccelerateInterpolator(1.6f))
+                        .withEndAction(() -> {
+                            if (cover.getParent() instanceof android.view.ViewGroup) {
+                                ((android.view.ViewGroup) cover.getParent()).removeView(cover);
+                            }
+                        })
+                        .start();
+                    return;
+                }
+                handler.postDelayed(this, 50);
+            }
+        });
     }
 
     // The plugin creates this channel on load with app-icon badges on, so Samsung

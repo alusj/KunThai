@@ -151,12 +151,16 @@ export default function MarketplaceHeader({
     onMessagesClick?.();
   }
 
+  // The business button (or its loading placeholder) is a sixth button.
+  const showsBusinessButton = !(!loading && !hasBusiness && !accountTypeLoading && !canRegister);
+
   return (
     <PremiumHeader
       accent="emerald"
       centerIcon={ShoppingBag}
       title="UrMall"
       className="z-20"
+      crowded={showsBusinessButton}
       left={(
         // A Personal account never sees "Register business"; an existing
         // workspace (owned or administered) always stays reachable.

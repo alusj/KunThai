@@ -885,6 +885,28 @@
     }
   }
 
+  /* Six header buttons: 40 px and tight gaps at every width, so a business
+     account's UrMall header fits a 360 px phone with the title readable. */
+  .kt-premium-header--crowded .kt-premium-header-grid {
+    grid-template-columns: auto minmax(3.25rem, 1fr) auto;
+    gap: 0.3rem;
+    padding-inline: max(0.5rem, var(--kt-safe-area-left)) max(0.5rem, var(--kt-safe-area-right));
+  }
+
+  .kt-premium-header--crowded .kt-premium-header-side {
+    gap: 0.25rem;
+  }
+
+  .kt-premium-header--crowded .kt-premium-icon-button-square {
+    height: 2.5rem;
+    width: 2.5rem;
+    min-width: 2.5rem;
+  }
+
+  .kt-premium-header--crowded .kt-premium-eyebrow {
+    letter-spacing: 0.16em;
+  }
+
   .kuntai-scrollbar-none {
     scrollbar-width: none;
   }

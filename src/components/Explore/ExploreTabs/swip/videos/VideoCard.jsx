@@ -286,17 +286,30 @@ export default function VideoCard({
     video.muted = !wantSound;
     video.autoplay = true;
 
+    // Leaving Swip while a start is still pending must win: a play() that
+    // resolves after the person left is paused again, and a start that the
+    // leaving pause interrupted (AbortError) is not retried muted, which kept
+    // a clip playing in the background.
+    const leftMeanwhile = () => {
+      if (activeRef.current) return false;
+      video.pause();
+      return true;
+    };
+
     try {
       await playExploreMedia(video, { muteVideos: false });
+      if (leftMeanwhile()) return;
       video.muted = !wantSound;
       setNeedsSoundUnlock(false);
       logSwipPlayback(wantSound ? "active video playing with sound" : "active video playing muted", { post_id: post.id });
     } catch (error) {
+      if (leftMeanwhile() || error?.name === "AbortError") return;
       logSwipPlayback("unmuted autoplay deferred by browser", { post_id: post.id, error });
 
       try {
         video.muted = true;
         await video.play();
+        if (leftMeanwhile()) return;
         setNeedsSoundUnlock(wantSound);
       } catch (fallbackError) {
         setNeedsSoundUnlock(wantSound);
@@ -545,7 +558,9 @@ export default function VideoCard({
     if (video.currentTime >= nextClip.end) {
       markPlaybackLoopCompleted();
       video.currentTime = nextClip.start;
-      video.play().catch(() => {});
+      // Loop only the clip on screen; one left behind stops here.
+      if (activeRef.current) video.play().catch(() => {});
+      else video.pause();
       setProgress({ currentTime: 0, duration: nextClip.duration, realDuration });
       return;
     }
@@ -801,6 +816,8 @@ export default function VideoCard({
 
     return () => {
       observer.disconnect();
+      // Not on screen any more: a start still in flight must see that.
+      activeRef.current = false;
       pauseInactiveVideo(video);
     };
   }, [active, post.video_url, clip.start, flushPlaybackSignals, pauseInactiveVideo, requestActivePlayback, startPlaybackSignals]);

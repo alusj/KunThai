@@ -2,6 +2,7 @@ import supabase from "../lib/supabaseClient";
 import { clearExploreMessageCache } from "./explore/messageService";
 import { claimExploreAccountCache, clearExploreAccountCache } from "./explore/accountCache.js";
 import { forgetNativePushDevice } from "./pushService";
+import { setNativeSignedIn } from "./nativeLaunch";
 
 const SOCIAL_CACHE_KEYS = [
   "explore-liked-posts",
@@ -227,6 +228,8 @@ export async function signOutSocialSession({ allDevices = false } = {}) {
   // While the session still works: this phone stops getting the account's
   // pushes (the app only; quick and best-effort).
   await forgetNativePushDevice();
+  // The next fresh start opens straight to sign-in, no KunThai splash.
+  await setNativeSignedIn(false);
 
   clearExploreMessageCache();
   clearSocialSessionCache();
@@ -251,6 +254,8 @@ export async function startAddSocialAccount() {
   // The next account on this phone turns push on for itself, and doing so
   // moves the token over anyway, so a slow network only gets a short wait.
   await forgetNativePushDevice({ waitMs: 800 });
+  // The sign-in screen for the new account opens with no KunThai splash.
+  await setNativeSignedIn(false);
   clearExploreMessageCache();
   clearSocialSessionCache();
   clearExploreAccountCache();

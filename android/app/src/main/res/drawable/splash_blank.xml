@@ -1,0 +1,7 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- The system splash's icon: nothing. A first-time or signed-out start shows
+     only the app's colour; MainActivity draws the KunThai logo itself for a
+     returning signed-in member. -->
+<shape xmlns:android="http://schemas.android.com/apk/res/android" android:shape="rectangle">
+    <solid android:color="@android:color/transparent" />
+</shape>
