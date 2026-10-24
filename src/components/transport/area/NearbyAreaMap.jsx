@@ -1833,6 +1833,7 @@ export default function NearbyAreaMap({
   weatherCache = null,
   onMapLocationSelect,
   onReportSelect,
+  onOperatorSelect,
   onMapInteractionStart,
   onMapInteractionEnd,
   recenterSignal = 0,
@@ -1904,6 +1905,9 @@ export default function NearbyAreaMap({
   const smartCameraRef = useRef(true);
   const weatherCacheRef = useRef(weatherCache);
   const onMapInteractionStartRef = useRef(onMapInteractionStart);
+  // Operator markers outlive renders, so their tap reads the current handler.
+  const onOperatorSelectRef = useRef(onOperatorSelect);
+  onOperatorSelectRef.current = onOperatorSelect;
   const onMapInteractionEndRef = useRef(onMapInteractionEnd);
   const isUserInteractingRef = useRef(false);
   const userInteractionIdleTimerRef = useRef(null);
@@ -3940,10 +3944,10 @@ export default function NearbyAreaMap({
         return;
       }
 
-      const marker = new maplibregl.Marker({
-        element: createLiveFleetOperatorMarker(operator),
-        anchor: "center",
-      })
+      const element = createLiveFleetOperatorMarker(operator);
+      element.addEventListener("click", () => onOperatorSelectRef.current?.(operator));
+
+      const marker = new maplibregl.Marker({ element, anchor: "center" })
         .setLngLat([operator.lng, operator.lat])
         .addTo(map);
 

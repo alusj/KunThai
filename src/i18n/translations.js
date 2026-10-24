@@ -18,6 +18,7 @@ import { VOICE_NOTES } from "./voiceNotes";
 import { APP_LOADING } from "./appLoading";
 import { URMALL_SETTINGS } from "./urmallSettings";
 import { URRIDE_MAP_FIX2 } from "./urrideMapFix2";
+import { URRIDE_OPERATOR_PROFILE } from "./urrideOperatorProfile";
 import { URMALL_PLANS_2026 } from "./urmallPlans2026";
 import { KAI_REGISTRATION_FIX } from "./kaiRegistrationFix";
 import { URMALL_VENDOR_GUIDE } from "./urmallVendorGuide";
@@ -59523,6 +59524,12 @@ for (const [locale, section] of Object.entries(URRIDE_LOCATION_TRUST)) {
 for (const [locale, section] of Object.entries(URRIDE_MAP_FIX2)) {
   if (TRANSLATIONS[locale]) {
     TRANSLATIONS[locale].urrideMapFix2 = section;
+  }
+}
+
+for (const [locale, section] of Object.entries(URRIDE_OPERATOR_PROFILE)) {
+  if (TRANSLATIONS[locale]) {
+    TRANSLATIONS[locale].urrideOperatorProfile = section;
   }
 }
 

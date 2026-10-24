@@ -711,6 +711,58 @@ export async function fetchTransportFleetById(id) {
   return mapLiveFleet(data, affiliations.get(data.id), stats.get(data.id), contacts.get(data.id));
 }
 
+// Nearby Area map: the profile behind a live operator marker. Markers carry
+// the operator's auth user id; the profile link uses the fleet id. Resolves
+// { fleetId, companyId } or null (no visible fleet).
+const LIVE_OPERATOR_PROFILE_CACHE = new Map();
+const LIVE_OPERATOR_PROFILE_CACHE_MS = 5 * 60_000;
+let liveOperatorProfileRpcMissing = false;
+
+// Until 20261024120000_urride_live_operator_profile.sql is applied: live
+// discovery around the marker's own position. Its row is the fleet at
+// distance 0; two operators on the same spot are left unresolved.
+async function fetchLiveOperatorProfileByPosition({ lat, lng, countryCode }) {
+  const countryIso = normalizeCountryIso(countryCode) || getActiveCountryProfile(countryCode).iso2;
+  if (!countryIso || !Number.isFinite(Number(lat)) || !Number.isFinite(Number(lng))) return null;
+  const { data, error } = await supabase.rpc("transport_available_operators_nearby", {
+    p_lat: Number(lat),
+    p_lng: Number(lng),
+    p_radius_km: 1,
+    p_fleet_type: null,
+    p_limit: 5,
+    p_country: countryIso,
+    p_include_recent: true,
+  });
+  if (error) {
+    if (isMissingRpcError(error)) return null;
+    throw error;
+  }
+  const here = (Array.isArray(data) ? data : []).filter((row) => row?.fleet_id && Number(row.distance_m) === 0);
+  return here.length === 1 ? { fleetId: here[0].fleet_id, companyId: "" } : null;
+}
+
+export async function fetchLiveOperatorProfile(operator) {
+  const id = String(operator?.operatorId || operator?.id || "");
+  if (!id) return null;
+  const cached = LIVE_OPERATOR_PROFILE_CACHE.get(id);
+  if (cached && Date.now() - cached.at < LIVE_OPERATOR_PROFILE_CACHE_MS) return cached.profile;
+
+  let profile = null;
+  if (!liveOperatorProfileRpcMissing) {
+    const { data, error } = await supabase.rpc("transport_live_operator_profile", { p_operator_user_id: id });
+    if (error && !isMissingRpcError(error)) throw error;
+    if (error) {
+      liveOperatorProfileRpcMissing = true;
+    } else {
+      const row = Array.isArray(data) ? data[0] : data;
+      profile = row?.fleet_id ? { fleetId: row.fleet_id, companyId: row.company_id || "" } : null;
+    }
+  }
+  if (liveOperatorProfileRpcMissing) profile = await fetchLiveOperatorProfileByPosition(operator);
+  if (profile) LIVE_OPERATOR_PROFILE_CACHE.set(id, { profile, at: Date.now() });
+  return profile;
+}
+
 function compactFleetCode(value) {
   return String(value || "").replace(/[^a-z0-9]/gi, "").toUpperCase();
 }

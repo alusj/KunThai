@@ -124,6 +124,9 @@ export default function Transport({
   const [activeFleetId, setActiveFleetId] = useState(null);
   const [activeCompanyId, setActiveCompanyId] = useState("");
   const [fleetReturnCompanyId, setFleetReturnCompanyId] = useState("");
+  // A profile opened from an operator on the Nearby Area map: back shows the
+  // map again (it stays mounted underneath, so it keeps its place).
+  const [profileReturnToArea, setProfileReturnToArea] = useState(false);
   const [activeTripsOpen, setActiveTripsOpen] = useState(false);
   const [activeTripsActionRequest, setActiveTripsActionRequest] = useState(null);
   const [notificationOpenRequest, setNotificationOpenRequest] = useState(0);
@@ -381,6 +384,7 @@ export default function Transport({
     setFleetEditOpen(false);
     setFleetSelection(null);
     setActiveFleetId(null);
+    setProfileReturnToArea(false);
     setActiveTripsOpen(false);
     setSavedOperatorsOpen(false);
     setVerificationFleet(null);
@@ -1172,6 +1176,27 @@ export default function Transport({
     verificationFleet,
   ]);
 
+  function openOperatorProfileFromArea({ fleetId, companyId } = {}) {
+    if (!fleetId && !companyId) return;
+    setRouteDirection("forward");
+    setNearbyAreaOpen(false);
+    setProfileReturnToArea(true);
+    setFleetReturnCompanyId("");
+    setCompanyReturnRentalId("");
+    if (fleetId) setActiveFleetId(fleetId);
+    else setActiveCompanyId(companyId);
+  }
+
+  function returnToAreaFromProfile() {
+    setProfileReturnToArea(false);
+    setNearbyAreaOpen(true);
+  }
+
+  // Leaving the profile any other way (booking, another tab) forgets the return.
+  useEffect(() => {
+    if (profileReturnToArea && !activeFleetId && !activeCompanyId && !nearbyAreaOpen) setProfileReturnToArea(false);
+  }, [activeCompanyId, activeFleetId, nearbyAreaOpen, profileReturnToArea]);
+
   function closeNearbyAreaView() {
     const returnToBooking = nearbyAreaRequest?.returnTo === "booking" && nearbyAreaRequest?.bookingTarget;
     const returnToExplore = String(nearbyAreaRequest?.returnTo || "").startsWith("explore-");
@@ -1241,6 +1266,7 @@ export default function Transport({
               initialEmergencyRequest={nearbyAreaRequest?.emergency || null}
               onLocationPicked={acceptNearbyAreaLocation}
               backLabel={getNearbyAreaBackLabel()}
+              onOpenOperatorProfile={openOperatorProfileFromArea}
             />
           </div>,
           document.body,
@@ -1562,6 +1588,8 @@ export default function Transport({
             if (companyReturnRentalId) {
               setRentalTarget(companyReturnRentalId);
               setCompanyReturnRentalId("");
+            } else if (profileReturnToArea && !activeFleetId) {
+              returnToAreaFromProfile();
             }
           }}
           onViewFleet={(fleetId, companyId) => {
@@ -1593,6 +1621,8 @@ export default function Transport({
             if (fleetReturnCompanyId) {
               setActiveCompanyId(fleetReturnCompanyId);
               setFleetReturnCompanyId("");
+            } else if (profileReturnToArea) {
+              returnToAreaFromProfile();
             }
           }}
           onOpenCompany={(companyId) => {

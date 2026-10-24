@@ -57,6 +57,7 @@ import { getEmergencyContacts } from "../../data/emergencyContacts";
 import { isMapFleetTypeVisible } from "../../data/globalTransportCapabilities";
 import { haptics, sounds } from "../../Backend/services/feedbackService";
 import { showToast } from "../../Backend/services/toastService";
+import { fetchLiveOperatorProfile } from "../services/transportFleetService";
 import { useScreenWakeLock } from "../../Backend/hooks/useScreenWakeLock";
 import { getNetworkStatus } from "../../Backend/services/networkService";
 import { cacheAreaViewData, readAreaViewCache } from "../../Backend/services/areaViewCacheService";
@@ -848,6 +849,8 @@ function NearbyAreaScreenContent({
   pickerLabels = null,
   initialEmergencyRequest = null,
   backLabel = "Back to transport",
+  // Tapping an operator marker: called with { fleetId, companyId }.
+  onOpenOperatorProfile,
 }) {
   useI18n();
   // Stale-while-refresh: paint the last successful Area View immediately, then
@@ -2175,6 +2178,40 @@ function NearbyAreaScreenContent({
     });
   }, [mapInstance]);
 
+  // An operator marker opens the profile their shared link opens. Markers
+  // carry the operator's user id, so the fleet is looked up first.
+  const operatorProfilePendingRef = useRef("");
+  const liveOperatorsRef = useRef(liveOperators);
+  liveOperatorsRef.current = liveOperators;
+  const handleSelectOperator = useCallback(async (markerOperator) => {
+    // The marker keeps the row it was created with; use the latest position.
+    const operator = (liveOperatorsRef.current || []).find((item) => item?.id === markerOperator?.id) || markerOperator;
+    const operatorUserId = String(operator?.operatorId || operator?.id || "");
+    if (!onOpenOperatorProfile || !operatorUserId || operatorProfilePendingRef.current) return;
+    if (mapLockedRef.current) {
+      warnLockedExit();
+      return;
+    }
+    operatorProfilePendingRef.current = operatorUserId;
+    haptics.light();
+    try {
+      const profile = await fetchLiveOperatorProfile({ ...operator, countryCode: operator.countryCode || areaCountryCode });
+      if (profile?.fleetId) {
+        onOpenOperatorProfile(profile);
+      } else {
+        showToast(t("urrideOperatorProfile.unavailable"), "warning", {
+          title: t("urride.areaView.toastAreaView"),
+        });
+      }
+    } catch {
+      showToast(t("urrideOperatorProfile.unavailable"), "warning", {
+        title: t("urride.areaView.toastAreaView"),
+      });
+    } finally {
+      operatorProfilePendingRef.current = "";
+    }
+  }, [areaCountryCode, onOpenOperatorProfile, warnLockedExit]);
+
   const handleSelectReport = useCallback((report) => {
     setActiveLocation({
       id: report.id,
@@ -2303,6 +2340,7 @@ function NearbyAreaScreenContent({
           weatherCache={weatherCache}
           onMapLocationSelect={handleSelectLiveLocation}
           onReportSelect={handleSelectReport}
+          onOperatorSelect={handleSelectOperator}
           onMapInteractionStart={handleMapInteractionStart}
           onMapInteractionEnd={handleMapInteractionEnd}
           recenterSignal={recenterSignal}
