@@ -15,7 +15,7 @@ import {
 } from "./operatorLocationPolicy";
 import { getPreciseCurrentPosition } from "../../Backend/utils/precisePosition";
 import { createNativeLocationSession } from "./operatorNativeLocationSession";
-import { PRECISE_PURPOSE_OPERATOR, requestPreciseLocation } from "./preciseLocationAccess";
+import { PRECISE_PURPOSE_OPERATOR, askPreciseIfApproximate, requestPreciseLocation } from "./preciseLocationAccess";
 
 // Publishes the signed-in operator's live position into
 // public.transport_operator_locations while they are online: on movement
@@ -190,6 +190,9 @@ async function publishRow(publisher, position, { force = false } = {}) {
   if (fresh && !acceptFix({ now, point: fresh, accuracy: fixAccuracy(position), lastGood: publisher.lastGoodFix })) return;
   if (fresh) {
     publisher.lastAccuracy = fixAccuracy(position);
+    // Approximate location only (an operator resumed at launch was never
+    // asked): ask for precise while KunThai is open.
+    askPreciseIfApproximate(publisher.lastAccuracy, { purpose: PRECISE_PURPOSE_OPERATOR });
     if (publisher.lastAccuracy != null && publisher.lastAccuracy <= GOOD_FIX_METERS) {
       publisher.lastGoodFix = { point: fresh, accuracy: publisher.lastAccuracy, at: now };
     }

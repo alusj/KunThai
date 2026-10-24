@@ -85,6 +85,25 @@ export async function requestPreciseLocation({ purpose = PRECISE_PURPOSE_PASSENG
   }
 }
 
+// A fix this rough means the phone may only allow approximate location (iOS
+// reports exactly 1414 m with Precise Location off).
+export const APPROXIMATE_FIX_METERS = 1000;
+const askedThisSession = new Set();
+
+// Called with every fix while KunThai is on screen: the first approximate one
+// for a purpose asks the phone for precise location, once per app session per
+// purpose (iOS shows its prompt at most once per session anyway). Operators
+// resumed at launch and passengers who never tapped anything otherwise kept
+// sharing and reading 1-3 km blurred positions.
+export function askPreciseIfApproximate(accuracy, { purpose = PRECISE_PURPOSE_PASSENGER } = {}) {
+  const metres = Number(accuracy);
+  if (!Number.isFinite(metres) || metres < APPROXIMATE_FIX_METERS) return;
+  if (askedThisSession.has(purpose) || !pluginReady()) return;
+  if (typeof document !== "undefined" && document.visibilityState === "hidden") return;
+  askedThisSession.add(purpose);
+  requestPreciseLocation({ purpose }).catch(() => {});
+}
+
 // Precise location if the phone will ask; otherwise KunThai's settings, where
 // it can be switched on (iOS: Location › Precise Location; Android:
 // Permissions › Location › Use precise location). Resolves true when precise

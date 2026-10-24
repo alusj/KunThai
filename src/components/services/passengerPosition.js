@@ -6,7 +6,7 @@
 import { ensureBuyerLocation, readCachedBuyerLocation } from "../../Backend/utils/buyerLocationContext";
 import { getPreciseCurrentPosition } from "../../Backend/utils/precisePosition";
 import { GOOD_FIX_METERS, acceptFix } from "./operatorLocationPolicy.js";
-import { requestPreciseLocation } from "./preciseLocationAccess.js";
+import { askPreciseIfApproximate, requestPreciseLocation } from "./preciseLocationAccess.js";
 
 const GRANTED_KEY = "kunthai.locationGranted.v1";
 
@@ -77,6 +77,7 @@ function toPassengerFix(position) {
 
 function takeWatchedPosition(position) {
   const next = toPassengerFix(position);
+  askPreciseIfApproximate(next.accuracy);
   const point = { lat: next.latitude, lng: next.longitude };
   if (!acceptFix({ now: next.at, point, accuracy: next.accuracy, lastGood: watchState.good })) {
     // Rough noise around a good fix: still there, keep the good position.
@@ -144,6 +145,7 @@ export async function getPassengerPosition({ prompt = false, fresh = false } = {
     const position = await currentPosition({ fresh });
     if (position) {
       rememberGranted();
+      askPreciseIfApproximate(position.coords.accuracy);
       // Refreshes the shared city label in the background (no prompt).
       ensureBuyerLocation().catch(() => {});
       return {
