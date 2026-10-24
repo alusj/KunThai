@@ -470,14 +470,32 @@
     background: var(--kt-panel-bg, var(--kt-app-bg, #f1f5f9));
   }
 
-  /* First frame of a switch: the next screen is drawn, waiting off to the
-     side, while the current one stays in place. */
+  /* First frames of a switch: the next screen waits off to the side while
+     the current one stays in place. It peeks 1px onto the screen: iOS does
+     not paint a layer that is wholly off screen, so a screen waiting fully
+     outside slid in blank and its content popped in on the way (it looked
+     like a reload). One pixel, for two frames, is not seen. */
   .kt-main-enter-wait-forward {
-    transform: translate3d(100%, 0, 0);
+    transform: translate3d(calc(100% - 1px), 0, 0);
   }
 
   .kt-main-enter-wait-backward {
-    transform: translate3d(-100%, 0, 0);
+    transform: translate3d(calc(-100% + 1px), 0, 0);
+  }
+
+  /* An Explore tab that is not showing. Not display:none: that throws away
+     the tab's whole layout, and UrFeed (~13,000px of posts) then had to be
+     rebuilt on every return, which froze the iPhone for about a second (the
+     switch looked like a reload). content-visibility keeps the layout cached,
+     takes no space and draws nothing, so showing the tab again is cheap. */
+  .kt-tab-hidden {
+    content-visibility: hidden;
+  }
+
+  @supports not (content-visibility: hidden) {
+    .kt-tab-hidden {
+      display: none;
+    }
   }
 
   .kt-main-enter-forward {

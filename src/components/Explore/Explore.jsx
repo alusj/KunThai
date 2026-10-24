@@ -489,14 +489,29 @@ export default function Explore({ active = true, onNavigateMain, onScreenModeCha
   }, [leavingTab, activeTab]);
 
   useEffect(() => {
-    onScreenModeChange?.(active && (anyExploreOverlayVisible || isSwipTab || Boolean(activeMenuScreen)));
-
     stopAllExploreMedia();
+  }, [active, anyExploreOverlayVisible, activeMenuScreen, activeTab, isSwipTab]);
 
+  // Swip is full screen (the bottom tabs slide away) and starts its video only
+  // once its tab slide has finished: hiding the tabs re-renders the whole app
+  // and starting a video is heavy, and doing either in the middle of the
+  // slide froze it on iPhone. Leaving Swip stops the video at once; the tabs
+  // come back after the slide. Overlays and menu screens still switch at once.
+  // (Counted from the end of the slide, not from the tap: on a busy phone the
+  // slide starts later, and a fixed delay then landed in the middle of it.)
+  const [swipFullScreen, setSwipFullScreen] = useState(isSwipTab);
+  useEffect(() => {
+    if (swipFullScreen === isSwipTab) return;
+    if (leavingTab && active) return;
+    setSwipFullScreen(isSwipTab);
+  }, [active, isSwipTab, leavingTab, swipFullScreen]);
+
+  useEffect(() => {
+    onScreenModeChange?.(active && (anyExploreOverlayVisible || swipFullScreen || Boolean(activeMenuScreen)));
     return () => {
       onScreenModeChange?.(false);
     };
-  }, [active, anyExploreOverlayVisible, activeMenuScreen, activeTab, isSwipTab, onScreenModeChange]);
+  }, [active, anyExploreOverlayVisible, activeMenuScreen, swipFullScreen, onScreenModeChange]);
 
   useEffect(() => {
     if (!active) {
@@ -1214,7 +1229,7 @@ export default function Explore({ active = true, onNavigateMain, onScreenModeCha
     }
 
     if (activeTab !== tab) {
-      return "hidden";
+      return "kt-tab-hidden";
     }
 
     if (tabSlideDirection === "none" || !leavingTab) {
@@ -1248,6 +1263,7 @@ export default function Explore({ active = true, onNavigateMain, onScreenModeCha
       node.style.transition = "";
       node.style.transform = "";
       node.style.display = "";
+      node.style.contentVisibility = "";
       node.style.position = "";
       node.style.top = "";
       node.style.left = "";
@@ -1268,6 +1284,7 @@ export default function Explore({ active = true, onNavigateMain, onScreenModeCha
     if (!node) return;
 
     node.style.display = "block";
+    node.style.contentVisibility = "visible";
     node.style.position = "fixed";
     node.style.top = getExploreTabTop(tab);
     node.style.left = "0";
@@ -2006,7 +2023,7 @@ export default function Explore({ active = true, onNavigateMain, onScreenModeCha
       style={getExploreTabPanelStyle("Swip")}
     >
       <MemoSwip
-        active={active && activeTab === "Swip" && !feedCovered}
+        active={active && activeTab === "Swip" && swipFullScreen && !feedCovered}
         currentUserId={profile.userId}
         focusPostId={postFocusRequest?.tab === "Swip" ? postFocusRequest.postId : swipPreviewTarget}
         focusPost={postFocusRequest?.tab === "Swip" ? postFocusRequest.post : null}

@@ -64,7 +64,7 @@ function useAutoHideOnScroll(disabled) {
   return hidden;
 }
 
-export default function Marketplace({ nav, setNav, onActivityChange, onNotificationCountChange }) {
+export default function Marketplace({ active = true, nav, setNav, onActivityChange, onNotificationCountChange }) {
   const { t } = useI18n();
   const [activeTab, setActiveTab] = useState("new");
   const [activeParent, setActiveParent] = useState("all");
@@ -127,7 +127,10 @@ export default function Marketplace({ nav, setNav, onActivityChange, onNotificat
   const searchTakingOver = searchOpen && searchSurfaceActive;
   // The header retracts on scroll only while browsing; opening search or a
   // product screen keeps it out of the way in its own dedicated fashion.
-  const headerHidden = useAutoHideOnScroll(productMode || searchTakingOver || Boolean(activeUtility) || Boolean(nav.sub));
+  // Only while UrMall is on screen: the window scroll then belongs to Explore
+  // or UrRide, and reacting to it re-rendered all of UrMall in the background
+  // (in the middle of Explore's tab slides, too).
+  const headerHidden = useAutoHideOnScroll(!active || productMode || searchTakingOver || Boolean(activeUtility) || Boolean(nav.sub));
   const sellerNotificationCount = sellerHeader.orderCount + sellerHeader.messageCount + sellerHeader.notificationCount;
   const totalNotificationCount = buyerNotificationState.totalCount + sellerNotificationCount;
   const businessCloseTimer = useRef(null);

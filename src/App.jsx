@@ -1,4 +1,4 @@
-import { Suspense, useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState } from "react";
+import { Suspense, memo, useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState } from "react";
 import { HiOutlineCamera, HiOutlineLightBulb, HiOutlineXMark } from "react-icons/hi2";
 
 import { useAuth } from "./Backend/hooks/useAuth";
@@ -288,8 +288,11 @@ export default function App() {
     [chunkReloadKey],
   );
   const Explore = pages.explore;
-  const Marketplace = pages.marketplace;
-  const Transport = pages.transport;
+  // UrMall and UrRide re-render only when their own props change: App
+  // re-renders on every switch (e.g. Swip hiding the bottom tabs), and redoing
+  // these hidden screens then cost frames in the middle of a slide on iPhone.
+  const Marketplace = useMemo(() => memo(pages.marketplace), [pages]);
+  const Transport = useMemo(() => memo(pages.transport), [pages]);
   const [mainPageDirection, setMainPageDirection] = useState("forward");
   const [exploreFullScreen, setExploreFullScreen] = useState(false);
   const [marketplaceNav, setMarketplaceNav] = useState(readStoredMarketplaceNav);
@@ -1227,6 +1230,7 @@ export default function App() {
             >
               <Marketplace
                 key={`marketplace-${dashboardResumeKey}`}
+                active={page === "marketplace"}
                 nav={marketplaceNav}
                 setNav={setMarketplaceNav}
                 onActivityChange={setMarketplaceActivityOpen}
