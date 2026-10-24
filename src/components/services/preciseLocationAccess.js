@@ -17,7 +17,15 @@ const KunThaiLocationAccuracy = registerPlugin("KunThaiLocationAccuracy");
 export const PRECISE_PURPOSE_PASSENGER = "UrRidePassenger";
 export const PRECISE_PURPOSE_OPERATOR = "UrRideOperator";
 
-const UNKNOWN = Object.freeze({ accuracy: "unknown", authorization: "unknown" });
+const UNKNOWN = Object.freeze({ accuracy: "unknown", authorization: "unknown", platform: "" });
+
+function nativePlatform() {
+  try {
+    return Capacitor.getPlatform();
+  } catch {
+    return "";
+  }
+}
 
 let lastStatus = UNKNOWN;
 const listeners = new Set();
@@ -34,6 +42,7 @@ function remember(status) {
   const next = {
     accuracy: ["full", "reduced"].includes(status?.accuracy) ? status.accuracy : "unknown",
     authorization: String(status?.authorization || "unknown"),
+    platform: nativePlatform(),
   };
   const changed = next.accuracy !== lastStatus.accuracy || next.authorization !== lastStatus.authorization;
   lastStatus = next;
@@ -54,7 +63,7 @@ export function readKnownLocationAccuracy() {
   return lastStatus;
 }
 
-// { accuracy: "full" | "reduced" | "unknown", authorization }.
+// { accuracy: "full" | "reduced" | "unknown", authorization, platform }.
 export async function readLocationAccuracy() {
   if (!pluginReady()) return UNKNOWN;
   try {

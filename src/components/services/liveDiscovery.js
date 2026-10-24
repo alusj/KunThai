@@ -178,14 +178,17 @@ export function liveCardLabelValues(item) {
 // "precise" when the phone only allows KunThai approximate location
 // (`reduced`: iOS Precise Location off, Android "Approximate"; Wi-Fi or going
 // outside can't fix that), or when an iPhone reports 1 km or worse before
-// that is known; "rough" otherwise (no GPS indoors). null when the fix is fine.
+// that is known; "rough" otherwise (no GPS indoors). `precise`: the phone says
+// precise location is already on, so a 1414 m iPhone fix is a cell-only fix
+// indoors (no GPS, no Wi-Fi position) and the advice is Wi-Fi / outside, not a
+// setting that is already on. null when the fix is fine.
 export const IOS_APPROXIMATE_LOCATION_METERS = 1000;
-export function locationAccuracyAdvice({ accuracy, platform = "", reduced = false } = {}) {
+export function locationAccuracyAdvice({ accuracy, platform = "", reduced = false, precise = false } = {}) {
   const metres = accuracyOrNull(accuracy);
   if (metres === null || metres <= ROUGH_POSITION_METERS) return null;
   const m = Math.round(metres);
   if (reduced) return { kind: "precise", m };
-  if (platform === "ios" && metres >= IOS_APPROXIMATE_LOCATION_METERS) return { kind: "precise", m };
+  if (!precise && platform === "ios" && metres >= IOS_APPROXIMATE_LOCATION_METERS) return { kind: "precise", m };
   return { kind: "rough", m };
 }
 

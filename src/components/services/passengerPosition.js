@@ -6,7 +6,7 @@
 import { ensureBuyerLocation, readCachedBuyerLocation } from "../../Backend/utils/buyerLocationContext";
 import { getPreciseCurrentPosition } from "../../Backend/utils/precisePosition";
 import { GOOD_FIX_METERS, acceptFix } from "./operatorLocationPolicy.js";
-import { askPreciseIfApproximate, requestPreciseLocation } from "./preciseLocationAccess.js";
+import { askPreciseIfApproximate, readLocationAccuracy, requestPreciseLocation } from "./preciseLocationAccess.js";
 
 const GRANTED_KEY = "kunthai.locationGranted.v1";
 
@@ -24,6 +24,13 @@ async function permissionAlreadyGranted() {
   } catch {
     // Fall through to the Permissions API.
   }
+  // The Android app: the WebView uses the app's own location permission, but
+  // its Permissions API answers "prompt" even when that is allowed, so a
+  // Samsung passenger never got a position (no live list, no distances, no
+  // "approximate"). The app's real permission comes from the native plugin.
+  // iOS keeps the flag and the Permissions API: its WebView can ask on its own.
+  const native = await readLocationAccuracy();
+  if (native.platform === "android" && ["whenInUse", "always"].includes(native.authorization)) return true;
   try {
     const status = await navigator.permissions?.query?.({ name: "geolocation" });
     return status?.state === "granted";

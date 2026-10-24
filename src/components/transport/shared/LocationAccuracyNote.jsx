@@ -56,7 +56,7 @@ export default function LocationAccuracyNote({
   }, [rough]);
 
   const os = platform();
-  const advice = locationAccuracyAdvice({ accuracy, platform: os, reduced: access.accuracy === "reduced" });
+  const advice = locationAccuracyAdvice({ accuracy, platform: os, reduced: access.accuracy === "reduced", precise: access.accuracy === "full" });
   if (!advice) return null;
   const precise = advice.kind === "precise";
 
