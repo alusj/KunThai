@@ -287,10 +287,11 @@ export default function App() {
     // eslint-disable-next-line react-hooks/exhaustive-deps -- recreate only to retry a failed chunk
     [chunkReloadKey],
   );
-  const Explore = pages.explore;
-  // UrMall and UrRide re-render only when their own props change: App
-  // re-renders on every switch (e.g. Swip hiding the bottom tabs), and redoing
-  // these hidden screens then cost frames in the middle of a slide on iPhone.
+  // A Swip tab handoff hides or shows the global bottom tabs, which re-renders
+  // App. Keep every dashboard out of that render when its own props are the
+  // same; re-rendering Explore at the end of the handoff made Swip look as if
+  // it had loaded a second time.
+  const Explore = useMemo(() => memo(pages.explore), [pages]);
   const Marketplace = useMemo(() => memo(pages.marketplace), [pages]);
   const Transport = useMemo(() => memo(pages.transport), [pages]);
   const [mainPageDirection, setMainPageDirection] = useState("forward");
@@ -339,6 +340,39 @@ export default function App() {
   const appGestureRef = useRef(null);
   const mainPanelRefs = useRef({});
   const mainSpacerRef = useRef(null);
+  const changePage = useCallback((nextPage) => {
+    if (!nextPage || nextPage === page) {
+      return;
+    }
+
+    // A short vibration confirms every move between the three main screens
+    // (Explore / UrMall / UrRide), whether by bottom tab or swipe.
+    haptics.light();
+
+    const currentIndex = PAGE_ORDER.indexOf(page);
+    const nextIndex = PAGE_ORDER.indexOf(nextPage);
+    const direction = nextIndex >= currentIndex ? "forward" : "backward";
+    // The current screen slides out (pinned where it was scrolled) while the
+    // next one slides in over it.
+    // A screen swiped away a moment ago and chosen again mid-slide comes back
+    // without its old drag offset.
+    const incoming = mainPanelRefs.current[nextPage];
+    if (incoming) {
+      incoming.style.transition = "";
+      incoming.style.transform = "";
+      incoming.style.removeProperty("--kt-drag-x");
+    }
+    // Mid-slide the current screen is a window with its own scroll.
+    const panel = mainPanelRefs.current[page];
+    const scrollY = leavingPage && panel ? panel.scrollTop : window.scrollY || 0;
+    pageScrollRef.current[page] = scrollY;
+    window.clearTimeout(leavingTimerRef.current);
+    // "pending": the next screen is drawn once off to the side (a heavy screen
+    // such as Explore needs that first frame); the slide starts after it.
+    setLeavingPage({ page, to: nextPage, direction, scrollY, phase: "pending" });
+    setMainPageDirection(direction);
+    setPage(nextPage);
+  }, [leavingPage, page]);
   const userId = user?.id || "";
   const guestSession = Boolean(user?.is_anonymous);
   setNotificationSeenUser(userId);
@@ -994,40 +1028,6 @@ export default function App() {
     (page === "explore" && exploreFullScreen) ||
     (page === "marketplace" && (Boolean(marketplaceNav.sub) || marketplaceActivityOpen)) ||
     (page === "transport" && transportActivityOpen);
-
-  function changePage(nextPage) {
-    if (!nextPage || nextPage === page) {
-      return;
-    }
-
-    // A short vibration confirms every move between the three main screens
-    // (Explore / UrMall / UrRide), whether by bottom tab or swipe.
-    haptics.light();
-
-    const currentIndex = PAGE_ORDER.indexOf(page);
-    const nextIndex = PAGE_ORDER.indexOf(nextPage);
-    const direction = nextIndex >= currentIndex ? "forward" : "backward";
-    // The current screen slides out (pinned where it was scrolled) while the
-    // next one slides in over it.
-    // A screen swiped away a moment ago and chosen again mid-slide comes back
-    // without its old drag offset.
-    const incoming = mainPanelRefs.current[nextPage];
-    if (incoming) {
-      incoming.style.transition = "";
-      incoming.style.transform = "";
-      incoming.style.removeProperty("--kt-drag-x");
-    }
-    // Mid-slide the current screen is a window with its own scroll.
-    const panel = mainPanelRefs.current[page];
-    const scrollY = leavingPage && panel ? panel.scrollTop : window.scrollY || 0;
-    pageScrollRef.current[page] = scrollY;
-    window.clearTimeout(leavingTimerRef.current);
-    // "pending": the next screen is drawn once off to the side (a heavy screen
-    // such as Explore needs that first frame); the slide starts after it.
-    setLeavingPage({ page, to: nextPage, direction, scrollY, phase: "pending" });
-    setMainPageDirection(direction);
-    setPage(nextPage);
-  }
 
   function getSwipeTargetPage(deltaX) {
     if (deltaX < 0 && page === "marketplace") return "transport";

@@ -2005,6 +2005,7 @@ export default function Explore({ active = true, onNavigateMain, onScreenModeCha
     <section
       ref={(node) => { tabPanelRefs.current.UrFeed = node; }}
       aria-hidden={activeTab !== "UrFeed"}
+      inert={activeTab !== "UrFeed" ? "true" : undefined}
       className={getExploreTabPanelClass("UrFeed")}
       style={getExploreTabPanelStyle("UrFeed")}
     >
@@ -2019,6 +2020,7 @@ export default function Explore({ active = true, onNavigateMain, onScreenModeCha
     <section
       ref={(node) => { tabPanelRefs.current.Swip = node; }}
       aria-hidden={activeTab !== "Swip"}
+      inert={activeTab !== "Swip" ? "true" : undefined}
       className={getExploreTabPanelClass("Swip")}
       style={getExploreTabPanelStyle("Swip")}
     >
@@ -2037,6 +2039,7 @@ export default function Explore({ active = true, onNavigateMain, onScreenModeCha
     <section
       ref={(node) => { tabPanelRefs.current.Connections = node; }}
       aria-hidden={activeTab !== "Connections"}
+      inert={activeTab !== "Connections" ? "true" : undefined}
       className={getExploreTabPanelClass("Connections")}
       style={getExploreTabPanelStyle("Connections")}
     >

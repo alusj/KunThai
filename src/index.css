@@ -483,19 +483,16 @@
     transform: translate3d(calc(-100% + 1px), 0, 0);
   }
 
-  /* An Explore tab that is not showing. Not display:none: that throws away
-     the tab's whole layout, and UrFeed (~13,000px of posts) then had to be
-     rebuilt on every return, which froze the iPhone for about a second (the
-     switch looked like a reload). content-visibility keeps the layout cached,
-     takes no space and draws nothing, so showing the tab again is cheap. */
+  /* An Explore tab that is not showing. Keep its descendant layout live, but
+     collapse and clip the panel itself. `content-visibility: hidden` can skip
+     that layout (and older iOS falls back to display:none), making the large
+     UrFeed reconstruct when it returns from Swip. That reconstruction looks
+     like a reload and blocks the reverse transition. */
   .kt-tab-hidden {
-    content-visibility: hidden;
-  }
-
-  @supports not (content-visibility: hidden) {
-    .kt-tab-hidden {
-      display: none;
-    }
+    height: 0;
+    overflow: hidden;
+    visibility: hidden;
+    pointer-events: none;
   }
 
   .kt-main-enter-forward {
