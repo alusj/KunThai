@@ -33,7 +33,7 @@ export default function LiveShareDurationSheet({ open, onClose, onStart, body = 
 
   return (
     <AppPortal>
-      <div className="fixed inset-0 z-[75] flex items-end justify-center bg-slate-950/50 sm:items-center" role="dialog" aria-modal="true" aria-label={t("liveSharing.shareLive")} data-direction="live-share-duration">
+      <div className="fixed inset-0 z-[1700] flex items-end justify-center bg-slate-950/50 sm:items-center" role="dialog" aria-modal="true" aria-label={t("liveSharing.shareLive")} data-direction="live-share-duration">
         <button type="button" aria-label={t("liveSharing.close")} onClick={onClose} className="absolute inset-0 cursor-default" />
         <section className="relative w-full max-w-md rounded-t-[28px] bg-white p-5 pb-[max(1.25rem,env(safe-area-inset-bottom))] shadow-2xl sm:rounded-[28px]">
           <div className="flex items-start gap-3">

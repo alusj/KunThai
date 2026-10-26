@@ -188,7 +188,7 @@ export default function LiveLocationViewer({ open, onClose, title = "", source, 
 
   return (
     <AppPortal>
-      <div className="fixed inset-0 z-[80] flex flex-col bg-slate-950" role="dialog" aria-modal="true" aria-label={title} data-direction="live-location-viewer">
+      <div className="fixed inset-0 z-[1650] flex flex-col bg-slate-950" role="dialog" aria-modal="true" aria-label={title} data-direction="live-location-viewer">
         <style>{`
           .kt-live-target { width: 22px; height: 22px; border-radius: 9999px; background: #10b981; border: 3px solid #fff; box-shadow: 0 0 0 0 rgba(16,185,129,.6); animation: kt-live-pulse 1.8s infinite; }
           .kt-live-me { width: 16px; height: 16px; border-radius: 9999px; background: #2563eb; border: 3px solid #fff; box-shadow: 0 1px 6px rgba(0,0,0,.35); }
