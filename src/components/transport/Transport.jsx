@@ -53,6 +53,7 @@ import { inlineErrorMessage, shortErrorToast } from "../../Backend/services/frie
 import AppPortal from "../shared/AppPortal";
 import { NAV_TRANSITION_MS, navMotionClass } from "../shared/navigationMotion";
 
+import { useLifecycleAudit } from "../../Backend/services/lifecycleAudit";
 // Session-lived cache of the operator/company accounts, mirroring UrMall's
 // SELLER_HEADER_MEMORY. Re-entering UrRide then paints the header from this
 // immediately (no loading placeholder on the icon) and refreshes silently,
@@ -84,6 +85,7 @@ export default function Transport({
   onNotificationCountChange,
   userId = "",
 }) {
+  useLifecycleAudit("screen", "UrRide");
   useI18n();
   // Personal accounts cannot register fleets/companies; their header slot
   // holds the Open booking button instead (Business/Both get it in the middle

@@ -8,6 +8,7 @@ import FeedList from "./feed/FeedList";
 import { t } from "../../../../i18n";
 import { useI18n as useUiLocale } from "../../../../i18n/index.js";
 
+import { useLifecycleAudit } from "../../../../Backend/services/lifecycleAudit";
 function feedActions(feed) {
   return {
     likedPosts: feed.likedPosts,
@@ -26,6 +27,7 @@ function feedActions(feed) {
 }
 
 export default function UrFeed({ active = true, focusRequest = null, profile, onViewProfile }) {
+  useLifecycleAudit("section", "UrFeed");
   const { locale: memoLocale } = useUiLocale();
   const feed = useExploreFeed("feed");
   const circleFeed = useExploreFeed("connections");

@@ -57,6 +57,7 @@ import {
   updateExplorePost,
 } from "../services/exploreService";
 
+import { recordLifecycle } from "../services/lifecycleAudit";
 // 1234 -> "1.2K". Keeps counts short enough for a toast.
 function compactCount(value) {
   return new Intl.NumberFormat("en", { notation: "compact", maximumFractionDigits: 1 }).format(Number(value) || 0);
@@ -511,6 +512,8 @@ export function useExploreFeed(scope = "feed") {
       setLoading(false);
       setRefreshing(true);
     } else {
+      // Nothing saved to show: the loading cards are visible.
+      recordLifecycle("section-skeleton", scope);
       setLoading(true);
       setRefreshing(false);
     }

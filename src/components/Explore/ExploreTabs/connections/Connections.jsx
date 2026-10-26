@@ -5,9 +5,11 @@ import ConnectionsSummary from "./components/ConnectionsSummary";
 import Discover from "./discover/Discover";
 import MyCircle from "./myCircle/MyCircle";
 
+import { useLifecycleAudit } from "../../../../Backend/services/lifecycleAudit";
 const CONNECTION_TAB_ORDER = ["mycircle", "followers", "discover"];
 
 export default function Connections({ currentUserId = "", onViewProfile }) {
+  useLifecycleAudit("section", "Connections");
   // Opens on Suggested: new accounts have no connections yet, and discovery
   // is where most visits start.
   const [tab, setTab] = useState("discover");

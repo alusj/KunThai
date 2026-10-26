@@ -3,7 +3,9 @@ import { useEffect, useLayoutEffect } from "react";
 import { stopAllExploreMedia } from "../../shared/singleMediaPlayback";
 import All from "./tabs/All";
 
+import { useLifecycleAudit } from "../../../../Backend/services/lifecycleAudit";
 export default function Swip({ active = true, currentUserId = "", focusPostId = "", focusPost = null, focusRequest = null, onReturnToRepost, onViewProfile, profile }) {
+  useLifecycleAudit("section", "Swip");
   // The page lock is set and released in the layout phase, in the same commit
   // as the tab switch: Explore restores the next tab's scroll right after, and
   // a lock still in place then (body 100dvh, overflow hidden) clamped that

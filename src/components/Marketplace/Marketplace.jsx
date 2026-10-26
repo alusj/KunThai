@@ -25,6 +25,7 @@ import {
 import { uiText as translateUi } from "../../i18n/index.js";
 import { NAV_TRANSITION_MS } from "../shared/navigationMotion";
 
+import { useLifecycleAudit } from "../../Backend/services/lifecycleAudit";
 const MARKETPLACE_TAB_ORDER = ["new", "discounted", "high-demand", "top-rated"];
 
 // Auto-hide the header cluster on downward scroll (revealing more products) and
@@ -65,6 +66,7 @@ function useAutoHideOnScroll(disabled) {
 }
 
 export default function Marketplace({ active = true, nav, setNav, onActivityChange, onNotificationCountChange }) {
+  useLifecycleAudit("screen", "UrMall");
   const { t } = useI18n();
   const [activeTab, setActiveTab] = useState("new");
   const [activeParent, setActiveParent] = useState("all");

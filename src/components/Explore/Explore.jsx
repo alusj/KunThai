@@ -88,6 +88,7 @@ import { NAV_TRANSITION_MS } from "../shared/navigationMotion";
 import { settleReplayedAnimations } from "../shared/settleReplayedAnimations";
 import { haptics } from "../../Backend/services/feedbackService";
 
+import { useLifecycleAudit } from "../../Backend/services/lifecycleAudit";
 // The three tabs only re-render when their own props change. Opening a menu
 // screen (Messages, a profile) re-renders Explore several times during the
 // slide, and re-rendering the whole feed each time stalled it for ~80 ms per
@@ -118,6 +119,8 @@ const TAB_DRAG_AXIS_RATIO = 1.35;
 const TAB_DRAG_COMMIT_RATIO = 0.3;
 const TAB_DRAG_COMMIT_VELOCITY = 0.45; // px per millisecond
 const TAB_DRAG_SETTLE_MS = 190;
+// A tab tapped in the bar slides the same way a finger swipe settles.
+const TAB_TAP_SLIDE_MS = 320;
 const LEFT_SIDE_MENU_SCREENS = new Set(["Menu", "Messages"]);
 const COMMENT_TARGET_NOTIFICATION_TYPES = new Set(["comment", "reply", "creator_reply", "thread_reply", "mention"]);
 
@@ -133,6 +136,7 @@ const COMMENT_TARGET_NOTIFICATION_TYPES = new Set(["comment", "reply", "creator_
 */
 
 export default function Explore({ active = true, onNavigateMain, onScreenModeChange, user = null, authLoading = false }) {
+  useLifecycleAudit("screen", "Explore");
   const [profileOverride, setProfileOverride] = useState(null);
   const [spaceProfiles, setSpaceProfiles] = useState([]);
   const [activeIdentity, setActiveIdentity] = useState(() => readActiveExploreIdentity());
@@ -189,6 +193,11 @@ export default function Explore({ active = true, onNavigateMain, onScreenModeCha
   const exitDragCleanupPendingRef = useRef(false);
   const exitDragCleanupTimerRef = useRef(null);
   const clearTabDragStylesRef = useRef(null);
+  // A tapped tab's slide in progress ({ tab, frame, timer }), and the tab the
+  // bar highlights meanwhile (the switch itself lands when the slide ends).
+  const tabSlideRef = useRef(null);
+  const commitExploreTabRef = useRef(null);
+  const [tabHighlight, setTabHighlight] = useState("");
   const previousMenuStackRef = useRef([]);
   const stackCleanupTimerRef = useRef(null);
   const postingNoticeClearTimerRef = useRef(null);
@@ -201,6 +210,7 @@ export default function Explore({ active = true, onNavigateMain, onScreenModeCha
   const { t } = useI18n();
   const { activeTab, activeMenuScreen, menuStack } = exploreNav;
   switchExploreTabRef.current = switchExploreTab;
+  commitExploreTabRef.current = commitExploreTab;
   leavingTabRef.current = leavingTab;
   clearTabDragStylesRef.current = clearTabDragStyles;
   const switchIdentityRef = useRef(null);
@@ -517,6 +527,16 @@ export default function Explore({ active = true, onNavigateMain, onScreenModeCha
     if (!active) {
       stopAllExploreMedia();
       window.clearTimeout(dragSettleTimerRef.current);
+      // Leaving Explore mid-slide: land on the chosen tab at once.
+      const slide = tabSlideRef.current;
+      if (slide) {
+        tabSlideRef.current = null;
+        window.cancelAnimationFrame(slide.frame);
+        window.clearTimeout(slide.timer);
+        clearTabDragStylesRef.current?.();
+        setTabHighlight("");
+        commitExploreTabRef.current?.(slide.tab, { animate: false });
+      }
       setLeftDrawerOpen(false);
       setDrawerClosing(false);
       setDrawerMountedByDrag(false);
@@ -1168,7 +1188,82 @@ export default function Explore({ active = true, onNavigateMain, onScreenModeCha
     exploreNav.openComposer(type);
   }
 
+  // Every switch with a slide (a tap in the tab bar, a notification, a post
+  // opening) now slides exactly like a finger swipe settling: the two panels
+  // move with plain transform transitions and the tab switches once they have
+  // arrived. The class-based slide (keyframe animations started while the new
+  // tab was being drawn) kept looking like a reload on iPhone: iOS started
+  // its clock before the first frame, so it showed up nearly finished, while
+  // the finger-swipe path was smooth.
   function switchExploreTab(tab, options = {}) {
+    if (tabSlideRef.current) {
+      // Chosen again mid-slide: land where asked at once.
+      cancelTabSlide();
+      if (tab === activeTab) return;
+      commitExploreTab(tab, { ...options, animate: false });
+      return;
+    }
+    if (tab === activeTab) return;
+    if (options.animate !== false && slideToExploreTab(tab)) return;
+    commitExploreTab(tab, { ...options, animate: false });
+  }
+
+  function cancelTabSlide() {
+    const slide = tabSlideRef.current;
+    if (!slide) return;
+    tabSlideRef.current = null;
+    window.cancelAnimationFrame(slide.frame);
+    window.clearTimeout(slide.timer);
+    clearTabDragStyles();
+    setTabHighlight("");
+  }
+
+  function slideToExploreTab(tab) {
+    const fromNode = tabPanelRefs.current[activeTab];
+    const toNode = tabPanelRefs.current[tab];
+    const reducedMotion = window.matchMedia?.("(prefers-reduced-motion: reduce)").matches;
+    if (!active || !fromNode || !toNode || reducedMotion) return false;
+
+    const width = window.innerWidth || 1;
+    // Direction the panels travel: -1 toward a tab on the right.
+    const sign = EXPLORE_TAB_ORDER.indexOf(tab) > EXPLORE_TAB_ORDER.indexOf(activeTab) ? -1 : 1;
+    window.clearTimeout(dragSettleTimerRef.current);
+    // The incoming tab waits beside the screen, peeking 1px so iOS paints it.
+    prepareIncomingPanel(tab, -sign * (width - 1));
+    fromNode.style.transition = "none";
+    fromNode.style.transform = "translate3d(0, 0, 0)";
+    setTabHighlight(tab);
+
+    const slide = { tab, frame: 0, timer: 0 };
+    tabSlideRef.current = slide;
+    slide.frame = window.requestAnimationFrame(() => {
+      slide.frame = window.requestAnimationFrame(() => {
+        if (tabSlideRef.current !== slide) return;
+        const transition = `transform ${TAB_TAP_SLIDE_MS}ms var(--kt-nav-ease, cubic-bezier(0.32, 0.72, 0, 1))`;
+        fromNode.style.transition = transition;
+        fromNode.style.transform = `translate3d(${sign * width}px, 0, 0)`;
+        toNode.style.transition = transition;
+        toNode.style.transform = "translate3d(0, 0, 0)";
+        slide.timer = window.setTimeout(() => {
+          if (tabSlideRef.current !== slide) return;
+          tabSlideRef.current = null;
+          // Cleared in the switch's own commit (the activeTab layout effect),
+          // as after a finger swipe, so nothing jumps back first.
+          tabDragCleanupPendingRef.current = true;
+          setTabHighlight("");
+          commitExploreTabRef.current?.(tab, { animate: false });
+          window.setTimeout(() => {
+            if (!tabDragCleanupPendingRef.current) return;
+            tabDragCleanupPendingRef.current = false;
+            clearTabDragStylesRef.current?.();
+          }, 600);
+        }, TAB_TAP_SLIDE_MS + 30);
+      });
+    });
+    return true;
+  }
+
+  function commitExploreTab(tab, options = {}) {
     if (tab === activeTab) {
       return;
     }
@@ -1273,6 +1368,8 @@ export default function Explore({ active = true, onNavigateMain, onScreenModeCha
       node.style.overflow = "";
       node.style.background = "";
       node.style.pointerEvents = "";
+      node.style.height = "";
+      node.style.visibility = "";
     });
   }
 
@@ -1285,6 +1382,10 @@ export default function Explore({ active = true, onNavigateMain, onScreenModeCha
 
     node.style.display = "block";
     node.style.contentVisibility = "visible";
+    // A hidden tab is collapsed and invisible (kt-tab-hidden); while it slides
+    // in it is shown at full height.
+    node.style.height = "auto";
+    node.style.visibility = "visible";
     node.style.position = "fixed";
     node.style.top = getExploreTabTop(tab);
     node.style.left = "0";
@@ -1985,7 +2086,7 @@ export default function Explore({ active = true, onNavigateMain, onScreenModeCha
             PARENT TABS
         ========================= */}
         <div ref={exploreTabsRef}>
-          <ExploreTabs activeTab={activeTab} setActiveTab={switchExploreTab} />
+          <ExploreTabs activeTab={tabHighlight || activeTab} setActiveTab={switchExploreTab} />
         </div>
       </div>
 

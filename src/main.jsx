@@ -1,5 +1,7 @@
 /* eslint-disable react-refresh/only-export-components -- application entry point owns the root boundary and route split. */
 import { Component, Suspense } from 'react'
+// First: counts this page load and every resume (lifecycleAudit.js).
+import "./Backend/services/lifecycleAudit.js";
 import { createRoot } from 'react-dom/client'
 import './index.css'
 import App from './App.jsx'
