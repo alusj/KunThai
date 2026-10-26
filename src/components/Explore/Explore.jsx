@@ -1228,10 +1228,16 @@ export default function Explore({ active = true, onNavigateMain, onScreenModeCha
     // Direction the panels travel: -1 toward a tab on the right.
     const sign = EXPLORE_TAB_ORDER.indexOf(tab) > EXPLORE_TAB_ORDER.indexOf(activeTab) ? -1 : 1;
     window.clearTimeout(dragSettleTimerRef.current);
-    // The incoming tab waits beside the screen, peeking 1px so iOS paints it.
+    // The incoming tab waits beside the screen, peeking 1px so it is painted,
+    // then slides in over the current one, which stays still. Moving the
+    // current tab too (as a finger swipe does) meant turning all of UrFeed
+    // (~13,000px) into a moving layer at the start of the slide; that took
+    // longer than the slide itself, so it showed up nearly finished. The
+    // incoming tab is a screen-sized panel, cheap to move.
     prepareIncomingPanel(tab, -sign * (width - 1));
-    fromNode.style.transition = "none";
-    fromNode.style.transform = "translate3d(0, 0, 0)";
+    toNode.style.willChange = "transform";
+    // The same soft edge as the app's other screen pushes.
+    toNode.style.boxShadow = `${sign < 0 ? -10 : 10}px 0 28px rgba(2, 6, 23, 0.16)`;
     setTabHighlight(tab);
 
     const slide = { tab, frame: 0, timer: 0 };
@@ -1239,12 +1245,18 @@ export default function Explore({ active = true, onNavigateMain, onScreenModeCha
     slide.frame = window.requestAnimationFrame(() => {
       slide.frame = window.requestAnimationFrame(() => {
         if (tabSlideRef.current !== slide) return;
-        const transition = `transform ${TAB_TAP_SLIDE_MS}ms var(--kt-nav-ease, cubic-bezier(0.32, 0.72, 0, 1))`;
-        fromNode.style.transition = transition;
-        fromNode.style.transform = `translate3d(${sign * width}px, 0, 0)`;
+        // A standard ease, not the app's front-loaded one: phones that draw
+        // only 15-30 frames a second showed ~70% of a front-loaded slide in
+        // its first frame, so it read as a jump. This spreads it over frames.
+        const transition = `transform ${TAB_TAP_SLIDE_MS}ms cubic-bezier(0.4, 0, 0.2, 1)`;
         toNode.style.transition = transition;
         toNode.style.transform = "translate3d(0, 0, 0)";
-        slide.timer = window.setTimeout(() => {
+        // Switch once the slide has really finished: a busy phone can start
+        // it late, and a fixed timer then landed the switch mid-slide (the
+        // tab snapped into place). The timer only backs up a missing event.
+        const finish = () => {
+          toNode.removeEventListener("transitionend", onEnd);
+          window.clearTimeout(slide.timer);
           if (tabSlideRef.current !== slide) return;
           tabSlideRef.current = null;
           // Cleared in the switch's own commit (the activeTab layout effect),
@@ -1257,7 +1269,13 @@ export default function Explore({ active = true, onNavigateMain, onScreenModeCha
             tabDragCleanupPendingRef.current = false;
             clearTabDragStylesRef.current?.();
           }, 600);
-        }, TAB_TAP_SLIDE_MS + 30);
+        };
+        const onEnd = (event) => {
+          if (event.target === toNode && event.propertyName === "transform") finish();
+        };
+        toNode.addEventListener("transitionend", onEnd);
+        slide.timer = window.setTimeout(finish, TAB_TAP_SLIDE_MS + 500);
+        slide.finish = finish;
       });
     });
     return true;
@@ -1370,6 +1388,8 @@ export default function Explore({ active = true, onNavigateMain, onScreenModeCha
       node.style.pointerEvents = "";
       node.style.height = "";
       node.style.visibility = "";
+      node.style.willChange = "";
+      node.style.boxShadow = "";
     });
   }
 

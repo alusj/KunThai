@@ -256,6 +256,10 @@ function applyCurrentProfileToPost(post, profile) {
 // In-memory feed state shared by every feed hook, keyed by the signed-in
 // account so one account never sees another's posts, likes or saves.
 const FEED_MEMORY = new Map();
+// Feeds (per account) that have loaded successfully in this app session. One
+// that loaded fine but is simply empty (e.g. no connections' posts yet) then
+// refreshes quietly instead of showing its loading cards on every refresh.
+const FEED_LOADED = new Set();
 const FEED_MEMORY_TTL = 900_000;
 const FEED_OWNER_STORAGE_KEY = "explore-feed-owner";
 export const EXPLORE_FEED_RESET_EVENT = "explore-feed-reset";
@@ -279,6 +283,7 @@ function feedMemoryKey(scope) {
 // when Supabase reports a different user.
 export function clearFeedMemory(nextUserId = "") {
   FEED_MEMORY.clear();
+  FEED_LOADED.clear();
   feedMemoryUserId = nextUserId || "";
   try {
     ["feed", "connections", "swip"].forEach((feedScope) => localStorage.removeItem(getPostsStorageKey(feedScope)));
@@ -497,7 +502,8 @@ export function useExploreFeed(scope = "feed") {
     const cached = readFeedMemory(scope);
     const cachedScopePosts = (cached?.posts || []).filter((post) => postBelongsInScope(post, scope));
     const storedScopePosts = readStoredPosts(scope).filter((post) => postBelongsInScope(post, scope));
-    const hasCachedPosts = Boolean(cachedScopePosts.length || postsRef.current.length || storedScopePosts.length);
+    const hasCachedPosts = Boolean(cachedScopePosts.length || postsRef.current.length || storedScopePosts.length)
+      || FEED_LOADED.has(feedMemoryKey(scope));
     const cacheFresh = Boolean(cachedScopePosts.length && Date.now() - cached.savedAt < FEED_MEMORY_TTL);
 
     if (cacheFresh && !force) {
@@ -570,6 +576,7 @@ export function useExploreFeed(scope = "feed") {
         writeStoredPosts(scope, mergedPosts);
         return mergedPosts;
       });
+      FEED_LOADED.add(feedMemoryKey(scope));
     } catch (err) {
       const connectionLost = isNetworkUnavailable(err) || isConnectionFailure(err);
       const currentProfile = connectionLost
