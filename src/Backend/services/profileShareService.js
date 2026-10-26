@@ -48,7 +48,43 @@ export async function buildDecoratedProfileShareUrl(kind, id) {
   }
 }
 
+// A place ("Share address"): Area View opens there and routes to it, in the
+// app or on the website. #urride-place-<lat>,<lng>~<label>, or without
+// coordinates #urride-place-~<address> (Area View searches the address).
+const PLACE_PATTERN = /^#urride-place-(?:(-?\d{1,2}(?:\.\d+)?),(-?\d{1,3}(?:\.\d+)?))?(?:~(.*))?$/i;
+const PLACE_LABEL_MAX = 160;
+
+export function buildPlaceShareUrl({ lat, lng, label = "" } = {}) {
+  const latitude = Number(lat);
+  const longitude = Number(lng);
+  const placed = lat !== null && lat !== undefined && lat !== "" && lng !== null && lng !== undefined && lng !== ""
+    && Number.isFinite(latitude) && Number.isFinite(longitude)
+    && Math.abs(latitude) <= 90 && Math.abs(longitude) <= 180;
+  const text = String(label || "").replace(/\s+/g, " ").trim().slice(0, PLACE_LABEL_MAX);
+  if (!placed && !text) return "";
+  const point = placed ? `${latitude.toFixed(6)},${longitude.toFixed(6)}` : "";
+  return `${publicAppOrigin()}/#urride-place-${point}${text ? `~${encodeURIComponent(text)}` : ""}`;
+}
+
+function parsePlaceHash(hash = "") {
+  const match = String(hash || "").match(PLACE_PATTERN);
+  if (!match) return null;
+  let label = "";
+  try {
+    label = match[3] ? decodeURIComponent(match[3]).slice(0, PLACE_LABEL_MAX) : "";
+  } catch {
+    label = "";
+  }
+  const lat = match[1] !== undefined ? Number(match[1]) : null;
+  const lng = match[2] !== undefined ? Number(match[2]) : null;
+  const placed = Number.isFinite(lat) && Number.isFinite(lng) && Math.abs(lat) <= 90 && Math.abs(lng) <= 180;
+  if (!placed && !label) return null;
+  return { kind: "place", id: placed ? `${lat},${lng}` : "address", lat: placed ? lat : null, lng: placed ? lng : null, label };
+}
+
 export function parseProfileLinkHash(hash = "") {
+  const place = parsePlaceHash(hash);
+  if (place) return place;
   const match = String(hash || "").match(LINK_PATTERN);
   if (!match) return null;
   const kind = KIND_FOR_PREFIX[match[1].toLowerCase()];
@@ -141,6 +177,24 @@ export function openSharedProfile(link) {
   }
   if (link.kind === "seller") {
     openSharedMarketplaceSeller({ id: link.id });
+    return;
+  }
+  if (link.kind === "place") {
+    const placed = Number.isFinite(link.lat) && Number.isFinite(link.lng);
+    window.dispatchEvent(new CustomEvent("kuntai-open-area-view", {
+      detail: {
+        autoRoute: true,
+        destination: {
+          id: `shared-place-${link.id}`,
+          type: "shared-place",
+          name: link.label || "Shared address",
+          label: link.label || "Shared address",
+          address: link.label || "",
+          ...(placed ? { lat: link.lat, lng: link.lng } : { searchQuery: link.label }),
+        },
+        source: "shared-place-link",
+      },
+    }));
     return;
   }
   const target = link.kind === "company" ? `urride:company:${link.id}` : `urride:fleet:${link.id}`;

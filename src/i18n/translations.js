@@ -33,6 +33,7 @@ import { NOTIFICATION_HUB } from "./notificationHub";
 import { ACCOUNT_DELETION } from "./accountDeletion";
 import { PROFILE_SHARE } from "./profileShare";
 import { URRIDE_LOCATION_TRUST } from "./urrideLocationTrust";
+import { LIVE_SHARING } from "./liveSharing";
 import { EXPLORE_SETTINGS_FIX } from "./exploreSettingsFix";
 import { EXPLORE_PROFILE_FIX } from "./exploreProfileFix";
 import { EXPLORE_MESSAGES_FIX } from "./exploreMessagesFix";
@@ -59518,6 +59519,12 @@ for (const [locale, section] of Object.entries(PROFILE_SHARE)) {
 for (const [locale, section] of Object.entries(URRIDE_LOCATION_TRUST)) {
   if (TRANSLATIONS[locale]) {
     TRANSLATIONS[locale].urrideLocationTrust = section;
+  }
+}
+
+for (const [locale, section] of Object.entries(LIVE_SHARING)) {
+  if (TRANSLATIONS[locale]) {
+    TRANSLATIONS[locale].liveSharing = section;
   }
 }
 

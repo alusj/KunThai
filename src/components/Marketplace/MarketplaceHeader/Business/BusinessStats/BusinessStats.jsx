@@ -1,8 +1,10 @@
 import {
   CheckCircle2,
+  Copy,
   MapPin,
   MoreHorizontal,
   Phone,
+  Share2,
   ShoppingBag,
   StickyNote,
   Trash2,
@@ -28,6 +30,8 @@ import SalesMetricCard from "./SalesMetricCard";
 import { uiText as translateUi, useI18n as useUiLocale } from "../../../../../i18n/index.js";
 import { inlineErrorMessage } from "../../../../../Backend/services/friendlyErrorService";
 import AppPortal from "../../../../shared/AppPortal";
+import { buildPlaceShareUrl } from "../../../../../Backend/services/profileShareService";
+import { showToast } from "../../../../../Backend/services/toastService";
 import SellerLoadError from "../SellerLoadError";
 
 function orderStatusTone(status) {
@@ -51,6 +55,49 @@ function formatOrderAmount(order) {
 function getOrderAddress(order) {
   const details = parseOrderDeliveryDetails(order.deliveryLocation);
   return details.address || details.raw;
+}
+
+function orderPoint(order) {
+  const placed = order.deliveryLatitude !== null && order.deliveryLatitude !== undefined
+    && order.deliveryLongitude !== null && order.deliveryLongitude !== undefined;
+  return placed ? { lat: Number(order.deliveryLatitude), lng: Number(order.deliveryLongitude) } : { lat: null, lng: null };
+}
+
+// "Share address": a link anyone can open, in KunThai or on the website, that
+// opens Area View at the delivery address and routes there (a rider outside
+// KunThai included). "Copy address": the address text.
+async function shareOrderAddress(order) {
+  const address = getOrderAddress(order);
+  const url = buildPlaceShareUrl({ ...orderPoint(order), label: address });
+  if (!url) {
+    showToast(t("urmall.biz.stats.noAddress"), "warning");
+    return;
+  }
+  const text = t("liveSharing.shareAddressText", { address: address || t("liveSharing.sharedAddress") });
+  try {
+    if (typeof navigator !== "undefined" && navigator.share) {
+      await navigator.share({ title: t("liveSharing.shareAddressTitle"), text, url });
+      return;
+    }
+    await navigator.clipboard.writeText(`${text}\n${url}`);
+    showToast(t("liveSharing.linkCopied"), "success");
+  } catch (error) {
+    if (error?.name !== "AbortError") showToast(t("liveSharing.shareFailed"), "warning");
+  }
+}
+
+async function copyOrderAddress(order) {
+  const address = getOrderAddress(order);
+  if (!address) {
+    showToast(t("urmall.biz.stats.noAddress"), "warning");
+    return;
+  }
+  try {
+    await navigator.clipboard.writeText(address);
+    showToast(t("liveSharing.addressCopied"), "success");
+  } catch {
+    showToast(t("liveSharing.shareFailed"), "warning");
+  }
 }
 
 export default function BusinessStats({ initialView = "revenue" }) {
@@ -224,6 +271,8 @@ function SellerOrderActionMenu({ order, onAction, onClose }) {
       ? { id: "cancelled", label: t("urmall.biz.stats.cancel"), icon: XCircle, className: "text-amber-700 hover:bg-amber-50" }
       : null,
     { id: "locate", label: t("urmall.biz.stats.locateAddress"), icon: MapPin, className: "text-gray-700 hover:bg-gray-50" },
+    { id: "shareAddress", label: t("liveSharing.shareAddress"), icon: Share2, className: "text-gray-700 hover:bg-gray-50" },
+    { id: "copyAddress", label: t("liveSharing.copyAddress"), icon: Copy, className: "text-gray-700 hover:bg-gray-50" },
     order.status === "cancelled"
       ? { id: "delete", label: t("urmall.biz.stats.delete"), icon: Trash2, className: "text-red-600 hover:bg-red-50" }
       : null,
@@ -341,6 +390,22 @@ function SellerOrderDetailSheet({ order, onClose, onStatusChange, onDelete, onLo
             <MapPin size={16} />
             {t("urmall.biz.stats.locateAddress")}
           </button>
+          <button
+            type="button"
+            onClick={() => shareOrderAddress(order)}
+            className="inline-flex h-11 items-center justify-center gap-2 rounded-xl border border-gray-200 bg-white text-sm font-black text-gray-800 hover:bg-gray-50"
+          >
+            <Share2 size={16} />
+            {t("liveSharing.shareAddress")}
+          </button>
+          <button
+            type="button"
+            onClick={() => copyOrderAddress(order)}
+            className="inline-flex h-11 items-center justify-center gap-2 rounded-xl border border-gray-200 bg-white text-sm font-black text-gray-800 hover:bg-gray-50"
+          >
+            <Copy size={16} />
+            {t("liveSharing.copyAddress")}
+          </button>
           {canUpdate && order.status !== "shipped" ? (
             <button
               type="button"
@@ -418,6 +483,14 @@ function SellerOrderQueue({ orders = [], onStatusChange, onDelete, onLocate }) {
     }
     if (actionId === "locate") {
       onLocate?.(order);
+      return;
+    }
+    if (actionId === "shareAddress") {
+      shareOrderAddress(order);
+      return;
+    }
+    if (actionId === "copyAddress") {
+      copyOrderAddress(order);
       return;
     }
     onStatusChange?.(order, actionId);

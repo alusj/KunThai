@@ -16,6 +16,7 @@ import { useMessageMediaUrl } from "../../../../Backend/hooks/useMessageMediaUrl
 import { locationMessageParts } from "../../../../Backend/services/explore/messageInboxModels.js";
 import { showToast } from "../../../../Backend/services/toastService";
 import { shortErrorToast } from "../../../../Backend/services/friendlyErrorService";
+import LiveLocationMessage from "../../../shared/liveLocation/LiveLocationMessage";
 
 // Location messages carry a text key so they read in the viewer's language.
 function locationText(message) {
@@ -159,6 +160,24 @@ export default function MessageBubble({
             {timeLabel}
           </p>
           {renderOptions()}
+        </div>
+      </div>
+    );
+  }
+
+  if (mediaType === "location_share" && metadata.live && metadata.shareId) {
+    return (
+      <div className={`flex min-w-0 ${mine ? "justify-end" : "justify-start"}`}>
+        <div className={`${bubbleClass} relative`}>
+          <LiveLocationMessage
+            mine={mine}
+            shareId={metadata.shareId}
+            expiresAt={metadata.expiresAt}
+            name={mine ? "" : metadata.sharerName || otherName}
+          />
+          <p className={`mt-1 text-[10px] font-bold ${mine ? "text-white/55" : "text-slate-400"}`}>
+            {timeLabel}
+          </p>
         </div>
       </div>
     );

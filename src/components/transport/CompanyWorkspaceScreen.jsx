@@ -19,6 +19,7 @@ import {
   LogOut,
   Menu as MenuIcon,
   MoreHorizontal,
+  Navigation,
   Pencil,
   PlayCircle,
   Plus,
@@ -74,6 +75,7 @@ import {
 import { requestTransportTripStart, updateTransportTripStatus } from "../services/bookingService";
 import { collectParcel, deliverParcel } from "../services/parcelHandoverService";
 import { OperatorLiveTripHeaderCard, OperatorTripRequestCard } from "./OperatorDashboardScreen";
+import LiveLocationViewer from "../shared/liveLocation/LiveLocationViewer";
 import {
   COMPANY_OPERATOR_ROLES,
   getTransportCompanyBookingQueue,
@@ -181,6 +183,8 @@ export default function CompanyWorkspaceScreen({ company, initialTab = "Overview
   const companyNavigation = useNavigationStack("dashboard");
   const activeMenuScreen = companyNavigation.current.screen === "dashboard" ? null : companyNavigation.current.screen;
   const [operatorAction, setOperatorAction] = useState(null);
+  // Track operator: the live map of an active operator's position.
+  const [trackedOperator, setTrackedOperator] = useState(null);
   const [responsibilityOperator, setResponsibilityOperator] = useState(null);
   const [removeOperator, setRemoveOperator] = useState(null);
   const [fleetAction, setFleetAction] = useState(null);
@@ -934,6 +938,7 @@ export default function CompanyWorkspaceScreen({ company, initialTab = "Overview
       return (
         <Colleagues
           canManageOperators={canManageOperators}
+          fleets={fleets}
           onAddOperator={canAddOperators ? requestAddOperator : undefined}
           onManageOperator={setOperatorAction}
           operators={allOperators}
@@ -1301,6 +1306,13 @@ export default function CompanyWorkspaceScreen({ company, initialTab = "Overview
             onConfirm={confirmLeaveCompany}
             open={leaveCompanyOpen}
           />
+          <LiveLocationViewer
+            open={Boolean(trackedOperator)}
+            onClose={() => setTrackedOperator(null)}
+            title={t("liveSharing.trackingName", { name: trackedOperator?.name || t("liveSharing.operator") })}
+            source={trackedOperator ? { kind: "operator", fleetId: trackedOperator.companyFleetId } : null}
+            fleetType={String(trackedOperator?.fleetType || "").toLowerCase()}
+          />
           <OperatorActionDrawer
             busy={managementBusy}
             canManage={canManageOperators}
@@ -1333,6 +1345,12 @@ export default function CompanyWorkspaceScreen({ company, initialTab = "Overview
               setOperatorAction(null);
               setRemoveOperator(operator);
             }}
+            onTrack={operatorAction && operatorAction.serviceStatus !== "suspended" && operatorIsActive(operatorAction, fleets)
+              ? (operator) => {
+                setOperatorAction(null);
+                setTrackedOperator(operator);
+              }
+              : undefined}
             onRestore={(operator) => runOperatorAction(operator, "restore")}
             onSuspend={(operator) => runOperatorAction(operator, "suspend")}
             open={Boolean(operatorAction)}
@@ -1681,6 +1699,7 @@ function FleetHqMenuScreen({
             {screen === "operators" ? (
               <OperatorAccessPanel
                 canManageOperators={canManageOperators}
+                fleets={fleets}
                 onAddOperator={onAddOperator}
                 onManageOperator={onManageOperator}
                 operators={operators}
@@ -1770,7 +1789,7 @@ function FleetRecordsPanel({ fleets, onEdit }) {
   );
 }
 
-function OperatorAccessPanel({ canManageOperators, onAddOperator, onManageOperator, operators, onOpenOperatorDashboard }) {
+function OperatorAccessPanel({ canManageOperators, fleets = [], onAddOperator, onManageOperator, operators, onOpenOperatorDashboard }) {
   useUiLocale();
   return (
     <div className="grid gap-4">
@@ -1783,6 +1802,7 @@ function OperatorAccessPanel({ canManageOperators, onAddOperator, onManageOperat
       </section>
       <Colleagues
         canManageOperators={canManageOperators}
+        fleets={fleets}
         onAddOperator={onAddOperator}
         onManageOperator={onManageOperator}
         operators={operators}
@@ -2424,7 +2444,15 @@ function FleetList({ canManage = false, fleets, onAssignOperator, onManageFleet 
   );
 }
 
-function Colleagues({ canManageOperators, onAddOperator, onManageOperator, operators, onOpenOperatorDashboard }) {
+// Active / Offline: whether the vehicle the operator drives for the company is
+// switched Active (online for bookings), like every other fleet card.
+function operatorIsActive(operator, fleets = []) {
+  if (!operator?.companyFleetId) return false;
+  const fleet = fleets.find((item) => item.id === operator.companyFleetId);
+  return (fleet?.activeStatus || operator.fleetActiveStatus) === "active";
+}
+
+function Colleagues({ canManageOperators, fleets = [], onAddOperator, onManageOperator, operators, onOpenOperatorDashboard }) {
   useUiLocale();
   if (!operators.length) {
     return (
@@ -2460,13 +2488,19 @@ function Colleagues({ canManageOperators, onAddOperator, onManageOperator, opera
       <div className="grid gap-3 md:grid-cols-2 xl:grid-cols-3">
         {operators.map((operator) => {
           const suspended = operator.serviceStatus === "suspended";
+          const active = !suspended && operatorIsActive(operator, fleets);
           return (
             <section key={operatorIdentity(operator)} className="rounded-3xl border border-slate-100 bg-white p-4 shadow-sm">
               <div className="flex items-start gap-3">
                 <div className="min-w-0 flex-1">
-                  <p className={`text-xs font-black uppercase tracking-wide ${suspended ? "text-amber-700" : "text-emerald-700"}`}>
-                    {suspended ? t("urride.companyWs.serviceSuspended") : roleLabel(operator.memberRole || "operator")}
-                  </p>
+                  <div className="flex flex-wrap items-center gap-2">
+                    <p className={`text-xs font-black uppercase tracking-wide ${suspended ? "text-amber-700" : "text-emerald-700"}`}>
+                      {suspended ? t("urride.companyWs.serviceSuspended") : roleLabel(operator.memberRole || "operator")}
+                    </p>
+                    <span data-operator-activity={active ? "active" : "offline"} className={`rounded-full px-2 py-0.5 text-[10px] font-black uppercase ${active ? "bg-emerald-100 text-emerald-800" : "bg-slate-100 text-slate-500"}`}>
+                      {active ? t("liveSharing.active") : t("liveSharing.offline")}
+                    </span>
+                  </div>
                   <h3 className="mt-1 truncate text-lg font-black text-slate-950">{operator.name}</h3>
                   <p className="mt-1 truncate text-sm font-semibold text-slate-500">{operator.publicId}</p>
                 </div>
@@ -3009,7 +3043,7 @@ function OperatorActionButton({ danger = false, detail, disabled, icon, label, o
   );
 }
 
-function OperatorActionDrawer({ busy, canManage, company, error = "", onAddOperator, onAssignVehicle, onClose, onOpenDashboard, onRemove, onRemoveFromVehicle, onResponsibility, onRestore, onSuspend, open, operator }) {
+function OperatorActionDrawer({ busy, canManage, company, error = "", onAddOperator, onAssignVehicle, onClose, onOpenDashboard, onRemove, onRemoveFromVehicle, onResponsibility, onRestore, onSuspend, onTrack, open, operator }) {
   useUiLocale();
   if (!operator && !open) return null;
   const suspended = operator?.serviceStatus === "suspended";
@@ -3020,6 +3054,18 @@ function OperatorActionDrawer({ busy, canManage, company, error = "", onAddOpera
       <div className="max-h-[68dvh] overflow-y-auto bg-slate-50 p-4">
         {error ? <p role="alert" className="mb-3 rounded-2xl border border-rose-200 bg-rose-50 px-4 py-3 text-sm font-bold leading-6 text-rose-800">{translateUi(error)}</p> : null}
         <div className="grid gap-3">
+          {onTrack ? (
+            <OperatorActionButton
+              detail={t("liveSharing.trackOperatorDetail")}
+              disabled={busy}
+              icon={Navigation}
+              label={t("liveSharing.trackOperator")}
+              onClick={() => {
+                onClose?.();
+                onTrack(operator);
+              }}
+            />
+          ) : null}
           <OperatorActionButton
             detail={t("urride.companyWs.viewOpDashboardDetail")}
             disabled={!operator?.operatorId || !onOpenDashboard || busy}

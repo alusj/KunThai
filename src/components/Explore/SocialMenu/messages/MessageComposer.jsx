@@ -7,6 +7,7 @@ import {
   HiOutlinePaperAirplane,
   HiOutlinePhoto,
   HiOutlineShieldCheck,
+  HiOutlineSignal,
   HiOutlineXMark,
   HiStop,
 } from "react-icons/hi2";
@@ -21,6 +22,7 @@ import { inlineErrorMessage } from "../../../../Backend/services/friendlyErrorSe
 import { LiveRecordingStrip } from "../../../shared/recording/LiveRecording";
 import { useVoiceRecorder } from "../../../shared/voice/useVoiceRecorder";
 import { VoiceNoteDraft } from "../../../shared/voice/VoiceNotePlayer";
+import LiveShareDurationSheet from "../../../shared/liveLocation/LiveShareDurationSheet";
 
 function readFileAsDataUrl(file) {
   return new Promise((resolve, reject) => {
@@ -41,6 +43,7 @@ export default function MessageComposer({ focused = false, onAction, onActivity,
   const [notice, setNotice] = useState("");
   const [sending, setSending] = useState(false);
   const [actionsOpen, setActionsOpen] = useState(false);
+  const [liveSheetOpen, setLiveSheetOpen] = useState(false);
   const fileInputRef = useRef(null);
   const voice = useVoiceRecorder({
     module: "messages",
@@ -143,11 +146,11 @@ export default function MessageComposer({ focused = false, onAction, onActivity,
     voice.toggle();
   }
 
-  async function runAction(action) {
+  async function runAction(action, payload) {
     setActionsOpen(false);
     setNotice("");
     try {
-      const result = await onAction?.(action);
+      const result = await onAction?.(action, payload);
       if (result?.ok === false) {
         setNotice(result.error || i18nText("ui.literals.k18f909a27edd"));
       }
@@ -202,6 +205,17 @@ export default function MessageComposer({ focused = false, onAction, onActivity,
           >
             <HiOutlineMapPin className="text-lg" />
             {t("messages.shareLocation")}
+          </button>
+          <button
+            type="button"
+            onClick={() => {
+              setActionsOpen(false);
+              setLiveSheetOpen(true);
+            }}
+            className="flex w-full items-center gap-3 rounded-2xl px-4 py-3 text-left hover:bg-emerald-50 hover:text-emerald-700"
+          >
+            <HiOutlineSignal className="text-lg" />
+            {t("liveSharing.shareLive")}
           </button>
           <button
             type="button"
@@ -283,6 +297,15 @@ export default function MessageComposer({ focused = false, onAction, onActivity,
         <HiOutlinePaperAirplane />
       </button>
       </div>
+      <LiveShareDurationSheet
+        open={liveSheetOpen}
+        onClose={() => setLiveSheetOpen(false)}
+        body={t("liveSharing.messageDurationBody")}
+        onStart={async (minutes) => {
+          const result = await onAction?.("shareLiveLocation", { minutes });
+          if (result?.ok === false) throw new Error(result.error || t("liveSharing.startFailed"));
+        }}
+      />
     </form>
   );
 }

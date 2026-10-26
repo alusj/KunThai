@@ -42,6 +42,7 @@ import {
 import { showToast } from "../../Backend/services/toastService";
 import AppBackTab from "../shared/AppBackTab";
 import LiveTripMetric from "./live/LiveTripMetric";
+import TripLiveLocationControls from "./live/TripLiveLocationControls";
 import { isParcelPickupPhase, useParcelTracking } from "./live/useParcelTracking";
 import { buildParcelTrackingUrl, buildReceiverSmsUrl } from "../services/parcelHandoverService";
 import VerificationBadge from "./verification/VerificationBadge";
@@ -402,6 +403,10 @@ function TripCard({ trip, onOpenActions, onTrackParcel, onCancel, onConfirmStart
         </button>
       ) : null}
 
+      {/* Accepted until it ends: Track operator, Share live location, and
+          the operator's live location when they share it. */}
+      <TripLiveLocationControls trip={trip} role="passenger" className="mt-4" />
+
       {isLive ? (
         <div className="mt-4 grid gap-3 sm:grid-cols-[1fr_auto] sm:items-center">
           <LiveTripMetric trip={trip} />
@@ -493,7 +498,7 @@ function TripActionScreen({ screen, onBack, onOpen, onRun, onSubmitSupport, onSu
         {screen.type === "hub" ? <ActionHub trip={trip} onOpen={onOpen} onOpenEmergencyArea={onOpenEmergencyArea} /> : null}
         {screen.type === "track" ? <ParcelTrackScreen trip={trip} onOpen={onOpen} onOpenParcelMap={onOpenParcelMap} /> : null}
         {screen.type === "pause" ? <PauseScreen trip={trip} onRun={onRun} /> : null}
-        {screen.type === "share" ? <ShareLocationScreen /> : null}
+        {screen.type === "share" ? <ShareLocationScreen trip={trip} /> : null}
         {screen.type === "emergency" ? <EmergencyScreen trip={trip} onOpen={onOpen} onOpenEmergencyArea={onOpenEmergencyArea} /> : null}
         {screen.type === "contact" ? <ContactOperatorScreen trip={trip} /> : null}
         {screen.type === "report" ? <ReportScreen trip={trip} priority={screen.priority || "high"} onSubmit={onSubmitSupport} /> : null}
@@ -600,7 +605,7 @@ function ConfirmPanel({ icon, title, body, actionLabel, onConfirm, danger = fals
   );
 }
 
-function ShareLocationScreen() {
+function ShareLocationScreen({ trip }) {
   useI18n();
   const [status, setStatus] = useState(t("urride.activeTrips.shareTapPrompt"));
   const [shareUrl, setShareUrl] = useState("");
@@ -632,9 +637,13 @@ function ShareLocationScreen() {
       <FiShare2 className="text-emerald-700" size={24} />
       <h2 className="mt-3 text-xl font-black text-slate-950">{t("urride.activeTrips.shareHeading")}</h2>
       <p className="mt-2 text-sm font-semibold leading-6 text-slate-600">{translateUi(status)}</p>
+      {/* Live, for a set time, to everyone on this trip. */}
+      <TripLiveLocationControls trip={trip} role="passenger" className="mt-4" />
+      {/* Or a one-off map link to anyone outside KunThai. */}
+      <p className="mt-5 text-xs font-black uppercase tracking-[0.14em] text-slate-500">{t("liveSharing.orSendLink")}</p>
       {shareUrl ? <a href={shareUrl} target="_blank" rel="noreferrer" className="mt-3 block break-all rounded-xl bg-slate-50 p-3 text-xs font-bold text-emerald-700">{shareUrl}</a> : null}
-      <button type="button" onClick={shareLocation} disabled={busy || !navigator.geolocation} className="mt-5 h-12 w-full rounded-2xl bg-emerald-600 text-sm font-black text-white disabled:bg-gray-300">
-        {busy ? t("urride.activeTrips.locating") : t("urride.activeTrips.shareLive")}
+      <button type="button" onClick={shareLocation} disabled={busy || !navigator.geolocation} className="mt-3 h-12 w-full rounded-2xl border border-gray-200 bg-white text-sm font-black text-slate-800 disabled:bg-gray-100">
+        {busy ? t("urride.activeTrips.locating") : t("liveSharing.sendMapLink")}
       </button>
     </section>
   );

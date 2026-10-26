@@ -38,6 +38,7 @@ import { haptics, sounds } from "../services/feedbackService";
 import { showToast } from "../services/toastService";
 import { shortErrorToast } from "../services/friendlyErrorService";
 import { t as i18nText } from "../../i18n/index";
+import { startLiveShare } from "../../components/services/liveLocationShareService";
 
 const CONVERSATION_SYNC_DELAY_MS = 700;
 
@@ -912,6 +913,18 @@ export function useExploreMessages(currentProfile, initialRecipient) {
         }),
       );
       return { ok: true };
+    }
+
+    // Live location for a chosen time (at most 1 hour): the other person
+    // watches it move until it ends (liveLocationShareService).
+    if (action === "shareLiveLocation") {
+      const share = await startLiveShare({ context: "message", conversationId: activeConversation.id, minutes: payload.minutes });
+      const until = new Date(share.expiresAt).toLocaleTimeString([], { hour: "numeric", minute: "2-digit" });
+      return sendMessage({
+        type: "location_share",
+        body: `${myName} is sharing their live location until ${until}.`,
+        metadata: { live: true, shareId: share.id, expiresAt: share.expiresAt, sharerName: myName },
+      });
     }
 
     if (action === "requestLocation") {

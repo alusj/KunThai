@@ -100,6 +100,7 @@ import VerificationRequestNotice from "../shared/VerificationRequestNotice";
 import { useDashboardResumeHold } from "../../Backend/hooks/useDashboardResumeHold";
 import { notificationDisplayText } from "../../Backend/services/notificationText";
 import ExpandableText from "../shared/ExpandableText";
+import TripLiveLocationControls from "./live/TripLiveLocationControls";
 import { NAV_TRANSITION_MS } from "../shared/navigationMotion";
 
 function formatOperatorMoney(value, account = null) {
@@ -2377,6 +2378,10 @@ export function OperatorTripRequestCard({ passenger, account, isActive, readOnly
           {t("urride.opDash.awaitingApproval")}
         </div>
       ) : null}
+
+      {/* Accepted until it ends: share live location with the passenger, and
+          see theirs when they share it. */}
+      {!readOnly ? <TripLiveLocationControls trip={{ id: passenger.id, rawStatus: status }} role="operator" className="mt-4" /> : null}
 
       {isInProgress || isPaused ? (
         <div className="mt-4 rounded-2xl border border-green-100 bg-green-50 px-4 py-3 text-sm font-bold text-green-700">
