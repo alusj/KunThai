@@ -136,7 +136,8 @@ begin
   end if;
 
   select nullif(btrim(coalesce(profile.display_name, profile.username, '')), '') into v_name
-  from public.profiles profile where profile.id = v_user;
+  from public.explore_profiles profile where profile.user_id = v_user
+  limit 1;
 
   -- One running share per person and place: a new one replaces it.
   update public.live_location_shares
