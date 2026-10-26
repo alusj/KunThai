@@ -12,7 +12,7 @@ import { stopAllExploreMedia } from "../../../shared/singleMediaPlayback";
 import { readExploreSettings } from "../../../../../Backend/services/explore/preferencesService";
 import VideoCard from "../videos/VideoCard";
 import { getSwipContext, getVideoCategoryLabel, getSwipVideos, isRenderableSwipPost } from "../videos/swipUtils";
-import { uiText as translateUi, useI18n as useUiLocale } from "../../../../../i18n/index.js";
+import { uiText as translateUi } from "../../../../../i18n/index.js";
 
 const WHEEL_THRESHOLD_PX = 70;
 const WHEEL_LOCK_MS = 720;
@@ -228,8 +228,10 @@ export default function All({ active = true, currentUserId = "", focusPostId = "
     );
   }
 
+  // No loading cards: the first page and clips are fetched at app start
+  // (swipStartupPrefetch), so this is only ever a plain dark moment.
   if (feed.loading && !videos.length) {
-    return <SwipSkeleton />;
+    return <div className="h-full min-h-0 w-full bg-slate-950" />;
   }
 
   if (!videos.length) {
@@ -394,22 +396,6 @@ function swipBufferAhead() {
   if (connection?.saveData || effectiveType === "slow-2g" || effectiveType === "2g") return 0;
   if (effectiveType === "3g") return 1;
   return SWIP_PRELOAD_AHEAD;
-}
-
-function SwipSkeleton() {
-  useUiLocale();
-  return (
-    <div className="relative h-full min-h-0 w-full overflow-hidden bg-slate-950">
-      <div className="absolute inset-0 animate-pulse bg-gradient-to-b from-slate-900 via-slate-800 to-slate-950" />
-      <div className="absolute bottom-10 left-4 right-24 space-y-3">
-        <div className="h-12 w-12 animate-pulse rounded-full bg-white/20" />
-        <div className="h-5 w-48 animate-pulse rounded-full bg-white/20" />
-        <div className="h-4 w-32 animate-pulse rounded-full bg-white/15" />
-        <div className="h-4 w-56 animate-pulse rounded-full bg-white/15" />
-      </div>
-      <div className="absolute bottom-28 right-3 h-56 w-14 animate-pulse rounded-full bg-white/15" />
-    </div>
-  );
 }
 
 class SwipPostBoundary extends Component {

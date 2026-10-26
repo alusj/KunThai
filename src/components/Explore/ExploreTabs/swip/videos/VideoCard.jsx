@@ -28,6 +28,8 @@ import { t as i18nText } from "../../../../../i18n/index";
 import { uiText as translateUi, useI18n as useUiLocale } from "../../../../../i18n/index.js";
 import { inlineErrorMessage } from "../../../../../Backend/services/friendlyErrorService";
 import { dropPostedVideoFile, notifyPostedVideoPlaying, postedVideoLocalUrl } from "../../../../../Backend/services/explore/postedVideoPlayback";
+import { recordLifecycle } from "../../../../../Backend/services/lifecycleAudit";
+import { SWIP_STARTUP_VIDEO_EVENT, dropSwipStartupVideo, swipStartupVideoUrl } from "../../../../../Backend/services/explore/swipStartupPrefetch";
 
 const MAX_SWIP_SECONDS = 15;
 
@@ -104,7 +106,11 @@ export default function VideoCard({
   // (postedVideoPlayback), so it starts at once; otherwise the uploaded copy.
   const [localCopyFailed, setLocalCopyFailed] = useState(false);
   const localCopyUrl = localCopyFailed ? "" : postedVideoLocalUrl(post.id);
-  const videoSrc = localCopyUrl || post.video_url;
+  // The first clips are downloaded at app start (swipStartupPrefetch), so
+  // Swip's first video plays at once. Chosen when the card appears (or when
+  // the download lands before this clip started), never mid-play.
+  const [startupCopyUrl, setStartupCopyUrl] = useState(() => swipStartupVideoUrl(post.id));
+  const videoSrc = localCopyUrl || startupCopyUrl || post.video_url;
   // The spinner waits a moment: a clip that starts quickly (already buffered,
   // or a short network hiccup) never flashes it.
   const [showSpinner, setShowSpinner] = useState(false);
@@ -332,6 +338,17 @@ export default function VideoCard({
 
     window.addEventListener("explore-open-post-comments", handleOpenPostComments);
     return () => window.removeEventListener("explore-open-post-comments", handleOpenPostComments);
+  }, [post.id]);
+
+  useEffect(() => {
+    function handleStartupCopy(event) {
+      if (event.detail?.postId !== post.id) return;
+      const video = videoRef.current;
+      if (video && (video.currentTime > 0 || video.readyState >= 3)) return;
+      setStartupCopyUrl(swipStartupVideoUrl(post.id));
+    }
+    window.addEventListener(SWIP_STARTUP_VIDEO_EVENT, handleStartupCopy);
+    return () => window.removeEventListener(SWIP_STARTUP_VIDEO_EVENT, handleStartupCopy);
   }, [post.id]);
 
   useEffect(() => {
@@ -883,6 +900,12 @@ export default function VideoCard({
             dropPostedVideoFile(post.id);
             return;
           }
+          if (startupCopyUrl) {
+            // The downloaded copy did not play: stream the clip instead.
+            setStartupCopyUrl("");
+            dropSwipStartupVideo(post.id);
+            return;
+          }
           setVideoLoading(false);
           setMediaError(i18nText("ui.literals.kb17dd3bd9917"));
           onMediaUnavailable?.();
@@ -898,6 +921,9 @@ export default function VideoCard({
           setVideoLoading(false);
           if (!primingRef.current) markPlaybackViewed();
           if (!primingRef.current && (activeRef.current || active)) notifyPostedVideoPlaying(post.id);
+          if (startupCopyUrl && !primingRef.current && (activeRef.current || active)) {
+            recordLifecycle("swip-prefetch", "playing", `downloaded copy at ${Math.round(performance.now())} ms`);
+          }
         }}
         onStalled={() => setVideoLoading(true)}
         onWaiting={() => setVideoLoading(true)}

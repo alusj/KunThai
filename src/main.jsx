@@ -18,6 +18,7 @@ import { installMobileViewportVariables } from "./Backend/services/mobileViewpor
 import { installNativeShare } from "./Backend/services/nativeShare";
 import { lazyWithRetry } from "./Backend/utils/lazyWithRetry";
 import { useI18n as useUiLocale } from "./i18n/index.js";
+import { startSwipStartupPrefetch } from "./Backend/services/explore/swipStartupPrefetch";
 
 registerKunThaiServiceWorker();
 initNativePushNotifications();
@@ -28,6 +29,11 @@ installMobileViewportVariables();
 // In the iOS / Android app, Share buttons open the phone's share sheet and
 // share kunthai.app links rather than the app's on-device address.
 installNativeShare();
+// Swip's first page and first clips download while the splash is still up,
+// so Swip plays at once (not on the admin or public pages).
+if (!/^\/(admin|policy-center|privacy|terms|support|track)(\/|$)/.test(window.location.pathname)) {
+  startSwipStartupPrefetch();
+}
 
 const AdminApp = lazyWithRetry(() => import("./admin/AdminApp.jsx"));
 const PublicPolicyPage = lazyWithRetry(() => import("./components/public/PublicPolicyPage.jsx"));

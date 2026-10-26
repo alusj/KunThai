@@ -298,6 +298,11 @@ export function clearFeedMemory(nextUserId = "") {
   }
 }
 
+// The feeds about to load are this account's: forget another one's first.
+export function adoptFeedAccount(userId = "") {
+  if ((userId || "") !== feedMemoryUserId) clearFeedMemory(userId);
+}
+
 let feedAuthWatchStarted = false;
 
 function watchFeedAccount() {
@@ -366,6 +371,68 @@ function writeFeedMemory(scope, patch) {
 
 function buildRemoteReactionSet(remoteIds = []) {
   return new Set(Array.isArray(remoteIds) ? remoteIds.filter(Boolean) : []);
+}
+
+// First pages fetched before any feed hook mounted (Swip at app start, behind
+// the splash), keyed like FEED_MEMORY. A hook mounting meanwhile waits for it
+// instead of asking for the same page again.
+const FEED_PREFETCHES = new Map();
+
+// Loads a feed's first page into the shared memory (and this device's
+// storage), so its hook starts with the posts. Resolves with the posts, or []
+// when it could not load; never throws.
+export function prefetchExploreFeed(scope = "feed") {
+  const key = feedMemoryKey(scope);
+  const inFlight = FEED_PREFETCHES.get(key);
+  if (inFlight) return inFlight;
+  const cached = readFeedMemory(scope);
+  if (cached?.posts?.length && Date.now() - cached.savedAt < FEED_MEMORY_TTL) {
+    return Promise.resolve(cached.posts);
+  }
+
+  const task = (async () => {
+    const [rawPosts, reactions, currentProfile, ownRecentPosts] = await Promise.all([
+      ["feed", "swip"].includes(scope)
+        ? fetchRecommendedExplorePosts(scope, { limit: FEED_PAGE_SIZE, offset: 0 })
+        : fetchExplorePosts(scope, { limit: FEED_PAGE_SIZE, offset: 0 }),
+      fetchCurrentUserReactions(),
+      getCurrentUserProfile(),
+      fetchCurrentUserRecentExplorePosts(scope, { limit: 12 }).catch(() => []),
+    ]);
+    // Another account signed in meanwhile: these posts are not theirs.
+    if (key !== feedMemoryKey(scope)) return [];
+    const pinnedOwnPosts = ownRecentPosts.map((post) => ({
+      ...post,
+      client_pinned_at: post.client_pinned_at || post.created_at,
+    }));
+    const localPosts = readStoredPosts(scope).filter((post) => (
+      isLocalPost(post) ||
+      isClientPinnedPost(post) ||
+      (isPendingReviewPost(post) && post.user_id === currentProfile?.id)
+    ));
+    const posts = mergePosts(mergePosts(rawPosts, pinnedOwnPosts), localPosts)
+      .filter((post) => postBelongsInScope(post, scope))
+      .filter(isLocallyVisiblePost)
+      .map((post) => applyCurrentProfileToPost(post, currentProfile));
+    const likedPosts = buildRemoteReactionSet(reactions.likes);
+    const savedPosts = buildRemoteReactionSet(reactions.saves);
+    writeFeedMemory(scope, {
+      posts,
+      likedPosts,
+      savedPosts,
+      currentUserId: currentProfile?.id || "",
+      remoteCount: rawPosts.length,
+    });
+    writeStoredPosts(scope, posts);
+    writeStoredSet(LIKE_STORAGE_KEY, likedPosts);
+    writeStoredSet(SAVE_STORAGE_KEY, savedPosts);
+    FEED_LOADED.add(key);
+    return posts;
+  })()
+    .catch(() => [])
+    .finally(() => FEED_PREFETCHES.delete(key));
+  FEED_PREFETCHES.set(key, task);
+  return task;
 }
 
 const LANGUAGE_HINTS = {
@@ -499,6 +566,30 @@ export function useExploreFeed(scope = "feed") {
     const loadId = loadIdRef.current + 1;
     loadIdRef.current = loadId;
     const force = Boolean(options.force);
+    // The first page is already on its way (fetched at app start): use it.
+    const prefetch = !force && FEED_PREFETCHES.get(feedMemoryKey(scope));
+    if (prefetch) {
+      const prefetched = await prefetch;
+      if (loadId !== loadIdRef.current) return;
+      const memory = readFeedMemory(scope);
+      if (prefetched.length && memory?.posts?.length) {
+        postsRef.current = memory.posts;
+        likedPostsRef.current = memory.likedPosts || likedPostsRef.current;
+        savedPostsRef.current = memory.savedPosts || savedPostsRef.current;
+        nextOffsetRef.current = memory.remoteCount ?? memory.posts.filter((post) => !isLocalPost(post)).length;
+        recentModeRef.current = rankedScope && nextOffsetRef.current < FEED_PAGE_SIZE;
+        recentOffsetRef.current = 0;
+        setPosts(memory.posts);
+        setLikedPosts(likedPostsRef.current);
+        setSavedPosts(savedPostsRef.current);
+        setCurrentUserId(memory.currentUserId || "");
+        setHasMore(rankedScope || nextOffsetRef.current === FEED_PAGE_SIZE);
+        setError("");
+        setLoading(false);
+        setRefreshing(false);
+        return;
+      }
+    }
     const cached = readFeedMemory(scope);
     const cachedScopePosts = (cached?.posts || []).filter((post) => postBelongsInScope(post, scope));
     const storedScopePosts = readStoredPosts(scope).filter((post) => postBelongsInScope(post, scope));
