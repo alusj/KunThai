@@ -142,6 +142,8 @@ test("needsBackgroundConsentSheet: explain before prompting, never on the web or
 test("presenceResumeAction: resume only an online operator who allowed location before", () => {
   const online = { activeStatus: "active" };
   assert.equal(presenceResumeAction({ running: false, previouslyGranted: true, account: online }), "start");
+  // Online for their company while the account was loaded for the solo dashboard.
+  assert.equal(presenceResumeAction({ running: false, previouslyGranted: true, account: { activeStatus: "offline", companyActive: true } }), "start");
   // Never prompts at launch.
   assert.equal(presenceResumeAction({ running: false, previouslyGranted: false, account: online }), "none");
   // Already sharing.

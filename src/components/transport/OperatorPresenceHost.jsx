@@ -41,7 +41,7 @@ export default function OperatorPresenceHost({ userId = "" }) {
         if (action !== "start") return;
         await startOperatorLiveLocation({
           displayName: account.form?.name || "KunThai operator",
-          fleetType: account.form?.fleetType || "",
+          fleetType: (account.activeStatus !== "active" && account.companyActive ? account.companyFleetType : account.form?.fleetType) || "",
         });
       } catch {
         // Best-effort: without it the fleet stays bookable, just without a distance.

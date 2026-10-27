@@ -46,11 +46,11 @@ test("returning to the dashboard: a stale refresh can't undo a just-saved change
   assert.equal(shouldPreserveAvailabilityOverride(null, false, now), false);
 });
 
-test("the fleet that is online decides the work mode", () => {
+test("an operator online solo stays solo; otherwise their choice decides", () => {
   const both = { hasSoloFleet: true, hasCompanyFleet: true };
   assert.equal(resolveOperatorWorkMode({ ...both, soloActive: true, storedMode: "company" }), "solo");
-  assert.equal(resolveOperatorWorkMode({ ...both, companyActive: true, storedMode: "solo" }), "company");
   assert.equal(resolveOperatorWorkMode({ ...both, storedMode: "company" }), "company");
+  assert.equal(resolveOperatorWorkMode({ ...both, storedMode: "solo" }), "solo");
   assert.equal(resolveOperatorWorkMode({ ...both }), "solo");
   assert.equal(resolveOperatorWorkMode({ hasSoloFleet: true, storedMode: "company" }), "solo");
   assert.equal(resolveOperatorWorkMode({ hasCompanyFleet: true, storedMode: "solo" }), "company");

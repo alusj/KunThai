@@ -61,6 +61,7 @@ import {
   fetchOperatorDashboard,
   markOperatorAlertRead,
   invalidateOperatorDashboardCache,
+  readCompanyVehicleOnline,
   subscribeOperatorTrips,
   updateOperatorAvailability,
   updateTripControls,
@@ -94,6 +95,7 @@ import {
 import { uiText as translateUi, useI18n as useUiLocale } from "../../i18n/index.js";
 import { inlineErrorMessage, shortErrorToast } from "../../Backend/services/friendlyErrorService";
 import AppPortal from "../shared/AppPortal";
+import CenteredModal from "../shared/CenteredModal";
 import ShareProfileSheet from "../shared/share/ShareProfileSheet";
 import EnforcementNoticeBanner from "../shared/EnforcementNoticeBanner";
 import VerificationRequestNotice from "../shared/VerificationRequestNotice";
@@ -182,6 +184,8 @@ export default function OperatorDashboardScreen({
   const [operatorMenuOpen, setOperatorMenuOpen] = useState(false);
   const [shareProfileOpen, setShareProfileOpen] = useState(false);
   const [leaveCompanyOpen, setLeaveCompanyOpen] = useState(false);
+  // Going online solo while online for the company: { companyName }.
+  const [companyOnlinePrompt, setCompanyOnlinePrompt] = useState(null);
   const [accountDeletionOpen, setAccountDeletionOpen] = useState(false);
   const [operatorAlertsOpen, setOperatorAlertsOpen] = useState(false);
   const [operatorSafetyOpen, setOperatorSafetyOpen] = useState(false);
@@ -328,22 +332,13 @@ export default function OperatorDashboardScreen({
   activeTripRef.current = hasActiveTrip;
 
   // While the operator is online, their position streams into Area View so
-  // passengers can watch them move, marked AVAILABLE or BOOKED. Only going
-  // offline here stops it: opening this screen offline, or a read-only
-  // dashboard (someone else's, or a suspended company's), never touches a
-  // position the operator is sharing for another fleet.
-  const sharingStartedHereRef = useRef(false);
+  // passengers can watch them move, marked AVAILABLE or BOOKED. The share
+  // belongs to the operator, not to this screen: opening or leaving it never
+  // stops it (they may be online with their company), and a read-only
+  // dashboard never touches it. Only switching off here stops it, once the
+  // server has saved it (handleAvailabilityToggle).
   useEffect(() => {
-    if (dashboardReadOnly) return undefined;
-    if (!isActive) {
-      if (sharingStartedHereRef.current) stopOperatorLiveLocation();
-      sharingStartedHereRef.current = false;
-      return undefined;
-    }
-    sharingStartedHereRef.current = true;
-
-    let stop = null;
-    let cancelled = false;
+    if (!isActive || dashboardReadOnly) return;
     const interactive = liveLocationPromptRef.current;
     liveLocationPromptRef.current = false;
     startOperatorLiveLocation({
@@ -351,19 +346,7 @@ export default function OperatorDashboardScreen({
       fleetType: form.fleetType,
       isBooked: () => activeTripRef.current,
       interactive,
-    }).then((cleanup) => {
-      if (cancelled) cleanup?.();
-      else stop = cleanup;
     });
-
-    // Leaving this screen while still online keeps the position flowing
-    // (passengers see the distance and the Area View marker); going offline
-    // stops it on the next run of this effect, and a new start replaces it.
-    return () => {
-      cancelled = true;
-      if (!stop) return;
-      stop = null;
-    };
     // form fields are stable per account; isActive is the real trigger.
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [isActive, dashboardReadOnly]);
@@ -539,12 +522,30 @@ export default function OperatorDashboardScreen({
     });
   }, [account?.fleetId, flashBroadcastNote, refreshDashboard]);
 
-  async function handleAvailabilityToggle() {
+  // Also handed to buttons as onClick, so only an explicit
+  // { leaveCompanyConfirmed: true } skips the company check.
+  async function handleAvailabilityToggle(options) {
     if (dashboardReadOnly) {
       setDashboardError(dashboardReadOnlyReason);
       return;
     }
     if (availabilityInFlightRef.current) return;
+
+    // Only one vehicle takes bookings at a time: going online solo while
+    // online for the company asks first (the server takes the company
+    // vehicle offline).
+    if (!isActive && account?.workMode === "solo" && account?.hasCompanyFleet && options?.leaveCompanyConfirmed !== true) {
+      availabilityInFlightRef.current = true;
+      const company = await readCompanyVehicleOnline().finally(() => {
+        availabilityInFlightRef.current = false;
+      });
+      if (company.online) {
+        const named = (companyAccounts || []).find((item) => item.id === company.companyId)
+          || (companyAccount?.id === company.companyId ? companyAccount : null);
+        setCompanyOnlinePrompt({ companyName: named?.companyName || t("operatorWorkMode.yourCompany") });
+        return;
+      }
+    }
 
     const previousActive = isActive;
     const nextActive = !isActive;
@@ -571,6 +572,7 @@ export default function OperatorDashboardScreen({
         expiresAt: Date.now() + AVAILABILITY_REFRESH_GRACE_MS,
       };
       setIsActive(updatedActive);
+      if (!updatedActive) stopOperatorLiveLocation();
       // Once the change is saved: the same sound and vibration as placing an order.
       haptics.medium("transport");
       sounds.success("transport");
@@ -1105,6 +1107,39 @@ export default function OperatorDashboardScreen({
         name={fleetName}
         subtitle={operatorName}
       />
+
+      <CenteredModal open={Boolean(companyOnlinePrompt)} onClose={() => setCompanyOnlinePrompt(null)} maxWidth="max-w-sm" labelledBy="company-online-title">
+        <div data-direction="company-online-prompt">
+          <span className="flex h-12 w-12 items-center justify-center rounded-2xl bg-amber-50 text-amber-600">
+            <FiBriefcase size={22} />
+          </span>
+          <h2 id="company-online-title" className="mt-4 text-lg font-black text-slate-950">
+            {t("operatorWorkMode.companyOnlineTitle", { company: companyOnlinePrompt?.companyName || "" })}
+          </h2>
+          <p className="mt-2 text-sm font-semibold leading-6 text-slate-600">
+            {t("operatorWorkMode.companyOnlineBody", { company: companyOnlinePrompt?.companyName || "" })}
+          </p>
+          <div className="mt-5 grid gap-2">
+            <button
+              type="button"
+              onClick={() => {
+                setCompanyOnlinePrompt(null);
+                handleAvailabilityToggle({ leaveCompanyConfirmed: true });
+              }}
+              className="h-12 rounded-2xl bg-slate-950 px-4 text-sm font-black text-white"
+            >
+              {t("operatorWorkMode.goOnlineSolo")}
+            </button>
+            <button
+              type="button"
+              onClick={() => setCompanyOnlinePrompt(null)}
+              className="h-12 rounded-2xl border border-slate-200 bg-white px-4 text-sm font-black text-slate-700"
+            >
+              {t("operatorWorkMode.stayWithCompany", { company: companyOnlinePrompt?.companyName || "" })}
+            </button>
+          </div>
+        </div>
+      </CenteredModal>
 
       <OperatorLeaveCompanyDialog
         open={leaveCompanyOpen}

@@ -150,5 +150,7 @@ export function needsBackgroundConsentSheet({ isNative = false, platform = "", p
 // switching account stop sharing where they happen.
 export function presenceResumeAction({ running = false, previouslyGranted = false, account = undefined } = {}) {
   if (running || !previouslyGranted || !account) return "none";
-  return account.activeStatus === "active" ? "start" : "none";
+  // Online solo, or online for their company (whichever dashboard the
+  // account was loaded for).
+  return account.activeStatus === "active" || account.companyActive ? "start" : "none";
 }

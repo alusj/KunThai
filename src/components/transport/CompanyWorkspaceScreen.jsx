@@ -597,37 +597,16 @@ export default function CompanyWorkspaceScreen({ company, initialTab = "Overview
   companyTripRef.current = companyOperatorHasTrip;
 
   // Company operators stream their live position into Area View while online,
-  // exactly like solo operators. Only going offline for the company stops it:
-  // an operator who is online with their solo fleet keeps sharing while they
-  // look at the company workspace.
-  const sharingStartedHereRef = useRef(false);
+  // exactly like solo operators. Opening or leaving this screen never stops
+  // it (the share belongs to the operator, not to a screen); only switching
+  // off here does, once the server has saved it.
   useEffect(() => {
-    if (!basicOperator || !operatorAvailable) {
-      if (sharingStartedHereRef.current) stopOperatorLiveLocation();
-      sharingStartedHereRef.current = false;
-      return undefined;
-    }
-    sharingStartedHereRef.current = true;
-
-    let stop = null;
-    let cancelled = false;
+    if (!basicOperator || !operatorAvailable) return;
     startOperatorLiveLocation({
       displayName: companyOperatorAssignment?.operatorName || "Company operator",
       fleetType: companyOperatorAssignment?.fleetType,
       isBooked: () => companyTripRef.current,
-    }).then((cleanup) => {
-      if (cancelled) cleanup?.();
-      else stop = cleanup;
     });
-
-    // Leaving this screen while still online keeps the position flowing
-    // (passengers see the distance and the Area View marker); going offline
-    // stops it on the next run of this effect, and a new start replaces it.
-    return () => {
-      cancelled = true;
-      if (!stop) return;
-      stop = null;
-    };
   }, [basicOperator, operatorAvailable, companyOperatorAssignment?.companyFleetId, companyOperatorAssignment?.operatorName, companyOperatorAssignment?.fleetType]);
 
   useEffect(() => {
@@ -649,6 +628,7 @@ export default function CompanyWorkspaceScreen({ company, initialTab = "Overview
       const updatedFleet = await updateTransportCompanyOperatorAvailability(companyOperatorAssignment, nextActive);
       const activeNow = updatedFleet?.active_status === "active";
       setOperatorAvailable(activeNow);
+      if (!activeNow) stopOperatorLiveLocation();
       setOperatorDashboardData((current) => current ? {
         ...current,
         fleet: { ...(current.fleet || {}), ...(updatedFleet || {}) },
@@ -1315,7 +1295,9 @@ export default function CompanyWorkspaceScreen({ company, initialTab = "Overview
             open={Boolean(trackedOperator)}
             onClose={() => setTrackedOperator(null)}
             title={t("liveSharing.trackingName", { name: trackedOperator?.name || t("liveSharing.operator") })}
-            source={trackedOperator ? { kind: "operator", fleetId: trackedOperator.companyFleetId } : null}
+            // The vehicle passengers book (transport_fleets), not the company's
+            // fleet record: that is what the operator's position is tied to.
+            source={trackedOperator ? { kind: "operator", fleetId: operatorVehicleId(trackedOperator, fleets) } : null}
             fleetType={String(trackedOperator?.fleetType || "").toLowerCase()}
           />
           <OperatorActionDrawer
@@ -2451,6 +2433,11 @@ function FleetList({ canManage = false, fleets, onAssignOperator, onManageFleet 
 
 // Active / Offline: whether the vehicle the operator drives for the company is
 // switched Active (online for bookings), like every other fleet card.
+function operatorVehicleId(operator, fleets = []) {
+  const fleet = fleets.find((item) => item.id === operator?.companyFleetId);
+  return operator?.transportFleetId || fleet?.transportFleetId || "";
+}
+
 function operatorIsActive(operator, fleets = []) {
   if (!operator?.companyFleetId) return false;
   const fleet = fleets.find((item) => item.id === operator.companyFleetId);

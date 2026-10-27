@@ -638,6 +638,26 @@ export function writeOperatorWorkMode(userId = "", mode = "") {
   invalidateCache("operator-dashboard");
 }
 
+// Before an operator goes online solo: is their company vehicle online right
+// now? Read fresh, since the dashboard's account may be minutes old.
+export async function readCompanyVehicleOnline() {
+  try {
+    const userId = await getCurrentUserId();
+    const { data: operator } = await supabase.from("transport_operators").select("id").eq("user_id", userId).maybeSingle();
+    if (!operator?.id) return { online: false, companyId: "" };
+    const assignment = await selectCompanyFleetAssignment(operator.id, userId);
+    if (!assignment?.transport_fleet_id) return { online: false, companyId: assignment?.company_id || "" };
+    const { data: rows } = await supabase
+      .from("transport_fleets")
+      .select("active_status")
+      .eq("id", assignment.transport_fleet_id)
+      .limit(1);
+    return { online: resolveFleetAvailability(rows?.[0]), companyId: assignment.company_id || "" };
+  } catch {
+    return { online: false, companyId: "" };
+  }
+}
+
 export async function getOperatorAccount() {
   const userId = await getCurrentUserId();
   const { data: operator, error } = await supabase
@@ -659,9 +679,9 @@ export async function getOperatorAccount() {
   let fleet = personalFleet;
   let companyAssignment = null;
   // Always know whether a company fleet exists, so the dashboard can offer
-  // the Solo / Company switch. The fleet that is online decides which one the
-  // dashboard runs (an operator online solo is never moved to the company);
-  // with both offline, the operator's own choice does.
+  // the Solo / Company switch, and whether it is online (the operator stays
+  // findable and sharing their position for the company whichever dashboard
+  // they open). An operator online solo is never moved to the company.
   const availableAssignment = await selectCompanyFleetAssignment(operator.id, userId).catch(() => null);
   const soloActive = resolveFleetAvailability(personalFleet);
   let companyRuntimeFleet = null;
@@ -677,7 +697,6 @@ export async function getOperatorAccount() {
     hasSoloFleet: Boolean(personalFleet),
     hasCompanyFleet: Boolean(availableAssignment),
     soloActive,
-    companyActive: resolveFleetAvailability(companyRuntimeFleet),
     storedMode: readOperatorWorkMode(userId),
   }) === "company";
 
@@ -702,6 +721,10 @@ export async function getOperatorAccount() {
   account.hasSoloFleet = Boolean(personalFleet);
   account.hasCompanyFleet = Boolean(availableAssignment);
   account.workMode = companyAssignment ? "company" : "solo";
+  // Online with the company vehicle (whichever dashboard is showing).
+  account.companyActive = resolveFleetAvailability(companyRuntimeFleet);
+  account.companyFleetType = companyRuntimeFleet?.fleet_type || availableAssignment?.fleet_type || "";
+  account.assignedCompanyId = availableAssignment?.company_id || "";
   if (companyAssignment) {
     account.companyFleetId = companyAssignment.id;
     account.companyId = companyAssignment.company_id || "";
