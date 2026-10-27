@@ -18,6 +18,7 @@ import { Browser } from "@capacitor/browser";
 import supabase from "../lib/supabaseClient";
 import { describeOAuthFailure } from "./oauthErrors";
 import { canUseNativeAppleSignIn, signInWithNativeApple } from "./appleNativeSignIn";
+import { canUseNativeFacebookSignIn, shouldFallBackToWeb, signInWithNativeFacebook } from "./facebookNativeSignIn";
 
 // Custom scheme registered in iOS Info.plist and the Android manifest, and
 // allow-listed in Supabase Redirect URLs (app.kunthai.mobile://**).
@@ -217,6 +218,30 @@ async function startNativeAppleSheet() {
   }
 }
 
+// Facebook through the Facebook SDK (the Facebook app or the existing Facebook
+// session, no password page). Returns false when the browser flow should run
+// instead (e.g. Facebook kept the email back); otherwise it has settled.
+async function startNativeFacebookLogin() {
+  devLog("start Facebook native login");
+  try {
+    const result = await signInWithNativeFacebook();
+    devLog(result.status === "cancelled" ? "Facebook login cancelled" : "session established");
+    emitSettled({ status: result.status });
+    return true;
+  } catch (err) {
+    if (shouldFallBackToWeb(err)) {
+      devLog("Facebook native login unavailable, using the browser", { code: err?.code });
+      return false;
+    }
+    devLog("Facebook native login failed");
+    emitSettled({
+      status: "error",
+      message: describeOAuthFailure({ code: err?.code || "", description: err?.message || "", provider: "facebook" }),
+    });
+    return true;
+  }
+}
+
 // Kick off a native sign-in: create the PKCE authorize URL (without letting
 // supabase-js redirect the webview) and open it in the system browser.
 export async function startNativeOAuth({ provider, intent = "signin" }) {
@@ -226,6 +251,10 @@ export async function startNativeOAuth({ provider, intent = "signin" }) {
 
   if (provider === "apple" && canUseNativeAppleSignIn()) {
     await startNativeAppleSheet();
+    return;
+  }
+
+  if (provider === "facebook" && canUseNativeFacebookSignIn() && (await startNativeFacebookLogin())) {
     return;
   }
 

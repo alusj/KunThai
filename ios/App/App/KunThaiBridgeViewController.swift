@@ -46,6 +46,7 @@ class KunThaiBridgeViewController: CAPBridgeViewController {
 
     override open func capacitorDidLoad() {
         bridge?.registerPluginInstance(KunThaiAppleSignInPlugin())
+        bridge?.registerPluginInstance(KunThaiFacebookLoginPlugin())
         bridge?.registerPluginInstance(KunThaiStoreKitPlugin())
         bridge?.registerPluginInstance(KunThaiVideoPlugin())
         bridge?.registerPluginInstance(KunThaiLaunchPlugin())
