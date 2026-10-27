@@ -6,6 +6,7 @@ import { MentionHashtagSuggestions } from "../../../../shared/MentionHashtagAuto
 import { useMentionHashtagAutocomplete } from "../../../../../../Backend/hooks/useMentionHashtagAutocomplete";
 import { duckExploreVideos, releaseExploreVideoDuck } from "../../../../shared/singleMediaPlayback";
 import VoiceNotePlayer from "../../../../../shared/voice/VoiceNotePlayer";
+import { boostVoiceStream, VOICE_CONSTRAINTS } from "../../../../../shared/voice/voiceBoost";
 
 // Ducking key for the mic, shared by every comment composer instance.
 const RECORDING_DUCK_KEY = "comment-voice-recording";
@@ -74,13 +75,23 @@ export default function CommentDrawerComposer({ currentUserId, onSubmit, onSendP
 
     let stream;
     try {
-      stream = await navigator.mediaDevices.getUserMedia({ audio: true });
+      stream = await navigator.mediaDevices.getUserMedia(VOICE_CONSTRAINTS);
     } catch {
       setRecordError(translate("ui.literals.k616aa6d808cc"));
       return;
     }
 
-    const recorder = new MediaRecorder(stream);
+    // Silence (or pause) the video behind the drawer so the mic hears only
+    // the voice, and record the voice louder.
+    duckExploreVideos(RECORDING_DUCK_KEY, "recording");
+    const boosted = await boostVoiceStream(stream);
+    let recorder;
+    try {
+      recorder = new MediaRecorder(boosted.stream);
+    } catch {
+      boosted.close();
+      recorder = new MediaRecorder(stream);
+    }
     chunksRef.current = [];
     recorderRef.current = recorder;
     discardRecordingRef.current = false;
@@ -90,6 +101,7 @@ export default function CommentDrawerComposer({ currentUserId, onSubmit, onSendP
     };
 
     recorder.onstop = async () => {
+      boosted.close();
       stream.getTracks().forEach((track) => track.stop());
       releaseExploreVideoDuck(RECORDING_DUCK_KEY);
       recorderRef.current = null;
@@ -104,8 +116,6 @@ export default function CommentDrawerComposer({ currentUserId, onSubmit, onSendP
       if (blob.size) setAudioPreview(await fileToDataUrl(new File([blob], "comment-voice.webm", { type: blob.type })));
     };
 
-    // Quiet (or pause) the video behind the drawer so the mic hears the voice.
-    duckExploreVideos(RECORDING_DUCK_KEY, "recording");
     recorder.start();
     setRecordError("");
     setAudioPreview("");

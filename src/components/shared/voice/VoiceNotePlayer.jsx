@@ -2,7 +2,7 @@ import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { Loader2, Mic, Pause, Play } from "lucide-react";
 
 import { useI18n } from "../../../i18n";
-import { voiceCommentAudioHandlers } from "../../Explore/shared/singleMediaPlayback";
+import { duckExploreVideos, releaseExploreVideoDuck, voiceCommentAudioHandlers } from "../../Explore/shared/singleMediaPlayback";
 import { formatVoiceTime, voiceWaveform } from "./voiceNoteModel";
 
 // One voice note at a time across the app, including notes played through the
@@ -107,12 +107,16 @@ export default function VoiceNotePlayer({ src = "", seed = "", durationHint = 0,
           // Already stopped.
         }
         setPlaying(false);
+        releaseExploreVideoDuck(source);
         if (stopActiveFallback === halt) stopActiveFallback = null;
       };
       source.onended = () => {
         halt();
         setCurrent(0);
       };
+      // Videos drop to 5% (or pause, on iOS) while the note plays, as with
+      // the <audio> element.
+      duckExploreVideos(source, "playback");
       source.start(0, from);
       fallbackRef.current = { context, buffer: decoded, stop: halt, startedAt };
       stopActiveFallback = halt;
