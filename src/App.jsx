@@ -339,6 +339,15 @@ export default function App() {
   };
   const appGestureRef = useRef(null);
   const mainPanelRefs = useRef({});
+  const mainSlideTokenRef = useRef(null);
+  // The screen the app has settled on: it becomes the active one (media,
+  // scroll listeners, refreshes) only once the slide to it has finished.
+  // Flipping `active` at the tap re-rendered both screens before the slide
+  // could start (0.3-0.5 s on a mid-range phone); after it, nothing moves.
+  const [settledPage, setSettledPage] = useState(page);
+  useEffect(() => {
+    if (!leavingPage) setSettledPage(page);
+  }, [leavingPage, page]);
   const mainSpacerRef = useRef(null);
   const changePage = useCallback((nextPage) => {
     if (!nextPage || nextPage === page) {
@@ -423,6 +432,16 @@ export default function App() {
       window.scrollTo(0, target);
       return;
     }
+    if (leavingPage.phase === "running") {
+      // A finger-swiped screen held its drag offset inline; dropped in the
+      // same commit as the leave class, so it slides on from there.
+      const leaving = mainPanelRefs.current[leavingPage.page];
+      if (leaving) {
+        leaving.style.transition = "";
+        leaving.style.transform = "";
+      }
+      return;
+    }
     if (leavingPage.phase !== "pending") return;
     const entering = mainPanelRefs.current[page];
     const leaving = mainPanelRefs.current[leavingPage.page];
@@ -448,14 +467,28 @@ export default function App() {
       second = window.requestAnimationFrame(() => {
         setLeavingPage((current) => (current && current.phase === "pending" ? { ...current, phase: "running" } : current));
         window.clearTimeout(leavingTimerRef.current);
-        leavingTimerRef.current = window.setTimeout(() => {
+        const entering = mainPanelRefs.current[leavingPage.to];
+        const token = {};
+        mainSlideTokenRef.current = token;
+        // Land the switch when the slide (a CSS transition, index.css) has
+        // really ended: a busy phone can start it late, and a fixed timer then
+        // cut it short. The timer only backs up a missing event.
+        const finish = () => {
+          entering?.removeEventListener("transitionend", onEnd);
+          // A slide replaced by a newer switch ends nothing.
+          if (mainSlideTokenRef.current !== token) return;
+          window.clearTimeout(leavingTimerRef.current);
           // Settle on the offset the incoming window shows now: its content
           // can change height as it becomes active, and the browser keeps
           // the view anchored inside the window while it slides.
-          const entering = mainPanelRefs.current[leavingPage.to];
           if (entering) pageScrollRef.current[leavingPage.to] = entering.scrollTop;
-          setLeavingPage(null);
-        }, MAIN_SLIDE_MS + 40);
+          setLeavingPage((current) => (current && current.to === leavingPage.to && current.page === leavingPage.page ? null : current));
+        };
+        const onEnd = (event) => {
+          if (event.target === entering && event.propertyName === "transform") finish();
+        };
+        entering?.addEventListener("transitionend", onEnd);
+        leavingTimerRef.current = window.setTimeout(finish, MAIN_SLIDE_MS + 500);
       });
     });
     return () => {
@@ -1165,8 +1198,12 @@ export default function App() {
       if (pending) return "kt-main-leave-hold kt-main-window block";
       return `${leavingPage.direction === "backward" ? "kt-main-leave-backward" : "kt-main-leave-forward"} kt-main-window block`;
     }
+    // Kept laid out, collapsed and invisible (as Explore's hidden tabs):
+    // display:none threw away a screen's whole layout, and coming back to
+    // Explore then rebuilt all of UrFeed before the slide could start (about
+    // a second after the tap on a mid-range phone).
     if (page !== targetPage) {
-      return "hidden";
+      return "kt-tab-hidden";
     }
 
     const backward = mainPageDirection === "backward";
@@ -1212,7 +1249,7 @@ export default function App() {
             >
               <Explore
                 key={`explore-${dashboardResumeKey}`}
-                active={page === "explore"}
+                active={settledPage === "explore"}
                 onNavigateMain={changePage}
                 onScreenModeChange={setExploreFullScreen}
                 user={user}
@@ -1230,7 +1267,7 @@ export default function App() {
             >
               <Marketplace
                 key={`marketplace-${dashboardResumeKey}`}
-                active={page === "marketplace"}
+                active={settledPage === "marketplace"}
                 nav={marketplaceNav}
                 setNav={setMarketplaceNav}
                 onActivityChange={setMarketplaceActivityOpen}
@@ -1253,7 +1290,7 @@ export default function App() {
                 navigationRequest={transportNavigationRequest}
                 onNavigationRequestHandled={setTransportNavigationRequest}
                 userId={userId}
-                active={page === "transport"}
+                active={settledPage === "transport"}
               />
             </section>
           ) : null}

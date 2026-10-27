@@ -1234,7 +1234,12 @@ export default function Explore({ active = true, onNavigateMain, onScreenModeCha
     // (~13,000px) into a moving layer at the start of the slide; that took
     // longer than the slide itself, so it showed up nearly finished. The
     // incoming tab is a screen-sized panel, cheap to move.
-    prepareIncomingPanel(tab, -sign * (width - 1));
+    // While it waits (two frames) it sits in its final place at 1% opacity:
+    // phones paint only the visible part of a layer, so a tab waiting beside
+    // the screen was painted during the slide itself (a jump, then a pause).
+    // Here all of it is painted first, unseen, and then it slides in whole.
+    prepareIncomingPanel(tab, 0);
+    toNode.style.opacity = "0.01";
     toNode.style.willChange = "transform";
     // The same soft edge as the app's other screen pushes.
     toNode.style.boxShadow = `${sign < 0 ? -10 : 10}px 0 28px rgba(2, 6, 23, 0.16)`;
@@ -1249,6 +1254,11 @@ export default function Explore({ active = true, onNavigateMain, onScreenModeCha
         // only 15-30 frames a second showed ~70% of a front-loaded slide in
         // its first frame, so it read as a jump. This spreads it over frames.
         const transition = `transform ${TAB_TAP_SLIDE_MS}ms cubic-bezier(0.4, 0, 0.2, 1)`;
+        // To the side (no transition), shown, then the slide in.
+        toNode.style.transition = "none";
+        toNode.style.transform = `translate3d(${-sign * width}px, 0, 0)`;
+        toNode.style.opacity = "";
+        void toNode.offsetWidth;
         toNode.style.transition = transition;
         toNode.style.transform = "translate3d(0, 0, 0)";
         // Switch once the slide has really finished: a busy phone can start
@@ -1390,6 +1400,7 @@ export default function Explore({ active = true, onNavigateMain, onScreenModeCha
       node.style.visibility = "";
       node.style.willChange = "";
       node.style.boxShadow = "";
+      node.style.opacity = "";
     });
   }
 
