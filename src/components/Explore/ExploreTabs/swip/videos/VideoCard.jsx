@@ -24,6 +24,7 @@ import { isTranslatableText } from "../../../../../Backend/services/ai/exploreAi
 import SwipActionRail from "./SwipActionRail";
 import SwipCaption from "./SwipCaption";
 import VideoProgress from "./VideoProgress";
+import { getKnownSwipVideoFit, getSwipVideoFit, rememberSwipVideoSize } from "./swipUtils";
 import { t as i18nText } from "../../../../../i18n/index";
 import { uiText as translateUi, useI18n as useUiLocale } from "../../../../../i18n/index.js";
 import { inlineErrorMessage } from "../../../../../Backend/services/friendlyErrorService";
@@ -152,7 +153,44 @@ export default function VideoCard({
   });
   const trackingPostRef = useRef(post);
   const trackingClipDurationRef = useRef(MAX_SWIP_SECONDS);
-  const videoFitClass = fullBleed || fullscreen ? "object-cover" : "object-contain";
+  // Phone-format clips fill the screen; wider ones show whole over a blurred
+  // copy of themselves. Decided from the clip's real size once it is known.
+  // Keyed by post so a card reused for another clip does not keep the old fit.
+  const [measuredFit, setMeasuredFit] = useState({ postId: "", fit: "" });
+  const videoFit = measuredFit.postId === post.id ? measuredFit.fit : getKnownSwipVideoFit(post);
+  const backdropRef = useRef(null);
+  const backdropDrawnAtRef = useRef(0);
+  const videoContained = !(fullBleed || fullscreen) || videoFit === "fit";
+  const videoFitClass = videoContained ? "object-contain" : "object-cover";
+
+  const readVideoSize = useCallback((video) => {
+    const fit = getSwipVideoFit(video?.videoWidth, video?.videoHeight);
+    if (!fit) return;
+    rememberSwipVideoSize(post.id, video.videoWidth, video.videoHeight);
+    setMeasuredFit({ postId: post.id, fit });
+  }, [post.id]);
+
+  const drawBackdrop = useCallback((video, force = false) => {
+    const canvas = backdropRef.current;
+    if (!canvas || !video || video.readyState < 2) return;
+    const now = performance.now();
+    if (!force && now - backdropDrawnAtRef.current < 1000) return;
+    backdropDrawnAtRef.current = now;
+    try {
+      canvas.getContext("2d")?.drawImage(video, 0, 0, canvas.width, canvas.height);
+    } catch {
+      // A frame that cannot be drawn leaves the dark backdrop.
+    }
+  }, []);
+
+  useEffect(() => {
+    // A clip downloaded at startup may already know its size when this mounts.
+    readVideoSize(videoRef.current);
+  }, [readVideoSize, videoSrc]);
+
+  useEffect(() => {
+    if (videoContained) drawBackdrop(videoRef.current, true);
+  }, [drawBackdrop, videoContained]);
 
   const clip = useMemo(() => getClipWindow(post, progress.realDuration || 0), [post, progress.realDuration]);
   trackingPostRef.current = post;
@@ -883,6 +921,15 @@ export default function VideoCard({
       className="relative h-full w-full min-w-0 select-none overflow-hidden rounded-none border-0 bg-slate-950 shadow-sm"
       style={{ WebkitTouchCallout: "none" }}
     >
+      {videoContained ? (
+        <canvas
+          ref={backdropRef}
+          width={32}
+          height={32}
+          aria-hidden="true"
+          className="pointer-events-none absolute inset-0 h-full w-full scale-125 opacity-60 blur-2xl brightness-75"
+        />
+      ) : null}
       <video
         ref={videoRef}
         src={videoSrc}
@@ -928,12 +975,20 @@ export default function VideoCard({
         onStalled={() => setVideoLoading(true)}
         onWaiting={() => setVideoLoading(true)}
         onDurationChange={(event) => updateVideoProgress(event.currentTarget)}
-        onLoadedMetadata={(event) => updateVideoProgress(event.currentTarget)}
+        onLoadedMetadata={(event) => {
+          readVideoSize(event.currentTarget);
+          updateVideoProgress(event.currentTarget);
+        }}
+        onLoadedData={(event) => drawBackdrop(event.currentTarget, true)}
+        onSeeked={(event) => drawBackdrop(event.currentTarget, true)}
         onPlay={(event) => {
           if (primingRef.current) return;
           pauseOtherExploreMedia(event.currentTarget, { muteVideos: false });
         }}
-        onTimeUpdate={handleTimeUpdate}
+        onTimeUpdate={(event) => {
+          if (videoContained) drawBackdrop(event.currentTarget);
+          handleTimeUpdate(event);
+        }}
         className={`absolute inset-0 h-full w-full ${videoFitClass}`}
       />
 

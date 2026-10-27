@@ -109,3 +109,38 @@ export function isRenderableSwipPost(post) {
     return false;
   }
 }
+
+// Tall clips (9:16 and taller, give or take a little) fill the screen; anything
+// wider (3:4, square, 16:9) shows whole over a blurred copy of itself, the way
+// TikTok and Reels show TV-format video.
+const SWIP_FILL_MAX_ASPECT = 0.68;
+const swipVideoSizes = new Map();
+
+function positiveNumber(value) {
+  const number = Number(value);
+  return Number.isFinite(number) && number > 0 ? number : 0;
+}
+
+export function getSwipVideoFit(width, height) {
+  const w = positiveNumber(width);
+  const h = positiveNumber(height);
+  if (!w || !h) return "";
+  return w / h <= SWIP_FILL_MAX_ASPECT ? "fill" : "fit";
+}
+
+// The fit already known for a post: stored size, or one seen on this device.
+export function getKnownSwipVideoFit(post) {
+  const meta = post?.media_meta || post?.mediaMeta || {};
+  const stored = getSwipVideoFit(
+    meta.videoWidth ?? meta.width ?? post?.video_width,
+    meta.videoHeight ?? meta.height ?? post?.video_height,
+  );
+  if (stored) return stored;
+  const seen = post?.id ? swipVideoSizes.get(post.id) : null;
+  return seen ? getSwipVideoFit(seen.width, seen.height) : "";
+}
+
+export function rememberSwipVideoSize(postId, width, height) {
+  if (!postId || !getSwipVideoFit(width, height)) return;
+  swipVideoSizes.set(postId, { width, height });
+}
