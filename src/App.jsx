@@ -6,12 +6,14 @@ import { notifyNativeAppReady, setNativeSignedIn } from "./Backend/services/nati
 import { installProfileAppLinks, openSharedProfile, parseProfileLinkHash, PROFILE_LINK_EVENT, takePendingProfileLink } from "./Backend/services/profileShareService";
 import { NAV_TRANSITION_MS } from "./components/shared/navigationMotion";
 import { isLikelySignedIn, urlCarriesSignIn } from "./Backend/services/startupSession";
+import { markWelcomeSeen, shouldShowWelcome } from "./Backend/services/welcomeSlidesService";
 import { useCountryChoiceExpiry } from "./Backend/hooks/useCountryChoiceExpiry";
 import { useSessionSizeGuard } from "./Backend/hooks/useSessionSizeGuard";
 import { useOnboarding } from "./Backend/hooks/useOnboarding";
 import BottomTabs from "./components/BottomTabs";
 import OnboardingFlow from "./components/onboarding/OnboardingFlow";
 import Login from "./Login";
+import WelcomeSlides from "./components/welcome/WelcomeSlides";
 import { PageTransition } from "./components/shared/motion";
 import { stopAllExploreMedia } from "./components/Explore/shared/singleMediaPlayback";
 import { clearExploreScreenStack } from "./Backend/services/explore/navigationService";
@@ -254,6 +256,12 @@ export default function App() {
   const authReturnPendingRef = useRef(
     typeof window !== "undefined" && urlCarriesSignIn(window.location),
   );
+  // First launch on this install, signed out: the welcome slides cover Login
+  // until they are finished or skipped (welcomeSlidesService.js).
+  const [welcomeOpen, setWelcomeOpen] = useState(() => typeof window !== "undefined" && shouldShowWelcome({
+    storage: window.localStorage,
+    location: window.location,
+  }));
   const {
     profile: onboardingProfile,
     loading: onboardingLoading,
@@ -392,6 +400,14 @@ export default function App() {
     if (loading) return;
     setNativeSignedIn(Boolean(user && !guestSession));
   }, [loading, user, guestSession]);
+
+  // Any sign-in on this device (a guest visit too) means the welcome slides
+  // are never needed again.
+  useEffect(() => {
+    if (!user) return;
+    markWelcomeSeen(window.localStorage);
+    setWelcomeOpen(false);
+  }, [user]);
 
   // First screen painted (skeleton, Login or the page): the native splash
   // may leave now, so reopening never shows a blank screen.
@@ -973,6 +989,7 @@ export default function App() {
     return (
       <>
         {content}
+        {welcomeOpen && !user ? <WelcomeSlides onDone={() => setWelcomeOpen(false)} /> : null}
       </>
     );
   }

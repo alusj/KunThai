@@ -16,6 +16,7 @@ import { GOOGLE_PLAY_BILLING } from "./googlePlayBilling";
 import { AUTH_TERMS } from "./authTerms";
 import { VOICE_NOTES } from "./voiceNotes";
 import { APP_LOADING } from "./appLoading";
+import { WELCOME_SLIDES } from "./welcomeSlides";
 import { URMALL_SETTINGS } from "./urmallSettings";
 import { URRIDE_MAP_FIX2 } from "./urrideMapFix2";
 import { URRIDE_OPERATOR_PROFILE } from "./urrideOperatorProfile";
@@ -59603,6 +59604,12 @@ for (const [locale, section] of Object.entries(VOICE_NOTES)) {
 for (const [locale, section] of Object.entries(APP_LOADING)) {
   if (TRANSLATIONS[locale]) {
     TRANSLATIONS[locale].appLoading = section;
+  }
+}
+
+for (const [locale, section] of Object.entries(WELCOME_SLIDES)) {
+  if (TRANSLATIONS[locale]) {
+    TRANSLATIONS[locale].welcomeSlides = section;
   }
 }
 
