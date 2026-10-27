@@ -128,7 +128,7 @@ export default function CategorySelector({
             <input
               value={otherValue}
               onChange={(event) => onOtherChange(event.target.value)}
-              placeholder={t("urmall.biz.reg.typeCategory")}
+              placeholder={t("registrationExamples.urmall.category")}
               className="h-11 flex-1 rounded-lg border border-gray-300 px-3 text-sm font-medium outline-none transition focus:border-blue-500"
             />
             <button

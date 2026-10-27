@@ -21,7 +21,6 @@ import {
   GLOBAL_COUNTRY_PROFILES,
 } from "../../../../../data/globalCountryProfiles";
 import { useI18n, t } from "../../../../../i18n";
-import { t as i18nText } from "../../../../../i18n/index";
 import { useI18n as useUiLocale } from "../../../../../i18n/index.js";
 
 function toOptionalCoordinate(value) {
@@ -125,7 +124,7 @@ export default function LocationContactStep({ registration }) {
           <RegistrationInput
             value={form.location.city}
             onChange={(event) => updateSection("location", { city: event.target.value })}
-            placeholder={t("urmall.biz.settings.city")}
+            placeholder={t("registrationExamples.urmall.city", { city: countryProfile.cityPlaceholder || countryProfile.name })}
             autoComplete="address-level2"
           />
         </RegistrationField>
@@ -138,7 +137,7 @@ export default function LocationContactStep({ registration }) {
           <RegistrationInput
             value={form.location.mainLabel ?? t("urmall.biz.reg.mainStore")}
             onChange={(event) => updateSection("location", { mainLabel: event.target.value })}
-            placeholder={t("urmall.biz.reg.mainStore")}
+            placeholder={t("registrationExamples.urmall.storeName")}
           />
         </RegistrationField>
 
@@ -156,7 +155,7 @@ export default function LocationContactStep({ registration }) {
               value={form.location.address}
               onChange={accuracyCaution.guardChange((event) => updateSection("location", { address: event.target.value }))}
               {...accuracyCaution.inputProps}
-              placeholder={t("urmall.biz.reg.bizAddressPlaceholder")}
+              placeholder={t("registrationExamples.urmall.address")}
               autoComplete="street-address"
             />
           </RegistrationField>
@@ -260,7 +259,7 @@ export default function LocationContactStep({ registration }) {
             type="email"
             value={form.location.email}
             onChange={(event) => updateSection("location", { email: event.target.value })}
-            placeholder={i18nText("ui.literals.k465417316164")}
+            placeholder={t("registrationExamples.urmall.email")}
             autoComplete="email"
           />
         </RegistrationField>
@@ -416,7 +415,7 @@ function BranchAddressCard({ branch, index, maxBusinessLocations, updateBranch, 
         <RegistrationInput
           value={branch.label}
           onChange={(event) => updateBranch(index, { label: event.target.value })}
-          placeholder={t("urmall.biz.reg.secondBranch")}
+          placeholder={t("registrationExamples.urmall.branchName")}
         />
       </RegistrationField>
 
@@ -434,7 +433,7 @@ function BranchAddressCard({ branch, index, maxBusinessLocations, updateBranch, 
             value={branch.address}
             onChange={accuracyCaution.guardChange((event) => updateBranch(index, { address: event.target.value }))}
             {...accuracyCaution.inputProps}
-            placeholder={t("urmall.biz.reg.branchAddressPlaceholder")}
+            placeholder={t("registrationExamples.urmall.branchAddress")}
             autoComplete="street-address"
           />
         </RegistrationField>

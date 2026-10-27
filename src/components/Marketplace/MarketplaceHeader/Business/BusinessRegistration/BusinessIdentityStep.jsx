@@ -9,6 +9,11 @@ import {
 } from "../../../../../Backend/services/marketplace/marketplaceBusinessKinds";
 import { uiText as translateUi } from "../../../../../i18n/index.js";
 
+// Name and description examples follow the business kind; the retired hotel
+// kind now lives under Real Estate.
+const EXAMPLE_KINDS = { retail: "retail", vendor: "vendor", restaurant: "restaurant", property_agent: "property_agent", hotel: "property_agent" };
+const urmallExampleKind = (businessKind) => EXAMPLE_KINDS[businessKind] || "retail";
+
 export default function BusinessIdentityStep({ registration }) {
   useI18n();
   const {
@@ -59,7 +64,7 @@ export default function BusinessIdentityStep({ registration }) {
         <RegistrationInput
           value={form.identity.businessName}
           onChange={(event) => updateSection("identity", { businessName: event.target.value })}
-          placeholder={t("urmall.biz.reg.businessNamePlaceholder")}
+          placeholder={t(`registrationExamples.urmall.businessName.${urmallExampleKind(form.identity.businessKind)}`)}
           autoComplete="organization"
         />
       </RegistrationField>
@@ -81,7 +86,7 @@ export default function BusinessIdentityStep({ registration }) {
         <textarea
           value={form.identity.description}
           onChange={(event) => updateSection("identity", { description: event.target.value })}
-          placeholder={t("urmall.biz.reg.descPlaceholder")}
+          placeholder={t(`registrationExamples.urmall.description.${urmallExampleKind(form.identity.businessKind)}`)}
           rows={4}
           className="w-full rounded-lg border border-gray-300 px-3 py-3 text-sm font-medium outline-none transition focus:border-blue-500"
         />

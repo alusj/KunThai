@@ -56,6 +56,7 @@ import {
   getCompanyServiceCategoryOptions,
 } from "../../../data/globalTransportCapabilities";
 import { useI18n, t } from "../../../i18n";
+import { fleetExampleKey } from "./fleetExamples";
 import { t as i18nText } from "../../../i18n/index";
 import { useAiScreen } from "../../../Backend/services/ai/aiScreenContext";
 import { buildCompanyRegistrationAiContext } from "./companyRegistrationAi";
@@ -1481,11 +1482,11 @@ function CompanyIdentityStep({ documentRequirements = [], errors = {}, form, onC
         <h2 className="mt-1 text-2xl font-black text-slate-950">{t("urride.companyReg.profileHeading")}</h2>
       </div>
       <div className="grid gap-4 md:grid-cols-2">
-        <FormInput label={t("urride.companyReg.companyNameLabel")} value={form.companyName} onChange={(value) => onChange("companyName", value)} placeholder={t("urride.companyReg.companyNamePlaceholder")} error={errors.companyName} />
+        <FormInput label={t("urride.companyReg.companyNameLabel")} value={form.companyName} onChange={(value) => onChange("companyName", value)} placeholder={t("registrationExamples.urride.companyName")} error={errors.companyName} />
         <SelectField label={t("urride.companyReg.companyTypeLabel")} value={form.companyType} options={companyTypes} optionLabels={companyTypeLabel} onChange={(value) => onChange("companyType", value)} />
-        <FormInput label={t("urride.companyReg.regNumLabel")} value={form.registrationNumber} onChange={(value) => onChange("registrationNumber", value)} placeholder={t("urride.companyReg.regNumPlaceholder")} />
-        <FormInput label={t("urride.companyReg.taxIdLabel")} value={form.taxId} onChange={(value) => onChange("taxId", value)} placeholder={t("urride.companyReg.taxIdPlaceholder")} />
-        <FormInput label={t("urride.companyReg.ownerNameLabel")} value={form.ownerName} onChange={(value) => onChange("ownerName", value)} placeholder={t("urride.companyReg.ownerNamePlaceholder")} error={errors.ownerName} />
+        <FormInput label={t("urride.companyReg.regNumLabel")} value={form.registrationNumber} onChange={(value) => onChange("registrationNumber", value)} placeholder={t("registrationExamples.urride.regNum")} />
+        <FormInput label={t("urride.companyReg.taxIdLabel")} value={form.taxId} onChange={(value) => onChange("taxId", value)} placeholder={t("registrationExamples.urride.taxId")} />
+        <FormInput label={t("urride.companyReg.ownerNameLabel")} value={form.ownerName} onChange={(value) => onChange("ownerName", value)} placeholder={t("registrationExamples.urride.ownerName")} error={errors.ownerName} />
         <FormInput
           label={t("urride.companyReg.supportPhoneLabel")}
           type="tel"
@@ -1495,7 +1496,7 @@ function CompanyIdentityStep({ documentRequirements = [], errors = {}, form, onC
           helper={phoneValidation.valid ? undefined : phoneValidation.message}
           error={phoneInUseMessage ?? errors.phone}
         />
-        <FormInput label={t("urride.companyReg.emailLabel")} type="email" value={form.email} onChange={(value) => onChange("email", value)} placeholder={t("urride.companyReg.emailPlaceholder")} />
+        <FormInput label={t("urride.companyReg.emailLabel")} type="email" value={form.email} onChange={(value) => onChange("email", value)} placeholder={t("registrationExamples.urride.email")} />
         <label className="block">
           <span className="mb-2 block text-sm font-bold text-slate-700">{t("urride.companyReg.ownerIdLabel")}</span>
           <input value={form.ownerPublicId} readOnly className="h-12 w-full rounded-2xl border border-blue-100 bg-blue-50 px-4 text-sm font-black text-blue-800 outline-none" />
@@ -1529,13 +1530,13 @@ function LocationOperationsStep({ areaText, errors = {}, form, hasLocation, onAr
       </div>
       <div className="grid gap-4 md:grid-cols-2">
         <SelectField label={t("urride.companyReg.countryLabel")} value={countryProfile.name} options={GLOBAL_COUNTRY_PROFILES.map((country) => country.name)} onChange={(value) => onChange("country", value)} />
-        <FormInput label={t("urride.companyReg.cityLabel")} value={form.city} onChange={(value) => onChange("city", value)} placeholder={t("urride.companyReg.cityPlaceholder")} error={errors.city} />
+        <FormInput label={t("urride.companyReg.cityLabel")} value={form.city} onChange={(value) => onChange("city", value)} placeholder={t("registrationExamples.urride.city", { city: countryProfile.cityPlaceholder || countryProfile.name })} error={errors.city} />
         <div className="md:col-span-2">
           <FormInput
             label={t("urride.companyReg.addressLabel")}
             value={form.address}
             onChange={(value) => onChange("address", value)}
-            placeholder={t("urride.companyReg.addressLabel")}
+            placeholder={t("registrationExamples.urride.address")}
             helper={t("urride.companyReg.addressHelper")}
             error={errors.address}
           />
@@ -1565,7 +1566,7 @@ function LocationOperationsStep({ areaText, errors = {}, form, hasLocation, onAr
           </button>
         </div>
       </div>
-      <FormInput label={t("urride.companyReg.areasLabel")} value={areaText} onChange={onAreaText} placeholder={t("urride.companyReg.areasLabel")} helper={t("urride.companyReg.areasHelper")} />
+      <FormInput label={t("urride.companyReg.areasLabel")} value={areaText} onChange={onAreaText} placeholder={t("registrationExamples.urride.areas")} helper={t("urride.companyReg.areasHelper")} />
       <label className="block">
         <span className="mb-2 block text-sm font-bold text-slate-700">{t("urride.companyReg.policyLabel")}</span>
         <textarea
@@ -1767,14 +1768,14 @@ function FleetCard({ acceptedPublicIds = [], errors = {}, fleet, form, index, lo
         </div>
         <SelectField label={t("urride.companyReg.fleetTypeLabel")} value={fleet.fleetType} options={fleetTypeOptions} onChange={(value) => onUpdate(fleet.localId, { fleetType: value, safetyAnswers: { ...createSafetyAnswers(value, fleet.serviceCategory), ...(fleet.serviceCategory === "Rental" ? { rentalDistanceNegotiable, rentalTimeNegotiable } : {}) } })} />
         {lockRentalCategory ? <div className="rounded-2xl border border-emerald-200 bg-emerald-50 px-4 py-3"><p className="text-xs font-black uppercase tracking-wide text-emerald-700">{i18nText("ui.literals.k9c995cd13e56")}</p><p className="mt-1 font-black text-slate-950">{i18nText("ui.literals.k9f86f85e4649")}</p></div> : <SelectField label={t("urride.companyReg.serviceCategoryLabel")} value={fleet.serviceCategory} options={serviceCategoryOptions} onChange={updateServiceCategory} />}
-        <FormInput label={fleet.serviceCategory === "Rental" ? i18nText("ui.literals.k03b8a85b895f") : t("urride.companyReg.fleetNameLabel")} value={fleet.fleetName} onChange={(value) => onUpdate(fleet.localId, { fleetName: value })} placeholder={fleet.serviceCategory === "Rental" ? i18nText("ui.literals.k73ff0b898afd") : t("urride.companyReg.fleetNameLabel")} error={errors[`${fleet.localId}-fleetName`]} />
-        <FormInput label={t("urride.companyReg.plateLabel")} value={fleet.plateNumber} onChange={(value) => onUpdate(fleet.localId, { plateNumber: value.toUpperCase() })} placeholder={t("urride.companyReg.plateLabel")} error={errors[`${fleet.localId}-plateNumber`]} />
-        <FormInput label={t("urride.companyReg.makeLabel")} value={fleet.make} onChange={(value) => onUpdate(fleet.localId, { make: value })} placeholder={t("urride.companyReg.makePlaceholder")} error={errors[`${fleet.localId}-make`]} />
-        <FormInput label={t("urride.companyReg.modelLabel")} value={fleet.model} onChange={(value) => onUpdate(fleet.localId, { model: value })} placeholder={t("urride.companyReg.modelLabel")} error={errors[`${fleet.localId}-model`]} />
-        <FormInput label={t("urride.companyReg.yearLabel")} type="number" value={fleet.year} onChange={(value) => onUpdate(fleet.localId, { year: value })} placeholder={t("urride.companyReg.yearLabel")} error={errors[`${fleet.localId}-year`]} />
-        <FormInput label={t("urride.companyReg.colorLabel")} value={fleet.color} onChange={(value) => onUpdate(fleet.localId, { color: value })} placeholder={t("urride.companyReg.colorLabel")} error={errors[`${fleet.localId}-color`]} />
-        <FormInput label={fleet.serviceCategory === "Rental" ? i18nText("ui.literals.k2bc54a825bae") : t("urride.companyReg.opAreaLabel")} value={fleet.operatingArea} onChange={(value) => onUpdate(fleet.localId, { operatingArea: value })} placeholder={fleet.serviceCategory === "Rental" ? i18nText("ui.literals.k999dc2be1d27") : t("urride.companyReg.opAreaPlaceholder")} error={errors[`${fleet.localId}-operatingArea`]} />
-        <FormInput label={fleet.serviceCategory === "Rental" ? i18nText("ui.literals.k6a857d271eec") : t("urride.companyReg.homeBaseLabel")} value={fleet.homeBase} onChange={(value) => onUpdate(fleet.localId, { homeBase: value })} placeholder={fleet.serviceCategory === "Rental" ? i18nText("ui.literals.k57a9fdad7a67") : t("urride.companyReg.homeBasePlaceholder")} error={errors[`${fleet.localId}-homeBase`]} />
+        <FormInput label={fleet.serviceCategory === "Rental" ? i18nText("ui.literals.k03b8a85b895f") : t("urride.companyReg.fleetNameLabel")} value={fleet.fleetName} onChange={(value) => onUpdate(fleet.localId, { fleetName: value })} placeholder={fleet.serviceCategory === "Rental" ? t("registrationExamples.urride.rentalName") : t(fleetExampleKey("fleetName", fleet.fleetType, fleet.serviceCategory))} error={errors[`${fleet.localId}-fleetName`]} />
+        <FormInput label={t("urride.companyReg.plateLabel")} value={fleet.plateNumber} onChange={(value) => onUpdate(fleet.localId, { plateNumber: value.toUpperCase() })} placeholder={t(fleetExampleKey("plate", fleet.fleetType, fleet.serviceCategory))} error={errors[`${fleet.localId}-plateNumber`]} />
+        <FormInput label={t("urride.companyReg.makeLabel")} value={fleet.make} onChange={(value) => onUpdate(fleet.localId, { make: value })} placeholder={t(fleetExampleKey("make", fleet.fleetType, fleet.serviceCategory))} error={errors[`${fleet.localId}-make`]} />
+        <FormInput label={t("urride.companyReg.modelLabel")} value={fleet.model} onChange={(value) => onUpdate(fleet.localId, { model: value })} placeholder={t(fleetExampleKey("model", fleet.fleetType, fleet.serviceCategory))} error={errors[`${fleet.localId}-model`]} />
+        <FormInput label={t("urride.companyReg.yearLabel")} type="number" value={fleet.year} onChange={(value) => onUpdate(fleet.localId, { year: value })} placeholder={t("registrationExamples.urride.year")} error={errors[`${fleet.localId}-year`]} />
+        <FormInput label={t("urride.companyReg.colorLabel")} value={fleet.color} onChange={(value) => onUpdate(fleet.localId, { color: value })} placeholder={t(fleetExampleKey("color", fleet.fleetType, fleet.serviceCategory))} error={errors[`${fleet.localId}-color`]} />
+        <FormInput label={fleet.serviceCategory === "Rental" ? i18nText("ui.literals.k2bc54a825bae") : t("urride.companyReg.opAreaLabel")} value={fleet.operatingArea} onChange={(value) => onUpdate(fleet.localId, { operatingArea: value })} placeholder={fleet.serviceCategory === "Rental" ? t("registrationExamples.urride.rentalArea") : t(fleetExampleKey("area", fleet.fleetType, fleet.serviceCategory))} error={errors[`${fleet.localId}-operatingArea`]} />
+        <FormInput label={fleet.serviceCategory === "Rental" ? i18nText("ui.literals.k6a857d271eec") : t("urride.companyReg.homeBaseLabel")} value={fleet.homeBase} onChange={(value) => onUpdate(fleet.localId, { homeBase: value })} placeholder={fleet.serviceCategory === "Rental" ? t("registrationExamples.urride.rentalBase") : t(fleetExampleKey("homeBase", fleet.fleetType, fleet.serviceCategory))} error={errors[`${fleet.localId}-homeBase`]} />
       </div>
       {fleet.serviceCategory === "Rental" ? <>
         <section className="mt-5 rounded-3xl border border-emerald-200 bg-white p-4">
@@ -1824,7 +1825,7 @@ function FleetCard({ acceptedPublicIds = [], errors = {}, fleet, form, index, lo
               onToggle={() => setActivePricingGuide((current) => (current === "hour" ? "" : "hour"))}
             />
           </div>
-          <FormInput label={t("urride.companyReg.priceNoteLabel")} value={fleet.priceHint} onChange={(value) => onUpdate(fleet.localId, { priceHint: value })} placeholder={t("urride.companyReg.priceNotePlaceholder")} helper={t("urride.companyReg.priceNoteHelper")} />
+          <FormInput label={t("urride.companyReg.priceNoteLabel")} value={fleet.priceHint} onChange={(value) => onUpdate(fleet.localId, { priceHint: value })} placeholder={t("registrationExamples.urride.priceNote")} helper={t("urride.companyReg.priceNoteHelper")} />
         </div>
       </section>}
       <FleetImagesSection errors={errors} fleet={fleet} form={form} onUploadDocument={onUploadDocument} />

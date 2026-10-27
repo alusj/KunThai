@@ -18,6 +18,7 @@ import { saveOperatorAccount } from "../../services/transportOperatorAccountServ
 import {
   constrainCountryPhoneInput,
   formatCountryMoney,
+  getActiveCountryProfile,
   getCountryPhoneHint,
   validateCountryPhone,
 } from "../../../data/globalCountryProfiles";
@@ -31,6 +32,7 @@ import {
   getPersonalServiceCategoryOptions,
 } from "../../../data/globalTransportCapabilities";
 import { useI18n, t } from "../../../i18n";
+import { fleetExampleKey } from "./fleetExamples";
 import { t as i18nText } from "../../../i18n/index";
 import { uiText as translateUi, useI18n as useUiLocale } from "../../../i18n/index.js";
 import { inlineErrorMessage } from "../../../Backend/services/friendlyErrorService";
@@ -232,9 +234,9 @@ export default function FleetEditDrawer({ account, onBack, onSaved }) {
       summary: joinParts([form.name, form.phone, form.city]) || t("urride.fleetEdit.notSetYet"),
       body: (
         <div className="grid gap-4 md:grid-cols-2">
-          <FormInput label={t("urride.fleetEdit.nameLabel")} value={form.name} onChange={(value) => update("name", value)} placeholder={t("urride.fleetEdit.nameLabel")} helper={t("urride.fleetEdit.nameHelper")} />
+          <FormInput label={t("urride.fleetEdit.nameLabel")} value={form.name} onChange={(value) => update("name", value)} placeholder={t("registrationExamples.urride.operatorName")} helper={t("urride.fleetEdit.nameHelper")} />
           <FormInput label={t("urride.fleetEdit.phoneLabel")} type="tel" value={form.phone} onChange={(value) => update("phone", constrainCountryPhoneInput(value, form.countryCode || form.country, { international: true }))} placeholder={getCountryPhoneHint(form.countryCode || form.country)} helper={t("urride.fleetEdit.phoneHelper")} error={phoneOwnership.taken ? phoneOwnership.message : undefined} />
-          <FormInput label={t("urride.fleetEdit.cityLabel")} value={form.city} onChange={(value) => update("city", value)} placeholder={t("urride.fleetEdit.cityLabel")} />
+          <FormInput label={t("urride.fleetEdit.cityLabel")} value={form.city} onChange={(value) => update("city", value)} placeholder={t("registrationExamples.urride.city", { city: getActiveCountryProfile(form.countryCode || form.country).cityPlaceholder || getActiveCountryProfile(form.countryCode || form.country).name })} />
           <FormInput label={t("urride.fleetEdit.emergencyLabel")} type="tel" value={form.emergencyContact} onChange={(value) => update("emergencyContact", constrainCountryPhoneInput(value, form.countryCode || form.country, { international: true }))} placeholder={getCountryPhoneHint(form.countryCode || form.country)} helper={t("urride.fleetEdit.emergencyHelper")} />
         </div>
       ),
@@ -258,18 +260,18 @@ export default function FleetEditDrawer({ account, onBack, onSaved }) {
       summary: joinParts([form.fleetName || form.plateNumber, [form.make, form.model].filter(Boolean).join(" "), form.baseFare ? formatFare(form.baseFare, formCountry) : ""]) || t("urride.fleetEdit.notSetYet"),
       body: (
         <div className="grid gap-4 md:grid-cols-2 xl:grid-cols-3">
-          <FormInput label={t("urride.fleetEdit.fleetNameLabel")} value={form.fleetName} onChange={(value) => update("fleetName", value)} placeholder={t("urride.fleetEdit.fleetNameLabel")} helper={t("urride.fleetEdit.fleetNameHelper")} />
-          <FormInput label={t("urride.fleetEdit.plateLabel")} value={form.plateNumber} onChange={(value) => update("plateNumber", value.toUpperCase())} placeholder={t("urride.fleetEdit.plateLabel")} helper={t("urride.fleetEdit.plateHelper")} />
-          <FormInput label={t("urride.fleetEdit.makeLabel")} value={form.make} onChange={(value) => update("make", value)} placeholder={t("urride.fleetEdit.makePlaceholder")} />
-          <FormInput label={t("urride.fleetEdit.modelLabel")} value={form.model} onChange={(value) => update("model", value)} placeholder={t("urride.fleetEdit.modelLabel")} />
-          <FormInput label={t("urride.fleetEdit.yearLabel")} type="number" value={form.year} onChange={(value) => update("year", value)} placeholder={t("urride.fleetEdit.yearLabel")} min="1950" helper={t("urride.fleetEdit.yearHelper")} />
-          <FormInput label={t("urride.fleetEdit.colorLabel")} value={form.color} onChange={(value) => update("color", value)} placeholder={t("urride.fleetEdit.colorLabel")} />
-          <FormInput label={t("urride.fleetEdit.areaLabel")} value={form.operatingArea} onChange={(value) => update("operatingArea", value)} placeholder={t("urride.fleetEdit.areaLabel")} />
-          <FormInput label={t("urride.fleetEdit.homeBaseLabel")} value={form.homeBaseLocation} onChange={(value) => update("homeBaseLocation", value)} placeholder={t("urride.fleetEdit.homeBaseLabel")} />
+          <FormInput label={t("urride.fleetEdit.fleetNameLabel")} value={form.fleetName} onChange={(value) => update("fleetName", value)} placeholder={t(fleetExampleKey("fleetName", form.fleetType, form.category))} helper={t("urride.fleetEdit.fleetNameHelper")} />
+          <FormInput label={t("urride.fleetEdit.plateLabel")} value={form.plateNumber} onChange={(value) => update("plateNumber", value.toUpperCase())} placeholder={t(fleetExampleKey("plate", form.fleetType, form.category))} helper={t("urride.fleetEdit.plateHelper")} />
+          <FormInput label={t("urride.fleetEdit.makeLabel")} value={form.make} onChange={(value) => update("make", value)} placeholder={t(fleetExampleKey("make", form.fleetType, form.category))} />
+          <FormInput label={t("urride.fleetEdit.modelLabel")} value={form.model} onChange={(value) => update("model", value)} placeholder={t(fleetExampleKey("model", form.fleetType, form.category))} />
+          <FormInput label={t("urride.fleetEdit.yearLabel")} type="number" value={form.year} onChange={(value) => update("year", value)} placeholder={t("registrationExamples.urride.year")} min="1950" helper={t("urride.fleetEdit.yearHelper")} />
+          <FormInput label={t("urride.fleetEdit.colorLabel")} value={form.color} onChange={(value) => update("color", value)} placeholder={t(fleetExampleKey("color", form.fleetType, form.category))} />
+          <FormInput label={t("urride.fleetEdit.areaLabel")} value={form.operatingArea} onChange={(value) => update("operatingArea", value)} placeholder={t(fleetExampleKey("area", form.fleetType, form.category))} />
+          <FormInput label={t("urride.fleetEdit.homeBaseLabel")} value={form.homeBaseLocation} onChange={(value) => update("homeBaseLocation", value)} placeholder={t(fleetExampleKey("homeBase", form.fleetType, form.category))} />
           <FormInput label={t("urride.fleetEdit.startPriceLabel")} type="number" value={form.baseFare} onChange={(value) => update("baseFare", value)} placeholder={t("urride.fleetEdit.startPriceLabel")} min="0" helper={t("urride.fleetEdit.startPriceHelper")} />
           <FormInput label={t("urride.fleetEdit.perKmLabel")} type="number" value={form.pricePerKm} onChange={(value) => update("pricePerKm", value)} placeholder={t("urride.fleetEdit.perKmPlaceholder")} min="0" helper={t("urride.fleetEdit.perKmHelper")} />
           <FormInput label={t("urride.fleetEdit.perHourLabel")} type="number" value={form.pricePerHour} onChange={(value) => update("pricePerHour", value)} placeholder={t("urride.fleetEdit.perHourPlaceholder")} min="0" helper={t("urride.fleetEdit.perHourHelper")} />
-          <FormInput label={t("urride.fleetEdit.priceNoteLabel")} value={form.priceHint} onChange={(value) => update("priceHint", value)} placeholder={t("urride.fleetEdit.priceNotePlaceholder")} helper={t("urride.fleetEdit.priceNoteHelper")} />
+          <FormInput label={t("urride.fleetEdit.priceNoteLabel")} value={form.priceHint} onChange={(value) => update("priceHint", value)} placeholder={t("registrationExamples.urride.soloPriceNote")} helper={t("urride.fleetEdit.priceNoteHelper")} />
           <SelectField label={t("urride.fleetEdit.availabilityLabel")} options={availabilityOptions} optionLabels={enumLabel} value={form.availability} onChange={(value) => update("availability", value)} helper={t("urride.fleetEdit.availabilityHelper")} />
           {form.fleetType === "Car" ? (
             <>
@@ -278,7 +280,7 @@ export default function FleetEditDrawer({ account, onBack, onSaved }) {
             </>
           ) : null}
           {form.category === "Delivery" || form.category === "Both" ? (
-            <FormInput label={t("urride.fleetEdit.maxLoadLabel")} value={form.maxLoad} onChange={(value) => update("maxLoad", value)} placeholder={t("urride.fleetEdit.maxLoadLabel")} />
+            <FormInput label={t("urride.fleetEdit.maxLoadLabel")} value={form.maxLoad} onChange={(value) => update("maxLoad", value)} placeholder={t("registrationExamples.urride.maxLoad")} />
           ) : null}
           {(form.category === "Delivery" || form.category === "Both") && form.fleetType === "Tricycle" ? (
             <SelectField label={t("urride.fleetEdit.deliveryBoothLabel")} options={deliveryBodyTypes} optionLabels={enumLabel} value={form.deliveryBodyType} onChange={(value) => update("deliveryBodyType", value)} />
