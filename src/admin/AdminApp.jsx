@@ -17,6 +17,8 @@ import ActionHistoryView from "./views/ActionHistoryView";
 import UsersView from "./views/UsersView";
 import UrMallMessageSupervisionView from "./views/UrMallMessageSupervisionView";
 import JoinKunThaiView from "./views/JoinKunThaiView";
+import YourVoiceView from "./views/YourVoiceView";
+import { yourVoiceAttentionCount } from "./yourVoiceRules.js";
 import DirectoryView from "./views/DirectoryView";
 import VerificationQueueView from "./views/VerificationQueueView";
 import { verificationAttentionCount } from "./verificationStages.js";
@@ -204,6 +206,7 @@ function AdminWorkspace({ access, user, preview }) {
   else if (page === "support") content = <QueueView title={i18nText("ui.literals.k70a2200e7210")} description={i18nText("ui.literals.k6c4075669e51")} cases={countryCases} defaultQueue="support" onOpenCase={setSelectedCase} />;
   else if (page === "message-supervision") content = <UrMallMessageSupervisionView />;
   else if (page === "join-kunthai") content = <JoinKunThaiView access={access} />;
+  else if (page === "your-voice") content = <YourVoiceView access={access} />;
   else if (page === "notifications") content = <NotificationsView access={access} />;
   else if (page === "finance") content = <FinanceView cases={countryCases} onOpenCase={setSelectedCase} />;
   else if (page === "analytics") content = <AnalyticsView summary={visibleSummary} cases={countryCases} />;
@@ -218,7 +221,7 @@ function AdminWorkspace({ access, user, preview }) {
       user={user}
       page={page}
       setPage={setPage}
-      navCounts={{ verification: verificationAttentionCount(countryCases) }}
+      navCounts={{ verification: verificationAttentionCount(countryCases), "your-voice": yourVoiceAttentionCount(countryCases) }}
       caseCount={countryFilter === "all" && typeof summary.openCases === "number" ? summary.openCases : countryCases.filter(isOpenCase).length}
       onActivity={handleAdminActivity}
       onSearch={(value) => { setGlobalSearch(value); setPage("my-work"); }}

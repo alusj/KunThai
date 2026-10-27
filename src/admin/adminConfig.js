@@ -72,6 +72,7 @@ export const ADMIN_NAV_GROUPS = [
       { id: "support", label: "Support and disputes", icon: "LifeBuoy", permission: "support.view" },
       { id: "message-supervision", label: "UrMall message review", icon: "MessagesSquare", permission: "marketplace.messages.review", sector: "marketplace" },
       { id: "join-kunthai", label: "Join KunThai", icon: "UserRoundPlus", permission: "join.view" },
+      { id: "your-voice", label: "Your Voice", icon: "MessageSquareHeart", permission: "support.view", sector: "explore" },
       { id: "notifications", label: "Notifications", icon: "BellRing", permission: "notifications.view" },
       { id: "finance", label: "Finance", icon: "Landmark", permission: "finance.view" },
       { id: "analytics", label: "Analytics", icon: "ChartNoAxesCombined", permission: "analytics.view" },

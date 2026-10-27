@@ -17,6 +17,7 @@ import { AUTH_TERMS } from "./authTerms";
 import { VOICE_NOTES } from "./voiceNotes";
 import { APP_LOADING } from "./appLoading";
 import { WELCOME_SLIDES } from "./welcomeSlides";
+import { ADMIN_YOUR_VOICE } from "./adminYourVoice";
 import { URMALL_SETTINGS } from "./urmallSettings";
 import { URRIDE_MAP_FIX2 } from "./urrideMapFix2";
 import { URRIDE_OPERATOR_PROFILE } from "./urrideOperatorProfile";
@@ -59627,6 +59628,12 @@ for (const [locale, section] of Object.entries(URMALL_SETTINGS)) {
 }
 
 for (const [locale, section] of Object.entries(URRIDE_BACKGROUND_LOCATION)) {
+for (const [locale, section] of Object.entries(ADMIN_YOUR_VOICE)) {
+  if (TRANSLATIONS[locale]) {
+    TRANSLATIONS[locale].adminYourVoice = section;
+  }
+}
+
   if (TRANSLATIONS[locale]) {
     TRANSLATIONS[locale].urrideBackgroundLocation = section;
   }

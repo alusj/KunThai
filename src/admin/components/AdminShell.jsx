@@ -35,6 +35,7 @@ import {
   Store,
   UserCog,
   UserRoundPlus,
+  MessageSquareHeart,
   Users,
   X,
 } from "lucide-react";
@@ -74,6 +75,7 @@ const ICONS = {
   Store,
   UserCog,
   UserRoundPlus,
+  MessageSquareHeart,
   Users,
 };
 
