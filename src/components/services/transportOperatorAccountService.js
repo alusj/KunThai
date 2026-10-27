@@ -3,6 +3,7 @@ import { friendlyErrorMessage } from "../../Backend/services/friendlyErrorServic
 import { cachedQuery, invalidateCache } from "../../Backend/lib/queryCache";
 import { isMissingColumn, isMissingTable } from "../../Backend/services/explore/errors";
 import { t } from "../../i18n";
+import { resolveFleetAvailability, resolveOperatorWorkMode } from "../transport/operatorAvailabilityState";
 import {
   formatCountryMoney,
   getActiveCountryProfile,
@@ -658,22 +659,31 @@ export async function getOperatorAccount() {
   let fleet = personalFleet;
   let companyAssignment = null;
   // Always know whether a company fleet exists, so the dashboard can offer
-  // the Solo / Company switch; only use it when chosen (or when there is no
-  // solo fleet at all).
+  // the Solo / Company switch. The fleet that is online decides which one the
+  // dashboard runs (an operator online solo is never moved to the company);
+  // with both offline, the operator's own choice does.
   const availableAssignment = await selectCompanyFleetAssignment(operator.id, userId).catch(() => null);
-  const useCompany = Boolean(availableAssignment) && (!personalFleet || readOperatorWorkMode(userId) === "company");
+  const soloActive = resolveFleetAvailability(personalFleet);
+  let companyRuntimeFleet = null;
+  if (availableAssignment?.transport_fleet_id && !soloActive) {
+    const { data: runtimeFleets } = await supabase
+      .from("transport_fleets")
+      .select("*")
+      .eq("id", availableAssignment.transport_fleet_id)
+      .limit(1);
+    companyRuntimeFleet = runtimeFleets?.[0] || null;
+  }
+  const useCompany = resolveOperatorWorkMode({
+    hasSoloFleet: Boolean(personalFleet),
+    hasCompanyFleet: Boolean(availableAssignment),
+    soloActive,
+    companyActive: resolveFleetAvailability(companyRuntimeFleet),
+    storedMode: readOperatorWorkMode(userId),
+  }) === "company";
 
   if (useCompany) {
     companyAssignment = availableAssignment;
-    fleet = null;
-    if (companyAssignment?.transport_fleet_id) {
-      const { data: runtimeFleets } = await supabase
-        .from("transport_fleets")
-        .select("*")
-        .eq("id", companyAssignment.transport_fleet_id)
-        .limit(1);
-      fleet = runtimeFleets?.[0] || null;
-    }
+    fleet = companyRuntimeFleet;
   }
 
   // A solo registration that stopped after the profile was saved but before

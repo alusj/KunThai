@@ -289,16 +289,22 @@ export default function OperatorDashboardScreen({
   }, [form, documentsSkipped, memoLocale]);
   const verification =
     operatorVerificationStatuses[verificationStatus] || operatorVerificationStatuses.pending;
-  const hasCompanyAccount = Boolean(companyAccount?.companyName || companyAccount?.id);
-  const canOpenCompanyHq = Boolean(hasCompanyAccount && companyAccount?.access?.canViewCompanyHq && onOpenCompany);
+  // An operator who also drives for a company gets exactly the solo
+  // dashboard while working solo; the Solo / Company switch is the only
+  // addition. Company controls stay for whoever can open Fleet HQ.
+  const soloModeForCompanyOperator = account?.workMode === "solo" && Boolean(account?.hasCompanyFleet)
+    && !companyAccount?.access?.canViewCompanyHq;
+  const shownCompanyAccount = soloModeForCompanyOperator ? null : companyAccount;
+  const hasCompanyAccount = Boolean(shownCompanyAccount?.companyName || shownCompanyAccount?.id);
+  const canOpenCompanyHq = Boolean(hasCompanyAccount && shownCompanyAccount?.access?.canViewCompanyHq && onOpenCompany);
   const companyBadgeCount = Number(companyOperationBadgeCount || 0);
-  const isCompanySuspended = companyAccount?.access?.serviceStatus === "suspended";
+  const isCompanySuspended = shownCompanyAccount?.access?.serviceStatus === "suspended";
   const dashboardReadOnly = readOnly || isCompanySuspended;
   // A company vehicle is edited by its company in Fleet HQ. The edit screen
   // saves the operator's own solo fleet, so it is not offered in company mode.
   const canEditOwnFleet = account?.workMode !== "company";
   const dashboardReadOnlyReason = isCompanySuspended
-    ? t("urride.opDash.suspended", { company: companyAccount?.companyName || t("urride.opDash.yourCompany") })
+    ? t("urride.opDash.suspended", { company: shownCompanyAccount?.companyName || t("urride.opDash.yourCompany") })
     : (readOnlyReason || t("urride.opDash.readOnlyReasonDefault"));
   const operatorName = form.name || t("urride.opDash.operatorNotAdded");
   const fleetName = form.fleetName || t("urride.opDash.registeredFleet");
@@ -322,12 +328,19 @@ export default function OperatorDashboardScreen({
   activeTripRef.current = hasActiveTrip;
 
   // While the operator is online, their position streams into Area View so
-  // passengers can watch them move, marked AVAILABLE or BOOKED.
+  // passengers can watch them move, marked AVAILABLE or BOOKED. Only going
+  // offline here stops it: opening this screen offline, or a read-only
+  // dashboard (someone else's, or a suspended company's), never touches a
+  // position the operator is sharing for another fleet.
+  const sharingStartedHereRef = useRef(false);
   useEffect(() => {
-    if (!isActive || dashboardReadOnly) {
-      stopOperatorLiveLocation();
+    if (dashboardReadOnly) return undefined;
+    if (!isActive) {
+      if (sharingStartedHereRef.current) stopOperatorLiveLocation();
+      sharingStartedHereRef.current = false;
       return undefined;
     }
+    sharingStartedHereRef.current = true;
 
     let stop = null;
     let cancelled = false;
@@ -735,7 +748,7 @@ export default function OperatorDashboardScreen({
             </button>
           )}
 
-          {hasCompanyAccount ? <TransportGroupSwitcher accounts={companyAccounts} activeAccount={companyAccount} badge={companyBadgeCount} canOpen={canOpenCompanyHq} onOpen={onOpenCompany} onSwitch={onSwitchCompany} /> : null}
+          {hasCompanyAccount ? <TransportGroupSwitcher accounts={companyAccounts} activeAccount={shownCompanyAccount} badge={companyBadgeCount} canOpen={canOpenCompanyHq} onOpen={onOpenCompany} onSwitch={onSwitchCompany} /> : null}
 
           <button
             type="button"
@@ -1010,7 +1023,7 @@ export default function OperatorDashboardScreen({
         homeBase={homeBase}
         fleetType={form.fleetType || t("urride.opDash.notAdded")}
         documents={documentsSkipped ? t("urride.opDash.documentsSkipped") : t("urride.opDash.documentsSubmitted")}
-        companyAccount={companyAccount}
+        companyAccount={shownCompanyAccount}
         companyOperationBadgeCount={companyBadgeCount}
         companyLoading={companyLoading}
         readOnly={dashboardReadOnly}
@@ -1078,7 +1091,7 @@ export default function OperatorDashboardScreen({
           setOperatorMenuOpen(false);
           window.setTimeout(() => setShareProfileOpen(true), 150);
         } : undefined}
-        onLeaveCompany={onLeaveCompany && companyAccount?.id && !companyAccount?.access?.isOwner && !dashboardReadOnly ? () => {
+        onLeaveCompany={onLeaveCompany && shownCompanyAccount?.id && !shownCompanyAccount?.access?.isOwner && !dashboardReadOnly ? () => {
           setOperatorMenuOpen(false);
           window.setTimeout(() => setLeaveCompanyOpen(true), 150);
         } : undefined}

@@ -597,12 +597,17 @@ export default function CompanyWorkspaceScreen({ company, initialTab = "Overview
   companyTripRef.current = companyOperatorHasTrip;
 
   // Company operators stream their live position into Area View while online,
-  // exactly like solo operators.
+  // exactly like solo operators. Only going offline for the company stops it:
+  // an operator who is online with their solo fleet keeps sharing while they
+  // look at the company workspace.
+  const sharingStartedHereRef = useRef(false);
   useEffect(() => {
     if (!basicOperator || !operatorAvailable) {
-      if (basicOperator) stopOperatorLiveLocation();
+      if (sharingStartedHereRef.current) stopOperatorLiveLocation();
+      sharingStartedHereRef.current = false;
       return undefined;
     }
+    sharingStartedHereRef.current = true;
 
     let stop = null;
     let cancelled = false;

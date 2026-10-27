@@ -5,6 +5,7 @@ import { URRIDE_LIVE_DISCOVERY } from "../../i18n/urrideLiveDiscovery.js";
 import {
   availabilityLabelKey,
   resolveFleetAvailability,
+  resolveOperatorWorkMode,
   shouldPreserveAvailabilityOverride,
 } from "./operatorAvailabilityState.js";
 
@@ -43,4 +44,14 @@ test("returning to the dashboard: a stale refresh can't undo a just-saved change
   // After the grace window the server wins (e.g. went offline on another device).
   assert.equal(shouldPreserveAvailabilityOverride(justSaved, false, now + 6000), false);
   assert.equal(shouldPreserveAvailabilityOverride(null, false, now), false);
+});
+
+test("the fleet that is online decides the work mode", () => {
+  const both = { hasSoloFleet: true, hasCompanyFleet: true };
+  assert.equal(resolveOperatorWorkMode({ ...both, soloActive: true, storedMode: "company" }), "solo");
+  assert.equal(resolveOperatorWorkMode({ ...both, companyActive: true, storedMode: "solo" }), "company");
+  assert.equal(resolveOperatorWorkMode({ ...both, storedMode: "company" }), "company");
+  assert.equal(resolveOperatorWorkMode({ ...both }), "solo");
+  assert.equal(resolveOperatorWorkMode({ hasSoloFleet: true, storedMode: "company" }), "solo");
+  assert.equal(resolveOperatorWorkMode({ hasCompanyFleet: true, storedMode: "solo" }), "company");
 });
