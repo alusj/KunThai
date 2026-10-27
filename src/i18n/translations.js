@@ -59628,6 +59628,12 @@ for (const [locale, section] of Object.entries(WELCOME_SLIDES)) {
   }
 }
 
+for (const [locale, section] of Object.entries(ADMIN_YOUR_VOICE)) {
+  if (TRANSLATIONS[locale]) {
+    TRANSLATIONS[locale].adminYourVoice = section;
+  }
+}
+
 for (const [locale, section] of Object.entries(URMALL_SETTINGS)) {
   if (TRANSLATIONS[locale]) {
     TRANSLATIONS[locale].urmallSettings = section;
@@ -59635,12 +59641,6 @@ for (const [locale, section] of Object.entries(URMALL_SETTINGS)) {
 }
 
 for (const [locale, section] of Object.entries(URRIDE_BACKGROUND_LOCATION)) {
-for (const [locale, section] of Object.entries(ADMIN_YOUR_VOICE)) {
-  if (TRANSLATIONS[locale]) {
-    TRANSLATIONS[locale].adminYourVoice = section;
-  }
-}
-
   if (TRANSLATIONS[locale]) {
     TRANSLATIONS[locale].urrideBackgroundLocation = section;
   }
