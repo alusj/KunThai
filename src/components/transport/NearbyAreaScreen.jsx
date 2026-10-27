@@ -904,7 +904,7 @@ function NearbyAreaScreenContent({
     const next = !mapLockedRef.current;
     setMapLocked(next);
     haptics.light();
-    showToast(next ? t("urride.areaView.lockedToast") : t("urride.areaView.unlockedToast"), next ? "warning" : "info");
+    showToast(next ? t("urride.areaView.lockedToast") : t("urride.areaView.unlockedToast"), "info");
   }, []);
 
   useEffect(() => {
@@ -1135,10 +1135,7 @@ function NearbyAreaScreenContent({
       const nearbyFleet = operatorsWithinFleetRadius(liveOperators, reference);
       const bounds = fleetFocusBounds(nearbyFleet, reference);
       if (!bounds) {
-        showToast("No nearby fleet found", "warning", {
-          title: t("urride.areaView.toastAreaView"),
-          duration: 5200,
-        });
+        showToast("No nearby fleet found", "info");
         return;
       }
       setFleetFocusRequest({ key: Date.now(), bounds });
@@ -1150,8 +1147,7 @@ function NearbyAreaScreenContent({
     const nearest = matches[0];
 
     if (!nearest) {
-      showToast("None available nearby", "warning", {
-        title: t("urride.areaView.toastAreaView"),
+      showToast("None available nearby", "info", {
         actionLabel: getAddCategoryActionLabel(category),
         duration: 6500,
         // The toast lives in the app-wide toast layer and can outlive this
@@ -1514,9 +1510,7 @@ function NearbyAreaScreenContent({
           setSearchQuery(searchText);
           setSearchResults([]);
           setSearchOverlayOpen(true);
-          showToast("Route not found", "warning", {
-            title: t("urride.areaView.toastRoutingPaused"),
-          });
+          showToast("Route not found", "warning");
         })
         .finally(() => {
           if (!cancelled) setSearching(false);
@@ -2199,14 +2193,10 @@ function NearbyAreaScreenContent({
       if (profile?.fleetId) {
         onOpenOperatorProfile(profile);
       } else {
-        showToast(t("urrideOperatorProfile.unavailable"), "warning", {
-          title: t("urride.areaView.toastAreaView"),
-        });
+        showToast(t("urrideOperatorProfile.unavailable"), "warning");
       }
     } catch {
-      showToast(t("urrideOperatorProfile.unavailable"), "warning", {
-        title: t("urride.areaView.toastAreaView"),
-      });
+      showToast(t("urrideOperatorProfile.unavailable"), "warning");
     } finally {
       operatorProfilePendingRef.current = "";
     }
@@ -2236,9 +2226,7 @@ function NearbyAreaScreenContent({
 
   const handleGetDirections = useCallback((location = activeLocation) => {
     if (!Number.isFinite(Number(location?.lat)) || !Number.isFinite(Number(location?.lng))) {
-      showToast("No exact map point yet", "warning", {
-        title: t("urride.areaView.toastAreaView"),
-      });
+      showToast("No exact map point yet", "info");
       return;
     }
 

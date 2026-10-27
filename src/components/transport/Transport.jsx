@@ -614,7 +614,7 @@ export default function Transport({
       if (refreshedAccount) setOperatorAccount(refreshedAccount);
       if (alreadyOperator) {
         await refreshOperatorCompanyInvites(refreshedAccount || operatorAccount).catch(() => {});
-        showToast("Request accepted", "success", { title: t("urride.transport.toast.companyInvitation") });
+        showToast("Request accepted", "success");
       } else {
         setOperatorInviteDocumentsInvite(updatedInvite);
       }
@@ -636,9 +636,7 @@ export default function Transport({
     setOperatorInviteStatus(
       t("urride.transport.status.skipDocs", { company: invite?.companyName || t("urride.transport.status.companyFallback") }),
     );
-    showToast("Request accepted", "success", {
-      title: t("urride.transport.toast.companyInvitation"),
-    });
+    showToast("Request accepted", "success");
   }
 
   async function continueWithExistingOperatorDocuments() {
@@ -675,10 +673,7 @@ export default function Transport({
       });
       removeOperatorInvite(rejectedInvite);
       setDocumentReuseInvite(null);
-      showToast("Request rejected", "warning", {
-        title: t("urride.transport.toast.requestRejected"),
-        anchor: "notification",
-      });
+      showToast("Request rejected", "success");
       await refreshOperatorCompanyInvites(operatorAccount);
     } catch (error) {
       setOperatorInviteStatus(inlineErrorMessage(error, t("urride.transport.status.declineError")));
@@ -807,7 +802,6 @@ export default function Transport({
         if (!alive) return;
         if (getNetworkStatus().online) {
           showToast(shortErrorToast(error, "Fleet account not loaded"), "warning", {
-            title: t("urride.transport.title"),
             duration: 5000,
             origin: false,
             actionLabel: t("urride.transport.retry"),
@@ -926,9 +920,7 @@ export default function Transport({
         if (message && statusChanged) {
           setCompanyWorkspaceStatus(message);
           if (activeRef.current) {
-            showToast(inviteStatus === "rejected" ? "Invite was declined" : "Operator accepted invite", inviteStatus === "rejected" ? "warning" : "success", {
-              title: inviteStatus === "rejected" ? t("urride.transport.toast.invitationDeclined") : t("urride.transport.toast.invitationAccepted"),
-            });
+            showToast(inviteStatus === "rejected" ? "Invite was declined" : "Operator accepted invite", inviteStatus === "rejected" ? "info" : "success");
           }
         }
       }

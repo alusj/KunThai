@@ -17,7 +17,7 @@ import {
   fetchTransportNotifications,
   markTransportPassengerNotificationRead,
 } from "../../services/transportHeaderService";
-import { getTransportPassengerSettings, subscribePassengerTrips } from "../../services/passengerTransportService";
+import { subscribePassengerTrips } from "../../services/passengerTransportService";
 import { useI18n, t } from "../../../i18n";
 import {
   fetchSurfacePlatformNotifications,
@@ -29,11 +29,8 @@ import { runNotificationAction } from "../../../Backend/services/notificationBan
 import { t as i18nText } from "../../../i18n/index";
 import { uiText as translateUi, useI18n as useUiLocale } from "../../../i18n/index.js";
 import { inlineErrorMessage } from "../../../Backend/services/friendlyErrorService";
-import { showToast } from "../../../Backend/services/toastService";
 import { notificationDisplayText } from "../../../Backend/services/notificationText";
 import ExpandableText from "../../shared/ExpandableText";
-
-let lastAnnouncedUnread = 0;
 
 export default function NotificationButton({ companyAccount, openRequest = 0, operatorAccount, onOpenChange, onUnreadCountChange, onViewFleet, onViewTrip }) {
   useI18n();
@@ -97,25 +94,9 @@ export default function NotificationButton({ companyAccount, openRequest = 0, op
     onUnreadCountChange?.(unreadCount);
   }, [onUnreadCountChange, unreadCount]);
 
-  // New unread alerts are announced once with a toast (the bell badge keeps
-  // the count) instead of a pill that stayed pinned under the bell. The last
-  // announced count is module-level so re-entering UrRide doesn't repeat it.
-  useEffect(() => {
-    if (open) {
-      lastAnnouncedUnread = 0;
-      return;
-    }
-    // Settings → UrRide → Trip alerts off: the bell badge still counts, but
-    // no toast pops up.
-    if (unreadCount > lastAnnouncedUnread && getTransportPassengerSettings().tripAlerts !== false) {
-      showToast("New notification", "info", {
-        title: t("urride.notifications.eyebrow"),
-        actionLabel: t("common.open"),
-        onAction: () => setOpen(true),
-      });
-    }
-    lastAnnouncedUnread = unreadCount;
-  }, [open, unreadCount]);
+  // New alerts are announced by the app-wide slide-in banner (and its one
+  // sound), like UrMall and Explore; the bell only keeps the count. A toast
+  // here as well stacked a second card on every alert.
 
   useEffect(() => subscribeNotificationSeen(() => refreshNotifications({ quiet: true })), [refreshNotifications]);
 
