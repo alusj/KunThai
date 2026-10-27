@@ -18,7 +18,7 @@ function flatten(node, prefix = "", result = {}) {
 test("every locale carries every live sharing key with the same placeholders", () => {
   assert.deepEqual(Object.keys(LIVE_SHARING).sort(), [...LOCALES].sort());
   const english = flatten(LIVE_SHARING.en);
-  assert.equal(Object.keys(english).length, 57);
+  assert.equal(Object.keys(english).length, 58);
   for (const locale of LOCALES) {
     const entries = flatten(LIVE_SHARING[locale]);
     assert.deepEqual(Object.keys(entries).sort(), Object.keys(english).sort(), locale);

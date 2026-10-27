@@ -70,7 +70,7 @@ async function shareOrderAddress(order) {
   const address = getOrderAddress(order);
   const url = buildPlaceShareUrl({ ...orderPoint(order), label: address });
   if (!url) {
-    showToast(t("urmall.biz.stats.noAddress"), "warning");
+    showToast(t("liveSharing.noAddressToast"), "warning");
     return;
   }
   const text = t("liveSharing.shareAddressText", { address: address || t("liveSharing.sharedAddress") });
@@ -89,7 +89,7 @@ async function shareOrderAddress(order) {
 async function copyOrderAddress(order) {
   const address = getOrderAddress(order);
   if (!address) {
-    showToast(t("urmall.biz.stats.noAddress"), "warning");
+    showToast(t("liveSharing.noAddressToast"), "warning");
     return;
   }
   try {
