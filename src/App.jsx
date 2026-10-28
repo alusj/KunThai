@@ -3,6 +3,7 @@ import { HiOutlineCamera, HiOutlineLightBulb, HiOutlineXMark } from "react-icons
 
 import { useAuth } from "./Backend/hooks/useAuth";
 import { notifyNativeAppReady, setNativeSignedIn } from "./Backend/services/nativeLaunch";
+import { MAIN_SCREEN_MOUNTED_EVENT, screenHasMounted } from "./Backend/services/lifecycleAudit";
 import { installProfileAppLinks, openSharedProfile, parseProfileLinkHash, PROFILE_LINK_EVENT, takePendingProfileLink } from "./Backend/services/profileShareService";
 import { NAV_TRANSITION_MS } from "./components/shared/navigationMotion";
 import { isLikelySignedIn, urlCarriesSignIn } from "./Backend/services/startupSession";
@@ -419,17 +420,36 @@ export default function App() {
     setWelcomeOpen(false);
   }, [user]);
 
-  // First screen painted (skeleton, Login or the page): the native splash
-  // may leave now, so reopening never shows a blank screen.
+  // First screen painted: the native splash may leave now, so reopening never
+  // shows a blank screen. Signed in, that is the main screen itself (with its
+  // saved content), not the loading cards shown while its code starts up:
+  // the splash waits for it, at most 3 s.
   useEffect(() => {
-    let second = 0;
-    const first = window.requestAnimationFrame(() => {
-      second = window.requestAnimationFrame(() => notifyNativeAppReady());
-    });
-    return () => {
-      window.cancelAnimationFrame(first);
-      window.cancelAnimationFrame(second);
+    const frames = [];
+    let timer = 0;
+    let done = false;
+    const notifyAfterPaint = () => {
+      if (done) return;
+      done = true;
+      window.clearTimeout(timer);
+      window.removeEventListener(MAIN_SCREEN_MOUNTED_EVENT, notifyAfterPaint);
+      frames.push(window.requestAnimationFrame(() => {
+        frames.push(window.requestAnimationFrame(() => notifyNativeAppReady()));
+      }));
     };
+    if (!startupLikelySignedIn || screenHasMounted()) {
+      notifyAfterPaint();
+    } else {
+      window.addEventListener(MAIN_SCREEN_MOUNTED_EVENT, notifyAfterPaint);
+      timer = window.setTimeout(notifyAfterPaint, 3000);
+    }
+    return () => {
+      window.clearTimeout(timer);
+      window.removeEventListener(MAIN_SCREEN_MOUNTED_EVENT, notifyAfterPaint);
+      frames.forEach((frame) => window.cancelAnimationFrame(frame));
+    };
+    // Once per start.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
   useEffect(() => {

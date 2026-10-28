@@ -16,6 +16,14 @@ const LOG_KEY = "kt-lifecycle-log";
 const HIDDEN_AT_KEY = "kt-lifecycle-hidden-at";
 const MAX_ENTRIES = 200;
 const counts = {};
+// Sent once a main screen (Explore, UrMall, UrRide) has been built; App.jsx
+// keeps the native splash up until then (see screenHasMounted).
+export const MAIN_SCREEN_MOUNTED_EVENT = "kt-main-screen-mounted";
+let mainScreenMounted = false;
+
+export function screenHasMounted() {
+  return mainScreenMounted;
+}
 
 function readLog() {
   try {
@@ -53,6 +61,10 @@ export function recordLifecycle(kind, name, note = "") {
 export function useLifecycleAudit(kind, name) {
   useEffect(() => {
     recordLifecycle(`${kind}-mount`, name);
+    if (kind === "screen" && !mainScreenMounted) {
+      mainScreenMounted = true;
+      window.dispatchEvent(new CustomEvent(MAIN_SCREEN_MOUNTED_EVENT, { detail: { name } }));
+    }
     return () => recordLifecycle(`${kind}-unmount`, name);
   }, [kind, name]);
 }
