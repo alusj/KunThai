@@ -1,4 +1,4 @@
-import { Component, useCallback, useEffect, useRef, useState } from "react";
+import { Component, useCallback, useEffect, useLayoutEffect, useRef, useState } from "react";
 import { ArrowLeft, Share2 } from "lucide-react";
 
 import { useBrowserBack } from "../../../../../Backend/hooks/useBrowserBack";
@@ -22,9 +22,19 @@ export default function All({ active = true, currentUserId = "", focusPostId = "
   const feed = useExploreFeed("swip");
   const feedVideos = getSwipVideos(feed.posts, onlyUserId).filter(isRenderableSwipPost);
   const focusedVideos = getSwipVideos(focusPost ? [focusPost] : [], onlyUserId).filter(isRenderableSwipPost);
-  const videos = focusedVideos.length && !feedVideos.some((post) => post.id === focusedVideos[0].id)
-    ? [focusedVideos[0], ...feedVideos]
-    : feedVideos;
+  // A post opened from a notification or a reaction (focusRequest) goes
+  // first and Swip opens straight on it, instead of scrolling past the clips
+  // before it. Until the post has arrived its place is a plain dark card.
+  const pinnedKey = focusRequest?.key && focusPostId ? focusRequest.key : "";
+  const pinnedVideo = pinnedKey
+    ? focusedVideos.find((post) => post.id === focusPostId) || feedVideos.find((post) => post.id === focusPostId) || null
+    : null;
+  let videos = feedVideos;
+  if (pinnedKey) {
+    videos = [pinnedVideo || { id: `pending-${focusPostId}`, pending: true }, ...feedVideos.filter((post) => post.id !== focusPostId)];
+  } else if (focusedVideos.length && !feedVideos.some((post) => post.id === focusedVideos[0].id)) {
+    videos = [focusedVideos[0], ...feedVideos];
+  }
   const focusedVideoIndex = focusPostId ? videos.findIndex((post) => post.id === focusPostId) : -1;
   const [activeIndex, setActiveIndex] = useState(0);
   const [fullscreen, setFullscreen] = useState(false);
@@ -44,6 +54,20 @@ export default function All({ active = true, currentUserId = "", focusPostId = "
   }, [focusRequest?.key, focusPost]);
 
   useBrowserBack(fullscreen, () => setFullscreen(false), "swip-fullscreen");
+
+  // Before the screen is drawn (and before Swip slides in), back to the top,
+  // where the opened post now is: no smooth scroll, nothing passed on the way.
+  useLayoutEffect(() => {
+    if (!pinnedKey) return;
+    const scroller = scrollerRef.current;
+    if (scroller) {
+      scroller.style.scrollBehavior = "auto";
+      scroller.scrollTop = 0;
+      scroller.style.scrollBehavior = "";
+    }
+    stopAllExploreMedia(null, { muteVideos: false });
+    setActiveIndex(0);
+  }, [pinnedKey]);
 
   useEffect(() => {
     setActiveIndex((current) => Math.min(Math.max(current, 0), Math.max(videos.length - 1, 0)));
@@ -172,7 +196,8 @@ export default function All({ active = true, currentUserId = "", focusPostId = "
       if (!node) return;
       stopAllExploreMedia(null, { muteVideos: false });
       setActiveIndex(focusedVideoIndex);
-      node.scrollIntoView({ behavior: requestKey ? "auto" : "smooth", block: "start" });
+      // An opened post is already first and on screen (pinnedKey).
+      if (!requestKey) node.scrollIntoView({ behavior: "smooth", block: "start" });
       if (requestKey) {
         handledFocusKeyRef.current = requestKey;
         const postNode = document.getElementById(`post-${focusPostId}`);
@@ -180,7 +205,6 @@ export default function All({ active = true, currentUserId = "", focusPostId = "
         if (postNode) void postNode.offsetWidth;
         postNode?.classList.add("kt-notification-post-focus");
         window.setTimeout(() => {
-          node.scrollIntoView({ behavior: "auto", block: "start" });
           if (focusRequest?.openComments) {
             window.dispatchEvent(new CustomEvent("explore-open-post-comments", {
               detail: { postId: focusPostId, commentId: focusRequest.commentId || "" },
@@ -190,7 +214,7 @@ export default function All({ active = true, currentUserId = "", focusPostId = "
         window.setTimeout(() => postNode?.classList.remove("kt-notification-post-focus"), 2200);
       }
       requestSwipActivePlay(160, true);
-    }, requestKey ? 420 : 80);
+    }, requestKey ? 0 : 80);
     return () => window.clearTimeout(timer);
   }, [active, focusPostId, focusRequest, focusedVideoIndex, requestSwipActivePlay]);
 
@@ -300,7 +324,7 @@ export default function All({ active = true, currentUserId = "", focusPostId = "
       data-swip-index={index}
       className="h-[var(--swip-item-height)] min-h-[var(--swip-item-height)] w-full snap-start snap-always"
     >
-      {shouldMountVideo ? (
+      {shouldMountVideo && !post.pending ? (
         <SwipPostBoundary postId={post.id}>
           <VideoCard
             profile={profile}

@@ -41,6 +41,11 @@ export function setOutboxPublisher(fn) {
   if (typeof fn === "function") publisher = fn;
 }
 
+// A post is being sent right now (the app must not reload under it).
+export function isPostOutboxDraining() {
+  return draining;
+}
+
 export function isPostOutboxReady() {
   return isPostOutboxEnabled() && isOutboxStorageAvailable();
 }

@@ -19,6 +19,7 @@ import { installNativeShare } from "./Backend/services/nativeShare";
 import { lazyWithRetry } from "./Backend/utils/lazyWithRetry";
 import { useI18n as useUiLocale } from "./i18n/index.js";
 import { startSwipStartupPrefetch } from "./Backend/services/explore/swipStartupPrefetch";
+import { installQuietReload } from "./Backend/services/quietReload";
 
 registerKunThaiServiceWorker();
 initNativePushNotifications();
@@ -33,6 +34,8 @@ installNativeShare();
 // so Swip plays at once (not on the admin or public pages).
 if (!/^\/(admin|policy-center|privacy|terms|support|track)(\/|$)/.test(window.location.pathname)) {
   startSwipStartupPrefetch();
+  // Back after 15 minutes or more: a fresh start, unseen (quietReload.js).
+  installQuietReload();
 }
 
 const AdminApp = lazyWithRetry(() => import("./admin/AdminApp.jsx"));
