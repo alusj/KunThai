@@ -186,11 +186,6 @@ public class MainActivity extends BridgeActivity {
             }
             screenCaptureObserver.register();
         }
-    }
-
-    @Override
-    public void onStart() {
-        super.onStart();
         long away = stoppedAt == 0 ? 0 : android.os.SystemClock.elapsedRealtime() - stoppedAt;
         stoppedAt = 0;
         if (away >= QUIET_RELOAD_AFTER_MS) quietReload();
