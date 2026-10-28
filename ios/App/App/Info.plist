@@ -56,7 +56,7 @@
 	<key>NSFaceIDUsageDescription</key>
 	<string>KunThai uses Face ID to unlock the app when you turn on Biometric unlock in Security.</string>
 	<key>NSLocationAlwaysAndWhenInUseUsageDescription</key>
-	<string>UrRide operators only: while you are online (Active), KunThai shares your location with nearby passengers, even when your phone is locked or KunThai is in the background, so they can find and book you. Sharing stops as soon as you go offline or sign out.</string>
+	<string>KunThai uses your location in the background only in two cases you turn on yourself: when you share your live location in a chat or on an UrRide trip (only the people in that chat or trip see it, and sharing stops when the time you picked runs out or you stop it), and when you are an UrRide operator who is online (Active), so nearby passengers can find and book you (this stops when you go offline or sign out).</string>
 	<key>NSLocationWhenInUseUsageDescription</key>
 	<string>KunThai uses your location while you use the app for UrRide pickups, maps, nearby places and to suggest your region. UrRide operators who are online (Active) are shown to nearby passengers; sharing stops when they go offline. You can say no and enter places yourself.</string>
 	<key>NSLocationTemporaryUsageDescriptionDictionary</key>
@@ -99,7 +99,7 @@
 	<string>LaunchScreen</string>
 	<key>UIRequiredDeviceCapabilities</key>
 	<array>
-		<string>armv7</string>
+		<string>arm64</string>
 	</array>
 	<key>UISupportedInterfaceOrientations</key>
 	<array>
