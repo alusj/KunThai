@@ -168,6 +168,9 @@ const HEADING_SETTINGS = {
   // while a bend has many close ones, so a fixed vertex count either points
   // across a curve or under-reads a straight.
   routeLookAheadMeters: 38,
+  // Standing still with a GPS fix rougher than this, the map keeps its
+  // direction: early fixes jump tens of metres and would swing it around.
+  steadyAccuracyMeters: 20,
 };
 
 // The live-location icon must never wander off screen. When it crosses out of
@@ -919,6 +922,12 @@ function getNextRouteBearing(
     if (travelled >= lookAheadMeters) break;
   }
 
+  // The road's own direction (from this segment's start to the look-ahead
+  // point), not the direction from the traveller's dot: with the target only
+  // ~38 m away, a dot jumping a few metres on rough GPS swung the map by tens
+  // of degrees.
+  const start = normalizeRoutePoint(coordinates[safeIndex]);
+  if (start && target && distanceInMeters(start, target) >= 3) return bearingBetweenPoints(start, target);
   return target ? bearingBetweenPoints(position, target) : null;
 }
 
@@ -1894,6 +1903,10 @@ export default function NearbyAreaMap({
   // report coords.heading, so this is what keeps the map turning with the
   // traveller through bends and corners.
   const travelBearingRef = useRef(null);
+  // Accuracy (m) of the last accepted GPS fix, and the route the camera last
+  // turned for (the bearing is held on that route while standing on rough GPS).
+  const liveAccuracyRef = useRef(Infinity);
+  const cameraTurnedForRouteRef = useRef(null);
   const travelBearingAtRef = useRef(0);
   const isTravellerMovingRef = useRef(false);
   // Edge auto-recentre bookkeeping.
@@ -2266,11 +2279,23 @@ export default function NearbyAreaMap({
     // Skip hair-thin rotations so the view does not shimmer between two nearly
     // identical bearings on every fix.
     const currentBearing = normalizeBearing(map.getBearing?.());
-    const bearing =
+    // Standing still on a rough fix (the first seconds of a route, indoors):
+    // keep the direction already set for this route instead of swinging it
+    // on every jump of the dot. Starting a route and Recenter still turn it.
+    const holdOnRoughFix =
+      !options.turn &&
+      headingMode === "smart" &&
       currentBearing != null &&
-      Math.abs(shortestBearingDelta(currentBearing, nextBearing)) < HEADING_SETTINGS.minCameraDeltaDegrees
+      cameraTurnedForRouteRef.current === routeCoordinatesRef.current &&
+      !isTravellerMovingRef.current &&
+      liveAccuracyRef.current > HEADING_SETTINGS.steadyAccuracyMeters;
+    const bearing =
+      holdOnRoughFix ||
+      (currentBearing != null &&
+        Math.abs(shortestBearingDelta(currentBearing, nextBearing)) < HEADING_SETTINGS.minCameraDeltaDegrees)
         ? currentBearing
         : nextBearing;
+    cameraTurnedForRouteRef.current = routeCoordinatesRef.current;
     const cameraCenter = getSmartCameraCenter(
       position,
       destination,
@@ -3126,7 +3151,7 @@ export default function NearbyAreaMap({
     // Tapping recenter re-locks the camera to the traveller.
     followLockRef.current = true;
     routePreviewHoldRef.current = false;
-    applySmartCamera(current, selectedLocation, lastRouteSegmentIndexRef.current, { force: true });
+    applySmartCamera(current, selectedLocation, lastRouteSegmentIndexRef.current, { force: true, turn: true });
     // eslint-disable-next-line react-hooks/exhaustive-deps -- recenter should run only when the user taps the recenter button.
   }, [recenterSignal]);
 
@@ -3420,7 +3445,7 @@ export default function NearbyAreaMap({
       } else {
         fitRouteBounds();
         window.setTimeout(() => {
-          if (!cancelled && !routePreviewHoldRef.current) applySmartCamera(routeStart, routeTarget, 0, { force: true });
+          if (!cancelled && !routePreviewHoldRef.current) applySmartCamera(routeStart, routeTarget, 0, { force: true, turn: true });
         }, 950);
       }
 
@@ -3503,6 +3528,7 @@ export default function NearbyAreaMap({
         if (rescueActiveRef.current) return;
         const accuracy = Math.round(position.coords.accuracy || 0);
         const hadLiveFix = hasLiveDeviceFixRef.current;
+        liveAccuracyRef.current = accuracy > 0 ? accuracy : Infinity;
 
         if (!shouldAcceptAreaLocationAccuracy(accuracy, { hasLiveFix: hadLiveFix })) {
           publishGpsUi(t("urride.areaMap.gpsWeak", { m: accuracy }), accuracy);
