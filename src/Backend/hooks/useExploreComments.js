@@ -3,6 +3,7 @@ import { inlineErrorMessage, shortErrorToast } from "../services/friendlyErrorSe
 
 import supabase from "../lib/supabaseClient";
 import { subscribeToCurrentUserCommentLikes, subscribeToExploreComments } from "../services/explore/realtimeService";
+import { mergeSavedComment } from "../services/explore/commentMerge";
 import {
   createExploreComment,
   createExploreNotification,
@@ -180,29 +181,8 @@ export function useExploreComments(postId, currentUserId = "", post = null, enab
       onInsert(payload) {
         if (!payload.new) return;
         setComments((current) => {
-          if (current.some((comment) => comment.id === payload.new.id)) {
-            return current;
-          }
-
-          const pendingIndex = current.findIndex((comment) => {
-            if (!comment.pending) return false;
-            return (
-              comment.post_id === payload.new.post_id &&
-              (comment.parent_comment_id || null) === (payload.new.parent_comment_id || null) &&
-              comment.user_id === payload.new.user_id &&
-              (comment.body || "") === (payload.new.body || "") &&
-              (comment.audio_url || "") === (payload.new.audio_url || "")
-            );
-          });
-
-          if (pendingIndex >= 0) {
-            const next = current.map((comment, index) => (index === pendingIndex ? payload.new : comment));
-            writeCommentMemory(postId, { comments: next });
-            return next;
-          }
-
-          const next = [...current, payload.new];
-          writeCommentMemory(postId, { comments: next });
+          const next = mergeSavedComment(current, payload.new);
+          if (next !== current) writeCommentMemory(postId, { comments: next });
           return next;
         });
       },
@@ -339,7 +319,7 @@ export function useExploreComments(postId, currentUserId = "", post = null, enab
 
       if (created) {
         setComments((current) => {
-          const next = current.map((comment) => (comment.id === tempId ? created : comment));
+          const next = mergeSavedComment(current, created, tempId);
           writeCommentMemory(postId, { comments: next });
           return next;
         });
