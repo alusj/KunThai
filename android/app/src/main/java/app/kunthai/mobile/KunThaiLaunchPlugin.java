@@ -49,6 +49,11 @@ public class KunThaiLaunchPlugin extends Plugin {
         webReady = false;
     }
 
+    // The page stays as it was (it declined a reload): the splash may leave.
+    static void markReady() {
+        webReady = true;
+    }
+
     @PluginMethod
     public void setSignedIn(PluginCall call) {
         getContext().getSharedPreferences(PREFS, Context.MODE_PRIVATE)
@@ -77,43 +82,6 @@ public class KunThaiLaunchPlugin extends Plugin {
             });
         }
         call.resolve();
-    }
-
-    // The web app is about to reload itself (src/Backend/services/quietReload.js):
-    // a plain cover in the app's colour hides the page until the reloaded app
-    // has drawn its first screen (ready()), at most 8 s, then fades away.
-    @PluginMethod
-    public void coverForReload(PluginCall call) {
-        webReady = false;
-        final android.app.Activity activity = getActivity();
-        if (activity == null) {
-            call.resolve();
-            return;
-        }
-        activity.runOnUiThread(() -> {
-            final android.view.View cover = new android.view.View(activity);
-            cover.setBackgroundColor(appBackground(activity));
-            cover.setClickable(true);
-            activity.addContentView(cover, new android.view.ViewGroup.LayoutParams(
-                android.view.ViewGroup.LayoutParams.MATCH_PARENT,
-                android.view.ViewGroup.LayoutParams.MATCH_PARENT));
-            final long startedAt = android.os.SystemClock.uptimeMillis();
-            cover.postDelayed(new Runnable() {
-                @Override
-                public void run() {
-                    if (!webReady && android.os.SystemClock.uptimeMillis() - startedAt < 8000) {
-                        cover.postDelayed(this, 50);
-                        return;
-                    }
-                    cover.animate().alpha(0f).setDuration(150).withEndAction(() -> {
-                        if (cover.getParent() instanceof android.view.ViewGroup) {
-                            ((android.view.ViewGroup) cover.getParent()).removeView(cover);
-                        }
-                    }).start();
-                }
-            }, 50);
-            call.resolve();
-        });
     }
 
     @PluginMethod

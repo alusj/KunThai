@@ -34,7 +34,7 @@ installNativeShare();
 // so Swip plays at once (not on the admin or public pages).
 if (!/^\/(admin|policy-center|privacy|terms|support|track)(\/|$)/.test(window.location.pathname)) {
   startSwipStartupPrefetch();
-  // Back after 15 minutes or more: a fresh start, unseen (quietReload.js).
+  // Back after 15 minutes or more: a fresh start under the splash (quietReload.js).
   installQuietReload();
 }
 

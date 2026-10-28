@@ -190,6 +190,7 @@ export default function Explore({ active = true, onNavigateMain, onScreenModeCha
   // has slid away (or as it comes back). Clearing them first put the old tab
   // back in the middle for a frame before the switch.
   const tabDragCleanupPendingRef = useRef(false);
+  const queuedTabRef = useRef("");
   const exitDragCleanupPendingRef = useRef(false);
   const exitDragCleanupTimerRef = useRef(null);
   const clearTabDragStylesRef = useRef(null);
@@ -529,6 +530,7 @@ export default function Explore({ active = true, onNavigateMain, onScreenModeCha
       window.clearTimeout(dragSettleTimerRef.current);
       // Leaving Explore mid-slide: land on the chosen tab at once.
       const slide = tabSlideRef.current;
+      queuedTabRef.current = "";
       if (slide) {
         tabSlideRef.current = null;
         window.cancelAnimationFrame(slide.frame);
@@ -1197,25 +1199,16 @@ export default function Explore({ active = true, onNavigateMain, onScreenModeCha
   // the finger-swipe path was smooth.
   function switchExploreTab(tab, options = {}) {
     if (tabSlideRef.current) {
-      // Chosen again mid-slide: land where asked at once.
-      cancelTabSlide();
-      if (tab === activeTab) return;
-      commitExploreTab(tab, { ...options, animate: false });
+      // Chosen mid-slide: it slides in once this slide has landed. Cutting
+      // the slide short and jumping there looked like a reload when tabs
+      // were tapped quickly one after another.
+      queuedTabRef.current = tab === tabSlideRef.current.tab ? "" : tab;
+      if (queuedTabRef.current) setTabHighlight(tab);
       return;
     }
     if (tab === activeTab) return;
     if (options.animate !== false && slideToExploreTab(tab)) return;
     commitExploreTab(tab, { ...options, animate: false });
-  }
-
-  function cancelTabSlide() {
-    const slide = tabSlideRef.current;
-    if (!slide) return;
-    tabSlideRef.current = null;
-    window.cancelAnimationFrame(slide.frame);
-    window.clearTimeout(slide.timer);
-    clearTabDragStyles();
-    setTabHighlight("");
   }
 
   function slideToExploreTab(tab) {
@@ -1228,21 +1221,16 @@ export default function Explore({ active = true, onNavigateMain, onScreenModeCha
     // Direction the panels travel: -1 toward a tab on the right.
     const sign = EXPLORE_TAB_ORDER.indexOf(tab) > EXPLORE_TAB_ORDER.indexOf(activeTab) ? -1 : 1;
     window.clearTimeout(dragSettleTimerRef.current);
-    // The incoming tab waits beside the screen, peeking 1px so it is painted,
-    // then slides in over the current one, which stays still. Moving the
-    // current tab too (as a finger swipe does) meant turning all of UrFeed
-    // (~13,000px) into a moving layer at the start of the slide; that took
-    // longer than the slide itself, so it showed up nearly finished. The
-    // incoming tab is a screen-sized panel, cheap to move.
-    // While it waits (two frames) it sits in its final place at 1% opacity:
-    // phones paint only the visible part of a layer, so a tab waiting beside
-    // the screen was painted during the slide itself (a jump, then a pause).
-    // Here all of it is painted first, unseen, and then it slides in whole.
-    prepareIncomingPanel(tab, 0);
-    toNode.style.opacity = "0.01";
+    // A tap moves the tabs exactly as a finger swipe does (the motion that
+    // stays smooth on iPhone): the next tab waits just off the screen, the
+    // current one becomes its own layer (as the first touch of a drag makes
+    // it), and both slide together. Painting the next tab in place first and
+    // sliding it over a still UrFeed made iPhone draw UrFeed's photos again
+    // mid-switch, which looked like a reload.
+    prepareIncomingPanel(tab, -sign * width);
     toNode.style.willChange = "transform";
-    // The same soft edge as the app's other screen pushes.
-    toNode.style.boxShadow = `${sign < 0 ? -10 : 10}px 0 28px rgba(2, 6, 23, 0.16)`;
+    fromNode.style.transition = "none";
+    fromNode.style.transform = "translate3d(0, 0, 0)";
     setTabHighlight(tab);
 
     const slide = { tab, frame: 0, timer: 0 };
@@ -1254,11 +1242,8 @@ export default function Explore({ active = true, onNavigateMain, onScreenModeCha
         // only 15-30 frames a second showed ~70% of a front-loaded slide in
         // its first frame, so it read as a jump. This spreads it over frames.
         const transition = `transform ${TAB_TAP_SLIDE_MS}ms cubic-bezier(0.4, 0, 0.2, 1)`;
-        // To the side (no transition), shown, then the slide in.
-        toNode.style.transition = "none";
-        toNode.style.transform = `translate3d(${-sign * width}px, 0, 0)`;
-        toNode.style.opacity = "";
-        void toNode.offsetWidth;
+        fromNode.style.transition = transition;
+        fromNode.style.transform = `translate3d(${sign * width}px, 0, 0)`;
         toNode.style.transition = transition;
         toNode.style.transform = "translate3d(0, 0, 0)";
         // Switch once the slide has really finished: a busy phone can start
@@ -1279,6 +1264,14 @@ export default function Explore({ active = true, onNavigateMain, onScreenModeCha
             tabDragCleanupPendingRef.current = false;
             clearTabDragStylesRef.current?.();
           }, 600);
+          // A tab tapped during the slide follows, once this one has landed.
+          const queued = queuedTabRef.current;
+          queuedTabRef.current = "";
+          if (queued && queued !== tab) {
+            window.requestAnimationFrame(() => window.requestAnimationFrame(() => {
+              switchExploreTabRef.current?.(queued);
+            }));
+          }
         };
         const onEnd = (event) => {
           if (event.target === toNode && event.propertyName === "transform") finish();

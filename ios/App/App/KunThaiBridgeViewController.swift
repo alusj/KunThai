@@ -43,6 +43,10 @@ class KunThaiBridgeViewController: CAPBridgeViewController {
     private var splashMinimumUntil = Date.distantPast
     private var webReady = false
     private var loadingObservation: NSKeyValueObservation?
+    // Back after this long away: a fresh start under the KunThai splash
+    // (quietReload).
+    private static let quietReloadAfter: TimeInterval = 15 * 60
+    private var backgroundedAt: Date?
 
     override open func capacitorDidLoad() {
         bridge?.registerPluginInstance(KunThaiAppleSignInPlugin())
@@ -70,6 +74,7 @@ class KunThaiBridgeViewController: CAPBridgeViewController {
 
         let center = NotificationCenter.default
         center.addObserver(self, selector: #selector(appWillEnterForeground), name: UIApplication.willEnterForegroundNotification, object: nil)
+        center.addObserver(self, selector: #selector(appDidEnterBackground), name: UIApplication.didEnterBackgroundNotification, object: nil)
         center.addObserver(self, selector: #selector(webDidBecomeReady), name: Self.webReadyNotification, object: nil)
         center.addObserver(self, selector: #selector(appearanceDidChange), name: Self.appearanceNotification, object: nil)
         center.addObserver(self, selector: #selector(keyboardWillChangeFrame(_:)), name: UIResponder.keyboardWillChangeFrameNotification, object: nil)
@@ -145,7 +150,34 @@ class KunThaiBridgeViewController: CAPBridgeViewController {
         splashView?.backgroundColor = appBackground
     }
 
+    @objc private func appDidEnterBackground() {
+        backgroundedAt = Date()
+    }
+
+    // Opened again after 15 minutes or more away: the KunThai logo covers the
+    // screen at once (the old screen never shows) and the page reloads under
+    // it (src/Backend/services/quietReload.js); the logo leaves once the
+    // reloaded app has drawn. Should the page decline (a post is being sent),
+    // the app carries on as it was.
+    private func quietReload() {
+        guard let webView else { return }
+        webReady = false
+        showSplash(minimum: Self.splashSeconds, logo: true)
+        webView.evaluateJavaScript("window.__ktQuietReload ? window.__ktQuietReload() : 'absent'") { [weak self] result, _ in
+            guard let self, (result as? String) == "declined" else { return }
+            self.webReady = true
+            self.splashMinimumUntil = Date()
+            self.hideSplashIfReady()
+        }
+    }
+
     @objc private func appWillEnterForeground() {
+        let away = backgroundedAt.map { Date().timeIntervalSince($0) } ?? 0
+        backgroundedAt = nil
+        if away >= Self.quietReloadAfter {
+            quietReload()
+            return
+        }
         // Is the page still there? iOS may have cleared it in the background,
         // in which case it reloads: a plain cover (no logo) hides the blank page.
         guard let webView else { return }

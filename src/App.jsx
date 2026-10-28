@@ -348,6 +348,8 @@ export default function App() {
   const appGestureRef = useRef(null);
   const mainPanelRefs = useRef({});
   const mainSlideTokenRef = useRef(null);
+  const queuedPageRef = useRef("");
+  const changePageRef = useRef(null);
   // The screen the app has settled on: it becomes the active one (media,
   // scroll listeners, refreshes) only once the slide to it has finished.
   // Flipping `active` at the tap re-rendered both screens before the slide
@@ -358,6 +360,13 @@ export default function App() {
   }, [leavingPage, page]);
   const mainSpacerRef = useRef(null);
   const changePage = useCallback((nextPage) => {
+    // Chosen while a slide runs: it follows once the slide has landed.
+    // Cutting the slide short jumped the screens (it looked like a reload
+    // when the tabs were tapped quickly one after another).
+    if (leavingPage) {
+      queuedPageRef.current = nextPage === page ? "" : nextPage;
+      return;
+    }
     if (!nextPage || nextPage === page) {
       return;
     }
@@ -390,6 +399,7 @@ export default function App() {
     setMainPageDirection(direction);
     setPage(nextPage);
   }, [leavingPage, page]);
+  changePageRef.current = changePage;
   const userId = user?.id || "";
   const guestSession = Boolean(user?.is_anonymous);
   setNotificationSeenUser(userId);
@@ -499,6 +509,11 @@ export default function App() {
           // the view anchored inside the window while it slides.
           if (entering) pageScrollRef.current[leavingPage.to] = entering.scrollTop;
           setLeavingPage((current) => (current && current.to === leavingPage.to && current.page === leavingPage.page ? null : current));
+          const queued = queuedPageRef.current;
+          queuedPageRef.current = "";
+          if (queued && queued !== leavingPage.to) {
+            window.requestAnimationFrame(() => window.requestAnimationFrame(() => changePageRef.current?.(queued)));
+          }
         };
         const onEnd = (event) => {
           if (event.target === entering && event.propertyName === "transform") finish();

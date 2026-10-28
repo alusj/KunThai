@@ -29,6 +29,10 @@ public class MainActivity extends BridgeActivity {
     private static final String LOCATION_SHARING_CHANNEL_ID = "com.capgo.capacitor_background_geolocation";
 
     private ScreenCaptureObserver screenCaptureObserver;
+    // Back after this long away: a fresh start under the KunThai splash
+    // (quietReload).
+    private static final long QUIET_RELOAD_AFTER_MS = 15 * 60 * 1000;
+    private long stoppedAt = 0;
 
     @Override
     public void onCreate(Bundle savedInstanceState) {
@@ -75,6 +79,22 @@ public class MainActivity extends BridgeActivity {
     // The KunThai logo over the app until it has drawn its first screen and at
     // least 1.75 s have passed (never more than 8 s), then it slides down and
     // away. Same timing and animation as the iPhone (KunThaiBridgeViewController).
+    // Opened again after 15 minutes or more away: the KunThai logo covers the
+    // screen at once (the old screen never shows) and the page reloads under
+    // it (src/Backend/services/quietReload.js); the logo leaves once the
+    // reloaded app has drawn. Should the page decline (a post is being sent),
+    // the app carries on as it was.
+    private void quietReload() {
+        if (getBridge() == null || getBridge().getWebView() == null) return;
+        KunThaiLaunchPlugin.reset();
+        showLogoSplash(KunThaiLaunchPlugin.appBackground(this), android.os.SystemClock.uptimeMillis());
+        getBridge().getWebView().evaluateJavascript(
+            "window.__ktQuietReload ? window.__ktQuietReload() : 'absent'",
+            result -> {
+                if ("\"declined\"".equals(result)) KunThaiLaunchPlugin.markReady();
+            });
+    }
+
     private void showLogoSplash(int background, long startedAt) {
         final android.widget.FrameLayout cover = new android.widget.FrameLayout(this);
         cover.setBackgroundColor(background);
@@ -169,7 +189,16 @@ public class MainActivity extends BridgeActivity {
     }
 
     @Override
+    public void onStart() {
+        super.onStart();
+        long away = stoppedAt == 0 ? 0 : android.os.SystemClock.elapsedRealtime() - stoppedAt;
+        stoppedAt = 0;
+        if (away >= QUIET_RELOAD_AFTER_MS) quietReload();
+    }
+
+    @Override
     public void onStop() {
+        stoppedAt = android.os.SystemClock.elapsedRealtime();
         if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.UPSIDE_DOWN_CAKE && screenCaptureObserver != null) {
             screenCaptureObserver.unregister();
         }
