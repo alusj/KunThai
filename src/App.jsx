@@ -559,7 +559,9 @@ export default function App() {
       // Away 15+ minutes: open the preferred dashboard with a clean Back
       // stack. Shorter interruptions keep the current screen. Live trips and
       // navigation hold this off (see dashboardResume.js).
-      if (backgroundedAt && shouldResetToDashboard(returnedAt - backgroundedAt)) {
+      // In the iOS / Android app the native side reloads the page under the
+      // splash instead (quietReload.js), so this is for the web only.
+      if (backgroundedAt && !window.__ktNativeQuietReload && shouldResetToDashboard(returnedAt - backgroundedAt)) {
         resetToDashboardRef.current?.();
       }
       // No logo intro on return: the KunThai splash is only for a fresh start.

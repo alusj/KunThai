@@ -91,7 +91,11 @@ public class MainActivity extends BridgeActivity {
         getBridge().getWebView().evaluateJavascript(
             "window.__ktQuietReload ? window.__ktQuietReload() : 'absent'",
             result -> {
-                if ("\"declined\"".equals(result)) KunThaiLaunchPlugin.markReady();
+                if ("\"reloading\"".equals(result)) {
+                    if (getBridge() != null && getBridge().getWebView() != null) getBridge().getWebView().reload();
+                } else if ("\"declined\"".equals(result)) {
+                    KunThaiLaunchPlugin.markReady();
+                }
             });
     }
 

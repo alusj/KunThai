@@ -163,8 +163,14 @@ class KunThaiBridgeViewController: CAPBridgeViewController {
         guard let webView else { return }
         webReady = false
         showSplash(minimum: Self.splashSeconds, logo: true)
-        webView.evaluateJavaScript("window.__ktQuietReload ? window.__ktQuietReload() : 'absent'") { [weak self] result, _ in
-            guard let self, (result as? String) == "declined" else { return }
+        webView.evaluateJavaScript("window.__ktQuietReload ? window.__ktQuietReload() : 'absent'") { [weak self, weak webView] result, _ in
+            guard let self else { return }
+            let answer = result as? String
+            if answer == "reloading" {
+                webView?.reload()
+                return
+            }
+            guard answer == "declined" else { return }
             self.webReady = true
             self.splashMinimumUntil = Date()
             self.hideSplashIfReady()
