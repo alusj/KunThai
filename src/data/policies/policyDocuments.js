@@ -227,6 +227,8 @@ export const policyDocuments = [
           "Marketplace and business information, including listings, seller profiles, business contacts, addresses, documents, products, prices, orders, bookings, reviews, customer messages, delivery details, and disputes.",
           "Transport information, including pickup and destination details, route and trip records, driver, company, fleet and vehicle information, licences or verification documents, safety reports, and support cases.",
           "Payment and promotion information when enabled, such as transaction references, payment status, credit balances, promotion activity, payout details, and records needed for refunds, disputes, fraud prevention, accounting, or tax compliance. Full payment credentials may be collected directly by a payment provider rather than KunThai.",
+          "Vendor and supplier information, such as vendor type, sales model, selling units, minimum order quantities, bulk prices, warehouse address, and whether you offer pickup, delivery, or both.",
+          "Parcel delivery information, such as the sender, the pickup and drop-off points, an optional receiver phone number, the delivery status, and the 4-digit pickup and drop-off codes used to confirm handover.",
         ],
       }),
       section("automatic-information", "Information Collected Automatically", {
@@ -249,6 +251,24 @@ export const policyDocuments = [
           "With your permission, KunThai may access location, camera, microphone, photos, files, contacts, and notification capabilities for the feature you request.",
           "For contact discovery, selected phone numbers may be normalized and checked for matching accounts. KunThai does not use your address book or precise location for advertising.",
           "You can withdraw device permissions in system settings, although the related feature may stop working.",
+        ],
+      }),
+      section("location-sharing", "Operator Location, Live Location Sharing, And Parcel Tracking", {
+        paragraphs: [
+          "When an UrRide operator goes online, KunThai shares the operator's location so passengers and senders can find nearby operators and follow accepted trips and deliveries. If the operator allows background location, sharing continues while the phone is locked or KunThai is in the background. Sharing stops when the operator goes offline, signs out, or switches account, and Android shows a notification while it is on.",
+          "You can choose to share your live location in a message or during a trip for a limited time of up to one hour. It stops by itself when the time is up, and you can stop it sooner.",
+          "A parcel tracking link shows the pickup and drop-off points, the rider's name, vehicle type and plate, the rider's latest location while the parcel is on its way, and the drop-off code. Anyone who has the link can see this, so share it only with the receiver. The location is no longer shown once the delivery ends.",
+        ],
+      }),
+      section("kai-assistant", "KAI Assistant And AI Features", {
+        paragraphs: [
+          "When you use KAI, the KunThai assistant, or another AI feature, KunThai sends your request and the context needed to answer it, such as the screen or form you are using, to an AI service provider that processes it for us.",
+          "AI answers are generated automatically and can be wrong. Check what KAI suggests before you rely on it or confirm it, and do not include passwords, one-time codes, or payment card details in a request.",
+        ],
+      }),
+      section("sponsored-adverts", "Sponsored Adverts", {
+        paragraphs: [
+          "Sponsored adverts in Explore and Swip are chosen using your interests and activity on KunThai. Your contacts and precise location are not used for advertising, and nearby matching uses your location only with your permission.",
         ],
       }),
       section("use", "How And Why We Use Information", {
@@ -468,6 +488,12 @@ export const policyDocuments = [
       section("removed", "Content That Must Be Removed", {
         prohibited: [
           "Child exploitation, non-consensual intimate content, credible threats, hate abuse, scams, phishing, illegal trade, severe exploitation, and content that directly helps serious harm.",
+        ],
+      }),
+      section("sponsored", "Sponsored Content", {
+        bullets: [
+          "Sponsored posts and Swip adverts must follow these standards, the UrMall prohibited-product rules, and the advertising law where they are shown.",
+          "Sponsored content is marked as sponsored so people can tell it apart from ordinary posts.",
         ],
       }),
       section("recommendations", "Recommendation Eligibility", {
@@ -732,6 +758,13 @@ export const policyDocuments = [
       section("prohibited-products", "Prohibited And Restricted Products", {
         bullets: productGroupBullets(),
       }),
+      section("vendors", "Vendors And Suppliers", {
+        bullets: [
+          "Vendors and suppliers sell goods in bulk to shops, businesses, and institutions as wholesalers, distributors, manufacturers, importers, or general suppliers.",
+          "Each vendor product shows a selling unit, a minimum order quantity, and bulk prices. Orders must meet the minimum quantity, and the vendor must honour the unit and price shown when the order was placed.",
+          "Vendors state whether they offer pickup, delivery, or both. Contract supply arranged outside KunThai is between the vendor and the buyer.",
+        ],
+      }),
       section("reviews-disputes", "Reviews, Listing Removal, And Disputes", {
         bullets: [
           "Fake reviews, review manipulation, misleading advertising, counterfeit goods, and fraudulent listings may be removed.",
@@ -762,6 +795,12 @@ export const policyDocuments = [
           "List authentic products with accurate prices, images, stock, condition, delivery terms, and refund expectations.",
           "Fulfil confirmed orders promptly and communicate delays or substitutions clearly.",
           "Do not mislead buyers with fake scarcity, fake discounts, hidden fees, or unavailable items.",
+        ],
+      }),
+      section("vendor-standards", "Vendor And Supplier Standards", {
+        bullets: [
+          "Choose the sales model that matches how you really trade: wholesale only, wholesale and retail, or contract supply.",
+          "Keep your warehouse address, selling units, minimum orders, stock, and bulk prices accurate, and do not use a minimum order or unit change to hide the real price.",
         ],
       }),
       section("care", "Customer Communication", {
@@ -804,6 +843,21 @@ export const policyDocuments = [
           "Passengers must provide accurate pickup and destination details and behave respectfully.",
           "Operators must use accurate fleet details, avoid dangerous driving, and accept only trips they can complete safely.",
           "Lost property, incidents, unsafe conduct, and payment pressure should be reported with trip records.",
+        ],
+      }),
+      section("operators", "Solo Operators, Companies, And Fleets", {
+        bullets: [
+          "Solo operators offer rides or deliveries with their own vehicle under their own profile. Transport companies manage a fleet of vehicles and the drivers who work under the company profile.",
+          "A company is responsible for the drivers and vehicles it adds and for keeping their documents and details up to date.",
+          "Operators are visible to passengers only while they are online. Going offline stops location sharing.",
+        ],
+      }),
+      section("parcels", "Parcel Delivery", {
+        bullets: [
+          "Senders must describe parcels honestly and must not send prohibited, dangerous, or illegal items.",
+          "The sender gives the rider a 4-digit pickup code at handover, and the receiver gives a 4-digit drop-off code to confirm delivery. Share these codes only at the handover.",
+          "After several wrong codes, code entry is paused for a short time to protect the parcel.",
+          "The sender can follow the parcel live and can send the receiver a tracking link.",
         ],
       }),
       section("verification-limits", "Verification And Safety Limits", {
@@ -944,6 +998,7 @@ export const policyDocuments = [
         bullets: [
           "Identity documents, business registration, owner or representative details, address information, driver licence, vehicle registration, insurance where required, fleet photos, and supporting evidence.",
           "Beneficial-owner or authorization details may be requested for business accounts where required.",
+          "Documents and review questions differ by business type, such as shops, vendors and suppliers, restaurants, hotels, and property agents.",
         ],
       }),
       section("review", "Review And Failed Verification", {
@@ -1021,6 +1076,11 @@ export const policyDocuments = [
         bullets: [
           "Shared messages, comments copied by others, reports, appeals, support tickets, fraud records, transaction records, marketplace disputes, transport incidents, legal holds, and backups.",
           "Anonymized or aggregated information may remain because it no longer identifies the user in ordinary use.",
+        ],
+      }),
+      section("credits", "Visibility Credits After Deletion", {
+        paragraphs: [
+          "Visibility Credits left in a deleted account are lost. You can sign up again later with the same email or phone, but the new account does not receive welcome Visibility Credits again.",
         ],
       }),
       section("timeframe", "Processing Timeframe", {

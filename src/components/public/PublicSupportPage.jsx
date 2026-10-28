@@ -15,6 +15,7 @@ import {
 } from "react-icons/hi2";
 
 import { isResolvedLegalValue, legalConfig } from "../../config/legalConfig";
+import { copyrightLine } from "../../i18n/policyText";
 
 // Public, sign-in-free support page (App Store Connect "Support URL").
 // Detailed requests stay in the app: Explore → Social Menu → Report a Problem.
@@ -304,7 +305,7 @@ export default function PublicSupportPage() {
 
       <footer className="border-t border-slate-200 bg-white">
         <div className="mx-auto flex max-w-6xl flex-wrap items-center justify-between gap-3 px-4 py-6 text-sm font-semibold text-slate-500 sm:px-6">
-          <span>(c) {new Date().getFullYear()} KunThai</span>
+          <span>{copyrightLine("en")}</span>
           <span className="flex flex-wrap gap-4">
             <a href="/support" className="hover:text-slate-900">Support</a>
             <a href="/policy-center" className="hover:text-slate-900">Policy Center</a>

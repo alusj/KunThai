@@ -14,6 +14,7 @@ const extraSources = [
   "KunThai account deletion request", "KunThai data access request",
   "Your account deletion request has been received. Keep this reference for follow-up.",
   "Your data access request has been received. Keep this reference for follow-up.",
+  "© {year} KunThai. All rights reserved. Republic of Sierra Leone.",
   "Enter this or the account phone number.", "Include the international country code.", "Do not include passwords or one-time codes.",
 ];
 const protectedTerms = ["Visibility Credits", "KunThai ID", "KunThai", "Explore", "UrFeed", "UrMall", "UrRide", "Spaces", "Swip", "KAI", "Flutterwave", "WhatsApp", "Facebook", "Instagram", "TikTok", "YouTube", "Google", "Apple", "CSAE", "CSAM"];

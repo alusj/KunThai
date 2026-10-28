@@ -26,3 +26,9 @@ export function policyDate(value, locale = "en") {
   if (Number.isNaN(date.getTime())) return value;
   return new Intl.DateTimeFormat(locale, { year: "numeric", month: "long", day: "numeric", timeZone: "UTC" }).format(date);
 }
+
+// Closes every policy page, like the copyright line on larger platforms'
+// legal pages. The company's home country is fixed, not the reader's.
+export function copyrightLine(locale = "en", year = new Date().getFullYear()) {
+  return policyText("© {year} KunThai. All rights reserved. Republic of Sierra Leone.", locale, { year });
+}

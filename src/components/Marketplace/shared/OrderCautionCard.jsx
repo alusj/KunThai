@@ -4,6 +4,7 @@ import { ExternalLink, House, MessageCircle, ShieldAlert, ShieldCheck, Store, Tr
 import { useBrowserBack } from "../../../Backend/hooks/useBrowserBack";
 import { t, useI18n } from "../../../i18n";
 import AppPortal from "../../shared/AppPortal";
+import { openLegalPage } from "../../shared/legalLinks";
 import useBodyScrollLock from "../../shared/useBodyScrollLock";
 import { orderCautionContent } from "./orderCaution";
 
@@ -69,6 +70,7 @@ export function OrderCautionBody({ kind, introId }) {
         href={content.policyHref}
         target="_blank"
         rel="noreferrer"
+        onClick={(event) => openLegalPage(event, content.policyHref)}
         className="mt-3 inline-flex items-center gap-1.5 rounded-full border border-slate-200 bg-slate-50 px-3 py-1.5 text-xs font-black text-slate-700 transition hover:border-blue-300 hover:bg-blue-50 hover:text-blue-800"
       >
         {t("orderCaution.policyLink")}

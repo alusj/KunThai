@@ -22,7 +22,7 @@ import {
   resolvePolicy,
 } from "../../../../data/policies";
 import { buildPolicySearchResults, getLocalizedPolicies } from "../../../../data/policies/localizedPolicies";
-import { policyDate, policyText } from "../../../../i18n/policyText";
+import { copyrightLine, policyDate, policyText } from "../../../../i18n/policyText";
 import SocialScreenHeader from "../shared/SocialScreenHeader";
 import PublicPrivacyRequestDialog from "../../../public/PublicPrivacyRequestDialog";
 import { t as i18nText, useI18n } from "../../../../i18n/index";
@@ -205,7 +205,9 @@ function PolicyCategoryCard({ category, onOpen }) {
   );
 }
 
-function PolicyCenterHome({ onOpen }) {
+// The public pages (hideHeader) carry the copyright line in their own site
+// footer, so the screen shows it only inside the app.
+function PolicyCenterHome({ onOpen, showCopyright = true }) {
   const { locale } = useI18n();
   const { policiesById, policyCategories, policyChangelog } = getLocalizedPolicies(locale);
   const [query, setQuery] = useState("");
@@ -316,6 +318,7 @@ function PolicyCenterHome({ onOpen }) {
         {isResolvedLegalValue(legalConfig.disputeJurisdiction) ? (
           <span className="mt-1 block">{i18nText("exploreSettingsFix.legalJurisdiction", { value0: legalConfig.disputeJurisdiction })}</span>
         ) : null}
+        {showCopyright ? <span className="mt-1 block">{copyrightLine(locale)}</span> : null}
       </footer>
     </main>
   );
@@ -477,7 +480,8 @@ function RelatedPolicies({ ids = [], onOpen }) {
   );
 }
 
-function PolicyReader({ policy, onBack, onOpen, onOpenHelp, onOpenPrivacy, onOpenReport, onRequestPrivacy, sectionTarget }) {
+function PolicyReader({ policy, onBack, onOpen, onOpenHelp, onOpenPrivacy, onOpenReport, onRequestPrivacy, sectionTarget, showCopyright = true }) {
+  const { locale } = useI18n();
   const articleRef = useRef(null);
   const [showTop, setShowTop] = useState(false);
 
@@ -563,6 +567,12 @@ function PolicyReader({ policy, onBack, onOpen, onOpenHelp, onOpenPrivacy, onOpe
         </aside>
       </div>
 
+      {showCopyright ? (
+        <footer className="mt-6 border-t border-slate-200 pt-4 text-center text-xs font-semibold leading-5 text-slate-500">
+          {copyrightLine(locale)}
+        </footer>
+      ) : null}
+
       {showTop ? (
         <button
           type="button"
@@ -625,6 +635,7 @@ export default function TermsPoliciesScreen({
           onOpenReport={onOpenReport}
           onRequestPrivacy={requestPrivacyAction}
           sectionTarget={sectionTarget}
+          showCopyright={!hideHeader}
         />
         {publicPrivacyRequest ? (
           <PublicPrivacyRequestDialog requestType={publicPrivacyRequest} onClose={() => setPublicPrivacyRequest("")} />
@@ -636,7 +647,7 @@ export default function TermsPoliciesScreen({
   return (
     <div>
       {!hideHeader ? <SocialScreenHeader title={i18nText("ui.literals.k176ded55d96d")} subtitle={i18nText("ui.literals.k5b5db17fc7e6")} /> : null}
-      <PolicyCenterHome onOpen={openPolicy} />
+      <PolicyCenterHome onOpen={openPolicy} showCopyright={!hideHeader} />
     </div>
   );
 }

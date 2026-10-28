@@ -2,6 +2,14 @@ import { legalConfig } from "../../config/legalConfig.js";
 
 export const policyChangelog = [
   {
+    id: "current-features-v2-1",
+    date: "October 27, 2026",
+    version: "2.1",
+    effectiveDate: "October 27, 2026",
+    policiesAffected: ["Privacy Policy", "Explore Content Policy", "UrMall Marketplace Policy", "Seller And Business Standards", "Business And Identity Verification Policy", "Transport Terms", "Account Deletion And Data Retention Policy"],
+    summary: "Covered UrMall vendors and suppliers, UrRide solo operators, companies and fleets, parcel delivery codes and tracking, operator background location, live location sharing, the KAI assistant, sponsored adverts, and Visibility Credits after account deletion.",
+  },
+  {
     id: "child-safety-v2",
     date: "August 7, 2026",
     version: "2.0",

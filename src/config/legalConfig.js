@@ -24,9 +24,9 @@ export const legalConfig = {
   websiteUrl: "https://kunthai.app",
   deletionRequestUrl: "https://kunthai.app/policy-center/account-deletion",
   minimumAge: 13,
-  policyVersion: "2.0",
+  policyVersion: "2.1",
   effectiveDate: "August 7, 2026",
-  lastUpdated: "August 7, 2026",
+  lastUpdated: "October 27, 2026",
   deletionProcessingTimeframe: "within 30 days after identity verification, unless a longer period is required or permitted by applicable law",
 };
 

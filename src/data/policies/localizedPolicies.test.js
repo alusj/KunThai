@@ -3,7 +3,7 @@ import test from "node:test";
 
 import { legalConfig } from "../../config/legalConfig.js";
 import { POLICY_TRANSLATIONS } from "../../i18n/policies.js";
-import { policyDate, policyText } from "../../i18n/policyText.js";
+import { copyrightLine, policyDate, policyText } from "../../i18n/policyText.js";
 import { buildPolicySearchResults, getLocalizedPolicies } from "./localizedPolicies.js";
 import { policyDocuments } from "./policyDocuments.js";
 
@@ -104,4 +104,13 @@ test("translated legal prose preserves configured ages, email addresses and URLs
   }
   assert.notEqual(policyDate(legalConfig.effectiveDate, "fr"), policyDate(legalConfig.effectiveDate, "en"));
   assert.equal(policyDate("[EFFECTIVE DATE]", "fr"), "[EFFECTIVE DATE]");
+});
+
+test("the policy copyright line names the year and Sierra Leone in every language", () => {
+  assert.equal(copyrightLine("en", 2026), "© 2026 KunThai. All rights reserved. Republic of Sierra Leone.");
+  for (const locale of locales.filter((item) => item !== "en")) {
+    const line = copyrightLine(locale, 2026);
+    assert.ok(line.startsWith("© 2026 KunThai"), `${locale}: ${line}`);
+    assert.notEqual(line, copyrightLine("en", 2026), `untranslated ${locale}`);
+  }
 });

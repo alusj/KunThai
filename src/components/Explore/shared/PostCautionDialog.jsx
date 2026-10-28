@@ -3,9 +3,10 @@ import { ExternalLink, ShieldAlert } from "lucide-react";
 
 import { haptics } from "../../../Backend/services/feedbackService";
 import { useI18n } from "../../../i18n";
+import { openLegalPage } from "../../shared/legalLinks";
 
 const POLICY_LINKS = [
-  { labelKey: "post.communityStandards", href: "/policy-center" },
+  { labelKey: "post.communityStandards", href: "/policy-center/community-standards" },
   { labelKey: "post.termsOfUse", href: "/terms" },
   { labelKey: "post.privacyPolicy", href: "/privacy" },
 ];
@@ -68,6 +69,7 @@ export default function PostCautionDialog({ open, onCancel, onConfirm, submittin
                 href={link.href}
                 target="_blank"
                 rel="noreferrer"
+                onClick={(event) => openLegalPage(event, link.href)}
                 className="inline-flex items-center gap-1.5 rounded-full border border-slate-200 bg-slate-50 px-3 py-1.5 text-xs font-black text-slate-700 transition hover:border-orange-300 hover:bg-orange-50 hover:text-orange-800"
               >
                 {t(link.labelKey)}
