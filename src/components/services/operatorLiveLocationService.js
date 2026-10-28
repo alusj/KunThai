@@ -414,6 +414,20 @@ function loadNativePluginBox() {
   return nativePluginPromise;
 }
 
+// For live location shares (liveShareBackground.js): the same plugin, which
+// has one watcher per phone.
+export function loadBackgroundLocationPlugin() {
+  return loadNativePluginBox();
+}
+
+export function backgroundLocationPlatform() {
+  return isNativeApp() ? nativePlatform() : "";
+}
+
+export function isOperatorNativeWatchRunning() {
+  return activePublisher?.engine === "native";
+}
+
 async function readNativeAccess(plugin) {
   try {
     const permissions = await plugin.checkPermissions();

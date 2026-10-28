@@ -54,7 +54,7 @@ function markerElement(className) {
 // (`source.kind === "share"`) or an operator (`"operator"`, Track operator).
 // Follows the position as it changes, shows how far it is from this phone and
 // how fresh it is, and, for the sharer, a Stop sharing button.
-export default function LiveLocationViewer({ open, onClose, title = "", source, isMine = false, fleetType = "" }) {
+export default function LiveLocationViewer({ open, onClose, title = "", source, isMine = false, fleetType = "", returnTo = "" }) {
   useI18n();
   const mapNode = useRef(null);
   const mapRef = useRef(null);
@@ -122,8 +122,12 @@ export default function LiveLocationViewer({ open, onClose, title = "", source, 
     map.on("dragstart", () => {
       followRef.current = false;
     });
+    // The overlay animates in; size the map once it has its real size.
+    map.on("load", () => map.resize());
+    const resizeTimer = window.setTimeout(() => map.resize(), 350);
     mapRef.current = map;
     return () => {
+      window.clearTimeout(resizeTimer);
       targetMarker.current = null;
       meMarker.current = null;
       mapRef.current = null;
@@ -174,13 +178,27 @@ export default function LiveLocationViewer({ open, onClose, title = "", source, 
     if (target && mapRef.current) mapRef.current.easeTo({ center: [target.lng, target.lat], zoom: 16, duration: 600 });
   }
 
+  // Route there: Area View's full route to where they are now (route line,
+  // distance, ETA and directions), the same as any shared place.
   function openRoute() {
     if (!target) return;
     onClose?.();
+    const name = title || t("liveSharing.someone");
     window.dispatchEvent(new CustomEvent("kuntai-open-area-view", {
       detail: {
         autoRoute: true,
-        destination: { id: `live-${sourceKey}`, type: "live-location", name: title, label: title, address: target.place || title, lat: target.lat, lng: target.lng },
+        destination: {
+          id: `live-${sourceKey}-${Date.now()}`,
+          type: "live-location",
+          name,
+          label: name,
+          category: t("liveSharing.liveCategory"),
+          address: target.place || name,
+          status: "private",
+          lat: target.lat,
+          lng: target.lng,
+        },
+        ...(returnTo ? { returnTo } : {}),
         source: "live-location",
       },
     }));
@@ -206,7 +224,9 @@ export default function LiveLocationViewer({ open, onClose, title = "", source, 
           </div>
         </header>
         <div className="relative flex-1">
-          <div ref={mapNode} className="absolute inset-0" />
+          {/* Inline: maplibre's own CSS makes .maplibregl-map position:
+              relative, which collapses an absolute class to zero height. */}
+          <div ref={mapNode} style={{ position: "absolute", inset: 0, width: "100%", height: "100%" }} />
           {target ? (
             <button type="button" onClick={recenter} aria-label={t("liveSharing.recenter")} className="absolute right-3 top-3 flex h-11 w-11 items-center justify-center rounded-full bg-white text-slate-800 shadow-lg">
               <FiCrosshair size={18} />

@@ -8,8 +8,9 @@ import { distanceInMeters } from "./operatorLocationPolicy.js";
 // or everyone on the trip) and an end time, at most 1 hour away. While the
 // share runs and KunThai is open, this phone writes its position at most
 // every PUBLISH_MIN_MS (sooner after a move of PUBLISH_MOVE_METERS), and
-// stops by itself when the time is up. Running shares survive a reload
-// (localStorage) until they expire.
+// stops by itself when the time is up. In the native app it keeps updating
+// in the background or with the phone locked (liveShareBackground.js).
+// Running shares survive a reload (localStorage) until they expire.
 // Watching: the row itself (RLS: sharer or viewer), with realtime updates and
 // a poll as a fallback.
 
@@ -119,6 +120,22 @@ function publish(entry, position, { force = false } = {}) {
     }, () => {});
 }
 
+// Background updates (native app): liveShareBackground.js runs the phone's
+// background location watcher while any share is running.
+function syncBackground({ interactive = false } = {}) {
+  import("./liveShareBackground.js")
+    .then(({ configureLiveShareBackground, refreshLiveShareBackground }) => {
+      configureLiveShareBackground({
+        hasRunningShares: () => running.size > 0,
+        onLocation: (position, options) => {
+          for (const entry of running.values()) publish(entry, position, options);
+        },
+      });
+      return refreshLiveShareBackground({ interactive });
+    })
+    .catch(() => {});
+}
+
 function endLocal(shareId) {
   const entry = running.get(shareId);
   if (!entry) return;
@@ -127,9 +144,10 @@ function endLocal(shareId) {
   if (entry.timer) clearTimeout(entry.timer);
   writeStored();
   notifyRunning();
+  syncBackground();
 }
 
-function runShare(share) {
+function runShare(share, { interactive = false } = {}) {
   if (!isShareLive(share) || running.has(share.id)) return;
   if (typeof navigator === "undefined" || !navigator.geolocation) return;
   const entry = { share, watchId: null, timer: null, lastAt: 0, lastPoint: null };
@@ -143,6 +161,7 @@ function runShare(share) {
   entry.timer = setTimeout(() => endLocal(share.id), Math.max(0, left));
   writeStored();
   notifyRunning();
+  syncBackground({ interactive });
 }
 
 // Starts sharing for `minutes` (capped at 1 hour). Resolves the share.
@@ -163,7 +182,7 @@ export async function startLiveShare({ context, conversationId = null, tripId = 
       && entry.share.tripId === share.tripId;
     if (same) endLocal(entry.share.id);
   }
-  runShare(share);
+  runShare(share, { interactive: true });
   // First position straight away.
   navigator.geolocation?.getCurrentPosition?.(
     (position) => {

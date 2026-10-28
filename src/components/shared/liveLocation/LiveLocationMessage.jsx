@@ -71,6 +71,7 @@ export default function LiveLocationMessage({ mine, shareId, expiresAt, name = "
         title={mine ? t("liveSharing.yourLiveLocation") : t("liveSharing.nameLiveLocation", { name: name || t("liveSharing.someone") })}
         source={{ kind: "share", shareId }}
         isMine={mine}
+        returnTo="explore-messages"
       />
     </>
   );
