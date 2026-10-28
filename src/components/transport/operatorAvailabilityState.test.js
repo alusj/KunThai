@@ -4,7 +4,9 @@ import test from "node:test";
 import { URRIDE_LIVE_DISCOVERY } from "../../i18n/urrideLiveDiscovery.js";
 import {
   availabilityLabelKey,
+  findOnlineElsewhere,
   resolveFleetAvailability,
+  resolveOperatorCompanyChoice,
   resolveOperatorWorkMode,
   shouldPreserveAvailabilityOverride,
 } from "./operatorAvailabilityState.js";
@@ -54,4 +56,25 @@ test("an operator online solo stays solo; otherwise their choice decides", () =>
   assert.equal(resolveOperatorWorkMode({ ...both }), "solo");
   assert.equal(resolveOperatorWorkMode({ hasSoloFleet: true, storedMode: "company" }), "solo");
   assert.equal(resolveOperatorWorkMode({ hasCompanyFleet: true, storedMode: "solo" }), "company");
+});
+
+test("several companies: the picked company stays picked", () => {
+  const companies = [{ companyId: "c1" }, { companyId: "c2", active: true }, { companyId: "c3" }];
+  assert.equal(resolveOperatorCompanyChoice(companies, "c3"), "c3");
+  // No (or a stale) pick: the company they are online for, then the most recent.
+  assert.equal(resolveOperatorCompanyChoice(companies, "gone"), "c2");
+  assert.equal(resolveOperatorCompanyChoice([{ companyId: "c1" }, { companyId: "c3" }], ""), "c1");
+  assert.equal(resolveOperatorCompanyChoice([], "c1"), "");
+});
+
+test("only one dashboard online: going online here names the other one", () => {
+  const companies = [{ companyId: "c1", companyName: "Bo Taxis", active: true }, { companyId: "c2" }];
+  assert.deepEqual(
+    findOnlineElsewhere({ current: { mode: "solo" }, companies }),
+    { mode: "company", companyId: "c1", companyName: "Bo Taxis" },
+  );
+  assert.equal(findOnlineElsewhere({ current: { mode: "company", companyId: "c1" }, companies }), null);
+  assert.equal(findOnlineElsewhere({ current: { mode: "company", companyId: "c2" }, companies })?.companyId, "c1");
+  assert.deepEqual(findOnlineElsewhere({ current: { mode: "company", companyId: "c2" }, soloActive: true }), { mode: "solo", companyId: "" });
+  assert.equal(findOnlineElsewhere({ current: { mode: "solo" }, soloActive: true, companies: [] }), null);
 });

@@ -42,3 +42,24 @@ export function resolveOperatorWorkMode({
   if (soloActive) return "solo";
   return storedMode === "company" ? "company" : "solo";
 }
+
+// Which company dashboard runs once company mode is chosen, for an operator
+// who drives for several companies (`companies`: [{ companyId, active }]).
+// The company they picked last stays picked; without a valid pick, the one
+// they are online for, then the most recent assignment (first in the list).
+export function resolveOperatorCompanyChoice(companies = [], storedCompanyId = "") {
+  const list = (companies || []).filter((company) => company?.companyId);
+  if (!list.length) return "";
+  if (storedCompanyId && list.some((company) => company.companyId === storedCompanyId)) return storedCompanyId;
+  return (list.find((company) => company.active) || list[0]).companyId;
+}
+
+// Before going online on one dashboard: the other dashboard this operator is
+// online on right now (the server allows one at a time and takes the other
+// offline), or null. `current` is { mode, companyId }.
+export function findOnlineElsewhere({ current = {}, soloActive = false, companies = [] } = {}) {
+  if (current.mode !== "solo" && soloActive) return { mode: "solo", companyId: "" };
+  const other = (companies || []).find((company) => company?.active
+    && !(current.mode === "company" && company.companyId === current.companyId));
+  return other ? { mode: "company", companyId: other.companyId, companyName: other.companyName || "" } : null;
+}

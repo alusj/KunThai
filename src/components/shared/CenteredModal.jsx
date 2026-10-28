@@ -24,6 +24,10 @@ export default function CenteredModal({
   maxWidth = "max-w-md",
   labelledBy,
   dismissOnBackdrop = true,
+  // A quick card that must answer at once (e.g. a caution before going
+  // online): no backdrop blur, which is slow to paint over a busy screen on
+  // low-end phones, and a short tween instead of the spring.
+  quick = false,
 }) {
   if (typeof document === "undefined") return null;
 
@@ -32,12 +36,12 @@ export default function CenteredModal({
       {open ? (
         <motion.div
           key="kt-modal-backdrop"
-          className="fixed inset-0 z-[2147483000] flex items-center justify-center overflow-y-auto overscroll-contain bg-slate-950/70 p-4 backdrop-blur-md"
+          className={`fixed inset-0 z-[2147483000] flex items-center justify-center overflow-y-auto overscroll-contain p-4 ${quick ? "bg-slate-950/60" : "bg-slate-950/70 backdrop-blur-md"}`}
           variants={backdrop}
           initial="hidden"
           animate="shown"
           exit="hidden"
-          transition={{ duration: 0.18 }}
+          transition={{ duration: quick ? 0.12 : 0.18 }}
           role="presentation"
           onMouseDown={dismissOnBackdrop ? onClose : undefined}
         >
@@ -50,7 +54,7 @@ export default function CenteredModal({
             initial="hidden"
             animate="shown"
             exit="leaving"
-            transition={{ type: "spring", stiffness: 340, damping: 27 }}
+            transition={quick ? { duration: 0.16, ease: "easeOut" } : { type: "spring", stiffness: 340, damping: 27 }}
             onMouseDown={(event) => event.stopPropagation()}
           >
             {children}

@@ -6,6 +6,7 @@ import {
   FiBell,
   FiBriefcase,
   FiCalendar,
+  FiChevronDown,
   FiChevronRight,
   FiClock,
   FiCreditCard,
@@ -36,6 +37,8 @@ import {
 } from "react-icons/fi";
 import { HiOutlineCheckCircle } from "react-icons/hi2";
 import TransportGroupSwitcher from "./TransportGroupSwitcher";
+import OperatorDashboardSwitcher from "./OperatorDashboardSwitcher";
+import OnlineElsewhereCard from "./OnlineElsewhereCard";
 import OperatorVisibilityStatus from "./OperatorVisibilityStatus";
 import HealthScoreCard from "../Marketplace/MarketplaceHeader/Business/MyBizDashboardHeader/HealthScoreCard";
 import RequestAccountDeletionPage from "./shared/RequestAccountDeletionPage";
@@ -61,7 +64,7 @@ import {
   fetchOperatorDashboard,
   markOperatorAlertRead,
   invalidateOperatorDashboardCache,
-  readCompanyVehicleOnline,
+  readOperatorOnlineFleets,
   subscribeOperatorTrips,
   updateOperatorAvailability,
   updateTripControls,
@@ -89,13 +92,13 @@ import { t as i18nText } from "../../i18n/index";
 import {
   AVAILABILITY_REFRESH_GRACE_MS,
   availabilityLabelKey,
+  findOnlineElsewhere,
   resolveFleetAvailability,
   shouldPreserveAvailabilityOverride,
 } from "./operatorAvailabilityState";
 import { uiText as translateUi, useI18n as useUiLocale } from "../../i18n/index.js";
 import { inlineErrorMessage, shortErrorToast } from "../../Backend/services/friendlyErrorService";
 import AppPortal from "../shared/AppPortal";
-import CenteredModal from "../shared/CenteredModal";
 import ShareProfileSheet from "../shared/share/ShareProfileSheet";
 import EnforcementNoticeBanner from "../shared/EnforcementNoticeBanner";
 import VerificationRequestNotice from "../shared/VerificationRequestNotice";
@@ -184,8 +187,9 @@ export default function OperatorDashboardScreen({
   const [operatorMenuOpen, setOperatorMenuOpen] = useState(false);
   const [shareProfileOpen, setShareProfileOpen] = useState(false);
   const [leaveCompanyOpen, setLeaveCompanyOpen] = useState(false);
-  // Going online solo while online for the company: { companyName }.
-  const [companyOnlinePrompt, setCompanyOnlinePrompt] = useState(null);
+  // Going online here while online on another dashboard (OnlineElsewhereCard).
+  const onlineElsewhereCardRef = useRef(null);
+  const dashboardSwitcherRef = useRef(null);
   const [accountDeletionOpen, setAccountDeletionOpen] = useState(false);
   const [operatorAlertsOpen, setOperatorAlertsOpen] = useState(false);
   const [operatorSafetyOpen, setOperatorSafetyOpen] = useState(false);
@@ -213,6 +217,42 @@ export default function OperatorDashboardScreen({
   const initialViewAppliedRef = useRef(false);
   const availabilityInFlightRef = useRef(false);
   const availabilityOverrideRef = useRef(null);
+  // Which of the operator's vehicles are online elsewhere: seeded from the
+  // account, then re-read in the background (on open and when the app comes
+  // back), so going online never waits on the network to decide the card.
+  const onlineFleetsRef = useRef({ soloActive: false, companies: [] });
+  const onlineFleetsSeedKey = `${account?.id || ""}:${account?.workMode || ""}:${account?.companyActive ? 1 : 0}:${(account?.operatorCompanies || []).map((item) => `${item.companyId}${item.active ? "+" : ""}`).join(",")}`;
+  useEffect(() => {
+    if (readOnly || !(account?.hasCompanyFleet || account?.hasSoloFleet)) return undefined;
+    onlineFleetsRef.current = {
+      soloActive: account?.workMode === "solo" && account?.activeStatus === "active",
+      companies: account?.operatorCompanies
+        ? account.operatorCompanies.map((item) => ({ companyId: item.companyId, companyName: item.companyName, active: Boolean(item.active) }))
+        : account?.companyActive && account?.assignedCompanyId ? [{ companyId: account.assignedCompanyId, active: true }] : [],
+    };
+    let alive = true;
+    const refresh = () => {
+      if (document.visibilityState === "hidden") return;
+      readOperatorOnlineFleets().then((fresh) => {
+        if (!alive) return;
+        const names = new Map((account?.operatorCompanies || []).map((item) => [item.companyId, item.companyName]));
+        onlineFleetsRef.current = {
+          soloActive: fresh.soloActive,
+          companies: fresh.companies.map((item) => ({ ...item, companyName: names.get(item.companyId) || "" })),
+        };
+      });
+    };
+    refresh();
+    document.addEventListener("visibilitychange", refresh);
+    window.addEventListener("focus", refresh);
+    return () => {
+      alive = false;
+      document.removeEventListener("visibilitychange", refresh);
+      window.removeEventListener("focus", refresh);
+    };
+    // The seed key captures the account fields read here.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [onlineFleetsSeedKey, readOnly]);
   // Set when the operator switches Active on themselves: the native app may
   // then show the location permission prompts (never on launch).
   const liveLocationPromptRef = useRef(false);
@@ -307,6 +347,11 @@ export default function OperatorDashboardScreen({
   // A company vehicle is edited by its company in Fleet HQ. The edit screen
   // saves the operator's own solo fleet, so it is not offered in company mode.
   const canEditOwnFleet = account?.workMode !== "company";
+  // An operator who drives for more than one company picks their dashboard
+  // from a list (solo + every company), like UrMall's business switcher. With
+  // one company the Solo / Company switch in the menu stays as it was.
+  const showDashboardSwitcher = Boolean(onSwitchWorkMode) && !readOnly
+    && (account?.operatorCompanies?.length || 0) > 1;
   const dashboardReadOnlyReason = isCompanySuspended
     ? t("urride.opDash.suspended", { company: shownCompanyAccount?.companyName || t("urride.opDash.yourCompany") })
     : (readOnlyReason || t("urride.opDash.readOnlyReasonDefault"));
@@ -531,18 +576,28 @@ export default function OperatorDashboardScreen({
     }
     if (availabilityInFlightRef.current) return;
 
-    // Only one vehicle takes bookings at a time: going online solo while
-    // online for the company asks first (the server takes the company
-    // vehicle offline).
-    if (!isActive && account?.workMode === "solo" && account?.hasCompanyFleet && options?.leaveCompanyConfirmed !== true) {
-      availabilityInFlightRef.current = true;
-      const company = await readCompanyVehicleOnline().finally(() => {
-        availabilityInFlightRef.current = false;
+    // Only one dashboard is online at a time: going online here while online
+    // on another one (solo or a company) asks first; the server takes the
+    // other vehicle offline. Decided from what is already known (kept fresh
+    // in the background), so the card opens at once.
+    if (!isActive && (account?.hasCompanyFleet || account?.hasSoloFleet) && options?.leaveCompanyConfirmed !== true) {
+      const known = onlineFleetsRef.current;
+      const elsewhere = findOnlineElsewhere({
+        current: { mode: account?.workMode === "company" ? "company" : "solo", companyId: account?.companyId || "" },
+        soloActive: known.soloActive,
+        companies: known.companies,
       });
-      if (company.online) {
-        const named = (companyAccounts || []).find((item) => item.id === company.companyId)
-          || (companyAccount?.id === company.companyId ? companyAccount : null);
-        setCompanyOnlinePrompt({ companyName: named?.companyName || t("operatorWorkMode.yourCompany") });
+      if (elsewhere) {
+        const named = elsewhere.mode === "company"
+          ? (account?.operatorCompanies || []).find((item) => item.companyId === elsewhere.companyId)
+            || (companyAccounts || []).find((item) => item.id === elsewhere.companyId)
+            || (companyAccount?.id === elsewhere.companyId ? companyAccount : null)
+          : null;
+        onlineElsewhereCardRef.current?.open({
+          mode: elsewhere.mode,
+          companyName: named?.companyName || "",
+          hereMode: account?.workMode === "company" ? "company" : "solo",
+        });
         return;
       }
     }
@@ -573,6 +628,9 @@ export default function OperatorDashboardScreen({
       };
       setIsActive(updatedActive);
       if (!updatedActive) stopOperatorLiveLocation();
+      // The server keeps one vehicle online, so going online here took any
+      // other offline.
+      if (updatedActive) onlineFleetsRef.current = { soloActive: false, companies: onlineFleetsRef.current.companies.map((item) => ({ ...item, active: false })) };
       // Once the change is saved: the same sound and vibration as placing an order.
       haptics.medium("transport");
       sounds.success("transport");
@@ -750,7 +808,22 @@ export default function OperatorDashboardScreen({
             </button>
           )}
 
-          {hasCompanyAccount ? <TransportGroupSwitcher accounts={companyAccounts} activeAccount={shownCompanyAccount} badge={companyBadgeCount} canOpen={canOpenCompanyHq} onOpen={onOpenCompany} onSwitch={onSwitchCompany} /> : null}
+          {showDashboardSwitcher ? (
+            <OperatorDashboardSwitcher
+              ref={dashboardSwitcherRef}
+              account={account}
+              currentActive={isActive}
+              onSwitch={(choice) => {
+                // Only one dashboard is online at a time.
+                if (isActive) {
+                  showToast(t("urride.opDash.goOfflineToSwitch"), "warning");
+                  return;
+                }
+                onSwitchWorkMode(choice.mode, choice.companyId);
+              }}
+            />
+          ) : null}
+          {hasCompanyAccount && (!showDashboardSwitcher || canOpenCompanyHq) ? <TransportGroupSwitcher accounts={companyAccounts} activeAccount={shownCompanyAccount} badge={companyBadgeCount} canOpen={canOpenCompanyHq} onOpen={onOpenCompany} onSwitch={onSwitchCompany} /> : null}
 
           <button
             type="button"
@@ -1068,6 +1141,10 @@ export default function OperatorDashboardScreen({
           setOperatorMenuOpen(false);
           onRegisterCompany?.();
         }}
+        onChooseDashboard={showDashboardSwitcher ? () => {
+          setOperatorMenuOpen(false);
+          dashboardSwitcherRef.current?.open();
+        } : undefined}
         onSwitchWorkMode={onSwitchWorkMode && account?.hasSoloFleet && account?.hasCompanyFleet && !dashboardReadOnly ? (mode) => {
           // Only one fleet takes rides at a time.
           if (isActive) {
@@ -1108,38 +1185,10 @@ export default function OperatorDashboardScreen({
         subtitle={operatorName}
       />
 
-      <CenteredModal open={Boolean(companyOnlinePrompt)} onClose={() => setCompanyOnlinePrompt(null)} maxWidth="max-w-sm" labelledBy="company-online-title">
-        <div data-direction="company-online-prompt">
-          <span className="flex h-12 w-12 items-center justify-center rounded-2xl bg-amber-50 text-amber-600">
-            <FiBriefcase size={22} />
-          </span>
-          <h2 id="company-online-title" className="mt-4 text-lg font-black text-slate-950">
-            {t("operatorWorkMode.companyOnlineTitle", { company: companyOnlinePrompt?.companyName || "" })}
-          </h2>
-          <p className="mt-2 text-sm font-semibold leading-6 text-slate-600">
-            {t("operatorWorkMode.companyOnlineBody", { company: companyOnlinePrompt?.companyName || "" })}
-          </p>
-          <div className="mt-5 grid gap-2">
-            <button
-              type="button"
-              onClick={() => {
-                setCompanyOnlinePrompt(null);
-                handleAvailabilityToggle({ leaveCompanyConfirmed: true });
-              }}
-              className="h-12 rounded-2xl bg-slate-950 px-4 text-sm font-black text-white"
-            >
-              {t("operatorWorkMode.goOnlineSolo")}
-            </button>
-            <button
-              type="button"
-              onClick={() => setCompanyOnlinePrompt(null)}
-              className="h-12 rounded-2xl border border-slate-200 bg-white px-4 text-sm font-black text-slate-700"
-            >
-              {t("operatorWorkMode.stayWithCompany", { company: companyOnlinePrompt?.companyName || "" })}
-            </button>
-          </div>
-        </div>
-      </CenteredModal>
+      <OnlineElsewhereCard
+        ref={onlineElsewhereCardRef}
+        onConfirm={() => handleAvailabilityToggle({ leaveCompanyConfirmed: true })}
+      />
 
       <OperatorLeaveCompanyDialog
         open={leaveCompanyOpen}
@@ -2529,6 +2578,7 @@ function OperatorMenuDrawer({
   onOpenWaiting,
   onOpenCompany,
   onRegisterCompany,
+  onChooseDashboard,
   onSwitchWorkMode,
   onStartSoloFleet,
   onOpenSafety,
@@ -2621,8 +2671,17 @@ function OperatorMenuDrawer({
           onClick: onLeaveCompany,
         }
       : null,
+    // Several companies: the dashboard list (solo + every company).
+    onChooseDashboard
+      ? {
+          icon: FiRefreshCw,
+          label: t("operatorDashboards.switcherAria"),
+          detail: t("urride.opDash.workModeHint"),
+          onClick: onChooseDashboard,
+          chooser: true,
+        }
     // Solo and company fleets: switch which one takes rides.
-    onSwitchWorkMode
+    : onSwitchWorkMode
       ? {
           icon: FiRefreshCw,
           label: account?.workMode === "company" ? t("urride.opDash.switchToSolo") : t("urride.opDash.switchToCompany"),
@@ -2785,7 +2844,7 @@ function OperatorMenuDrawer({
                     <span className="block text-sm font-black text-gray-950">{translateUi(item.label)}</span>
                     <span className="block truncate text-xs font-semibold text-gray-500">{translateUi(item.detail)}</span>
                   </span>
-                  <FiChevronRight className="shrink-0 text-gray-400" size={17} />
+                  {item.chooser ? <FiChevronDown className="shrink-0 text-gray-400" size={17} /> : <FiChevronRight className="shrink-0 text-gray-400" size={17} />}
                 </span>
               </button>
             ))}

@@ -3,7 +3,8 @@ import { friendlyErrorMessage } from "../../Backend/services/friendlyErrorServic
 import { cachedQuery, invalidateCache } from "../../Backend/lib/queryCache";
 import { isMissingColumn, isMissingTable } from "../../Backend/services/explore/errors";
 import { t } from "../../i18n";
-import { resolveFleetAvailability, resolveOperatorWorkMode } from "../transport/operatorAvailabilityState";
+import { resolveFleetAvailability, resolveOperatorCompanyChoice, resolveOperatorWorkMode } from "../transport/operatorAvailabilityState";
+import { readOperatorWorkCompany, readOperatorWorkMode, saveOperatorWorkChoice } from "../transport/operatorDashboardChoice";
 import {
   formatCountryMoney,
   getActiveCountryProfile,
@@ -578,83 +579,89 @@ export function getLegacyOperatorAccount() {
   return stored?.userId ? stored : null;
 }
 
-async function selectCompanyFleetAssignment(operatorId, userId) {
+// Every company fleet this operator drives, one per company, the most recently
+// updated first. A company adds an operator once, so older duplicate rows of
+// the same company (from before that rule) are ignored.
+async function listCompanyFleetAssignments(operatorId, userId) {
   try {
     const { data: assigned } = await supabase
       .from("transport_company_fleets")
       .select("*")
       .eq("operator_id", operatorId)
-      .order("updated_at", { ascending: false })
-      .limit(1);
-    if (assigned?.[0]) return assigned[0];
+      .order("updated_at", { ascending: false });
+    let rows = assigned || [];
 
     // Older accepted invites never linked the operator onto the company fleet,
-    // so resolve the assignment through the invite instead.
+    // so resolve those assignments through the invite instead.
     const { data: invites } = await supabase
       .from("transport_company_operator_invites")
       .select("company_fleet_id")
       .eq("status", "accepted")
       .or(`operator_user_id.eq.${userId},operator_id.eq.${operatorId}`)
-      .order("updated_at", { ascending: false })
-      .limit(1);
-    const companyFleetId = invites?.[0]?.company_fleet_id;
-    if (!companyFleetId) return null;
+      .order("updated_at", { ascending: false });
+    const known = new Set(rows.map((row) => row.id));
+    const missingIds = [...new Set((invites || []).map((invite) => invite.company_fleet_id).filter((id) => id && !known.has(id)))];
+    if (missingIds.length) {
+      const { data: fleetRows } = await supabase
+        .from("transport_company_fleets")
+        .select("*")
+        .in("id", missingIds);
+      rows = [...rows, ...(fleetRows || [])];
+    }
 
-    const { data: fleetRows } = await supabase
-      .from("transport_company_fleets")
-      .select("*")
-      .eq("id", companyFleetId)
-      .limit(1);
-    return fleetRows?.[0] || null;
+    const seenCompanies = new Set();
+    return rows.filter((row) => {
+      const key = row.company_id || row.id;
+      if (seenCompanies.has(key)) return false;
+      seenCompanies.add(key);
+      return true;
+    });
   } catch {
-    return null;
+    return [];
   }
 }
 
-// An operator can work their own (solo) fleet and a company fleet. Like
-// UrMall's business switcher, they choose which one the dashboard runs; the
-// choice is remembered per account on this device. With no choice made the
-// solo fleet wins, exactly as before.
-const OPERATOR_WORK_MODE_PREFIX = "kunthai.urride.operatorWorkMode.v1:";
+// An operator can work their own (solo) fleet and company fleets. Like
+// UrMall's business switcher, they choose which one the dashboard runs, and
+// for several companies, which company; the choice is remembered per account
+// on this device and kept across restarts until they switch again
+// (operatorDashboardChoice). With no choice made the solo fleet wins.
+export { readOperatorWorkMode, readOperatorWorkCompany };
 
-export function readOperatorWorkMode(userId = "") {
-  if (!userId) return "";
-  try {
-    const value = localStorage.getItem(`${OPERATOR_WORK_MODE_PREFIX}${userId}`) || "";
-    return value === "company" || value === "solo" ? value : "";
-  } catch {
-    return "";
-  }
-}
-
-export function writeOperatorWorkMode(userId = "", mode = "") {
+export function writeOperatorWorkMode(userId = "", mode = "", companyId = "") {
   if (!userId) return;
-  try {
-    if (mode === "company" || mode === "solo") localStorage.setItem(`${OPERATOR_WORK_MODE_PREFIX}${userId}`, mode);
-    else localStorage.removeItem(`${OPERATOR_WORK_MODE_PREFIX}${userId}`);
-  } catch {
-    // Only a convenience: without it the solo fleet shows first.
-  }
+  saveOperatorWorkChoice(userId, mode, companyId);
   invalidateCache("operator-dashboard");
 }
 
-// Before an operator goes online solo: is their company vehicle online right
-// now? Read fresh, since the dashboard's account may be minutes old.
-export async function readCompanyVehicleOnline() {
+// Before going online on one dashboard: which of the operator's vehicles are
+// online right now. Read fresh (the dashboard's account may be minutes old)
+// in two quick reads: every runtime vehicle belongs to the operator, and a
+// company one carries its company_id.
+export async function readOperatorOnlineFleets() {
   try {
     const userId = await getCurrentUserId();
     const { data: operator } = await supabase.from("transport_operators").select("id").eq("user_id", userId).maybeSingle();
-    if (!operator?.id) return { online: false, companyId: "" };
-    const assignment = await selectCompanyFleetAssignment(operator.id, userId);
-    if (!assignment?.transport_fleet_id) return { online: false, companyId: assignment?.company_id || "" };
+    if (!operator?.id) return { soloActive: false, companies: [] };
     const { data: rows } = await supabase
       .from("transport_fleets")
-      .select("active_status")
-      .eq("id", assignment.transport_fleet_id)
-      .limit(1);
-    return { online: resolveFleetAvailability(rows?.[0]), companyId: assignment.company_id || "" };
+      .select("id, company_id, company_fleet_id, active_status")
+      .eq("operator_id", operator.id);
+    const companies = [];
+    let soloActive = false;
+    for (const row of rows || []) {
+      const active = resolveFleetAvailability(row);
+      if (!row.company_id && !row.company_fleet_id) {
+        soloActive = soloActive || active;
+      } else if (row.company_id) {
+        const existing = companies.find((company) => company.companyId === row.company_id);
+        if (existing) existing.active = existing.active || active;
+        else companies.push({ companyId: row.company_id, active });
+      }
+    }
+    return { soloActive, companies };
   } catch {
-    return { online: false, companyId: "" };
+    return { soloActive: false, companies: [] };
   }
 }
 
@@ -678,21 +685,42 @@ export async function getOperatorAccount() {
   const personalFleet = fleets?.[0] || null;
   let fleet = personalFleet;
   let companyAssignment = null;
-  // Always know whether a company fleet exists, so the dashboard can offer
-  // the Solo / Company switch, and whether it is online (the operator stays
-  // findable and sharing their position for the company whichever dashboard
-  // they open). An operator online solo is never moved to the company.
-  const availableAssignment = await selectCompanyFleetAssignment(operator.id, userId).catch(() => null);
+  // Always know every company fleet, so the dashboard can offer the Solo /
+  // Company switch (and the company list when there are several), and which
+  // one is online (the operator stays findable and sharing their position for
+  // that company whichever dashboard they open). An operator online solo is
+  // never moved to a company.
+  const assignments = await listCompanyFleetAssignments(operator.id, userId);
   const soloActive = resolveFleetAvailability(personalFleet);
-  let companyRuntimeFleet = null;
-  if (availableAssignment?.transport_fleet_id && !soloActive) {
-    const { data: runtimeFleets } = await supabase
-      .from("transport_fleets")
-      .select("*")
-      .eq("id", availableAssignment.transport_fleet_id)
-      .limit(1);
-    companyRuntimeFleet = runtimeFleets?.[0] || null;
-  }
+  const runtimeIds = assignments.map((item) => item.transport_fleet_id).filter(Boolean);
+  const companyIds = [...new Set(assignments.map((item) => item.company_id).filter(Boolean))];
+  const [runtimeResult, companyResult] = await Promise.all([
+    runtimeIds.length
+      ? supabase.from("transport_fleets").select("*").in("id", runtimeIds)
+      : Promise.resolve({ data: [] }),
+    companyIds.length
+      ? supabase.from("transport_companies").select("id, company_name").in("id", companyIds)
+      : Promise.resolve({ data: [] }),
+  ]).catch(() => [{ data: [] }, { data: [] }]);
+  const runtimeById = new Map((runtimeResult?.data || []).map((row) => [row.id, row]));
+  const companyNameById = new Map((companyResult?.data || []).map((row) => [row.id, row.company_name || ""]));
+  const operatorCompanies = assignments.map((assignment) => {
+    const runtimeFleet = runtimeById.get(assignment.transport_fleet_id) || null;
+    return {
+      companyId: assignment.company_id || "",
+      companyName: companyNameById.get(assignment.company_id) || "",
+      companyFleetId: assignment.id,
+      fleetName: assignment.fleet_name || assignment.fleet_type || "",
+      fleetType: runtimeFleet?.fleet_type || assignment.fleet_type || "",
+      active: resolveFleetAvailability(runtimeFleet),
+      assignment,
+      runtimeFleet,
+    };
+  });
+  const chosenCompanyId = resolveOperatorCompanyChoice(operatorCompanies, readOperatorWorkCompany(userId));
+  const chosenCompany = operatorCompanies.find((item) => item.companyId === chosenCompanyId) || operatorCompanies[0] || null;
+  const availableAssignment = chosenCompany?.assignment || null;
+  const onlineCompany = soloActive ? null : operatorCompanies.find((item) => item.active) || null;
   const useCompany = resolveOperatorWorkMode({
     hasSoloFleet: Boolean(personalFleet),
     hasCompanyFleet: Boolean(availableAssignment),
@@ -702,7 +730,7 @@ export async function getOperatorAccount() {
 
   if (useCompany) {
     companyAssignment = availableAssignment;
-    fleet = companyRuntimeFleet;
+    fleet = chosenCompany?.runtimeFleet || null;
   }
 
   // A solo registration that stopped after the profile was saved but before
@@ -721,10 +749,12 @@ export async function getOperatorAccount() {
   account.hasSoloFleet = Boolean(personalFleet);
   account.hasCompanyFleet = Boolean(availableAssignment);
   account.workMode = companyAssignment ? "company" : "solo";
-  // Online with the company vehicle (whichever dashboard is showing).
-  account.companyActive = resolveFleetAvailability(companyRuntimeFleet);
-  account.companyFleetType = companyRuntimeFleet?.fleet_type || availableAssignment?.fleet_type || "";
+  // Online with a company vehicle (whichever dashboard is showing).
+  account.companyActive = Boolean(onlineCompany);
+  account.companyFleetType = (onlineCompany || chosenCompany)?.fleetType || "";
   account.assignedCompanyId = availableAssignment?.company_id || "";
+  // Every company this operator drives for, for the dashboard switcher.
+  account.operatorCompanies = operatorCompanies.map(({ assignment: _assignment, runtimeFleet: _runtimeFleet, ...item }) => item);
   if (companyAssignment) {
     account.companyFleetId = companyAssignment.id;
     account.companyId = companyAssignment.company_id || "";

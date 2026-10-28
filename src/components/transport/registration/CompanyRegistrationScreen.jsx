@@ -57,6 +57,7 @@ import {
 } from "../../../data/globalTransportCapabilities";
 import { useI18n, t } from "../../../i18n";
 import { fleetExampleKey } from "./fleetExamples";
+import { findFleetWithOperator, findOpenInviteForOperator } from "../../services/companyOperatorUniqueness";
 import { t as i18nText } from "../../../i18n/index";
 import { useAiScreen } from "../../../Backend/services/ai/aiScreenContext";
 import { buildCompanyRegistrationAiContext } from "./companyRegistrationAi";
@@ -635,7 +636,22 @@ export default function CompanyRegistrationScreen({ existingCompany = null, focu
   function addOperatorInvite(fleetId, operator) {
     if (compactPublicId(operator.publicId) && compactPublicId(operator.publicId) === compactPublicId(form.ownerPublicId)) {
       showStatus(t("urride.companyReg.ownerIdError"), "error");
-      return;
+      return t("urride.companyReg.ownerIdError");
+    }
+
+    // A company adds an operator once: not on two vehicles, and not twice on
+    // the same one.
+    const sameOperator = { operatorId: operator.id, userId: operator.userId, publicId: operator.publicId };
+    const otherFleet = findFleetWithOperator(fleets, sameOperator, fleetId);
+    const thisFleet = fleets.find((fleet) => fleet.localId === fleetId);
+    const alreadyHere = findOpenInviteForOperator(thisFleet?.operators || [], sameOperator);
+    if (otherFleet || alreadyHere) {
+      const fleetName = (otherFleet || thisFleet)?.fleetName || (otherFleet || thisFleet)?.plateNumber || (otherFleet || thisFleet)?.fleetCode || "";
+      const message = fleetName
+        ? t("operatorDashboards.alreadyOnFleet", { name: operator.name || operator.publicId, fleet: fleetName })
+        : t("operatorDashboards.alreadyOnTeam", { name: operator.name || operator.publicId });
+      showStatus(message, "error");
+      return message;
     }
 
     const request = {
@@ -665,6 +681,7 @@ export default function CompanyRegistrationScreen({ existingCompany = null, focu
       ),
     );
     clearFieldError(`${fleetId}-operators`);
+    return "";
   }
 
   function getStepErrors(targetStep = step) {
@@ -1719,7 +1736,12 @@ function FleetCard({ acceptedPublicIds = [], errors = {}, fleet, form, index, lo
 
   function addMatchedOperator() {
     if (!operatorMatch) return;
-    onInvite(fleet.localId, operatorMatch);
+    // The parent refuses an operator already on this company's team.
+    const problem = onInvite(fleet.localId, operatorMatch);
+    if (problem) {
+      setLookupStatus(problem);
+      return;
+    }
     setOperatorId("");
     setOperatorMatch(null);
     setLookupStatus(t("urride.companyReg.operatorAdded"));

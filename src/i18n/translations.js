@@ -38,6 +38,7 @@ import { PROFILE_SHARE } from "./profileShare";
 import { URRIDE_LOCATION_TRUST } from "./urrideLocationTrust";
 import { LIVE_SHARING } from "./liveSharing";
 import { OPERATOR_WORK_MODE } from "./operatorWorkMode";
+import { OPERATOR_DASHBOARDS } from "./operatorDashboards";
 import { EXPLORE_SETTINGS_FIX } from "./exploreSettingsFix";
 import { EXPLORE_PROFILE_FIX } from "./exploreProfileFix";
 import { EXPLORE_MESSAGES_FIX } from "./exploreMessagesFix";
@@ -59541,6 +59542,12 @@ for (const [locale, section] of Object.entries(LIVE_SHARING)) {
 for (const [locale, section] of Object.entries(OPERATOR_WORK_MODE)) {
   if (TRANSLATIONS[locale]) {
     TRANSLATIONS[locale].operatorWorkMode = section;
+  }
+}
+
+for (const [locale, section] of Object.entries(OPERATOR_DASHBOARDS)) {
+  if (TRANSLATIONS[locale]) {
+    TRANSLATIONS[locale].operatorDashboards = section;
   }
 }
 

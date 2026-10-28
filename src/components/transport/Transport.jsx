@@ -1547,8 +1547,9 @@ export default function Transport({
             showToast(t("urrideDeleteCompany.leaveDone"), "success");
           }}
           onRegisterCompany={() => openCompanyRegistration("operator-dashboard")}
-          onSwitchWorkMode={async (mode) => {
-            writeOperatorWorkMode(userId, mode);
+          onSwitchWorkMode={async (mode, companyId = "") => {
+            // Remembered on this device (company included) until they switch again.
+            writeOperatorWorkMode(userId, mode, companyId);
             try {
               const nextAccount = await getOperatorAccount();
               if (nextAccount) setOperatorAccount(nextAccount);

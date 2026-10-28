@@ -146,6 +146,10 @@ export function sanitizeUserMessage(message) {
   // One phone number, one account: the database refusal from
   // 20261016140000_phone_one_account.sql.
   if (text.includes("KT_PHONE_IN_USE")) return t("phoneOwnership.inUse");
+  // A company adds an operator once: the database refusal from
+  // 20261027120000_urride_company_adds_operator_once.sql, in the reader's language.
+  const repeatedOperator = text.match(/^(.+) is already on your team\. A company can add an operator only once\.$/);
+  if (repeatedOperator) return t("operatorDashboards.alreadyOnTeam", { name: repeatedOperator[1] });
   const lower = text.toLowerCase();
   if (NETWORK_ERROR_PATTERNS.some((pattern) => lower.includes(pattern))) {
     return t("common.networkLost");

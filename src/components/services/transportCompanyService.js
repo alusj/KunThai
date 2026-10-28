@@ -4,6 +4,7 @@ import { t } from "../../i18n";
 import { isTransportPlateNumberInUse, normalizePlateNumber } from "./transportOperatorAccountService";
 import { getActiveCountryProfile } from "../../data/globalCountryProfiles";
 import { acceptCompanyInviteWithAccess } from "./operatorCompanyAccessService";
+import { DuplicateCompanyOperatorError, findOpenInviteForOperator, findOperatorOnSeveralFleets } from "./companyOperatorUniqueness";
 import { friendlyErrorMessage } from "../../Backend/services/friendlyErrorService";
 import { getKunThaiPublicUserId, normalizeKunThaiPublicId } from "../../Backend/services/identityCodeService";
 import { getOnboardingProfile } from "../../Backend/services/onboardingService";
@@ -1501,6 +1502,22 @@ export async function saveTransportCompanyAccount(account, { onProgress } = {}) 
     submittedFleetCodes,
   });
 
+  // A company adds an operator once: never the same person on two vehicles.
+  // Only pairs involving an invitation added in this edit are checked, so
+  // older data never blocks saving other changes.
+  const isNewInvite = (invite) => !UUID_PATTERN.test(String(invite.id || ""));
+  const repeated = findOperatorOnSeveralFleets(normalized.fleets, {
+    counts: (first, second) => isNewInvite(first) || isNewInvite(second),
+  });
+  if (repeated) {
+    const name = repeated.operator.name || repeated.operator.publicId || "";
+    const fleetName = repeated.fleets[0]?.fleetName || repeated.fleets[0]?.plateNumber || repeated.fleets[0]?.fleetCode || "";
+    throw new DuplicateCompanyOperatorError(
+      fleetName ? t("operatorDashboards.alreadyOnFleet", { name, fleet: fleetName }) : t("operatorDashboards.alreadyOnTeam", { name }),
+      { operatorName: name, fleetName },
+    );
+  }
+
   // Only invitations that still hold an operator space count: revoked,
   // rejected or cancelled operators stay listed on the fleet as history.
   const requestedOperatorKeys = uniqueValues(normalized.fleets.flatMap((fleet) =>
@@ -1815,6 +1832,23 @@ export async function updateTransportCompanyOperatorAvailability(assignment, act
   return Array.isArray(data) ? data[0] || null : data || null;
 }
 
+// Throws DuplicateCompanyOperatorError (with a clear, translated message) when
+// the company already holds an open invitation for this operator.
+export function assertOperatorNotAlreadyAdded(invites = [], operator = {}, fleets = []) {
+  const open = findOpenInviteForOperator(invites, operator);
+  if (!open) return;
+  const name = operator.name || open.operator_name || open.name || operator.publicId || "";
+  const fleetMatch = (fleets || []).find((item) => item.id === (open.company_fleet_id || open.companyFleetId)
+    || (item.fleetCode && item.fleetCode === (open.fleet_code || open.fleetCode)));
+  const fleetName = fleetMatch?.fleetName || fleetMatch?.plateNumber || fleetMatch?.fleetCode || open.fleet_code || "";
+  throw new DuplicateCompanyOperatorError(
+    fleetName
+      ? t("operatorDashboards.alreadyOnFleet", { name, fleet: fleetName })
+      : t("operatorDashboards.alreadyOnTeam", { name }),
+    { operatorName: name, fleetName },
+  );
+}
+
 export async function inviteOperatorToCompanyFleet(company, fleet, publicId) {
   const user = await getCurrentUser("Sign in to invite an operator.");
   if (!company?.id || !fleet?.id || !company.access?.canManageOperators) {
@@ -1844,11 +1878,11 @@ export async function inviteOperatorToCompanyFleet(company, fleet, publicId) {
   const samePerson = (invite) => invite.operator_user_id === operator.userId
     || (operator.publicId && invite.operator_public_id === operator.publicId);
   const existing = (companyInvites || []).filter(samePerson);
-  const activeInvites = existing.filter((invite) => ["pending", "accepted"].includes(invite.status));
   const sameFleet = (invite) => invite.company_fleet_id === fleet.id || (fleet.fleetCode && invite.fleet_code === fleet.fleetCode);
-  const activeFleetInvite = activeInvites.find(sameFleet);
-  if (activeFleetInvite) return normalizeInvite(activeFleetInvite);
-  if (!activeInvites.length) await assertBusinessCapacity("urride", company.id, "operators", 1);
+  // A company adds an operator once: an open invitation for any of its
+  // vehicles (this one included) means they are already on the team.
+  assertOperatorNotAlreadyAdded(companyInvites, { ...operator, operator_id: operator.id, operator_user_id: operator.userId }, company.fleets || [fleet]);
+  await assertBusinessCapacity("urride", company.id, "operators", 1);
 
   const closedFleetInvite = existing.find(sameFleet);
   if (closedFleetInvite) {
