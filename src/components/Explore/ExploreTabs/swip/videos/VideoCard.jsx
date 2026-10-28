@@ -658,7 +658,7 @@ export default function VideoCard({
   }
 
   function shouldIgnoreVideoGesture(event) {
-    return Boolean(event.target.closest("button, a, input, textarea, [role='button']"));
+    return Boolean(event.target.closest("button, a, input, textarea, [role='button'], [data-scroll-region]"));
   }
 
   function handleVideoTap() {

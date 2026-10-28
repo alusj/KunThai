@@ -9,6 +9,9 @@ export default function ExpandablePostText({
   className = "",
   textClassName = "",
   controlClassName = "text-sky-700",
+  // Classes for the expanded text, e.g. a max height with its own scroll so a
+  // long caption does not cover the whole Swip video.
+  expandedClassName = "",
 }) {
   useUiLocale();
   const [expanded, setExpanded] = useState(false);
@@ -46,7 +49,8 @@ export default function ExpandablePostText({
     <div className={className}>
       <p
         ref={textRef}
-        className={`kuntai-break ${expanded ? "whitespace-pre-wrap" : "line-clamp-1"} ${textClassName}`}
+        data-scroll-region={expanded && expandedClassName ? "" : undefined}
+        className={`kuntai-break ${expanded ? `whitespace-pre-wrap ${expandedClassName}` : "line-clamp-1"} ${textClassName}`}
       >
         <LinkifiedText text={value} />
       </p>

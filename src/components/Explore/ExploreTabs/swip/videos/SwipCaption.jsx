@@ -1,13 +1,18 @@
 import { HiOutlineCheckBadge } from "react-icons/hi2";
 import { Repeat2 } from "lucide-react";
 
-import { formatRelativeTime } from "../../../../../Backend/services/exploreService";
+import { formatRelativeTime, recordExploreAdvertEvent } from "../../../../../Backend/services/exploreService";
 import { useI18n } from "../../../../../i18n";
 import AdvertMetaActions from "../../../shared/AdvertMetaActions";
 import Avatar from "../../../shared/Avatar";
 import ExpandablePostText from "../../../shared/ExpandablePostText";
-import { getAdvertMeta, getPostTitle, isAdvertPost } from "../../../shared/advertUtils";
+import { getAdvertMeta, getAdvertPhoneHref, getPostTitle, isAdvertPost, normalizeAdvertUrl } from "../../../shared/advertUtils";
 import { t as i18nText } from "../../../../../i18n/index";
+
+// Read more opens at most four lines (leading-7 / leading-6 captions) and the
+// rest scrolls inside the caption, so the video stays visible.
+const EXPANDED_CAPTION = "max-h-28 overflow-y-auto overscroll-contain pr-1 [scrollbar-width:none] [&::-webkit-scrollbar]:hidden";
+const EXPANDED_CAPTION_ADVERT = "max-h-24 overflow-y-auto overscroll-contain pr-1 [scrollbar-width:none] [&::-webkit-scrollbar]:hidden";
 
 export default function SwipCaption({ categoryLabel, contextLabel, post, onViewProfile }) {
   const { t } = useI18n();
@@ -15,6 +20,12 @@ export default function SwipCaption({ categoryLabel, contextLabel, post, onViewP
   const advert = getAdvertMeta(post) || {};
   const postTitle = getPostTitle(post);
   const sharedFrom = post.swipRepost || post.media_meta?.repost || null;
+  // Same main action as the UrFeed advert card: the website, or the phone
+  // when the advertiser chose "Call or message".
+  const advertUrl = normalizeAdvertUrl(advert.link);
+  const advertPhoneHref = getAdvertPhoneHref(advert.phone);
+  const actionHref = advert.ctaLabel === "Call or message" && advertPhoneHref ? advertPhoneHref : advertUrl;
+  const opensWebsite = Boolean(advertUrl && actionHref === advertUrl);
 
   function openProfile(event) {
     event.preventDefault();
@@ -67,9 +78,25 @@ export default function SwipCaption({ categoryLabel, contextLabel, post, onViewP
                 className="text-sm font-bold leading-6"
                 textClassName="text-white/90"
                 controlClassName="text-amber-300"
+                expandedClassName={EXPANDED_CAPTION_ADVERT}
               />
             ) : null}
             <AdvertMetaActions post={post} advert={advert} dark />
+            {actionHref ? (
+              <a
+                href={actionHref}
+                target={opensWebsite ? "_blank" : undefined}
+                rel={opensWebsite ? "noreferrer" : undefined}
+                onClick={(event) => {
+                  event.stopPropagation();
+                  recordExploreAdvertEvent(post, "click", { surface: "swip" }).catch(() => false);
+                }}
+                onPointerDown={(event) => event.stopPropagation()}
+                className="kt-pressable flex h-11 w-full items-center justify-center rounded-2xl border border-white/30 bg-transparent px-4 text-sm font-black text-white backdrop-blur-sm transition hover:bg-white/10"
+              >
+                {advert.ctaLabel || t("explore.learnMore")}
+              </a>
+            ) : null}
           </div>
         ) : (
           <>
@@ -80,6 +107,7 @@ export default function SwipCaption({ categoryLabel, contextLabel, post, onViewP
                 className="text-base font-bold leading-7"
                 textClassName="text-white/95"
                 controlClassName="text-sky-300"
+                expandedClassName={EXPANDED_CAPTION}
               />
             ) : null}
 

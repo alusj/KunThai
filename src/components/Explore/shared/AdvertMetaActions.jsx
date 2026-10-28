@@ -117,7 +117,7 @@ export default function AdvertMetaActions({ post, advert = {}, dark = false, cla
   if (!hasLocation && !schedule && !phoneHref && !whatsAppUrl && !url) return null;
 
   const iconClass = dark
-    ? "border-white/15 bg-white/12 text-white hover:bg-white/20"
+    ? "border-white/30 bg-transparent text-white backdrop-blur-sm hover:bg-white/10"
     : "border-slate-200 bg-white text-slate-700 hover:border-slate-300 hover:bg-slate-50";
 
   return (
