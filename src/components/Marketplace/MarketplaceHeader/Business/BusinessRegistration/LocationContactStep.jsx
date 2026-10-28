@@ -124,7 +124,7 @@ export default function LocationContactStep({ registration }) {
           <RegistrationInput
             value={form.location.city}
             onChange={(event) => updateSection("location", { city: event.target.value })}
-            placeholder={t("registrationExamples.urmall.city", { city: countryProfile.cityPlaceholder || countryProfile.name })}
+            placeholder={t("urmall.biz.settings.city")}
             autoComplete="address-level2"
           />
         </RegistrationField>
@@ -137,7 +137,7 @@ export default function LocationContactStep({ registration }) {
           <RegistrationInput
             value={form.location.mainLabel ?? t("urmall.biz.reg.mainStore")}
             onChange={(event) => updateSection("location", { mainLabel: event.target.value })}
-            placeholder={t("registrationExamples.urmall.storeName")}
+            placeholder={t("urmall.biz.settings.storeName")}
           />
         </RegistrationField>
 
@@ -155,7 +155,7 @@ export default function LocationContactStep({ registration }) {
               value={form.location.address}
               onChange={accuracyCaution.guardChange((event) => updateSection("location", { address: event.target.value }))}
               {...accuracyCaution.inputProps}
-              placeholder={t("registrationExamples.urmall.address")}
+              placeholder={t("urmall.biz.reg.address")}
               autoComplete="street-address"
             />
           </RegistrationField>
@@ -415,7 +415,7 @@ function BranchAddressCard({ branch, index, maxBusinessLocations, updateBranch, 
         <RegistrationInput
           value={branch.label}
           onChange={(event) => updateBranch(index, { label: event.target.value })}
-          placeholder={t("registrationExamples.urmall.branchName")}
+          placeholder={t("urmall.biz.settings.storeName")}
         />
       </RegistrationField>
 
@@ -433,7 +433,7 @@ function BranchAddressCard({ branch, index, maxBusinessLocations, updateBranch, 
             value={branch.address}
             onChange={accuracyCaution.guardChange((event) => updateBranch(index, { address: event.target.value }))}
             {...accuracyCaution.inputProps}
-            placeholder={t("registrationExamples.urmall.branchAddress")}
+            placeholder={t("urmall.biz.reg.address")}
             autoComplete="street-address"
           />
         </RegistrationField>

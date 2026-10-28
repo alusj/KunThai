@@ -18,7 +18,7 @@ function flatten(node, prefix = "", result = {}) {
 test("every locale carries every registration example with the same placeholders", () => {
   assert.deepEqual(Object.keys(REGISTRATION_EXAMPLES).sort(), [...LOCALES].sort());
   const english = flatten(REGISTRATION_EXAMPLES.en);
-  assert.equal(Object.keys(english).length, 59);
+  assert.equal(Object.keys(english).length, 41);
   for (const locale of LOCALES) {
     const entries = flatten(REGISTRATION_EXAMPLES[locale]);
     assert.deepEqual(Object.keys(entries).sort(), Object.keys(english).sort(), locale);

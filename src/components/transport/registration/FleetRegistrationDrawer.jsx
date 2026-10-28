@@ -751,7 +751,7 @@ export default function FleetRegistrationDrawer({ onClose, onComplete, onSaveExi
                 label={t("urride.fleetEdit.cityLabel")}
                 value={form.city}
                 onChange={(value) => update("city", value)}
-                placeholder={t("registrationExamples.urride.city", { city: getActiveCountryProfile(form.countryCode || form.country).cityPlaceholder || getActiveCountryProfile(form.countryCode || form.country).name })}
+                placeholder={t("urride.fleetEdit.cityLabel")}
                 error={fieldErrors.city}
               />
               <FormInput
@@ -796,8 +796,8 @@ export default function FleetRegistrationDrawer({ onClose, onComplete, onSaveExi
               <FormInput label={t("urride.fleetEdit.modelLabel")} value={form.model} onChange={(value) => update("model", value)} placeholder={t(fleetExampleKey("model", form.fleetType, form.category))} error={fieldErrors.model} />
               <FormInput label={t("urride.fleetEdit.yearLabel")} type="number" value={form.year} onChange={(value) => update("year", value)} placeholder={t("registrationExamples.urride.year")} min="1950" helper={t("urride.fleetEdit.yearHelper")} error={fieldErrors.year} />
               <FormInput label={t("urride.fleetEdit.colorLabel")} value={form.color} onChange={(value) => update("color", value)} placeholder={t(fleetExampleKey("color", form.fleetType, form.category))} error={fieldErrors.color} />
-              <LocationInput label={t("urride.fleetEdit.areaLabel")} value={form.operatingArea} onChange={(value) => update("operatingArea", value)} placeholder={t(fleetExampleKey("area", form.fleetType, form.category))} error={fieldErrors.operatingArea} />
-              <LocationInput label={t("urride.fleetEdit.homeBaseLabel")} value={form.homeBaseLocation} onChange={(value) => update("homeBaseLocation", value)} placeholder={t(fleetExampleKey("homeBase", form.fleetType, form.category))} error={fieldErrors.homeBaseLocation} />
+              <LocationInput label={t("urride.fleetEdit.areaLabel")} value={form.operatingArea} onChange={(value) => update("operatingArea", value)} placeholder={t("urride.fleetEdit.areaLabel")} error={fieldErrors.operatingArea} />
+              <LocationInput label={t("urride.fleetEdit.homeBaseLabel")} value={form.homeBaseLocation} onChange={(value) => update("homeBaseLocation", value)} placeholder={t("urride.fleetEdit.homeBaseLabel")} error={fieldErrors.homeBaseLocation} />
               <FormInput label={t("urride.fleetEdit.startPriceLabel")} type="number" value={form.baseFare} onChange={(value) => update("baseFare", value)} placeholder={t("urride.fleetEdit.startPriceLabel")} min="0" helper={t("urride.fleetEdit.startPriceHelper")} error={fieldErrors.baseFare} />
               <div>
                 <FormInput label={t("urride.fleetEdit.perKmLabel")} type="number" value={form.pricePerKm} onChange={(value) => update("pricePerKm", value)} placeholder={t("urride.fleetEdit.perKmPlaceholder")} min="0" helper={t("urride.fleetEdit.perKmHelper")} error={fieldErrors.pricePerKm} />
