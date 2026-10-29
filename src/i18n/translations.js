@@ -17,6 +17,7 @@ import { AUTH_TERMS } from "./authTerms";
 import { VOICE_NOTES } from "./voiceNotes";
 import { APP_LOADING } from "./appLoading";
 import { WELCOME_SLIDES } from "./welcomeSlides";
+import { VOICE_POST_PHOTOS } from "./voicePostPhotos";
 import { ADMIN_YOUR_VOICE } from "./adminYourVoice";
 import { URMALL_SETTINGS } from "./urmallSettings";
 import { URRIDE_MAP_FIX2 } from "./urrideMapFix2";
@@ -59632,6 +59633,12 @@ for (const [locale, section] of Object.entries(APP_LOADING)) {
 for (const [locale, section] of Object.entries(WELCOME_SLIDES)) {
   if (TRANSLATIONS[locale]) {
     TRANSLATIONS[locale].welcomeSlides = section;
+  }
+}
+
+for (const [locale, section] of Object.entries(VOICE_POST_PHOTOS)) {
+  if (TRANSLATIONS[locale]) {
+    TRANSLATIONS[locale].voicePostPhotos = section;
   }
 }
 

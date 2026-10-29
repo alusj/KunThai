@@ -10,6 +10,7 @@ import { clipWindowHandlers, postClipRange } from "../../../../shared/clipWindow
 import { t as i18nText } from "../../../../../../i18n/index";
 import { uiText as translateUi, useI18n as useUiLocale } from "../../../../../../i18n/index.js";
 import { useExploreSettingsSnapshot } from "../../../../../../Backend/hooks/useExplorePreferences";
+import { postImageUrls } from "../../../../../../Backend/services/explore/voicePostImages";
 
 export default function PostMedia({ post, imageOnly = false }) {
   const { t } = useI18n();
@@ -18,6 +19,8 @@ export default function PostMedia({ post, imageOnly = false }) {
   const videoRef = useRef(null);
   const advertPost = isAdvertPost(post);
   const clipRange = postClipRange(post);
+  // A voice post may carry several photos (cover first).
+  const imageUrls = post.audio_url && !post.video_url ? postImageUrls(post) : [];
   // Settings > Video: autoplay, default sound and data saver.
   const { video: videoSettings } = useExploreSettingsSnapshot();
   const reduceData = Boolean(videoSettings.reduceData);
@@ -54,7 +57,9 @@ export default function PostMedia({ post, imageOnly = false }) {
 
   return (
     <>
-      {post.image_url ? (
+      {imageUrls.length > 1 ? (
+        <PostImageCarousel urls={imageUrls} idKey={post.id} />
+      ) : post.image_url ? (
         <ZoomableImage src={post.image_url} eager={advertPost} idKey={post.id} />
       ) : null}
 
@@ -114,6 +119,55 @@ export default function PostMedia({ post, imageOnly = false }) {
         </div>
       ) : null}
     </>
+  );
+}
+
+// Several photos side by side: swipe across, each opens in the zoom viewer.
+function PostImageCarousel({ urls, idKey }) {
+  const { t } = useI18n();
+  const [index, setIndex] = useState(0);
+  const trackRef = useRef(null);
+
+  function handleScroll() {
+    const track = trackRef.current;
+    if (!track || !track.clientWidth) return;
+    // RTL layouts scroll with negative offsets.
+    const next = Math.round(Math.abs(track.scrollLeft) / track.clientWidth);
+    setIndex(Math.max(0, Math.min(urls.length - 1, next)));
+  }
+
+  return (
+    <div className="relative max-w-full overflow-hidden px-4 pb-4">
+      <div
+        ref={trackRef}
+        onScroll={handleScroll}
+        className="flex snap-x snap-mandatory overflow-x-auto overscroll-x-contain rounded-[20px] [scrollbar-width:none] [&::-webkit-scrollbar]:hidden"
+      >
+        {urls.map((url, position) => (
+          <div key={url} className="w-full flex-none snap-center">
+            <ZoomableImage
+              src={url}
+              eager={position === 0}
+              idKey={`${idKey}-${position}`}
+              wrapperClassName="w-full overflow-hidden"
+              buttonClassName="kt-pressable relative block aspect-[4/3] w-full overflow-hidden bg-slate-100 text-left"
+              restRadius={0}
+            />
+          </div>
+        ))}
+      </div>
+      <span className="pointer-events-none absolute right-6 top-2 rounded-full bg-slate-950/70 px-2.5 py-1 text-[11px] font-black text-white">
+        {t("voicePostPhotos.counter", { n: index + 1, total: urls.length })}
+      </span>
+      <div className="pointer-events-none mt-2 flex justify-center gap-1.5">
+        {urls.map((url, position) => (
+          <span
+            key={url}
+            className={`h-1.5 rounded-full transition-all ${position === index ? "w-4 bg-slate-800" : "w-1.5 bg-slate-300"}`}
+          />
+        ))}
+      </div>
+    </div>
   );
 }
 

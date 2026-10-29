@@ -9,6 +9,7 @@ import { PROFILE_IDENTITY_TYPE, SPACE_IDENTITY_TYPE, getPostIdentity, normalizeI
 import { getPostSurface, orderPostsByIds, postBelongsToSurface } from "./profilePostsModel";
 import { normalizeSpaceResponsibilities } from "./spaceService";
 import { shouldUseLegacyMentionInsert } from "./mentionFallback.js";
+import { MAX_VOICE_POST_IMAGES, withPostImages } from "./voicePostImages.js";
 
 const MAX_SWIP_SECONDS = 15;
 const SPACE_POSTING_ROLES = new Set(["owner", "administrator", "moderator", "editor", "customer_support"]);
@@ -533,6 +534,15 @@ export async function createExplorePost(input, scope = "feed") {
       ? await uploadMediaDataUrl(payload.image_url, "image", user.id)
       : "";
   const audioUrl = payload.audio_url ? await uploadMediaDataUrl(payload.audio_url, "audio", user.id) : "";
+  // A voice post's further photos, uploaded one at a time (file names carry
+  // the upload time). Only voice posts carry them; never alongside a video.
+  const extraImageUrls = [];
+  if (audioUrl && imageUrl && !hasVideoPayload(payload) && Array.isArray(payload.extra_image_files)) {
+    for (const file of payload.extra_image_files.slice(0, MAX_VOICE_POST_IMAGES - 1)) {
+      const url = file ? await uploadMediaFile(file, "image", user.id) : "";
+      if (url) extraImageUrls.push(url);
+    }
+  }
   const videoUrl = payload.video_file
     ? await uploadMediaFile(payload.video_file, "video", user.id)
     : payload.video_url
@@ -567,7 +577,7 @@ export async function createExplorePost(input, scope = "feed") {
     hashtags,
     mentions,
     primary_topic_slug: primaryTopicSlug || null,
-    media_meta: hasAdvert ? mediaMeta : { ...mediaMeta, title: postTitle },
+    media_meta: hasAdvert ? mediaMeta : withPostImages({ ...mediaMeta, title: postTitle }, [imageUrl, ...extraImageUrls]),
     likes_count: 0,
     comments_count: 0,
     saves_count: 0,
@@ -620,7 +630,7 @@ export async function createExplorePost(input, scope = "feed") {
     feed_scope: data?.feed_scope || classification.feedScope,
     post_type: data?.post_type || classification.postType,
     category: data?.category || classification.category,
-    media_meta: data?.media_meta || mediaMeta,
+    media_meta: data?.media_meta || draft.media_meta,
   };
 
   logExploreFeed("post creation completed", {
