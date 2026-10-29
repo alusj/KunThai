@@ -139,7 +139,7 @@ function RowMenu({ access, targetType, row, onOpen }) {
   );
 }
 
-export default function DirectoryView({ targetType, access, pageId }) {
+export default function DirectoryView({ targetType, access, pageId, onOpenCase }) {
   const meta = VIEW_META[targetType];
   const target = TARGET_TYPES[targetType];
   const Icon = meta.icon;
@@ -356,6 +356,7 @@ export default function DirectoryView({ targetType, access, pageId }) {
           initialDialog={selected.dialog || null}
           onClose={() => setSelected(null)}
           onChanged={load}
+          onOpenCase={onOpenCase}
         />
       ) : null}
     </>

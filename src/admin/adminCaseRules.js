@@ -110,6 +110,46 @@ export function filterMyWork(cases = [], userId) {
   return cases.filter((item) => isMyWorkCase(item, userId));
 }
 
+// --- Whose case -------------------------------------------------------------
+
+const OWNER_KIND_LABELS = Object.freeze({ operator: "Operator", company: "Company", business: "Business" });
+
+// Owner kind by case resource, for cases opened before metadata.owner existed
+// (or whose record was since deleted): the name and code saved on the case.
+const SOURCE_OWNER = Object.freeze({
+  transport_operator_verification: ["operator", "full_name", "operator_code"],
+  transport_company_verification: ["company", "company_name", "company_code"],
+  marketplace_business_registration: ["business", "business_name", "public_business_id"],
+});
+
+function ownerText(value) {
+  return value === null || value === undefined ? "" : String(value).trim();
+}
+
+/**
+ * The operator, company or business a case is about, from metadata.owner
+ * (20261028150000_admin_case_owner_codes.sql), or null.
+ * code is the one the directory shows (51337, KTC-…, UM-…), never a case number.
+ */
+export function getCaseOwner(item = {}) {
+  const owner = item?.metadata?.owner;
+  if (owner && typeof owner === "object" && (ownerText(owner.name) || ownerText(owner.code))) {
+    return { kind: ownerText(owner.kind), id: ownerText(owner.id), name: ownerText(owner.name), code: ownerText(owner.code) };
+  }
+  const fallback = SOURCE_OWNER[item?.resource_type];
+  const source = item?.metadata?.source || {};
+  if (!fallback || !(ownerText(source[fallback[1]]) || ownerText(source[fallback[2]]))) return null;
+  return { kind: fallback[0], id: ownerText(item.resource_id), name: ownerText(source[fallback[1]]), code: ownerText(source[fallback[2]]) };
+}
+
+/** "Alusine Kamara · Operator 51337" for a queue row, or "". */
+export function formatCaseOwner(item = {}) {
+  const owner = getCaseOwner(item);
+  if (!owner) return "";
+  const code = owner.code ? `${OWNER_KIND_LABELS[owner.kind] || "Code"} ${owner.code}` : "";
+  return [owner.name, code].filter(Boolean).join(" · ");
+}
+
 // --- Server search ----------------------------------------------------------
 
 // PostgREST or() filter for title/description ilike. LIKE wildcards are
@@ -121,6 +161,11 @@ export function buildCaseSearchOrFilter(text = "") {
   const like = query.replace(/[\\%_]/g, (char) => `\\${char}`);
   const quoted = `%${like}%`.replace(/[\\"]/g, (char) => `\\${char}`);
   const filters = [`title.ilike."${quoted}"`, `description.ilike."${quoted}"`];
+  // The operator, company or business the case is about, by name or code.
+  filters.push(`metadata->owner->>name.ilike."${quoted}"`, `metadata->owner->>code.ilike."${quoted}"`);
+  // An operator's dashboard shows its code as KT-51337: also try 51337 as a code.
+  const operatorCode = /^kt-?([1-9]\d{2,11})$/i.exec(query.replace(/\s+/g, ""));
+  if (operatorCode) filters.push(`metadata->owner->>code.eq.${operatorCode[1]}`);
   const number = /^(?:kt-?)?0*(\d{1,12})$/i.exec(query.replace(/\s+/g, ""));
   if (number) filters.push(`case_number.eq.${Number(number[1])}`);
   return filters.join(",");

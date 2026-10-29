@@ -2,6 +2,7 @@ import { useMemo, useState } from "react";
 import { ArrowUpRight, Search } from "lucide-react";
 import { formatCaseNumber, titleCase } from "../adminConfig";
 import { getCaseCountryLabel, getCaseSearchText, getCaseTypeLabel } from "../adminService";
+import { formatCaseOwner } from "../adminCaseRules.js";
 import { VERIFICATION_LANES, hasMissingDocuments, inVerificationLane, laneOf, sortVerificationQueue, verificationLaneCounts, verificationStage } from "../verificationStages.js";
 import { ReviewRoundChip, VerificationStageBadge, WaitLabel } from "../components/VerificationReviewPanel";
 import { PageHeading } from "./AdminViews";
@@ -103,6 +104,7 @@ export default function VerificationQueueView({ title, description, cases = [], 
                       <span className="hidden rounded-full bg-zinc-100 px-2 py-1 text-[11px] font-black text-zinc-600 sm:inline-flex">{getCaseCountryLabel(item)}</span>
                     </div>
                     <p className="mt-1.5 truncate text-sm font-black text-zinc-950">{item.title}</p>
+                    {formatCaseOwner(item) ? <p className="mt-0.5 truncate text-xs font-bold text-emerald-700">{formatCaseOwner(item)}</p> : null}
                     <p className="mt-0.5 truncate text-xs font-medium text-zinc-500">{formatCaseNumber(item.case_number)} · {getCaseTypeLabel(item)}</p>
                     {asked ? <p className="mt-1 line-clamp-2 text-xs font-semibold leading-5 text-zinc-600">{translateUi("Asked")}: {asked}</p> : null}
                   </div>

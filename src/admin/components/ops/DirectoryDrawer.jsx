@@ -12,6 +12,9 @@ import {
   targetLabel,
 } from "../../operationsConfig";
 import { addInternalNote, getDirectoryDetail } from "../../operationsService";
+import { getCaseTypeLabel, getOwnerVerificationCases } from "../../adminService";
+import { caseStatusLabel, formatCaseNumber } from "../../adminConfig";
+import { isOpenCase } from "../../adminCaseRules.js";
 import { inlineErrorMessage } from "../../../Backend/services/friendlyErrorService";
 import EnforcementDialog from "./EnforcementDialog";
 import NotifyOwnerDialog from "./NotifyOwnerDialog";
@@ -114,7 +117,46 @@ function SimpleTable({ columns, rows, empty }) {
   );
 }
 
-function OverviewTab({ targetType, detail }) {
+// The account's verification cases: the account case itself plus its vehicle
+// and document cases, open ones first. A row opens the case.
+function VerificationCases({ ownerId, onOpenCase }) {
+  const [cases, setCases] = useState(null);
+  const [error, setError] = useState("");
+  useEffect(() => {
+    let active = true;
+    getOwnerVerificationCases(ownerId)
+      .then((rows) => { if (active) setCases([...rows].sort((a, b) => Number(isOpenCase(b)) - Number(isOpenCase(a)))); })
+      .catch((nextError) => { if (active) setError(inlineErrorMessage(nextError, "Cases could not be loaded.")); });
+    return () => { active = false; };
+  }, [ownerId]);
+  const open = (cases || []).filter(isOpenCase).length;
+  return (
+    <section>
+      <p className="mb-2 text-[11px] font-black uppercase tracking-wide text-zinc-400">
+        Verification cases{cases?.length ? <span className="ml-1 normal-case text-zinc-500">{open} open of {cases.length}</span> : null}
+      </p>
+      {error ? <p className="text-sm font-semibold text-red-700">{error}</p>
+        : !cases ? <p className="flex items-center gap-2 text-sm font-bold text-zinc-500"><LoaderCircle className="animate-spin" size={14} /> Loading cases…</p>
+          : !cases.length ? <EmptyState title="No verification cases" />
+            : (
+              <ul className="divide-y divide-zinc-100 overflow-hidden rounded-lg border border-zinc-200">
+                {cases.map((item) => (
+                  <li key={item.id}>
+                    <button type="button" onClick={() => onOpenCase?.(item)} disabled={!onOpenCase} className="flex w-full items-center gap-3 px-3 py-2 text-left hover:bg-zinc-50 disabled:cursor-default disabled:hover:bg-transparent">
+                      <span className="w-20 shrink-0 text-xs font-black text-emerald-700">{formatCaseNumber(item.case_number)}</span>
+                      <span className="min-w-0 flex-1 truncate text-sm font-bold text-zinc-800">{getCaseTypeLabel(item)}</span>
+                      <span className={`shrink-0 text-xs font-bold ${isOpenCase(item) ? "text-amber-800" : "text-zinc-500"}`}>{caseStatusLabel(item.status)}</span>
+                      <span className="hidden w-24 shrink-0 text-right text-xs font-semibold text-zinc-500 sm:block">{formatDate(item.created_at)}</span>
+                    </button>
+                  </li>
+                ))}
+              </ul>
+            )}
+    </section>
+  );
+}
+
+function OverviewTab({ targetType, detail, ownerId, onOpenCase }) {
   const record = recordOf(targetType, detail);
   if (targetType === "marketplace_business") {
     const stats = detail.stats || {};
@@ -136,6 +178,7 @@ function OverviewTab({ targetType, detail }) {
           {record.description ? <p className="mt-3 text-sm font-medium leading-6 text-zinc-600">{record.description}</p> : null}
         </section>
         <OwnerCard owner={detail.owner} />
+        <VerificationCases ownerId={ownerId} onOpenCase={onOpenCase} />
       </div>
     );
   }
@@ -179,6 +222,7 @@ function OverviewTab({ targetType, detail }) {
           </section>
         ) : null}
         <OwnerCard owner={detail.owner} />
+        <VerificationCases ownerId={ownerId} onOpenCase={onOpenCase} />
       </div>
     );
   }
@@ -207,6 +251,7 @@ function OverviewTab({ targetType, detail }) {
         ]} />
       </section>
       <OwnerCard owner={detail.owner} />
+      <VerificationCases ownerId={ownerId} onOpenCase={onOpenCase} />
     </div>
   );
 }
@@ -356,7 +401,7 @@ const TABS = [
   { key: "audit", label: "Audit" },
 ];
 
-export default function DirectoryDrawer({ targetType, id, access, onClose, onChanged, initialDialog = null, initialLabel = "" }) {
+export default function DirectoryDrawer({ targetType, id, access, onClose, onChanged, onOpenCase, initialDialog = null, initialLabel = "" }) {
   const [detail, setDetail] = useState(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState("");
@@ -451,7 +496,7 @@ export default function DirectoryDrawer({ targetType, id, access, onClose, onCha
           ) : error ? (
             <ErrorState message={error} onRetry={() => load()} />
           ) : detail ? (
-            tab === "overview" ? <OverviewTab targetType={targetType} detail={detail} />
+            tab === "overview" ? <OverviewTab targetType={targetType} detail={detail} ownerId={id} onOpenCase={onOpenCase} />
               : tab === "activity" ? <ActivityTab targetType={targetType} detail={detail} />
                 : tab === "enforcement" ? <EnforcementTab governance={detail.governance} />
                   : tab === "notes" ? (
