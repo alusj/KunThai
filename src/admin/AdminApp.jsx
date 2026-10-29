@@ -4,7 +4,7 @@ import { useAuth } from "../Backend/hooks/useAuth";
 import AdminMfaGate from "./AdminMfaGate";
 import AdminConsoleLock from "./AdminConsoleLock";
 import { ADMIN_NAV_GROUPS, canAccess } from "./adminConfig";
-import { enableAdminPreview, getAdminAccess, getCaseSearchText, getCountryOptions, getDashboardSummary, getWorkspaceCases, isAdminPreview, matchesCaseCountry, searchAdminCasesRemote } from "./adminService";
+import { enableAdminPreview, getAdminAccess, getAdminCaseById, getCaseSearchText, getCountryOptions, getDashboardSummary, getWorkspaceCases, isAdminPreview, matchesCaseCountry, searchAdminCasesRemote } from "./adminService";
 import { filterMyWork, isOpenCase, mergeCaseLists, resolveCaseSummary } from "./adminCaseRules.js";
 import { inlineErrorMessage } from "../Backend/services/friendlyErrorService";
 import AdminShell from "./components/AdminShell";
@@ -166,6 +166,12 @@ function AdminWorkspace({ access, user, preview }) {
     window.scrollTo({ top: 0, behavior: "smooth" });
   }
 
+  // A linked case (operator, vehicle, company) opened from another case.
+  async function openCaseById(caseId) {
+    const loaded = cases.find((item) => item.id === caseId) || await getAdminCaseById(caseId).catch(() => null);
+    if (loaded) setSelectedCase(loaded);
+  }
+
   function updateCase(updated) {
     setCases((current) => current.map((item) => item.id === updated.id ? { ...item, ...updated } : item));
     setSelectedCase((current) => current?.id === updated.id ? { ...current, ...updated } : current);
@@ -230,7 +236,7 @@ function AdminWorkspace({ access, user, preview }) {
       {error ? <div role="alert" className="mb-4 rounded-lg border border-red-200 bg-red-50 px-4 py-3 text-sm font-semibold text-red-700">{translateUi(error)}</div> : null}
       <GlobalOperationsFilter countryFilter={countryFilter} countryOptions={countryOptions} onCountryFilterChange={setCountryFilter} totalCases={cases.length} visibleCases={countryCases.length} />
       {content}
-      {selectedCase ? <CaseDrawer item={selectedCase} access={access} currentUserId={user?.id} onClose={() => setSelectedCase(null)} onUpdated={updateCase} /> : null}
+      {selectedCase ? <CaseDrawer key={selectedCase.id} item={selectedCase} access={access} currentUserId={user?.id} onClose={() => setSelectedCase(null)} onUpdated={updateCase} onOpenCase={openCaseById} /> : null}
       {preview ? null : <AiAssistantHost />}
       {preview ? null : <AiFloatingButton />}
     </AdminShell>

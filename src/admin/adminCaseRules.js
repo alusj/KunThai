@@ -150,6 +150,29 @@ export function formatCaseOwner(item = {}) {
   return [owner.name, code].filter(Boolean).join(" · ");
 }
 
+// --- Linked verification ----------------------------------------------------
+
+// UrRide cases whose operator, vehicle and company are verified separately
+// (admin_case_linked_verification).
+const LINKED_VERIFICATION_RESOURCES = new Set([
+  "transport_operator_verification", "transport_solo_fleet_verification", "transport_fleet_verification",
+  "transport_company_verification", "transport_document_verification",
+]);
+
+export function isLinkedVerificationCase(item = {}) {
+  return item?.queue === "verification" && LINKED_VERIFICATION_RESOURCES.has(item?.resource_type);
+}
+
+/** Label and tone for a record's verification_status. */
+export function verificationStatusBadge(status) {
+  const value = ownerText(status).toLowerCase();
+  if (value === "verified_recommended") return { label: "Verified & recommended", tone: "emerald" };
+  if (value === "verified") return { label: "Verified", tone: "emerald" };
+  if (["rejected", "not_approved"].includes(value)) return { label: "Rejected", tone: "red" };
+  if (["not_verified", "notverified", "unverified"].includes(value)) return { label: "Not verified", tone: "zinc" };
+  return { label: "Pending", tone: "amber" };
+}
+
 // --- Server search ----------------------------------------------------------
 
 // PostgREST or() filter for title/description ilike. LIKE wildcards are

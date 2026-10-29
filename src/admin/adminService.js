@@ -19,6 +19,7 @@ import {
   fallbackDecisionCapabilities,
   fetchAllPages,
   getCaseOwner,
+  isLinkedVerificationCase,
   isMissingRpcError,
   mergeCaseLists,
   normalizeDecisionCapabilities,
@@ -827,6 +828,36 @@ export async function getVerificationRequests(caseId) {
     .order("created_at", { ascending: false });
   if (error) return [];
   return data || [];
+}
+
+// Verification of what an UrRide case is linked to: { operators, vehicles,
+// company }, each with its status and its own case. Null for other cases.
+export async function getCaseLinkedVerification(item) {
+  if (!item?.id || !isLinkedVerificationCase(item)) return null;
+  if (isAdminPreview()) {
+    const owner = getCaseOwner(item);
+    const operatorCase = previewCases.find((entry) => entry.resource_type === "transport_operator_verification" && getCaseOwner(entry)?.id === owner?.id);
+    return previewDelay({
+      operators: owner ? [{
+        id: owner.id, name: owner.name, code: owner.code, verificationStatus: "verification_pending", accountStatus: "submitted",
+        current: item.resource_type === "transport_operator_verification",
+        case: operatorCase ? { id: operatorCase.id, number: operatorCase.case_number, status: operatorCase.status } : null,
+      }] : [],
+      vehicles: [{ id: "preview-fleet-1", kind: "solo", name: "Keke", plate: "AKR 118", verificationStatus: "verified", current: false, case: null }],
+      company: null,
+    });
+  }
+  const { data, error } = await supabase.rpc("admin_case_linked_verification", { case_uuid: item.id });
+  if (error && isMissingRpcError(error)) return null;
+  if (error) throw error;
+  return data || null;
+}
+
+/** One case by id (to open a linked case from another case). */
+export async function getAdminCaseById(caseId) {
+  if (!caseId) return null;
+  if (isAdminPreview()) return previewDelay(previewCases.find((entry) => entry.id === caseId) || null);
+  return unwrap(await supabase.from("admin_cases").select("*").eq("id", caseId).maybeSingle(), "Unable to open that case.");
 }
 
 export async function reviewCaseApproval(approvalId, approved, reason, caseId = "") {

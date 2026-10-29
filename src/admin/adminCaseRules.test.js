@@ -13,6 +13,8 @@ import {
   filterMyWork,
   formatCaseOwner,
   getCaseOwner,
+  isLinkedVerificationCase,
+  verificationStatusBadge,
   isMissingRpcError,
   isSignedUrlStale,
   isoToDateTimeLocal,
@@ -208,4 +210,29 @@ test("the migration stores the owner the console reads", async () => {
     assert.match(sql, new RegExp(`'kind', '${kind}', 'id', [a-z]+\\.id, 'name', ${name.replace(".", "\\.")}, 'code', ${code.replace(".", "\\.")}`), kind);
   }
   assert.match(sql, /create trigger admin_cases_attach_owner\s+before insert on public\.admin_cases/);
+});
+
+test("linked verification covers UrRide operator, vehicle, company and document cases", () => {
+  for (const type of ["transport_operator_verification", "transport_solo_fleet_verification", "transport_fleet_verification", "transport_company_verification", "transport_document_verification"]) {
+    assert.equal(isLinkedVerificationCase({ queue: "verification", resource_type: type }), true, type);
+  }
+  assert.equal(isLinkedVerificationCase({ queue: "verification", resource_type: "marketplace_business_registration" }), false);
+  assert.equal(isLinkedVerificationCase({ queue: "reports", resource_type: "transport_operator_verification" }), false);
+  assert.deepEqual(verificationStatusBadge("verified"), { label: "Verified", tone: "emerald" });
+  assert.equal(verificationStatusBadge("verified_recommended").label, "Verified & recommended");
+  assert.equal(verificationStatusBadge("verification_pending").label, "Pending");
+  assert.equal(verificationStatusBadge("pending_review").label, "Pending");
+  assert.equal(verificationStatusBadge("not_verified").label, "Not verified");
+  assert.equal(verificationStatusBadge("rejected").tone, "red");
+  assert.equal(verificationStatusBadge(null).label, "Pending");
+});
+
+test("the linked-verification RPC checks access and returns every linked record", async () => {
+  const { readFileSync } = await import("node:fs");
+  const sql = readFileSync(new URL("../../supabase/migrations/20261029100000_admin_case_linked_verification.sql", import.meta.url), "utf8");
+  assert.match(sql, /admin_has_permission\('cases\.view', v_case\.sector\)/);
+  for (const key of ["'operators'", "'vehicles'", "'company'", "'verificationStatus'", "'case'"]) assert.ok(sql.includes(key), key);
+  for (const type of ["transport_operator_verification", "transport_solo_fleet_verification", "transport_fleet_verification", "transport_company_verification"]) {
+    assert.match(sql, new RegExp(`admin_latest_verification_case\\('${type}'`), type);
+  }
 });
