@@ -906,3 +906,215 @@ html.dark .kt-w-road { background: #1e293b; }
   .kt-w-check { opacity: 1; transform: none; }
   .kt-w-swip__bar i { transform: scaleX(0.6); }
 }
+
+/*
+ * The opening logo (WelcomeIntro). It sits over the slides on the logo's own
+ * deep green. "is-start" is the first paint, "is-in" zooms the logo in with a
+ * soft gold glow, two ripples and one light sweep, "is-out" zooms it away
+ * while the slides beneath grow into place. Transitions only, like the slides.
+ */
+
+.kt-welcome__top,
+.kt-welcome__viewport,
+.kt-welcome__bottom {
+  opacity: 1;
+  transform: none;
+  transition: opacity 560ms ease 80ms, transform 760ms var(--kt-w-ease);
+}
+
+.kt-welcome.is-intro .kt-welcome__top,
+.kt-welcome.is-intro .kt-welcome__viewport,
+.kt-welcome.is-intro .kt-welcome__bottom {
+  opacity: 0;
+  transform: scale(0.92);
+}
+
+.kt-intro {
+  --kt-intro-ease: cubic-bezier(0.16, 1, 0.3, 1);
+  --kt-intro-gold: #e8c46a;
+
+  position: absolute;
+  inset: 0;
+  z-index: 5;
+  display: grid;
+  place-items: center;
+  overflow: hidden;
+  background: radial-gradient(90% 60% at 50% 42%, #0f5145 0%, #08342b 42%, #021511 100%);
+  opacity: 1;
+  transition: opacity 620ms ease;
+}
+
+.kt-intro.is-out {
+  opacity: 0;
+  pointer-events: none;
+}
+
+.kt-intro__glow {
+  position: absolute;
+  top: 42%;
+  left: 50%;
+  width: 26rem;
+  height: 26rem;
+  margin: -13rem 0 0 -13rem;
+  border-radius: 50%;
+  background: radial-gradient(circle, rgb(232 196 106 / 0.32) 0%, rgb(232 196 106 / 0.08) 38%, transparent 66%);
+  opacity: 0;
+  transform: scale(0.5);
+  transition: opacity 1100ms ease 120ms, transform 1400ms var(--kt-intro-ease) 120ms;
+}
+
+.kt-intro.is-in .kt-intro__glow {
+  opacity: 1;
+  transform: scale(1);
+}
+
+.kt-intro.is-out .kt-intro__glow {
+  opacity: 0;
+  transform: scale(0.6);
+  transition: opacity 480ms ease, transform 640ms ease;
+}
+
+.kt-intro__center {
+  position: relative;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  margin-top: -6vh;
+  transform: none;
+  transition: transform 680ms cubic-bezier(0.55, 0, 0.75, 0.2);
+}
+
+/* Zoom out: the whole mark shrinks away as the slides arrive. */
+.kt-intro.is-out .kt-intro__center { transform: scale(0.72); }
+
+.kt-intro__mark {
+  position: relative;
+  width: 8.5rem;
+  height: 8.5rem;
+}
+
+.kt-intro__logo {
+  position: relative;
+  width: 100%;
+  height: 100%;
+  overflow: hidden;
+  border-radius: 22%;
+  box-shadow: 0 1.5rem 3rem -1rem rgb(0 0 0 / 0.6), 0 0 0 1px rgb(232 196 106 / 0.18);
+  opacity: 0;
+  transform: scale(0.45);
+  transition: opacity 520ms ease, transform 1000ms var(--kt-intro-ease);
+}
+
+/* Zoom in: the logo grows from small to full size, overshooting nothing. */
+.kt-intro.is-in .kt-intro__logo,
+.kt-intro.is-out .kt-intro__logo {
+  opacity: 1;
+  transform: scale(1);
+}
+
+.kt-intro__logo img {
+  display: block;
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+  transform: scale(1.12);
+  -webkit-user-drag: none;
+}
+
+/* One diagonal light sweep across the logo once it has landed. */
+.kt-intro__sheen {
+  position: absolute;
+  inset: -20%;
+  background: linear-gradient(105deg, transparent 38%, rgb(255 255 255 / 0.42) 50%, transparent 62%);
+  transform: translate3d(-75%, 0, 0);
+  transition: transform 1100ms ease-in-out 780ms;
+}
+
+.kt-intro.is-in .kt-intro__sheen,
+.kt-intro.is-out .kt-intro__sheen { transform: translate3d(75%, 0, 0); }
+
+/* Two gold ripples leave the logo once it has landed; until then they sit
+   hidden behind it. */
+.kt-intro__ring {
+  position: absolute;
+  inset: 0;
+  border: 1.5px solid var(--kt-intro-gold);
+  border-radius: 22%;
+  opacity: 0;
+  transform: scale(1);
+}
+
+.kt-intro.is-in .kt-intro__ring {
+  animation: kt-intro-ripple 1500ms var(--kt-intro-ease) 620ms both;
+}
+
+.kt-intro.is-in .kt-intro__ring--late { animation-delay: 900ms; }
+
+@keyframes kt-intro-ripple {
+  0% { opacity: 0.7; transform: scale(1); }
+  100% { opacity: 0; transform: scale(1.9); }
+}
+
+.kt-intro__word {
+  margin-top: 1.6rem;
+  background: linear-gradient(180deg, #f6e2a6 0%, #e0b85a 55%, #b8893a 100%);
+  -webkit-background-clip: text;
+  background-clip: text;
+  color: transparent;
+  font-size: 2rem;
+  font-weight: 700;
+  letter-spacing: 0.32em;
+  text-indent: 0.32em;
+  opacity: 0;
+  transform: translate3d(0, 0.75rem, 0);
+  transition: opacity 700ms ease 420ms, transform 900ms var(--kt-intro-ease) 420ms, letter-spacing 1200ms var(--kt-intro-ease) 420ms, text-indent 1200ms var(--kt-intro-ease) 420ms;
+}
+
+.kt-intro.is-in .kt-intro__word,
+.kt-intro.is-out .kt-intro__word {
+  opacity: 1;
+  transform: none;
+  letter-spacing: 0.06em;
+  text-indent: 0.06em;
+}
+
+.kt-intro__tagline {
+  display: flex;
+  align-items: center;
+  gap: 0.6rem;
+  margin-top: 0.6rem;
+  color: rgb(236 242 240 / 0.66);
+  font-size: 0.8125rem;
+  font-weight: 500;
+  letter-spacing: 0.04em;
+  opacity: 0;
+  transform: translate3d(0, 0.5rem, 0);
+  transition: opacity 700ms ease 720ms, transform 900ms var(--kt-intro-ease) 720ms;
+}
+
+.kt-intro__tagline i {
+  width: 0.25rem;
+  height: 0.25rem;
+  border-radius: 50%;
+  background: var(--kt-intro-gold);
+}
+
+.kt-intro.is-in .kt-intro__tagline,
+.kt-intro.is-out .kt-intro__tagline {
+  opacity: 1;
+  transform: none;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .kt-intro *,
+  .kt-intro__center,
+  .kt-welcome__top,
+  .kt-welcome__viewport,
+  .kt-welcome__bottom {
+    transition: none !important;
+    transform: none !important;
+  }
+
+  .kt-intro__ring,
+  .kt-intro__sheen { display: none; }
+}

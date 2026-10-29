@@ -22,12 +22,17 @@ import "./WelcomeSlides.css";
 // Welcome slides shown once per install before sign-in: Explore, UrMall and
 // UrRide, each with a gently looping illustration. They advance every few
 // seconds, can be swiped, and Skip / Get started lead to the sign-in screen.
+// The KunThai logo opens them: it zooms in, holds, then zooms out as the
+// slides settle in behind it (a tap moves on early).
 // Slide movement uses CSS transitions only (WebKit backdates keyframes, so a
 // keyframed slide jumps on iOS); keyframes are kept to the looping art.
 
 const SLIDES = ["explore", "urmall", "urride"];
 const AUTO_ADVANCE_MS = 4000;
 const LEAVE_MS = 320;
+const INTRO_HOLD_MS = 2300;
+const INTRO_LEAVE_MS = 700;
+const LOGO_SRC = "/brand/kunthai-launch-logo.webp";
 
 function prefersReducedMotion() {
   return typeof window !== "undefined" && window.matchMedia?.("(prefers-reduced-motion: reduce)")?.matches === true;
@@ -185,6 +190,52 @@ function UrRideArt() {
 
 const ART = { explore: ExploreArt, urmall: UrMallArt, urride: UrRideArt };
 
+// The opening logo. "start" is the first paint (logo small and clear), "in"
+// zooms it in, "out" zooms it away; every step is a CSS transition.
+function WelcomeIntro({ reducedMotion, onLeave, onGone }) {
+  const [phase, setPhase] = useState("start");
+  const leftRef = useRef(false);
+
+  const leave = useCallback(() => {
+    if (leftRef.current) return;
+    leftRef.current = true;
+    setPhase("out");
+    onLeave();
+    window.setTimeout(onGone, reducedMotion ? 0 : INTRO_LEAVE_MS);
+  }, [onGone, onLeave, reducedMotion]);
+
+  useEffect(() => {
+    let frame = window.requestAnimationFrame(() => {
+      frame = window.requestAnimationFrame(() => setPhase((current) => (current === "start" ? "in" : current)));
+    });
+    const timer = window.setTimeout(leave, reducedMotion ? 900 : INTRO_HOLD_MS);
+    return () => {
+      window.cancelAnimationFrame(frame);
+      window.clearTimeout(timer);
+    };
+  }, [leave, reducedMotion]);
+
+  return (
+    <div className={`kt-intro is-${phase}`} onClick={leave} aria-hidden="true">
+      <div className="kt-intro__glow" />
+      <div className="kt-intro__center">
+        <div className="kt-intro__mark">
+          <span className="kt-intro__ring" />
+          <span className="kt-intro__ring kt-intro__ring--late" />
+          <div className="kt-intro__logo">
+            <img src={LOGO_SRC} alt="" draggable="false" />
+            <span className="kt-intro__sheen" />
+          </div>
+        </div>
+        <div className="kt-intro__word">KunThai</div>
+        <div className="kt-intro__tagline">
+          <span>Explore</span><i /><span>UrMall</span><i /><span>UrRide</span>
+        </div>
+      </div>
+    </div>
+  );
+}
+
 export default function WelcomeSlides({ onDone }) {
   const { t } = useI18n();
   const [index, setIndex] = useState(0);
@@ -194,6 +245,11 @@ export default function WelcomeSlides({ onDone }) {
   const [pageHidden, setPageHidden] = useState(() => typeof document !== "undefined" && document.hidden);
   const [leaving, setLeaving] = useState(false);
   const [reducedMotion] = useState(prefersReducedMotion);
+  // "on": the logo covers the slides; "leaving": it zooms away as they settle in.
+  const [intro, setIntro] = useState("on");
+  const introDone = intro === "off";
+  const introLeave = useCallback(() => setIntro("leaving"), []);
+  const introGone = useCallback(() => setIntro("off"), []);
   const viewportRef = useRef(null);
   const trackRef = useRef(null);
   const dragRef = useRef(null);
@@ -219,10 +275,10 @@ export default function WelcomeSlides({ onDone }) {
   // Advance every few seconds, stopping on the last slide. Reduced motion
   // keeps the slides still until the user moves them.
   useEffect(() => {
-    if (reducedMotion || dragging || pageHidden || leaving || index >= last) return undefined;
+    if (reducedMotion || dragging || pageHidden || leaving || !introDone || index >= last) return undefined;
     const timer = window.setTimeout(() => setIndex((current) => Math.min(current + 1, last)), AUTO_ADVANCE_MS);
     return () => window.clearTimeout(timer);
-  }, [dragging, index, last, leaving, pageHidden, reducedMotion, timerKey]);
+  }, [dragging, index, introDone, last, leaving, pageHidden, reducedMotion, timerKey]);
 
   const finish = useCallback(() => {
     if (leaving) return;
@@ -237,7 +293,7 @@ export default function WelcomeSlides({ onDone }) {
   }, [last]);
 
   function handlePointerDown(event) {
-    if (leaving || (event.pointerType === "mouse" && event.button !== 0)) return;
+    if (leaving || !introDone || (event.pointerType === "mouse" && event.button !== 0)) return;
     dragRef.current = {
       id: event.pointerId,
       x0: event.clientX,
@@ -295,7 +351,7 @@ export default function WelcomeSlides({ onDone }) {
 
   return (
     <div
-      className={`kt-welcome${leaving ? " is-leaving" : ""}`}
+      className={`kt-welcome${leaving ? " is-leaving" : ""}${intro === "on" ? " is-intro" : ""}`}
       role="dialog"
       aria-modal="true"
       aria-roledescription="carousel"
@@ -331,7 +387,8 @@ export default function WelcomeSlides({ onDone }) {
         <div ref={trackRef} className={`kt-welcome__track${dragging ? " is-dragging" : ""}`}>
           {SLIDES.map((sector, slideIndex) => {
             const Art = ART[sector];
-            const active = slideIndex === index;
+            // The first slide's art glides in only once the logo leaves.
+            const active = slideIndex === index && intro !== "on";
             return (
               <section
                 key={sector}
@@ -379,6 +436,10 @@ export default function WelcomeSlides({ onDone }) {
           </span>
         </button>
       </div>
+
+      {intro !== "off" ? (
+        <WelcomeIntro reducedMotion={reducedMotion} onLeave={introLeave} onGone={introGone} />
+      ) : null}
     </div>
   );
 }
