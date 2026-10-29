@@ -6,6 +6,14 @@ import { sendOwnerNotification } from "../../operationsService";
 import { inlineErrorMessage } from "../../../Backend/services/friendlyErrorService";
 import { FieldLabel, OpsDialog, PrimaryButton, SecondaryButton, inputClass, textareaClass } from "./OpsPrimitives";
 
+// The notice lands in the notifications of the dashboard the target belongs to
+// (admin_send_owner_notification tags it for that dashboard).
+const OWNER_INBOX = {
+  marketplace_business: "UrMall seller dashboard",
+  transport_operator: "UrRide operator dashboard",
+  transport_company: "UrRide company dashboard",
+};
+
 const PRIORITIES = [
   { key: "normal", label: "Normal" },
   { key: "high", label: "High" },
@@ -65,7 +73,7 @@ export default function NotifyOwnerDialog({ targetType, target, onClose, onDone 
       {step === "compose" ? (
         <div className="space-y-4">
           <p className="rounded-lg bg-zinc-50 px-3 py-2 text-xs font-semibold leading-5 text-zinc-600">
-            Goes to the owner of <span className="font-black text-zinc-900">{target.label}</span> in their KunThai notifications. It is logged on this record and in the audit log.
+            Goes to the owner of <span className="font-black text-zinc-900">{target.label}</span> in their {OWNER_INBOX[targetType] || "KunThai"} notifications. It is logged on this record and in the audit log.
           </p>
           <div>
             <FieldLabel htmlFor="notice-title" hint={`${title.trim().length}/120`}>Title</FieldLabel>

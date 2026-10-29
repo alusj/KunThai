@@ -3,6 +3,7 @@ import { requestExploreScreen, requestMarketplaceScreen, runNotificationAction }
 import { openExploreResult, openMarketplaceProduct, openMarketplaceSeller } from "./ai/aiEntityNavigation";
 import { platformRowBelongsInInbox } from "./campaigns/campaignDeliveryService";
 import { campaignRowInbox } from "./campaigns/campaignModel";
+import { isDashboardCopy } from "./notificationDashboardRouting";
 
 export const UNIFIED_NOTIFICATIONS_UPDATED_EVENT = "kuntai-unified-notifications-updated";
 
@@ -265,7 +266,9 @@ export async function fetchUnifiedNotifications(userId) {
   const platformItems = platformRows
     .filter((item) => !item.expires_at || timestamp(item.expires_at) > now)
     // The unified centre lists every inbox, so each campaign row is checked against its own.
-    .filter((item) => platformRowBelongsInInbox(item, campaignRowInbox(item), now));
+    .filter((item) => platformRowBelongsInInbox(item, campaignRowInbox(item), now))
+    // A credit notice is also copied into each dashboard; list the original once.
+    .filter((item) => !isDashboardCopy(item));
   const items = [
     ...exploreItems.filter((item) => item?._notification_source !== "platform").map(mapExploreNotification),
     ...platformItems.map((item) => mapExploreNotification({ ...item, _notification_source: "platform" })),
