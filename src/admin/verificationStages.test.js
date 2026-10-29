@@ -5,6 +5,7 @@ import {
   changesSinceLastReview,
   collectSourceDocuments,
   formatWait,
+  hasMissingDocuments,
   isContinuingCase,
   isWaitOverdue,
   requestableDocuments,
@@ -84,6 +85,23 @@ test("lane counts and the nav badge", () => {
   assert.equal(counts.waiting_on_user, 1);
   assert.equal(counts.decided, 1);
   assert.equal(verificationAttentionCount(cases), 2);
+});
+
+test("applicants without uploads wait in their own lane until a file arrives", () => {
+  const empty = { queue: "verification", status: "new", resource_type: "transport_operator_verification", metadata: { source: { registration_documents: [] } } };
+  const uploaded = { ...empty, metadata: { source: { registration_documents: [{ id: "d1", document_type: "National ID", storage_path: "ops/id.jpg" }] } } };
+  const company = { ...empty, resource_type: "transport_company_verification", metadata: { source: { documents: { "Transport permit": "" } } } };
+  const location = { queue: "verification", status: "new", resource_type: "area_location_verification", metadata: { source: {} } };
+  assert.equal(hasMissingDocuments(empty), true);
+  assert.equal(hasMissingDocuments(uploaded), false);
+  assert.equal(hasMissingDocuments(company), true);
+  assert.equal(hasMissingDocuments({ ...company, metadata: { source: { documents: { "Transport permit": "https://x/p.pdf" } } } }), false);
+  assert.equal(hasMissingDocuments(location), false);
+  const counts = verificationLaneCounts([empty, uploaded, company, location]);
+  assert.equal(counts.needs_review, 4);
+  assert.equal(counts.with_documents, 2);
+  assert.equal(counts.no_documents, 2);
+  assert.equal(verificationAttentionCount([empty, uploaded, company, location]), 2);
 });
 
 test("documents are read from arrays and label maps", () => {

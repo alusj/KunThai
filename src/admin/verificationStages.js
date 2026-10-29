@@ -18,8 +18,12 @@ export const VERIFICATION_STAGES = Object.freeze({
   closed: { label: "Closed", detail: "Decided", tone: "zinc" },
 });
 
+// Lanes with `documents` split the cases still to review by whether the
+// applicant has uploaded anything yet (see hasMissingDocuments).
 export const VERIFICATION_LANES = Object.freeze([
   { key: "needs_review", label: "Needs review", stages: ["resubmitted", "new", "in_review"] },
+  { key: "with_documents", label: "With documents", stages: ["resubmitted", "new", "in_review"], documents: true },
+  { key: "no_documents", label: "No documents yet", stages: ["resubmitted", "new", "in_review"], documents: false },
   { key: "resubmitted", label: "Resubmitted", stages: ["resubmitted"] },
   { key: "new", label: "New submissions", stages: ["new"] },
   { key: "in_review", label: "In review", stages: ["in_review"] },
@@ -110,7 +114,12 @@ export function sortVerificationQueue(cases = [], now = Date.now()) {
 }
 
 export function laneOf(stage) {
-  return VERIFICATION_LANES.find((lane) => lane.key !== "needs_review" && lane.stages.includes(stage))?.key || "decided";
+  return VERIFICATION_LANES.find((lane) => lane.key !== "needs_review" && lane.documents === undefined && lane.stages.includes(stage))?.key || "decided";
+}
+
+export function inVerificationLane(lane, item = {}, stage = verificationStage(item)) {
+  if (!lane?.stages.includes(stage)) return false;
+  return lane.documents === undefined || lane.documents !== hasMissingDocuments(item);
 }
 
 export function verificationLaneCounts(cases = []) {
@@ -118,15 +127,16 @@ export function verificationLaneCounts(cases = []) {
   cases.forEach((item) => {
     const stage = verificationStage(item);
     VERIFICATION_LANES.forEach((lane) => {
-      if (lane.stages.includes(stage)) counts[lane.key] += 1;
+      if (inVerificationLane(lane, item, stage)) counts[lane.key] += 1;
     });
   });
   return counts;
 }
 
 // Cases an admin should act on now: the number on the Verification nav item.
+// Applicants who have not uploaded anything yet wait outside it.
 export function verificationAttentionCount(cases = []) {
-  return cases.filter((item) => item.queue === "verification" && ["resubmitted", "new"].includes(verificationStage(item))).length;
+  return cases.filter((item) => item.queue === "verification" && ["resubmitted", "new"].includes(verificationStage(item)) && !hasMissingDocuments(item)).length;
 }
 
 // --- What changed since the last review -------------------------------------
@@ -167,6 +177,29 @@ export function collectSourceDocuments(source = {}) {
     }
   });
   return documents;
+}
+
+function hasFile(entry = {}) {
+  return [entry.storage_path, entry.file_url, entry.document_url, entry.url, entry.path].some((value) => typeof value === "string" && value.trim() && value !== "{}" && value !== "null");
+}
+
+// Files the applicant uploaded: document lists plus photo and image lists
+// (fleet photos, location photos). Entries without a file do not count.
+export function uploadedDocumentCount(item = {}) {
+  const source = item.metadata?.source && typeof item.metadata.source === "object" ? item.metadata.source : {};
+  let count = collectSourceDocuments(source).filter(hasFile).length;
+  Object.entries(source).forEach(([key, value]) => {
+    if (!/(photos|images|image_urls)$/i.test(key) || !Array.isArray(value)) return;
+    count += value.filter((entry) => (typeof entry === "string" ? entry.trim() : entry && hasFile(entry))).length;
+  });
+  return count;
+}
+
+// An applicant case (one that asks for documents) with nothing uploaded yet.
+// The documents trigger refreshes the case source on every upload, so the
+// case leaves this lane on its own once a file arrives.
+export function hasMissingDocuments(item = {}) {
+  return Boolean(REQUESTABLE_DOCUMENTS[item.resource_type]) && uploadedDocumentCount(item) === 0;
 }
 
 function displayValue(value) {

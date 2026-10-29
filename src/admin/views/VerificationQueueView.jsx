@@ -2,13 +2,15 @@ import { useMemo, useState } from "react";
 import { ArrowUpRight, Search } from "lucide-react";
 import { formatCaseNumber, titleCase } from "../adminConfig";
 import { getCaseCountryLabel, getCaseSearchText, getCaseTypeLabel } from "../adminService";
-import { VERIFICATION_LANES, laneOf, sortVerificationQueue, verificationLaneCounts, verificationStage } from "../verificationStages.js";
+import { VERIFICATION_LANES, hasMissingDocuments, inVerificationLane, laneOf, sortVerificationQueue, verificationLaneCounts, verificationStage } from "../verificationStages.js";
 import { ReviewRoundChip, VerificationStageBadge, WaitLabel } from "../components/VerificationReviewPanel";
 import { PageHeading } from "./AdminViews";
 import { uiText as translateUi, useI18n as useUiLocale } from "../../i18n/index.js";
 
 const LANE_TONES = {
   needs_review: "border-emerald-300 bg-emerald-50 text-emerald-950",
+  with_documents: "border-emerald-300 bg-emerald-50 text-emerald-950",
+  no_documents: "border-rose-200 bg-rose-50 text-rose-900",
   resubmitted: "border-violet-200 bg-violet-50 text-violet-800",
   new: "border-sky-300 bg-sky-50 text-sky-950",
   in_review: "border-amber-300 bg-amber-50 text-amber-950",
@@ -18,6 +20,8 @@ const LANE_TONES = {
 
 const LANE_HINTS = {
   needs_review: "Resubmitted first, then the longest waiting",
+  with_documents: "Uploads ready to check",
+  no_documents: "Moves to With documents once they upload",
   resubmitted: "The applicant sent what was asked",
   new: "First-time submissions",
   in_review: "Claimed by an admin",
@@ -29,7 +33,7 @@ const sectorLabel = (sector) => (sector === "marketplace" ? "UrMall" : titleCase
 
 export default function VerificationQueueView({ title, description, cases = [], onOpenCase }) {
   useUiLocale();
-  const [lane, setLane] = useState("needs_review");
+  const [lane, setLane] = useState("with_documents");
   const [sector, setSector] = useState("all");
   const [search, setSearch] = useState("");
   const [now] = useState(() => Date.now());
@@ -40,7 +44,7 @@ export default function VerificationQueueView({ title, description, cases = [], 
   const activeLane = VERIFICATION_LANES.find((entry) => entry.key === lane) || VERIFICATION_LANES[0];
   const visible = useMemo(() => {
     const needle = search.trim().toLowerCase();
-    const rows = sectorCases.filter((item) => activeLane.stages.includes(verificationStage(item)) && (!needle || getCaseSearchText(item).includes(needle)));
+    const rows = sectorCases.filter((item) => inVerificationLane(activeLane, item) && (!needle || getCaseSearchText(item).includes(needle)));
     return sortVerificationQueue(rows, now);
   }, [activeLane, now, search, sectorCases]);
   const sectors = useMemo(() => Array.from(new Set(verification.map((item) => item.sector))).sort(), [verification]);
@@ -49,7 +53,7 @@ export default function VerificationQueueView({ title, description, cases = [], 
     <>
       <PageHeading eyebrow="Operations queue" title={title} description={description} />
 
-      <section className="mb-4 grid grid-cols-2 gap-2 sm:grid-cols-3 xl:grid-cols-6">
+      <section className="mb-4 grid grid-cols-2 gap-2 sm:grid-cols-4">
         {VERIFICATION_LANES.map((entry) => (
           <button
             type="button"
@@ -94,6 +98,7 @@ export default function VerificationQueueView({ title, description, cases = [], 
                     <div className="flex flex-wrap items-center gap-1.5">
                       <VerificationStageBadge item={item} />
                       <ReviewRoundChip item={item} />
+                      {hasMissingDocuments(item) ? <span className="rounded-full bg-rose-50 px-2 py-1 text-[11px] font-black text-rose-700">{translateUi("No documents yet")}</span> : null}
                       <span className="rounded-full bg-zinc-100 px-2 py-1 text-[11px] font-black text-zinc-600">{sectorLabel(item.sector)}</span>
                       <span className="hidden rounded-full bg-zinc-100 px-2 py-1 text-[11px] font-black text-zinc-600 sm:inline-flex">{getCaseCountryLabel(item)}</span>
                     </div>
