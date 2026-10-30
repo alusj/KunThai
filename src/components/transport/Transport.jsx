@@ -25,7 +25,7 @@ import PassengerLiveTripHeaderCard from "./live/PassengerLiveTripHeaderCard";
 import AppBackTab from "../shared/AppBackTab";
 import { fetchOperatorDashboard, getLegacyOperatorAccount, getOperatorAccount, writeOperatorWorkMode } from "../services/transportOperatorAccountService";
 import {
-  ensureInvitedOperatorProfile,
+  getInvitedOperatorDefaultPhone,
   getOperatorCompanyInvites,
   getTransportCompanyAccount,
   getTransportCompanyAccounts,
@@ -565,6 +565,8 @@ export default function Transport({
 
   async function acceptOperatorCompanyInvite(invite, feeConfirmed = false) {
     setOperatorInviteStatus("");
+    // Joining as a new operator is registering one: Business accounts only.
+    if (!operatorAccount?.id && registrationBlocked()) return;
     if (!feeConfirmed && invite.status !== "accepted") {
       try {
         const quote = await getOperatorCompanyAccessQuote();
@@ -579,26 +581,25 @@ export default function Transport({
     }
     invite = { ...invite, companyAccessFeeConfirmed: feeConfirmed };
     // Already a registered operator: accepting is one tap (plus the one-time
-    // access fee for solo operators). Existing documents are reused and no
-    // documents screen follows. A new operator is asked for a licence next.
+    // company access fee). Existing documents are reused and no documents
+    // screen follows. Someone new to UrRide (any business account) gets the
+    // documents screen first, with a phone number if their profile has none:
+    // submitting it creates their operator profile and joins the company.
     const alreadyOperator = Boolean(operatorAccount?.id);
+    if (!alreadyOperator) {
+      setCompanyAccessDecision(null);
+      setRouteDirection("forward");
+      setOperatorInviteDocumentsInvite({ ...invite, joining: true });
+      return;
+    }
     const reuseDocuments = hasSubmittedOperatorDocuments(operatorAccount);
 
-    let profileError = null;
     try {
-      // A new operator's record is created on accept so the company fleet can
-      // be provisioned right away; an existing record is left untouched.
-      const operatorRecord = alreadyOperator
-        ? null
-        : await ensureInvitedOperatorProfile(invite).catch((error) => {
-          profileError = error;
-          return null;
-        });
       const now = new Date().toISOString();
-      const updatedInvite = await respondToOperatorInvite(invite, {
+      await respondToOperatorInvite(invite, {
         status: "accepted",
-        operatorId: operatorRecord?.id || operatorAccount?.id || invite.operatorId,
-        userId: operatorRecord?.user_id || operatorAccount?.userId || invite.userId,
+        operatorId: operatorAccount?.id || invite.operatorId,
+        userId: operatorAccount?.userId || invite.userId,
         documents: reuseDocuments
           ? { reuseNotice: t("urride.transport.status.reuseNotice"), reusedExistingDocuments: true, reusedAt: now }
           : {
@@ -612,21 +613,14 @@ export default function Transport({
       setCompanyAccessDecision(null);
       const refreshedAccount = await getOperatorAccount().catch(() => null);
       if (refreshedAccount) setOperatorAccount(refreshedAccount);
-      if (alreadyOperator) {
-        await refreshOperatorCompanyInvites(refreshedAccount || operatorAccount).catch(() => {});
-        showToast("Request accepted", "success");
-      } else {
-        setOperatorInviteDocumentsInvite(updatedInvite);
-      }
+      await refreshOperatorCompanyInvites(refreshedAccount || operatorAccount).catch(() => {});
+      showToast("Request accepted", "success");
     } catch (error) {
-      // A failed operator-profile step explains a later "complete your
-      // operator profile" refusal better than the refusal itself.
-      const reason = profileError && /operator profile/i.test(error?.message || "") ? profileError : error;
-      setOperatorInviteStatus(inlineErrorMessage(reason, t("urride.transport.status.acceptError")));
-      showToast(shortErrorToast(reason, t("urride.transport.status.acceptToast")), "danger");
+      setOperatorInviteStatus(inlineErrorMessage(error, t("urride.transport.status.acceptError")));
+      showToast(shortErrorToast(error, t("urride.transport.status.acceptToast")), "danger");
       await recoverCompanyAccessPrompt(invite, error);
       // From the fee dialog: keep it open and show the reason there too.
-      if (feeConfirmed) throw reason;
+      if (feeConfirmed) throw error;
     }
   }
 
@@ -1320,7 +1314,8 @@ export default function Transport({
             setRouteDirection("backward");
             setOperatorInviteDocumentsInvite(null);
           }}
-          onSkip={skipOperatorInviteDocuments}
+          // Someone joining as a new operator gives their documents now.
+          onSkip={operatorInviteDocumentsInvite.joining ? undefined : skipOperatorInviteDocuments}
           onSubmit={submitOperatorInviteDocuments}
         />
       </div>
@@ -1893,6 +1888,7 @@ export default function Transport({
           key={companyAccessDecision.invite.id || companyAccessDecision.invite.requestId}
           invite={companyAccessDecision.invite}
           quote={companyAccessDecision.quote}
+          existingOperator={Boolean(operatorAccount?.id)}
           onClose={() => setCompanyAccessDecision(null)}
           onConfirm={(invite) => acceptOperatorCompanyInvite(invite, true)}
         />
@@ -1932,6 +1928,22 @@ const operatorInviteDocumentFields = [
 function OperatorInviteDocumentsScreen({ invite, onBack, onSkip, onSubmit }) {
   useI18n();
   const [documents, setDocuments] = useState({});
+  // A new operator needs a phone number on their operator profile; it starts
+  // from the one on their KunThai profile, when there is one.
+  const askPhone = Boolean(invite?.joining);
+  const [phone, setPhone] = useState("");
+  useEffect(() => {
+    if (!askPhone) return undefined;
+    let alive = true;
+    getInvitedOperatorDefaultPhone()
+      .then((value) => {
+        if (alive && value) setPhone((current) => current || value);
+      })
+      .catch(() => {});
+    return () => {
+      alive = false;
+    };
+  }, [askPhone]);
   const [status, setStatus] = useState("");
   const [submitting, setSubmitting] = useState(false);
   const requiredDocuments = operatorInviteDocumentFields.filter((field) => !field.optional);
@@ -1951,6 +1963,10 @@ function OperatorInviteDocumentsScreen({ invite, onBack, onSkip, onSubmit }) {
 
   async function submitDocuments() {
     const missing = requiredDocuments.filter((field) => !documents[field.key]?.fileName);
+    if (askPhone && phone.replace(/\D/g, "").length < 7) {
+      setStatus(t("urride.transport.docs.phoneMissing"));
+      return;
+    }
     if (missing.length) {
       setStatus(t("urride.transport.docs.uploadMissing", { docs: missing.map((field) => t(field.labelKey).toLowerCase()).join(", ") }));
       return;
@@ -1959,7 +1975,7 @@ function OperatorInviteDocumentsScreen({ invite, onBack, onSkip, onSubmit }) {
     try {
       setSubmitting(true);
       setStatus("");
-      await onSubmit?.(invite, documents);
+      await onSubmit?.(askPhone ? { ...invite, phone: phone.trim() } : invite, documents);
     } catch (error) {
       setStatus(inlineErrorMessage(error, t("urride.transport.docs.submitError")));
     } finally {
@@ -2004,6 +2020,24 @@ function OperatorInviteDocumentsScreen({ invite, onBack, onSkip, onSubmit }) {
         </section>
 
         <section className="mt-4 grid gap-3">
+          {askPhone ? (
+            <label className="block rounded-[24px] border border-slate-200 bg-white p-4 shadow-sm">
+              <p className="text-sm font-black text-slate-950">{t("urride.transport.docs.phoneLabel")}</p>
+              <p className="mt-1 text-xs font-semibold leading-5 text-slate-500">{t("urride.transport.docs.phoneDetail")}</p>
+              <input
+                type="tel"
+                inputMode="tel"
+                autoComplete="tel"
+                value={phone}
+                onChange={(event) => {
+                  setPhone(event.target.value);
+                  setStatus("");
+                }}
+                placeholder={t("urride.transport.docs.phoneLabel")}
+                className="mt-3 h-12 w-full rounded-2xl border border-slate-200 bg-slate-50 px-4 text-base font-bold text-slate-950 outline-none focus:border-blue-400 focus:bg-white"
+              />
+            </label>
+          ) : null}
           {operatorInviteDocumentFields.map((field) => {
             const selected = documents[field.key]?.fileName;
             return (

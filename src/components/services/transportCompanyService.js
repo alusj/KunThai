@@ -1377,6 +1377,14 @@ export async function ensureInvitedOperatorProfile(invite = {}) {
   }
 }
 
+// The phone on the person's KunThai profile, to start a new operator's
+// documents screen with (an operator profile needs one).
+export async function getInvitedOperatorDefaultPhone() {
+  const user = await getCurrentUser("Sign in to join this company.");
+  const profile = await getOnboardingProfile(user).catch(() => null);
+  return String(profile?.phone || profile?.phone_number || user?.phone || "").trim();
+}
+
 export async function submitOperatorCompanyInviteDocuments(invite, documents = {}) {
   const user = await getCurrentUser("Sign in before submitting operator documents.");
   const profile = await getOnboardingProfile(user).catch(() => null);

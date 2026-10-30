@@ -6,7 +6,7 @@ import { t as i18nText } from "../../i18n/index";
 import { uiText as translateUi, useI18n as useUiLocale } from "../../i18n/index.js";
 import { inlineErrorMessage } from "../../Backend/services/friendlyErrorService";
 
-export default function CompanyOperatorAccessModal({ invite, quote, onClose, onConfirm }) {
+export default function CompanyOperatorAccessModal({ invite, quote, onClose, onConfirm, existingOperator = false }) {
   useUiLocale();
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState("");
@@ -39,7 +39,8 @@ export default function CompanyOperatorAccessModal({ invite, quote, onClose, onC
       <p className="text-xs font-black uppercase tracking-wide text-emerald-700">{i18nText("ui.literals.k9bcb6f3d3d68")}</p>
       <h2 id="operator-company-access-title" className="mt-2 text-xl font-black text-slate-950">{i18nText("ui.literals.k5ab659683c86")}</h2>
       <p className="mt-3 text-sm leading-6 text-slate-700">{i18nText("ui.literals.kf88ac997ee40")} {OPERATOR_COMPANY_ACCESS_CREDITS} {i18nText("ui.literals.k1939b4585fa8")}</p>
-      <p className="mt-3 text-sm leading-6 text-slate-700">{i18nText("ui.literals.k9cadeea12ab4")}</p>
+      {/* "You can keep your solo fleet": only for someone already operating. */}
+      {existingOperator ? <p className="mt-3 text-sm leading-6 text-slate-700">{i18nText("ui.literals.k9cadeea12ab4")}</p> : null}
       <div className="mt-4 rounded-2xl border border-emerald-200 bg-emerald-50 p-4 text-sm font-bold text-slate-900">
         <p>{i18nText("ui.literals.k3d9d99253263")} {invite?.companyName || i18nText("ui.literals.kd19b78e4cb46")}</p>
         <p className="mt-2">{i18nText("ui.literals.k34049ee5c6d7")} {Number(access?.balance || 0)} {i18nText("ui.literals.k66c22fad3a99")}</p>
