@@ -80,7 +80,6 @@ import { loadExploreTopicsForAi, prepareImageForAi } from "../../../../../../Bac
 import { composerMediaKind, mergeHashtagsIntoText } from "../../../../../../Backend/services/ai/exploreAiModels";
 import { uiText as translateUi, useI18n as useUiLocale } from "../../../../../../i18n/index.js";
 import { rememberPostedVideoFile, waitForPostedVideoPlaying } from "../../../../../../Backend/services/explore/postedVideoPlayback";
-import { MAX_VOICE_POST_IMAGES, remainingVoicePostImages } from "../../../../../../Backend/services/explore/voicePostImages";
 
 const LARGE_VIDEO_BACKGROUND_REVIEW_BYTES = 24 * 1024 * 1024;
 const LARGE_VIDEO_INITIAL_REVIEW_TIMEOUT_MS = 18_000;
@@ -363,9 +362,6 @@ export default function FeedComposer({ profile, creating, onSubmit }) {
   const [videoPreview, setVideoPreview] = useState(draft.video_url || "");
   const [audioPreview, setAudioPreview] = useState(draft.audio_url || "");
   const [audioDuration, setAudioDuration] = useState(draft.audio_duration_seconds || null);
-  // A voice post's photos after the first (which stays in imagePreview), as
-  // { id, preview, file, prep }; prep resolves to the display-sized upload.
-  const [extraImages, setExtraImages] = useState([]);
   const [privacy, setPrivacy] = useState(draft.post_privacy || privacySettings.defaultPostPrivacy || "public");
   const [isRecording, setIsRecording] = useState(false);
   const [recordingPaused, setRecordingPaused] = useState(false);
@@ -457,9 +453,8 @@ export default function FeedComposer({ profile, creating, onSubmit }) {
       (advertForm.title.trim() || value.trim() || advertForm.link.trim() || advertForm.phone.trim() || advertForm.address.trim() || imagePreview || videoPreview || pendingVideoFile),
   );
   const hasVideoAttachment = Boolean(videoPreview || pendingVideoFile || pendingVideoUrl);
-  // A voice post takes photos (up to MAX_VOICE_POST_IMAGES), never a video.
+  // A voice post takes one photo, never a video.
   const isVoicePost = !isAdvertMode && !hasVideoAttachment && (attachmentMode === "voice" || Boolean(audioPreview));
-  const voicePhotoCount = (imagePreview ? 1 : 0) + extraImages.length;
   const advertCreditSpend = normalizeVisibilityCreditSpend(
     advertForm.creditSpend || advertForm.budgetAmount,
     getMinimumExploreAdvertCredits(advertForm.placement),
@@ -867,7 +862,6 @@ export default function FeedComposer({ profile, creating, onSubmit }) {
     trimRequestRef.current += 1;
     trimmedVideoMetaRef.current = null;
     cancelVoiceRecording();
-    clearExtraImages();
 
     const looksLikeVideo = file.type.startsWith("video/") || (!file.type && VIDEO_FILE_NAME_PATTERN.test(file.name || ""));
     if (!looksLikeVideo) {
@@ -1504,75 +1498,26 @@ export default function FeedComposer({ profile, creating, onSubmit }) {
     setImagePreview("");
     originalImageFileRef.current = null;
     setMediaMeta((current) => ({ ...current, imageName: "", imageType: "", imageSize: 0 }));
-    // A voice post's next photo becomes its first.
-    if (extraImages.length) {
-      const [next, ...rest] = extraImages;
-      URL.revokeObjectURL(next.preview);
-      setExtraImages(rest);
-      attachCoverImage(next.file);
-    }
   }
 
-  function clearExtraImages() {
-    setExtraImages((current) => {
-      current.forEach((image) => URL.revokeObjectURL(image.preview));
-      return [];
-    });
-  }
-
-  function removeExtraImage(id) {
-    setExtraImages((current) => current.filter((image) => {
-      if (image.id === id) URL.revokeObjectURL(image.preview);
-      return image.id !== id;
-    }));
-  }
-
+  // A voice post's one photo; picking again replaces it.
   function openVoicePhotoPicker() {
-    if (!remainingVoicePostImages(voicePhotoCount)) {
-      setFeedback(i18nText("voicePostPhotos.limit", { max: MAX_VOICE_POST_IMAGES }));
-      return;
-    }
     setFeedback("");
     suppressScreenshotPrompt();
     voicePhotosInputRef.current?.click();
   }
 
-  // Photos picked for a voice post: the first fills the post's photo when it
-  // has none; the rest are added after it, up to the limit.
-  function handleVoicePhotosChange(event) {
-    const picked = Array.from(event.target.files || []).filter((file) => (
-      file.type.startsWith("image/") || (!file.type && !VIDEO_FILE_NAME_PATTERN.test(file.name || ""))
-    ));
+  function handleVoicePhotoChange(event) {
+    const file = event.target.files?.[0];
     event.target.value = "";
-    if (!picked.length) return;
-
-    const room = remainingVoicePostImages(voicePhotoCount);
-    const files = picked.slice(0, room);
-    const overLimit = picked.length > room;
-    if (!files.length) {
-      setFeedback(i18nText("voicePostPhotos.limit", { max: MAX_VOICE_POST_IMAGES }));
+    if (!file) return;
+    if (file.type.startsWith("video/") || (!file.type && VIDEO_FILE_NAME_PATTERN.test(file.name || ""))) {
+      setFeedback(i18nText("voicePostPhotos.noVideo"));
       return;
     }
-
-    let rest = files;
-    if (!imagePreview) {
-      attachCoverImage(files[0]);
-      rest = files.slice(1);
-    }
-    if (rest.length) {
-      setExtraImages((current) => [
-        ...current,
-        ...rest.map((file, index) => ({
-          id: `voice-photo-${Date.now().toString(36)}-${index}-${Math.random().toString(36).slice(2, 7)}`,
-          preview: URL.createObjectURL(file),
-          file,
-          // The display-sized upload; the original when it cannot be made.
-          prep: optimizeImageFile(file).catch(() => file),
-        })),
-      ]);
-    }
+    attachCoverImage(file);
     showComposer();
-    setFeedback(overLimit ? i18nText("voicePostPhotos.limit", { max: MAX_VOICE_POST_IMAGES }) : "");
+    setFeedback("");
   }
 
   function clearVideoAttachment() {
@@ -1773,7 +1718,6 @@ export default function FeedComposer({ profile, creating, onSubmit }) {
     setVideoPreview("");
     setAudioPreview("");
     setAudioDuration(null);
-    clearExtraImages();
     setMediaMeta({});
     setAttachmentMode("text");
     setComposerMode("post");
@@ -1913,9 +1857,6 @@ export default function FeedComposer({ profile, creating, onSubmit }) {
       };
       const finalAudioPreview = finalVideoPreview ? "" : audioPreview;
       const finalAudioDuration = finalVideoPreview ? null : audioDuration;
-      // A voice post's further photos (never with a video or an advert).
-      const voiceExtraImages = !isAdvertMode && finalAudioPreview && readyImagePreview ? extraImages : [];
-      const extraImageFiles = await Promise.all(voiceExtraImages.map((image) => image.prep));
       const actorType = profile?.identityType === SPACE_IDENTITY_TYPE || profile?.spaceId ? SPACE_IDENTITY_TYPE : "profile";
       const actorId = actorType === SPACE_IDENTITY_TYPE ? profile?.spaceId : profile?.userId;
 
@@ -1934,8 +1875,6 @@ export default function FeedComposer({ profile, creating, onSubmit }) {
         audio_url: finalAudioPreview,
         video_url: finalVideoPreview,
         audio_duration_seconds: finalAudioDuration,
-        extra_image_files: extraImageFiles,
-        extra_image_urls: voiceExtraImages.map((image) => image.preview),
         post_privacy: isAdvertMode ? "public" : privacy,
         feed_scope: "feed",
         post_type: isAdvertMode ? "advert" : finalVideoPreview ? "video" : "post",
@@ -2215,8 +2154,6 @@ if (!isMobileVideoDevice) {
         actor_metadata: postDraft.actor_metadata,
         image_url: postDraft.image_url,
         image_file: postDraft.image_file,
-        extra_image_files: postDraft.extra_image_files,
-        extra_image_urls: postDraft.extra_image_urls,
         audio_url: postDraft.audio_url,
         video_url: uploadedVideoUrl,
         video_file: uploadedReviewVideoUrl ? null : postDraft.video_url ? originalVideoFileRef.current : null,
@@ -2756,47 +2693,38 @@ if (!isMobileVideoDevice) {
               ) : null}
 
               {isVoicePost ? (
-                <div className="rounded-[24px] border border-slate-200 bg-slate-50 p-3">
-                  <div className="flex items-center justify-between gap-3 px-1">
+                <div className="flex items-center gap-3 rounded-[24px] border border-slate-200 bg-slate-50 p-3">
+                  {imagePreview ? (
+                    <div className="relative h-20 w-20 flex-none overflow-hidden rounded-2xl bg-slate-200">
+                      <button type="button" onClick={openVoicePhotoPicker} aria-label={i18nText("postCard.change")} className="absolute inset-0">
+                        <img src={imagePreview} alt="" className="h-full w-full object-cover" />
+                      </button>
+                      <button
+                        type="button"
+                        onClick={clearImageAttachment}
+                        aria-label={i18nText("voicePostPhotos.remove")}
+                        className="absolute right-1 top-1 grid h-6 w-6 place-items-center rounded-full bg-white/95 text-slate-800 shadow"
+                      >
+                        <HiOutlineXMark className="text-xs" />
+                      </button>
+                    </div>
+                  ) : (
+                    <button
+                      type="button"
+                      onClick={openVoicePhotoPicker}
+                      className="kt-pressable flex h-20 w-20 flex-none flex-col items-center justify-center gap-1 rounded-2xl border-2 border-dashed border-sky-300 bg-white text-sky-700"
+                    >
+                      <HiOutlinePlus className="text-lg" />
+                      <span className="px-1 text-center text-[10px] font-black leading-tight">{i18nText("voicePostPhotos.add")}</span>
+                    </button>
+                  )}
+                  <div className="min-w-0">
                     <p className="flex items-center gap-1.5 text-xs font-black uppercase tracking-[0.16em] text-slate-500">
                       <HiOutlinePhoto className="text-base" />
                       {i18nText("voicePostPhotos.title")}
                     </p>
-                    <span className="text-xs font-bold text-slate-400">{voicePhotoCount}/{MAX_VOICE_POST_IMAGES}</span>
+                    <p className="mt-1 text-xs font-semibold text-slate-500">{i18nText("voicePostPhotos.hint")}</p>
                   </div>
-                  <div className="mt-2.5 flex gap-2 overflow-x-auto pb-1 [scrollbar-width:none] [&::-webkit-scrollbar]:hidden">
-                    {[
-                      ...(imagePreview ? [{ id: "cover", preview: imagePreview, onRemove: clearImageAttachment }] : []),
-                      ...extraImages.map((image) => ({ id: image.id, preview: image.preview, onRemove: () => removeExtraImage(image.id) })),
-                    ].map((image) => (
-                      <div key={image.id} className="relative h-20 w-20 flex-none overflow-hidden rounded-2xl bg-slate-200">
-                        <img src={image.preview} alt="" className="h-full w-full object-cover" />
-                        <button
-                          type="button"
-                          onClick={image.onRemove}
-                          aria-label={i18nText("voicePostPhotos.remove")}
-                          className="absolute right-1 top-1 grid h-6 w-6 place-items-center rounded-full bg-white/95 text-slate-800 shadow"
-                        >
-                          <HiOutlineXMark className="text-xs" />
-                        </button>
-                      </div>
-                    ))}
-                    {voicePhotoCount < MAX_VOICE_POST_IMAGES ? (
-                      <button
-                        type="button"
-                        onClick={openVoicePhotoPicker}
-                        className="kt-pressable flex h-20 w-20 flex-none flex-col items-center justify-center gap-1 rounded-2xl border-2 border-dashed border-sky-300 bg-white text-sky-700"
-                      >
-                        <HiOutlinePlus className="text-lg" />
-                        <span className="px-1 text-center text-[10px] font-black leading-tight">{i18nText("voicePostPhotos.add")}</span>
-                      </button>
-                    ) : null}
-                  </div>
-                  {!voicePhotoCount ? (
-                    <p className="mt-1.5 px-1 text-xs font-semibold text-slate-500">
-                      {i18nText("voicePostPhotos.hint", { max: MAX_VOICE_POST_IMAGES })}
-                    </p>
-                  ) : null}
                 </div>
               ) : null}
 
@@ -2877,8 +2805,7 @@ if (!isMobileVideoDevice) {
               ref={voicePhotosInputRef}
               type="file"
               accept="image/*"
-              multiple
-              onChange={handleVoicePhotosChange}
+              onChange={handleVoicePhotoChange}
               className="hidden"
             />
             <input

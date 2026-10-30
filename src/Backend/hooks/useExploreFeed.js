@@ -29,7 +29,6 @@ import {
   startOutboxAutoDrain,
 } from "../services/explore/postOutbox";
 import { newClientPostId } from "../services/explore/postOutboxCore";
-import { withPostImages } from "../services/explore/voicePostImages";
 import { showToast } from "../services/toastService";
 import {
   createExploreNotification,
@@ -232,11 +231,7 @@ function buildLocalPost(postInput, scope, id = `local-${scope}-${Date.now()}`) {
     post_privacy: draft.post_privacy || "public",
     hashtags: Array.isArray(draft.hashtags) ? draft.hashtags : [],
     mentions: Array.isArray(draft.mentions) ? draft.mentions : [],
-    // A voice post's further photos show from their local previews until the
-    // published post replaces this one.
-    media_meta: !hasVideo && draft.audio_url && draft.image_url && Array.isArray(draft.extra_image_urls) && draft.extra_image_urls.length
-      ? withPostImages(mediaMeta, [draft.image_url, ...draft.extra_image_urls])
-      : mediaMeta,
+    media_meta: mediaMeta,
     client_pinned_at: new Date().toISOString(),
     likes_count: 0,
     comments_count: 0,
