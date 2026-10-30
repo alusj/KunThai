@@ -31,8 +31,8 @@ installMobileViewportVariables();
 // In the iOS / Android app, Share buttons open the phone's share sheet and
 // share kunthai.app links rather than the app's on-device address.
 installNativeShare();
-// Every button press: a haptic, a spinner while its work runs, and a success
-// or error haptic when it saved something (buttonFeedback.js).
+// Actions in the UrMall and UrRide business admin screens: a spinner on the button
+// while it runs, then a success or error haptic (buttonFeedback.js).
 installButtonFeedback();
 // Swip's first page and first clips download while the splash is still up,
 // so Swip plays at once (not on the admin or public pages).

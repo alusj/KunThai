@@ -1,6 +1,7 @@
 /* =========================
    MyBiz Header
 ========================= */
+import { useActionFeedbackScope } from "../../../../Backend/services/buttonFeedback";
 import { ArrowLeft, Bell, Menu, MessageSquare, PackageCheck, Plus, ShieldCheck, Store } from "lucide-react";
 
 import MyBizHeader from "./BusinessHeader/MyBizHeader";
@@ -128,6 +129,8 @@ function SellerFullScreen({ animation = "stack", children, hideHeader = false, e
 }
 
 export default function Business({ initialScreen = "", onBack, onInitialScreenHandled }) {
+  // Saving actions here get a button spinner and a success vibration.
+  useActionFeedbackScope();
   useI18n();
   // While the seller workspace is open, KAI in UrMall acts as the
   // seller's business assistant rather than a shopping assistant.

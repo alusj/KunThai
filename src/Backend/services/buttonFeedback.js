@@ -1,17 +1,26 @@
-// Feedback for every button press, app-wide (installed once from main.jsx).
+// Feedback for actions in the business admin screens: the UrMall business
+// workspace (Business.jsx) and the UrRide company workspace
+// (CompanyWorkspaceScreen.jsx), with the sheets and dialogs they open. Each
+// turns it on while it is open (useActionFeedbackScope); everywhere else in
+// KunThai a press gets nothing from here. Installed once from main.jsx.
 //
-// - A light haptic on each press of a button.
-// - A spinner on the pressed button while the work it started is still on its
-//   way: requests (fetch) that begin within PRESS_WINDOW_MS of the press belong
-//   to it. Shown only when that work lasts longer than SPINNER_DELAY_MS, so a
-//   quick action never flickers.
-// - When a press saved or changed something (a request that writes), a success
-//   haptic once it is done, or an error haptic if it failed: assigning a
-//   company operator, giving a responsibility, posting, accepting a trip...
+// An action is a button press that saves or changes something: assigning a
+// company operator, giving a responsibility, accepting an invitation,
+// posting, booking, saving a profile... A press that only opens a menu,
+// switches a tab or loads a list is not an action and gets nothing here.
+//
+// - A spinner on the pressed button while the action is on its way. Requests
+//   (fetch) that begin within PRESS_WINDOW_MS of the press belong to it; the
+//   spinner shows once one of them writes, and only if the work lasts longer
+//   than SPINNER_DELAY_MS, so a quick action never flickers.
+// - A success haptic when the action is done, or an error haptic if it failed.
 //
 // Buttons opt out with data-kt-busy="off" (on them or an ancestor). Tabs,
-// menus and navigation never show the spinner, only the haptic.
+// menus and navigation never show the spinner.
 
+import { useEffect } from "react";
+
+import { isActionRequest } from "./actionRequest.js";
 import { haptics } from "./feedbackService";
 
 const PRESS_WINDOW_MS = 600;
@@ -20,21 +29,9 @@ const SPINNER_MIN_MS = 350;
 const SPINNER_MAX_MS = 20_000;
 const BUTTON_SELECTOR = "button, [role='button'], input[type='submit'], input[type='button']";
 const NO_SPINNER_SELECTOR = "[data-kt-busy='off'], nav, [role='tablist'], [role='tab'], [role='menuitem'], [role='switch'], [role='option'], [aria-haspopup]";
-// RPCs that only read: not an "action" for the success haptic.
-const READ_RPC = /\/rpc\/(get|fetch|list|search|read|check|count|find|load|lookup|resolve|is|has|can)_/i;
 
+let activeScopes = 0;
 let press = null; // { button, at, pending, wrote, failed, shownAt, showTimer, maxTimer }
-
-function isWrite(input, init) {
-  try {
-    const method = String(init?.method || (typeof input === "object" && input?.method) || "GET").toUpperCase();
-    if (method === "GET" || method === "HEAD" || method === "OPTIONS") return false;
-    const url = typeof input === "string" ? input : input?.url || String(input || "");
-    return !READ_RPC.test(url);
-  } catch {
-    return false;
-  }
-}
 
 function spinnerAllowed(button) {
   if (!button?.isConnected || button.closest(NO_SPINNER_SELECTOR)) return false;
@@ -45,7 +42,7 @@ function spinnerAllowed(button) {
 
 function showSpinner(entry) {
   const { button } = entry;
-  if (press !== entry || !spinnerAllowed(button)) return;
+  if (press !== entry || entry.shownAt || !spinnerAllowed(button)) return;
   const style = window.getComputedStyle(button);
   button.style.setProperty("--kt-busy-color", style.color);
   if (style.position === "static") {
@@ -83,9 +80,9 @@ function finish(entry) {
 
 function onPress(event) {
   try {
+    if (activeScopes === 0) return;
     const button = event.target?.closest?.(BUTTON_SELECTOR);
     if (!button || button.disabled || button.getAttribute("aria-disabled") === "true") return;
-    haptics.light();
     if (press && press.pending === 0) finish(press);
     press = { button, at: Date.now(), pending: 0, wrote: false, failed: false, shownAt: 0, showTimer: 0, maxTimer: 0 };
   } catch {
@@ -93,25 +90,27 @@ function onPress(event) {
   }
 }
 
+// Returns { entry, action } for a request that belongs to the last press.
 function claim(input, init) {
   const entry = press;
   if (!entry) return null;
   // Requests begun after the window belong to the press only while its first
   // ones are still running (a save that then reloads the list).
   if (Date.now() - entry.at > PRESS_WINDOW_MS && entry.pending === 0) return null;
+  const action = isActionRequest(input, init);
   entry.pending += 1;
-  if (isWrite(input, init)) entry.wrote = true;
-  if (entry.pending === 1 && !entry.shownAt) {
-    window.clearTimeout(entry.showTimer);
+  if (action && !entry.wrote) {
+    entry.wrote = true;
     entry.showTimer = window.setTimeout(() => showSpinner(entry), SPINNER_DELAY_MS);
     entry.maxTimer = window.setTimeout(() => finish(entry), SPINNER_MAX_MS);
   }
-  return entry;
+  return { entry, action };
 }
 
-function release(entry, ok) {
-  if (!entry) return;
-  if (!ok) entry.failed = true;
+function release(claimed, ok) {
+  const { entry, action } = claimed;
+  // Only the action's own requests decide success or failure.
+  if (action && !ok) entry.failed = true;
   entry.pending = Math.max(0, entry.pending - 1);
   if (entry.pending === 0) finish(entry);
 }
@@ -123,18 +122,29 @@ export function installButtonFeedback() {
   document.addEventListener("click", onPress, true);
   const originalFetch = window.fetch.bind(window);
   window.fetch = function feedbackFetch(input, init) {
-    let entry = null;
+    let claimed = null;
     try {
-      entry = claim(input, init);
+      claimed = claim(input, init);
     } catch {
-      entry = null;
+      claimed = null;
     }
     const request = originalFetch(input, init);
-    if (!entry) return request;
+    if (!claimed) return request;
     request.then(
-      (response) => release(entry, response.ok),
-      () => release(entry, false),
+      (response) => release(claimed, response.ok),
+      () => release(claimed, false),
     );
     return request;
   };
+}
+
+// Business admin screens call this: action feedback is on while they are open.
+export function useActionFeedbackScope() {
+  useEffect(() => {
+    activeScopes += 1;
+    return () => {
+      activeScopes = Math.max(0, activeScopes - 1);
+      if (activeScopes === 0) press = null;
+    };
+  }, []);
 }

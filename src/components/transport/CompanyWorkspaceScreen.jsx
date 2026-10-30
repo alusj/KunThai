@@ -1,4 +1,5 @@
 import { createElement, useEffect, useMemo, useRef, useState } from "react";
+import { useActionFeedbackScope } from "../../Backend/services/buttonFeedback";
 import useBodyScrollLock from "../shared/useBodyScrollLock";
 import {
   BadgeCheck,
@@ -160,6 +161,8 @@ function roleDesc(roleId) {
 }
 
 export default function CompanyWorkspaceScreen({ company, initialTab = "Overview", onAddFleet, onAddRentalFleet, onBack, onEditFleetDetails, onCompanyLeft, onCompanyUpdate, onEditCompany, onLocateArea, onOpenOperatorDashboard, onOpenPersonalDashboard, onRegisterCompany, statusMessage = "" }) {
+  // Saving actions here get a button spinner and a success vibration.
+  useActionFeedbackScope();
   const { locale: memoLocale } = useI18n();
   const basicOperator = Boolean(company?.access?.role === "operator" && !company?.access?.isOwner);
   useAiRoleContext("urride", basicOperator ? "operator" : "company", { screen: "transport company workspace" });
