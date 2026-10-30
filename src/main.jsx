@@ -20,6 +20,7 @@ import { lazyWithRetry } from "./Backend/utils/lazyWithRetry";
 import { useI18n as useUiLocale } from "./i18n/index.js";
 import { startSwipStartupPrefetch } from "./Backend/services/explore/swipStartupPrefetch";
 import { installQuietReload } from "./Backend/services/quietReload";
+import { installButtonFeedback } from "./Backend/services/buttonFeedback";
 
 registerKunThaiServiceWorker();
 initNativePushNotifications();
@@ -30,6 +31,9 @@ installMobileViewportVariables();
 // In the iOS / Android app, Share buttons open the phone's share sheet and
 // share kunthai.app links rather than the app's on-device address.
 installNativeShare();
+// Every button press: a haptic, a spinner while its work runs, and a success
+// or error haptic when it saved something (buttonFeedback.js).
+installButtonFeedback();
 // Swip's first page and first clips download while the splash is still up,
 // so Swip plays at once (not on the admin or public pages).
 if (!/^\/(admin|policy-center|privacy|terms|support|track)(\/|$)/.test(window.location.pathname)) {

@@ -2377,3 +2377,33 @@
   .kt-credit-balance-sweep,
   .kt-credit-balance-dot { animation: none; }
 }
+
+/* A pressed button whose work is still running (buttonFeedback.js): its label
+   steps aside for a spinner in the label's own colour. */
+.kt-busy {
+  color: transparent !important;
+  pointer-events: none;
+}
+
+.kt-busy > * {
+  opacity: 0 !important;
+}
+
+.kt-busy::after {
+  content: "";
+  position: absolute;
+  top: 50%;
+  left: 50%;
+  width: 1.1rem;
+  height: 1.1rem;
+  margin: -0.55rem 0 0 -0.55rem;
+  border: 2px solid var(--kt-busy-color, currentColor);
+  border-right-color: transparent;
+  border-radius: 999px;
+  opacity: 0.9;
+  animation: kt-busy-spin 0.7s linear infinite;
+}
+
+@keyframes kt-busy-spin {
+  to { transform: rotate(360deg); }
+}

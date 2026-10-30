@@ -24,10 +24,11 @@ import WebKit
 //
 // The KunThai logo is only for a returning, signed-in member opening the app
 // fresh (the web app records sign-in with KunThaiLaunchPlugin.setSignedIn).
-// A first-time visitor, a signed-out start, a reload after "Add account" or
-// sign-out, and a page iOS cleared in the background get a plain cover in the
-// app's own colours instead, just until the page has drawn; coming back after
-// a long time shows nothing.
+// A first-time visitor, a signed-out start and a reload after "Add account" or
+// sign-out get a plain cover in the app's own colours instead, just until the
+// page has drawn. A signed-in member whose page iOS cleared (often while the
+// phone was locked) sees the logo, never a plain cover: it read as a blank
+// screen on unlocking.
 class KunThaiBridgeViewController: CAPBridgeViewController {
     private static let splashSeconds: TimeInterval = 1.75
     private static let maxSplashSeconds: TimeInterval = 8
@@ -66,7 +67,7 @@ class KunThaiBridgeViewController: CAPBridgeViewController {
         webView?.backgroundColor = appBackground
         webView?.scrollView.backgroundColor = appBackground
         // The launch screen was already showing since the process started.
-        if UserDefaults.standard.bool(forKey: Self.signedInKey) {
+        if Self.memberSignedIn {
             showSplash(minimum: max(0.2, Self.splashSeconds - Self.secondsSinceLaunch()), logo: true)
         } else {
             showSplash(minimum: 0, logo: false)
@@ -87,7 +88,7 @@ class KunThaiBridgeViewController: CAPBridgeViewController {
             DispatchQueue.main.async {
                 guard let self, webView.isLoading, self.webReady else { return }
                 self.webReady = false
-                self.showSplash(minimum: 0, logo: false)
+                self.showSplash(minimum: 0, logo: Self.memberSignedIn)
             }
         }
     }
@@ -95,6 +96,10 @@ class KunThaiBridgeViewController: CAPBridgeViewController {
     deinit {
         loadingObservation?.invalidate()
         NotificationCenter.default.removeObserver(self)
+    }
+
+    private static var memberSignedIn: Bool {
+        UserDefaults.standard.bool(forKey: signedInKey)
     }
 
     private static let darkBackground = UIColor(red: 0.008, green: 0.024, blue: 0.09, alpha: 1)
@@ -192,7 +197,7 @@ class KunThaiBridgeViewController: CAPBridgeViewController {
             let alive = (result as? Bool) == true && error == nil
             if alive { return }
             self.webReady = false
-            self.showSplash(minimum: 0, logo: false)
+            self.showSplash(minimum: 0, logo: Self.memberSignedIn)
         }
     }
 
@@ -206,26 +211,26 @@ class KunThaiBridgeViewController: CAPBridgeViewController {
         DispatchQueue.main.asyncAfter(deadline: .now() + minimum) { [weak self] in
             self?.hideSplashIfReady()
         }
-        guard splashView == nil, let host = view else { return }
+        // A plain cover already up (the page began reloading while the phone
+        // was locked) takes the logo when the logo is wanted, so unlocking
+        // never shows a blank screen.
+        if let existing = splashView {
+            if logo, existing.accessibilityIdentifier != "logo" { Self.addLogo(to: existing) }
+            return
+        }
+        guard let host = view else { return }
 
         let cover = UIView(frame: host.bounds)
         cover.autoresizingMask = [.flexibleWidth, .flexibleHeight]
         cover.isUserInteractionEnabled = false
         // The launch screen's own colours: the image's edges (light / dark).
         cover.backgroundColor = Self.appBackground
+        cover.accessibilityIdentifier = "plain"
 
         // The KunThai logo (the launch image, same fill) only for a returning
         // signed-in member; otherwise just the app's colour.
-        if logo {
-            let image = UIImageView(image: UIImage(named: "Splash"))
-            image.frame = cover.bounds
-            image.autoresizingMask = [.flexibleWidth, .flexibleHeight]
-            image.contentMode = .scaleAspectFill
-            image.clipsToBounds = true
-            cover.addSubview(image)
-        }
+        if logo { Self.addLogo(to: cover) }
 
-        cover.accessibilityIdentifier = logo ? "logo" : "plain"
         host.addSubview(cover)
         splashView = cover
 
@@ -234,6 +239,16 @@ class KunThaiBridgeViewController: CAPBridgeViewController {
             guard let self, let cover, self.splashView === cover else { return }
             self.hideSplash()
         }
+    }
+
+    private static func addLogo(to cover: UIView) {
+        let image = UIImageView(image: UIImage(named: "Splash"))
+        image.frame = cover.bounds
+        image.autoresizingMask = [.flexibleWidth, .flexibleHeight]
+        image.contentMode = .scaleAspectFill
+        image.clipsToBounds = true
+        cover.addSubview(image)
+        cover.accessibilityIdentifier = "logo"
     }
 
     private func hideSplashIfReady() {

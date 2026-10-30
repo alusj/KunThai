@@ -22,15 +22,16 @@ import "./WelcomeSlides.css";
 // Welcome slides shown once per install before sign-in: Explore, UrMall and
 // UrRide, each with a gently looping illustration. They advance every few
 // seconds, can be swiped, and Skip / Get started lead to the sign-in screen.
-// The KunThai logo opens them: it zooms in, holds, then zooms out as the
-// slides settle in behind it (a tap moves on early).
+// The KunThai logo opens them: it zooms in, holds for at least five seconds,
+// then zooms out as the slides settle in behind it.
 // Slide movement uses CSS transitions only (WebKit backdates keyframes, so a
 // keyframed slide jumps on iOS); keyframes are kept to the looping art.
 
 const SLIDES = ["explore", "urmall", "urride"];
 const AUTO_ADVANCE_MS = 4000;
 const LEAVE_MS = 320;
-const INTRO_HOLD_MS = 2300;
+// From mount to zooming out: about 1 s to land, then 5 s on screen.
+const INTRO_HOLD_MS = 6000;
 const INTRO_LEAVE_MS = 700;
 const LOGO_SRC = "/brand/kunthai-launch-logo.webp";
 
@@ -208,7 +209,7 @@ function WelcomeIntro({ reducedMotion, onLeave, onGone }) {
     let frame = window.requestAnimationFrame(() => {
       frame = window.requestAnimationFrame(() => setPhase((current) => (current === "start" ? "in" : current)));
     });
-    const timer = window.setTimeout(leave, reducedMotion ? 900 : INTRO_HOLD_MS);
+    const timer = window.setTimeout(leave, reducedMotion ? 5000 : INTRO_HOLD_MS);
     return () => {
       window.cancelAnimationFrame(frame);
       window.clearTimeout(timer);
@@ -216,7 +217,7 @@ function WelcomeIntro({ reducedMotion, onLeave, onGone }) {
   }, [leave, reducedMotion]);
 
   return (
-    <div className={`kt-intro is-${phase}`} onClick={leave} aria-hidden="true">
+    <div className={`kt-intro is-${phase}`} aria-hidden="true">
       <div className="kt-intro__glow" />
       <div className="kt-intro__center">
         <div className="kt-intro__mark">

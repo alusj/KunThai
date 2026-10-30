@@ -27,16 +27,29 @@ let lastPosition = null;
 let refreshing = Promise.resolve();
 let operatorUnsubscribe = null;
 
-const TOKEN_WAIT_MS = 6000;
+const TOKEN_WAIT_MS = 8000;
+const TOKEN_TRIES = 3;
+// Started without native delivery (no token: offline, slow network): the
+// watcher then only reaches the server through the page, which stops once
+// KunThai leaves the screen. It is started again with delivery shortly after.
+const DELIVERY_RETRY_MS = 15_000;
 
-async function prepareShareDelivery() {
+async function fetchShareToken() {
   let timer;
   const timeout = new Promise((resolve) => {
     timer = setTimeout(() => resolve({ data: null }), TOKEN_WAIT_MS);
   });
   const { data: token, error } = await Promise.race([supabase.rpc("live_location_share_native_start"), timeout])
     .finally(() => clearTimeout(timer));
-  if (error || typeof token !== "string" || !token) return null;
+  return !error && typeof token === "string" && token ? token : null;
+}
+
+async function prepareShareDelivery() {
+  let token = null;
+  for (let attempt = 0; attempt < TOKEN_TRIES && !token && config.hasRunningShares(); attempt += 1) {
+    token = await fetchShareToken().catch(() => null);
+  }
+  if (!token) return null;
   return {
     url: `${SUPABASE_API.url.replace(/\/+$/, "")}/rest/v1/rpc/live_location_share_native_ping`,
     headers: {
@@ -49,8 +62,9 @@ async function prepareShareDelivery() {
 
 function stopOwn() {
   if (!own) return;
-  const { session } = own;
+  const { session, retryTimer } = own;
   own = null;
+  if (retryTimer) clearTimeout(retryTimer);
   session.stop();
   supabase.rpc("live_location_share_native_stop").then(() => {}, () => {});
 }
@@ -58,6 +72,7 @@ function stopOwn() {
 // The operator's watcher replaced ours: keep it running, drop our handle.
 function handOver() {
   if (!own) return;
+  if (own.retryTimer) clearTimeout(own.retryTimer);
   own.session.stopHeartbeat();
   own = null;
 }
@@ -74,6 +89,7 @@ async function reconcile({ interactive = false } = {}) {
   if (own) return;
   const { plugin } = await loadBackgroundLocationPlugin();
   if (!plugin || own || !config.hasRunningShares() || isOperatorNativeWatchRunning()) return;
+  const entry = { session: null, delivered: false, retryTimer: null };
   const session = createNativeLocationSession({
     plugin,
     platform: backgroundLocationPlatform(),
@@ -85,7 +101,11 @@ async function reconcile({ interactive = false } = {}) {
       lastPosition = position;
       config.onLocation(position);
     },
-    prepareDelivery: prepareShareDelivery,
+    prepareDelivery: async () => {
+      const delivery = await prepareShareDelivery();
+      entry.delivered = Boolean(delivery);
+      return delivery;
+    },
     lastPublishedAt: () => lastFixAt,
     hasPoint: () => Boolean(lastPosition),
     beat: () => {
@@ -94,7 +114,18 @@ async function reconcile({ interactive = false } = {}) {
       config.onLocation(lastPosition, { force: true });
     },
   });
-  own = { session };
+  entry.session = session;
+  own = entry;
+  session.started.then(() => {
+    if (own !== entry || entry.delivered) return;
+    entry.retryTimer = setTimeout(() => {
+      if (own !== entry || !config.hasRunningShares()) return;
+      // Start over, this time with native delivery if the token comes.
+      own = null;
+      entry.session.stop();
+      refreshing = refreshing.then(() => reconcile(), () => reconcile());
+    }, DELIVERY_RETRY_MS);
+  });
 }
 
 // Called by liveLocationShareService whenever its running shares change;

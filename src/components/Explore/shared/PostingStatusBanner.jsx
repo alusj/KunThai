@@ -1,7 +1,9 @@
 import { useEffect, useState } from "react";
 import { createPortal } from "react-dom";
-import { Maximize2, Minimize2, Play, Share2 } from "lucide-react";
+import { Maximize2, Minimize2, Play, Share2, Trash2 } from "lucide-react";
 
+import CenteredModal from "../../shared/CenteredModal";
+import { haptics } from "../../../Backend/services/feedbackService";
 import { postingStages } from "../ExploreTabs/urfeed/feed/composer/postReviewPipeline";
 import { t } from "../../../i18n";
 import { uiText as translateUi, useI18n as useUiLocale } from "../../../i18n/index.js";
@@ -18,6 +20,9 @@ const AUTO_COLLAPSE_MS = 5000;
 export default function PostingStatusBanner({ notice, onDismiss, onShareKunThai, onWatch }) {
   useUiLocale();
   const [collapsed, setCollapsed] = useState(false);
+  // X while the post is still going up: a caution card first, since stopping
+  // deletes what was being posted.
+  const [confirmingDiscard, setConfirmingDiscard] = useState(false);
   const noticeId = notice?.id || "";
   const status = notice?.status || "";
   const stillWorking = Boolean(noticeId) && !["complete", "error"].includes(status);
@@ -37,6 +42,11 @@ export default function PostingStatusBanner({ notice, onDismiss, onShareKunThai,
     const timer = window.setTimeout(() => setCollapsed(true), AUTO_COLLAPSE_MS);
     return () => window.clearTimeout(timer);
   }, [noticeId, stillWorking]);
+
+  // The post finished or failed while the card was open: nothing to delete.
+  useEffect(() => {
+    if (!stillWorking) setConfirmingDiscard(false);
+  }, [stillWorking]);
 
   if (!notice || typeof document === "undefined") return null;
 
@@ -90,6 +100,7 @@ export default function PostingStatusBanner({ notice, onDismiss, onShareKunThai,
   }
 
   return createPortal(
+    <>
     <div
       style={FLOATING_TOP}
       className="kt-toast-expand-in fixed left-3 right-3 z-[1150] ml-auto w-auto max-w-sm overflow-hidden rounded-3xl border border-slate-200/90 bg-white/95 shadow-2xl shadow-slate-900/20 backdrop-blur-xl sm:left-auto sm:right-4 sm:w-[22rem]"
@@ -136,7 +147,14 @@ export default function PostingStatusBanner({ notice, onDismiss, onShareKunThai,
             </button>
             <button
               type="button"
-              onClick={onDismiss}
+              onClick={() => {
+                if (!isActive) {
+                  onDismiss?.();
+                  return;
+                }
+                haptics.warning();
+                setConfirmingDiscard(true);
+              }}
               aria-label={translateUi(dismissLabel)}
               title={translateUi(dismissLabel)}
               className="kt-pressable flex h-8 w-8 items-center justify-center rounded-full border border-slate-200 bg-white text-sm font-black text-slate-500 shadow-sm transition hover:border-slate-300 hover:text-slate-900"
@@ -181,7 +199,37 @@ export default function PostingStatusBanner({ notice, onDismiss, onShareKunThai,
           </>
         ) : null}
       </div>
-    </div>,
+    </div>
+    <CenteredModal open={confirmingDiscard} onClose={() => setConfirmingDiscard(false)} maxWidth="max-w-sm" labelledBy="kt-discard-post-title" quick>
+      <div className="flex flex-col items-center text-center">
+        <span className="grid h-12 w-12 place-items-center rounded-2xl bg-rose-50 text-rose-600">
+          <Trash2 size={22} strokeWidth={2.3} />
+        </span>
+        <h2 id="kt-discard-post-title" className="mt-3 text-lg font-black text-slate-950">{t("explore.discardPostTitle")}</h2>
+        <p className="mt-1.5 text-sm font-semibold leading-6 text-slate-600">{t("explore.discardPostBody")}</p>
+        <div className="mt-5 grid w-full grid-cols-2 gap-2">
+          <button
+            type="button"
+            onClick={() => setConfirmingDiscard(false)}
+            className="kt-pressable h-11 rounded-2xl border border-slate-200 bg-white px-3 text-sm font-black text-slate-700"
+          >
+            {t("explore.discardPostKeep")}
+          </button>
+          <button
+            type="button"
+            onClick={() => {
+              setConfirmingDiscard(false);
+              haptics.heavy();
+              onDismiss?.();
+            }}
+            className="kt-pressable h-11 rounded-2xl bg-rose-600 px-3 text-sm font-black text-white shadow-sm shadow-rose-500/25"
+          >
+            {t("explore.discardPostConfirm")}
+          </button>
+        </div>
+      </div>
+    </CenteredModal>
+    </>,
     document.body,
   );
 }
