@@ -380,6 +380,10 @@ export function openUnifiedNotification(item) {
       requestExploreScreen("Settings");
     } else if (target === "verification") {
       requestExploreScreen("Profile");
+    } else if (target === "explore:spaces") {
+      // Space team notices: invitations are answered, and Spaces opened, from
+      // the Profile screen.
+      requestExploreScreen("Profile");
     } else if (target === "profile") {
       const userId = item?.actionData?.userId;
       if (!userId) return false;
