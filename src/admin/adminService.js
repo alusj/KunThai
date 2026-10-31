@@ -805,6 +805,22 @@ export async function getVerificationRequests(caseId) {
   return data || [];
 }
 
+// UrRide verification: the company, fleets and operators connected to a
+// case, each with its own status and latest verification case
+// (20261031140000_urride_linked_verification.sql). Null when none apply.
+export async function getTransportVerificationLinks(caseId) {
+  if (isAdminPreview() || !caseId) return null;
+  const { data, error } = await supabase.rpc("admin_transport_verification_links", { p_case_id: caseId });
+  if (error) return null;
+  return data || null;
+}
+
+export async function getAdminCaseById(caseId) {
+  if (!caseId) return null;
+  if (isAdminPreview()) return previewCases.find((item) => item.id === caseId) || null;
+  return unwrap(await supabase.from("admin_cases").select("*").eq("id", caseId).maybeSingle(), "Unable to open this case.");
+}
+
 export async function reviewCaseApproval(approvalId, approved, reason, caseId = "") {
   if (isAdminPreview()) return runAdminMutation(() => previewDelay(updatePreviewCase(caseId, { status: approved ? "resolved" : "in_review" })), { action: approved ? "case.approval_granted" : "case.approval_rejected", caseId });
   return runAdminMutation(async () => unwrap(await supabase.rpc("admin_review_approval", { approval_uuid: approvalId, approve_action: approved, review_reason: reason }), "Unable to review this approval."), { action: approved ? "case.approval_granted" : "case.approval_rejected", caseId });

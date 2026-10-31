@@ -35,6 +35,7 @@ import {
   Store,
   UserCog,
   UserRoundPlus,
+  UserRoundX,
   MessageSquareHeart,
   Users,
   X,
@@ -75,6 +76,7 @@ const ICONS = {
   Store,
   UserCog,
   UserRoundPlus,
+  UserRoundX,
   MessageSquareHeart,
   Users,
 };

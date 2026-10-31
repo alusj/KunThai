@@ -35,10 +35,15 @@ import {
 import { useExploreFollowStats } from "../../../../Backend/hooks/useExploreFollowStats";
 import { resolvePublicCode, detectPublicCodeKind } from "../../../../Backend/services/publicCodeService";
 import { showToast } from "../../../../Backend/services/toastService";
+import { deleteWithReason, EMPTY_DELETION_REASON } from "../../../../Backend/services/accountDeletionReasonService";
+import DeletionReasonPicker from "../../../shared/DeletionReasonPicker";
+import CenteredModal from "../../../shared/CenteredModal";
+import { useActionFeedbackScope } from "../../../../Backend/services/buttonFeedback";
 import Avatar from "../../shared/Avatar";
 import EmptyState from "../../shared/EmptyState";
 import KunThaiIdHelpButton from "../../../shared/KunThaiIdHelpButton";
 import { t as i18nText } from "../../../../i18n/index";
+import { t } from "../../../../i18n";
 import { uiText as translateUi, useI18n as useUiLocale } from "../../../../i18n/index.js";
 
 const INVITE_INITIAL = {
@@ -64,6 +69,8 @@ export default function SpaceDashboardScreen({
   space,
 }) {
   useUiLocale();
+  // Saving actions here get a button spinner and a success vibration.
+  useActionFeedbackScope();
   const [members, setMembers] = useState([]);
   const [departments, setDepartments] = useState([]);
   const [loading, setLoading] = useState(true);
@@ -74,6 +81,10 @@ export default function SpaceDashboardScreen({
   const [savingInvite, setSavingInvite] = useState(false);
   const [inviteLookup, setInviteLookup] = useState({ status: "idle", name: "", message: "" });
   const [busyAction, setBusyAction] = useState("");
+  const [deleteOpen, setDeleteOpen] = useState(false);
+  const [deleteReason, setDeleteReason] = useState(EMPTY_DELETION_REASON);
+  const [leaveOpen, setLeaveOpen] = useState(false);
+  const [removingMember, setRemovingMember] = useState(null);
   const menuRef = useRef(null);
   const manageTeam = canManageTeam(space);
   const canEditSpace = space?.responsibilities?.canEditSpace || space?.memberRole === "owner" || space?.memberRole === "administrator";
@@ -193,17 +204,20 @@ export default function SpaceDashboardScreen({
   }
 
   async function leaveSpace() {
-    const confirmed = window.confirm(i18nText("ui.literals.k1b61aa6f825c", { value0: space.displayName || "this Space" }));
-    if (!confirmed) return;
     await leaveExploreSpace(space.spaceId);
+    setLeaveOpen(false);
     onSpaceRemoved?.(space);
     showToast(i18nText("ui.literals.kd3a45d03936f"), "success");
   }
 
   async function deleteSpace() {
-    const confirmed = window.confirm(i18nText("ui.literals.kd730fa14b309", { value0: space.displayName || "this Space" }));
-    if (!confirmed) return;
-    await deleteExploreSpace(space.spaceId);
+    await deleteWithReason({
+      surface: "explore_space",
+      targetId: space.spaceId,
+      targetName: space.displayName || "",
+      reason: deleteReason,
+    }, () => deleteExploreSpace(space.spaceId));
+    setDeleteOpen(false);
     onSpaceRemoved?.(space);
     showToast("Space has been deleted", "success");
   }
@@ -279,6 +293,7 @@ export default function SpaceDashboardScreen({
     }
   }
 
+  // Resolves true once saved, so the member's editor closes only then.
   async function updateMember(member, patch) {
     try {
       const updated = await updateExploreSpaceMember(member.id, {
@@ -287,18 +302,26 @@ export default function SpaceDashboardScreen({
       });
       setMembers((current) => current.map((item) => (item.id === updated.id ? updated : item)));
       showToast(i18nText("ui.literals.k07fed9d9b325"), "success");
+      return true;
     } catch (error) {
       showToast(shortErrorToast(error, "Couldn't update member"), "danger");
+      return false;
     }
   }
 
+  // Asked first (removingMember), then removed from the caution card.
   async function removeMember(member) {
+    if (busyAction) return;
+    setBusyAction("remove");
     try {
       const removed = await removeExploreSpaceMember(member.id);
       setMembers((current) => current.filter((item) => item.id !== removed.id));
+      setRemovingMember(null);
       showToast(i18nText("ui.literals.k58c478a9139e"), "success");
     } catch (error) {
       showToast(shortErrorToast(error, "Couldn't remove member"), "danger");
+    } finally {
+      setBusyAction("");
     }
   }
 
@@ -328,7 +351,7 @@ export default function SpaceDashboardScreen({
             <div className="min-w-0">
               <p className="text-xs font-black uppercase tracking-[0.18em] text-sky-700">{i18nText("ui.literals.k8e816a3bc9ca")}</p>
               <h2 className="mt-1 truncate text-2xl font-black text-slate-950">{space.displayName}</h2>
-              <p className="mt-1 truncate text-sm font-bold text-slate-500">@{space.username || i18nText("ui.literals.k0803df4ff165")} · {space.categoryLabel || i18nText("ui.literals.k85da38276a71")} · {space.memberRole || i18nText("ui.literals.k6467baa3b187")}</p>
+              <p className="mt-1 truncate text-sm font-bold text-slate-500">@{space.username || i18nText("ui.literals.k0803df4ff165")} · {space.categoryLabel || i18nText("ui.literals.k85da38276a71")} · {translateUi(SPACE_ROLES.find((role) => role.id === space.memberRole)?.label || space.memberRole || i18nText("ui.literals.k6467baa3b187"))}</p>
             </div>
           </div>
 
@@ -370,13 +393,13 @@ export default function SpaceDashboardScreen({
                 {!isOwner ? (
                   <>
                     <MenuDivider />
-                    <ActionMenuButton icon={HiOutlineArrowRightOnRectangle} label={i18nText("ui.literals.k0754220ef676")} onClick={() => runSpaceAction("leave", leaveSpace)} tone="danger" disabled={Boolean(busyAction)} />
+                    <ActionMenuButton icon={HiOutlineArrowRightOnRectangle} label={i18nText("ui.literals.k0754220ef676")} onClick={() => { setActionOpen(false); setLeaveOpen(true); }} tone="danger" disabled={Boolean(busyAction)} />
                   </>
                 ) : null}
                 {isOwner ? (
                   <>
                     <MenuDivider />
-                    <ActionMenuButton icon={HiOutlineTrash} label={i18nText("ui.literals.k365b660df399")} onClick={() => runSpaceAction("delete", deleteSpace)} tone="danger" disabled={Boolean(busyAction)} />
+                    <ActionMenuButton icon={HiOutlineTrash} label={i18nText("ui.literals.k365b660df399")} onClick={() => { setActionOpen(false); setDeleteReason(EMPTY_DELETION_REASON); setDeleteOpen(true); }} tone="danger" disabled={Boolean(busyAction)} />
                   </>
                 ) : null}
               </div>
@@ -452,10 +475,85 @@ export default function SpaceDashboardScreen({
         {!loading && !members.length ? <EmptyState title={i18nText("ui.literals.k19c467e9da23")} message={i18nText("ui.literals.k1237e9277750")} /> : null}
         <div className="space-y-3">
           {members.map((member) => (
-            <MemberRow key={member.id} canManage={manageTeam} member={member} onRemove={removeMember} onUpdate={updateMember} />
+            <MemberRow key={member.id} canManage={manageTeam} member={member} onRemove={setRemovingMember} onUpdate={updateMember} />
           ))}
         </div>
       </section>
+
+      {/* Rendered into <body>: inside Explore an ancestor transform made a
+          plain fixed overlay scroll with the page. */}
+      <CenteredModal open={deleteOpen} onClose={busyAction ? undefined : () => setDeleteOpen(false)} dismissOnBackdrop={!busyAction} labelledBy="delete-space-title" quick>
+        <span className="grid h-12 w-12 place-items-center rounded-2xl bg-rose-50 text-2xl text-rose-600">
+          <HiOutlineTrash />
+        </span>
+        <h2 id="delete-space-title" className="mt-4 text-2xl font-black text-slate-950">{i18nText("ui.literals.k365b660df399")}</h2>
+        <p className="mt-2 text-sm font-semibold leading-6 text-slate-600">
+          {i18nText("ui.literals.kd730fa14b309", { value0: space.displayName || "this Space" })}
+        </p>
+        <DeletionReasonPicker className="mt-4" value={deleteReason} onChange={setDeleteReason} disabled={busyAction === "delete"} />
+        <ConfirmButtons
+          busy={busyAction === "delete"}
+          confirmLabel={i18nText("ui.literals.k365b660df399")}
+          onCancel={() => setDeleteOpen(false)}
+          onConfirm={() => runSpaceAction("delete", deleteSpace)}
+        />
+      </CenteredModal>
+
+      <CenteredModal open={leaveOpen} onClose={busyAction ? undefined : () => setLeaveOpen(false)} dismissOnBackdrop={!busyAction} maxWidth="max-w-sm" labelledBy="leave-space-title" quick>
+        <span className="grid h-12 w-12 place-items-center rounded-2xl bg-rose-50 text-2xl text-rose-600">
+          <HiOutlineArrowRightOnRectangle />
+        </span>
+        <h2 id="leave-space-title" className="mt-4 text-xl font-black text-slate-950">{i18nText("ui.literals.k0754220ef676")}</h2>
+        <p className="mt-2 text-sm font-semibold leading-6 text-slate-600">
+          {i18nText("ui.literals.k1b61aa6f825c", { value0: space.displayName || "this Space" })}
+        </p>
+        <ConfirmButtons
+          busy={busyAction === "leave"}
+          confirmLabel={i18nText("ui.literals.k0754220ef676")}
+          onCancel={() => setLeaveOpen(false)}
+          onConfirm={() => runSpaceAction("leave", leaveSpace)}
+        />
+      </CenteredModal>
+
+      <CenteredModal open={Boolean(removingMember)} onClose={busyAction ? undefined : () => setRemovingMember(null)} dismissOnBackdrop={!busyAction} maxWidth="max-w-sm" labelledBy="remove-member-title" quick>
+        <span className="grid h-12 w-12 place-items-center rounded-2xl bg-rose-50 text-2xl text-rose-600">
+          <HiOutlineUserMinus />
+        </span>
+        <h2 id="remove-member-title" className="mt-4 text-xl font-black text-slate-950">{t("explore.spaceRemoveMemberTitle")}</h2>
+        <p className="mt-2 text-sm font-semibold leading-6 text-slate-600">
+          {t("explore.spaceRemoveMemberBody", { name: removingMember?.memberName || "" })}
+        </p>
+        <ConfirmButtons
+          busy={busyAction === "remove"}
+          confirmLabel={i18nText("ui.literals.k3ebbe90bf87b")}
+          onCancel={() => setRemovingMember(null)}
+          onConfirm={() => removeMember(removingMember)}
+        />
+      </CenteredModal>
+    </div>
+  );
+}
+
+function ConfirmButtons({ busy, confirmLabel, onCancel, onConfirm }) {
+  useUiLocale();
+  return (
+    <div className="mt-5 grid grid-cols-2 gap-2">
+      <button
+        type="button"
+        disabled={busy}
+        onClick={onCancel}
+        className="h-12 rounded-2xl bg-slate-100 text-sm font-black text-slate-700 disabled:opacity-50"
+      >
+        {i18nText("common.cancel")}
+      </button>
+      <button
+        type="button"
+        disabled={busy}
+        onClick={onConfirm}
+        className="h-12 rounded-2xl bg-rose-600 px-2 text-sm font-black text-white disabled:opacity-60"
+      >
+        {busy ? i18nText("common.working") : confirmLabel}
+      </button>
     </div>
   );
 }
@@ -538,6 +636,7 @@ function ResponsibilityGrid({ onToggle, values }) {
 function MemberRow({ canManage, member, onRemove, onUpdate }) {
   useUiLocale();
   const [editing, setEditing] = useState(false);
+  const [saving, setSaving] = useState(false);
   const [draft, setDraft] = useState(() => ({
     role: member.role,
     responsibilities: member.responsibilities,
@@ -598,7 +697,17 @@ function MemberRow({ canManage, member, onRemove, onUpdate }) {
             </select>
           </Field>
           <ResponsibilityGrid values={draft.responsibilities} onToggle={toggle} />
-          <button type="button" onClick={() => { onUpdate(member, draft); setEditing(false); }} className="mt-4 h-11 w-full rounded-2xl bg-slate-950 text-sm font-black text-white">
+          <button
+            type="button"
+            disabled={saving}
+            onClick={async () => {
+              setSaving(true);
+              const saved = await onUpdate(member, draft);
+              setSaving(false);
+              if (saved) setEditing(false);
+            }}
+            className="mt-4 h-11 w-full rounded-2xl bg-slate-950 text-sm font-black text-white disabled:opacity-70"
+          >
             {i18nText("ui.literals.k3ba77987ef9c")}
           </button>
         </div>

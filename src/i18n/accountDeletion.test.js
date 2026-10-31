@@ -18,7 +18,7 @@ function flatten(node, prefix = "", result = {}) {
 test("every locale carries every account deletion key with the same placeholders", () => {
   assert.deepEqual(Object.keys(ACCOUNT_DELETION).sort(), [...LOCALES].sort());
   const english = flatten(ACCOUNT_DELETION.en);
-  assert.equal(Object.keys(english).length, 1);
+  assert.equal(Object.keys(english).length, 9);
   for (const locale of LOCALES) {
     const entries = flatten(ACCOUNT_DELETION[locale]);
     assert.deepEqual(Object.keys(entries).sort(), Object.keys(english).sort(), locale);

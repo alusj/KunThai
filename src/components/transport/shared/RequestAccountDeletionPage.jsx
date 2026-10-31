@@ -2,6 +2,8 @@ import { useState } from "react";
 import { Trash2 } from "lucide-react";
 
 import { deleteMyUrRideOperatorAccount } from "../../../Backend/services/accountDeletionRequestService";
+import { deleteWithReason, EMPTY_DELETION_REASON } from "../../../Backend/services/accountDeletionReasonService";
+import DeletionReasonPicker from "../../shared/DeletionReasonPicker";
 import { clearOperatorAccount } from "../../services/transportOperatorAccountService";
 import { useI18n, t } from "../../../i18n";
 import { uiText as translateUi } from "../../../i18n/index.js";
@@ -17,13 +19,14 @@ export default function RequestAccountDeletionPage() {
   const [messageIsError, setMessageIsError] = useState(false);
   const [deleting, setDeleting] = useState(false);
   const [done, setDone] = useState(false);
+  const [deleteReason, setDeleteReason] = useState(EMPTY_DELETION_REASON);
 
   async function deleteAccount() {
     setDeleting(true);
     setMessage("");
     setMessageIsError(false);
     try {
-      await deleteMyUrRideOperatorAccount();
+      await deleteWithReason({ surface: "urride_operator", reason: deleteReason }, deleteMyUrRideOperatorAccount);
       await clearOperatorAccount().catch(() => {});
       setDone(true);
       setMessage(t("urride.deletion.sentMessage"));
@@ -66,24 +69,27 @@ export default function RequestAccountDeletionPage() {
         </div>
 
         {done ? null : confirming ? (
-          <div className="grid grid-cols-2 gap-2">
-            <button
-              type="button"
-              onClick={() => setConfirming(false)}
-              disabled={deleting}
-              className="kt-touchable h-12 rounded-xl bg-gray-100 px-4 text-sm font-black text-gray-700 disabled:opacity-60"
-            >
-              {t("urride.deletion.cancel")}
-            </button>
-            <button
-              type="button"
-              onClick={deleteAccount}
-              disabled={deleting}
-              className="kt-touchable h-12 rounded-xl bg-rose-600 px-4 text-sm font-black text-white hover:bg-rose-700 disabled:cursor-not-allowed disabled:opacity-60"
-            >
-              {deleting ? t("urride.deletion.sending") : t("urride.deletion.confirm")}
-            </button>
-          </div>
+          <>
+            <DeletionReasonPicker value={deleteReason} onChange={setDeleteReason} disabled={deleting} />
+            <div className="grid grid-cols-2 gap-2">
+              <button
+                type="button"
+                onClick={() => setConfirming(false)}
+                disabled={deleting}
+                className="kt-touchable h-12 rounded-xl bg-gray-100 px-4 text-sm font-black text-gray-700 disabled:opacity-60"
+              >
+                {t("urride.deletion.cancel")}
+              </button>
+              <button
+                type="button"
+                onClick={deleteAccount}
+                disabled={deleting}
+                className="kt-touchable h-12 rounded-xl bg-rose-600 px-4 text-sm font-black text-white hover:bg-rose-700 disabled:cursor-not-allowed disabled:opacity-60"
+              >
+                {deleting ? t("urride.deletion.sending") : t("urride.deletion.confirm")}
+              </button>
+            </div>
+          </>
         ) : (
           <button
             type="button"

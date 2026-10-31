@@ -6,6 +6,7 @@ import { ACCOUNT_CONTROL_REASON_SUGGESTIONS, INTERNAL_NOTE_SUGGESTIONS, applyCas
 import { addCaseNote, applyCaseDecision, claimCase, getAdminAccountControl, getAdminCaseContent, getAdminCaseEvidence, getCaseActionHistory, getCaseActivity, getCaseCountryLabel, getCaseDecisionCapabilities, getCaseTypeLabel, getVerificationRequests, requestVerificationDocuments, resignEvidenceUrl, reviewCaseApproval, setAdminUserStatus, transitionCase, undoCaseAction } from "../adminService";
 import SuggestedTextSelect from "./SuggestedTextSelect";
 import VerificationReviewPanel, { RequestDocumentsPicker } from "./VerificationReviewPanel";
+import LinkedVerificationPanel from "./LinkedVerificationPanel";
 import AiAssistButton from "../../components/ai/AiAssistButton";
 import { caseFactsForAi } from "../adminAiModels";
 import { showToast } from "../../Backend/services/toastService";
@@ -41,7 +42,7 @@ async function openFresh(entry, onOpenMedia) {
   if (pending) { pending.opener = null; pending.location.href = fresh.url; } else window.open(fresh.url, "_blank", "noopener,noreferrer");
 }
 
-export default function CaseDrawer({ item, access, currentUserId = "", onClose, onUpdated }) {
+export default function CaseDrawer({ item, access, currentUserId = "", onClose, onUpdated, onOpenCase }) {
   useUiLocale();
   const [activity, setActivity] = useState({ events: [], notes: [], approvals: [] });
   const [status, setStatus] = useState(item?.status || "new");
@@ -322,6 +323,7 @@ export default function CaseDrawer({ item, access, currentUserId = "", onClose, 
           </section>
 
           {isVerificationCase ? <VerificationReviewPanel item={item} events={activity.events} requests={verificationRequests} /> : null}
+          {isVerificationCase ? <LinkedVerificationPanel item={item} onOpenCase={onOpenCase} /> : null}
 
           <section className="border-b border-zinc-200 bg-zinc-50/60 p-4 sm:p-6">
             <div className="flex items-center justify-between gap-3">

@@ -18,6 +18,7 @@ import UsersView from "./views/UsersView";
 import UrMallMessageSupervisionView from "./views/UrMallMessageSupervisionView";
 import JoinKunThaiView from "./views/JoinKunThaiView";
 import YourVoiceView from "./views/YourVoiceView";
+import DeletedAccountsView from "./views/DeletedAccountsView";
 import { yourVoiceAttentionCount } from "./yourVoiceRules.js";
 import DirectoryView from "./views/DirectoryView";
 import VerificationQueueView from "./views/VerificationQueueView";
@@ -207,6 +208,7 @@ function AdminWorkspace({ access, user, preview }) {
   else if (page === "message-supervision") content = <UrMallMessageSupervisionView />;
   else if (page === "join-kunthai") content = <JoinKunThaiView access={access} />;
   else if (page === "your-voice") content = <YourVoiceView access={access} />;
+  else if (page === "deleted-accounts") content = <DeletedAccountsView />;
   else if (page === "notifications") content = <NotificationsView access={access} />;
   else if (page === "finance") content = <FinanceView cases={countryCases} onOpenCase={setSelectedCase} />;
   else if (page === "analytics") content = <AnalyticsView summary={visibleSummary} cases={countryCases} />;
@@ -230,7 +232,7 @@ function AdminWorkspace({ access, user, preview }) {
       {error ? <div role="alert" className="mb-4 rounded-lg border border-red-200 bg-red-50 px-4 py-3 text-sm font-semibold text-red-700">{translateUi(error)}</div> : null}
       <GlobalOperationsFilter countryFilter={countryFilter} countryOptions={countryOptions} onCountryFilterChange={setCountryFilter} totalCases={cases.length} visibleCases={countryCases.length} />
       {content}
-      {selectedCase ? <CaseDrawer item={selectedCase} access={access} currentUserId={user?.id} onClose={() => setSelectedCase(null)} onUpdated={updateCase} /> : null}
+      {selectedCase ? <CaseDrawer item={selectedCase} access={access} currentUserId={user?.id} onClose={() => setSelectedCase(null)} onUpdated={updateCase} onOpenCase={setSelectedCase} /> : null}
       {preview ? null : <AiAssistantHost />}
       {preview ? null : <AiFloatingButton />}
     </AdminShell>

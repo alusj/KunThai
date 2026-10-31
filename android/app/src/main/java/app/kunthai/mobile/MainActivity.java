@@ -82,8 +82,8 @@ public class MainActivity extends BridgeActivity {
     // Opened again after 15 minutes or more away: the KunThai logo covers the
     // screen at once (the old screen never shows) and the page reloads under
     // it (src/Backend/services/quietReload.js); the logo leaves once the
-    // reloaded app has drawn. Should the page decline (a post is being sent),
-    // the app carries on as it was.
+    // reloaded app has drawn. Whenever this logo shows, the page reloads once:
+    // whatever the page answers (or if it cannot answer, still paused).
     private void quietReload() {
         if (getBridge() == null || getBridge().getWebView() == null) return;
         KunThaiLaunchPlugin.reset();
@@ -91,11 +91,7 @@ public class MainActivity extends BridgeActivity {
         getBridge().getWebView().evaluateJavascript(
             "window.__ktQuietReload ? window.__ktQuietReload() : 'absent'",
             result -> {
-                if ("\"reloading\"".equals(result)) {
-                    if (getBridge() != null && getBridge().getWebView() != null) getBridge().getWebView().reload();
-                } else if ("\"declined\"".equals(result)) {
-                    KunThaiLaunchPlugin.markReady();
-                }
+                if (getBridge() != null && getBridge().getWebView() != null) getBridge().getWebView().reload();
             });
     }
 

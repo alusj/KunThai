@@ -49,11 +49,6 @@ public class KunThaiLaunchPlugin extends Plugin {
         webReady = false;
     }
 
-    // The page stays as it was (it declined a reload): the splash may leave.
-    static void markReady() {
-        webReady = true;
-    }
-
     @PluginMethod
     public void setSignedIn(PluginCall call) {
         getContext().getSharedPreferences(PREFS, Context.MODE_PRIVATE)

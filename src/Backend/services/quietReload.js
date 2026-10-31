@@ -1,8 +1,6 @@
 import { Capacitor } from "@capacitor/core";
 
 import { recordLifecycle } from "./lifecycleAudit";
-import { isPostOutboxDraining } from "./explore/postOutbox";
-import { isDashboardResumeHeld } from "./dashboardResume";
 
 // Opened again after 15 minutes or more away, the app starts fresh, the same
 // as when the phone closes it in the background: new data, and Swip's first
@@ -15,9 +13,10 @@ import { isDashboardResumeHeld } from "./dashboardResume";
 // page: on Android the page is still paused at that moment and a reload it
 // asks for itself is dropped.
 //
-// Declined while a post is being sent, or while a live trip or Area View
-// navigation holds the screen (dashboardResume.js): the app then carries on
-// as it was.
+// Whenever that splash shows, the app reloads once, with no exception: a
+// post still being sent stays in the outbox and is sent again after the
+// reload (postOutbox.js), and a live trip or Area View is opened again from
+// the server.
 
 export function installQuietReload() {
   if (typeof window === "undefined") return;
@@ -29,7 +28,6 @@ export function installQuietReload() {
   // App.jsx's own 15-minute reset (web) stands aside for this.
   window.__ktNativeQuietReload = true;
   window.__ktQuietReload = () => {
-    if (isPostOutboxDraining() || isDashboardResumeHeld()) return "declined";
     recordLifecycle("quiet-reload", "app");
     // Fresh on a main dashboard, not on an inner screen from a deep link.
     try {

@@ -58,6 +58,12 @@ function menuDeletionHandler(error = null) {
   assert.ok(handlerBody, "The confirmation button has its deletion handler");
   const handler = runInNewContext(`(async () => {${handlerBody}\n})`, {
     businessToDelete: { id: "deleted-business" },
+    deleteReason: { reasons: [], note: "" },
+    deleteWithReason: async (details, runDeletion) => {
+      assert.equal(details.surface, "urmall_business");
+      assert.equal(details.targetId, "deleted-business");
+      return runDeletion();
+    },
     deleteRegisteredBusiness: async (id) => {
       assert.equal(id, "deleted-business");
       if (error) throw error;

@@ -44,6 +44,8 @@ import { useCampaignSurfaceRole } from "../../Backend/services/campaigns/campaig
 import CampaignInboxSection from "../shared/campaigns/CampaignInboxSection";
 import { useCampaignInbox } from "../../Backend/hooks/useCampaignInbox";
 import AppPortal from "../shared/AppPortal";
+import DeletionReasonPicker from "../shared/DeletionReasonPicker";
+import { deleteWithReason, EMPTY_DELETION_REASON } from "../../Backend/services/accountDeletionReasonService";
 import ShareProfileSheet from "../shared/share/ShareProfileSheet";
 import HealthScoreCard from "../Marketplace/MarketplaceHeader/Business/MyBizDashboardHeader/HealthScoreCard";
 import { useI18n, t } from "../../i18n";
@@ -754,12 +756,17 @@ export default function CompanyWorkspaceScreen({ company, initialTab = "Overview
     }
   }
 
-  async function confirmDeleteCompany(typedName) {
+  async function confirmDeleteCompany(typedName, reason) {
     if (deleteCompanyBusy) return;
     try {
       setDeleteCompanyBusy(true);
       setDeleteCompanyError("");
-      await deleteTransportCompany(company, typedName);
+      await deleteWithReason({
+        surface: "urride_company",
+        targetId: company?.id,
+        targetName: company?.companyName || "",
+        reason,
+      }, () => deleteTransportCompany(company, typedName));
       setDeleteCompanyOpen(false);
       setMenuOpen(false);
       onCompanyUpdate?.(null);
@@ -2248,11 +2255,15 @@ function LeaveCompanyDrawer({ busy, company, onClose, onConfirm, open }) {
 function DeleteCompanyDrawer({ busy, company, error = "", onClose, onConfirm, open }) {
   useUiLocale();
   const [typed, setTyped] = useState("");
+  const [reason, setReason] = useState(EMPTY_DELETION_REASON);
   const companyName = company?.companyName || "";
   const matches = Boolean(companyName) && typed.trim().toLowerCase() === companyName.trim().toLowerCase();
 
   useEffect(() => {
-    if (!open) setTyped("");
+    if (!open) {
+      setTyped("");
+      setReason(EMPTY_DELETION_REASON);
+    }
   }, [open]);
 
   return (
@@ -2262,6 +2273,7 @@ function DeleteCompanyDrawer({ busy, company, error = "", onClose, onConfirm, op
         <p className="rounded-2xl bg-rose-50 px-4 py-3 text-sm font-bold leading-6 text-rose-900">
           {t("urrideDeleteCompany.warning")}
         </p>
+        <DeletionReasonPicker className="mt-4" value={reason} onChange={setReason} disabled={busy} />
         <label className="mt-4 block">
           <span className="text-sm font-black text-slate-800">{t("urrideDeleteCompany.typeToConfirm", { name: companyName })}</span>
           <input
@@ -2282,7 +2294,7 @@ function DeleteCompanyDrawer({ busy, company, error = "", onClose, onConfirm, op
           <button
             type="button"
             disabled={busy || !matches}
-            onClick={() => onConfirm(typed)}
+            onClick={() => onConfirm(typed, reason)}
             className="h-12 rounded-2xl bg-rose-600 text-sm font-black text-white disabled:opacity-50"
           >
             {busy ? t("urrideDeleteCompany.deleting") : t("urrideDeleteCompany.confirm")}

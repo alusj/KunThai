@@ -17,10 +17,12 @@ import {
   fetchAccountDeactivation,
   setAccountDeactivated,
 } from "../../../../Backend/services/accountLifecycleService";
+import { deleteWithReason, EMPTY_DELETION_REASON } from "../../../../Backend/services/accountDeletionReasonService";
 import { collectKunThaiDataExport, deliverDataExport } from "../../../../Backend/services/dataExportService";
 import { showToast } from "../../../../Backend/services/toastService";
 import { useI18n } from "../../../../i18n";
 import EmptyState from "../../shared/EmptyState";
+import DeletionReasonPicker from "../../../shared/DeletionReasonPicker";
 import Avatar from "../../shared/Avatar";
 import SocialScreenHeader from "../shared/SocialScreenHeader";
 import { t as i18nText } from "../../../../i18n/index";
@@ -67,6 +69,7 @@ export default function PrivacyScreen({ hideHeader = false, onOpenPermissions })
   const [confirmAction, setConfirmAction] = useState(null);
   const [accountActionBusy, setAccountActionBusy] = useState(false);
   const [deleteFailureDetail, setDeleteFailureDetail] = useState("");
+  const [deleteReason, setDeleteReason] = useState(EMPTY_DELETION_REASON);
   const [exportState, setExportState] = useState({ busy: false, step: "" });
   const [exportNotice, setExportNotice] = useState("");
 
@@ -128,7 +131,7 @@ export default function PrivacyScreen({ hideHeader = false, onOpenPermissions })
     setDeleteFailureDetail("");
 
     try {
-      await deleteKunThaiAccount();
+      await deleteWithReason({ surface: "kunthai_account", reason: deleteReason }, deleteKunThaiAccount);
       window.location.replace("/");
     } catch (error) {
       setDeleteFailureDetail(error?.detail || "");
@@ -320,7 +323,7 @@ export default function PrivacyScreen({ hideHeader = false, onOpenPermissions })
             role="dialog"
             aria-modal="true"
             aria-labelledby="account-action-title"
-            className="w-full max-w-md rounded-2xl border border-slate-200 bg-white p-6 shadow-2xl"
+            className="max-h-[calc(100dvh-3rem)] w-full max-w-md overflow-y-auto rounded-2xl border border-slate-200 bg-white p-6 shadow-2xl"
           >
             <div className={`flex h-12 w-12 items-center justify-center rounded-xl ${confirmAction === "delete" ? "bg-rose-50 text-rose-700" : "bg-amber-50 text-amber-700"}`}>
               {confirmAction === "delete" ? <HiOutlineTrash className="text-2xl" /> : <HiOutlinePauseCircle className="text-2xl" />}
@@ -344,10 +347,16 @@ export default function PrivacyScreen({ hideHeader = false, onOpenPermissions })
                 {t("accountDeletion.creditsNote")}
               </p>
             ) : null}
+            {confirmAction === "delete" ? (
+              <DeletionReasonPicker className="mt-4" value={deleteReason} onChange={setDeleteReason} disabled={accountActionBusy} />
+            ) : null}
             <div className="mt-6 flex flex-col gap-2 sm:flex-row sm:justify-end">
               <button
                 type="button"
-                onClick={() => setConfirmAction(null)}
+                onClick={() => {
+                  setConfirmAction(null);
+                  setDeleteReason(EMPTY_DELETION_REASON);
+                }}
                 disabled={accountActionBusy}
                 className="rounded-xl border border-slate-300 px-4 py-3 text-sm font-black text-slate-700 transition hover:bg-slate-50 disabled:opacity-60"
               >

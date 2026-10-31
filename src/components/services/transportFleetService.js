@@ -19,6 +19,7 @@ import {
 import { cachedQuery, invalidateCache } from "../../Backend/lib/queryCache";
 import { resolvePublicCode } from "../../Backend/services/publicCodeService";
 import { fleetOffersService } from "./fleetServiceOffer";
+import { passengerVerificationStatus } from "./passengerVerification";
 
 const TRANSPORT_FLEET_MEMORY = new Map();
 
@@ -254,7 +255,11 @@ function mapLiveFleet(row, companyAffiliation = null, publicStats = null, public
     serviceCategory,
     fleetType,
     displayType: displayTypeForFleet(row.fleet_type, serviceCategory, countryCode || country),
-    verificationStatus: normalizeVerification(row.verification_status || operator.verification_status),
+    // Verified only when both the operator and the fleet are (passengerVerification.js).
+    verificationStatus: normalizeVerification(passengerVerificationStatus(
+      publicContact?.fleet_verification_status || row.verification_status,
+      publicContact?.operator_verification_status || operator.verification_status,
+    )),
     activeStatus: row.active_status || "offline",
     isVisibleToPassengers: Boolean(row.is_visible_to_passengers),
     fleetCode: row.fleet_code || companyAffiliation?.fleet_code || "",

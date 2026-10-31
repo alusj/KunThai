@@ -3,12 +3,14 @@ import { useEffect, useRef, useState } from "react";
 
 import { deleteRegisteredBusiness, readRegisteredBusiness } from "../../../../../../Backend/services/marketplace/sellerRegistrationService";
 import { showToast } from "../../../../../../Backend/services/toastService";
+import { deleteWithReason, EMPTY_DELETION_REASON } from "../../../../../../Backend/services/accountDeletionReasonService";
 import { useI18n, t } from "../../../../../../i18n";
 import MenuHeader from "./MenuHeader";
 import SellerDrawerNavItem from "./SellerDrawerNavItem";
 import SellerDrawerProfile from "./SellerDrawerProfile";
 import SellerDrawerSection from "./SellerDrawerSection";
 import AppPortal from "../../../../../shared/AppPortal";
+import DeletionReasonPicker from "../../../../../shared/DeletionReasonPicker";
 import useBodyScrollLock from "../../../../../shared/useBodyScrollLock";
 import { useBrowserBack } from "../../../../../../Backend/hooks/useBrowserBack";
 
@@ -84,6 +86,7 @@ export default function MyBizMenu({
   const [rendered, setRendered] = useState(isOpen);
   const [panelOpen, setPanelOpen] = useState(isOpen);
   const [businessToDelete, setBusinessToDelete] = useState(null);
+  const [deleteReason, setDeleteReason] = useState(EMPTY_DELETION_REASON);
   const [requestingDeletion, setRequestingDeletion] = useState(false);
   const menuTimerRef = useRef(null);
   const screenTimerRef = useRef(null);
@@ -362,6 +365,7 @@ export default function MyBizMenu({
                             showToast(t("urmall.biz.menu.noWorkspace"), "danger");
                             return;
                           }
+                          setDeleteReason(EMPTY_DELETION_REASON);
                           setBusinessToDelete(business);
                         })
                         .catch(() => showToast(t("urmall.biz.menu.loadBusinessFailed"), "danger"));
@@ -392,7 +396,7 @@ export default function MyBizMenu({
             role="alertdialog"
             aria-modal="true"
             aria-label={t("urmall.biz.menu.deleteModalAria")}
-            className="kt-toast-expand-in w-full max-w-md rounded-[28px] border border-rose-100 bg-white p-6 shadow-2xl"
+            className="kt-toast-expand-in max-h-[calc(100dvh-3rem)] w-full max-w-md overflow-y-auto rounded-[28px] border border-rose-100 bg-white p-6 shadow-2xl"
           >
             <span className="grid h-12 w-12 place-items-center rounded-2xl bg-rose-50 text-rose-600">
               <Trash2 size={22} />
@@ -403,6 +407,7 @@ export default function MyBizMenu({
             <p className="mt-2 text-sm font-semibold leading-6 text-slate-600">
               {t("urmall.biz.menu.deleteWarning", { kind: String(businessToDelete.businessKind || i18nText("ui.literals.k6a577a7743f4")).replaceAll("_", " ") })}
             </p>
+            <DeletionReasonPicker className="mt-4" value={deleteReason} onChange={setDeleteReason} disabled={requestingDeletion} />
             <div className="mt-5 grid grid-cols-2 gap-2">
               <button
                 type="button"
@@ -420,7 +425,12 @@ export default function MyBizMenu({
                 onClick={async () => {
                   setRequestingDeletion(true);
                   try {
-                    await deleteRegisteredBusiness(businessToDelete.id);
+                    await deleteWithReason({
+                      surface: "urmall_business",
+                      targetId: businessToDelete.id,
+                      targetName: businessToDelete.identity?.businessName || "",
+                      reason: deleteReason,
+                    }, () => deleteRegisteredBusiness(businessToDelete.id));
                     showToast(t("urmall.biz.menu.deletionSent"), "success", { title: t("urmall.biz.menu.deletionSentTitle") });
                     setBusinessToDelete(null);
                     closeDrawer();

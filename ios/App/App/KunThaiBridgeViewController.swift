@@ -162,23 +162,14 @@ class KunThaiBridgeViewController: CAPBridgeViewController {
     // Opened again after 15 minutes or more away: the KunThai logo covers the
     // screen at once (the old screen never shows) and the page reloads under
     // it (src/Backend/services/quietReload.js); the logo leaves once the
-    // reloaded app has drawn. Should the page decline (a post is being sent),
-    // the app carries on as it was.
+    // reloaded app has drawn. Whenever this logo shows, the page reloads once:
+    // whatever the page answers (or if it cannot answer, still asleep).
     private func quietReload() {
         guard let webView else { return }
         webReady = false
         showSplash(minimum: Self.splashSeconds, logo: true)
-        webView.evaluateJavaScript("window.__ktQuietReload ? window.__ktQuietReload() : 'absent'") { [weak self, weak webView] result, _ in
-            guard let self else { return }
-            let answer = result as? String
-            if answer == "reloading" {
-                webView?.reload()
-                return
-            }
-            guard answer == "declined" else { return }
-            self.webReady = true
-            self.splashMinimumUntil = Date()
-            self.hideSplashIfReady()
+        webView.evaluateJavaScript("window.__ktQuietReload ? window.__ktQuietReload() : 'absent'") { [weak webView] _, _ in
+            webView?.reload()
         }
     }
 
@@ -198,6 +189,9 @@ class KunThaiBridgeViewController: CAPBridgeViewController {
             if alive { return }
             self.webReady = false
             self.showSplash(minimum: 0, logo: Self.memberSignedIn)
+            // The logo is up: the app reloads under it. iOS may already be
+            // reloading the cleared page; otherwise it would sit on the old one.
+            if !webView.isLoading { webView.reload() }
         }
     }
 
