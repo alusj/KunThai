@@ -7,6 +7,7 @@ import {
   normalizeSpaceSlug,
 } from "../../../../Backend/services/exploreService";
 import { showToast } from "../../../../Backend/services/toastService";
+import { useActionFeedbackScope } from "../../../../Backend/services/buttonFeedback";
 import { scrollToFirstBlockingFieldSoon } from "../../../shared/formValidationNavigation";
 import Avatar from "../../shared/Avatar";
 import { t as i18nText } from "../../../../i18n/index";
@@ -22,6 +23,7 @@ import {
   getActiveCountryProfile,
   getCountryFromInternationalPhone,
   getCountryPhoneHint,
+  validateCountryPhone,
 } from "../../../../data/globalCountryProfiles";
 
 const INITIAL_FORM = {
@@ -56,6 +58,8 @@ function fileToDataUrl(file) {
 
 export default function SpaceCreateScreen({ hideHeader = false, onCreated }) {
   useUiLocale();
+  // Creating the Space gets a button spinner and a success vibration.
+  useActionFeedbackScope();
   const [form, setForm] = useState(INITIAL_FORM);
   // Contact phone country: the person's own country until they pick another.
   const [phoneCountry, setPhoneCountry] = useState(() => getActiveCountryProfile());
@@ -119,6 +123,9 @@ export default function SpaceCreateScreen({ hideHeader = false, onCreated }) {
         nextErrors.websiteUrl = "Enter a valid website link.";
       }
     }
+    // The contact phone is optional, but a started number must be complete.
+    const phoneCheck = validateCountryPhone(form.phone, phoneCountry, { required: false });
+    if (!phoneCheck.valid) nextErrors.phone = phoneCheck.message;
     if (phoneOwnership.blockingMessage) nextErrors.phone = phoneOwnership.blockingMessage;
     return nextErrors;
   }
@@ -274,7 +281,7 @@ export default function SpaceCreateScreen({ hideHeader = false, onCreated }) {
               className={`h-12 w-full rounded-2xl border bg-slate-100 px-4 text-sm font-bold text-slate-900 outline-none focus:ring-2 focus:ring-sky-200 ${fieldErrors.email ? "border-rose-300" : "border-transparent"}`}
             />
           </Field>
-          <Field label={i18nText("ui.literals.k77064d526523")} error={phoneOwnership.fieldError(fieldErrors.phone)}>
+          <Field as="div" label={i18nText("ui.literals.k77064d526523")} error={phoneOwnership.fieldError(fieldErrors.phone)}>
             <PhoneCountryField
               country={phoneCountry}
               phone={form.phone}
@@ -334,13 +341,15 @@ export default function SpaceCreateScreen({ hideHeader = false, onCreated }) {
   );
 }
 
-function Field({ children, className = "", error, label }) {
+// `as="div"` for a field with more than one control (the phone's country
+// picker and number): a <label> would send taps on its text to the picker.
+function Field({ as: Tag = "label", children, className = "", error, label }) {
   useUiLocale();
   return (
-    <label className={`block ${className}`} data-field-error={error ? "true" : undefined}>
+    <Tag className={`block ${className}`} data-field-error={error ? "true" : undefined}>
       <span className="mb-2 block text-xs font-black uppercase tracking-[0.14em] text-slate-500">{translateUi(label)}</span>
       {children}
       {error ? <span className="mt-2 block text-xs font-black text-rose-600" role="alert">{translateUi(error)}</span> : null}
-    </label>
+    </Tag>
   );
 }
