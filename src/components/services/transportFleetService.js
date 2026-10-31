@@ -259,6 +259,9 @@ function mapLiveFleet(row, companyAffiliation = null, publicStats = null, public
     isVisibleToPassengers: Boolean(row.is_visible_to_passengers),
     fleetCode: row.fleet_code || companyAffiliation?.fleet_code || "",
     isCompanyFleet: Boolean(companyAffiliation?.company_id),
+    // The company lists this vehicle (not hidden or archived by it); offline
+    // turns is_visible_to_passengers off, this stays on.
+    companyListed: companyAffiliation?.company_listed !== false,
     companyId: companyAffiliation?.company_id || "",
     companyName: companyAffiliation?.company_name || "",
     companyCode: companyAffiliation?.company_code || "",
@@ -413,9 +416,14 @@ async function hydrateLiveFleets(rows) {
   return dedupeLiveFleets(data.map((row) => mapLiveFleet(row, affiliations.get(row.id), stats.get(row.id), contacts.get(row.id))));
 }
 
+// Lists that include offline operators (Book a ride, Send delivery) keep an
+// offline company vehicle the company still lists; it shows its last seen
+// like a solo one.
 function passengerVisibilityFilters(fleet, selection, includeOffline) {
+  const companyShown = fleet.isVisibleToPassengers
+    || (includeOffline && fleet.companyListed && fleet.activeStatus !== "active");
   return (
-    (!fleet.isCompanyFleet || fleet.isVisibleToPassengers) &&
+    (!fleet.isCompanyFleet || companyShown) &&
     (!selection.fleetType || fleet.fleetType === selection.fleetType) &&
     (includeOffline || fleet.activeStatus === "active")
   );

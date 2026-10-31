@@ -51,6 +51,13 @@ import { useI18n, t } from "../../i18n";
 import { uiText as translateUi } from "../../i18n/index.js";
 import { inlineErrorMessage, shortErrorToast } from "../../Backend/services/friendlyErrorService";
 import AppPortal from "../shared/AppPortal";
+import PhoneCountryField from "../shared/PhoneCountryField";
+import {
+  constrainCountryPhoneInput,
+  getCountryPhoneHint,
+  getCountryProfile,
+  validateCountryPhone,
+} from "../../data/globalCountryProfiles";
 import { NAV_TRANSITION_MS, navMotionClass } from "../shared/navigationMotion";
 
 import { useLifecycleAudit } from "../../Backend/services/lifecycleAudit";
@@ -565,8 +572,16 @@ export default function Transport({
 
   async function acceptOperatorCompanyInvite(invite, feeConfirmed = false) {
     setOperatorInviteStatus("");
+    // A registered (solo) operator whose account had not loaded yet when the
+    // card was tapped is still a registered operator: read it first, so they
+    // only accept and are never sent to the new operator's screen.
+    let currentOperator = operatorAccount;
+    if (!currentOperator?.id) {
+      currentOperator = await getOperatorAccount().catch(() => null);
+      if (currentOperator?.id) setOperatorAccount(currentOperator);
+    }
     // Joining as a new operator is registering one: Business accounts only.
-    if (!operatorAccount?.id && registrationBlocked()) return;
+    if (!currentOperator?.id && registrationBlocked()) return;
     if (!feeConfirmed && invite.status !== "accepted") {
       try {
         const quote = await getOperatorCompanyAccessQuote();
@@ -585,21 +600,21 @@ export default function Transport({
     // screen follows. Someone new to UrRide (any business account) gets the
     // documents screen first, with a phone number if their profile has none:
     // submitting it creates their operator profile and joins the company.
-    const alreadyOperator = Boolean(operatorAccount?.id);
+    const alreadyOperator = Boolean(currentOperator?.id);
     if (!alreadyOperator) {
       setCompanyAccessDecision(null);
       setRouteDirection("forward");
       setOperatorInviteDocumentsInvite({ ...invite, joining: true });
       return;
     }
-    const reuseDocuments = hasSubmittedOperatorDocuments(operatorAccount);
+    const reuseDocuments = hasSubmittedOperatorDocuments(currentOperator);
 
     try {
       const now = new Date().toISOString();
       await respondToOperatorInvite(invite, {
         status: "accepted",
-        operatorId: operatorAccount?.id || invite.operatorId,
-        userId: operatorAccount?.userId || invite.userId,
+        operatorId: currentOperator?.id || invite.operatorId,
+        userId: currentOperator?.userId || invite.userId,
         documents: reuseDocuments
           ? { reuseNotice: t("urride.transport.status.reuseNotice"), reusedExistingDocuments: true, reusedAt: now }
           : {
@@ -613,7 +628,7 @@ export default function Transport({
       setCompanyAccessDecision(null);
       const refreshedAccount = await getOperatorAccount().catch(() => null);
       if (refreshedAccount) setOperatorAccount(refreshedAccount);
-      await refreshOperatorCompanyInvites(refreshedAccount || operatorAccount).catch(() => {});
+      await refreshOperatorCompanyInvites(refreshedAccount || currentOperator).catch(() => {});
       showToast("Request accepted", "success");
     } catch (error) {
       setOperatorInviteStatus(inlineErrorMessage(error, t("urride.transport.status.acceptError")));
@@ -1051,6 +1066,9 @@ export default function Transport({
           openOperatorDashboard("dashboard");
         })
         .catch(() => {});
+    } else if (destination === "company-dashboard" && companyAccount && !companyAccount.access?.canViewCompanyHq && operatorAccount) {
+      // A basic company operator has no Fleet HQ: their operator dashboard.
+      openOperatorDashboard("dashboard");
     } else if (destination === "company-dashboard" && companyAccount && (!targetId || companyAccount.id === targetId)) {
       setCompanyWorkspaceInitialTab("Overview");
       setCompanyWorkspaceOpen(true);
@@ -1058,6 +1076,7 @@ export default function Transport({
       // A specific (just registered) company, or none loaded yet.
       const openCompany = (account) => {
         setCompanyAccount(account);
+        if (!account.access?.canViewCompanyHq) return;
         setCompanyWorkspaceInitialTab("Overview");
         setCompanyWorkspaceOpen(true);
       };
@@ -1814,7 +1833,7 @@ export default function Transport({
             return;
           }
 
-          if (companyAccount) {
+          if (companyAccount?.access?.canViewCompanyHq) {
             setRouteDirection("forward");
             setCompanyWorkspaceInitialTab("Overview");
             setCompanyWorkspaceOpen(true);
@@ -1833,6 +1852,7 @@ export default function Transport({
       />
       <CompanyOperatorInvitePanel
         invites={operatorCompanyInvites}
+        operatorHasDocuments={hasSubmittedOperatorDocuments(operatorAccount)}
         loading={operatorInviteLoading}
         status={operatorInviteStatus}
         onAccept={acceptOperatorCompanyInvite}
@@ -1928,22 +1948,30 @@ const operatorInviteDocumentFields = [
 function OperatorInviteDocumentsScreen({ invite, onBack, onSkip, onSubmit }) {
   useI18n();
   const [documents, setDocuments] = useState({});
-  // A new operator needs a phone number on their operator profile; it starts
-  // from the one on their KunThai profile, when there is one.
+  // A new operator needs a phone number on their operator profile. It starts
+  // from the one saved at onboarding, in that number's country (else the
+  // person's KunThai country); the country picker holds the dial code and the
+  // field takes only that country's number of digits, as in onboarding.
   const askPhone = Boolean(invite?.joining);
   const [phone, setPhone] = useState("");
+  const [phoneCountry, setPhoneCountry] = useState(null);
   useEffect(() => {
     if (!askPhone) return undefined;
     let alive = true;
     getInvitedOperatorDefaultPhone()
-      .then((value) => {
-        if (alive && value) setPhone((current) => current || value);
+      .then(({ phone: saved, countryIso }) => {
+        if (!alive) return;
+        const country = getCountryProfile(countryIso);
+        if (!country) return;
+        setPhoneCountry((current) => current || country);
+        if (saved) setPhone((current) => current || constrainCountryPhoneInput(saved, country, { international: true }));
       })
       .catch(() => {});
     return () => {
       alive = false;
     };
   }, [askPhone]);
+  const phoneCheck = phoneCountry ? validateCountryPhone(phone, phoneCountry) : null;
   const [status, setStatus] = useState("");
   const [submitting, setSubmitting] = useState(false);
   const requiredDocuments = operatorInviteDocumentFields.filter((field) => !field.optional);
@@ -1963,8 +1991,8 @@ function OperatorInviteDocumentsScreen({ invite, onBack, onSkip, onSubmit }) {
 
   async function submitDocuments() {
     const missing = requiredDocuments.filter((field) => !documents[field.key]?.fileName);
-    if (askPhone && phone.replace(/\D/g, "").length < 7) {
-      setStatus(t("urride.transport.docs.phoneMissing"));
+    if (askPhone && !phoneCheck?.valid) {
+      setStatus(phone && phoneCheck ? translateUi(phoneCheck.message) : t("urride.transport.docs.phoneMissing"));
       return;
     }
     if (missing.length) {
@@ -2021,22 +2049,29 @@ function OperatorInviteDocumentsScreen({ invite, onBack, onSkip, onSubmit }) {
 
         <section className="mt-4 grid gap-3">
           {askPhone ? (
-            <label className="block rounded-[24px] border border-slate-200 bg-white p-4 shadow-sm">
+            <div className="block rounded-[24px] border border-slate-200 bg-white p-4 shadow-sm">
               <p className="text-sm font-black text-slate-950">{t("urride.transport.docs.phoneLabel")}</p>
               <p className="mt-1 text-xs font-semibold leading-5 text-slate-500">{t("urride.transport.docs.phoneDetail")}</p>
-              <input
-                type="tel"
-                inputMode="tel"
-                autoComplete="tel"
-                value={phone}
-                onChange={(event) => {
-                  setPhone(event.target.value);
-                  setStatus("");
-                }}
-                placeholder={t("urride.transport.docs.phoneLabel")}
-                className="mt-3 h-12 w-full rounded-2xl border border-slate-200 bg-slate-50 px-4 text-base font-bold text-slate-950 outline-none focus:border-blue-400 focus:bg-white"
-              />
-            </label>
+              <div className="mt-3">
+                <PhoneCountryField
+                  country={phoneCountry}
+                  phone={phone}
+                  onCountryChange={(selected) => {
+                    // A new dial country clears the digits, as in onboarding.
+                    setPhoneCountry(getCountryProfile(selected.iso2) || selected);
+                    setPhone("");
+                    setStatus("");
+                  }}
+                  onPhoneChange={(value) => {
+                    if (!phoneCountry) return;
+                    setPhone(constrainCountryPhoneInput(value, phoneCountry, { international: true }));
+                    setStatus("");
+                  }}
+                  placeholder={phoneCountry ? getCountryPhoneHint(phoneCountry) : ""}
+                  invalid={Boolean(phone && phoneCheck && !phoneCheck.valid)}
+                />
+              </div>
+            </div>
           ) : null}
           {operatorInviteDocumentFields.map((field) => {
             const selected = documents[field.key]?.fileName;
@@ -2167,7 +2202,7 @@ function buildReadOnlyOperatorAccount(invite, dashboard = null) {
   };
 }
 
-function CompanyOperatorInvitePanel({ invites, loading, status, onAccept, onCompleteRegistration, onDone, onReject }) {
+function CompanyOperatorInvitePanel({ invites, loading, status, operatorHasDocuments = false, onAccept, onCompleteRegistration, onDone, onReject }) {
   useI18n();
   const visibleInvites = invites.filter((invite) =>
     !invite.documents?.operatorAcknowledgedAt &&
@@ -2208,6 +2243,7 @@ function CompanyOperatorInvitePanel({ invites, loading, status, onAccept, onComp
             invite={invite}
             onAccept={onAccept}
             onCompleteRegistration={onCompleteRegistration}
+            operatorHasDocuments={operatorHasDocuments}
             onDone={onDone}
             onReject={onReject}
           />
@@ -2217,9 +2253,12 @@ function CompanyOperatorInvitePanel({ invites, loading, status, onAccept, onComp
   );
 }
 
-function CompanyOperatorInviteCard({ invite, onAccept, onCompleteRegistration, onDone, onReject }) {
+function CompanyOperatorInviteCard({ invite, operatorHasDocuments = false, onAccept, onCompleteRegistration, onDone, onReject }) {
   useI18n();
-  const needsDocuments = invite.status === "accepted_pending_documents" || invite.documents?.operatorDocumentsRequired;
+  // An operator already verified (or with documents on file) is never asked
+  // for documents again: accepting is all a company invitation needs.
+  const needsDocuments = !operatorHasDocuments
+    && (invite.status === "accepted_pending_documents" || invite.documents?.operatorDocumentsRequired);
   const accepted = invite.status === "accepted" && !needsDocuments;
   const rejected = invite.status === "rejected";
   const expired = Boolean(invite.expired) && !accepted && !needsDocuments;

@@ -2,7 +2,7 @@ import supabase from "../../Backend/lib/supabaseClient";
 import { invalidateCache } from "../../Backend/lib/queryCache";
 import { t } from "../../i18n";
 import { isTransportPlateNumberInUse, normalizePlateNumber } from "./transportOperatorAccountService";
-import { getActiveCountryProfile } from "../../data/globalCountryProfiles";
+import { getActiveCountryProfile, getCountryFromInternationalPhone } from "../../data/globalCountryProfiles";
 import { acceptCompanyInviteWithAccess } from "./operatorCompanyAccessService";
 import { DuplicateCompanyOperatorError, findOpenInviteForOperator, findOperatorOnSeveralFleets } from "./companyOperatorUniqueness";
 import { friendlyErrorMessage } from "../../Backend/services/friendlyErrorService";
@@ -418,9 +418,11 @@ function buildCompanyAccess(company = {}, member = null, userId = "") {
     serviceStatus: normalizedMember?.serviceStatus || "active",
     responsibilities: normalizedMember?.responsibilities || [],
     permissions: normalizedMember?.permissions || {},
-    // Every active company operator can enter Fleet HQ. RLS and the client
-    // workspace still limit basic operators to their own company information.
-    canViewCompanyHq: Boolean(active),
+    // Fleet HQ is for the owner and operators given a responsibility (admin,
+    // fleet manager, dispatcher). A basic operator has one dashboard, their
+    // operator dashboard; a second "company operator" page there only
+    // repeated their own vehicle.
+    canViewCompanyHq: isOwner || can("view_company_hq"),
     canViewAllBookings: isOwner || can("view_all_bookings"),
     canManageOperators: isOwner || can("manage_operators"),
     canManageFleets: isOwner || can("manage_fleets"),
@@ -1377,12 +1379,21 @@ export async function ensureInvitedOperatorProfile(invite = {}) {
   }
 }
 
-// The phone on the person's KunThai profile, to start a new operator's
-// documents screen with (an operator profile needs one).
+// The phone saved at onboarding (or on the person's UrMall business), and the
+// country it is dialled from, to start a new operator's documents screen with
+// (an operator profile needs a phone). With no saved phone, the country is the
+// person's KunThai country, so the field starts with its dial code.
 export async function getInvitedOperatorDefaultPhone() {
   const user = await getCurrentUser("Sign in to join this company.");
   const profile = await getOnboardingProfile(user).catch(() => null);
-  return String(profile?.phone || profile?.phone_number || user?.phone || "").trim();
+  const metadata = user?.user_metadata || {};
+  const authPhone = String(user?.phone || "").replace(/\D/g, "");
+  const phone = String(
+    profile?.phone || profile?.phone_number || metadata.phone_number || (authPhone ? `+${authPhone}` : ""),
+  ).trim();
+  const home = profile?.countryCode || metadata.country_code || profile?.country || metadata.country || "";
+  const country = getCountryFromInternationalPhone(phone, home) || getActiveCountryProfile(home);
+  return { phone, countryIso: country?.iso2 || "" };
 }
 
 export async function submitOperatorCompanyInviteDocuments(invite, documents = {}) {

@@ -823,7 +823,9 @@ export default function OperatorDashboardScreen({
               }}
             />
           ) : null}
-          {hasCompanyAccount && (!showDashboardSwitcher || canOpenCompanyHq) ? <TransportGroupSwitcher accounts={companyAccounts} activeAccount={shownCompanyAccount} badge={companyBadgeCount} canOpen={canOpenCompanyHq} onOpen={onOpenCompany} onSwitch={onSwitchCompany} /> : null}
+          {/* Fleet HQ: owners and operators with a company responsibility. A
+              basic company operator has only this dashboard. */}
+          {hasCompanyAccount && (canOpenCompanyHq || (!showDashboardSwitcher && (companyAccounts || []).some((item) => item?.access?.canViewCompanyHq))) ? <TransportGroupSwitcher accounts={companyAccounts} activeAccount={shownCompanyAccount} badge={companyBadgeCount} canOpen={canOpenCompanyHq} onOpen={onOpenCompany} onSwitch={onSwitchCompany} /> : null}
 
           <button
             type="button"
