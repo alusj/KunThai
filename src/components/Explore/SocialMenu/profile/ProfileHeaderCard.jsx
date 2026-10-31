@@ -839,11 +839,14 @@ export default function ProfileHeaderCard({
 
       <CenteredModal open={buyCreditsOpen} onClose={closeBuyCredits} labelledBy="buy-credits-title">
         {/* iOS app: Apple In-App Purchase only (App Store Guideline 3.1.1).
-            Android app: Google Play Billing only (Play payments policy). */}
-        {isAppleIapAvailable() ? (
-          buyCreditsOpen ? <AppleCreditsPanel onClose={closeBuyCredits} /> : null
-        ) : isGooglePlayBillingAvailable() ? (
-          buyCreditsOpen ? <AppleCreditsPanel store="google" onClose={closeBuyCredits} /> : null
+            Android app: Google Play Billing only (Play payments policy).
+            Fails closed: in the native app the store panel shows even when its
+            plugin is missing (it then says purchases are unavailable), so the
+            Monime methods below are only ever reachable on the web. */}
+        {isAppleIapAvailable() || isGooglePlayBillingAvailable() || isNativeApp() ? (
+          buyCreditsOpen ? (
+            <AppleCreditsPanel store={isGooglePlayBillingAvailable() || window.Capacitor?.getPlatform?.() === "android" ? "google" : "apple"} onClose={closeBuyCredits} />
+          ) : null
         ) : (
         <AnimatePresence mode="wait" initial={false}>
           {!buyCreditsMethod ? (

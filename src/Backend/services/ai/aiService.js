@@ -3,6 +3,7 @@ import { friendlyErrorMessage } from "../friendlyErrorService";
 import { apiUrl } from "../../lib/apiUrl.js";
 import { t } from "../../../i18n";
 import { createRequestSharer, limitMessageKey } from "./aiRequestSharing.js";
+import { AI_CONSENT_DECLINED, ensureAiConsent } from "./aiConsent.js";
 
 // KAI — browser service.
 //
@@ -34,6 +35,8 @@ export const AI_ERROR_CODES = {
   providerRejected: "provider_rejected",
   emptyResponse: "empty_response",
   serverError: "server_error",
+  // Client only: the person said "Not now" to sending requests to the AI provider.
+  consentDeclined: AI_CONSENT_DECLINED,
 };
 
 export class AiRequestError extends Error {
@@ -209,6 +212,10 @@ async function postAi(body, signal) {
  */
 export async function runAiTask({ task, surface = "global", input = {}, context = {}, signal } = {}) {
   if (!task) throw new AiRequestError("No KAI action was chosen.", { code: AI_ERROR_CODES.invalidRequest });
+
+  if (!(await ensureAiConsent())) {
+    throw new AiRequestError(t("aiConsent.declined"), { code: AI_CONSENT_DECLINED });
+  }
 
   const body = { task, surface, input, context };
   return shareRequest(body, () => postAi(body), signal);

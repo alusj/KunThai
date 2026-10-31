@@ -2,6 +2,7 @@ import { lazy, Suspense, useCallback, useEffect, useRef, useState } from "react"
 
 import { AI_CHAT_OPEN_EVENT, AI_CLOSE_EVENT, AI_OPEN_EVENT, getAiSurface } from "../../Backend/services/ai/aiSurfaceService";
 import { useAiAvailability } from "../../Backend/hooks/useAiTask";
+import AiConsentPrompt from "./AiConsentPrompt";
 
 // KAI — the single mounted host.
 //
@@ -98,14 +99,21 @@ export default function AiAssistantHost() {
     };
   }, [close]);
 
+  // The permission card listens even while nothing is open: some screens
+  // (photo search, Explore search) run KAI without opening the sheet.
+  const consent = <AiConsentPrompt />;
+
   // A deployment without a Gemini key simply never opens anything.
-  if (checked && !available) return null;
-  if (!request && !chatRequest) return null;
+  if (checked && !available) return consent;
+  if (!request && !chatRequest) return consent;
 
   return (
-    <Suspense fallback={null}>
-      {request ? <AiAssistantSheet open={open} request={request} onClose={close} /> : null}
-      {chatRequest ? <AiChatPanel open={chatOpen} request={chatRequest} onClose={closeChat} /> : null}
-    </Suspense>
+    <>
+      {consent}
+      <Suspense fallback={null}>
+        {request ? <AiAssistantSheet open={open} request={request} onClose={close} /> : null}
+        {chatRequest ? <AiChatPanel open={chatOpen} request={chatRequest} onClose={closeChat} /> : null}
+      </Suspense>
+    </>
   );
 }
