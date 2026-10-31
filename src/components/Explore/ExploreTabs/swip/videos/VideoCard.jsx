@@ -466,7 +466,7 @@ export default function VideoCard({
   }
 
   async function handleCopyLink() {
-    const nextMessage = await copyPostLink(post.id);
+    const nextMessage = await copyPostLink(post.id, { swip: true });
     closeActionMenu();
     closeQuickDeck();
     setMessage(nextMessage);

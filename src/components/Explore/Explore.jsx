@@ -341,11 +341,15 @@ export default function Explore({ active = true, onNavigateMain, onScreenModeCha
   }, []);
 
   useEffect(() => {
+    // A Swip shared into UrFeed: opened exactly like a notification (the
+    // post pinned first and fetched by id), so Swip lands on that clip
+    // instead of scrolling past others or playing another one while it finds
+    // it. The preview target keeps the "back to the post" button.
     function openRepostedSwip(event) {
       const postId = String(event.detail?.postId || "");
       if (!postId) return;
+      openPostTargetRef.current?.(postId, { tabHint: "Swip", closeMenus: false });
       setSwipPreviewTarget(postId);
-      switchExploreTabRef.current?.("Swip");
     }
 
     window.addEventListener("explore-open-reposted-swip", openRepostedSwip);
@@ -738,7 +742,8 @@ export default function Explore({ active = true, onNavigateMain, onScreenModeCha
           return;
         }
         if (event.detail?.postId) {
-          openPostTargetRef.current?.(event.detail.postId, { tabHint: tab, closeMenus: false });
+          // A shared post link closes any open menu screen, like a notification.
+          openPostTargetRef.current?.(event.detail.postId, { tabHint: tab, closeMenus: event.detail.closeMenus === true });
           return;
         }
         if (tab !== "Swip") {

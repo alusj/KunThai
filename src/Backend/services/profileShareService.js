@@ -18,7 +18,8 @@ import { encode } from "uqr";
 
 import { publicAppOrigin } from "./nativeShare";
 import { captureVisibilityInviteFromUrl, decorateShareUrl } from "./visibilityCreditService";
-import { openSharedExploreProfile, openSharedMarketplaceSeller } from "./ai/aiEntityNavigation";
+import { openSharedExplorePost, openSharedExploreProfile, openSharedMarketplaceSeller } from "./ai/aiEntityNavigation";
+import { buildPostShareHash, parsePostLinkHash } from "./explore/postShareLink";
 
 const LINK_PREFIX = {
   person: "kunthai-profile",
@@ -46,6 +47,12 @@ export async function buildDecoratedProfileShareUrl(kind, id) {
   } catch {
     return url;
   }
+}
+
+/** A shared Explore post or Swip: opens that exact post, in the app or on the website. */
+export function buildPostShareUrl(postId, { swip = false } = {}) {
+  const hash = buildPostShareHash(postId, { swip });
+  return hash ? `${publicAppOrigin()}/${hash}` : "";
 }
 
 // A place ("Share address"): Area View opens there and routes to it, in the
@@ -85,6 +92,8 @@ function parsePlaceHash(hash = "") {
 export function parseProfileLinkHash(hash = "") {
   const place = parsePlaceHash(hash);
   if (place) return place;
+  const post = parsePostLinkHash(hash);
+  if (post) return post;
   const match = String(hash || "").match(LINK_PATTERN);
   if (!match) return null;
   const kind = KIND_FOR_PREFIX[match[1].toLowerCase()];
@@ -177,6 +186,10 @@ export function openSharedProfile(link) {
   }
   if (link.kind === "seller") {
     openSharedMarketplaceSeller({ id: link.id });
+    return;
+  }
+  if (link.kind === "post") {
+    openSharedExplorePost({ postId: link.id, tab: link.tab });
     return;
   }
   if (link.kind === "place") {

@@ -96,6 +96,16 @@ export function openSharedExploreProfile({ userId = "", spaceId = "" } = {}) {
   dispatchUntilHandled("kuntai-open-profile", spaceId ? { spaceId } : { userId }, "explore");
 }
 
+/**
+ * Open a shared Explore post or Swip from a link: the same open as a
+ * notification (the exact post pinned first, fetched by id), so Swip never
+ * scrolls past other clips or plays another one first.
+ */
+export function openSharedExplorePost({ postId = "", tab = "" } = {}) {
+  if (!postId) return;
+  dispatchUntilHandled("explore-open-tab", { tab: tab === "UrFeed" ? "UrFeed" : "Swip", postId, closeMenus: true }, "explore");
+}
+
 export function openSharedMarketplaceSeller(seller) {
   if (!seller?.id) return;
   dispatchUntilHandled("marketplace-open-shared-seller", { seller }, "urmall");
