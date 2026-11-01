@@ -313,6 +313,8 @@ export default function App() {
   const [marketplaceActivityOpen, setMarketplaceActivityOpen] = useState(false);
   const [transportActivityOpen, setTransportActivityOpen] = useState(false);
   const [transportAreaRequest, setTransportAreaRequest] = useState(null);
+  // Shown from a tap on Locate until UrRide has opened the map over it.
+  const [areaViewCover, setAreaViewCover] = useState(false);
   const [transportNavigationRequest, setTransportNavigationRequest] = useState(null);
   const [mainPageBadges, setMainPageBadges] = useState({ marketplace: 0, transport: 0 });
   const [onboardingReveal, setOnboardingReveal] = useState(null);
@@ -561,6 +563,24 @@ export default function App() {
     queuedPageRef.current = "";
     if (queued && queued !== page) changePage(queued);
   }, [leavingPage, page, changePage]);
+
+  // UrRide takes the area request (and opens the map) as soon as it can; the
+  // cover leaves two frames later, once the map has painted. Never longer
+  // than 4 s, whatever happens.
+  useEffect(() => {
+    if (!areaViewCover) return undefined;
+    const safety = window.setTimeout(() => setAreaViewCover(false), 4000);
+    if (transportAreaRequest) return () => window.clearTimeout(safety);
+    let second = 0;
+    const first = window.requestAnimationFrame(() => {
+      second = window.requestAnimationFrame(() => setAreaViewCover(false));
+    });
+    return () => {
+      window.clearTimeout(safety);
+      window.cancelAnimationFrame(first);
+      window.cancelAnimationFrame(second);
+    };
+  }, [areaViewCover, transportAreaRequest]);
 
   // Switches, tabs, radios, checkboxes and pickers give one tiny tick app-wide.
   useEffect(() => installSelectionHaptics(), []);
@@ -983,9 +1003,17 @@ export default function App() {
       const detail = event.detail || {};
       if (!detail.destination && !detail.returnTo && !detail.action) return;
 
-      setMarketplaceNav({ root: "marketplace", sub: null });
-      setMarketplaceActivityOpen(false);
-      window.dispatchEvent(new CustomEvent("marketplace-close-buyer-surfaces"));
+      // From UrMall (a store's Locate, an order's address) UrMall stays exactly
+      // as it was underneath, so Back lands on that store or seller screen.
+      // Closing it first flashed UrMall's home, then UrRide's, before the map.
+      if (!String(detail.returnTo || "").startsWith("marketplace-")) {
+        setMarketplaceNav({ root: "marketplace", sub: null });
+        setMarketplaceActivityOpen(false);
+        window.dispatchEvent(new CustomEvent("marketplace-close-buyer-surfaces"));
+      }
+      // The map's own background covers the switch to UrRide until the map
+      // is up (see areaViewCover).
+      setAreaViewCover(true);
 
       setTransportAreaRequest({
         ...detail,
@@ -1012,7 +1040,16 @@ export default function App() {
     }
 
     window.addEventListener("kuntai-return-main-page", handleReturnMainPage);
+    // A map opened from UrMall was left for another UrRide screen: close
+    // UrMall's screens now (they were kept open for Back).
+    function handleMarketplaceReset() {
+      setMarketplaceNav({ root: "marketplace", sub: null });
+      setMarketplaceActivityOpen(false);
+      window.dispatchEvent(new CustomEvent("marketplace-close-buyer-surfaces"));
+    }
+    window.addEventListener("kuntai-marketplace-reset", handleMarketplaceReset);
     return () => {
+      window.removeEventListener("kuntai-marketplace-reset", handleMarketplaceReset);
       window.removeEventListener("kuntai-open-area-view", handleOpenAreaView);
       window.removeEventListener("kuntai-return-main-page", handleReturnMainPage);
     };
@@ -1395,6 +1432,7 @@ export default function App() {
             </section>
           ) : null}
           <div ref={mainSpacerRef} aria-hidden="true" />
+          {areaViewCover ? <div className="fixed inset-0 z-[1399] bg-slate-950" aria-hidden="true" /> : null}
           <BottomTabs badges={tabBadges} forceHidden={bottomTabsHidden} page={page} setPage={changePage} />
         </Suspense>
         </LazyRouteBoundary>

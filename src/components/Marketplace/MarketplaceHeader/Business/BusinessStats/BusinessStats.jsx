@@ -17,7 +17,6 @@ import { useCallback, useEffect, useState } from "react";
 
 import { useSellerSales } from "../../../../../Backend/hooks/useSellerSales";
 import { deleteSellerOrder, updateSellerOrderStatus } from "../../../../../Backend/services/marketplace/sellerSalesService";
-import { storeSellerOrdersAreaViewReturn } from "../../../../../Backend/services/marketplace/navigationHandoffService";
 import { formatCurrency } from "../../../../../Backend/utils/formatCurrency";
 import { formatOrderFulfillment, parseOrderDeliveryDetails } from "../../../../../Backend/utils/orderDeliveryDetails";
 import { useI18n, t } from "../../../../../i18n";
@@ -169,7 +168,7 @@ export default function BusinessStats({ initialView = "revenue" }) {
       return;
     }
 
-    storeSellerOrdersAreaViewReturn();
+    // The seller screen stays open under the map, so Back returns straight to it.
     window.dispatchEvent(
       new CustomEvent("kuntai-open-area-view", {
         detail: {

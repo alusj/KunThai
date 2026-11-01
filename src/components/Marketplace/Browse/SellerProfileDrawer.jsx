@@ -48,7 +48,6 @@ import {
   sendBuyerMarketplaceMessage,
   submitMarketplaceReview,
 } from "../../../Backend/services/marketplace/buyerMarketplaceService";
-import { storeSellerAreaViewReturn } from "../../../Backend/services/marketplace/navigationHandoffService";
 import {
   fetchSellerVerticalCatalog,
   getMarketplaceBusinessDay,
@@ -1373,16 +1372,8 @@ export default function SellerProfileDrawer({
       },
     };
 
-    storeSellerAreaViewReturn(safeSeller);
-    window.dispatchEvent(new CustomEvent("marketplace-close-buyer-surfaces"));
-    onClose?.();
-    window.setTimeout(() => {
-      window.dispatchEvent(
-        new CustomEvent("kuntai-open-area-view", {
-          detail: routeDetail,
-        }),
-      );
-    }, 80);
+    // The store stays open under the map, so Back returns straight to it.
+    window.dispatchEvent(new CustomEvent("kuntai-open-area-view", { detail: routeDetail }));
   }
 
   // The main Locate button always routes to the branch closest to the buyer,

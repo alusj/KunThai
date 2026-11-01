@@ -14,13 +14,15 @@ import { uiText as translateUi, useI18n as useUiLocale } from "../../../i18n/ind
 import { inlineErrorMessage } from "../../../Backend/services/friendlyErrorService";
 import { haptics } from "../../../Backend/services/feedbackService";
 
-export default function CompanyRentals({ company, onAddFleet }) {
+export default function CompanyRentals({ company, onAddFleet, initialScreen = null }) {
   useUiLocale();
   const [rentals, setRentals] = useState([]);
   const [activity, setActivity] = useState(null);
   const [activityError, setActivityError] = useState("");
   const [error, setError] = useState("");
-  const [screen, setScreen] = useState(null);
+  // Fleet HQ's Requests list opens a rental's requests directly.
+  const [screen, setScreen] = useState(initialScreen);
+  const initialScreenRef = useRef(initialScreen);
   const [filter, setFilter] = useState("all");
   const [search, setSearch] = useState("");
   const [busy, setBusy] = useState(false);
@@ -48,7 +50,7 @@ export default function CompanyRentals({ company, onAddFleet }) {
   }, [company.id]);
   useEffect(() => {
     // A different company starts from an empty, loading list.
-    setRentals([]); setActivity(null); setActivityError(""); setError(""); setScreen(null); setLoading(true);
+    setRentals([]); setActivity(null); setActivityError(""); setError(""); setScreen(initialScreenRef.current); initialScreenRef.current = null; setLoading(true);
     return () => { requestRef.current += 1; };
   }, [company.id]);
   useEffect(() => { if (allowed) refresh(); }, [allowed, refresh]);

@@ -618,6 +618,11 @@ function clearDeliveredNotifications() {
   Promise.resolve()
     .then(() => PushNotifications.removeAllDeliveredNotifications())
     .catch(() => {});
+  // The next push's app-icon number counts from now (send-native-push).
+  Promise.resolve()
+    .then(() => supabase.auth.getSession())
+    .then(({ data }) => (data?.session ? supabase.rpc("reset_push_badge") : null))
+    .catch(() => {});
 }
 
 let nativePushStarted = false;

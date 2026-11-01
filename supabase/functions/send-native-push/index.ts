@@ -40,6 +40,8 @@ type OutboxRow = {
   kind: string;
   attempts: number;
   devices: Device[] | null;
+  // iPhone app-icon number (set before sending; see badgeFor).
+  badge?: number;
 };
 type SendResult = { ok: boolean; invalidToken?: boolean; skipped?: boolean; retryable?: boolean; error?: string };
 type RowOutcome = { delivered: boolean; invalidTokens: string[]; error: string | null; retry: boolean };
@@ -195,6 +197,9 @@ async function postApns(config: ApnsConfig, host: string, device: Device, row: O
         alert: { title: row.title, body: row.body },
         sound: tone.sound,
         "thread-id": row.kind || "kunthai",
+        // The red number on the app icon: iPhone's counterpart of Android's
+        // status-bar icons.
+        ...(Number.isFinite(row.badge) ? { badge: row.badge } : {}),
         // Ride requests break through Focus once the app has the Time
         // Sensitive Notifications capability; without it iOS treats this as
         // "active" (normal), so it is safe to send either way.
@@ -377,6 +382,21 @@ async function deliver(row: OutboxRow, apns: ApnsConfig | null, fcm: FcmConfig |
   return { delivered: false, invalidTokens, error: reasons.join("; ").slice(0, 500) || "not delivered", retry: false };
 }
 
+// Pushes this person received since they last opened KunThai (the app calls
+// reset_push_badge on opening), counting this one; at least 1, at most 99.
+// Any failure still sends the push, with a badge of 1.
+// deno-lint-ignore no-explicit-any
+async function badgeFor(admin: any, userId: string): Promise<number> {
+  try {
+    const { data: reset } = await admin.from("push_badge_resets").select("reset_at").eq("user_id", userId).maybeSingle();
+    const since = reset?.reset_at || new Date(Date.now() - 7 * 24 * 60 * 60 * 1000).toISOString();
+    const { count } = await admin.from("push_outbox").select("id", { count: "exact", head: true }).eq("user_id", userId).gt("created_at", since);
+    return Math.min(Math.max(Number(count) || 1, 1), 99);
+  } catch {
+    return 1;
+  }
+}
+
 type RpcCall = (fn: string, args: Record<string, unknown>) => PromiseLike<{ error: { code?: string } | null }>;
 
 async function recordOutcome(rpc: RpcCall, row: OutboxRow, outcome: RowOutcome) {
@@ -440,6 +460,9 @@ Deno.serve(async (request) => {
     for (let start = 0; start < rows.length; start += PARALLEL_ROWS) {
       const chunk = rows.slice(start, start + PARALLEL_ROWS);
       await Promise.all(chunk.map(async (row) => {
+        if (apns && (row.devices || []).some((device) => device.platform === "ios")) {
+          row.badge = await badgeFor(admin, row.user_id);
+        }
         const outcome = await deliver(row, apns, fcm);
         outcome.invalidTokens.forEach((token) => invalidTokens.add(token));
         if (outcome.delivered) delivered += 1;

@@ -91,6 +91,7 @@ import {
   resolveTransportCompanyOperatorAssignment,
   updateTransportCompanyOperatorAvailability,
 } from "../services/transportCompanyService";
+import { listCompanyRentalActivity, listTransportRentals, subscribeRentalChanges } from "../services/transportRentalService";
 import { fetchOperatorDashboard, subscribeOperatorTrips } from "../services/transportOperatorAccountService";
 import {
   startOperatorLiveLocation,
@@ -204,6 +205,10 @@ export default function CompanyWorkspaceScreen({ company, initialTab = "Overview
   const [companyNotificationSettingsOpen, setCompanyNotificationSettingsOpen] = useState(false);
   const [bookingQueueOpen, setBookingQueueOpen] = useState(false);
   const [bookingQueue, setBookingQueue] = useState([]);
+  // Rental requests (status "requested") on this company's rental vehicles.
+  const [rentalRequests, setRentalRequests] = useState([]);
+  // A rental request tapped in Requests: the Rentals tab opens on its requests.
+  const [rentalTarget, setRentalTarget] = useState(null);
   const [bookingQueueLoading, setBookingQueueLoading] = useState(false);
   // The company object is re-fetched on every realtime change, so effects read
   // it through a ref and only the first load for a company shows the loading
@@ -337,12 +342,25 @@ export default function CompanyWorkspaceScreen({ company, initialTab = "Overview
   // A booking is operational work, not a read receipt. Keep its badge until
   // the booking leaves the actionable queue through a status action.
   const bookingNotificationCount = bookingNotificationItems.length;
+  // Everything waiting on the company counts as a request: passenger and
+  // delivery bookings, rental requests, and operator invitations/registrations.
+  const totalRequestCount = pendingRequests.length + bookingNotificationCount + rentalRequests.length;
+  const allRequestsProps = {
+    bookings: canViewBookingQueue ? visibleBookingQueue : [],
+    onOpenBookings: canViewBookingQueue ? () => setBookingQueueOpen(true) : undefined,
+    rentalRequests,
+    onOpenRental: (rentalId) => {
+      setRentalTarget({ id: rentalId, nonce: `${rentalId}-${Date.now()}` });
+      switchCompanyTab("Rentals");
+    },
+    requests,
+  };
   // "Fleets" matches the Fleets tab (no rental vehicles); rentals have their own count.
   const metrics = [
       { label: t("urride.companyWs.metricFleets"), value: operationalFleets.length, icon: Truck, onClick: () => switchCompanyTab("Fleets") },
       ...(rentalFleetCount > 0 ? [{ label: t("urride.companyFix.metricRentals"), value: rentalFleetCount, icon: Truck, onClick: availableTabs.includes("Rentals") ? () => switchCompanyTab("Rentals") : undefined }] : []),
       { label: t("urride.companyWs.metricOperators"), value: acceptedOperators.length, icon: UsersRound, onClick: () => switchCompanyTab("Operators") },
-      { label: t("urride.companyWs.metricRequests"), value: pendingRequests.length, icon: ClipboardList, onClick: () => switchCompanyTab("Requests") },
+      { label: t("urride.companyWs.metricRequests"), value: totalRequestCount, icon: ClipboardList, onClick: () => switchCompanyTab("Requests") },
     ];
 
   // Company setup completion, mirroring UrMall's store-setup widget and the solo
@@ -519,6 +537,38 @@ export default function CompanyWorkspaceScreen({ company, initialTab = "Overview
       setActiveTab(availableTabs[0]);
     }
   }, [activeTab, availableTabs]);
+
+  // Rental requests for the Requests tab and count. Owners and admins only
+  // (the same people who manage rentals; RLS enforces it too).
+  useEffect(() => {
+    if (!company?.id || !canAddRentalFleets) {
+      setRentalRequests([]);
+      return undefined;
+    }
+    let active = true;
+    const companyId = company.id;
+    async function load() {
+      try {
+        const rentals = await listTransportRentals({ companyId });
+        const titles = new Map(rentals.filter((rental) => !rental.deleted_at).map((rental) => [rental.id, rental.title]));
+        const activity = await listCompanyRentalActivity([...titles.keys()]);
+        if (!active) return;
+        const now = Date.now();
+        const waiting = activity
+          .filter((row) => row.status === "requested" && new Date(row.ends_at).getTime() > now)
+          .map((row) => ({ ...row, rentalTitle: titles.get(row.rental_id) || "" }));
+        setRentalRequests((current) => (sameJson(current, waiting) ? current : waiting));
+      } catch {
+        // Keep what is on screen; the next change or visit tries again.
+      }
+    }
+    load();
+    const unsubscribe = subscribeRentalChanges(() => load());
+    return () => {
+      active = false;
+      unsubscribe();
+    };
+  }, [company?.id, canAddRentalFleets]);
 
   useEffect(() => {
     let active = true;
@@ -917,7 +967,16 @@ export default function CompanyWorkspaceScreen({ company, initialTab = "Overview
 }
 
   function renderDashboardTab(tab = activeTab) {
-    if (tab === "Rentals") return <CompanyRentals company={company} onAddFleet={canAddRentalFleets && onAddRentalFleet ? requestAddRental : undefined} />;
+    if (tab === "Rentals") {
+      return (
+        <CompanyRentals
+          key={rentalTarget?.nonce || "rentals"}
+          company={company}
+          initialScreen={rentalTarget ? { id: rentalTarget.id, action: "Requests / reservations" } : null}
+          onAddFleet={canAddRentalFleets && onAddRentalFleet ? requestAddRental : undefined}
+        />
+      );
+    }
     if (tab === "Overview") return <Overview company={company} fleets={fleets} pendingRequests={pendingRequests} />;
     if (tab === "Fleets") {
       return (
@@ -941,7 +1000,7 @@ export default function CompanyWorkspaceScreen({ company, initialTab = "Overview
         />
       );
     }
-    if (tab === "Requests") return <Requests requests={requests} />;
+    if (tab === "Requests") return <AllRequests {...allRequestsProps} />;
     if (tab === "Activity") return <Activity company={company} />;
     return null;
   }
@@ -1196,6 +1255,7 @@ export default function CompanyWorkspaceScreen({ company, initialTab = "Overview
               onManageOperator={setOperatorAction}
               operators={allOperators}
               pendingRequests={pendingRequests}
+              allRequestsProps={allRequestsProps}
               requests={requests}
               screen={visibleMenuScreen}
             />
@@ -1656,6 +1716,7 @@ function FleetHqMenuScreen({
   onAddOperator,
   onManageOperator,
   onOpenOperatorDashboard,
+  allRequestsProps,
   operators,
   pendingRequests,
   requests,
@@ -1703,7 +1764,7 @@ function FleetHqMenuScreen({
                 onOpenOperatorDashboard={onOpenOperatorDashboard}
               />
             ) : null}
-            {screen === "requests" ? <RequestsPanel requests={requests} pendingRequests={pendingRequests} /> : null}
+            {screen === "requests" ? <RequestsPanel requests={requests} pendingRequests={pendingRequests} allRequestsProps={allRequestsProps} /> : null}
             {screen === "verification" ? <VerificationCenterPanel company={company} fleets={fleets} pendingRequests={pendingRequests} onEdit={onEdit} /> : null}
             {screen === "activity" ? <ActivityPanel company={company} /> : null}
             {screen === "plans" ? (
@@ -1809,7 +1870,7 @@ function OperatorAccessPanel({ canManageOperators, fleets = [], onAddOperator, o
   );
 }
 
-function RequestsPanel({ requests, pendingRequests }) {
+function RequestsPanel({ requests, pendingRequests, allRequestsProps }) {
   useUiLocale();
   return (
     <div className="grid gap-4">
@@ -1820,7 +1881,61 @@ function RequestsPanel({ requests, pendingRequests }) {
           {t("urride.companyWs.requestsPanelBody")}
         </p>
       </section>
-      <Requests requests={requests} />
+      {allRequestsProps ? <AllRequests {...allRequestsProps} /> : <Requests requests={requests} />}
+    </div>
+  );
+}
+
+// Fleet HQ's Requests tab: everything waiting on the company in one place.
+// Bookings open the booking queue, a rental request opens that rental's
+// requests, operator invitations and registrations are listed in full.
+function AllRequests({ bookings = [], onOpenBookings, rentalRequests = [], onOpenRental, requests = [] }) {
+  useUiLocale();
+  if (!bookings.length && !rentalRequests.length && !requests.length) {
+    return <EmptyPanel title={t("urrideRequests.emptyTitle")} body={t("urrideRequests.emptyBody")} />;
+  }
+  const group = "grid gap-3";
+  const heading = "flex items-center justify-between gap-3";
+  const title = "text-xs font-black uppercase tracking-wide text-slate-500";
+  const action = "kt-touchable rounded-full bg-slate-950 px-3 py-1.5 text-xs font-black text-white";
+  return (
+    <div className="grid gap-6">
+      {bookings.length ? (
+        <section className={group}>
+          <div className={heading}>
+            <p className={title}>{t("urrideRequests.bookings", { n: bookings.length })}</p>
+            {onOpenBookings ? <button type="button" onClick={onOpenBookings} className={action}>{t("urrideRequests.openBookings")}</button> : null}
+          </div>
+          {bookings.slice(0, 5).map((booking) => (
+            <button key={booking.id} type="button" onClick={onOpenBookings} disabled={!onOpenBookings} className="kt-touchable rounded-3xl border border-emerald-100 bg-white p-4 text-left shadow-sm">
+              <p className="text-xs font-black uppercase tracking-wide text-emerald-700">{translateUi(booking.requestType || "Passenger ride")} · {translateUi(booking.status || "")}</p>
+              <h3 className="mt-1 font-black text-slate-950">{booking.passengerName || booking.name}</h3>
+              <p className="mt-1 text-sm font-semibold text-slate-500">{booking.route}</p>
+              <p className="mt-1 text-xs font-bold text-slate-400">{booking.fleetName}{booking.plateNumber ? ` · ${booking.plateNumber}` : ""}</p>
+            </button>
+          ))}
+        </section>
+      ) : null}
+      {rentalRequests.length ? (
+        <section className={group}>
+          <p className={title}>{t("urrideRequests.rentals", { n: rentalRequests.length })}</p>
+          {rentalRequests.map((request) => (
+            <button key={request.id} type="button" onClick={() => onOpenRental?.(request.rental_id)} className="kt-touchable rounded-3xl border border-amber-100 bg-white p-4 text-left shadow-sm">
+              <p className="text-xs font-black uppercase tracking-wide text-amber-700">{request.rentalTitle || t("urrideRequests.rentalFallback")}</p>
+              <h3 className="mt-1 font-black text-slate-950">{request.customer_name || t("urrideRequests.customerFallback")}</h3>
+              <p className="mt-1 text-sm font-semibold text-slate-500">
+                {new Date(request.starts_at).toLocaleDateString()} – {new Date(request.ends_at).toLocaleDateString()}
+              </p>
+            </button>
+          ))}
+        </section>
+      ) : null}
+      {requests.length ? (
+        <section className={group}>
+          <p className={title}>{t("urrideRequests.operators", { n: requests.length })}</p>
+          <Requests requests={requests} />
+        </section>
+      ) : null}
     </div>
   );
 }

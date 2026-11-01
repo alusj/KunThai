@@ -1204,11 +1204,30 @@ export default function Transport({
     if (profileReturnToArea && !activeFleetId && !activeCompanyId && !nearbyAreaOpen) setProfileReturnToArea(false);
   }, [activeCompanyId, activeFleetId, nearbyAreaOpen, profileReturnToArea]);
 
+  // A map opened from UrMall leaves UrMall's screens open underneath, so Back
+  // returns to them. Left any other way (a booking, active trips, an
+  // operator's profile), those screens must close, or they would float over
+  // UrRide: App closes them on this event.
+  const nearbyAreaReturningRef = useRef(false);
+  const nearbyAreaWasOpenRef = useRef(false);
+  useEffect(() => {
+    const wasOpen = nearbyAreaWasOpenRef.current;
+    nearbyAreaWasOpenRef.current = nearbyAreaOpen;
+    if (!wasOpen || nearbyAreaOpen) return;
+    const returning = nearbyAreaReturningRef.current;
+    nearbyAreaReturningRef.current = false;
+    if (returning) return;
+    if (String(nearbyAreaRequest?.returnTo || "").startsWith("marketplace-")) {
+      window.dispatchEvent(new CustomEvent("kuntai-marketplace-reset"));
+    }
+  }, [nearbyAreaOpen, nearbyAreaRequest]);
+
   function closeNearbyAreaView() {
     const returnToBooking = nearbyAreaRequest?.returnTo === "booking" && nearbyAreaRequest?.bookingTarget;
     const returnToExplore = String(nearbyAreaRequest?.returnTo || "").startsWith("explore-");
     const returnToMarketplace = String(nearbyAreaRequest?.returnTo || "").startsWith("marketplace-");
     const returnToActiveTrips = nearbyAreaRequest?.returnTo === "active-trips";
+    nearbyAreaReturningRef.current = true;
     setRouteDirection("backward");
     setNearbyAreaOpen(false);
     if (returnToBooking) setBookingTarget(nearbyAreaRequest.bookingTarget);
@@ -1233,6 +1252,7 @@ export default function Transport({
         await request.onLocationPicked(location);
       }
     } finally {
+      nearbyAreaReturningRef.current = true;
       setRouteDirection("backward");
       setNearbyAreaOpen(false);
       setNearbyAreaRequest(null);
