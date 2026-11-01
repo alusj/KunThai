@@ -78,6 +78,16 @@ class KunThaiBridgeViewController: CAPBridgeViewController {
         center.addObserver(self, selector: #selector(appDidEnterBackground), name: UIApplication.didEnterBackgroundNotification, object: nil)
         center.addObserver(self, selector: #selector(appWillResignActive), name: UIApplication.willResignActiveNotification, object: nil)
         center.addObserver(self, selector: #selector(appDidBecomeActive), name: UIApplication.didBecomeActiveNotification, object: nil)
+        center.addObserver(self, selector: #selector(memoryWarning), name: UIApplication.didReceiveMemoryWarningNotification, object: nil)
+        // Sees iOS ending the page's process (Capacitor then reloads it under
+        // the splash), so the reload log can say why the app restarted.
+        if let webView, let original = webView.navigationDelegate {
+            let proxy = KunThaiNavigationProxy(target: original) { [weak self] in
+                self?.noteNative("webcontent-terminated")
+            }
+            navigationProxy = proxy
+            webView.navigationDelegate = proxy
+        }
         center.addObserver(self, selector: #selector(webDidBecomeReady), name: Self.webReadyNotification, object: nil)
         center.addObserver(self, selector: #selector(appearanceDidChange), name: Self.appearanceNotification, object: nil)
         center.addObserver(self, selector: #selector(keyboardWillChangeFrame(_:)), name: UIResponder.keyboardWillChangeFrameNotification, object: nil)
@@ -166,7 +176,35 @@ class KunThaiBridgeViewController: CAPBridgeViewController {
     // TikTok and Reels. This comes before the page learns it is hidden; the
     // page does the same on its own as a backup (singleMediaPlayback.js).
     @objc private func appWillResignActive() {
-        webView?.evaluateJavaScript("window.__ktReleaseMedia && window.__ktReleaseMedia()", completionHandler: nil)
+        webView?.evaluateJavaScript("window.__ktReleaseMedia ? window.__ktReleaseMedia() : -1") { result, error in
+            print("[kt-native] resign-active: released \(result ?? "nil") media\(error == nil ? "" : " (error \(error!.localizedDescription))")")
+        }
+    }
+
+    @objc private func memoryWarning() {
+        noteNative("memory-warning")
+    }
+
+    // Native events for the page's reload log (lifecycleAudit.js); kept until
+    // the page can take them, since after a crash there is no page yet.
+    private var pendingNativeNotes: [String] = []
+    private var navigationProxy: KunThaiNavigationProxy?
+
+    private func noteNative(_ kind: String) {
+        print("[kt-native] \(kind)")
+        let stamp = ISO8601DateFormatter().string(from: Date())
+        pendingNativeNotes.append("\(kind) at \(stamp)")
+        flushNativeNotes()
+    }
+
+    private func flushNativeNotes() {
+        guard webReady, let webView, !pendingNativeNotes.isEmpty else { return }
+        let notes = pendingNativeNotes
+        pendingNativeNotes = []
+        for note in notes {
+            let quoted = note.replacingOccurrences(of: "'", with: "")
+            webView.evaluateJavaScript("window.__ktNativeLifecycle && window.__ktNativeLifecycle('\(quoted)')", completionHandler: nil)
+        }
     }
 
     @objc private func appDidBecomeActive() {
@@ -219,6 +257,7 @@ class KunThaiBridgeViewController: CAPBridgeViewController {
 
     @objc private func webDidBecomeReady() {
         webReady = true
+        flushNativeNotes()
         hideSplashIfReady()
     }
 
@@ -337,5 +376,30 @@ public class KunThaiLaunchPlugin: CAPPlugin, CAPBridgedPlugin {
             NotificationCenter.default.post(name: KunThaiBridgeViewController.appearanceNotification, object: nil)
         }
         call.resolve()
+    }
+}
+
+// Forwards everything to Capacitor's own navigation delegate and reports when
+// iOS ends the page's WebContent process.
+final class KunThaiNavigationProxy: NSObject, WKNavigationDelegate {
+    private weak var target: WKNavigationDelegate?
+    private let onTerminate: () -> Void
+
+    init(target: WKNavigationDelegate, onTerminate: @escaping () -> Void) {
+        self.target = target
+        self.onTerminate = onTerminate
+    }
+
+    override func responds(to aSelector: Selector!) -> Bool {
+        super.responds(to: aSelector) || (target?.responds(to: aSelector) ?? false)
+    }
+
+    override func forwardingTarget(for aSelector: Selector!) -> Any? {
+        target?.responds(to: aSelector) == true ? target : nil
+    }
+
+    func webViewWebContentProcessDidTerminate(_ webView: WKWebView) {
+        onTerminate()
+        target?.webViewWebContentProcessDidTerminate?(webView)
     }
 }

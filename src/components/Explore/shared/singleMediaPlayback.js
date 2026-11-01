@@ -229,7 +229,7 @@ export function playExploreMedia(media, options) {
 const releasedMedia = new Map();
 
 export function releaseMediaWhileHidden() {
-  if (typeof document === "undefined") return;
+  if (typeof document === "undefined") return 0;
   document.querySelectorAll("audio, video").forEach((media) => {
     const src = media.getAttribute("src");
     if (!src || releasedMedia.has(media)) return;
@@ -242,6 +242,7 @@ export function releaseMediaWhileHidden() {
       // A media element that cannot be reset keeps its source.
     }
   });
+  return releasedMedia.size;
 }
 
 export function restoreReleasedMedia() {

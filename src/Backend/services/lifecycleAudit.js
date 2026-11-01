@@ -80,6 +80,9 @@ if (typeof window !== "undefined" && typeof document !== "undefined") {
   } catch {
     // Older WebViews: the log still has the time away.
   }
+  // The iPhone app reports what happened natively (iOS ended the page's
+  // process, a memory warning) once the page is back.
+  window.__ktNativeLifecycle = (note) => recordLifecycle("native", "app", String(note || ""));
   recordLifecycle("page-load", "app", `${away === null ? "first start" : `last left ${away}s ago`}; ${started}`);
 
   document.addEventListener("visibilitychange", () => {

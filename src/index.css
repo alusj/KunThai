@@ -2412,8 +2412,12 @@
    measured height). The feed is thousands of pixels long and every tab switch
    re-lays out its panel: on a Galaxy A06 laying out every post took most of
    a ~1 s switch. Paint containment does not clip the card's own shadow, and
-   the card already clips its content (overflow-hidden). */
-.kt-feed-card {
+   the card already clips its content (overflow-hidden).
+   Android only: on iPhone (WebKit) the same rule filled the page's memory
+   within a few tab switches and iOS killed and reloaded the app (an iPhone 13
+   lasted 4-12 switches with it, 80 of 80 without). main.jsx sets the
+   platform. */
+html[data-kt-platform="android"] .kt-feed-card {
   content-visibility: auto;
   contain-intrinsic-size: auto 560px;
 }

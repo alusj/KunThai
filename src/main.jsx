@@ -20,6 +20,7 @@ import { installNativeGeolocation } from "./Backend/services/nativeGeolocation";
 import { lazyWithRetry } from "./Backend/utils/lazyWithRetry";
 import { useI18n as useUiLocale } from "./i18n/index.js";
 import { startSwipStartupPrefetch } from "./Backend/services/explore/swipStartupPrefetch";
+import { Capacitor } from "@capacitor/core";
 import { consumeFreshStart, installQuietReload } from "./Backend/services/quietReload";
 import { installNativeBackButton, resetBrowserBackState } from "./Backend/hooks/useBrowserBack";
 import { installMediaReleaseOnHide } from "./components/Explore/shared/singleMediaPlayback";
@@ -28,6 +29,12 @@ import { installButtonFeedback } from "./Backend/services/buttonFeedback";
 // Before anything reads sessionStorage: a fresh start after a long time away
 // (quietReload.js) forgets the old session's screens.
 consumeFreshStart();
+// Platform-specific CSS (index.css): "android", "ios" or "web".
+try {
+  document.documentElement.dataset.ktPlatform = Capacitor.getPlatform();
+} catch {
+  // Unknown platform: the shared rules apply.
+}
 // History entries left from an earlier page load must not count as open
 // screens, and Android's Back button must never step into them.
 resetBrowserBackState();
