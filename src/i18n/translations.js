@@ -16,6 +16,7 @@ import { GOOGLE_PLAY_BILLING } from "./googlePlayBilling";
 import { AI_CONSENT } from "./aiConsent";
 import { URRIDE_REQUESTS } from "./urrideRequests";
 import { MESSAGE_ACTIONS } from "./messageActions";
+import { URRIDE_COMPANY_ALERTS } from "./urrideCompanyAlerts";
 import { AUTH_TERMS } from "./authTerms";
 import { VOICE_NOTES } from "./voiceNotes";
 import { APP_LOADING } from "./appLoading";
@@ -59720,6 +59721,12 @@ for (const [locale, section] of Object.entries(URRIDE_REQUESTS)) {
 for (const [locale, section] of Object.entries(MESSAGE_ACTIONS)) {
   if (TRANSLATIONS[locale]) {
     TRANSLATIONS[locale].messageActions = section;
+  }
+}
+
+for (const [locale, section] of Object.entries(URRIDE_COMPANY_ALERTS)) {
+  if (TRANSLATIONS[locale]) {
+    TRANSLATIONS[locale].urrideCompanyAlerts = section;
   }
 }
 

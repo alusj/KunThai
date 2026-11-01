@@ -17,6 +17,8 @@
 //
 // Buttons opt out with data-kt-busy="off" (on them or an ancestor). Tabs,
 // menus and navigation never show the spinner.
+// Buttons that give their own feedback (a switch that buzzes as it turns on)
+// opt out of all of it with data-kt-feedback="off".
 
 import { useEffect } from "react";
 
@@ -83,6 +85,7 @@ function onPress(event) {
     if (activeScopes === 0) return;
     const button = event.target?.closest?.(BUTTON_SELECTOR);
     if (!button || button.disabled || button.getAttribute("aria-disabled") === "true") return;
+    if (button.closest("[data-kt-feedback='off']")) return;
     if (press && press.pending === 0) finish(press);
     press = { button, at: Date.now(), pending: 0, wrote: false, failed: false, shownAt: 0, showTimer: 0, maxTimer: 0 };
   } catch {

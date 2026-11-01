@@ -54,6 +54,7 @@ import { useBrowserBack } from "../../Backend/hooks/useBrowserBack";
 import { useBackSwipe } from "../../Backend/hooks/useBackSwipe";
 import { SlidePanel, useSlidePanel } from "../shared/SlideTransition";
 import { showToast } from "../../Backend/services/toastService";
+import { haptics } from "../../Backend/services/feedbackService";
 import {
   dismissPlatformNotification,
   fetchCompanyPlatformNotifications,
@@ -3066,6 +3067,7 @@ function CompanyActivityDrawer({ activities, company, notificationPreferences, o
 }
 
 const COMPANY_NOTIFICATION_OPTIONS = [
+  ["newBookings", "urrideCompanyAlerts.newBookingsTitle", "urrideCompanyAlerts.newBookingsDesc"],
   ["operatorInvitations", "urride.companyWs.optInvitationsTitle", "urride.companyWs.optInvitationsDesc"],
   ["bookingAccepted", "urride.companyWs.optBookingAcceptedTitle", "urride.companyWs.optBookingAcceptedDesc"],
   ["operatorArrived", "urride.companyWs.optArrivedTitle", "urride.companyWs.optArrivedDesc"],
@@ -3087,7 +3089,19 @@ function CompanyNotificationSettings({ onToggle, settings = DEFAULT_COMPANY_NOTI
         {COMPANY_NOTIFICATION_OPTIONS.map(([key, titleKey, descKey]) => {
           const enabled = settings[key] !== false;
           return (
-            <button key={key} type="button" onClick={() => onToggle?.(key)} className="flex w-full items-center gap-3 py-3 text-left">
+            <button
+              key={key}
+              type="button"
+              role="switch"
+              aria-checked={enabled}
+              data-kt-feedback="off"
+              onClick={() => {
+                // Switching an alert on buzzes at once; the save follows.
+                if (!enabled) haptics.medium("transport");
+                onToggle?.(key);
+              }}
+              className="flex w-full items-center gap-3 py-3 text-left"
+            >
               <span className="min-w-0 flex-1">
                 <span className="block text-sm font-black text-slate-950">{t(titleKey)}</span>
                 <span className="mt-0.5 block text-xs font-semibold leading-5 text-slate-500">{t(descKey)}</span>
