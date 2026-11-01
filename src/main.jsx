@@ -21,11 +21,19 @@ import { lazyWithRetry } from "./Backend/utils/lazyWithRetry";
 import { useI18n as useUiLocale } from "./i18n/index.js";
 import { startSwipStartupPrefetch } from "./Backend/services/explore/swipStartupPrefetch";
 import { consumeFreshStart, installQuietReload } from "./Backend/services/quietReload";
+import { installNativeBackButton, resetBrowserBackState } from "./Backend/hooks/useBrowserBack";
+import { installMediaReleaseOnHide } from "./components/Explore/shared/singleMediaPlayback";
 import { installButtonFeedback } from "./Backend/services/buttonFeedback";
 
 // Before anything reads sessionStorage: a fresh start after a long time away
 // (quietReload.js) forgets the old session's screens.
 consumeFreshStart();
+// History entries left from an earlier page load must not count as open
+// screens, and Android's Back button must never step into them.
+resetBrowserBackState();
+installNativeBackButton();
+// Leaving the screen lets go of video and audio: no lock-screen player.
+installMediaReleaseOnHide();
 registerKunThaiServiceWorker();
 // First, before any screen asks for location (iOS: one prompt, not two).
 installNativeGeolocation();

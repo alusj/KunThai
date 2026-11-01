@@ -105,3 +105,42 @@ export function clearBrowserBackStack() {
   window.history.go(-depth);
   return depth;
 }
+
+// History entries survive a reload, a fresh start after a long time away and
+// a crashed page, but the screens they stood for do not. At start-up the
+// current entry could still say "4 screens deep, in a conversation" while the
+// app showed the dashboard, and the entries behind it belong to the old page:
+// stepping back into them loads that page again (a full reload). Called once
+// at start-up, before any screen adds its own entry.
+export function resetBrowserBackState() {
+  if (typeof window === "undefined") return;
+  if (!readLayerKey() && !readLayerDepth()) return;
+  try {
+    window.history.replaceState(null, "", window.location.href);
+  } catch {
+    // The stale entry stays; Back still works screen by screen.
+  }
+}
+
+// Android's Back button. Without a handler, Capacitor walked the WebView's
+// own history: at the dashboard that stepped into the old page's entries and
+// reloaded the app, or did nothing at all. Now it closes this page's screens
+// one by one (each recorded its depth in history.state) and, with none open,
+// sends KunThai to the background like other apps.
+export function installNativeBackButton() {
+  if (typeof window === "undefined") return;
+  Promise.all([import("@capacitor/core"), import("@capacitor/app")])
+    .then(([{ Capacitor }, { App }]) => {
+      if (Capacitor.getPlatform() !== "android") return;
+      App.addListener("backButton", () => {
+        if (readLayerDepth() > 0) {
+          window.history.back();
+          return;
+        }
+        App.minimizeApp().catch(() => {});
+      });
+    })
+    .catch(() => {
+      // Web build or plugin missing: the browser's own Back applies.
+    });
+}

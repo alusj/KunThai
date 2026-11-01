@@ -66,7 +66,18 @@ export function optimizeImageFiles(files = []) {
   return Promise.all(Array.from(files || []).map((file) => optimizeImageFile(file)));
 }
 
+// Files this module made (or found already small enough), so a second pass
+// before upload never re-encodes them and loses quality twice.
+const optimizedFiles = new WeakSet();
+
 export async function optimizeImageFile(file) {
+  const result = await optimizeImageFileOnce(file);
+  if (result && typeof result === "object") optimizedFiles.add(result);
+  return result;
+}
+
+async function optimizeImageFileOnce(file) {
+  if (file && typeof file === "object" && optimizedFiles.has(file)) return file;
   if (!isCompressibleImage(file)) return file;
   if (Number(file.size || 0) <= SKIP_BELOW_BYTES) return file;
 

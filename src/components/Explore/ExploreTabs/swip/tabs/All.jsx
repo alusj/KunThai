@@ -306,11 +306,15 @@ export default function All({ active = true, currentUserId = "", focusPostId = "
       }}
       >
       {videos.map((post, index) => {
-  // The current clip, the one before and the next two stay mounted; the
-  // current and upcoming ones buffer ahead so a swipe starts playing at once.
+  // On Swip, the current clip, the one before and the next two stay mounted;
+  // the current and upcoming ones buffer ahead so a swipe starts playing at
+  // once. Off Swip (UrFeed, UrMall, …) only the current clip stays, so it
+  // still plays at once on return: four fully buffered clips held in the
+  // background, with the feed's photos, ran an iPhone out of memory and iOS
+  // reloaded the app.
   const offset = index - activeIndex;
-  const shouldMountVideo = offset >= -1 && offset <= SWIP_PRELOAD_AHEAD;
-  const preloadMode = offset >= 0 && offset <= swipBufferAhead() ? "auto" : "metadata";
+  const shouldMountVideo = active ? offset >= -1 && offset <= SWIP_PRELOAD_AHEAD : offset === 0;
+  const preloadMode = offset >= 0 && offset <= (active ? swipBufferAhead() : 0) ? "auto" : "metadata";
   // The clips right after this one are primed (first frames ready) so the
   // next swipe plays instantly, like the big apps.
   const prime = active && offset >= 1 && offset <= Math.min(swipBufferAhead(), 2);

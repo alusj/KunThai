@@ -76,6 +76,8 @@ class KunThaiBridgeViewController: CAPBridgeViewController {
         let center = NotificationCenter.default
         center.addObserver(self, selector: #selector(appWillEnterForeground), name: UIApplication.willEnterForegroundNotification, object: nil)
         center.addObserver(self, selector: #selector(appDidEnterBackground), name: UIApplication.didEnterBackgroundNotification, object: nil)
+        center.addObserver(self, selector: #selector(appWillResignActive), name: UIApplication.willResignActiveNotification, object: nil)
+        center.addObserver(self, selector: #selector(appDidBecomeActive), name: UIApplication.didBecomeActiveNotification, object: nil)
         center.addObserver(self, selector: #selector(webDidBecomeReady), name: Self.webReadyNotification, object: nil)
         center.addObserver(self, selector: #selector(appearanceDidChange), name: Self.appearanceNotification, object: nil)
         center.addObserver(self, selector: #selector(keyboardWillChangeFrame(_:)), name: UIResponder.keyboardWillChangeFrameNotification, object: nil)
@@ -157,6 +159,18 @@ class KunThaiBridgeViewController: CAPBridgeViewController {
 
     @objc private func appDidEnterBackground() {
         backgroundedAt = Date()
+    }
+
+    // Locking the phone (or leaving KunThai) lets go of video and audio at
+    // once, so iOS shows no "Now Playing" card on the lock screen, like
+    // TikTok and Reels. This comes before the page learns it is hidden; the
+    // page does the same on its own as a backup (singleMediaPlayback.js).
+    @objc private func appWillResignActive() {
+        webView?.evaluateJavaScript("window.__ktReleaseMedia && window.__ktReleaseMedia()", completionHandler: nil)
+    }
+
+    @objc private func appDidBecomeActive() {
+        webView?.evaluateJavaScript("window.__ktRestoreMedia && window.__ktRestoreMedia()", completionHandler: nil)
     }
 
     // Opened again after 15 minutes or more away: the KunThai logo covers the

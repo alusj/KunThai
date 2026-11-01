@@ -1,6 +1,7 @@
 import supabase from "../../lib/supabaseClient";
 import * as tus from "tus-js-client";
 import { EXPLORE_MEDIA_BUCKET } from "./constants";
+import { optimizeImageFile } from "../marketplace/imageOptimization";
 import { apiUrl } from "../../lib/apiUrl";
 import {
   UPLOAD_STALL_MS,
@@ -576,6 +577,12 @@ export async function uploadMediaFile(file, mediaType, userId, options = {}) {
   if (!file) {
     return "";
   }
+
+  // Every screen should hand over a photo already sized for display
+  // (optimizeImageFile); this catches one that does not, so no full-size
+  // phone photo (~32 MB once decoded) reaches the feed again. A file already
+  // optimized passes straight through.
+  if (mediaType === "image" || mediaType === "profile") file = await optimizeImageFile(file);
 
   const fallback = mediaType === "image" || mediaType === "profile" ? "jpg" : mediaType === "video" ? "mp4" : "webm";
   const extension = getFileExtensionFromMime(file.type, fallback);

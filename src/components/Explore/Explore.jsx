@@ -210,6 +210,17 @@ export default function Explore({ active = true, onNavigateMain, onScreenModeCha
   const { t } = useI18n();
   const { activeTab, activeMenuScreen, menuStack } = exploreNav;
   switchExploreTabRef.current = switchExploreTab;
+  // Bumped when a tab slide lands, so a tab tapped mid-slide is run here with
+  // this render's state. Run from the slide's own callback, it saw the tab
+  // from before the slide: tapping back to the tab just left was dropped,
+  // and the tap had to be repeated.
+  const [queuedTabTick, setQueuedTabTick] = useState(0);
+  useEffect(() => {
+    if (!queuedTabTick || tabSlideRef.current) return;
+    const queued = queuedTabRef.current;
+    queuedTabRef.current = "";
+    if (queued && queued !== activeTab) switchExploreTabRef.current?.(queued);
+  }, [queuedTabTick, activeTab]);
   commitExploreTabRef.current = commitExploreTab;
   leavingTabRef.current = leavingTab;
   clearTabDragStylesRef.current = clearTabDragStyles;
@@ -1269,14 +1280,9 @@ export default function Explore({ active = true, onNavigateMain, onScreenModeCha
             tabDragCleanupPendingRef.current = false;
             clearTabDragStylesRef.current?.();
           }, 600);
-          // A tab tapped during the slide follows, once this one has landed.
-          const queued = queuedTabRef.current;
-          queuedTabRef.current = "";
-          if (queued && queued !== tab) {
-            window.requestAnimationFrame(() => window.requestAnimationFrame(() => {
-              switchExploreTabRef.current?.(queued);
-            }));
-          }
+          // A tab tapped during the slide follows once this one has landed:
+          // the activeTab effect below runs it after the switch commits.
+          setQueuedTabTick((tick) => tick + 1);
         };
         const onEnd = (event) => {
           if (event.target === toNode && event.propertyName === "transform") finish();

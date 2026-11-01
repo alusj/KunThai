@@ -218,3 +218,61 @@ export function playExploreMedia(media, options) {
   pauseOtherExploreMedia(media, options);
   return media.play();
 }
+
+// Lock screen: a video or voice note that played with sound gave KunThai an
+// iOS "Now Playing" card (title, play button, scrubber) as soon as the phone
+// locked. Pausing is not enough, the card stays paused. Like TikTok and
+// Reels, KunThai lets go of its media whenever it leaves the screen: each
+// clip is paused, remembers where it was and drops its source, which ends the
+// media session and removes the card. Back on screen the sources and
+// positions return, and Swip's own resume loop starts the current clip again.
+const releasedMedia = new Map();
+
+export function releaseMediaWhileHidden() {
+  if (typeof document === "undefined") return;
+  document.querySelectorAll("audio, video").forEach((media) => {
+    const src = media.getAttribute("src");
+    if (!src || releasedMedia.has(media)) return;
+    releasedMedia.set(media, { src, time: Number.isFinite(media.currentTime) ? media.currentTime : 0 });
+    try {
+      media.pause();
+      media.removeAttribute("src");
+      media.load();
+    } catch {
+      // A media element that cannot be reset keeps its source.
+    }
+  });
+}
+
+export function restoreReleasedMedia() {
+  if (typeof document === "undefined") return;
+  releasedMedia.forEach(({ src, time }, media) => {
+    // A clip unmounted, or given a new source, while away is left as it is.
+    if (!media.isConnected || media.getAttribute("src")) return;
+    media.setAttribute("src", src);
+    if (time > 0) {
+      media.addEventListener("loadedmetadata", () => {
+        try {
+          media.currentTime = time;
+        } catch {
+          // Starts from the beginning instead.
+        }
+      }, { once: true });
+    }
+    media.load();
+  });
+  releasedMedia.clear();
+}
+
+export function installMediaReleaseOnHide() {
+  if (typeof window === "undefined" || window.__ktReleaseMedia) return;
+  // Also called by the iPhone app the moment KunThai stops being active
+  // (KunThaiBridgeViewController), before the page itself is told.
+  window.__ktReleaseMedia = releaseMediaWhileHidden;
+  window.__ktRestoreMedia = restoreReleasedMedia;
+  document.addEventListener("visibilitychange", () => {
+    if (document.visibilityState === "hidden") releaseMediaWhileHidden();
+    else restoreReleasedMedia();
+  });
+  window.addEventListener("pagehide", releaseMediaWhileHidden);
+}

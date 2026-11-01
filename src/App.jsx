@@ -533,11 +533,7 @@ export default function App() {
           // the view anchored inside the window while it slides.
           if (entering) pageScrollRef.current[leavingPage.to] = entering.scrollTop;
           setLeavingPage((current) => (current && current.to === leavingPage.to && current.page === leavingPage.page ? null : current));
-          const queued = queuedPageRef.current;
-          queuedPageRef.current = "";
-          if (queued && queued !== leavingPage.to) {
-            window.requestAnimationFrame(() => window.requestAnimationFrame(() => changePageRef.current?.(queued)));
-          }
+          // A screen tapped during the slide follows: see the effect below.
         };
         const onEnd = (event) => {
           if (event.target === entering && event.propertyName === "transform") finish();
@@ -554,6 +550,17 @@ export default function App() {
     // slide started (before React drew "running") arrives as "pending" again,
     // and a phase-keyed effect would not re-run, leaving it parked off-screen.
   }, [leavingPage]);
+
+  // A screen tapped while a slide ran follows once that slide has landed and
+  // committed, with this render's changePage. Called from the slide's own
+  // callback it could still see the old slide on a busy phone, put the tap
+  // back in the queue, and nothing ever ran it: the tab "did not respond".
+  useEffect(() => {
+    if (leavingPage) return;
+    const queued = queuedPageRef.current;
+    queuedPageRef.current = "";
+    if (queued && queued !== page) changePage(queued);
+  }, [leavingPage, page, changePage]);
 
   // Switches, tabs, radios, checkboxes and pickers give one tiny tick app-wide.
   useEffect(() => installSelectionHaptics(), []);
