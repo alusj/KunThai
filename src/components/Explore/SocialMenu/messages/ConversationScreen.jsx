@@ -1,5 +1,5 @@
 import AppBackTab from "../../../shared/AppBackTab";
-import { useEffect, useLayoutEffect, useRef, useState } from "react";
+import { useCallback, useEffect, useLayoutEffect, useRef, useState } from "react";
 import Avatar from "../../shared/Avatar";
 import {
   EXPLORE_MESSAGE_ACTIVITY_EVENT,
@@ -16,6 +16,11 @@ import { t as i18nText } from "../../../../i18n/index";
 import MessagePrivacyNotice from "../../../shared/MessagePrivacyNotice";
 import { uiText as translateUi, useI18n as useUiLocale } from "../../../../i18n/index.js";
 import { PRESENCE_LABEL_KEYS } from "../../../../Backend/services/explore/messageInboxModels.js";
+import { showToast } from "../../../../Backend/services/toastService";
+import MessageActionMenu from "../../../shared/messageActions/MessageActionMenu";
+import { copyMessageText, readMenuAnchor, revealMessage } from "../../../shared/messageActions/messageActionDom.js";
+import { DeleteMessageDialog } from "../../../shared/messageActions/MessageActionParts";
+import { canStillEdit, messageActionKeys } from "../../../shared/messageActions/messageActionModel.js";
 
 // Scrolling this close to the top of a thread loads the page before it.
 const LOAD_OLDER_THRESHOLD_PX = 80;
@@ -150,6 +155,93 @@ export default function ConversationScreen({
     threadRef: messagesRef,
   });
   const olderAnchorRef = useRef(null);
+  // The long-press menu (one per thread), the delete choice, and the reply or
+  // edit the composer is working on.
+  const [menu, setMenu] = useState(null);
+  const [deleteTarget, setDeleteTarget] = useState(null);
+  const [composerContext, setComposerContext] = useState(null);
+  const closeMenu = useCallback(() => setMenu(null), []);
+  const otherName = user.displayName || user.username || "This user";
+
+  useEffect(() => {
+    setMenu(null);
+    setDeleteTarget(null);
+    setComposerContext(null);
+  }, [conversation?.id]);
+
+  function authorOf(senderId) {
+    return senderId === currentUserId ? i18nText("messageActions.you") : otherName;
+  }
+
+  function snapshotOf(message) {
+    return { senderId: message.senderId, body: message.body, type: message.type };
+  }
+
+  function hasMapPoint(message) {
+    const metadata = message.metadata || {};
+    if (message.type === "location_share" && metadata.live) return false;
+    return (Number.isFinite(Number(metadata.lat ?? metadata.latitude)) && Number.isFinite(Number(metadata.lng ?? metadata.longitude)))
+      || /\((-?\d+(?:\.\d+)?),\s*(-?\d+(?:\.\d+)?)\)/.test(String(message.body || ""));
+  }
+
+  function openMenu(bubbleMessage, element) {
+    const message = messages.find((item) => item.id === bubbleMessage.id) || bubbleMessage;
+    const keys = messageActionKeys(
+      { id: message.id, text: message.body, type: message.type, createdAt: message.createdAt, deletedAt: message.deletedAt, pending: message.pending },
+      {
+        // Edit and delete for everyone: only messages this account sent (not
+        // a teammate's reply in a Space inbox).
+        mine: message.senderId === currentUserId,
+        canBlock: !peerIsSpace && !isMine(message),
+        hasMapPoint: hasMapPoint(message),
+      },
+    );
+    const placement = readMenuAnchor(element);
+    if (!keys.length || !placement) return;
+    setMenu({ ...placement, element, keys, align: isMine(message) ? "end" : "start", message });
+  }
+
+  async function runMenuAction(key) {
+    const message = menu?.message;
+    if (!message) return;
+    if (key === "reply") {
+      setComposerContext({ mode: "reply", message, author: authorOf(message.senderId), snapshot: snapshotOf(message) });
+    } else if (key === "copy") {
+      const copied = await copyMessageText(message.body);
+      if (copied) showToast(i18nText("messageActions.copied"), "success");
+    } else if (key === "edit") {
+      setComposerContext({ mode: "edit", message, snapshot: snapshotOf(message) });
+    } else if (key === "openArea") {
+      onAction?.("openSharedLocation", { message, userId: user.userId });
+    } else if (key === "delete") {
+      setDeleteTarget(message);
+    } else if (key === "deleteForMe") {
+      onAction?.("deleteMessage", { message, userId: user.userId, forEveryone: false });
+    } else if (key === "block") {
+      onAction?.("blockUser", { message, userId: user.userId });
+    }
+  }
+
+  async function sendWithContext(payload) {
+    const context = composerContext;
+    if (context?.mode === "edit") {
+      if (!canStillEdit(context.message)) {
+        setComposerContext(null);
+        return { ok: false, error: i18nText("messageActions.editExpired") };
+      }
+      const text = typeof payload === "string" ? payload : payload?.body;
+      const result = await onAction?.("editMessage", { message: context.message, body: text });
+      if (result?.ok !== false) setComposerContext(null);
+      return result;
+    }
+    if (context?.mode === "reply") {
+      const base = typeof payload === "string" ? { body: payload } : payload;
+      const result = await onSend?.({ ...base, replyToId: context.message.id, replySnapshot: context.snapshot });
+      if (result?.ok !== false) setComposerContext(null);
+      return result;
+    }
+    return onSend?.(payload);
+  }
 
   async function loadOlder() {
     const node = messagesRef.current;
@@ -264,26 +356,45 @@ export default function ConversationScreen({
             message={translateUi(message)}
             mine={isMine(message)}
             seen={message.id === lastSeenOwnMessageId}
+            selected={menu?.message?.id === message.id}
             senderLabel={teammateLabel(message)}
             canBlock={!peerIsSpace}
-            canDelete={message.senderId === currentUserId}
-            otherUserName={user.displayName || user.username || "This user"}
+            otherUserName={otherName}
+            quoteAuthor={message.replySnapshot ? authorOf(message.replySnapshot.senderId) : ""}
+            onLongPress={openMenu}
+            onOpenQuote={(replyToId) => revealMessage(messagesRef.current, replyToId)}
             onApproveLocationRequest={() => onAction?.("approveLocationRequest", { message, userId: user.userId })}
             onBlockUser={() => onAction?.("blockUser", { message, userId: user.userId })}
-            onDeleteMessage={() => onAction?.("deleteMessage", { message, userId: user.userId })}
             onOpenSharedLocation={() => onAction?.("openSharedLocation", { message, userId: user.userId })}
           />
         ))}
       </div>
 
       <MessageComposer
+        context={composerContext}
         focused={keyboard.focused}
         onAction={onAction}
         onActivity={onActivity}
+        onCancelContext={() => setComposerContext(null)}
         onInputBlur={keyboard.handleInputBlur}
         onInputFocus={keyboard.handleInputFocus}
         onInputPointerDown={keyboard.handleInputPointerDown}
-        onSend={onSend}
+        onSend={sendWithContext}
+      />
+      <MessageActionMenu
+        state={menu}
+        labels={{ openArea: t("messages.openAreaView"), block: t("messages.blockSender") }}
+        onClose={closeMenu}
+        onSelect={runMenuAction}
+      />
+      <DeleteMessageDialog
+        open={Boolean(deleteTarget)}
+        onClose={() => setDeleteTarget(null)}
+        onChoose={(choice) => {
+          const message = deleteTarget;
+          setDeleteTarget(null);
+          if (message) onAction?.("deleteMessage", { message, userId: user.userId, forEveryone: choice === "everyone" });
+        }}
       />
     </section>
   );

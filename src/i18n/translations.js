@@ -15,6 +15,7 @@ import { APPLE_IAP } from "./appleIap";
 import { GOOGLE_PLAY_BILLING } from "./googlePlayBilling";
 import { AI_CONSENT } from "./aiConsent";
 import { URRIDE_REQUESTS } from "./urrideRequests";
+import { MESSAGE_ACTIONS } from "./messageActions";
 import { AUTH_TERMS } from "./authTerms";
 import { VOICE_NOTES } from "./voiceNotes";
 import { APP_LOADING } from "./appLoading";
@@ -59713,6 +59714,12 @@ for (const [locale, section] of Object.entries(AI_CONSENT)) {
 for (const [locale, section] of Object.entries(URRIDE_REQUESTS)) {
   if (TRANSLATIONS[locale]) {
     TRANSLATIONS[locale].urrideRequests = section;
+  }
+}
+
+for (const [locale, section] of Object.entries(MESSAGE_ACTIONS)) {
+  if (TRANSLATIONS[locale]) {
+    TRANSLATIONS[locale].messageActions = section;
   }
 }
 

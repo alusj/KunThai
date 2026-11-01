@@ -2,6 +2,7 @@ import supabase from "../../lib/supabaseClient";
 import { t } from "../../../i18n";
 import { readRegisteredBusiness } from "./sellerRegistrationService";
 import { uploadMediaDataUrl } from "../explore/mediaService";
+import { fetchHiddenMarketplaceMessageIds, messageActionFields } from "./marketplaceMessageActionsService";
 
 function buildConversationKey(businessId, productId, topic = "") {
   return [businessId, productId || "marketplace", topic || "general"].join(":");
@@ -40,13 +41,16 @@ function groupMessages(messages) {
       mediaUrl: message.media_url || "",
       mediaType: message.media_type || "text",
       createdAt: message.created_at,
+      ...messageActionFields(message),
     });
     acc[key].unread = acc[key].unread || Boolean(message.unread && (message.sender_role || "buyer") === "buyer");
     acc[key].supportDispute = acc[key].supportDispute || Boolean(message.support_dispute);
     if (new Date(message.created_at).getTime() >= new Date(acc[key].time).getTime()) {
       // Replies continue the buyer's most recent product context.
       acc[key].time = message.created_at;
-      acc[key].preview = message.preview || (message.media_type === "audio" ? t("voiceNotes.voiceNote") : "");
+      acc[key].preview = message.deleted_at
+        ? t("messageActions.deleted")
+        : message.preview || (message.media_type === "audio" ? t("voiceNotes.voiceNote") : "");
       acc[key].conversationKey = conversationKey;
       acc[key].productId = message.product_id;
       acc[key].topic = message.topic || message.product_name || "UrMall message";
@@ -72,16 +76,20 @@ export async function fetchSellerCustomerCare() {
     return null;
   }
 
-  const { data, error } = await supabase
-    .from("marketplace_customer_messages")
-    .select("*")
-    .eq("business_id", business.id)
-    .order("created_at", { ascending: false })
-    .limit(400);
+  const [{ data, error }, hiddenIds] = await Promise.all([
+    supabase
+      .from("marketplace_customer_messages")
+      .select("*")
+      .eq("business_id", business.id)
+      .order("created_at", { ascending: false })
+      .limit(400),
+    fetchHiddenMarketplaceMessageIds(),
+  ]);
 
   if (error) throw new Error(error.message);
 
-  const messages = data || [];
+  // Messages this account deleted for itself stay out of its view.
+  const messages = (data || []).filter((message) => !hiddenIds.has(message.id));
   const conversations = groupMessages(messages);
 
   return {
@@ -106,7 +114,7 @@ export async function fetchSellerCustomerCare() {
   };
 }
 
-export async function sendSellerMarketplaceMessage(conversation, message, { mediaUrl = "", mediaType = "text" } = {}) {
+export async function sendSellerMarketplaceMessage(conversation, message, { mediaUrl = "", mediaType = "text", replyToId = "" } = {}) {
   const business = await readRegisteredBusiness();
   if (!business) throw new Error("Register a business before replying to buyers.");
   if (!conversation?.conversationKey) throw new Error("Choose a conversation to reply to.");
@@ -139,6 +147,7 @@ export async function sendSellerMarketplaceMessage(conversation, message, { medi
       unread: true,
       media_url: uploadedMediaUrl,
       media_type: uploadedMediaUrl ? mediaType || "image" : "text",
+      ...(replyToId ? { reply_to_id: replyToId } : {}),
     })
     .select()
     .single();
@@ -155,11 +164,13 @@ export async function sendSellerMarketplaceMessage(conversation, message, { medi
     mediaUrl: data.media_url || "",
     mediaType: data.media_type || "text",
     createdAt: data.created_at,
+    ...messageActionFields(data),
   };
 }
 
-// Live INSERT feed for this seller's buyer messages; returns an unsubscribe function.
-export async function subscribeSellerMarketplaceMessages(onMessage) {
+// Live feed of this seller's buyer messages: new ones, and edits or deletes
+// for everyone (options.onUpdate). Returns an unsubscribe function.
+export async function subscribeSellerMarketplaceMessages(onMessage, options = {}) {
   const business = await readRegisteredBusiness();
   if (!business) return () => {};
 
@@ -169,8 +180,15 @@ export async function subscribeSellerMarketplaceMessages(onMessage) {
       "postgres_changes",
       { event: "INSERT", schema: "public", table: "marketplace_customer_messages", filter: `business_id=eq.${business.id}` },
       (payload) => onMessage?.(payload.new),
-    )
-    .subscribe();
+    );
+  if (options.onUpdate) {
+    channel.on(
+      "postgres_changes",
+      { event: "UPDATE", schema: "public", table: "marketplace_customer_messages", filter: `business_id=eq.${business.id}` },
+      (payload) => options.onUpdate(payload.new),
+    );
+  }
+  channel.subscribe();
 
   return () => {
     supabase.removeChannel(channel);

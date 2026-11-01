@@ -2,7 +2,9 @@ import { useEffect, useMemo, useRef, useState } from "react";
 import {
   clearPendingConversationOpen,
   deleteExploreMessage,
+  deleteExploreMessageForEveryone,
   dedupeExploreConversations,
+  editExploreMessage,
   EXPLORE_MESSAGE_CACHE_CLEARED_EVENT,
   EXPLORE_OPEN_CONVERSATION_EVENT,
   EXPLORE_OPEN_SPACE_INBOX_EVENT,
@@ -32,6 +34,7 @@ import {
   filterBlockedMessages,
   isBlockedMessageError,
   mergeMessagePages,
+  messageActionFields,
   oldestMessageCursor,
 } from "../services/explore/messageInboxModels.js";
 import { haptics, sounds } from "../services/feedbackService";
@@ -72,10 +75,13 @@ function normalizeOutgoingMessage(input) {
     mediaUrl,
     metadata,
     type: mediaUrl || !["image", "audio", "video"].includes(type) ? type : "text",
+    replyToId: input?.replyToId || "",
+    replySnapshot: input?.replyToId ? input.replySnapshot || null : null,
   };
 }
 
 function getMessagePreview(message) {
+  if (message.deletedAt) return "This message was deleted";
   if (message.type === "location_request") return "Location request";
   if (message.type === "location_share") return "Location sharing";
   if (message.body) return message.body;
@@ -96,6 +102,7 @@ function normalizeIncomingMessage(row = {}) {
     metadata: typeof row.metadata === "string" ? safeParseObject(row.metadata) : row.metadata || {},
     read: Boolean(row.read),
     createdAt: row.created_at || row.createdAt || new Date().toISOString(),
+    ...messageActionFields(row),
   };
 }
 
@@ -506,6 +513,22 @@ export function useExploreMessages(currentProfile, initialRecipient) {
       scheduleConversationSync();
     }
 
+    function applyMessageUpdate(updatedMessage) {
+      if (activeConversationRef.current?.id === updatedMessage.conversationId) {
+        setMessages((current) => {
+          if (!current.some((message) => message.id === updatedMessage.id)) return current;
+          const nextMessages = current.map((message) => (message.id === updatedMessage.id ? { ...message, ...updatedMessage, pending: false } : message));
+          cacheConversationMessages(updatedMessage.conversationId, nextMessages);
+          return nextMessages;
+        });
+      }
+      setConversationList((current) => current.map((conversation) => (
+        conversation.id === updatedMessage.conversationId && conversation.lastMessage?.id === updatedMessage.id
+          ? { ...conversation, lastMessage: { ...conversation.lastMessage, ...updatedMessage }, preview: getMessagePreview(updatedMessage) }
+          : conversation
+      )));
+    }
+
     function applyIncomingMessage(incomingMessage) {
       if (!incomingMessage?.conversationId) return false;
       const preview = getMessagePreview(incomingMessage);
@@ -585,6 +608,13 @@ export function useExploreMessages(currentProfile, initialRecipient) {
           });
         }
         syncConversationsQuietly();
+        return;
+      }
+
+      // An edit, a delete for everyone or a read receipt changes a message
+      // in place: no new-message preview or unread count.
+      if (eventType === "UPDATE" && incomingRow?.id && (incomingRow.conversation_id || incomingRow.conversationId)) {
+        applyMessageUpdate(normalizeIncomingMessage(incomingRow));
         return;
       }
 
@@ -742,6 +772,8 @@ export function useExploreMessages(currentProfile, initialRecipient) {
       read: false,
       createdAt: new Date().toISOString(),
       pending: true,
+      replyToId: draft.replyToId,
+      replySnapshot: draft.replySnapshot,
     };
     const preview = getMessagePreview(tempMessage);
 
@@ -787,26 +819,39 @@ export function useExploreMessages(currentProfile, initialRecipient) {
     }
   }
 
-  async function deleteConversationMessage(message) {
+  // forEveryone: my own message is replaced by "This message was deleted"
+  // for both people. Otherwise it is hidden for this account only.
+  async function deleteConversationMessage(message, { forEveryone = false } = {}) {
     const messageId = message?.id;
     const conversationId = message?.conversationId || activeConversation?.id;
     if (!messageId || !conversationId) return { ok: false, error: "Unable to identify this message." };
+    if (forEveryone && message.senderId !== currentUserId) return { ok: false, error: "Only your own messages can be deleted for everyone." };
 
     const previousMessages = messages;
-    const nextMessages = previousMessages.filter((item) => item.id !== messageId);
+    const nextMessages = forEveryone
+      ? previousMessages.map((item) => (item.id === messageId
+        ? { ...item, body: "", mediaUrl: "", type: "text", deletedAt: new Date().toISOString() }
+        : item))
+      : previousMessages.filter((item) => item.id !== messageId);
     setMessages(nextMessages);
     cacheConversationMessages(conversationId, nextMessages);
 
     try {
-      // Only your own messages can be deleted for everyone; anyone else's
-      // (including a teammate's reply in a Space inbox) is hidden for you.
-      await deleteExploreMessage(message, currentUserId, {
-        cacheKey,
-        forEveryone: message.senderId === currentUserId,
-      });
-      showToast(message.senderId === currentUserId ? "Message deleted." : "Message hidden for you", "info", {
-        title: "Message action",
-      });
+      if (forEveryone) {
+        const saved = await deleteExploreMessageForEveryone(message, currentUserId, { cacheKey });
+        setMessages((current) => {
+          const merged = current.map((item) => (item.id === messageId ? { ...item, ...saved } : item));
+          cacheConversationMessages(conversationId, merged);
+          return merged;
+        });
+        patchConversation(conversationId, (conversation) => (
+          conversation.lastMessage?.id === messageId ? { lastMessage: { ...conversation.lastMessage, ...saved } } : {}
+        ));
+        showToast(i18nText("messageActions.deletedToast"), "info");
+        return { ok: true };
+      }
+      await deleteExploreMessage(message, currentUserId, { cacheKey, forEveryone: false });
+      showToast(i18nText("messageActions.hiddenToast"), "info");
       patchConversation(conversationId, (conversation) => (
         conversation.lastMessage?.id === messageId
           ? { lastMessage: nextMessages[nextMessages.length - 1] || null }
@@ -816,9 +861,43 @@ export function useExploreMessages(currentProfile, initialRecipient) {
     } catch (err) {
       setMessages(previousMessages);
       cacheConversationMessages(conversationId, previousMessages);
-      return { ok: false, error: friendlyMessageError(err) };
+      const expired = /24 hours/i.test(String(err?.message || ""));
+      showToast(expired ? i18nText("messageActions.deleteExpired") : i18nText("messageActions.deleteFailed"), "danger");
+      return { ok: false, error: friendlyMessageError(err), notified: true };
     }
   }
+
+  async function editConversationMessage(message, body) {
+    const text = String(body || "").trim();
+    const conversationId = message?.conversationId || activeConversation?.id;
+    if (!message?.id || !conversationId || !text) return { ok: false, error: i18nText("messageActions.editFailed") };
+    if (text === message.body) return { ok: true };
+
+    const previousMessages = messages;
+    const nextMessages = previousMessages.map((item) => (item.id === message.id ? { ...item, body: text, editedAt: new Date().toISOString() } : item));
+    setMessages(nextMessages);
+    cacheConversationMessages(conversationId, nextMessages);
+
+    try {
+      const saved = await editExploreMessage(message, text, currentUserId, { cacheKey });
+      setMessages((current) => {
+        const merged = current.map((item) => (item.id === message.id ? { ...item, ...saved } : item));
+        cacheConversationMessages(conversationId, merged);
+        return merged;
+      });
+      patchConversation(conversationId, (conversation) => (
+        conversation.lastMessage?.id === message.id ? { lastMessage: { ...conversation.lastMessage, ...saved }, preview: saved.body } : {}
+      ));
+      return { ok: true };
+    } catch (err) {
+      setMessages(previousMessages);
+      cacheConversationMessages(conversationId, previousMessages);
+      const expired = /15 minutes/i.test(String(err?.message || ""));
+      showToast(expired ? i18nText("messageActions.editExpired") : i18nText("messageActions.editFailed"), "danger");
+      return { ok: false, error: expired ? i18nText("messageActions.editExpired") : i18nText("messageActions.editFailed"), notified: true };
+    }
+  }
+
 
   function setActivity(activity) {
     const settings = readExploreSettings().messages;
@@ -975,7 +1054,11 @@ export function useExploreMessages(currentProfile, initialRecipient) {
     }
 
     if (action === "deleteMessage") {
-      return deleteConversationMessage(payload.message);
+      return deleteConversationMessage(payload.message, { forEveryone: payload.forEveryone === true });
+    }
+
+    if (action === "editMessage") {
+      return editConversationMessage(payload.message, payload.body);
     }
 
     return { ok: false, error: "This message action is not available." };

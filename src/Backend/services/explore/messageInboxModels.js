@@ -122,6 +122,18 @@ function parseMetadata(value) {
   }
 }
 
+// Reply, edit and delete-for-everyone state of a message row (database or
+// already-normalized shape).
+export function messageActionFields(row = {}) {
+  const snapshot = row.reply_snapshot ?? row.replySnapshot ?? null;
+  return {
+    replyToId: row.reply_to_id || row.replyToId || "",
+    replySnapshot: typeof snapshot === "string" ? parseMetadata(snapshot) : snapshot,
+    editedAt: row.edited_at || row.editedAt || "",
+    deletedAt: row.deleted_at || row.deletedAt || "",
+  };
+}
+
 export function normalizeMessageRow(row = {}) {
   return {
     id: row.id,
@@ -133,6 +145,7 @@ export function normalizeMessageRow(row = {}) {
     metadata: parseMetadata(row.metadata),
     read: Boolean(row.read),
     createdAt: row.created_at || row.createdAt || new Date(0).toISOString(),
+    ...messageActionFields(row),
   };
 }
 
@@ -175,10 +188,11 @@ export function oldestMessageCursor(messages = []) {
   )).createdAt;
 }
 
-// The translation key (under exploreMessagesFix) and values for a message
-// preview, or { text } when the message carries its own words.
+// The translation key (under exploreMessagesFix, or `namespace`) and values
+// for a message preview, or { text } when the message carries its own words.
 export function messagePreviewParts(message) {
   if (!message) return { key: "" };
+  if (message.deletedAt) return { namespace: "messageActions", key: "deleted" };
   const metadata = message.metadata || {};
   if (message.type === "location_request") return { key: "previewLocationRequest" };
   if (message.type === "location_share") return { key: "previewLocationShared" };

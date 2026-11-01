@@ -1,6 +1,12 @@
 import supabase from "../../lib/supabaseClient";
 import { cachedQuery, invalidateCache } from "../../lib/queryCache";
 import {
+  fetchHiddenMarketplaceMessageIds,
+  isMissingActionColumn,
+  MESSAGE_ACTION_COLUMNS,
+  messageActionFields,
+} from "./marketplaceMessageActionsService";
+import {
   filterCountryScopedItems,
   getActiveCountryProfile,
   getCountryCurrencyCode,
@@ -1477,20 +1483,31 @@ export async function fetchBuyerMessages() {
   }, BUYER_DASHBOARD_TTL_MS);
 }
 
-async function loadBuyerMessages(buyerId) {
-  const { data, error } = await supabase
+function selectBuyerMessages(buyerId, withActions) {
+  return supabase
     .from("marketplace_customer_messages")
     .select(
       `
         id,business_id,product_id,buyer_name,topic,preview,product_name,message_type,unread,support_dispute,created_at,
-        conversation_key,sender_role,media_url,media_type,
+        conversation_key,sender_role,media_url,media_type,${withActions ? `${MESSAGE_ACTION_COLUMNS},` : ""}
         marketplace_businesses (id,business_name,city,country,logo_url)
       `,
     )
     .eq("buyer_id", buyerId)
     .order("created_at", { ascending: false });
+}
+
+async function loadBuyerMessages(buyerId) {
+  const [result, hiddenIds] = await Promise.all([
+    selectBuyerMessages(buyerId, true),
+    fetchHiddenMarketplaceMessageIds(),
+  ]);
+  let { data, error } = result;
+  // Before the message-actions migration: read without its columns.
+  if (error && isMissingActionColumn(error)) ({ data, error } = await selectBuyerMessages(buyerId, false));
 
   if (error) throw new Error(error.message);
+  data = (data || []).filter((message) => !hiddenIds.has(message.id));
 
   const grouped = (data || []).reduce((acc, message) => {
     const business = message.marketplace_businesses || {};
@@ -1526,12 +1543,15 @@ async function loadBuyerMessages(buyerId) {
       mediaUrl: message.media_url || "",
       mediaType: message.media_type || "text",
       createdAt: message.created_at,
+      ...messageActionFields(message),
     });
     acc[key].unread = acc[key].unread || Boolean(message.unread && message.sender_role === "seller");
     acc[key].supportDispute = acc[key].supportDispute || Boolean(message.support_dispute);
     if (new Date(message.created_at).getTime() >= new Date(acc[key].createdAt).getTime()) {
       acc[key].createdAt = message.created_at;
-      acc[key].preview = message.preview || (message.media_type === "audio" ? t("voiceNotes.voiceNote") : "");
+      acc[key].preview = message.deleted_at
+        ? t("messageActions.deleted")
+        : message.preview || (message.media_type === "audio" ? t("voiceNotes.voiceNote") : "");
       acc[key].conversationKey = messageConversationKey;
       acc[key].productId = message.product_id;
       acc[key].topic = message.topic || message.product_name || "UrMall message";
@@ -1568,7 +1588,7 @@ export async function markBuyerMarketplaceConversationRead(conversation) {
   window.dispatchEvent(new CustomEvent("marketplace-seller-messages-updated"));
 }
 
-export async function sendBuyerMarketplaceMessage({ seller, product, topic, message, messageType = "message", mediaUrl = "", mediaType = "text" }) {
+export async function sendBuyerMarketplaceMessage({ seller, product, topic, message, messageType = "message", mediaUrl = "", mediaType = "text", replyToId = "" }) {
   const buyer = await getCurrentBuyer("Sign in to message this seller.");
   const businessId = seller?.id || product?.businessId;
   if (!businessId) throw new Error("Choose a seller to message.");
@@ -1595,6 +1615,7 @@ export async function sendBuyerMarketplaceMessage({ seller, product, topic, mess
       unread: true,
       media_url: uploadedMediaUrl,
       media_type: uploadedMediaUrl ? mediaType || "image" : "text",
+      ...(replyToId ? { reply_to_id: replyToId } : {}),
     })
     .select()
     .single();
@@ -1614,13 +1635,15 @@ export async function sendBuyerMarketplaceMessage({ seller, product, topic, mess
     mediaUrl: data.media_url || "",
     mediaType: data.media_type || "text",
     createdAt: data.created_at,
+    ...messageActionFields(data),
   };
 }
 
 let buyerMessageChannelSequence = 0;
 
-// Live INSERT feed for this buyer's marketplace messages; returns an unsubscribe function.
-export async function subscribeBuyerMarketplaceMessages(onMessage) {
+// Live INSERT feed for this buyer's marketplace messages; returns an unsubscribe
+// function. options.onUpdate also hears edits and deletes for everyone.
+export async function subscribeBuyerMarketplaceMessages(onMessage, options = {}) {
   const buyerId = await getCurrentUserId("Sign in to view your messages.");
   // Its own topic each time: the activity host and the Messages screen both
   // subscribe, and a shared topic made leaving Messages remove the host's
@@ -1630,9 +1653,22 @@ export async function subscribeBuyerMarketplaceMessages(onMessage) {
     .on(
       "postgres_changes",
       { event: "INSERT", schema: "public", table: "marketplace_customer_messages", filter: `buyer_id=eq.${buyerId}` },
-      (payload) => onMessage?.(payload.new),
-    )
-    .subscribe();
+      (payload) => {
+        invalidateCache("buyer-messages");
+        onMessage?.(payload.new);
+      },
+    );
+  if (options.onUpdate) {
+    channel.on(
+      "postgres_changes",
+      { event: "UPDATE", schema: "public", table: "marketplace_customer_messages", filter: `buyer_id=eq.${buyerId}` },
+      (payload) => {
+        invalidateCache("buyer-messages");
+        options.onUpdate(payload.new);
+      },
+    );
+  }
+  channel.subscribe();
 
   return () => {
     supabase.removeChannel(channel);

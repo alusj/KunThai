@@ -1685,6 +1685,65 @@
   transform-origin: top right;
 }
 
+/* Chat bubbles open their action menu on a long press. The phone's own
+   select/copy callout and image drag would fight that gesture. */
+.kt-message-pressable {
+  -webkit-touch-callout: none;
+  -webkit-user-select: none;
+  user-select: none;
+  -webkit-tap-highlight-color: transparent;
+  transition: transform 160ms var(--kt-ease-standard), box-shadow 160ms var(--kt-ease-standard);
+}
+
+/* The menu opens under a finger still held down: the phone must not select
+   its words. */
+.kt-message-menu-layer {
+  -webkit-touch-callout: none;
+  -webkit-user-select: none;
+  user-select: none;
+  -webkit-tap-highlight-color: transparent;
+}
+
+.kt-message-pressable img {
+  -webkit-user-drag: none;
+}
+
+.kt-message-pressable[data-pressing="true"] {
+  transform: scale(0.97);
+}
+
+.kt-message-pressable[data-selected="true"] {
+  box-shadow: 0 0 0 3px rgba(14, 165, 233, 0.55);
+}
+
+.kt-message-flash {
+  animation: kt-message-flash 1200ms ease-out;
+}
+
+.kt-message-menu-pop {
+  animation: kt-message-menu-pop 160ms var(--kt-ease-emphasized) both;
+}
+
+@keyframes kt-message-flash {
+  0%, 40% {
+    box-shadow: 0 0 0 4px rgba(14, 165, 233, 0.6);
+  }
+  100% {
+    box-shadow: 0 0 0 0 rgba(14, 165, 233, 0);
+  }
+}
+
+@keyframes kt-message-menu-pop {
+  from {
+    opacity: 0;
+    transform: scale(0.94);
+  }
+  to {
+    opacity: 1;
+    transform: scale(1);
+  }
+}
+
 .kt-area-card-expand-in {
   animation: kt-area-card-expand-in 260ms var(--kt-ease-emphasized) both;
   transform-origin: bottom right;

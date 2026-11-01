@@ -1,5 +1,6 @@
 import { useEffect, useRef, useState } from "react";
 import {
+  HiOutlineCheck,
   HiOutlineEllipsisHorizontal,
   HiOutlineMapPin,
   HiOutlineMicrophone,
@@ -23,6 +24,7 @@ import { LiveRecordingStrip } from "../../../shared/recording/LiveRecording";
 import { useVoiceRecorder } from "../../../shared/voice/useVoiceRecorder";
 import { VoiceNoteDraft } from "../../../shared/voice/VoiceNotePlayer";
 import LiveShareDurationSheet from "../../../shared/liveLocation/LiveShareDurationSheet";
+import { ComposerContextBar } from "../../../shared/messageActions/MessageActionParts";
 
 function readFileAsDataUrl(file) {
   return new Promise((resolve, reject) => {
@@ -33,7 +35,9 @@ function readFileAsDataUrl(file) {
   });
 }
 
-export default function MessageComposer({ focused = false, onAction, onActivity, onInputBlur, onInputFocus, onInputPointerDown, onSend }) {
+// context: the message being replied to or edited ({ mode, message, author,
+// snapshot }); onSend then carries the reply or saves the edit.
+export default function MessageComposer({ context = null, focused = false, onAction, onActivity, onCancelContext, onInputBlur, onInputFocus, onInputPointerDown, onSend }) {
   const { t } = useI18n();
   const messageSettings = readExploreSettings().messages;
   const showTypingStatus = messageSettings.showTypingStatus !== false;
@@ -45,6 +49,9 @@ export default function MessageComposer({ focused = false, onAction, onActivity,
   const [actionsOpen, setActionsOpen] = useState(false);
   const [liveSheetOpen, setLiveSheetOpen] = useState(false);
   const fileInputRef = useRef(null);
+  const inputRef = useRef(null);
+  const editing = context?.mode === "edit";
+  const contextKey = context ? `${context.mode}:${context.message?.id}` : "";
   const voice = useVoiceRecorder({
     module: "messages",
     onActivity,
@@ -55,6 +62,25 @@ export default function MessageComposer({ focused = false, onAction, onActivity,
     onError: (message) => setNotice(message),
   });
   const recording = voice.recording;
+
+  // Editing puts the message's words in the box; replying keeps the draft.
+  // Either way the box gets the focus.
+  useEffect(() => {
+    if (!contextKey) return;
+    if (context.mode === "edit") {
+      setValue(context.message?.body || "");
+      setAttachment(null);
+      setActionsOpen(false);
+    }
+    inputRef.current?.focus();
+    // contextKey names the message; context itself is a new object each render.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [contextKey]);
+
+  function cancelContext() {
+    if (editing) setValue("");
+    onCancelContext?.();
+  }
 
   // Keep the "recording…" status fresh for the other person while recording.
   useEffect(() => {
@@ -167,6 +193,7 @@ export default function MessageComposer({ focused = false, onAction, onActivity,
       className="kt-message-composer border-t border-slate-200 bg-white px-3 pt-3 shadow-[0_-10px_30px_rgba(15,23,42,0.05)]"
       data-focused={focused ? "true" : "false"}
     >
+      <ComposerContextBar context={context} onCancel={cancelContext} />
       {attachment?.type === "audio" ? (
         <VoiceNoteDraft
           className="mb-2"
@@ -238,6 +265,7 @@ export default function MessageComposer({ focused = false, onAction, onActivity,
 
       <div className="kt-message-composer-row flex items-center gap-2">
       <input ref={fileInputRef} type="file" accept="image/*" className="hidden" onChange={handleImageSelected} />
+      {editing ? null : (
       <button
         type="button"
         onClick={() => fileInputRef.current?.click()}
@@ -246,6 +274,7 @@ export default function MessageComposer({ focused = false, onAction, onActivity,
       >
         <HiOutlinePhoto />
       </button>
+      )}
       {recording ? (
         <LiveRecordingStrip
           stream={voice.stream}
@@ -256,6 +285,7 @@ export default function MessageComposer({ focused = false, onAction, onActivity,
         />
       ) : (
       <input
+        ref={inputRef}
         value={value}
         onChange={(event) => updateValue(event.target.value)}
         onPointerDown={onInputPointerDown}
@@ -267,7 +297,7 @@ export default function MessageComposer({ focused = false, onAction, onActivity,
         className="h-11 min-w-0 flex-1 rounded-2xl border border-transparent bg-slate-100 px-4 text-sm font-semibold text-slate-900 outline-none transition focus:border-sky-300 focus:bg-white focus:ring-4 focus:ring-sky-100"
       />
       )}
-      {allowVoiceNotes ? (
+      {allowVoiceNotes && !editing ? (
         <button
           type="button"
           onClick={toggleRecording}
@@ -277,6 +307,7 @@ export default function MessageComposer({ focused = false, onAction, onActivity,
           {recording ? <HiStop /> : <HiOutlineMicrophone />}
         </button>
       ) : null}
+      {editing ? null : (
       <button
         type="button"
         onClick={() => setActionsOpen((current) => !current)}
@@ -288,13 +319,14 @@ export default function MessageComposer({ focused = false, onAction, onActivity,
       >
         <HiOutlineEllipsisHorizontal />
       </button>
+      )}
       <button
         type="submit"
         disabled={!canSend}
         className="flex h-11 w-11 items-center justify-center rounded-2xl bg-slate-950 text-white disabled:bg-slate-200 disabled:text-slate-400"
-        aria-label={t("messages.sendMessage")}
+        aria-label={editing ? i18nText("messageActions.save") : t("messages.sendMessage")}
       >
-        <HiOutlinePaperAirplane />
+        {editing ? <HiOutlineCheck /> : <HiOutlinePaperAirplane />}
       </button>
       </div>
       <LiveShareDurationSheet

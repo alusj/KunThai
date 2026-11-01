@@ -1,21 +1,19 @@
 import { useSellerCustomerCare } from "../../../../../Backend/hooks/useSellerCustomerCare";
-import MessageImage from "../../../../shared/MessageImage";
 import { LiveRecordingStrip } from "../../../../shared/recording/LiveRecording";
 import { useVoiceRecorder } from "../../../../shared/voice/useVoiceRecorder";
-import VoiceNotePlayer, { VoiceNoteDraft } from "../../../../shared/voice/VoiceNotePlayer";
+import { VoiceNoteDraft } from "../../../../shared/voice/VoiceNotePlayer";
 import VoiceRecordButton from "../../../../shared/voice/VoiceRecordButton";
 import RecentConversations from "./RecentConversations";
 import { useEffect, useMemo, useRef, useState } from "react";
 import AiAssistButton from "../../../../ai/AiAssistButton";
 import { fetchBuyerProductForAssistant } from "../../../../../Backend/services/marketplace/buyerMarketplaceService";
 import { productFactsForAi } from "../../../../../Backend/services/ai/urmallAiModels";
-import { ImagePlus, Send, X } from "lucide-react";
+import { Check, ImagePlus, Send, X } from "lucide-react";
 import {
   markSellerConversationRead,
   sendSellerMarketplaceMessage,
   subscribeSellerMarketplaceMessages,
 } from "../../../../../Backend/services/marketplace/sellerCustomerCareService";
-import { formatMessageTime } from "../../../../../Backend/utils/formatMessageTime";
 import { optimizeImageFile } from "../../../../../Backend/services/marketplace/imageOptimization";
 import { inlineErrorMessage } from "../../../../../Backend/services/friendlyErrorService";
 import { useI18n, t } from "../../../../../i18n";
@@ -26,6 +24,9 @@ import { useAiScreen } from "../../../../../Backend/services/ai/aiScreenContext"
 import { t as i18nText } from "../../../../../i18n/index";
 import AppPortal from "../../../../shared/AppPortal";
 import { NAV_TRANSITION_MS } from "../../../../shared/navigationMotion";
+import { useMarketplaceMessageActions } from "../../../../../Backend/hooks/useMarketplaceMessageActions";
+import { ComposerContextBar } from "../../../../shared/messageActions/MessageActionParts";
+import MarketplaceChatMessages from "../../../MarketplaceChatMessages";
 
 const CONVERSATION_TRANSITION_MS = NAV_TRANSITION_MS;
 
@@ -62,6 +63,7 @@ export default function CustomerCare({ onBack } = {}) {
   const [echoes, setEchoes] = useState([]);
   const transitionTimerRef = useRef(null);
   const fileInputRef = useRef(null);
+  const replyInputRef = useRef(null);
   const threadScrollRef = useRef(null);
   const threadEndRef = useRef(null);
   const standalone = Boolean(onBack);
@@ -81,6 +83,23 @@ export default function CustomerCare({ onBack } = {}) {
       .map((echo) => echo.message);
     return [...serverMessages, ...pending].sort((a, b) => new Date(a.createdAt) - new Date(b.createdAt));
   }, [echoes, visibleConversation]);
+  const chat = useMarketplaceMessageActions({
+    myRole: "seller",
+    otherName: visibleConversation?.buyerName || t("urmall.biz.stats.buyer"),
+    threadKey: visibleConversation?.id || "",
+    onChanged: () => reload?.(),
+  });
+  const chatContextKey = chat.context ? `${chat.context.mode}:${chat.context.message.id}` : "";
+  useEffect(() => {
+    if (!chatContextKey) return;
+    if (chat.context.mode === "edit") {
+      setReply(chat.context.message.text || "");
+      setAttachment(null);
+    }
+    replyInputRef.current?.focus();
+    // chatContextKey names the message being replied to or edited.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [chatContextKey]);
   const keyboard = useKeyboardAwareConversation({
     activeKey: visibleConversation?.id || "",
     itemCount: threadMessages.length,
@@ -128,7 +147,12 @@ export default function CustomerCare({ onBack } = {}) {
     let unsubscribe = null;
     let active = true;
 
-    subscribeSellerMarketplaceMessages(() => reload?.())
+    subscribeSellerMarketplaceMessages(() => reload?.(), {
+      // Edits and deletes for everyone from the buyer (not read receipts).
+      onUpdate: (row) => {
+        if (row?.edited_at || row?.deleted_at) reload?.();
+      },
+    })
       .then((cleanup) => {
         if (active) {
           unsubscribe = cleanup;
@@ -227,14 +251,20 @@ export default function CustomerCare({ onBack } = {}) {
   async function sendReply(event) {
     event.preventDefault();
     const text = reply.trim();
+    if (chat.editing) {
+      if (!text) return;
+      setReply("");
+      await chat.submitEdit(text);
+      return;
+    }
     if ((!text && !attachment) || !activeConversation || sending) return;
-    await deliverReply(text, attachment);
+    await deliverReply(text, attachment, { replyTo: chat.replyFields() });
   }
 
   // The one way a reply is sent — from the reply box, or from a KAI suggestion
   // the person pressed Send on (fromAssistant: the reply box is left as it is,
   // and a failure is reported back to KAI's card).
-  async function deliverReply(text, pendingAttachment, { fromAssistant = false } = {}) {
+  async function deliverReply(text, pendingAttachment, { fromAssistant = false, replyTo = {} } = {}) {
     const conversation = activeConversation;
     if ((!text && !pendingAttachment) || !conversation) {
       if (fromAssistant) throw new Error(t("urmall.biz.care.sendFail"));
@@ -250,6 +280,8 @@ export default function CustomerCare({ onBack } = {}) {
       mediaType: pendingAttachment ? (pendingAttachment.kind === "audio" ? "audio" : "image") : "text",
       createdAt: new Date().toISOString(),
       pending: true,
+      replyToId: replyTo.replyToId || "",
+      replySnapshot: replyTo.replySnapshot || null,
     };
 
     setEchoes((current) => [...current, { conversationId: conversation.id, message: optimisticMessage }]);
@@ -264,7 +296,9 @@ export default function CustomerCare({ onBack } = {}) {
       const savedMessage = await sendSellerMarketplaceMessage(conversation, text, {
         mediaUrl: pendingAttachment?.dataUrl || "",
         mediaType: pendingAttachment?.kind === "audio" ? "audio" : "image",
+        replyToId: replyTo.replyToId || "",
       });
+      if (replyTo.replyToId) chat.cancelContext();
       setEchoes((current) =>
         current.map((echo) => (echo.message.id === tempId ? { ...echo, message: savedMessage } : echo)),
       );
@@ -363,37 +397,14 @@ export default function CustomerCare({ onBack } = {}) {
         <MessagePrivacyNotice compact variant="urmall" />
 
         <div ref={threadScrollRef} className="kt-message-thread space-y-3 px-4 py-4 sm:px-6 lg:px-8">
-          {threadMessages.map((message) => {
-            const fromSeller = message.from === "seller";
-
-            return (
-              <div
-                key={message.id}
-                className={`max-w-[86%] rounded-2xl px-4 py-3 text-sm font-medium shadow-sm ${
-                  fromSeller
-                    ? "ml-auto bg-emerald-600 text-white"
-                    : "border border-gray-200 bg-white text-gray-700"
-                }`}
-              >
-                {message.mediaType === "image" && message.mediaUrl ? (
-                  <MessageImage mediaUrl={message.mediaUrl} alt={t("urmall.biz.care.msgAttachment")} pending={message.pending} className="mb-2" />
-                ) : null}
-                {message.mediaType === "audio" && message.mediaUrl ? (
-                  <VoiceNotePlayer
-                    src={message.mediaUrl}
-                    seed={message.id}
-                    loading={message.pending}
-                    tone={fromSeller ? "emerald" : "light"}
-                    className={message.text ? "mb-2" : ""}
-                  />
-                ) : null}
-                {message.text ? <p>{message.text}</p> : null}
-                <span className={`mt-1 block text-[10px] font-bold ${fromSeller ? "text-white/70" : "text-gray-400"}`}>
-                  {message.pending ? t("urmall.biz.care.sendingMsg") : formatMessageTime(message.createdAt)}
-                </span>
-              </div>
-            );
-          })}
+          <MarketplaceChatMessages
+            messages={chat.visible(threadMessages)}
+            myRole="seller"
+            chat={chat}
+            threadRef={threadScrollRef}
+            attachmentAlt={t("urmall.biz.care.msgAttachment")}
+            sendingLabel={t("urmall.biz.care.sendingMsg")}
+          />
           <div ref={threadEndRef} />
         </div>
 
@@ -404,6 +415,14 @@ export default function CustomerCare({ onBack } = {}) {
           className="kt-message-composer border-t border-gray-200 bg-white px-3 pt-3 shadow-[0_-10px_30px_rgba(15,23,42,0.05)]"
           data-focused={keyboard.focused ? "true" : "false"}
         >
+          <ComposerContextBar
+            context={chat.context}
+            accent="emerald"
+            onCancel={() => {
+              if (chat.editing) setReply("");
+              chat.cancelContext();
+            }}
+          />
           {attachment?.kind === "audio" ? (
             <VoiceNoteDraft
               className="mb-2"
@@ -428,15 +447,19 @@ export default function CustomerCare({ onBack } = {}) {
           ) : null}
           <div className="kt-message-composer-row flex w-full gap-2">
             <input ref={fileInputRef} type="file" accept="image/*" className="hidden" onChange={handleImageSelected} />
-            <button
-              type="button"
-              onClick={() => fileInputRef.current?.click()}
-              className="flex h-10 w-10 shrink-0 items-center justify-center rounded-lg bg-gray-100 text-gray-500 hover:bg-gray-200"
-              aria-label={t("urmall.biz.care.attachImage")}
-            >
-              <ImagePlus size={18} />
-            </button>
-            <AiAssistButton size="icon" getRequest={() => buildReplyAiRequest(conversation)} label={t("ai.seller.draftReply")} />
+            {chat.editing ? null : (
+              <>
+                <button
+                  type="button"
+                  onClick={() => fileInputRef.current?.click()}
+                  className="flex h-10 w-10 shrink-0 items-center justify-center rounded-lg bg-gray-100 text-gray-500 hover:bg-gray-200"
+                  aria-label={t("urmall.biz.care.attachImage")}
+                >
+                  <ImagePlus size={18} />
+                </button>
+                <AiAssistButton size="icon" getRequest={() => buildReplyAiRequest(conversation)} label={t("ai.seller.draftReply")} />
+              </>
+            )}
             {voice.recording ? (
               <LiveRecordingStrip
                 stream={voice.stream}
@@ -447,6 +470,7 @@ export default function CustomerCare({ onBack } = {}) {
               />
             ) : (
               <input
+                ref={replyInputRef}
                 value={reply}
                 onChange={(event) => setReply(event.target.value)}
                 onPointerDown={keyboard.handleInputPointerDown}
@@ -458,7 +482,7 @@ export default function CustomerCare({ onBack } = {}) {
                 className="min-w-0 flex-1 rounded-2xl border border-gray-200 bg-gray-50 px-3 py-2 text-sm font-semibold outline-none transition focus:border-emerald-400 focus:bg-white focus:ring-4 focus:ring-emerald-100"
               />
             )}
-            {voice.supported ? (
+            {voice.supported && !chat.editing ? (
               <VoiceRecordButton
                 recording={voice.recording}
                 disabled={sending}
@@ -471,11 +495,11 @@ export default function CustomerCare({ onBack } = {}) {
             <button
               type="submit"
               disabled={!canSend}
-              aria-label={t("urmall.biz.care.reply")}
+              aria-label={chat.editing ? i18nText("messageActions.save") : t("urmall.biz.care.reply")}
               className="inline-flex h-10 shrink-0 items-center gap-2 rounded-lg bg-emerald-600 px-3 text-sm sm:px-4 font-black text-white hover:bg-emerald-700 disabled:cursor-not-allowed disabled:opacity-50"
             >
-              <Send size={16} />
-              <span className="hidden sm:inline">{t("urmall.biz.care.reply")}</span>
+              {chat.editing ? <Check size={16} /> : <Send size={16} />}
+              <span className="hidden sm:inline">{chat.editing ? i18nText("messageActions.save") : t("urmall.biz.care.reply")}</span>
             </button>
           </div>
         </form>

@@ -2,6 +2,7 @@ import supabase from "../../lib/supabaseClient";
 import { dataUrlToBlob, uploadMediaDataUrl } from "./mediaService";
 import {
   buildMessageMediaPath,
+  messageActionFields,
   MESSAGE_MEDIA_BUCKET,
   MESSAGE_PAGE_SIZE,
   normalizeInboxRow,
@@ -252,6 +253,7 @@ function normalizeMessage(row) {
     metadata: typeof row.metadata === "string" ? safeParse(row.metadata, {}) : row.metadata || {},
     read: Boolean(row.read),
     createdAt: row.created_at || row.createdAt || new Date().toISOString(),
+    ...messageActionFields(row),
   };
 }
 
@@ -291,6 +293,10 @@ function normalizeMessageInput(input) {
     mediaUrl,
     metadata,
     type: mediaUrl || !["image", "audio", "video"].includes(type) ? type : "text",
+    // A reply: the database checks the quoted message and writes its own
+    // snapshot; this one only shows until the saved row arrives.
+    replyToId: isUuid(input?.replyToId) ? input.replyToId : "",
+    replySnapshot: isUuid(input?.replyToId) && input?.replySnapshot ? input.replySnapshot : null,
   };
 }
 
@@ -329,6 +335,7 @@ async function getMessageActorMetadata(senderProfile, senderId) {
 }
 
 function getMessagePreview(message) {
+  if (message.deletedAt) return "This message was deleted";
   if (message.type === "location_request") return "Location request";
   if (message.type === "location_share") return "Location sharing";
   if (message.body) return message.body;
@@ -343,6 +350,15 @@ function appendLocalMessage(userId, message) {
   const messages = readArray(MESSAGES_KEY, userId);
   if (messages.some((item) => item.id === message.id)) return;
   writeArray(MESSAGES_KEY, [...messages, message], userId);
+}
+
+function replaceLocalMessage(userId, message) {
+  if (!userId || !message?.id) return;
+  writeArray(
+    MESSAGES_KEY,
+    readArray(MESSAGES_KEY, userId).map((item) => (item.id === message.id ? { ...item, ...message } : item)),
+    userId,
+  );
 }
 
 function removeLocalMessage(userId, messageId) {
@@ -1180,6 +1196,10 @@ export async function sendExploreMessage(conversationId, senderProfile, body, op
     metadata: { ...(draft.metadata || {}), actor: actorMetadata },
     read: false,
     createdAt: new Date().toISOString(),
+    replyToId: draft.replyToId,
+    replySnapshot: draft.replySnapshot,
+    editedAt: "",
+    deletedAt: "",
   };
   const preview = getMessagePreview(message);
 
@@ -1204,6 +1224,7 @@ export async function sendExploreMessage(conversationId, senderProfile, body, op
     metadata: { ...(message.metadata || {}), actor: actorMetadata },
     read: message.read,
     created_at: message.createdAt,
+    ...(message.replyToId ? { reply_to_id: message.replyToId } : {}),
   };
 
   let data = null;
@@ -1317,6 +1338,30 @@ export async function deleteExploreMessage(message, currentUserId, options = {})
     throw error;
   }
   await removePrivateMessageMedia(message?.mediaUrl || message?.media_url || "", currentUserId);
+}
+
+// Edit my own text message (the database allows 15 minutes). Returns the
+// saved message.
+export async function editExploreMessage(message, body, currentUserId, options = {}) {
+  const { data, error } = await supabase.rpc("edit_explore_message", {
+    p_message_id: message?.id,
+    p_body: String(body || "").trim(),
+  });
+  if (error) throw error;
+  const saved = normalizeMessage(data);
+  replaceLocalMessage(options.cacheKey || currentUserId, saved);
+  return saved;
+}
+
+// Delete my own message for both people (the database allows 24 hours). The
+// row stays as "This message was deleted"; its photo or voice file is removed.
+export async function deleteExploreMessageForEveryone(message, currentUserId, options = {}) {
+  const { data, error } = await supabase.rpc("delete_explore_message_for_everyone", { p_message_id: message?.id });
+  if (error) throw error;
+  removePrivateMessageMedia(message?.mediaUrl, currentUserId);
+  const saved = normalizeMessage(data);
+  replaceLocalMessage(options.cacheKey || currentUserId, saved);
+  return saved;
 }
 
 const activityChannels = new Map();

@@ -1,22 +1,20 @@
-import { useState } from "react";
 import {
-  HiOutlineClipboardDocument,
   HiOutlineMapPin,
   HiOutlineNoSymbol,
   HiOutlineShieldCheck,
-  HiOutlineTrash,
 } from "react-icons/hi2";
 
 import { useI18n } from "../../../../i18n";
 import MessageImage from "../../../shared/MessageImage";
 import VoiceNotePlayer from "../../../shared/voice/VoiceNotePlayer";
-import { uiText as translateUi, useI18n as useUiLocale } from "../../../../i18n/index.js";
 import { t as i18nText } from "../../../../i18n/index";
 import { useMessageMediaUrl } from "../../../../Backend/hooks/useMessageMediaUrl";
 import { locationMessageParts } from "../../../../Backend/services/explore/messageInboxModels.js";
 import { showToast } from "../../../../Backend/services/toastService";
 import { shortErrorToast } from "../../../../Backend/services/friendlyErrorService";
 import LiveLocationMessage from "../../../shared/liveLocation/LiveLocationMessage";
+import { useMessageLongPress } from "../../../shared/messageActions/useMessageLongPress";
+import { DeletedMessageBody, MessageReplyQuote } from "../../../shared/messageActions/MessageActionParts";
 
 // Location messages carry a text key so they read in the viewer's language.
 function locationText(message) {
@@ -24,26 +22,28 @@ function locationText(message) {
   return parts ? i18nText(`exploreMessagesFix.${parts.key}`, parts.vars) : message.body || "";
 }
 
+// One message in an Explore thread. Holding it opens the thread's action menu
+// (ConversationScreen owns the menu, so only one is ever open).
 export default function MessageBubble({
   mine,
   message,
   onApproveLocationRequest,
   onBlockUser,
-  onDeleteMessage,
+  onLongPress,
+  onOpenQuote,
   onOpenSharedLocation,
   otherUserName,
+  quoteAuthor = "",
   seen = false,
+  selected = false,
   // Space inbox: which teammate sent one of "our" replies ("Sent by Aminata").
   senderLabel = "",
   // A Space is not a person: its threads offer no "block sender".
   canBlock = true,
-  // Only your own messages can be deleted for everyone. A teammate's reply in
-  // a Space inbox is "ours" but can only be hidden for you.
-  canDelete = mine,
 }) {
   const { t } = useI18n();
   const otherName = otherUserName || t("messages.thisUser");
-  const [optionsOpen, setOptionsOpen] = useState(false);
+  const press = useMessageLongPress((element) => onLongPress?.(message, element), { disabled: !onLongPress || message.pending });
   const storedMediaUrl = message.mediaUrl || message.media_url || "";
   const media = useMessageMediaUrl(storedMediaUrl);
   const mediaUrl = media.url;
@@ -60,26 +60,29 @@ export default function MessageBubble({
     mine ? "rounded-br-md bg-slate-950 text-white" : "rounded-bl-md bg-slate-100 text-slate-800"
   }`;
   const timeOnly = message.pending ? t("messages.sending") : new Date(message.createdAt).toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" });
-  const timeLabel = seen && !message.pending ? `${timeOnly} · ${t("messages.seen")}` : timeOnly;
+  const editedLabel = message.editedAt && !message.deletedAt ? ` · ${i18nText("messageActions.edited")}` : "";
+  const timeLabel = `${timeOnly}${editedLabel}${seen && !message.pending ? ` · ${t("messages.seen")}` : ""}`;
+  const pressProps = {
+    ...press.handlers,
+    "data-message-id": message.id,
+    "data-pressing": press.pressing ? "true" : undefined,
+    "data-selected": selected ? "true" : undefined,
+  };
+  const quote = message.replySnapshot && !message.deletedAt ? (
+    <MessageReplyQuote
+      snapshot={message.replySnapshot}
+      author={quoteAuthor}
+      tone={mine ? "dark" : "light"}
+      onOpen={() => onOpenQuote?.(message.replyToId)}
+    />
+  ) : null;
 
   function stop(event) {
     event.stopPropagation();
   }
 
-  async function copyMessage(event) {
-    stop(event);
-    const text = message.body || mediaUrl || (mediaType === "location_share" ? t("messages.sharedLocation") : t("messages.messageWord"));
-    try {
-      await navigator.clipboard?.writeText?.(text);
-    } catch {
-      // Clipboard permission is optional; the action tray should still close.
-    }
-    setOptionsOpen(false);
-  }
-
   async function runMessageAction(event, action) {
     stop(event);
-    setOptionsOpen(false);
     try {
       const result = await action?.(message);
       // Cancelled confirmations and actions that already explained their
@@ -92,29 +95,18 @@ export default function MessageBubble({
     }
   }
 
-  function renderOptions() {
-    if (!optionsOpen) return null;
-
+  if (message.deletedAt) {
     return (
-      <div
-        className={`kt-message-options-pop absolute top-[calc(100%+0.45rem)] z-20 min-w-44 overflow-hidden rounded-2xl border border-white/70 bg-white p-1 text-slate-900 shadow-2xl ring-1 ring-slate-950/5 ${
-          mine ? "right-0" : "left-0"
-        }`}
-        onClick={stop}
-      >
-        {hasSharedMapPoint ? (
-          <MessageAction icon={HiOutlineMapPin} label={t("messages.openAreaView")} onClick={(event) => runMessageAction(event, onOpenSharedLocation)} />
-        ) : null}
-        <MessageAction icon={HiOutlineClipboardDocument} label={t("messages.copyMessage")} onClick={copyMessage} />
-        <MessageAction
-          danger
-          icon={HiOutlineTrash}
-          label={mine && canDelete ? t("messages.deleteMessage") : i18nText("exploreMessagesFix.hideForMe")}
-          onClick={(event) => runMessageAction(event, onDeleteMessage)}
-        />
-        {!mine && canBlock ? (
-          <MessageAction danger icon={HiOutlineNoSymbol} label={t("messages.blockSender")} onClick={(event) => runMessageAction(event, onBlockUser)} />
-        ) : null}
+      <div className={`flex min-w-0 ${mine ? "justify-end" : "justify-start"}`}>
+        <div className={`${bubbleClass} kt-message-pressable relative`} {...pressProps}>
+          {mine && senderLabel ? (
+            <p className="mb-1 text-[10px] font-black uppercase tracking-[0.14em] text-white/60">{senderLabel}</p>
+          ) : null}
+          <DeletedMessageBody tone={mine ? "dark" : "light"} />
+          <p className={`mt-1 text-[10px] font-bold ${mine ? "text-white/55" : "text-slate-400"}`}>
+            {timeLabel}
+          </p>
+        </div>
       </div>
     );
   }
@@ -122,7 +114,8 @@ export default function MessageBubble({
   if (mediaType === "location_request") {
     return (
       <div className={`flex min-w-0 ${mine ? "justify-end" : "justify-start"}`}>
-        <div className={`${bubbleClass} relative cursor-pointer`} onClick={() => setOptionsOpen((open) => !open)}>
+        <div className={`${bubbleClass} kt-message-pressable relative`} {...pressProps}>
+          {quote}
           <div className="flex items-start gap-3">
             <span className={`mt-0.5 flex h-9 w-9 flex-none items-center justify-center rounded-2xl ${mine ? "bg-white/10 text-white" : "bg-emerald-50 text-emerald-700"}`}>
               <HiOutlineMapPin />
@@ -159,7 +152,6 @@ export default function MessageBubble({
           <p className={`mt-1 text-[10px] font-bold ${mine ? "text-white/55" : "text-slate-400"}`}>
             {timeLabel}
           </p>
-          {renderOptions()}
         </div>
       </div>
     );
@@ -168,7 +160,7 @@ export default function MessageBubble({
   if (mediaType === "location_share" && metadata.live && metadata.shareId) {
     return (
       <div className={`flex min-w-0 ${mine ? "justify-end" : "justify-start"}`}>
-        <div className={`${bubbleClass} relative`}>
+        <div className={`${bubbleClass} kt-message-pressable relative`} {...pressProps}>
           <LiveLocationMessage
             mine={mine}
             shareId={metadata.shareId}
@@ -186,7 +178,8 @@ export default function MessageBubble({
   if (mediaType === "location_share") {
     return (
       <div className={`flex min-w-0 ${mine ? "justify-end" : "justify-start"}`}>
-        <div className={`${bubbleClass} relative cursor-pointer`} onClick={() => setOptionsOpen((open) => !open)}>
+        <div className={`${bubbleClass} kt-message-pressable relative`} {...pressProps}>
+          {quote}
           <div className="flex items-start gap-3">
             <span className={`mt-0.5 flex h-9 w-9 flex-none items-center justify-center rounded-2xl ${mine ? "bg-white/10 text-white" : "bg-sky-50 text-sky-700"}`}>
               <HiOutlineMapPin />
@@ -211,7 +204,6 @@ export default function MessageBubble({
           <p className={`mt-1 text-[10px] font-bold ${mine ? "text-white/55" : "text-slate-400"}`}>
             {timeLabel}
           </p>
-          {renderOptions()}
         </div>
       </div>
     );
@@ -219,7 +211,8 @@ export default function MessageBubble({
 
   return (
     <div className={`flex min-w-0 ${mine ? "justify-end" : "justify-start"}`}>
-      <div className={`${bubbleClass} relative cursor-pointer`} onClick={() => setOptionsOpen((open) => !open)}>
+      <div className={`${bubbleClass} kt-message-pressable relative`} {...pressProps}>
+        {quote}
         {mediaType === "image" && mediaUrl ? (
           <MessageImage mediaUrl={mediaUrl} alt={t("messages.photo")} pending={message.pending} className="mb-2" />
         ) : null}
@@ -252,24 +245,7 @@ export default function MessageBubble({
         <p className={`mt-1 text-[10px] font-bold ${mine ? "text-white/55" : "text-slate-400"}`}>
           {timeLabel}
         </p>
-        {renderOptions()}
       </div>
     </div>
-  );
-}
-
-function MessageAction({ danger = false, icon: Icon, label, onClick }) {
-  useUiLocale();
-  return (
-    <button
-      type="button"
-      onClick={onClick}
-      className={`flex w-full items-center gap-2 rounded-xl px-3 py-2 text-left text-xs font-black transition ${
-        danger ? "text-rose-700 hover:bg-rose-50" : "text-slate-700 hover:bg-slate-100"
-      }`}
-    >
-      <Icon className="text-base" />
-      {translateUi(label)}
-    </button>
   );
 }

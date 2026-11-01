@@ -15,7 +15,7 @@ function getConversationPreview(conversation, username) {
   if (!message) return `@${username || "user"}`;
   const parts = messagePreviewParts(message);
   if (parts.text) return parts.text;
-  return parts.key ? i18nText(`exploreMessagesFix.${parts.key}`) : `@${username || "user"}`;
+  return parts.key ? i18nText(`${parts.namespace || "exploreMessagesFix"}.${parts.key}`) : `@${username || "user"}`;
 }
 
 export default function ConversationRow({ conversation, currentUserId, onOpen, onRespond, request = false }) {
