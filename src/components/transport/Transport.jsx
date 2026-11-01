@@ -27,8 +27,8 @@ import { fetchOperatorDashboard, getLegacyOperatorAccount, getOperatorAccount, w
 import {
   getInvitedOperatorDefaultPhone,
   getOperatorCompanyInvites,
-  getTransportCompanyAccount,
   getTransportCompanyAccounts,
+  getTransportCompanyAccountState,
   leaveTransportCompany,
   setActiveTransportCompanyId,
   subscribeTransportCompanyUpdates,
@@ -864,10 +864,7 @@ export default function Transport({
 
     async function loadCompanyAccount() {
       try {
-        const [account, accounts] = await Promise.all([
-          getTransportCompanyAccount(),
-          getTransportCompanyAccounts(),
-        ]);
+        const { account, accounts } = await getTransportCompanyAccountState();
         if (alive) {
           setCompanyAccount(account);
           setCompanyAccounts(accounts);
@@ -903,8 +900,8 @@ export default function Transport({
           ).toLowerCase()
         : "";
 
-      const nextAccount = await getTransportCompanyAccount().catch(() => null);
-      const nextAccounts = await getTransportCompanyAccounts().catch(() => []);
+      const { account: nextAccount, accounts: nextAccounts } = await getTransportCompanyAccountState()
+        .catch(() => ({ account: null, accounts: [] }));
       if (!alive) return;
       // This feed fires for trip/fleet changes platform-wide; most re-fetches
       // return the same company, so keep the old reference and skip the

@@ -912,7 +912,34 @@ export async function setActiveTransportCompanyId(companyId) {
   return companyId;
 }
 
-export async function getTransportCompanyAccounts() {
+// Several screens ask for the company workspace at the same moment (the
+// header badge, Transport, the activity host). Each load costs about six
+// queries per company, so concurrent callers share one in-flight load.
+let companyAccountsInFlight = null;
+// Company ids the signed-in user belongs to, from the last load. The realtime
+// feed uses it to ignore platform-wide trip/fleet traffic for everyone else.
+let knownCompanyIds = null;
+// The hourly urride-plan-limits job keeps pauses current; the client only
+// nudges it occasionally instead of on every workspace reload.
+const PLAN_LIMIT_SYNC_INTERVAL_MS = 10 * 60 * 1000;
+const lastPlanLimitSync = new Map();
+
+function syncPlanLimitsOccasionally(companyId) {
+  const now = Date.now();
+  if (now - (lastPlanLimitSync.get(companyId) || 0) < PLAN_LIMIT_SYNC_INTERVAL_MS) return Promise.resolve();
+  lastPlanLimitSync.set(companyId, now);
+  return supabase.rpc("sync_urride_plan_limits", { p_company_id: companyId }).then(() => {}, () => {});
+}
+
+export function getTransportCompanyAccounts() {
+  if (companyAccountsInFlight) return companyAccountsInFlight;
+  companyAccountsInFlight = loadTransportCompanyAccounts().finally(() => {
+    companyAccountsInFlight = null;
+  });
+  return companyAccountsInFlight;
+}
+
+async function loadTransportCompanyAccounts() {
   const user = await getCurrentUser();
 
   try {
@@ -938,6 +965,8 @@ export async function getTransportCompanyAccounts() {
       : [];
     const companies = [...(ownedCompanies || []), ...(memberCompanies || [])];
 
+    knownCompanyIds = new Set(companies.map((company) => company.id));
+    ensureCompanyChannel();
     if (!companies.length) {
       localStorage.removeItem(scopedKey(COMPANY_ACCOUNT_PREFIX, user.id));
       return [];
@@ -946,8 +975,8 @@ export async function getTransportCompanyAccounts() {
       const currentMember = (memberships || []).find((member) => member.company_id === company.id) || null;
       const access = buildCompanyAccess(company, currentMember, user.id);
       // Brings plan-limit pauses up to date (e.g. a paid plan that just lapsed)
-      // before the fleets are read. Best-effort: an hourly job does it too.
-      await supabase.rpc("sync_urride_plan_limits", { p_company_id: company.id }).then(() => {}, () => {});
+      // before the fleets are read. Best-effort and throttled: an hourly job does it too.
+      await syncPlanLimitsOccasionally(company.id);
       const [fleets, invites, activities, members] = await Promise.all([
         safeSelectRows(supabase.from("transport_company_fleets").select("*").eq("company_id", company.id).order("updated_at", { ascending: false })),
         safeSelectRows(supabase.from("transport_company_operator_invites").select("*").eq("company_id", company.id).order("created_at", { ascending: false })),
@@ -968,14 +997,20 @@ export async function getTransportCompanyAccounts() {
   }
 }
 
-export async function getTransportCompanyAccount() {
+// The active company and the full list from a single load.
+export async function getTransportCompanyAccountState() {
   const user = await getCurrentUser();
   const accounts = await getTransportCompanyAccounts();
-  if (!accounts.length) return null;
+  if (!accounts.length) return { account: null, accounts };
   const activeId = localStorage.getItem(scopedKey(ACTIVE_COMPANY_PREFIX, user.id));
   const account = accounts.find((company) => company.id === activeId) || accounts[0];
   if (account.id !== activeId) localStorage.setItem(scopedKey(ACTIVE_COMPANY_PREFIX, user.id), account.id);
   writeLocalCompanyAccount(user.id, account);
+  return { account, accounts };
+}
+
+export async function getTransportCompanyAccount() {
+  const { account } = await getTransportCompanyAccountState();
   return account;
 }
 
@@ -2538,24 +2573,118 @@ export async function getTransportCompanyBookingQueue(companyAccount = null) {
   });
 }
 
+// One realtime channel per tab, shared by every screen that listens. Opening a
+// channel per screen (and a fresh one on every re-render) multiplied the
+// database's realtime work and kept reconnecting it.
+const companySubscribers = new Set();
+let companyChannel = null;
+let companyChannelWithFleetTraffic = false;
+let companyChannelTeardown = null;
+let fleetTrafficTimer = null;
+let pendingFleetTrafficPayload = null;
+// Trip and fleet rows change platform-wide all day; bursts are coalesced so a
+// busy minute triggers one workspace reload instead of dozens.
+const FLEET_TRAFFIC_DEBOUNCE_MS = 1500;
+const COMPANY_CHANNEL_TEARDOWN_MS = 10000;
+const COMPANY_TABLES = [
+  "transport_companies",
+  "transport_company_fleets",
+  "transport_company_operator_invites",
+  "transport_company_activities",
+  "transport_company_members",
+];
+const FLEET_TRAFFIC_TABLES = ["transport_fleets", "transport_trips"];
+
+function userRunsACompany() {
+  return Boolean(knownCompanyIds && knownCompanyIds.size);
+}
+
+function notifyCompanySubscribers(payload) {
+  companySubscribers.forEach((subscriber) => {
+    try {
+      subscriber(payload);
+    } catch {
+      // One screen's handler failing must not stop the others.
+    }
+  });
+}
+
+function handleFleetTraffic(payload) {
+  if (!userRunsACompany()) return;
+  const row = payload?.new || payload?.old || {};
+  if (payload?.table === "transport_fleets" && row.company_id && !knownCompanyIds.has(row.company_id)) return;
+  pendingFleetTrafficPayload = payload;
+  if (fleetTrafficTimer) return;
+  fleetTrafficTimer = window.setTimeout(() => {
+    fleetTrafficTimer = null;
+    const latest = pendingFleetTrafficPayload;
+    pendingFleetTrafficPayload = null;
+    notifyCompanySubscribers(latest);
+  }, FLEET_TRAFFIC_DEBOUNCE_MS);
+}
+
+function openCompanyChannel() {
+  const withFleetTraffic = userRunsACompany();
+  let channel = supabase.channel(`transport-company-updates-${Math.random().toString(36).slice(2)}`);
+  COMPANY_TABLES.forEach((table) => {
+    channel = channel.on("postgres_changes", { event: "*", schema: "public", table }, notifyCompanySubscribers);
+  });
+  // Users without a company never see these rows, so they skip the
+  // platform-wide trip/fleet listeners entirely.
+  if (withFleetTraffic) {
+    FLEET_TRAFFIC_TABLES.forEach((table) => {
+      channel = channel.on("postgres_changes", { event: "*", schema: "public", table }, handleFleetTraffic);
+    });
+  }
+  companyChannel = channel.subscribe();
+  companyChannelWithFleetTraffic = withFleetTraffic;
+}
+
+function closeCompanyChannel() {
+  if (companyChannel) supabase.removeChannel(companyChannel);
+  companyChannel = null;
+  companyChannelWithFleetTraffic = false;
+  if (fleetTrafficTimer) window.clearTimeout(fleetTrafficTimer);
+  fleetTrafficTimer = null;
+  pendingFleetTrafficPayload = null;
+}
+
+// Re-opens the shared channel when the user gains or loses a company, so the
+// trip/fleet listeners match what they can actually see.
+function ensureCompanyChannel() {
+  if (!companySubscribers.size) return;
+  if (companyChannel && companyChannelWithFleetTraffic === userRunsACompany()) return;
+  closeCompanyChannel();
+  openCompanyChannel();
+}
+
 export function subscribeTransportCompanyUpdates(onChange) {
   if (typeof window === "undefined" || typeof onChange !== "function") return () => {};
   const handler = (event) => onChange(event.detail);
   window.addEventListener(COMPANY_EVENT, handler);
 
-  const channel = supabase
-    .channel(`transport-company-updates-${Date.now()}-${Math.random().toString(36).slice(2)}`)
-    .on("postgres_changes", { event: "*", schema: "public", table: "transport_companies" }, onChange)
-    .on("postgres_changes", { event: "*", schema: "public", table: "transport_company_fleets" }, onChange)
-    .on("postgres_changes", { event: "*", schema: "public", table: "transport_company_operator_invites" }, onChange)
-    .on("postgres_changes", { event: "*", schema: "public", table: "transport_company_activities" }, onChange)
-    .on("postgres_changes", { event: "*", schema: "public", table: "transport_company_members" }, onChange)
-    .on("postgres_changes", { event: "*", schema: "public", table: "transport_fleets" }, onChange)
-    .on("postgres_changes", { event: "*", schema: "public", table: "transport_trips" }, onChange)
-    .subscribe();
+  if (companyChannelTeardown) {
+    window.clearTimeout(companyChannelTeardown);
+    companyChannelTeardown = null;
+  }
+  // A wrapper per subscription, so the same callback subscribed twice is
+  // tracked (and removed) twice.
+  const subscriber = (payload) => onChange(payload);
+  companySubscribers.add(subscriber);
+  ensureCompanyChannel();
+  // First listener before any load: the load learns whether the user runs a
+  // company and re-opens the channel with trip/fleet listeners if so.
+  if (knownCompanyIds === null) getTransportCompanyAccounts().catch(() => {});
 
   return () => {
     window.removeEventListener(COMPANY_EVENT, handler);
-    supabase.removeChannel(channel);
+    companySubscribers.delete(subscriber);
+    if (companySubscribers.size || companyChannelTeardown) return;
+    // Screens unsubscribe and resubscribe on re-render; keep the channel
+    // briefly so that churn does not reconnect it each time.
+    companyChannelTeardown = window.setTimeout(() => {
+      companyChannelTeardown = null;
+      if (!companySubscribers.size) closeCompanyChannel();
+    }, COMPANY_CHANNEL_TEARDOWN_MS);
   };
 }

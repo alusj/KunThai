@@ -1,5 +1,5 @@
 import assert from "node:assert/strict";
-import { readFileSync } from "node:fs";
+import { existsSync, readFileSync } from "node:fs";
 import test from "node:test";
 
 import { pushTapRoute } from "./nativePushLogic.js";
@@ -10,13 +10,24 @@ import { pushTapRoute } from "./nativePushLogic.js";
 // migrations unchanged. (Behaviour per role was checked against production in
 // a rolled-back transaction; see the migration header.)
 
-const read = (name) => readFileSync(new URL(`../../../supabase/migrations/${name}`, import.meta.url), "utf8");
+// These push migrations are applied in Supabase by hand and kept out of git
+// (.gitignore), so they exist only on a developer machine. Where they are
+// missing, such as in CI, the tests are skipped instead of failing.
+const migrationUrl = (name) => new URL(`../../../supabase/migrations/${name}`, import.meta.url);
+const migrationNames = [
+  "20261013140000_urride_push_deep_links.sql",
+  "20261013120000_urmall_urride_native_push.sql",
+  "20261013130000_urride_company_activity_push.sql",
+];
+const missing = migrationNames.filter((name) => !existsSync(migrationUrl(name)));
+const skip = missing.length ? `local-only push migrations not present: ${missing.join(", ")}` : false;
+const read = (name) => (skip ? "" : readFileSync(migrationUrl(name), "utf8"));
 const links = read("20261013140000_urride_push_deep_links.sql");
 const pushes = read("20261013120000_urmall_urride_native_push.sql");
 const company = read("20261013130000_urride_company_activity_push.sql");
 const transport = readFileSync(new URL("../../components/transport/Transport.jsx", import.meta.url), "utf8");
 
-test("every UrRide route the migration builds is one Transport.jsx handles", () => {
+test("every UrRide route the migration builds is one Transport.jsx handles", { skip }, () => {
   const prefixes = [...links.matchAll(/'(urride(?::[a-z-]+)*:?)'/g)].map((match) => match[1]);
   assert.deepEqual([...new Set(prefixes)].sort(), ["urride", "urride:company-dashboard:", "urride:rental:", "urride:trip:"]);
   for (const destination of ["rental", "trip", "company-dashboard"]) {
@@ -27,7 +38,7 @@ test("every UrRide route the migration builds is one Transport.jsx handles", () 
   }
 });
 
-test("ids are only added after a server-side check, with 'urride' as the fallback", () => {
+test("ids are only added after a server-side check, with 'urride' as the fallback", { skip }, () => {
   assert.match(links, /select trip\.passenger_id = p_recipient/, "passenger owns the trip");
   assert.match(links, /fleet\.operator_id = p_operator and operator\.user_id = p_recipient/, "the trip's vehicle is the operator's");
   assert.match(links, /company\.owner_user_id = p_recipient/);
@@ -36,7 +47,7 @@ test("ids are only added after a server-side check, with 'urride' as the fallbac
   assert.equal((links.match(/else 'urride'\s+end/g) || []).length, 3, "trip, rental and company fall back to 'urride'");
 });
 
-test("recipients, preferences and dedupe keys are unchanged", () => {
+test("recipients, preferences and dedupe keys are unchanged", { skip }, () => {
   for (const key of ["'urride_operator_alert:' || new.id::text", "'urride_passenger:' || coalesce(new.trip_id, new.id)::text", "'platform_notification:' || new.id::text", "'urride_company_activity:' || new.id::text || ':' || recipient::text"]) {
     assert.ok(links.includes(key), `${key} kept`);
     assert.ok(pushes.includes(key) || company.includes(key), `${key} matches the applied migration`);
