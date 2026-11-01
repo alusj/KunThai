@@ -16,6 +16,7 @@ import { initCountryConfig } from "./Backend/services/countryConfigService.js";
 import { t as i18nText } from "./i18n/index";
 import { installMobileViewportVariables } from "./Backend/services/mobileViewportService";
 import { installNativeShare } from "./Backend/services/nativeShare";
+import { installNativeGeolocation } from "./Backend/services/nativeGeolocation";
 import { lazyWithRetry } from "./Backend/utils/lazyWithRetry";
 import { useI18n as useUiLocale } from "./i18n/index.js";
 import { startSwipStartupPrefetch } from "./Backend/services/explore/swipStartupPrefetch";
@@ -23,6 +24,8 @@ import { installQuietReload } from "./Backend/services/quietReload";
 import { installButtonFeedback } from "./Backend/services/buttonFeedback";
 
 registerKunThaiServiceWorker();
+// First, before any screen asks for location (iOS: one prompt, not two).
+installNativeGeolocation();
 initNativePushNotifications();
 initAppleCreditPurchases();
 initGooglePlayCreditPurchases();
