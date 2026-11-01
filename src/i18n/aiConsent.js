@@ -10,6 +10,8 @@ export const AI_CONSENT = {
     allow: "Allow and continue",
     decline: "Not now",
     declined: "KAI was not used. Use KAI again whenever you want to allow it.",
+    privacy: "Read the Privacy Policy",
+    back: "Back",
   },
   fr: {
     title: "Utiliser KAI ?",
@@ -18,6 +20,8 @@ export const AI_CONSENT = {
     allow: "Autoriser et continuer",
     decline: "Pas maintenant",
     declined: "KAI n’a pas été utilisé. Relancez KAI quand vous voulez l’autoriser.",
+    privacy: "Lire la Politique de confidentialité",
+    back: "Retour",
   },
   es: {
     title: "¿Usar KAI?",
@@ -26,6 +30,8 @@ export const AI_CONSENT = {
     allow: "Permitir y continuar",
     decline: "Ahora no",
     declined: "No se usó KAI. Vuelve a usar KAI cuando quieras permitirlo.",
+    privacy: "Leer la Política de privacidad",
+    back: "Volver",
   },
   zh: {
     title: "使用 KAI？",
@@ -34,6 +40,8 @@ export const AI_CONSENT = {
     allow: "允许并继续",
     decline: "暂不",
     declined: "未使用 KAI。想允许时，再次使用 KAI 即可。",
+    privacy: "阅读隐私政策",
+    back: "返回",
   },
   ar: {
     title: "هل تريد استخدام KAI؟",
@@ -42,6 +50,8 @@ export const AI_CONSENT = {
     allow: "السماح والمتابعة",
     decline: "ليس الآن",
     declined: "لم يُستخدم KAI. استخدم KAI مرة أخرى متى أردت السماح به.",
+    privacy: "اقرأ سياسة الخصوصية",
+    back: "رجوع",
   },
   pt: {
     title: "Usar o KAI?",
@@ -50,6 +60,8 @@ export const AI_CONSENT = {
     allow: "Permitir e continuar",
     decline: "Agora não",
     declined: "O KAI não foi usado. Use o KAI de novo quando quiser permitir.",
+    privacy: "Ler a Política de Privacidade",
+    back: "Voltar",
   },
   hi: {
     title: "KAI इस्तेमाल करें?",
@@ -58,6 +70,8 @@ export const AI_CONSENT = {
     allow: "अनुमति दें और जारी रखें",
     decline: "अभी नहीं",
     declined: "KAI का इस्तेमाल नहीं हुआ। जब चाहें अनुमति देने के लिए KAI फिर से इस्तेमाल करें।",
+    privacy: "गोपनीयता नीति पढ़ें",
+    back: "वापस",
   },
   bn: {
     title: "KAI ব্যবহার করবেন?",
@@ -66,6 +80,8 @@ export const AI_CONSENT = {
     allow: "অনুমতি দিন ও চালিয়ে যান",
     decline: "এখন নয়",
     declined: "KAI ব্যবহার করা হয়নি। অনুমতি দিতে চাইলে আবার KAI ব্যবহার করুন।",
+    privacy: "গোপনীয়তা নীতি পড়ুন",
+    back: "ফিরে যান",
   },
   id: {
     title: "Gunakan KAI?",
@@ -74,6 +90,8 @@ export const AI_CONSENT = {
     allow: "Izinkan dan lanjutkan",
     decline: "Nanti saja",
     declined: "KAI tidak digunakan. Gunakan KAI lagi kapan pun Anda ingin mengizinkannya.",
+    privacy: "Baca Kebijakan Privasi",
+    back: "Kembali",
   },
   ur: {
     title: "KAI استعمال کریں؟",
@@ -82,6 +100,8 @@ export const AI_CONSENT = {
     allow: "اجازت دیں اور جاری رکھیں",
     decline: "ابھی نہیں",
     declined: "KAI استعمال نہیں ہوا۔ جب چاہیں اجازت دینے کے لیے KAI دوبارہ استعمال کریں۔",
+    privacy: "رازداری کی پالیسی پڑھیں",
+    back: "واپس",
   },
   ru: {
     title: "Использовать KAI?",
@@ -90,6 +110,8 @@ export const AI_CONSENT = {
     allow: "Разрешить и продолжить",
     decline: "Не сейчас",
     declined: "KAI не использовался. Откройте KAI снова, когда захотите разрешить.",
+    privacy: "Читать Политику конфиденциальности",
+    back: "Назад",
   },
   ja: {
     title: "KAI を使いますか？",
@@ -98,6 +120,8 @@ export const AI_CONSENT = {
     allow: "許可して続ける",
     decline: "今はしない",
     declined: "KAI は使われませんでした。許可したいときはもう一度 KAI を使ってください。",
+    privacy: "プライバシーポリシーを読む",
+    back: "戻る",
   },
   mr: {
     title: "KAI वापरायचे?",
@@ -106,6 +130,8 @@ export const AI_CONSENT = {
     allow: "परवानगी द्या आणि पुढे जा",
     decline: "आत्ता नाही",
     declined: "KAI वापरले गेले नाही. परवानगी द्यायची असेल तेव्हा KAI पुन्हा वापरा.",
+    privacy: "गोपनीयता धोरण वाचा",
+    back: "मागे",
   },
   vi: {
     title: "Dùng KAI?",
@@ -114,6 +140,8 @@ export const AI_CONSENT = {
     allow: "Cho phép và tiếp tục",
     decline: "Để sau",
     declined: "KAI chưa được dùng. Hãy dùng lại KAI bất cứ khi nào bạn muốn cho phép.",
+    privacy: "Đọc Chính sách quyền riêng tư",
+    back: "Quay lại",
   },
   de: {
     title: "KAI verwenden?",
@@ -122,5 +150,7 @@ export const AI_CONSENT = {
     allow: "Erlauben und weiter",
     decline: "Nicht jetzt",
     declined: "KAI wurde nicht verwendet. Nutze KAI erneut, wann immer du es erlauben möchtest.",
+    privacy: "Datenschutzerklärung lesen",
+    back: "Zurück",
   },
 };

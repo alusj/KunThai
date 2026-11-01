@@ -4,7 +4,7 @@ import test from "node:test";
 import { AI_CONSENT } from "./aiConsent.js";
 
 const LOCALES = ["en", "fr", "es", "zh", "ar", "pt", "hi", "bn", "id", "ur", "ru", "ja", "mr", "vi", "de"];
-const KEYS = ["allow", "body", "care", "decline", "declined", "title"];
+const KEYS = ["allow", "back", "body", "care", "decline", "declined", "privacy", "title"];
 
 test("every locale carries every KAI permission key", () => {
   assert.deepEqual(Object.keys(AI_CONSENT).sort(), [...LOCALES].sort());
