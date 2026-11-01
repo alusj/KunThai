@@ -10,7 +10,11 @@ const PARENT_TABS = new Set(["UrFeed", "Swip", "Connections"]);
 // tab the user last left, so switching tabs still feels sticky.
 const SESSION_STARTED_KEY = "exploreSessionStarted";
 
-function resolveInitialTab(savedNavigation, settings) {
+// A brand-new session (the app launched anew, or reloaded fresh after a long
+// time away: quietReload.js) opens on the default tab with no inner screen:
+// the saved menu stack (Social Menu, Messages, …) belongs to the old session.
+// Otherwise restore the last tab and screen the user was on.
+function resolveInitialNavigation(savedNavigation, settings) {
   const defaultTab = PARENT_TABS.has(settings.feed.defaultTab) ? settings.feed.defaultTab : "UrFeed";
 
   let freshSession = true;
@@ -21,10 +25,11 @@ function resolveInitialTab(savedNavigation, settings) {
     freshSession = false;
   }
 
-  // On a brand-new session honor the default tab; otherwise restore the last
-  // tab the user was on (falling back to the default if it is somehow invalid).
-  if (freshSession) return defaultTab;
-  return PARENT_TABS.has(savedNavigation.activeTab) ? savedNavigation.activeTab : defaultTab;
+  if (freshSession) return { ...savedNavigation, activeTab: defaultTab, menuStack: [] };
+  return {
+    ...savedNavigation,
+    activeTab: PARENT_TABS.has(savedNavigation.activeTab) ? savedNavigation.activeTab : defaultTab,
+  };
 }
 
 /**
@@ -47,12 +52,7 @@ export function peekInitialExploreTab() {
 export function useExploreNavigation(menuScreens) {
   const savedScrollRef = useRef(Number(sessionStorage.getItem("exploreFeedScrollY") || 0));
   const [navigation, setNavigation] = useState(() => {
-    const savedNavigation = readExploreNavigation();
-    const settings = readExploreSettings();
-    return {
-      ...savedNavigation,
-      activeTab: resolveInitialTab(savedNavigation, settings),
-    };
+    return resolveInitialNavigation(readExploreNavigation(), readExploreSettings());
   });
   const activeMenuScreen = navigation.menuStack[navigation.menuStack.length - 1] || null;
   const menuScreen = activeMenuScreen ? menuScreens[activeMenuScreen] : null;

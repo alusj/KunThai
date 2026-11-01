@@ -85,7 +85,6 @@ import { uiText as translateUi, useI18n as useUiLocale } from "../../i18n/index.
 import { inlineErrorMessage, isConnectionFailure } from "../../Backend/services/friendlyErrorService";
 import { announceConnectionTrouble } from "../../Backend/services/networkService";
 import { NAV_TRANSITION_MS } from "../shared/navigationMotion";
-import { settleReplayedAnimations } from "../shared/settleReplayedAnimations";
 import { haptics } from "../../Backend/services/feedbackService";
 
 import { useLifecycleAudit } from "../../Backend/services/lifecycleAudit";
@@ -449,10 +448,11 @@ export default function Explore({ active = true, onNavigateMain, onScreenModeCha
       tabDragCleanupPendingRef.current = false;
       clearTabDragStyles();
     }
-    // Panels stay mounted (hidden with display:none), so showing one again
-    // would replay its cards' entrance animations.
+    // Hidden panels are collapsed and invisible (kt-tab-hidden), never
+    // display:none, so their cards' entrance animations do not replay and need
+    // no settling. (Settling meant getAnimations over the whole feed: a full
+    // style pass of ~150 ms on a Galaxy A06 on every switch.)
     const entering = tabPanelRefs.current[activeTab];
-    settleReplayedAnimations(entering);
     const nextScroll = tabScrollRef.current[activeTab] || 0;
     const sliding = leavingTabRef.current;
     if (!sliding || sliding.phase !== "pending" || !entering) {
@@ -1428,7 +1428,6 @@ export default function Explore({ active = true, onNavigateMain, onScreenModeCha
     node.style.transition = "none";
     node.style.transform = `translate3d(${initialOffset}px, 0, 0)`;
     node.scrollTop = tabScrollRef.current[tab] || 0;
-    settleReplayedAnimations(node);
   }
 
   function beginHorizontalDrag(gesture, deltaX) {

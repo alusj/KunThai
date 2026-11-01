@@ -20,9 +20,12 @@ import { installNativeGeolocation } from "./Backend/services/nativeGeolocation";
 import { lazyWithRetry } from "./Backend/utils/lazyWithRetry";
 import { useI18n as useUiLocale } from "./i18n/index.js";
 import { startSwipStartupPrefetch } from "./Backend/services/explore/swipStartupPrefetch";
-import { installQuietReload } from "./Backend/services/quietReload";
+import { consumeFreshStart, installQuietReload } from "./Backend/services/quietReload";
 import { installButtonFeedback } from "./Backend/services/buttonFeedback";
 
+// Before anything reads sessionStorage: a fresh start after a long time away
+// (quietReload.js) forgets the old session's screens.
+consumeFreshStart();
 registerKunThaiServiceWorker();
 // First, before any screen asks for location (iOS: one prompt, not two).
 installNativeGeolocation();

@@ -256,7 +256,7 @@ export default function FeedPost({
   return (
     <article
       id={`post-${post.id}`}
-      className={`kt-toast-expand-in relative w-full max-w-full min-w-0 overflow-hidden rounded-[24px] border border-slate-200 bg-white shadow-sm transition-shadow duration-200 hover:shadow-md ${deleting ? "kt-post-wipe-out" : ""}`}
+      className={`kt-feed-card kt-toast-expand-in relative w-full max-w-full min-w-0 overflow-hidden rounded-[24px] border border-slate-200 bg-white shadow-sm transition-shadow duration-200 hover:shadow-md ${deleting ? "kt-post-wipe-out" : ""}`}
     >
       <PostHeader
         post={post}

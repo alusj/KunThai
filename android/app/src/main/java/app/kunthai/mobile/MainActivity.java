@@ -18,6 +18,7 @@ import android.webkit.WebView;
 import androidx.core.splashscreen.SplashScreen;
 
 import com.getcapacitor.BridgeActivity;
+import com.getcapacitor.WebViewListener;
 
 import org.json.JSONObject;
 
@@ -73,6 +74,16 @@ public class MainActivity extends BridgeActivity {
             getBridge().getWebView().setBackgroundColor(appBackground);
             getWindow().getDecorView().setBackgroundColor(appBackground);
             if (logo) showLogoSplash(appBackground, splashStartedAt);
+            // Android may end the WebView's page process to free memory (a
+            // 4 GB Galaxy A06 under load). Unhandled, that takes the whole app
+            // down; handled, the screen is built again and the app restarts.
+            getBridge().addWebViewListener(new WebViewListener() {
+                @Override
+                public boolean onRenderProcessGone(WebView view, android.webkit.RenderProcessGoneDetail detail) {
+                    recreate();
+                    return true;
+                }
+            });
         }
     }
 
@@ -91,7 +102,13 @@ public class MainActivity extends BridgeActivity {
         getBridge().getWebView().evaluateJavascript(
             "window.__ktQuietReload ? window.__ktQuietReload() : 'absent'",
             result -> {
-                if (getBridge() != null && getBridge().getWebView() != null) getBridge().getWebView().reload();
+                // The start page with the fresh-start marker, not reload(): a
+                // reload keeps sessionStorage and the app then came back on its
+                // old tab and screen (quietReload.js consumeFreshStart).
+                if (getBridge() != null && getBridge().getWebView() != null) {
+                    getBridge().getWebView().loadUrl(android.net.Uri.parse(getBridge().getLocalUrl())
+                        .buildUpon().path("/").clearQuery().appendQueryParameter("ktFresh", "1").build().toString());
+                }
             });
     }
 

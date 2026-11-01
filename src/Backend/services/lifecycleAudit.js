@@ -71,7 +71,16 @@ export function useLifecycleAudit(kind, name) {
 
 if (typeof window !== "undefined" && typeof document !== "undefined") {
   const away = secondsSince(HIDDEN_AT_KEY);
-  recordLifecycle("page-load", "app", away === null ? "first start" : `last left ${away}s ago`);
+  // How the page started: "navigate" (app opened, or the native fresh start)
+  // or "reload" (the WebView reloaded in place), and whether it was the
+  // fresh-start address (never the query itself: it can carry sign-in codes).
+  let started = "";
+  try {
+    started = `${performance.getEntriesByType("navigation")[0]?.type || "?"}${/[?&]ktFresh=/.test(window.location.search) ? " fresh" : ""}`;
+  } catch {
+    // Older WebViews: the log still has the time away.
+  }
+  recordLifecycle("page-load", "app", `${away === null ? "first start" : `last left ${away}s ago`}; ${started}`);
 
   document.addEventListener("visibilitychange", () => {
     if (document.hidden) {

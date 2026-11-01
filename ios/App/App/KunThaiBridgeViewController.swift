@@ -168,8 +168,16 @@ class KunThaiBridgeViewController: CAPBridgeViewController {
         guard let webView else { return }
         webReady = false
         showSplash(minimum: Self.splashSeconds, logo: true)
+        // The start page with the fresh-start marker, not reload(): a reload
+        // keeps sessionStorage and the app then came back on its old tab and
+        // screen (quietReload.js consumeFreshStart).
+        let fresh: URL? = bridge.flatMap { bridge in
+            var parts = URLComponents(url: bridge.config.serverURL, resolvingAgainstBaseURL: false)
+            parts?.queryItems = [URLQueryItem(name: "ktFresh", value: "1")]
+            return parts?.url
+        }
         webView.evaluateJavaScript("window.__ktQuietReload ? window.__ktQuietReload() : 'absent'") { [weak webView] _, _ in
-            webView?.reload()
+            if let fresh { webView?.load(URLRequest(url: fresh)) } else { webView?.reload() }
         }
     }
 

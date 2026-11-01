@@ -2407,3 +2407,13 @@
 @keyframes kt-busy-spin {
   to { transform: rotate(360deg); }
 }
+
+/* UrFeed posts off screen skip layout and paint (they keep their last
+   measured height). The feed is thousands of pixels long and every tab switch
+   re-lays out its panel: on a Galaxy A06 laying out every post took most of
+   a ~1 s switch. Paint containment does not clip the card's own shadow, and
+   the card already clips its content (overflow-hidden). */
+.kt-feed-card {
+  content-visibility: auto;
+  contain-intrinsic-size: auto 560px;
+}

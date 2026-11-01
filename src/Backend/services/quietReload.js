@@ -18,6 +18,37 @@ import { recordLifecycle } from "./lifecycleAudit";
 // reload (postOutbox.js), and a live trip or Area View is opened again from
 // the server.
 
+// The native side opens the start page with this marker rather than reloading
+// in place (a reload keeps sessionStorage, which then restored the old tab,
+// UrMall screen and scroll as if nothing had happened). Runs before any screen
+// reads sessionStorage, so the reloaded app starts like a cold launch.
+const FRESH_START_PARAM = "ktFresh";
+
+export function consumeFreshStart() {
+  if (typeof window === "undefined") return false;
+  let params;
+  try {
+    params = new URLSearchParams(window.location.search);
+  } catch {
+    return false;
+  }
+  if (!params.has(FRESH_START_PARAM)) return false;
+  try {
+    sessionStorage.clear();
+  } catch {
+    // Storage blocked: the app still starts, on the restored screens.
+  }
+  params.delete(FRESH_START_PARAM);
+  const query = params.toString();
+  try {
+    window.history.replaceState(null, "", `${window.location.pathname}${query ? `?${query}` : ""}`);
+  } catch {
+    // The marker stays in the address; harmless.
+  }
+  recordLifecycle("fresh-start", "app");
+  return true;
+}
+
 export function installQuietReload() {
   if (typeof window === "undefined") return;
   try {

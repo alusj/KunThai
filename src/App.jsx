@@ -93,6 +93,10 @@ const PAGE_LOADERS = {
   transport: loadTransport,
 };
 const PRELOADED_MAIN_PAGES = new Set();
+// Main screens built in the background after start-up (see the effect in App).
+const BACKGROUND_MOUNT_PAGES = ["explore", "marketplace"];
+// After Swip's start-up prefetch (~10 s on a Galaxy A06) has mostly finished.
+const BACKGROUND_MOUNT_DELAY_MS = 6000;
 
 function normalizeMainPage(value) {
   const page = String(value || "").toLowerCase();
@@ -771,6 +775,41 @@ export default function App() {
         // Suspense and the root error boundary own the visible retry path.
       });
   }, [page]);
+
+  // Build Explore and UrMall in the background once the first screen has
+  // settled and the phone is idle, so the first switch to them only slides.
+  // Built on the tap instead, Explore froze a Galaxy A06 for ~0.7 s right as
+  // the slide began. A screen built this way is exactly a screen visited and
+  // left: hidden, inactive, no media. UrRide waits for a real visit (GPS).
+  useEffect(() => {
+    if (!onboardingComplete || twoFactorPending !== false || !canPreloadMainPages()) return undefined;
+    const pending = BACKGROUND_MOUNT_PAGES.filter((candidate) => candidate !== page && !mountedPagesRef.current.includes(candidate));
+    if (!pending.length) return undefined;
+
+    let startTimer = null;
+    let idleHandle = null;
+    const mountNext = () => {
+      idleHandle = null;
+      if (document.visibilityState === "hidden") return;
+      const next = pending.shift();
+      if (next) {
+        setMountedPages((current) => (current.includes(next) ? current : [...current, next]));
+      }
+      if (pending.length) schedule(3000);
+    };
+    const schedule = (delay) => {
+      startTimer = window.setTimeout(() => {
+        if (typeof window.requestIdleCallback === "function") idleHandle = window.requestIdleCallback(mountNext, { timeout: 4000 });
+        else mountNext();
+      }, delay);
+    };
+    schedule(BACKGROUND_MOUNT_DELAY_MS);
+
+    return () => {
+      window.clearTimeout(startTimer);
+      if (idleHandle != null && typeof window.cancelIdleCallback === "function") window.cancelIdleCallback(idleHandle);
+    };
+  }, [onboardingComplete, page, twoFactorPending]);
 
   useEffect(() => {
     if (!onboardingComplete || twoFactorPending !== false || !canPreloadMainPages()) return undefined;
