@@ -19,6 +19,7 @@ export const OPERATOR_DASHBOARDS = {
     soloOnlineBody: "Going online here takes your own vehicle offline. Only one dashboard is online at a time.",
     goOnlineHere: "Go online here",
     stayOnlineSolo: "Stay online with my vehicle",
+    noVehicleYet: "No vehicle assigned yet",
   },
   fr: {
     switcherAria: "Changer de tableau de bord",
@@ -36,6 +37,7 @@ export const OPERATOR_DASHBOARDS = {
     soloOnlineBody: "Passer en ligne ici met votre propre véhicule hors ligne. Un seul tableau de bord est en ligne à la fois.",
     goOnlineHere: "Passer en ligne ici",
     stayOnlineSolo: "Rester en ligne avec mon véhicule",
+    noVehicleYet: "Aucun véhicule attribué pour l'instant",
   },
   es: {
     switcherAria: "Cambiar de panel",
@@ -53,6 +55,7 @@ export const OPERATOR_DASHBOARDS = {
     soloOnlineBody: "Conectarte aquí desconecta tu propio vehículo. Solo un panel está en línea a la vez.",
     goOnlineHere: "Conectarme aquí",
     stayOnlineSolo: "Seguir en línea con mi vehículo",
+    noVehicleYet: "Aún no tienes vehículo asignado",
   },
   zh: {
     switcherAria: "切换面板",
@@ -70,6 +73,7 @@ export const OPERATOR_DASHBOARDS = {
     soloOnlineBody: "在这里上线会让你自己的车辆下线。同一时间只有一个面板在线。",
     goOnlineHere: "在这里上线",
     stayOnlineSolo: "继续用我的车辆在线",
+    noVehicleYet: "尚未分配车辆",
   },
   ar: {
     switcherAria: "تبديل لوحة التحكم",
@@ -87,6 +91,7 @@ export const OPERATOR_DASHBOARDS = {
     soloOnlineBody: "الاتصال هنا يجعل مركبتك الخاصة غير متصلة. لوحة تحكم واحدة فقط تكون متصلة في كل مرة.",
     goOnlineHere: "الاتصال هنا",
     stayOnlineSolo: "البقاء متصلًا بمركبتي",
+    noVehicleYet: "لم تُخصَّص لك مركبة بعد",
   },
   pt: {
     switcherAria: "Trocar de painel",
@@ -104,6 +109,7 @@ export const OPERATOR_DASHBOARDS = {
     soloOnlineBody: "Ficar online aqui deixa seu próprio veículo offline. Só um painel fica online de cada vez.",
     goOnlineHere: "Ficar online aqui",
     stayOnlineSolo: "Continuar online com meu veículo",
+    noVehicleYet: "Nenhum veículo atribuído ainda",
   },
   hi: {
     switcherAria: "डैशबोर्ड बदलें",
@@ -121,6 +127,7 @@ export const OPERATOR_DASHBOARDS = {
     soloOnlineBody: "यहाँ ऑनलाइन होने से आपका अपना वाहन ऑफ़लाइन हो जाएगा। एक समय में केवल एक डैशबोर्ड ऑनलाइन रहता है।",
     goOnlineHere: "यहाँ ऑनलाइन हों",
     stayOnlineSolo: "अपने वाहन के साथ ऑनलाइन रहें",
+    noVehicleYet: "अभी तक कोई वाहन नहीं सौंपा गया",
   },
   bn: {
     switcherAria: "ড্যাশবোর্ড বদলান",
@@ -138,6 +145,7 @@ export const OPERATOR_DASHBOARDS = {
     soloOnlineBody: "এখানে অনলাইন হলে আপনার নিজের গাড়ি অফলাইন হয়ে যাবে। একসাথে শুধু একটি ড্যাশবোর্ড অনলাইন থাকে।",
     goOnlineHere: "এখানে অনলাইন হন",
     stayOnlineSolo: "নিজের গাড়ি নিয়ে অনলাইনে থাকুন",
+    noVehicleYet: "এখনো কোনো গাড়ি দেওয়া হয়নি",
   },
   id: {
     switcherAria: "Ganti dasbor",
@@ -155,6 +163,7 @@ export const OPERATOR_DASHBOARDS = {
     soloOnlineBody: "Online di sini membuat kendaraan Anda sendiri offline. Hanya satu dasbor yang online pada satu waktu.",
     goOnlineHere: "Online di sini",
     stayOnlineSolo: "Tetap online dengan kendaraan saya",
+    noVehicleYet: "Belum ada kendaraan yang ditugaskan",
   },
   ur: {
     switcherAria: "ڈیش بورڈ بدلیں",
@@ -172,6 +181,7 @@ export const OPERATOR_DASHBOARDS = {
     soloOnlineBody: "یہاں آن لائن ہونے سے آپ کی اپنی گاڑی آف لائن ہو جائے گی۔ ایک وقت میں صرف ایک ڈیش بورڈ آن لائن رہتا ہے۔",
     goOnlineHere: "یہاں آن لائن ہوں",
     stayOnlineSolo: "اپنی گاڑی کے ساتھ آن لائن رہیں",
+    noVehicleYet: "ابھی تک کوئی گاڑی تفویض نہیں ہوئی",
   },
   ru: {
     switcherAria: "Сменить панель",
@@ -189,6 +199,7 @@ export const OPERATOR_DASHBOARDS = {
     soloOnlineBody: "Выход в сеть здесь отключит ваш собственный транспорт. В сети может быть только одна панель.",
     goOnlineHere: "Выйти в сеть здесь",
     stayOnlineSolo: "Остаться в сети на своём транспорте",
+    noVehicleYet: "Транспорт ещё не назначен",
   },
   ja: {
     switcherAria: "ダッシュボードを切り替え",
@@ -206,6 +217,7 @@ export const OPERATOR_DASHBOARDS = {
     soloOnlineBody: "ここでオンラインにすると自分の車両はオフラインになります。オンラインにできるダッシュボードは一度に一つだけです。",
     goOnlineHere: "ここでオンラインにする",
     stayOnlineSolo: "自分の車両でオンラインのままにする",
+    noVehicleYet: "まだ車両が割り当てられていません",
   },
   mr: {
     switcherAria: "डॅशबोर्ड बदला",
@@ -223,6 +235,7 @@ export const OPERATOR_DASHBOARDS = {
     soloOnlineBody: "येथे ऑनलाइन झाल्यास तुमचे स्वतःचे वाहन ऑफलाइन होईल. एका वेळी फक्त एक डॅशबोर्ड ऑनलाइन असतो.",
     goOnlineHere: "येथे ऑनलाइन व्हा",
     stayOnlineSolo: "माझ्या वाहनासह ऑनलाइन राहा",
+    noVehicleYet: "अद्याप कोणतेही वाहन दिलेले नाही",
   },
   vi: {
     switcherAria: "Chuyển bảng điều khiển",
@@ -240,6 +253,7 @@ export const OPERATOR_DASHBOARDS = {
     soloOnlineBody: "Trực tuyến ở đây sẽ khiến xe của riêng bạn ngoại tuyến. Mỗi lúc chỉ một bảng điều khiển được trực tuyến.",
     goOnlineHere: "Trực tuyến ở đây",
     stayOnlineSolo: "Tiếp tục trực tuyến bằng xe của tôi",
+    noVehicleYet: "Chưa được giao xe",
   },
   de: {
     switcherAria: "Dashboard wechseln",
@@ -257,5 +271,6 @@ export const OPERATOR_DASHBOARDS = {
     soloOnlineBody: "Wenn du hier online gehst, geht dein eigenes Fahrzeug offline. Es ist immer nur ein Dashboard online.",
     goOnlineHere: "Hier online gehen",
     stayOnlineSolo: "Mit meinem Fahrzeug online bleiben",
+    noVehicleYet: "Noch kein Fahrzeug zugewiesen",
   },
 };

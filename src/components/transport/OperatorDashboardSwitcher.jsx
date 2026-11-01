@@ -43,7 +43,11 @@ const OperatorDashboardSwitcher = forwardRef(function OperatorDashboardSwitcher(
         mode: "company",
         companyId: company.companyId,
         title: company.companyName || t("operatorWorkMode.yourCompany"),
-        detail: [t("operatorDashboards.companyDetail"), company.fleetName].filter(Boolean).join(" · "),
+        detail: company.noVehicle
+          ? t("operatorDashboards.noVehicleYet")
+          : [t("operatorDashboards.companyDetail"), company.fleetName].filter(Boolean).join(" · "),
+        // A company that has not assigned them a vehicle has no dashboard yet.
+        disabled: Boolean(company.noVehicle),
         current,
         online: current ? currentActive : Boolean(company.active),
       };
@@ -51,6 +55,7 @@ const OperatorDashboardSwitcher = forwardRef(function OperatorDashboardSwitcher(
   ].filter(Boolean);
 
   function choose(option) {
+    if (option.disabled) return;
     setOpen(false);
     if (!option.current) onSwitch?.({ mode: option.mode, companyId: option.companyId });
   }
@@ -89,8 +94,9 @@ const OperatorDashboardSwitcher = forwardRef(function OperatorDashboardSwitcher(
                 key={option.key}
                 type="button"
                 onClick={() => choose(option)}
+                disabled={option.disabled}
                 data-direction="urride-dashboard-option"
-                className={`flex w-full items-center gap-3 rounded-2xl border p-3 text-left ${option.current ? "border-blue-500 bg-blue-50" : "border-slate-200"}`}
+                className={`flex w-full items-center gap-3 rounded-2xl border p-3 text-left disabled:cursor-default disabled:opacity-60 ${option.current ? "border-blue-500 bg-blue-50" : "border-slate-200"}`}
               >
                 <span className="grid h-11 w-11 flex-none place-items-center rounded-xl bg-blue-50 text-blue-700">
                   <Icon size={20} />

@@ -690,10 +690,23 @@ export async function getOperatorAccount() {
   // one is online (the operator stays findable and sharing their position for
   // that company whichever dashboard they open). An operator online solo is
   // never moved to a company.
-  const assignments = await listCompanyFleetAssignments(operator.id, userId);
+  // Companies they belong to as an operator without a vehicle yet are listed
+  // too (the switcher says so), so a company operator always sees the switch.
+  const [assignments, memberRows] = await Promise.all([
+    listCompanyFleetAssignments(operator.id, userId),
+    supabase
+      .from("transport_company_members")
+      .select("company_id, role, status")
+      .eq("user_id", userId)
+      .neq("role", "owner")
+      .in("status", ["active", "suspended"])
+      .then(({ data }) => data || [], () => []),
+  ]);
   const soloActive = resolveFleetAvailability(personalFleet);
   const runtimeIds = assignments.map((item) => item.transport_fleet_id).filter(Boolean);
-  const companyIds = [...new Set(assignments.map((item) => item.company_id).filter(Boolean))];
+  const assignedCompanyIds = new Set(assignments.map((item) => item.company_id).filter(Boolean));
+  const vehicleLessCompanyIds = [...new Set(memberRows.map((row) => row.company_id).filter((id) => id && !assignedCompanyIds.has(id)))];
+  const companyIds = [...new Set([...assignedCompanyIds, ...vehicleLessCompanyIds])];
   const [runtimeResult, companyResult] = await Promise.all([
     runtimeIds.length
       ? supabase.from("transport_fleets").select("*").in("id", runtimeIds)
@@ -717,6 +730,15 @@ export async function getOperatorAccount() {
       runtimeFleet,
     };
   });
+  const vehicleLessCompanies = vehicleLessCompanyIds.map((companyId) => ({
+    companyId,
+    companyName: companyNameById.get(companyId) || "",
+    companyFleetId: "",
+    fleetName: "",
+    fleetType: "",
+    active: false,
+    noVehicle: true,
+  }));
   const chosenCompanyId = resolveOperatorCompanyChoice(operatorCompanies, readOperatorWorkCompany(userId));
   const chosenCompany = operatorCompanies.find((item) => item.companyId === chosenCompanyId) || operatorCompanies[0] || null;
   const availableAssignment = chosenCompany?.assignment || null;
@@ -754,7 +776,10 @@ export async function getOperatorAccount() {
   account.companyFleetType = (onlineCompany || chosenCompany)?.fleetType || "";
   account.assignedCompanyId = availableAssignment?.company_id || "";
   // Every company this operator drives for, for the dashboard switcher.
-  account.operatorCompanies = operatorCompanies.map(({ assignment: _assignment, runtimeFleet: _runtimeFleet, ...item }) => item);
+  account.operatorCompanies = [
+    ...operatorCompanies.map(({ assignment: _assignment, runtimeFleet: _runtimeFleet, ...item }) => item),
+    ...vehicleLessCompanies,
+  ];
   if (companyAssignment) {
     account.companyFleetId = companyAssignment.id;
     account.companyId = companyAssignment.company_id || "";

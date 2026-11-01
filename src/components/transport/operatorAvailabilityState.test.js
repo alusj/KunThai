@@ -4,6 +4,7 @@ import test from "node:test";
 import { URRIDE_LIVE_DISCOVERY } from "../../i18n/urrideLiveDiscovery.js";
 import {
   availabilityLabelKey,
+  countOperatorDashboards,
   findOnlineElsewhere,
   resolveFleetAvailability,
   resolveOperatorCompanyChoice,
@@ -77,4 +78,14 @@ test("only one dashboard online: going online here names the other one", () => {
   assert.equal(findOnlineElsewhere({ current: { mode: "company", companyId: "c2" }, companies })?.companyId, "c1");
   assert.deepEqual(findOnlineElsewhere({ current: { mode: "company", companyId: "c2" }, soloActive: true }), { mode: "solo", companyId: "" });
   assert.equal(findOnlineElsewhere({ current: { mode: "solo" }, soloActive: true, companies: [] }), null);
+});
+
+test("a solo operator who also drives for one company gets the switcher", () => {
+  assert.equal(countOperatorDashboards({ hasSoloFleet: true, operatorCompanies: [{ companyId: "c1" }] }), 2);
+  // A company that has not given them a vehicle yet still counts (listed, marked).
+  assert.equal(countOperatorDashboards({ hasSoloFleet: true, operatorCompanies: [{ companyId: "c1", noVehicle: true }] }), 2);
+  assert.equal(countOperatorDashboards({ operatorCompanies: [{ companyId: "c1" }, { companyId: "c2" }] }), 2);
+  assert.equal(countOperatorDashboards({ hasSoloFleet: true }), 1);
+  assert.equal(countOperatorDashboards({ operatorCompanies: [{ companyId: "c1" }] }), 1);
+  assert.equal(countOperatorDashboards(null), 0);
 });

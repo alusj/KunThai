@@ -63,3 +63,10 @@ export function findOnlineElsewhere({ current = {}, soloActive = false, companie
     && !(current.mode === "company" && company.companyId === current.companyId));
   return other ? { mode: "company", companyId: other.companyId, companyName: other.companyName || "" } : null;
 }
+
+// How many dashboards an operator can switch between: their own vehicle (if
+// any) plus every company they drive for or belong to. Two or more shows the
+// dashboard switcher in the header.
+export function countOperatorDashboards(account = {}) {
+  return (account?.hasSoloFleet ? 1 : 0) + (account?.operatorCompanies?.length || 0);
+}

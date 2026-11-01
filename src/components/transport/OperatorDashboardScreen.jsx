@@ -92,6 +92,7 @@ import { t as i18nText } from "../../i18n/index";
 import {
   AVAILABILITY_REFRESH_GRACE_MS,
   availabilityLabelKey,
+  countOperatorDashboards,
   findOnlineElsewhere,
   resolveFleetAvailability,
   shouldPreserveAvailabilityOverride,
@@ -347,11 +348,13 @@ export default function OperatorDashboardScreen({
   // A company vehicle is edited by its company in Fleet HQ. The edit screen
   // saves the operator's own solo fleet, so it is not offered in company mode.
   const canEditOwnFleet = account?.workMode !== "company";
-  // An operator who drives for more than one company picks their dashboard
-  // from a list (solo + every company), like UrMall's business switcher. With
-  // one company the Solo / Company switch in the menu stays as it was.
+  // An operator with more than one dashboard (their own vehicle and a
+  // company, or several companies) switches from a button in the header that
+  // lists them all, like UrMall's business switcher; the menu opens the same
+  // list. Basic company operators have no Fleet HQ button, so this is their
+  // way to the company dashboard.
   const showDashboardSwitcher = Boolean(onSwitchWorkMode) && !readOnly
-    && (account?.operatorCompanies?.length || 0) > 1;
+    && countOperatorDashboards(account) > 1;
   const dashboardReadOnlyReason = isCompanySuspended
     ? t("urride.opDash.suspended", { company: shownCompanyAccount?.companyName || t("urride.opDash.yourCompany") })
     : (readOnlyReason || t("urride.opDash.readOnlyReasonDefault"));
