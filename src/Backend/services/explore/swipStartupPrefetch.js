@@ -3,6 +3,7 @@ import { adoptFeedAccount, prefetchExploreFeed } from "../../hooks/useExploreFee
 import { isGuestMode } from "../guestModeService";
 import { readExploreSettings } from "./preferencesService";
 import { recordLifecycle } from "../lifecycleAudit";
+import { LEAN_DEBUG } from "../../../debugLean";
 import { getSwipVideos, isRenderableSwipPost } from "../../../components/Explore/ExploreTabs/swip/videos/swipUtils";
 
 // Swip starts at once on a fresh start: while the native splash is still up,
@@ -78,6 +79,8 @@ async function downloadClip(post) {
 
 // Called once from main.jsx, before React renders anything.
 export function startSwipStartupPrefetch() {
+  // Debugging the iPhone restarts (debugLean.js): no clip downloads at start.
+  if (LEAN_DEBUG) return;
   if (started || typeof window === "undefined") return;
   started = true;
   (async () => {

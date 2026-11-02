@@ -63,6 +63,7 @@ import {
 import { readDefaultMainPage } from "./Backend/services/mainDashboardPreference";
 import { resolveResumeDashboard, shouldResetToDashboard } from "./Backend/services/dashboardResume";
 import { clearBrowserBackStack } from "./Backend/hooks/useBrowserBack";
+import { LEAN_DEBUG } from "./debugLean";
 import { lazyWithRetry } from "./Backend/utils/lazyWithRetry";
 import LazyRouteBoundary from "./components/shared/LazyRouteBoundary";
 import { settleReplayedAnimations } from "./components/shared/settleReplayedAnimations";
@@ -381,6 +382,13 @@ export default function App() {
     // A short vibration confirms every move between the three main screens
     // (Explore / UrMall / UrRide), whether by bottom tab or swipe.
     haptics.light();
+
+    // Debugging the iPhone restarts: no slide, the old screen is dropped.
+    if (LEAN_DEBUG) {
+      pageScrollRef.current[page] = window.scrollY || 0;
+      setPage(nextPage);
+      return;
+    }
 
     const currentIndex = PAGE_ORDER.indexOf(page);
     const nextIndex = PAGE_ORDER.indexOf(nextPage);
@@ -809,7 +817,7 @@ export default function App() {
   // the slide began. A screen built this way is exactly a screen visited and
   // left: hidden, inactive, no media. UrRide waits for a real visit (GPS).
   useEffect(() => {
-    if (!onboardingComplete || twoFactorPending !== false || !canPreloadMainPages()) return undefined;
+    if (LEAN_DEBUG || !onboardingComplete || twoFactorPending !== false || !canPreloadMainPages()) return undefined;
     const pending = BACKGROUND_MOUNT_PAGES.filter((candidate) => candidate !== page && !mountedPagesRef.current.includes(candidate));
     if (!pending.length) return undefined;
 
@@ -1353,6 +1361,7 @@ export default function App() {
   }
 
   function isPageMounted(targetPage) {
+    if (LEAN_DEBUG) return page === targetPage;
     return page === targetPage || mountedPages.includes(targetPage) || leavingPage?.page === targetPage;
   }
 

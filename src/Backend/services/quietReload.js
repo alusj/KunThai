@@ -1,6 +1,7 @@
 import { Capacitor } from "@capacitor/core";
 
 import { recordLifecycle } from "./lifecycleAudit";
+import { LEAN_DEBUG } from "../../debugLean";
 
 // Opened again after 15 minutes or more away, the app starts fresh, the same
 // as when the phone closes it in the background: new data, and Swip's first
@@ -59,6 +60,12 @@ export function installQuietReload() {
   // App.jsx's own 15-minute reset (web) stands aside for this.
   window.__ktNativeQuietReload = true;
   window.__ktQuietReload = () => {
+    // Debugging the iPhone restarts (debugLean.js): the native app keeps the
+    // page as it is when told "skip".
+    if (LEAN_DEBUG) {
+      recordLifecycle("quiet-reload", "app", "skipped (lean debug)");
+      return "skip";
+    }
     recordLifecycle("quiet-reload", "app");
     // Fresh on a main dashboard, not on an inner screen from a deep link.
     try {

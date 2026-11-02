@@ -214,12 +214,10 @@ class KunThaiBridgeViewController: CAPBridgeViewController {
     // Opened again after 15 minutes or more away: the KunThai logo covers the
     // screen at once (the old screen never shows) and the page reloads under
     // it (src/Backend/services/quietReload.js); the logo leaves once the
-    // reloaded app has drawn. Whenever this logo shows, the page reloads once:
+    // reloaded app has drawn. Unless the page answers "skip", the page reloads once:
     // whatever the page answers (or if it cannot answer, still asleep).
     private func quietReload() {
         guard let webView else { return }
-        webReady = false
-        showSplash(minimum: Self.splashSeconds, logo: true)
         // The start page with the fresh-start marker, not reload(): a reload
         // keeps sessionStorage and the app then came back on its old tab and
         // screen (quietReload.js consumeFreshStart).
@@ -228,7 +226,14 @@ class KunThaiBridgeViewController: CAPBridgeViewController {
             parts?.queryItems = [URLQueryItem(name: "ktFresh", value: "1")]
             return parts?.url
         }
-        webView.evaluateJavaScript("window.__ktQuietReload ? window.__ktQuietReload() : 'absent'") { [weak webView] _, _ in
+        webView.evaluateJavaScript("window.__ktQuietReload ? window.__ktQuietReload() : 'absent'") { [weak self, weak webView] result, _ in
+            // "skip": the page keeps going as it is (src/debugLean.js, while
+            // the iPhone restarts are debugged). A page that cannot answer is
+            // gone and reloads.
+            if (result as? String) == "skip" { return }
+            guard let self else { return }
+            self.webReady = false
+            self.showSplash(minimum: Self.splashSeconds, logo: true)
             if let fresh { webView?.load(URLRequest(url: fresh)) } else { webView?.reload() }
         }
     }

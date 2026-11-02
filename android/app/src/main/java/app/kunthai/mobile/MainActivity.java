@@ -93,15 +93,18 @@ public class MainActivity extends BridgeActivity {
     // Opened again after 15 minutes or more away: the KunThai logo covers the
     // screen at once (the old screen never shows) and the page reloads under
     // it (src/Backend/services/quietReload.js); the logo leaves once the
-    // reloaded app has drawn. Whenever this logo shows, the page reloads once:
+    // reloaded app has drawn. Unless the page answers "skip", the page reloads once:
     // whatever the page answers (or if it cannot answer, still paused).
     private void quietReload() {
         if (getBridge() == null || getBridge().getWebView() == null) return;
-        KunThaiLaunchPlugin.reset();
-        showLogoSplash(KunThaiLaunchPlugin.appBackground(this), android.os.SystemClock.uptimeMillis());
         getBridge().getWebView().evaluateJavascript(
             "window.__ktQuietReload ? window.__ktQuietReload() : 'absent'",
             result -> {
+                // "skip": the page keeps going as it is (src/debugLean.js,
+                // while the restarts are debugged).
+                if ("\"skip\"".equals(result)) return;
+                KunThaiLaunchPlugin.reset();
+                showLogoSplash(KunThaiLaunchPlugin.appBackground(this), android.os.SystemClock.uptimeMillis());
                 // The start page with the fresh-start marker, not reload(): a
                 // reload keeps sessionStorage and the app then came back on its
                 // old tab and screen (quietReload.js consumeFreshStart).

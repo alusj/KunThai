@@ -1,4 +1,5 @@
 // src/Explore/Explore.jsx
+import { LEAN_DEBUG } from "../../debugLean";
 import { memo, useCallback, useDeferredValue, useEffect, useLayoutEffect, useRef, useState } from "react";
 import { createPortal } from "react-dom";
 //import { useAuth } from "../../Backend/hooks/useAuth";
@@ -1348,6 +1349,12 @@ export default function Explore({ active = true, onNavigateMain, onScreenModeCha
     switchExploreTab("UrFeed");
   }
 
+  // Debugging the iPhone restarts (debugLean.js): only the section on show
+  // (or sliding out) is built.
+  function exploreTabBuilt(tab) {
+    return !LEAN_DEBUG || activeTab === tab || leavingTab?.tab === tab;
+  }
+
   function getExploreTabPanelClass(tab) {
     const pending = leavingTab?.phase === "pending";
     if (leavingTab?.tab === tab && activeTab !== tab) {
@@ -2144,12 +2151,12 @@ export default function Explore({ active = true, onNavigateMain, onScreenModeCha
       className={getExploreTabPanelClass("UrFeed")}
       style={getExploreTabPanelStyle("UrFeed")}
     >
-      <MemoUrFeed
+      {exploreTabBuilt("UrFeed") ? <MemoUrFeed
         active={active && activeTab === "UrFeed" && !feedCovered}
         focusRequest={postFocusRequest?.tab === "UrFeed" ? postFocusRequest : null}
         profile={profile}
         onViewProfile={viewProfileFromTab}
-      />
+      /> : null}
     </section>
 
     <section
@@ -2159,7 +2166,7 @@ export default function Explore({ active = true, onNavigateMain, onScreenModeCha
       className={getExploreTabPanelClass("Swip")}
       style={getExploreTabPanelStyle("Swip")}
     >
-      <MemoSwip
+      {exploreTabBuilt("Swip") ? <MemoSwip
         active={active && activeTab === "Swip" && swipFullScreen && !feedCovered}
         currentUserId={profile.userId}
         focusPostId={postFocusRequest?.tab === "Swip" ? postFocusRequest.postId : swipPreviewTarget}
@@ -2168,7 +2175,7 @@ export default function Explore({ active = true, onNavigateMain, onScreenModeCha
         onReturnToRepost={swipPreviewTarget ? returnToRepostFromSwip : undefined}
         profile={profile}
         onViewProfile={viewProfileFromTab}
-      />
+      /> : null}
     </section>
 
     <section
@@ -2178,10 +2185,10 @@ export default function Explore({ active = true, onNavigateMain, onScreenModeCha
       className={getExploreTabPanelClass("Connections")}
       style={getExploreTabPanelStyle("Connections")}
     >
-      <MemoConnections
+      {exploreTabBuilt("Connections") ? <MemoConnections
         currentUserId={profile.userId}
         onViewProfile={viewProfileFromTab}
-      />
+      /> : null}
     </section>
     <div ref={tabSpacerRef} aria-hidden="true" />
   </>
