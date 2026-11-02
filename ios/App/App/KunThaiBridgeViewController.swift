@@ -78,6 +78,10 @@ class KunThaiBridgeViewController: CAPBridgeViewController {
         // the splash), so the reload log can say why the app restarted.
         if let webView, let original = webView.navigationDelegate {
             let proxy = KunThaiNavigationProxy(target: original) { [weak self] in
+                // The page is gone: hold the note until the reloaded page is
+                // ready. Sent at once, it went to the dead page and was lost
+                // whenever this happened while KunThai was in use.
+                self?.webReady = false
                 self?.noteNative("webcontent-terminated")
             }
             navigationProxy = proxy
