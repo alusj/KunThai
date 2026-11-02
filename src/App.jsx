@@ -63,10 +63,8 @@ import {
 import { readDefaultMainPage } from "./Backend/services/mainDashboardPreference";
 import { resolveResumeDashboard, shouldResetToDashboard } from "./Backend/services/dashboardResume";
 import { clearBrowserBackStack } from "./Backend/hooks/useBrowserBack";
-import { LEAN_DEBUG } from "./debugLean";
 import { lazyWithRetry } from "./Backend/utils/lazyWithRetry";
 import LazyRouteBoundary from "./components/shared/LazyRouteBoundary";
-import { settleReplayedAnimations } from "./components/shared/settleReplayedAnimations";
 import AppStartupSkeleton from "./components/shared/AppStartupSkeleton";
 import supabase from "./Backend/lib/supabaseClient";
 import { t as i18nText } from "./i18n/index";
@@ -94,10 +92,6 @@ const PAGE_LOADERS = {
   transport: loadTransport,
 };
 const PRELOADED_MAIN_PAGES = new Set();
-// Main screens built in the background after start-up (see the effect in App).
-const BACKGROUND_MOUNT_PAGES = ["explore", "marketplace"];
-// After Swip's start-up prefetch (~10 s on a Galaxy A06) has mostly finished.
-const BACKGROUND_MOUNT_DELAY_MS = 6000;
 
 function normalizeMainPage(value) {
   const page = String(value || "").toLowerCase();
@@ -282,9 +276,6 @@ export default function App() {
   });
   // Main screens stay alive after their first visit (hidden, inactive), so
   // moving between Explore, UrMall and UrRide is a slide, not a rebuild.
-  const [mountedPages, setMountedPages] = useState(() => [page]);
-  const mountedPagesRef = useRef(mountedPages);
-  mountedPagesRef.current = mountedPages;
   // The screen being slid out during a switch ({ page, direction, top }).
   const [leavingPage, setLeavingPage] = useState(null);
   const leavingTimerRef = useRef(null);
@@ -383,13 +374,6 @@ export default function App() {
     // (Explore / UrMall / UrRide), whether by bottom tab or swipe.
     haptics.light();
 
-    // Debugging the iPhone restarts: no slide, the old screen is dropped.
-    if (LEAN_DEBUG) {
-      pageScrollRef.current[page] = window.scrollY || 0;
-      setPage(nextPage);
-      return;
-    }
-
     const currentIndex = PAGE_ORDER.indexOf(page);
     const nextIndex = PAGE_ORDER.indexOf(nextPage);
     const direction = nextIndex >= currentIndex ? "forward" : "backward";
@@ -466,10 +450,6 @@ export default function App() {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
-  useEffect(() => {
-    setMountedPages((current) => (current.includes(page) ? current : [...current, page]));
-  }, [page]);
-
   // Each main screen keeps its own scroll position. While a switch slides,
   // both screens are phone-sized windows (kt-main-window), each scrolled to
   // where it was. Sliding the whole page instead (Explore's feed is ~13,000px)
@@ -506,9 +486,6 @@ export default function App() {
     const entering = mainPanelRefs.current[page];
     const leaving = mainPanelRefs.current[leavingPage.page];
     if (entering) {
-      // A screen seen before comes back as it was, without replaying the
-      // entrance animations its display:none restarted.
-      if (mountedPagesRef.current.includes(page)) settleReplayedAnimations(entering);
       if (spacer) spacer.style.height = `${entering.scrollHeight}px`;
       entering.scrollTop = target;
     }
@@ -810,41 +787,6 @@ export default function App() {
         // Suspense and the root error boundary own the visible retry path.
       });
   }, [page]);
-
-  // Build Explore and UrMall in the background once the first screen has
-  // settled and the phone is idle, so the first switch to them only slides.
-  // Built on the tap instead, Explore froze a Galaxy A06 for ~0.7 s right as
-  // the slide began. A screen built this way is exactly a screen visited and
-  // left: hidden, inactive, no media. UrRide waits for a real visit (GPS).
-  useEffect(() => {
-    if (LEAN_DEBUG || !onboardingComplete || twoFactorPending !== false || !canPreloadMainPages()) return undefined;
-    const pending = BACKGROUND_MOUNT_PAGES.filter((candidate) => candidate !== page && !mountedPagesRef.current.includes(candidate));
-    if (!pending.length) return undefined;
-
-    let startTimer = null;
-    let idleHandle = null;
-    const mountNext = () => {
-      idleHandle = null;
-      if (document.visibilityState === "hidden") return;
-      const next = pending.shift();
-      if (next) {
-        setMountedPages((current) => (current.includes(next) ? current : [...current, next]));
-      }
-      if (pending.length) schedule(3000);
-    };
-    const schedule = (delay) => {
-      startTimer = window.setTimeout(() => {
-        if (typeof window.requestIdleCallback === "function") idleHandle = window.requestIdleCallback(mountNext, { timeout: 4000 });
-        else mountNext();
-      }, delay);
-    };
-    schedule(BACKGROUND_MOUNT_DELAY_MS);
-
-    return () => {
-      window.clearTimeout(startTimer);
-      if (idleHandle != null && typeof window.cancelIdleCallback === "function") window.cancelIdleCallback(idleHandle);
-    };
-  }, [onboardingComplete, page, twoFactorPending]);
 
   useEffect(() => {
     if (!onboardingComplete || twoFactorPending !== false || !canPreloadMainPages()) return undefined;
@@ -1360,9 +1302,14 @@ export default function App() {
     return `${motion} kt-main-panel block ${leavingPage ? "kt-main-window" : "min-h-screen"}`;
   }
 
+  // Only the screen on show is built, plus the one sliding out during a
+  // switch. Keeping all three (and building them in the background) held
+  // Explore, UrMall and UrRide in memory at once: on an iPhone 13, opening
+  // Explore from UrMall then got the page ended by iOS (memory warning, then
+  // a restart), many times a day. A screen left is rebuilt on the next visit
+  // from its saved content.
   function isPageMounted(targetPage) {
-    if (LEAN_DEBUG) return page === targetPage;
-    return page === targetPage || mountedPages.includes(targetPage) || leavingPage?.page === targetPage;
+    return page === targetPage || leavingPage?.page === targetPage;
   }
 
   return withStartupIntro(

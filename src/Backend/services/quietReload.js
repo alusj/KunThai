@@ -1,28 +1,16 @@
 import { Capacitor } from "@capacitor/core";
 
 import { recordLifecycle } from "./lifecycleAudit";
-import { LEAN_DEBUG } from "../../debugLean";
 
-// Opened again after 15 minutes or more away, the app starts fresh, the same
-// as when the phone closes it in the background: new data, and Swip's first
-// clips downloaded again before it is shown (swipStartupPrefetch). The native
-// app decides it (it knows how long KunThai was away): the KunThai logo
-// splash goes up as the app comes back, it asks this page, and on "reloading"
-// it reloads the page under the splash, which leaves once the reloaded app
-// has drawn (KunThaiBridgeViewController.quietReload on iPhone,
-// MainActivity.quietReload on Android). The native side reloads, not the
-// page: on Android the page is still paused at that moment and a reload it
-// asks for itself is dropped.
-//
-// Whenever that splash shows, the app reloads once, with no exception: a
-// post still being sent stays in the outbox and is sent again after the
-// reload (postOutbox.js), and a live trip or Area View is opened again from
-// the server.
+// There is no fresh start after a long time away any more (removed
+// 2026-11-02). It reloaded KunThai under the logo whenever it came back after
+// 15 minutes, many times a day; with only the screen on show kept in memory
+// (App.jsx), KunThai now carries on where it was. The native apps still reload
+// a page iOS or Android cleared in the background.
 
-// The native side opens the start page with this marker rather than reloading
-// in place (a reload keeps sessionStorage, which then restored the old tab,
-// UrMall screen and scroll as if nothing had happened). Runs before any screen
-// reads sessionStorage, so the reloaded app starts like a cold launch.
+// A build from before the change may still open the start page with this
+// marker: it starts like a cold launch (sessionStorage cleared, so no old tab
+// or screen comes back).
 const FRESH_START_PARAM = "ktFresh";
 
 export function consumeFreshStart() {
@@ -50,6 +38,7 @@ export function consumeFreshStart() {
   return true;
 }
 
+// In the phone apps, App.jsx's web-only 15-minute reset stays off as well.
 export function installQuietReload() {
   if (typeof window === "undefined") return;
   try {
@@ -57,22 +46,5 @@ export function installQuietReload() {
   } catch {
     return;
   }
-  // App.jsx's own 15-minute reset (web) stands aside for this.
   window.__ktNativeQuietReload = true;
-  window.__ktQuietReload = () => {
-    // Debugging the iPhone restarts (debugLean.js): the native app keeps the
-    // page as it is when told "skip".
-    if (LEAN_DEBUG) {
-      recordLifecycle("quiet-reload", "app", "skipped (lean debug)");
-      return "skip";
-    }
-    recordLifecycle("quiet-reload", "app");
-    // Fresh on a main dashboard, not on an inner screen from a deep link.
-    try {
-      if (window.location.hash) window.history.replaceState(null, "", window.location.pathname + window.location.search);
-    } catch {
-      // The hash stays; the app still starts fresh.
-    }
-    return "reloading";
-  };
 }

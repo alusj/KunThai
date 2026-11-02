@@ -14,8 +14,7 @@ import { useEffect } from "react";
 
 const LOG_KEY = "kt-lifecycle-log";
 const HIDDEN_AT_KEY = "kt-lifecycle-hidden-at";
-// Raised from 200 while history tracing is on, so a restart stays in view.
-const MAX_ENTRIES = 600;
+const MAX_ENTRIES = 200;
 const counts = {};
 // Sent once a main screen (Explore, UrMall, UrRide) has been built; App.jsx
 // keeps the native splash up until then (see screenHasMounted).
@@ -98,39 +97,6 @@ if (typeof window !== "undefined" && typeof document !== "undefined") {
     const seconds = secondsSince(HIDDEN_AT_KEY);
     recordLifecycle("resume", "app", seconds === null ? "" : `away ${seconds}s`);
   });
-
-  // History tracing (debugging the iPhone "back_forward" restarts): a page
-  // load of type back_forward means something stepped back past this page's
-  // first entry into an older copy of the app. Each step back, each screen
-  // added, each Back that arrives and the page leaving are logged with the
-  // depth, the history length and the screen, so the log shows who did it.
-  const historyNote = (extra = "") => {
-    const state = window.history.state || {};
-    return `${extra}depth=${Number(state.kuntaiBackDepth) || 0} len=${window.history.length} layer=${state.kuntaiBackLayer || "-"}`;
-  };
-  try {
-    const { history } = window;
-    const back = history.back.bind(history);
-    const go = history.go.bind(history);
-    const push = history.pushState.bind(history);
-    history.back = () => {
-      recordLifecycle("history", "back", historyNote());
-      return back();
-    };
-    history.go = (delta) => {
-      recordLifecycle("history", "go", historyNote(`delta=${delta} `));
-      return go(delta);
-    };
-    history.pushState = (state, ...rest) => {
-      const result = push(state, ...rest);
-      recordLifecycle("history", "push", historyNote());
-      return result;
-    };
-    window.addEventListener("popstate", () => recordLifecycle("history", "popstate", historyNote()));
-    window.addEventListener("pagehide", (event) => recordLifecycle("history", "pagehide", historyNote(event.persisted ? "persisted " : "")));
-  } catch {
-    // Tracing is optional.
-  }
 
   window.__ktLifecycle = () => {
     const log = readLog();

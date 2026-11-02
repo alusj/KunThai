@@ -44,10 +44,6 @@ class KunThaiBridgeViewController: CAPBridgeViewController {
     private var splashMinimumUntil = Date.distantPast
     private var webReady = false
     private var loadingObservation: NSKeyValueObservation?
-    // Back after this long away: a fresh start under the KunThai splash
-    // (quietReload).
-    private static let quietReloadAfter: TimeInterval = 15 * 60
-    private var backgroundedAt: Date?
 
     override open func capacitorDidLoad() {
         bridge?.registerPluginInstance(KunThaiAppleSignInPlugin())
@@ -75,7 +71,6 @@ class KunThaiBridgeViewController: CAPBridgeViewController {
 
         let center = NotificationCenter.default
         center.addObserver(self, selector: #selector(appWillEnterForeground), name: UIApplication.willEnterForegroundNotification, object: nil)
-        center.addObserver(self, selector: #selector(appDidEnterBackground), name: UIApplication.didEnterBackgroundNotification, object: nil)
         center.addObserver(self, selector: #selector(appWillResignActive), name: UIApplication.willResignActiveNotification, object: nil)
         center.addObserver(self, selector: #selector(appDidBecomeActive), name: UIApplication.didBecomeActiveNotification, object: nil)
         center.addObserver(self, selector: #selector(memoryWarning), name: UIApplication.didReceiveMemoryWarningNotification, object: nil)
@@ -167,10 +162,6 @@ class KunThaiBridgeViewController: CAPBridgeViewController {
         splashView?.backgroundColor = appBackground
     }
 
-    @objc private func appDidEnterBackground() {
-        backgroundedAt = Date()
-    }
-
     // Locking the phone (or leaving KunThai) lets go of video and audio at
     // once, so iOS shows no "Now Playing" card on the lock screen, like
     // TikTok and Reels. This comes before the page learns it is hidden; the
@@ -211,40 +202,10 @@ class KunThaiBridgeViewController: CAPBridgeViewController {
         webView?.evaluateJavaScript("window.__ktRestoreMedia && window.__ktRestoreMedia()", completionHandler: nil)
     }
 
-    // Opened again after 15 minutes or more away: the KunThai logo covers the
-    // screen at once (the old screen never shows) and the page reloads under
-    // it (src/Backend/services/quietReload.js); the logo leaves once the
-    // reloaded app has drawn. Unless the page answers "skip", the page reloads once:
-    // whatever the page answers (or if it cannot answer, still asleep).
-    private func quietReload() {
-        guard let webView else { return }
-        // The start page with the fresh-start marker, not reload(): a reload
-        // keeps sessionStorage and the app then came back on its old tab and
-        // screen (quietReload.js consumeFreshStart).
-        let fresh: URL? = bridge.flatMap { bridge in
-            var parts = URLComponents(url: bridge.config.serverURL, resolvingAgainstBaseURL: false)
-            parts?.queryItems = [URLQueryItem(name: "ktFresh", value: "1")]
-            return parts?.url
-        }
-        webView.evaluateJavaScript("window.__ktQuietReload ? window.__ktQuietReload() : 'absent'") { [weak self, weak webView] result, _ in
-            // "skip": the page keeps going as it is (src/debugLean.js, while
-            // the iPhone restarts are debugged). A page that cannot answer is
-            // gone and reloads.
-            if (result as? String) == "skip" { return }
-            guard let self else { return }
-            self.webReady = false
-            self.showSplash(minimum: Self.splashSeconds, logo: true)
-            if let fresh { webView?.load(URLRequest(url: fresh)) } else { webView?.reload() }
-        }
-    }
-
+    // No fresh start after a long time away (the 15-minute reload was
+    // removed 2026-11-02: it restarted KunThai many times a day). KunThai
+    // carries on where it was unless iOS cleared the page.
     @objc private func appWillEnterForeground() {
-        let away = backgroundedAt.map { Date().timeIntervalSince($0) } ?? 0
-        backgroundedAt = nil
-        if away >= Self.quietReloadAfter {
-            quietReload()
-            return
-        }
         // Is the page still there? iOS may have cleared it in the background,
         // in which case it reloads: a plain cover (no logo) hides the blank page.
         guard let webView else { return }

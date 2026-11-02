@@ -1,5 +1,4 @@
 // src/Explore/Explore.jsx
-import { LEAN_DEBUG } from "../../debugLean";
 import { memo, useCallback, useDeferredValue, useEffect, useLayoutEffect, useRef, useState } from "react";
 import { createPortal } from "react-dom";
 //import { useAuth } from "../../Backend/hooks/useAuth";
@@ -155,6 +154,8 @@ export default function Explore({ active = true, onNavigateMain, onScreenModeCha
   const [tabSlideDirection, setTabSlideDirection] = useState("forward");
   // The tab being slid out while the next one slides in ({ tab, direction, top }).
   const [leavingTab, setLeavingTab] = useState(null);
+  // The section a finger drag is bringing in, built for the drag's preview.
+  const [dragPreviewTab, setDragPreviewTab] = useState("");
   const leavingTabTimerRef = useRef(null);
   const [swipPreviewTarget, setSwipPreviewTarget] = useState("");
   const [postFocusRequest, setPostFocusRequest] = useState(null);
@@ -1349,10 +1350,11 @@ export default function Explore({ active = true, onNavigateMain, onScreenModeCha
     switchExploreTab("UrFeed");
   }
 
-  // Debugging the iPhone restarts (debugLean.js): only the section on show
-  // (or sliding out) is built.
+  // Only the section on show is built, plus one sliding out or being dragged
+  // in. All three at once (and Swip's video players) was too much memory for
+  // an iPhone: opening Explore from UrMall got the page ended by iOS.
   function exploreTabBuilt(tab) {
-    return !LEAN_DEBUG || activeTab === tab || leavingTab?.tab === tab;
+    return activeTab === tab || leavingTab?.tab === tab || dragPreviewTab === tab;
   }
 
   function getExploreTabPanelClass(tab) {
@@ -1391,6 +1393,7 @@ export default function Explore({ active = true, onNavigateMain, onScreenModeCha
   }
 
   function clearTabDragStyles() {
+    setDragPreviewTab("");
     EXPLORE_TAB_ORDER.forEach((tab) => {
       const node = tabPanelRefs.current[tab];
       if (!node) return;
@@ -1459,6 +1462,7 @@ export default function Explore({ active = true, onNavigateMain, onScreenModeCha
     if (targetIndex >= 0 && targetIndex < EXPLORE_TAB_ORDER.length) {
       gesture.mode = "tabs";
       gesture.incomingTab = EXPLORE_TAB_ORDER[targetIndex];
+      setDragPreviewTab(gesture.incomingTab);
       // sign is the horizontal direction panels travel: -1 toward the next
       // tab (finger moves left), +1 toward the previous tab.
       gesture.sign = targetIndex > currentIndex ? -1 : 1;
