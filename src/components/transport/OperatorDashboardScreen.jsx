@@ -39,6 +39,7 @@ import { HiOutlineCheckCircle } from "react-icons/hi2";
 import TransportGroupSwitcher from "./TransportGroupSwitcher";
 import OperatorDashboardSwitcher from "./OperatorDashboardSwitcher";
 import OnlineElsewhereCard from "./OnlineElsewhereCard";
+import GoingOnlineNoticeCard from "./GoingOnlineNoticeCard";
 import OperatorVisibilityStatus from "./OperatorVisibilityStatus";
 import HealthScoreCard from "../Marketplace/MarketplaceHeader/Business/MyBizDashboardHeader/HealthScoreCard";
 import RequestAccountDeletionPage from "./shared/RequestAccountDeletionPage";
@@ -190,6 +191,8 @@ export default function OperatorDashboardScreen({
   const [leaveCompanyOpen, setLeaveCompanyOpen] = useState(false);
   // Going online here while online on another dashboard (OnlineElsewhereCard).
   const onlineElsewhereCardRef = useRef(null);
+  // What being online means, once going online has saved (GoingOnlineNoticeCard).
+  const goingOnlineNoticeRef = useRef(null);
   const dashboardSwitcherRef = useRef(null);
   const [accountDeletionOpen, setAccountDeletionOpen] = useState(false);
   const [operatorAlertsOpen, setOperatorAlertsOpen] = useState(false);
@@ -638,6 +641,7 @@ export default function OperatorDashboardScreen({
       haptics.medium("transport");
       sounds.success("transport");
       showToast(updatedActive ? t("urrideLiveDiscovery.toastOnline") : t("urride.opDash.fleetOffline"), "success");
+      if (updatedActive) goingOnlineNoticeRef.current?.open();
       onAccountUpdate?.((current) => {
         if (!current) return current;
 
@@ -1194,6 +1198,8 @@ export default function OperatorDashboardScreen({
         ref={onlineElsewhereCardRef}
         onConfirm={() => handleAvailabilityToggle({ leaveCompanyConfirmed: true })}
       />
+
+      <GoingOnlineNoticeCard ref={goingOnlineNoticeRef} />
 
       <OperatorLeaveCompanyDialog
         open={leaveCompanyOpen}
