@@ -20,12 +20,52 @@ export async function downloadableImageUrl(url) {
   return url;
 }
 
-async function fetchImageBlob(url) {
+// The photo behind an open card, fetched (and, for Copy, turned into a PNG)
+// as soon as the card opens, so Save and Copy answer at once instead of
+// seconds after the tap. Kept for the last few photos only.
+const prepared = new Map(); // url -> { blob: Promise<Blob>, png: Promise<Blob>|null }
+const PREPARED_MAX = 3;
+
+async function downloadImageBlob(url) {
   const href = await downloadableImageUrl(url);
   if (!href) throw new Error("This photo is not available.");
   const response = await fetch(href, { credentials: "omit" });
   if (!response.ok) throw new Error("This photo could not be downloaded.");
   return response.blob();
+}
+
+function preparedEntry(url) {
+  let entry = prepared.get(url);
+  if (!entry) {
+    entry = { blob: downloadImageBlob(url), png: null };
+    entry.blob.catch(() => prepared.delete(url));
+    prepared.set(url, entry);
+    if (prepared.size > PREPARED_MAX) prepared.delete(prepared.keys().next().value);
+  }
+  return entry;
+}
+
+function fetchImageBlob(url) {
+  return preparedEntry(url).blob;
+}
+
+function preparedPng(url) {
+  const entry = preparedEntry(url);
+  if (!entry.png) {
+    entry.png = entry.blob.then(pngBlob);
+    entry.png.catch(() => { entry.png = null; });
+  }
+  return entry.png;
+}
+
+// Called when a card with Save image / Copy image opens.
+export function prepareImage(url) {
+  if (!url) return;
+  try {
+    preparedPng(url).catch(() => {});
+  } catch {
+    // Preparing is only a head start.
+  }
 }
 
 function blobToBase64(blob) {
@@ -90,7 +130,7 @@ export async function copyImageToClipboard(url) {
     if (typeof ClipboardItem !== "undefined" && navigator.clipboard?.write) {
       // The item is handed over at once with a promise, so Safari still
       // counts it as part of the tap.
-      const item = new ClipboardItem({ "image/png": fetchImageBlob(url).then(pngBlob) });
+      const item = new ClipboardItem({ "image/png": preparedPng(url) });
       await navigator.clipboard.write([item]);
       return "image";
     }

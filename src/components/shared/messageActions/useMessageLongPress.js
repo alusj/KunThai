@@ -5,6 +5,8 @@ import { haptics } from "../../../Backend/services/feedbackService";
 const HOLD_MS = 450;
 // A finger that drifts further than this is scrolling, not holding.
 const MOVE_TOLERANCE_PX = 10;
+// The click that ends a hold arrives right after the lift, or not at all.
+const LIFT_CLICK_MS = 400;
 
 // Tap-and-hold on a chat bubble or photo. Returns props to spread on it; the
 // callback gets the element and the point pressed ({ x, y }) once the hold
@@ -17,6 +19,7 @@ export function useMessageLongPress(onLongPress, { disabled = false } = {}) {
   const startRef = useRef(null);
   const firedRef = useRef(false);
   const fingersRef = useRef(new Set());
+  const liftTimerRef = useRef(null);
   const callbackRef = useRef(onLongPress);
   callbackRef.current = onLongPress;
 
@@ -27,7 +30,10 @@ export function useMessageLongPress(onLongPress, { disabled = false } = {}) {
     setPressing(false);
   }
 
-  useEffect(() => clear, []);
+  useEffect(() => () => {
+    clear();
+    window.clearTimeout(liftTimerRef.current);
+  }, []);
 
   function fire(element, point) {
     if (firedRef.current) return;
@@ -43,6 +49,12 @@ export function useMessageLongPress(onLongPress, { disabled = false } = {}) {
     // A photo viewer would read the lift that ends a hold as a tap (and close
     // or zoom): mark it so combineHandlers hands the viewer a cancel instead.
     if (firedRef.current && event?.nativeEvent) event.nativeEvent.ktLongPressLift = true;
+    // Only the click that follows this lift belongs to the hold. Often there
+    // is none; then the first tap on the menu must not be swallowed.
+    if (firedRef.current) {
+      window.clearTimeout(liftTimerRef.current);
+      liftTimerRef.current = window.setTimeout(() => { firedRef.current = false; }, LIFT_CLICK_MS);
+    }
     clear();
   }
 
@@ -53,6 +65,8 @@ export function useMessageLongPress(onLongPress, { disabled = false } = {}) {
     handlers: {
       onPointerDown(event) {
         if (event.pointerType === "mouse" && event.button !== 0) return;
+        // A press on the (portaled) menu reaches here through React: not a hold.
+        if (!event.currentTarget.contains(event.target)) return;
         firedRef.current = false;
         fingersRef.current.add(event.pointerId);
         if (fingersRef.current.size > 1) {
@@ -75,11 +89,16 @@ export function useMessageLongPress(onLongPress, { disabled = false } = {}) {
       onPointerCancel: lift,
       onPointerLeave: lift,
       onContextMenu(event) {
+        if (!event.currentTarget.contains(event.target)) return;
         event.preventDefault();
         fire(event.currentTarget, { x: event.clientX, y: event.clientY });
       },
       onClickCapture(event) {
         if (!firedRef.current) return;
+        // The menu is portaled out of the bubble but React still sends its
+        // clicks through here: only a click on the held element itself is
+        // the hold's own.
+        if (!event.currentTarget.contains(event.target)) return;
         firedRef.current = false;
         event.preventDefault();
         event.stopPropagation();

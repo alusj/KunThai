@@ -18,7 +18,7 @@ import { uiText as translateUi, useI18n as useUiLocale } from "../../../../i18n/
 import { PRESENCE_LABEL_KEYS } from "../../../../Backend/services/explore/messageInboxModels.js";
 import { showToast } from "../../../../Backend/services/toastService";
 import MessageActionMenu from "../../../shared/messageActions/MessageActionMenu";
-import { copyMessageText, readMenuAnchor, revealMessage, runImageAction, submitReport } from "../../../shared/messageActions/messageActionDom.js";
+import { copyMessageText, prepareImageForActions, readMenuAnchor, revealMessage, runImageAction, submitReport } from "../../../shared/messageActions/messageActionDom.js";
 import { DeleteMessageDialog, ReportSheet } from "../../../shared/messageActions/MessageActionParts";
 import { canStillEdit, messageActionKeys } from "../../../shared/messageActions/messageActionModel.js";
 
@@ -208,6 +208,7 @@ export default function ConversationScreen({
       imageUrl: message.type === "image" ? element.querySelector("img")?.currentSrc || "" : "",
       photo: message.type === "image",
     };
+    if (keys.includes("saveImage")) prepareImageForActions(message.mediaUrl);
     setMenu({ ...placement, element, keys, align: isMine(message) ? "end" : "start", message, preview });
   }
 

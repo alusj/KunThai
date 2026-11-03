@@ -9,7 +9,7 @@ import {
 } from "../services/marketplace/marketplaceMessageActionsService";
 import { showToast } from "../services/toastService";
 import { t as i18nText } from "../../i18n/index";
-import { readMenuAnchor, copyMessageText, runImageAction, submitReport } from "../../components/shared/messageActions/messageActionDom.js";
+import { readMenuAnchor, copyMessageText, prepareImageForActions, runImageAction, submitReport } from "../../components/shared/messageActions/messageActionDom.js";
 import { canStillEdit, messageActionKeys } from "../../components/shared/messageActions/messageActionModel.js";
 
 function snapshotOf(message) {
@@ -79,6 +79,7 @@ export function useMarketplaceMessageActions({ myRole, otherName, threadKey, onC
       imageUrl: photo ? element.querySelector("img")?.currentSrc || "" : "",
       photo,
     };
+    if (keys.includes("saveImage")) prepareImageForActions(message.mediaUrl);
     setMenu({ ...placement, element, keys, align: message.from === myRole ? "end" : "start", message, preview });
   }
 

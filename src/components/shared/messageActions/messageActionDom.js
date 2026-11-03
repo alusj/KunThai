@@ -122,3 +122,11 @@ export function combineHandlers(own = {}, extra = {}) {
   });
   return combined;
 }
+
+// A card with Save image / Copy image opened: start getting the photo ready.
+export function prepareImageForActions(url) {
+  if (!url) return;
+  import("../../../Backend/services/media/imageActions.js")
+    .then(({ prepareImage }) => prepareImage(url))
+    .catch(() => {});
+}

@@ -2,7 +2,7 @@ import { useCallback, useState } from "react";
 
 import MessageActionMenu from "./MessageActionMenu";
 import { ReportSheet } from "./MessageActionParts";
-import { runImageAction, submitReport } from "./messageActionDom.js";
+import { prepareImageForActions, runImageAction, submitReport } from "./messageActionDom.js";
 import { useMessageLongPress } from "./useMessageLongPress";
 import { haptics } from "../../../Backend/services/feedbackService";
 
@@ -27,6 +27,7 @@ export function usePhotoActions({ url, reportedUserId = null, context = "photo" 
     event?.stopPropagation?.();
     if (!url) return;
     haptics.light("messages");
+    prepareImageForActions(url);
     const rect = event.currentTarget.getBoundingClientRect();
     const viewportHeight = window.visualViewport?.height || window.innerHeight;
     setMenu({
@@ -38,6 +39,7 @@ export function usePhotoActions({ url, reportedUserId = null, context = "photo" 
   }
 
   const press = useMessageLongPress((element, point) => {
+    prepareImageForActions(url);
     const x = point?.x ?? window.innerWidth / 2;
     const y = point?.y ?? window.innerHeight / 2;
     const viewportHeight = window.visualViewport?.height || window.innerHeight;

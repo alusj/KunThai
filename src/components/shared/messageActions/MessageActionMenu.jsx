@@ -17,6 +17,7 @@ import { t as i18nText } from "../../../i18n/index";
 import { useI18n as useUiLocale } from "../../../i18n/index.js";
 import { groupActionKeys, placeMessageMenu } from "./messageActionModel.js";
 import { readMenuAnchor } from "./messageActionDom.js";
+import { haptics } from "../../../Backend/services/feedbackService";
 
 
 const ICONS = {
@@ -146,6 +147,8 @@ export default function MessageActionMenu({ state, labels, onSelect, onClose }) 
                       type="button"
                       role="menuitem"
                       onClick={() => {
+                        // Felt at once, before the action's own result.
+                        haptics.selection("messages");
                         onClose?.();
                         onSelect?.(key);
                       }}
