@@ -4,6 +4,7 @@ import MessageActionMenu from "./MessageActionMenu";
 import { ReportSheet } from "./MessageActionParts";
 import { runImageAction, submitReport } from "./messageActionDom.js";
 import { useMessageLongPress } from "./useMessageLongPress";
+import { haptics } from "../../../Backend/services/feedbackService";
 
 const PUBLIC_STORAGE = "/storage/v1/object/public/";
 
@@ -25,6 +26,7 @@ export function usePhotoActions({ url, reportedUserId = null, context = "photo" 
   function openFromButton(event) {
     event?.stopPropagation?.();
     if (!url) return;
+    haptics.light("messages");
     const rect = event.currentTarget.getBoundingClientRect();
     const viewportHeight = window.visualViewport?.height || window.innerHeight;
     setMenu({

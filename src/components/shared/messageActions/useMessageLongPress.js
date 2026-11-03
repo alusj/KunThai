@@ -1,5 +1,7 @@
 import { useEffect, useRef, useState } from "react";
 
+import { haptics } from "../../../Backend/services/feedbackService";
+
 const HOLD_MS = 450;
 // A finger that drifts further than this is scrolling, not holding.
 const MOVE_TOLERANCE_PX = 10;
@@ -31,6 +33,8 @@ export function useMessageLongPress(onLongPress, { disabled = false } = {}) {
     if (firedRef.current) return;
     firedRef.current = true;
     clear();
+    // A firm tick says the hold worked (follows the app's vibration setting).
+    haptics.medium("messages");
     callbackRef.current?.(element, point);
   }
 
