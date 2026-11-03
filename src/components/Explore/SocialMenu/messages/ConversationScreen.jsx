@@ -18,8 +18,8 @@ import { uiText as translateUi, useI18n as useUiLocale } from "../../../../i18n/
 import { PRESENCE_LABEL_KEYS } from "../../../../Backend/services/explore/messageInboxModels.js";
 import { showToast } from "../../../../Backend/services/toastService";
 import MessageActionMenu from "../../../shared/messageActions/MessageActionMenu";
-import { copyMessageText, readMenuAnchor, revealMessage } from "../../../shared/messageActions/messageActionDom.js";
-import { DeleteMessageDialog } from "../../../shared/messageActions/MessageActionParts";
+import { copyMessageText, readMenuAnchor, revealMessage, runImageAction, submitReport } from "../../../shared/messageActions/messageActionDom.js";
+import { DeleteMessageDialog, ReportSheet } from "../../../shared/messageActions/MessageActionParts";
 import { canStillEdit, messageActionKeys } from "../../../shared/messageActions/messageActionModel.js";
 
 // Scrolling this close to the top of a thread loads the page before it.
@@ -159,6 +159,7 @@ export default function ConversationScreen({
   // edit the composer is working on.
   const [menu, setMenu] = useState(null);
   const [deleteTarget, setDeleteTarget] = useState(null);
+  const [reportTarget, setReportTarget] = useState(null);
   const [composerContext, setComposerContext] = useState(null);
   const closeMenu = useCallback(() => setMenu(null), []);
   const otherName = user.displayName || user.username || "This user";
@@ -193,12 +194,21 @@ export default function ConversationScreen({
         // a teammate's reply in a Space inbox).
         mine: message.senderId === currentUserId,
         canBlock: !peerIsSpace && !isMine(message),
+        // Not a teammate's reply in a Space inbox.
+        canReport: !isMine(message),
         hasMapPoint: hasMapPoint(message),
+        hasImage: message.type === "image" && Boolean(message.mediaUrl),
       },
     );
     const placement = readMenuAnchor(element);
     if (!keys.length || !placement) return;
-    setMenu({ ...placement, element, keys, align: isMine(message) ? "end" : "start", message });
+    const preview = {
+      author: authorOf(message.senderId),
+      text: message.body || (message.type === "image" ? i18nText("messageActions.photo") : ""),
+      imageUrl: message.type === "image" ? element.querySelector("img")?.currentSrc || "" : "",
+      photo: message.type === "image",
+    };
+    setMenu({ ...placement, element, keys, align: isMine(message) ? "end" : "start", message, preview });
   }
 
   async function runMenuAction(key) {
@@ -219,6 +229,10 @@ export default function ConversationScreen({
       onAction?.("deleteMessage", { message, userId: user.userId, forEveryone: false });
     } else if (key === "block") {
       onAction?.("blockUser", { message, userId: user.userId });
+    } else if (key === "saveImage" || key === "copyImage") {
+      runImageAction(key, message.mediaUrl);
+    } else if (key === "report") {
+      setReportTarget({ targetType: "explore_message", targetId: message.id });
     }
   }
 
@@ -394,6 +408,13 @@ export default function ConversationScreen({
           const message = deleteTarget;
           setDeleteTarget(null);
           if (message) onAction?.("deleteMessage", { message, userId: user.userId, forEveryone: choice === "everyone" });
+        }}
+      />
+      <ReportSheet
+        open={Boolean(reportTarget)}
+        onClose={() => setReportTarget(null)}
+        onSubmit={async (answer) => {
+          if (await submitReport(reportTarget, answer)) setReportTarget(null);
         }}
       />
     </section>

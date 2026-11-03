@@ -1,10 +1,12 @@
-import { HiOutlineArrowUturnLeft, HiOutlineNoSymbol, HiOutlinePencilSquare, HiOutlineXMark } from "react-icons/hi2";
+import { useEffect, useState } from "react";
+import { HiOutlineArrowUturnLeft, HiOutlineFlag, HiOutlineNoSymbol, HiOutlinePencilSquare, HiOutlineXMark } from "react-icons/hi2";
 
 import CenteredModal from "../CenteredModal";
 import { t as i18nText } from "../../../i18n/index";
 import { useI18n as useUiLocale } from "../../../i18n/index.js";
 import { quoteText } from "./messageActionModel.js";
 import { quoteLabels } from "./messageActionDom.js";
+import { REPORT_REASONS } from "../../../Backend/services/media/imageActions.js";
 
 // The quoted message at the top of a reply. tone: "dark" on my dark bubble,
 // "emerald" on UrMall's green bubble, "light" on theirs.
@@ -104,6 +106,88 @@ export function DeleteMessageDialog({ open, onChoose, onClose }) {
           {i18nText("messageActions.cancel")}
         </button>
       </div>
+    </CenteredModal>
+  );
+}
+
+const REPORT_REASON_KEYS = {
+  nudity: "reasonNudity",
+  harassment: "reasonHarassment",
+  scam: "reasonScam",
+  violence: "reasonViolence",
+  spam: "reasonSpam",
+  other: "reasonOther",
+};
+
+// "Report this": a reason, an optional note, and a line saying the safety team
+// will see it. onSubmit({ reason, details }) files it.
+export function ReportSheet({ open, onClose, onSubmit }) {
+  useUiLocale();
+  const [reason, setReason] = useState("");
+  const [details, setDetails] = useState("");
+  const [sending, setSending] = useState(false);
+
+  useEffect(() => {
+    if (!open) return;
+    setReason("");
+    setDetails("");
+    setSending(false);
+  }, [open]);
+
+  async function submit(event) {
+    event.preventDefault();
+    if (!reason || sending) return;
+    setSending(true);
+    try {
+      await onSubmit?.({ reason, details });
+    } finally {
+      setSending(false);
+    }
+  }
+
+  return (
+    <CenteredModal open={open} onClose={onClose} quick maxWidth="max-w-sm" labelledBy="kt-report-title">
+      <form onSubmit={submit}>
+        <div className="flex items-start gap-3">
+          <span className="flex h-10 w-10 flex-none items-center justify-center rounded-2xl bg-rose-50 text-lg text-rose-600"><HiOutlineFlag aria-hidden="true" /></span>
+          <div className="min-w-0">
+            <h2 id="kt-report-title" className="text-lg font-black text-slate-950">{i18nText("messageActions.reportTitle")}</h2>
+            <p className="mt-1 text-xs font-semibold leading-5 text-slate-500">{i18nText("messageActions.reportBody")}</p>
+          </div>
+        </div>
+        <div className="mt-4 grid gap-1.5" role="radiogroup" aria-labelledby="kt-report-title">
+          {REPORT_REASONS.map((value) => (
+            <button
+              key={value}
+              type="button"
+              role="radio"
+              aria-checked={reason === value}
+              onClick={() => setReason(value)}
+              className={`flex items-center justify-between rounded-2xl border px-4 py-3 text-left text-sm font-bold transition ${
+                reason === value ? "border-rose-300 bg-rose-50 text-rose-700" : "border-slate-200 bg-white text-slate-700 active:bg-slate-50"
+              }`}
+            >
+              {i18nText(`messageActions.${REPORT_REASON_KEYS[value]}`)}
+              <span className={`h-4 w-4 flex-none rounded-full border-2 ${reason === value ? "border-rose-600 bg-rose-600" : "border-slate-300"}`} aria-hidden="true" />
+            </button>
+          ))}
+        </div>
+        <textarea
+          value={details}
+          onChange={(event) => setDetails(event.target.value.slice(0, 500))}
+          placeholder={i18nText("messageActions.reportDetails")}
+          rows={2}
+          className="mt-3 w-full resize-none rounded-2xl border border-slate-200 bg-slate-50 px-4 py-3 text-sm font-semibold text-slate-900 outline-none focus:border-rose-300 focus:bg-white"
+        />
+        <div className="mt-4 grid grid-cols-2 gap-2">
+          <button type="button" onClick={onClose} className="h-12 rounded-2xl bg-slate-100 text-sm font-black text-slate-700 active:bg-slate-200">
+            {i18nText("messageActions.cancel")}
+          </button>
+          <button type="submit" disabled={!reason || sending} className="h-12 rounded-2xl bg-rose-600 text-sm font-black text-white active:bg-rose-700 disabled:opacity-50">
+            {i18nText("messageActions.sendReport")}
+          </button>
+        </div>
+      </form>
     </CenteredModal>
   );
 }

@@ -1,12 +1,15 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { createPortal } from "react-dom";
-import { ArrowLeft, ChevronLeft, ChevronRight } from "lucide-react";
+import { ArrowLeft, ChevronLeft, ChevronRight, MoreHorizontal } from "lucide-react";
 
 import { resizedImageUrl } from "../../Backend/lib/imageProxy";
 import { useBrowserBack } from "../../Backend/hooks/useBrowserBack";
 import useBodyScrollLock from "./useBodyScrollLock";
 import useImageViewerGestures from "./useImageViewerGestures";
 import { uiText as translateUi, useI18n as useUiLocale } from "../../i18n/index.js";
+import { usePhotoActions } from "./messageActions/usePhotoActions";
+import { combineHandlers } from "./messageActions/messageActionDom.js";
+import { t as i18nText } from "../../i18n/index";
 
 // The full-screen photo viewer behind every KunThai gallery: UrMall product
 // photos, UrRide fleet and operator photos (solo and company) and company
@@ -81,6 +84,8 @@ export default function MediaGalleryViewer({
   });
   useBrowserBack(open, requestClose, backKey);
   useBodyScrollLock(open);
+  // Long-press the photo: Save image, Copy image, Report.
+  const photo = usePhotoActions({ url: open ? items[activeIndex]?.url : "", context: "gallery" });
 
   useEffect(() => {
     if (open) setClosing(false);
@@ -102,6 +107,7 @@ export default function MediaGalleryViewer({
   }, [move, open, requestClose]);
 
   if (!open || typeof document === "undefined") return null;
+  const stageHandlers = combineHandlers(gestures.stageHandlers, photo.handlers);
 
   const current = items[activeIndex];
 
@@ -132,13 +138,23 @@ export default function MediaGalleryViewer({
         <div className="ml-auto rounded-full border border-white/10 bg-black/30 px-3 py-2 text-[11px] font-bold text-white/80 shadow-lg backdrop-blur-md">
           {gestures.scale > 1 ? text(copy.zoomHint, { pct: Math.round(gestures.scale * 100) }) : text(copy.zoomPrompt, {})}
         </div>
+        <button
+          type="button"
+          onClick={photo.openFromButton}
+          onPointerDown={(event) => event.stopPropagation()}
+          onPointerUp={(event) => event.stopPropagation()}
+          className="pointer-events-auto grid h-11 w-11 flex-none place-items-center rounded-full border border-white/15 bg-black/35 text-white shadow-xl backdrop-blur-md transition hover:bg-black/55"
+          aria-label={i18nText("messageActions.moreOptions")}
+        >
+          <MoreHorizontal size={22} />
+        </button>
       </header>
 
       <div
         ref={gestures.viewportRef}
         className="relative min-h-0 flex-1 overflow-hidden"
         style={{ touchAction: "none" }}
-        {...gestures.stageHandlers}
+        {...stageHandlers}
       >
         <div
           className="flex h-full transition-transform duration-300 ease-out"
@@ -168,6 +184,8 @@ export default function MediaGalleryViewer({
                       ? gestures.isDragging ? "grabbing" : "grab"
                       : "zoom-in",
                     touchAction: "none",
+                    // Not the iPhone's own photo menu: holding opens KunThai's.
+                    WebkitTouchCallout: "none",
                     transitionDuration: active && gestures.isDragging ? "0ms" : undefined,
                   }}
                 />
@@ -221,6 +239,16 @@ export default function MediaGalleryViewer({
           </div>
         </div>
       ) : null}
+      {/* The menu and Report sheet are portaled, but their events still bubble
+          here through React: keep them from the viewer's gestures. */}
+      <div
+        onClick={(event) => event.stopPropagation()}
+        onPointerDown={(event) => event.stopPropagation()}
+        onPointerMove={(event) => event.stopPropagation()}
+        onPointerUp={(event) => event.stopPropagation()}
+      >
+        {photo.layer}
+      </div>
     </div>,
     document.body,
   );

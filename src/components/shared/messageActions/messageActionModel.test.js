@@ -4,6 +4,7 @@ import test from "node:test";
 import {
   DELETE_FOR_EVERYONE_WINDOW_MS,
   EDIT_WINDOW_MS,
+  groupActionKeys,
   messageActionKeys,
   placeMessageMenu,
   quoteText,
@@ -27,8 +28,16 @@ test("editing stops after 15 minutes and delete for everyone after 24 hours", ()
 
 test("their message offers delete for me and, where allowed, block", () => {
   const message = { id: ID, text: "Hello", createdAt: ago(1000) };
-  assert.deepEqual(messageActionKeys(message, { mine: false, canBlock: true, now: NOW }), ["reply", "copy", "deleteForMe", "block"]);
-  assert.deepEqual(messageActionKeys(message, { mine: false, now: NOW }), ["reply", "copy", "deleteForMe"]);
+  assert.deepEqual(messageActionKeys(message, { mine: false, canBlock: true, now: NOW }), ["reply", "copy", "report", "deleteForMe", "block"]);
+  assert.deepEqual(messageActionKeys(message, { mine: false, canReport: false, now: NOW }), ["reply", "copy", "deleteForMe"]);
+});
+
+test("a photo adds Save image and Copy image, in their own section", () => {
+  const photo = { id: ID, text: "", type: "image", createdAt: ago(1000) };
+  const theirs = messageActionKeys(photo, { mine: false, hasImage: true, now: NOW });
+  assert.deepEqual(theirs, ["reply", "saveImage", "copyImage", "report", "deleteForMe"]);
+  assert.deepEqual(groupActionKeys(theirs), [["reply"], ["saveImage", "copyImage"], ["report", "deleteForMe"]]);
+  assert.deepEqual(messageActionKeys(photo, { mine: true, hasImage: true, now: NOW }), ["reply", "saveImage", "copyImage", "delete"]);
 });
 
 test("photos and voice notes cannot be edited or copied without words", () => {

@@ -1,6 +1,7 @@
 import UIKit
 import Capacitor
 import WebKit
+import Photos
 
 // Main.storyboard's root view controller. Registers the plugins that live in
 // the App target itself (Capacitor only auto-registers npm plugins), and holds
@@ -52,6 +53,7 @@ class KunThaiBridgeViewController: CAPBridgeViewController {
         bridge?.registerPluginInstance(KunThaiVideoPlugin())
         bridge?.registerPluginInstance(KunThaiLaunchPlugin())
         bridge?.registerPluginInstance(KunThaiLocationAccuracyPlugin())
+        bridge?.registerPluginInstance(KunThaiPhotosPlugin())
     }
 
     override func viewDidLoad() {
@@ -371,5 +373,38 @@ final class KunThaiNavigationProxy: NSObject, WKNavigationDelegate {
     func webViewWebContentProcessDidTerminate(_ webView: WKWebView) {
         onTerminate()
         target?.webViewWebContentProcessDidTerminate?(webView)
+    }
+}
+
+// Saves a photo from the app (long-press "Save image") straight to the
+// phone's Photos. Asks once for add-only access (NSPhotoLibraryAddUsageDescription).
+@objc(KunThaiPhotosPlugin)
+public class KunThaiPhotosPlugin: CAPPlugin, CAPBridgedPlugin {
+    public let identifier = "KunThaiPhotosPlugin"
+    public let jsName = "KunThaiPhotos"
+    public let pluginMethods: [CAPPluginMethod] = [
+        CAPPluginMethod(name: "saveImage", returnType: CAPPluginReturnPromise),
+    ]
+
+    @objc func saveImage(_ call: CAPPluginCall) {
+        guard let base64 = call.getString("data"), let data = Data(base64Encoded: base64), !data.isEmpty else {
+            call.reject("No photo to save.", "NO_DATA")
+            return
+        }
+        PHPhotoLibrary.requestAuthorization(for: .addOnly) { status in
+            guard status == .authorized || status == .limited else {
+                call.reject("Photos access is off for KunThai.", "PHOTOS_DENIED")
+                return
+            }
+            PHPhotoLibrary.shared().performChanges({
+                PHAssetCreationRequest.forAsset().addResource(with: .photo, data: data, options: nil)
+            }) { saved, error in
+                if saved {
+                    call.resolve(["saved": true])
+                } else {
+                    call.reject(error?.localizedDescription ?? "The photo could not be saved.", "SAVE_FAILED")
+                }
+            }
+        }
     }
 }

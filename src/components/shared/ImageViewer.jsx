@@ -1,9 +1,10 @@
 import { useCallback, useEffect, useRef, useState } from "react";
 import { createPortal } from "react-dom";
-import { Download, Loader2, X } from "lucide-react";
+import { Download, Loader2, MoreHorizontal, X } from "lucide-react";
 import { t as i18nText } from "../../i18n/index";
 import { isOnline, whenOnline } from "../../Backend/services/networkService";
 import { useI18n as useUiLocale } from "../../i18n/index.js";
+import { usePhotoActions } from "./messageActions/usePhotoActions";
 
 // A premium full-screen image viewer (lightbox). Tap to open from a message
 // bubble; pinch or double-tap to zoom, drag to pan when zoomed, swipe down or
@@ -18,6 +19,9 @@ export default function ImageViewer({ src, alt = "", onClose }) {
   const [failed, setFailed] = useState(false);
   const [reloadKey, setReloadKey] = useState(0);
   const cancelReloadRef = useRef(null);
+  // Long-press the photo: Save image, Copy image, Report.
+  const photo = usePhotoActions({ url: src, context: "viewer" });
+  const hold = photo.handlers;
   useEffect(() => () => cancelReloadRef.current?.(), []);
 
   // Offline, a failed image is not a broken image: keep the spinner (the
@@ -180,6 +184,15 @@ export default function ImageViewer({ src, alt = "", onClose }) {
       <div className="absolute right-3 top-[calc(env(safe-area-inset-top)+0.75rem)] flex gap-2">
         <button
           type="button"
+          onClick={photo.openFromButton}
+          disabled={failed}
+          aria-label={i18nText("messageActions.moreOptions")}
+          className="grid h-11 w-11 place-items-center rounded-full bg-white/12 text-white backdrop-blur transition hover:bg-white/25 disabled:opacity-50"
+        >
+          <MoreHorizontal size={20} />
+        </button>
+        <button
+          type="button"
           onClick={download}
           disabled={downloading || failed}
           aria-label={i18nText("ui.literals.k2c1469f758d5")}
@@ -214,21 +227,35 @@ export default function ImageViewer({ src, alt = "", onClose }) {
           onLoad={() => setLoaded(true)}
           onError={handleImageError}
           onClick={handleImageTap}
-          onPointerDown={handlePointerDown}
-          onPointerMove={handlePointerMove}
-          onPointerUp={handlePointerUp}
-          onPointerCancel={handlePointerUp}
+          onClickCapture={hold.onClickCapture}
+          onContextMenu={hold.onContextMenu}
+          onPointerDown={(event) => { hold.onPointerDown?.(event); handlePointerDown(event); }}
+          onPointerMove={(event) => { hold.onPointerMove?.(event); handlePointerMove(event); }}
+          onPointerUp={(event) => { hold.onPointerUp?.(event); handlePointerUp(event); }}
+          onPointerCancel={(event) => { hold.onPointerCancel?.(event); handlePointerUp(event); }}
           onWheel={handleWheel}
           draggable={false}
           style={{
             transform: `translate3d(${offset.x}px, ${offset.y}px, 0) scale(${scale})`,
             transition: pointers.current.size ? "none" : "transform .22s ease-out",
             touchAction: "none",
+            // Not the iPhone's own photo menu: holding opens KunThai's.
+            WebkitTouchCallout: "none",
             cursor: scale > 1 ? "grab" : "auto",
           }}
           className={`max-h-[90vh] max-w-[94vw] select-none rounded-lg object-contain transition-opacity duration-200 ${loaded ? "opacity-100" : "opacity-0"}`}
         />
       )}
+      {/* The menu and Report sheet are portaled, but their events still bubble
+          here through React: keep them from the viewer's close and gestures. */}
+      <div
+        onClick={(event) => event.stopPropagation()}
+        onPointerDown={(event) => event.stopPropagation()}
+        onPointerMove={(event) => event.stopPropagation()}
+        onPointerUp={(event) => event.stopPropagation()}
+      >
+        {photo.layer}
+      </div>
     </div>,
     document.body,
   );

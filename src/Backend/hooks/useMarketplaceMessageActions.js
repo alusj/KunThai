@@ -9,7 +9,7 @@ import {
 } from "../services/marketplace/marketplaceMessageActionsService";
 import { showToast } from "../services/toastService";
 import { t as i18nText } from "../../i18n/index";
-import { readMenuAnchor, copyMessageText } from "../../components/shared/messageActions/messageActionDom.js";
+import { readMenuAnchor, copyMessageText, runImageAction, submitReport } from "../../components/shared/messageActions/messageActionDom.js";
 import { canStillEdit, messageActionKeys } from "../../components/shared/messageActions/messageActionModel.js";
 
 function snapshotOf(message) {
@@ -23,6 +23,7 @@ function snapshotOf(message) {
 export function useMarketplaceMessageActions({ myRole, otherName, threadKey, onChanged }) {
   const [menu, setMenu] = useState(null);
   const [deleteTarget, setDeleteTarget] = useState(null);
+  const [reportTarget, setReportTarget] = useState(null);
   const [context, setContext] = useState(null);
   // Changes shown before the reload brings them back from the server.
   const [patches, setPatches] = useState({});
@@ -62,11 +63,23 @@ export function useMarketplaceMessageActions({ myRole, otherName, threadKey, onC
   function openMenu(message, element) {
     const keys = messageActionKeys(
       { id: message.id, text: message.text, type: message.mediaUrl ? message.mediaType || "image" : "text", createdAt: message.createdAt, deletedAt: message.deletedAt, pending: message.pending },
-      { mine: sentByMe(message) },
+      {
+        mine: sentByMe(message),
+        // A teammate's reply on the seller side is "ours": not reported.
+        canReport: message.from !== myRole,
+        hasImage: message.mediaType === "image" && Boolean(message.mediaUrl),
+      },
     );
     const placement = readMenuAnchor(element);
     if (!keys.length || !placement) return;
-    setMenu({ ...placement, element, keys, align: message.from === myRole ? "end" : "start", message });
+    const photo = message.mediaType === "image" && Boolean(message.mediaUrl);
+    const preview = {
+      author: authorOf(message.from),
+      text: message.text || (photo ? i18nText("messageActions.photo") : ""),
+      imageUrl: photo ? element.querySelector("img")?.currentSrc || "" : "",
+      photo,
+    };
+    setMenu({ ...placement, element, keys, align: message.from === myRole ? "end" : "start", message, preview });
   }
 
   function patch(messageId, fields) {
@@ -120,6 +133,8 @@ export function useMarketplaceMessageActions({ myRole, otherName, threadKey, onC
     } else if (key === "edit") setContext({ mode: "edit", message, snapshot: snapshotOf(message) });
     else if (key === "delete") setDeleteTarget(message);
     else if (key === "deleteForMe") hide(message);
+    else if (key === "saveImage" || key === "copyImage") runImageAction(key, message.mediaUrl);
+    else if (key === "report") setReportTarget({ targetType: "marketplace_message", targetId: message.id });
   }
 
   function chooseDelete(choice) {
@@ -167,6 +182,11 @@ export function useMarketplaceMessageActions({ myRole, otherName, threadKey, onC
     cancelContext: () => setContext(null),
     chooseDelete,
     closeDelete: () => setDeleteTarget(null),
+    reportTarget,
+    closeReport: () => setReportTarget(null),
+    sendReport: async (answer) => {
+      if (await submitReport(reportTarget, answer)) setReportTarget(null);
+    },
     closeMenu,
     context,
     deleteTarget,

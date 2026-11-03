@@ -20,6 +20,8 @@ function isSavedId(id) {
 // options.mine: sent by this account (only then edit / delete for everyone)
 // options.canBlock: show "Block sender" (Explore, a person's message)
 // options.hasMapPoint: show "Open in Area View"
+// options.hasImage: the message is a photo (Save image, Copy image)
+// options.canReport: show "Report" on someone else's message (default on)
 // options.canReply / options.canHide: false where the surface cannot store them
 export function messageActionKeys(message = {}, options = {}) {
   const now = options.now ?? Date.now();
@@ -35,10 +37,26 @@ export function messageActionKeys(message = {}, options = {}) {
   if (text) keys.push("copy");
   if (options.mine && type === "text" && text && age < EDIT_WINDOW_MS) keys.push("edit");
   if (options.hasMapPoint) keys.push("openArea");
+  if (options.hasImage) keys.push("saveImage", "copyImage");
+  if (!options.mine && options.canReport !== false) keys.push("report");
   if (options.mine && age < DELETE_FOR_EVERYONE_WINDOW_MS) keys.push("delete");
   else if (canHide) keys.push("deleteForMe");
   if (!options.mine && options.canBlock) keys.push("block");
   return keys;
+}
+
+// The card's sections, in order: message actions, photo actions, then the
+// red ones. Empty sections are left out.
+const ACTION_GROUPS = [
+  ["reply", "copy", "edit", "openArea"],
+  ["saveImage", "copyImage"],
+  ["report", "delete", "deleteForMe", "block"],
+];
+
+export function groupActionKeys(keys = []) {
+  return ACTION_GROUPS
+    .map((group) => group.filter((key) => keys.includes(key)))
+    .filter((group) => group.length);
 }
 
 export function canStillEdit(message = {}, now = Date.now()) {

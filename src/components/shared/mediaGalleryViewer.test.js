@@ -21,7 +21,7 @@ test("the shared viewer slides between photos and zooms the active one", () => {
   // Zoom and pan come from the shared gesture hook, swipe changes photo.
   assert.match(viewer, /useImageViewerGestures\(\{[\s\S]*?onSwipe: hasMultiple \? move : undefined/);
   assert.match(viewer, /scale\(\$\{gestures\.scale\}\)/);
-  assert.match(viewer, /\{\.\.\.gestures\.stageHandlers\}/);
+  assert.match(viewer, /combineHandlers\(gestures\.stageHandlers/);
   // Opening and closing animate, and the phone back button closes it.
   assert.match(viewer, /kt-media-zoom-exit.*kt-media-zoom-enter/);
   assert.match(viewer, /useBrowserBack\(open, requestClose, backKey\)/);

@@ -59,6 +59,7 @@ public class MainActivity extends BridgeActivity {
         registerPlugin(KunThaiPlayBillingPlugin.class);
         registerPlugin(KunThaiLocationAccuracyPlugin.class);
         registerPlugin(KunThaiFacebookLoginPlugin.class);
+        registerPlugin(KunThaiPhotosPlugin.class);
         super.onCreate(savedInstanceState);
         // Same picker, but picked videos can be compressed in place.
         if (getBridge() != null && getBridge().getWebView() != null) {

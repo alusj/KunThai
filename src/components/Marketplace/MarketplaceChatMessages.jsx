@@ -1,7 +1,7 @@
 import MessageImage from "../shared/MessageImage";
 import VoiceNotePlayer from "../shared/voice/VoiceNotePlayer";
 import MessageActionMenu from "../shared/messageActions/MessageActionMenu";
-import { DeleteMessageDialog, DeletedMessageBody, MessageReplyQuote } from "../shared/messageActions/MessageActionParts";
+import { DeleteMessageDialog, DeletedMessageBody, MessageReplyQuote, ReportSheet } from "../shared/messageActions/MessageActionParts";
 import { revealMessage } from "../shared/messageActions/messageActionDom.js";
 import { useMessageLongPress } from "../shared/messageActions/useMessageLongPress";
 import { formatMessageTime } from "../../Backend/utils/formatMessageTime";
@@ -29,6 +29,7 @@ export default function MarketplaceChatMessages({ messages, myRole, chat, thread
       ))}
       <MessageActionMenu state={chat.menu} onClose={chat.closeMenu} onSelect={chat.runMenuAction} />
       <DeleteMessageDialog open={Boolean(chat.deleteTarget)} onClose={chat.closeDelete} onChoose={chat.chooseDelete} />
+      <ReportSheet open={Boolean(chat.reportTarget)} onClose={chat.closeReport} onSubmit={chat.sendReport} />
     </>
   );
 }

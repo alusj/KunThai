@@ -1,11 +1,13 @@
 import { useCallback, useEffect, useLayoutEffect, useRef, useState } from "react";
 import { createPortal } from "react-dom";
-import { HiOutlineArrowLeft, HiOutlineArrowPath, HiOutlinePhoto } from "react-icons/hi2";
+import { HiOutlineArrowLeft, HiOutlineArrowPath, HiOutlineEllipsisHorizontal, HiOutlinePhoto } from "react-icons/hi2";
 
 import { resizedImageUrl } from "../../../Backend/lib/imageProxy";
 import { useBrowserBack } from "../../../Backend/hooks/useBrowserBack";
 import { useI18n } from "../../../i18n";
 import useImageViewerGestures from "../../shared/useImageViewerGestures";
+import { usePhotoActions } from "../../shared/messageActions/usePhotoActions";
+import { combineHandlers } from "../../shared/messageActions/messageActionDom.js";
 import { t as i18nText } from "../../../i18n/index";
 import { uiText as translateUi, useI18n as useUiLocale } from "../../../i18n/index.js";
 
@@ -90,6 +92,8 @@ export default function ZoomableImage({
     }, VIEWER_TRANSITION_MS);
   }, [imagePreviewOpen, viewerPhase]);
 
+  // Long-press the opened photo: Save image, Copy image, Report.
+  const photo = usePhotoActions({ url: imagePreviewOpen ? src : "", context: "post" });
   const viewerGestures = useImageViewerGestures({
     enabled: imagePreviewOpen && viewerPhase === "open",
     onClose: closeImagePreview,
@@ -218,7 +222,7 @@ export default function ZoomableImage({
               onTouchStart={(event) => event.stopPropagation()}
               onTouchMove={(event) => event.stopPropagation()}
               onTouchEnd={(event) => event.stopPropagation()}
-              {...viewerGestures.stageHandlers}
+              {...combineHandlers(viewerGestures.stageHandlers, photo.handlers)}
             >
               <div
                 className="kt-image-viewer-backdrop absolute inset-0 h-full w-full bg-slate-950"
@@ -246,6 +250,16 @@ export default function ZoomableImage({
                 >
                   <HiOutlineArrowLeft />
                 </button>
+                <button
+                  type="button"
+                  onClick={photo.openFromButton}
+                  onPointerDown={(event) => event.stopPropagation()}
+                  onPointerUp={(event) => event.stopPropagation()}
+                  className="pointer-events-auto ml-auto grid h-11 w-11 place-items-center rounded-full border border-white/15 bg-black/35 text-2xl text-white shadow-xl backdrop-blur-md"
+                  aria-label={i18nText("messageActions.moreOptions")}
+                >
+                  <HiOutlineEllipsisHorizontal />
+                </button>
               </div>
 
               <img
@@ -272,9 +286,22 @@ export default function ZoomableImage({
                     ? viewerGestures.isDragging ? "grabbing" : "grab"
                     : "zoom-in",
                   touchAction: "none",
+                  // Not the iPhone's own photo menu: holding opens KunThai's.
+                  WebkitTouchCallout: "none",
                   transitionDuration: viewerGestures.isDragging ? "0ms" : undefined,
                 }}
               />
+              {/* The menu and Report sheet are portaled, but their events still
+                  bubble here through React: keep them from the viewer's gestures. */}
+              <div
+                onClick={(event) => event.stopPropagation()}
+                onPointerDown={(event) => event.stopPropagation()}
+                onPointerMove={(event) => event.stopPropagation()}
+                onPointerUp={(event) => event.stopPropagation()}
+                onTouchStart={(event) => event.stopPropagation()}
+              >
+                {photo.layer}
+              </div>
             </div>,
             document.body,
           )

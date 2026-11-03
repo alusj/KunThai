@@ -159,6 +159,7 @@ export function getCaseTypeLabel(item = {}) {
   if (item.resource_type === "explore_post_report" || type === "content_report") return "Reported post";
   if (item.resource_type === "explore_comment_report" || type === "comment_report") return "Reported comment";
   if (item.resource_type === "explore_profile_report" || type === "profile_report") return "Reported profile";
+  if (item.resource_type === "message_media_report" || type === "media_report") return "Reported message or photo";
   if (item.resource_type === "area_location_verification" || type === "area_location_review") return "Area View location";
   if (item.resource_type === "area_report" || type === "area_safety_report") return "Area View report";
   if (type === "seller_verification") return "Seller verification";
@@ -471,6 +472,48 @@ function normalizePostContent(post, report = {}) {
   };
 }
 
+const MEDIA_REPORT_REASONS = {
+  nudity: "Nudity or sexual content",
+  harassment: "Harassment or bullying",
+  scam: "Scam or fraud",
+  violence: "Violence or threats",
+  spam: "Spam",
+  other: "Something else",
+};
+const MEDIA_REPORT_PLACES = {
+  explore_chat: "Explore chat",
+  urmall_chat: "UrMall chat",
+  viewer: "Photo viewer",
+  gallery: "Photo gallery",
+  post: "Feed post photo",
+};
+
+// A report from the long-press menu (message_media_reports): the reported
+// message's words and photo as they were when reported. A private Explore
+// chat photo is opened with a short-lived link (only reported files).
+async function normalizeMessageMediaReportContent(report, reportedProfile = null) {
+  if (!report) return null;
+  const photo = report.media_path
+    ? await signedMedia("explore-message-media", report.media_path, "Reported photo", "image")
+    : mediaItem(report.media_url && !String(report.media_url).startsWith("private:") ? report.media_url : "", "Reported photo");
+  return {
+    id: report.id,
+    type: "media_report",
+    title: report.title || "Reported message",
+    description: report.message_body || (photo ? "The report is about this photo." : "This message had no text."),
+    meta: [
+      `Reason: ${MEDIA_REPORT_REASONS[report.reason] || report.reason || "Not given"}`,
+      report.details ? `Reporter's note: ${report.details}` : "",
+      `Where: ${MEDIA_REPORT_PLACES[report.context] || report.context || (report.target_type === "image" ? "Photo" : "Chat")}`,
+      reportedProfile?.display_name || reportedProfile?.username
+        ? `Sent by: ${reportedProfile.display_name || ""}${reportedProfile.username ? ` @${reportedProfile.username}` : ""}`.trim()
+        : "",
+    ].filter(Boolean),
+    media: [photo].filter(Boolean),
+    source: report,
+  };
+}
+
 function normalizeCommentContent(comment, parentPost = null, report = {}) {
   if (!comment) return null;
   return {
@@ -737,6 +780,10 @@ export async function getAdminCaseContent(item) {
     const report = source.reported_user_id ? source : await fetchSingle("explore_profile_reports", "id", item.resource_id);
     const profile = await fetchSingle("explore_profiles", "user_id", report?.reported_user_id);
     content = normalizeProfileContent(profile, report || source);
+  } else if (item.resource_type === "message_media_report") {
+    const report = source.target_type ? source : await fetchSingle("message_media_reports", "id", item.resource_id);
+    const profile = report?.reported_user_id ? await fetchSingle("explore_profiles", "user_id", report.reported_user_id) : null;
+    content = await normalizeMessageMediaReportContent(report || source, profile);
   } else if (item.resource_type === "user_care_feedback" || item.case_type === "user_voice") {
     const row = await fetchSingle("user_care_feedback", "id", source.id || item.resource_id);
     content = await normalizeUserVoiceContent(row || source);

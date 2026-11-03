@@ -65,3 +65,60 @@ export async function copyMessageText(text) {
     }
   }
 }
+
+// Save image / Copy image from a long-press menu, with the toast that says
+// how it went. url: the photo as stored (a private chat photo is signed first).
+export async function runImageAction(key, url) {
+  const { saveImageToPhotos, copyImageToClipboard } = await import("../../../Backend/services/media/imageActions.js");
+  const { showToast } = await import("../../../Backend/services/toastService");
+  if (key === "saveImage") {
+    try {
+      const result = await saveImageToPhotos(url);
+      if (result === "denied") showToast(i18nText("messageActions.photosDenied"), "danger");
+      else showToast(i18nText("messageActions.imageSaved"), "success");
+    } catch {
+      showToast(i18nText("messageActions.saveFailed"), "danger");
+    }
+    return;
+  }
+  if (key === "copyImage") {
+    const result = await copyImageToClipboard(url);
+    if (result === "image") showToast(i18nText("messageActions.imageCopied"), "success");
+    else if (result === "link") showToast(i18nText("messageActions.linkCopied"), "success");
+    else showToast(i18nText("messageActions.copyFailed"), "danger");
+  }
+}
+
+// Files a report from the Report sheet and says how it went. Returns true
+// when the sheet can close.
+export async function submitReport(target, { reason, details }) {
+  const { reportContent } = await import("../../../Backend/services/media/imageActions.js");
+  const { showToast } = await import("../../../Backend/services/toastService");
+  try {
+    const result = await reportContent({ ...target, reason, details });
+    if (result.alreadyReported) showToast(i18nText("messageActions.alreadyReported"), "info");
+    else showToast(i18nText("messageActions.reportSent"), "success");
+    return true;
+  } catch {
+    showToast(i18nText("messageActions.reportFailed"), "danger");
+    return false;
+  }
+}
+
+// Two sets of pointer handlers on one element (a photo viewer's swipe, pinch
+// and pan, plus the long press): the extra ones run first. The lift that ends
+// a long press reaches the viewer as a cancel, not a tap that would close it.
+export function combineHandlers(own = {}, extra = {}) {
+  const combined = { ...own };
+  Object.entries(extra).forEach(([name, handler]) => {
+    const first = own[name];
+    combined[name] = first
+      ? (event) => {
+        handler(event);
+        if (name === "onPointerUp" && event?.nativeEvent?.ktLongPressLift && own.onPointerCancel) own.onPointerCancel(event);
+        else first(event);
+      }
+      : handler;
+  });
+  return combined;
+}
