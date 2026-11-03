@@ -1,4 +1,5 @@
 import supabase from "../../lib/supabaseClient";
+import { uploadSmallCopy } from "../../lib/smallImageCopy";
 import { t } from "../../../i18n";
 import { getActiveCountryProfile } from "../../../data/globalCountryProfiles";
 import { isMissingColumn } from "../explore/errors";
@@ -303,6 +304,7 @@ async function uploadProductFile(userId, file, folder) {
   );
 
   if (error) throw new Error(error.message || "Unable to upload product file.");
+  uploadSmallCopy("marketplace-business-media", path, uploadFile);
 
   const { data } = supabase.storage.from("marketplace-business-media").getPublicUrl(path);
   return data.publicUrl;

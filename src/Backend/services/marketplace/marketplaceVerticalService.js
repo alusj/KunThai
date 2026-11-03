@@ -1,4 +1,5 @@
 import supabase from "../../lib/supabaseClient";
+import { uploadSmallCopy } from "../../lib/smallImageCopy";
 import { isMissingTable } from "../explore/errors";
 import { optimizeImageFile } from "./imageOptimization";
 import { COUNTRY_PRIMARY_TIMEZONES } from "../../../data/timezoneCountries";
@@ -86,6 +87,7 @@ export async function uploadMarketplaceVerticalImage(file, businessId, folder = 
   const path = `${userData.user.id}/${folder}/${businessId}/${Date.now()}-${crypto.randomUUID()}.${extension}`;
   const { error } = await supabase.storage.from("marketplace-business-media").upload(path, optimized, { cacheControl: "31536000", contentType: optimized.type || undefined, upsert: false });
   if (error) throw new Error(error.message || "Unable to upload this image.");
+  uploadSmallCopy("marketplace-business-media", path, optimized);
   return supabase.storage.from("marketplace-business-media").getPublicUrl(path).data.publicUrl;
 }
 

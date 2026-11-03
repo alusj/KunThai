@@ -1,4 +1,5 @@
 import supabase from "../../Backend/lib/supabaseClient";
+import { uploadSmallCopy } from "../../Backend/lib/smallImageCopy";
 
 export const TRANSPORT_PUBLIC_MEDIA_BUCKET = "transport-public-media";
 export const TRANSPORT_VERIFICATION_DOCUMENTS_BUCKET = "transport-verification-documents";
@@ -45,6 +46,7 @@ export async function uploadTransportPublicImage({ file, ownerUserId, scope = "f
     upsert: false,
   });
   if (error) throw new Error(error.message || `Unable to upload ${label}.`);
+  uploadSmallCopy(TRANSPORT_PUBLIC_MEDIA_BUCKET, path, file);
 
   const { data } = supabase.storage.from(TRANSPORT_PUBLIC_MEDIA_BUCKET).getPublicUrl(path);
   return data?.publicUrl || "";

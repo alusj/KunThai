@@ -1,4 +1,6 @@
 import supabase from "../../lib/supabaseClient";
+import { uploadSmallCopy } from "../../lib/smallImageCopy";
+import { smallCopyTarget } from "../../lib/smallImageCopyModel.js";
 import * as tus from "tus-js-client";
 import { EXPLORE_MEDIA_BUCKET } from "./constants";
 import { optimizeImageFile } from "../marketplace/imageOptimization";
@@ -597,7 +599,11 @@ export async function uploadMediaFile(file, mediaType, userId, options = {}) {
   }
 
   const viaTicket = await uploadWithTicket(file, mediaType, options, []);
-  if (viaTicket.url) return viaTicket.url;
+  if (viaTicket.url) {
+    const target = smallCopyTarget(viaTicket.url);
+    if (target) uploadSmallCopy(target.bucket, target.path, file);
+    return viaTicket.url;
+  }
 
   let lastError = null;
   for (let attempt = 0; attempt < 3; attempt += 1) {
@@ -610,6 +616,7 @@ export async function uploadMediaFile(file, mediaType, userId, options = {}) {
 
       if (!error) {
         lastError = null;
+        uploadSmallCopy(EXPLORE_MEDIA_BUCKET, filePath, file);
         break;
       }
       const errorMessage = String(error.message || "").toLowerCase();

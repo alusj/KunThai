@@ -16,14 +16,15 @@
 // Use the full-resolution original (do not wrap) for full-screen viewers and image
 // zoom, where quality matters and the image is fetched once on demand.
 
-// REVERTED (per user request): image resizing is disabled — every caller now
-// receives the original full-resolution URL unchanged, exactly as before the
-// resizing work. The `resize: "cover"` transform was cropping images to fill the
-// box, which looked zoomed/off. The call sites are left in place so a corrected
-// version (e.g. proportional scale, no crop) can be re-enabled here in one spot
-// without touching every component again.
-//
-// eslint-disable-next-line no-unused-vars
+// Supabase's resize endpoint is a paid feature (it answers "FeatureNotEnabled"
+// here), and its `resize: "cover"` cropped photos, which looked zoomed. Now a
+// photo shown at 640 px or less uses the small copy saved beside it at upload
+// (smallImageCopyModel.js): the whole frame, scaled down, never cropped. Larger
+// sizes, full-screen viewers and anything without a small copy get the
+// original. `quality` is accepted for older callers and ignored.
+import { smallCopyUrl } from "./smallImageCopyModel.js";
+import { missingSmallCopies } from "./smallImageCopy.js";
+
 export function resizedImageUrl(url, options = {}) {
-  return url;
+  return smallCopyUrl(url, Number(options.width) || 0, missingSmallCopies);
 }

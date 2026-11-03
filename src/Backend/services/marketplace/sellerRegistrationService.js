@@ -1,4 +1,5 @@
 import supabase from "../../lib/supabaseClient";
+import { uploadSmallCopy } from "../../lib/smallImageCopy";
 import { assertCanCreateBusinessType } from "./businessTypeCapacityService";
 import { canonicalBusinessType } from "./businessTypePolicy";
 import {
@@ -157,6 +158,7 @@ async function uploadBusinessFile(userId, file, folder) {
   if (error) {
     throw new Error(error.message || "Unable to upload business file.");
   }
+  uploadSmallCopy("marketplace-business-media", path, file);
 
   const { data } = supabase.storage.from("marketplace-business-media").getPublicUrl(path);
   return data.publicUrl;
