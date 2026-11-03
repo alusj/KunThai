@@ -725,6 +725,8 @@ export async function getOperatorAccount() {
       companyFleetId: assignment.id,
       fleetName: assignment.fleet_name || assignment.fleet_type || "",
       fleetType: runtimeFleet?.fleet_type || assignment.fleet_type || "",
+      // The vehicle this company dashboard runs on (its trips).
+      fleetId: runtimeFleet?.id || assignment.transport_fleet_id || "",
       active: resolveFleetAvailability(runtimeFleet),
       assignment,
       runtimeFleet,
@@ -769,6 +771,7 @@ export async function getOperatorAccount() {
 
   const account = mapOperatorAccount(operator, fleet, { dashboard });
   account.hasSoloFleet = Boolean(personalFleet);
+  account.soloFleetId = personalFleet?.id || "";
   account.hasCompanyFleet = Boolean(availableAssignment);
   account.workMode = companyAssignment ? "company" : "solo";
   // Online with a company vehicle (whichever dashboard is showing).
@@ -1389,6 +1392,54 @@ export async function markOperatorAlertRead(alertId) {
 // A realtime change must not be answered from the 8-second dashboard cache.
 export function invalidateOperatorDashboardCache() {
   invalidateCache("operator-dashboard");
+}
+
+// Ride and delivery requests still waiting for an answer on this operator's
+// OTHER dashboards (their own vehicle, each company vehicle) while another one
+// is showing, for the dashboard switcher's badge, like UrMall's business
+// switcher. Keys: "solo" or the company id.
+const WAITING_TRIP_STATUSES = ["pending_confirmation", "waiting_operator", "requested"];
+
+function otherDashboardFleets(account) {
+  const currentFleetId = account?.fleetId || "";
+  const fleets = [];
+  if (account?.soloFleetId && account.soloFleetId !== currentFleetId) fleets.push({ key: "solo", fleetId: account.soloFleetId });
+  (account?.operatorCompanies || []).forEach((company) => {
+    if (company.fleetId && company.fleetId !== currentFleetId && !company.noVehicle) fleets.push({ key: company.companyId, fleetId: company.fleetId });
+  });
+  return fleets;
+}
+
+export async function fetchOtherDashboardAttention(account) {
+  const fleets = otherDashboardFleets(account);
+  if (!fleets.length) return { total: 0, byDashboard: {} };
+  const { data, error } = await supabase
+    .from("transport_trips")
+    .select("fleet_id")
+    .in("fleet_id", fleets.map((item) => item.fleetId))
+    .in("status", WAITING_TRIP_STATUSES)
+    .limit(200);
+  if (error) throw error;
+  const keyByFleet = new Map(fleets.map((item) => [item.fleetId, item.key]));
+  const byDashboard = {};
+  (data || []).forEach((row) => {
+    const key = keyByFleet.get(row.fleet_id);
+    if (key) byDashboard[key] = (byDashboard[key] || 0) + 1;
+  });
+  return { total: Object.values(byDashboard).reduce((sum, count) => sum + count, 0), byDashboard };
+}
+
+// Any change to the trips of the operator's other vehicles.
+export function subscribeOtherDashboardTrips(account, onChange) {
+  const fleetIds = otherDashboardFleets(account).map((item) => item.fleetId);
+  if (!fleetIds.length || typeof onChange !== "function") return () => {};
+  const channel = supabase
+    .channel(`transport-other-dashboards-${fleetIds.join("-")}-${Math.random().toString(36).slice(2)}`)
+    .on("postgres_changes", { event: "*", schema: "public", table: "transport_trips", filter: `fleet_id=in.(${fleetIds.join(",")})` }, onChange)
+    .subscribe();
+  return () => {
+    supabase.removeChannel(channel);
+  };
 }
 
 export function subscribeOperatorTrips(fleetId, onChange) {

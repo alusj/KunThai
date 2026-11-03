@@ -1,9 +1,42 @@
 import { Building2, Check, ChevronDown, Truck, X } from "lucide-react";
-import { forwardRef, useImperativeHandle, useState } from "react";
+import { forwardRef, useEffect, useImperativeHandle, useState } from "react";
 
 import { useI18n, t } from "../../i18n";
 import CenteredModal from "../shared/CenteredModal";
 import useBodyScrollLock from "../shared/useBodyScrollLock";
+import { fetchOtherDashboardAttention, subscribeOtherDashboardTrips } from "../services/transportOperatorAccountService";
+
+// Requests waiting on the dashboards that are NOT showing, like UrMall's
+// business switcher: the main UrRide tab counted them, but nothing on the
+// dashboard said where they were. Live, with a minute's backstop refresh.
+function useOtherDashboardAttention(account) {
+  const [attention, setAttention] = useState({ total: 0, byDashboard: {} });
+  const fleetsKey = [
+    account?.fleetId,
+    account?.soloFleetId,
+    ...(account?.operatorCompanies || []).map((company) => company.fleetId),
+  ].join(",");
+
+  useEffect(() => {
+    let alive = true;
+    const load = () => {
+      fetchOtherDashboardAttention(account)
+        .then((next) => { if (alive) setAttention(next); })
+        .catch(() => {});
+    };
+    load();
+    const interval = window.setInterval(load, 60000);
+    const unsubscribe = subscribeOtherDashboardTrips(account, load);
+    return () => {
+      alive = false;
+      window.clearInterval(interval);
+      unsubscribe();
+    };
+    // eslint-disable-next-line react-hooks/exhaustive-deps -- fleetsKey captures the vehicles.
+  }, [fleetsKey]);
+
+  return attention;
+}
 
 // The operator's dashboards: their own vehicle (solo) and every company they
 // drive for. Looks and behaves like UrMall's business switcher: an icon with
@@ -19,6 +52,7 @@ const OperatorDashboardSwitcher = forwardRef(function OperatorDashboardSwitcher(
   const [open, setOpen] = useState(false);
   useBodyScrollLock(open);
   useImperativeHandle(ref, () => ({ open: () => setOpen(true) }), []);
+  const attention = useOtherDashboardAttention(account);
 
   const companies = account?.operatorCompanies || [];
   const currentMode = account?.workMode === "company" ? "company" : "solo";
@@ -32,6 +66,7 @@ const OperatorDashboardSwitcher = forwardRef(function OperatorDashboardSwitcher(
           title: t("operatorDashboards.soloTitle"),
           detail: t("operatorDashboards.soloDetail"),
           current: currentMode === "solo",
+          waiting: attention.byDashboard.solo || 0,
           // Online solo always shows the solo dashboard, so another row never is.
           online: currentMode === "solo" && currentActive,
         }
@@ -49,6 +84,7 @@ const OperatorDashboardSwitcher = forwardRef(function OperatorDashboardSwitcher(
         // A company that has not assigned them a vehicle has no dashboard yet.
         disabled: Boolean(company.noVehicle),
         current,
+        waiting: attention.byDashboard[company.companyId] || 0,
         online: current ? currentActive : Boolean(company.active),
       };
     }),
@@ -68,11 +104,16 @@ const OperatorDashboardSwitcher = forwardRef(function OperatorDashboardSwitcher(
           onClick={() => setOpen(true)}
           data-direction="urride-dashboard-switcher"
           className="kt-touchable relative flex h-10 items-center gap-1 rounded-full border border-blue-200 bg-blue-50 px-2.5 text-blue-700 shadow-sm transition hover:border-blue-300 hover:bg-blue-100"
-          aria-label={t("operatorDashboards.switcherAria")}
+          aria-label={attention.total ? t("operatorDashboards.switcherAttention", { count: attention.total }) : t("operatorDashboards.switcherAria")}
           title={t("operatorDashboards.switcherAria")}
         >
           {currentMode === "company" ? <Building2 size={18} /> : <Truck size={18} />}
           <ChevronDown size={14} />
+          {attention.total ? (
+            <span className="absolute -right-1.5 -top-1.5 grid h-5 min-w-5 place-items-center rounded-full bg-red-600 px-1 text-[10px] font-black text-white">
+              {attention.total > 9 ? "9+" : attention.total}
+            </span>
+          ) : null}
         </button>
       ) : null}
       <CenteredModal open={open} onClose={() => setOpen(false)} maxWidth="max-w-lg" labelledBy="operator-dashboard-switcher-title">
@@ -111,7 +152,17 @@ const OperatorDashboardSwitcher = forwardRef(function OperatorDashboardSwitcher(
                     ) : null}
                   </span>
                   <span className="mt-0.5 block truncate text-xs font-bold text-slate-500">{option.detail}</span>
+                  {!option.current && option.waiting ? (
+                    <span className="mt-1 block text-xs font-black text-red-600">
+                      {t(option.waiting === 1 ? "operatorDashboards.requestsWaitingOne" : "operatorDashboards.requestsWaitingOther", { count: option.waiting })}
+                    </span>
+                  ) : null}
                 </span>
+                {!option.current && option.waiting ? (
+                  <span className="grid h-6 min-w-6 flex-none place-items-center rounded-full bg-red-600 px-1.5 text-[11px] font-black text-white">
+                    {option.waiting > 9 ? "9+" : option.waiting}
+                  </span>
+                ) : null}
                 {option.current ? <Check className="flex-none text-blue-700" size={20} /> : null}
               </button>
             );

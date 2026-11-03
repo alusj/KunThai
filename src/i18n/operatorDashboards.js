@@ -20,6 +20,9 @@ export const OPERATOR_DASHBOARDS = {
     goOnlineHere: "Go online here",
     stayOnlineSolo: "Stay online with my vehicle",
     noVehicleYet: "No vehicle assigned yet",
+    switcherAttention: "{count} requests waiting on your other dashboards",
+    requestsWaitingOne: "1 request waiting",
+    requestsWaitingOther: "{count} requests waiting",
   },
   fr: {
     switcherAria: "Changer de tableau de bord",
@@ -38,6 +41,9 @@ export const OPERATOR_DASHBOARDS = {
     goOnlineHere: "Passer en ligne ici",
     stayOnlineSolo: "Rester en ligne avec mon véhicule",
     noVehicleYet: "Aucun véhicule attribué pour l'instant",
+    switcherAttention: "{count} demandes en attente sur vos autres tableaux de bord",
+    requestsWaitingOne: "1 demande en attente",
+    requestsWaitingOther: "{count} demandes en attente",
   },
   es: {
     switcherAria: "Cambiar de panel",
@@ -56,6 +62,9 @@ export const OPERATOR_DASHBOARDS = {
     goOnlineHere: "Conectarme aquí",
     stayOnlineSolo: "Seguir en línea con mi vehículo",
     noVehicleYet: "Aún no tienes vehículo asignado",
+    switcherAttention: "{count} solicitudes esperando en tus otros paneles",
+    requestsWaitingOne: "1 solicitud esperando",
+    requestsWaitingOther: "{count} solicitudes esperando",
   },
   zh: {
     switcherAria: "切换面板",
@@ -74,6 +83,9 @@ export const OPERATOR_DASHBOARDS = {
     goOnlineHere: "在这里上线",
     stayOnlineSolo: "继续用我的车辆在线",
     noVehicleYet: "尚未分配车辆",
+    switcherAttention: "你的其他仪表板有 {count} 个请求等待处理",
+    requestsWaitingOne: "1 个请求等待处理",
+    requestsWaitingOther: "{count} 个请求等待处理",
   },
   ar: {
     switcherAria: "تبديل لوحة التحكم",
@@ -92,6 +104,9 @@ export const OPERATOR_DASHBOARDS = {
     goOnlineHere: "الاتصال هنا",
     stayOnlineSolo: "البقاء متصلًا بمركبتي",
     noVehicleYet: "لم تُخصَّص لك مركبة بعد",
+    switcherAttention: "{count} طلبات بانتظارك في لوحاتك الأخرى",
+    requestsWaitingOne: "طلب واحد بالانتظار",
+    requestsWaitingOther: "{count} طلبات بالانتظار",
   },
   pt: {
     switcherAria: "Trocar de painel",
@@ -110,6 +125,9 @@ export const OPERATOR_DASHBOARDS = {
     goOnlineHere: "Ficar online aqui",
     stayOnlineSolo: "Continuar online com meu veículo",
     noVehicleYet: "Nenhum veículo atribuído ainda",
+    switcherAttention: "{count} solicitações aguardando nos seus outros painéis",
+    requestsWaitingOne: "1 solicitação aguardando",
+    requestsWaitingOther: "{count} solicitações aguardando",
   },
   hi: {
     switcherAria: "डैशबोर्ड बदलें",
@@ -128,6 +146,9 @@ export const OPERATOR_DASHBOARDS = {
     goOnlineHere: "यहाँ ऑनलाइन हों",
     stayOnlineSolo: "अपने वाहन के साथ ऑनलाइन रहें",
     noVehicleYet: "अभी तक कोई वाहन नहीं सौंपा गया",
+    switcherAttention: "आपके दूसरे डैशबोर्ड पर {count} अनुरोध इंतज़ार में",
+    requestsWaitingOne: "1 अनुरोध इंतज़ार में",
+    requestsWaitingOther: "{count} अनुरोध इंतज़ार में",
   },
   bn: {
     switcherAria: "ড্যাশবোর্ড বদলান",
@@ -146,6 +167,9 @@ export const OPERATOR_DASHBOARDS = {
     goOnlineHere: "এখানে অনলাইন হন",
     stayOnlineSolo: "নিজের গাড়ি নিয়ে অনলাইনে থাকুন",
     noVehicleYet: "এখনো কোনো গাড়ি দেওয়া হয়নি",
+    switcherAttention: "আপনার অন্য ড্যাশবোর্ডে {count}টি অনুরোধ অপেক্ষায়",
+    requestsWaitingOne: "১টি অনুরোধ অপেক্ষায়",
+    requestsWaitingOther: "{count}টি অনুরোধ অপেক্ষায়",
   },
   id: {
     switcherAria: "Ganti dasbor",
@@ -164,6 +188,9 @@ export const OPERATOR_DASHBOARDS = {
     goOnlineHere: "Online di sini",
     stayOnlineSolo: "Tetap online dengan kendaraan saya",
     noVehicleYet: "Belum ada kendaraan yang ditugaskan",
+    switcherAttention: "{count} permintaan menunggu di dasbor Anda yang lain",
+    requestsWaitingOne: "1 permintaan menunggu",
+    requestsWaitingOther: "{count} permintaan menunggu",
   },
   ur: {
     switcherAria: "ڈیش بورڈ بدلیں",
@@ -182,6 +209,9 @@ export const OPERATOR_DASHBOARDS = {
     goOnlineHere: "یہاں آن لائن ہوں",
     stayOnlineSolo: "اپنی گاڑی کے ساتھ آن لائن رہیں",
     noVehicleYet: "ابھی تک کوئی گاڑی تفویض نہیں ہوئی",
+    switcherAttention: "آپ کے دوسرے ڈیش بورڈز پر {count} درخواستیں منتظر",
+    requestsWaitingOne: "1 درخواست منتظر",
+    requestsWaitingOther: "{count} درخواستیں منتظر",
   },
   ru: {
     switcherAria: "Сменить панель",
@@ -200,6 +230,9 @@ export const OPERATOR_DASHBOARDS = {
     goOnlineHere: "Выйти в сеть здесь",
     stayOnlineSolo: "Остаться в сети на своём транспорте",
     noVehicleYet: "Транспорт ещё не назначен",
+    switcherAttention: "{count} запросов ждут на других панелях",
+    requestsWaitingOne: "1 запрос ждёт ответа",
+    requestsWaitingOther: "{count} запросов ждут ответа",
   },
   ja: {
     switcherAria: "ダッシュボードを切り替え",
@@ -218,6 +251,9 @@ export const OPERATOR_DASHBOARDS = {
     goOnlineHere: "ここでオンラインにする",
     stayOnlineSolo: "自分の車両でオンラインのままにする",
     noVehicleYet: "まだ車両が割り当てられていません",
+    switcherAttention: "他のダッシュボードで {count} 件のリクエストが待っています",
+    requestsWaitingOne: "1 件のリクエストが待機中",
+    requestsWaitingOther: "{count} 件のリクエストが待機中",
   },
   mr: {
     switcherAria: "डॅशबोर्ड बदला",
@@ -236,6 +272,9 @@ export const OPERATOR_DASHBOARDS = {
     goOnlineHere: "येथे ऑनलाइन व्हा",
     stayOnlineSolo: "माझ्या वाहनासह ऑनलाइन राहा",
     noVehicleYet: "अद्याप कोणतेही वाहन दिलेले नाही",
+    switcherAttention: "तुमच्या इतर डॅशबोर्डवर {count} विनंत्या प्रतीक्षेत",
+    requestsWaitingOne: "1 विनंती प्रतीक्षेत",
+    requestsWaitingOther: "{count} विनंत्या प्रतीक्षेत",
   },
   vi: {
     switcherAria: "Chuyển bảng điều khiển",
@@ -254,6 +293,9 @@ export const OPERATOR_DASHBOARDS = {
     goOnlineHere: "Trực tuyến ở đây",
     stayOnlineSolo: "Tiếp tục trực tuyến bằng xe của tôi",
     noVehicleYet: "Chưa được giao xe",
+    switcherAttention: "{count} yêu cầu đang chờ ở các bảng điều khiển khác",
+    requestsWaitingOne: "1 yêu cầu đang chờ",
+    requestsWaitingOther: "{count} yêu cầu đang chờ",
   },
   de: {
     switcherAria: "Dashboard wechseln",
@@ -272,5 +314,8 @@ export const OPERATOR_DASHBOARDS = {
     goOnlineHere: "Hier online gehen",
     stayOnlineSolo: "Mit meinem Fahrzeug online bleiben",
     noVehicleYet: "Noch kein Fahrzeug zugewiesen",
+    switcherAttention: "{count} Anfragen warten auf deinen anderen Dashboards",
+    requestsWaitingOne: "1 Anfrage wartet",
+    requestsWaitingOther: "{count} Anfragen warten",
   },
 };
