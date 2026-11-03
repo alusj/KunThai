@@ -23,7 +23,7 @@ export default function ExploreTabs({ activeTab, setActiveTab }) {
 
   return (
     // bg-white/[0.52] (not /50) dodges the dark-mode compat layer's !important remap so the dark: variants can win.
-    <div className="kt-safe-inline border-y border-white/70 bg-white/[0.52] py-2 shadow-sm backdrop-blur-2xl supports-[backdrop-filter]:bg-white/40 dark:border-slate-800/80 dark:bg-slate-950/70 dark:supports-[backdrop-filter]:bg-slate-950/60">
+    <div data-explore-chrome className="kt-safe-inline border-y border-white/70 bg-white/[0.52] py-2 shadow-sm backdrop-blur-2xl supports-[backdrop-filter]:bg-white/40 dark:border-slate-800/80 dark:bg-slate-950/70 dark:supports-[backdrop-filter]:bg-slate-950/60">
       {/* The row itself stays still on a switch (it used to replay a 16px
           slide whenever the direction changed, which read as a shake); only
           the highlight moves, with a transform like the bottom tabs. */}

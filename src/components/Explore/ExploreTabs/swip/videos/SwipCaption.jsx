@@ -37,7 +37,7 @@ export default function SwipCaption({ categoryLabel, contextLabel, post, onViewP
     <div className="absolute inset-x-0 bottom-0 z-10 bg-gradient-to-t from-slate-950 via-slate-950/55 to-transparent px-4 pb-[calc(var(--kt-safe-area-bottom)+2.75rem)] pt-24 text-white sm:px-5">
       <div className="min-w-0 max-w-[calc(100%-72px)] space-y-3">
         {sharedFrom ? (
-          <div className="flex min-w-0 items-center gap-2 rounded-2xl bg-white/12 px-3 py-2 backdrop-blur">
+          <div className="flex min-w-0 items-center gap-2 rounded-2xl bg-slate-950/40 px-3 py-2">
             <span className="grid h-7 w-7 flex-none place-items-center rounded-full bg-emerald-400/25 text-emerald-200">
               <Repeat2 size={15} />
             </span>
@@ -92,7 +92,7 @@ export default function SwipCaption({ categoryLabel, contextLabel, post, onViewP
                   recordExploreAdvertEvent(post, "click", { surface: "swip" }).catch(() => false);
                 }}
                 onPointerDown={(event) => event.stopPropagation()}
-                className="kt-pressable flex h-11 w-full items-center justify-center rounded-2xl border border-white/30 bg-transparent px-4 text-sm font-black text-white backdrop-blur-sm transition hover:bg-white/10"
+                className="kt-pressable flex h-11 w-full items-center justify-center rounded-2xl border border-white/30 bg-slate-950/25 px-4 text-sm font-black text-white transition hover:bg-white/10"
               >
                 {advert.ctaLabel || t("explore.learnMore")}
               </a>
@@ -112,9 +112,9 @@ export default function SwipCaption({ categoryLabel, contextLabel, post, onViewP
             ) : null}
 
             <div className="flex min-w-0 items-center gap-2">
-              <span className="rounded-full bg-white/15 px-3 py-1 text-xs font-black backdrop-blur">{contextLabel || i18nText("ui.literals.k7fcd8d44c6f2")}</span>
+              <span className="rounded-full bg-slate-950/40 px-3 py-1 text-xs font-black">{contextLabel || i18nText("ui.literals.k7fcd8d44c6f2")}</span>
               {categoryLabel ? (
-                <span className="rounded-full bg-white/15 px-3 py-1 text-xs font-black backdrop-blur">{categoryLabel}</span>
+                <span className="rounded-full bg-slate-950/40 px-3 py-1 text-xs font-black">{categoryLabel}</span>
               ) : null}
             </div>
           </>

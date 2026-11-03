@@ -1,4 +1,4 @@
-import { Suspense, memo, useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState } from "react";
+import { Suspense, memo, useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState, useTransition } from "react";
 import { HiOutlineCamera, HiOutlineLightBulb, HiOutlineXMark } from "react-icons/hi2";
 
 import { useAuth } from "./Backend/hooks/useAuth";
@@ -360,6 +360,19 @@ export default function App() {
     if (!leavingPage) setSettledPage(page);
   }, [leavingPage, page]);
   const mainSpacerRef = useRef(null);
+  // The tab last chosen. It lights up at the tap; the screen itself is built
+  // as a React transition, which React does in small pieces and drops if
+  // another tab is chosen first. Built in one go, each switch froze a Galaxy
+  // A06 for ~0.3 s, and quick taps landed in those freezes and were lost.
+  const [tabPage, setTabPage] = useState(page);
+  const tabPageRef = useRef(page);
+  const [pageSwitchPending, startPageSwitch] = useTransition();
+  useEffect(() => {
+    // Moved by something other than a tab (a link, a notification, a reset).
+    if (pageSwitchPending) return;
+    tabPageRef.current = page;
+    setTabPage(page);
+  }, [page, pageSwitchPending]);
   const changePage = useCallback((nextPage) => {
     // Chosen while a slide runs: it follows once the slide has landed.
     // Cutting the slide short jumped the screens (it looked like a reload
@@ -368,7 +381,7 @@ export default function App() {
       queuedPageRef.current = nextPage === page ? "" : nextPage;
       return;
     }
-    if (!nextPage || nextPage === page) {
+    if (!nextPage || (INSTANT_MAIN_SWITCH ? nextPage === tabPageRef.current : nextPage === page)) {
       return;
     }
 
@@ -386,10 +399,19 @@ export default function App() {
     // the tabs quickly, an iPhone 13 had its page ended by WebKit within a
     // minute, while the same build without the slide ran without a restart.
     // The slide code below stays unused for now.
+    if (INSTANT_MAIN_SWITCH) {
+      if (tabPageRef.current === page) pageScrollRef.current[page] = window.scrollY || 0;
+      tabPageRef.current = nextPage;
+      setTabPage(nextPage);
+      startPageSwitch(() => {
+        setMainPageDirection(direction);
+        setPage(nextPage);
+      });
+      return;
+    }
     pageScrollRef.current[page] = window.scrollY || 0;
     setMainPageDirection(direction);
     setPage(nextPage);
-    if (INSTANT_MAIN_SWITCH) return;
     // The current screen slides out (pinned where it was scrolled) while the
     // next one slides in over it.
     // A screen swiped away a moment ago and chosen again mid-slide comes back
@@ -1402,7 +1424,7 @@ export default function App() {
           ) : null}
           <div ref={mainSpacerRef} aria-hidden="true" />
           {areaViewCover ? <div className="fixed inset-0 z-[1399] bg-slate-950" aria-hidden="true" /> : null}
-          <BottomTabs badges={tabBadges} forceHidden={bottomTabsHidden} page={page} setPage={changePage} />
+          <BottomTabs badges={tabBadges} forceHidden={bottomTabsHidden} page={tabPage} setPage={changePage} />
         </Suspense>
         </LazyRouteBoundary>
       </PageTransition>

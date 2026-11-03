@@ -2097,6 +2097,7 @@ export default function Explore({ active = true, onNavigateMain, onScreenModeCha
           so the bar jumped on the way in and the header redrew on the way out. */}
       <div
         ref={topChromeRef}
+        data-explore-chrome
         className={`sticky top-0 z-30 max-h-56 overflow-hidden bg-slate-100/95 backdrop-blur ${chromeHidden ? "pointer-events-none" : ""}`}
         style={{
           opacity: chromeHidden ? 0 : 1,

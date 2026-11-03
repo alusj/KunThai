@@ -45,6 +45,7 @@ export default function All({ active = true, currentUserId = "", focusPostId = "
   const wheelDeltaRef = useRef(0);
   const scrollPlayTimerRef = useRef(null);
   const handledFocusKeyRef = useRef("");
+  const glideRef = useRef(0);
 
   useEffect(() => {
     if (focusPost?.id) feed.includePost(focusPost);
@@ -73,9 +74,10 @@ export default function All({ active = true, currentUserId = "", focusPostId = "
     setActiveIndex((current) => Math.min(Math.max(current, 0), Math.max(videos.length - 1, 0)));
   }, [videos.length]);
 
-  // Clips 3-5 ahead are not mounted; only their first ~1 MB is fetched, so
+  // Clips 2-3 ahead are not mounted; only their first ~1 MB is fetched, so
   // they start quickly when reached (the network and CDN already have the
-  // start) without the memory cost of more video players.
+  // start) without the memory cost of more video players. The current and
+  // next clip get the connection first: warming waits SWIP_WARM_DELAY_MS.
   const warmUrls = active
     ? videos.slice(activeIndex + SWIP_PRELOAD_AHEAD + 1, activeIndex + SWIP_WARM_AHEAD + 1).map((post) => post.video_url).filter(Boolean)
     : [];
@@ -83,13 +85,16 @@ export default function All({ active = true, currentUserId = "", focusPostId = "
   useEffect(() => {
     if (!warmKey || swipBufferAhead() < SWIP_PRELOAD_AHEAD || readExploreSettings().video.reduceData) return undefined;
     const controller = new AbortController();
-    (async () => {
+    const timer = window.setTimeout(async () => {
       for (const url of warmKey.split("|")) {
         if (controller.signal.aborted) return;
         await warmSwipClip(url, controller.signal);
       }
-    })();
-    return () => controller.abort();
+    }, SWIP_WARM_DELAY_MS);
+    return () => {
+      window.clearTimeout(timer);
+      controller.abort();
+    };
   }, [warmKey]);
 
   useEffect(() => {
@@ -106,9 +111,17 @@ export default function All({ active = true, currentUserId = "", focusPostId = "
     }
   }, [active]);
 
+  // Turns the header and tab blur off while Swip is open (see index.css).
+  useEffect(() => {
+    if (!active) return undefined;
+    document.documentElement.setAttribute("data-kt-swip-open", "");
+    return () => document.documentElement.removeAttribute("data-kt-swip-open");
+  }, [active]);
+
   useEffect(() => () => {
     window.clearTimeout(wheelUnlockTimerRef.current);
     window.clearTimeout(scrollPlayTimerRef.current);
+    window.cancelAnimationFrame(glideRef.current);
     stopAllExploreMedia(null, { muteVideos: false });
   }, []);
 
@@ -134,17 +147,26 @@ export default function All({ active = true, currentUserId = "", focusPostId = "
       return undefined;
     }
 
+    // Each report holds only the cards that crossed a line, so a card sliding
+    // out would win on its own: compare every card's latest share instead.
+    const ratios = new Map();
     const observer = new IntersectionObserver(
       (entries) => {
-        const centered = entries
-          .filter((entry) => entry.isIntersecting)
-          .sort((a, b) => b.intersectionRatio - a.intersectionRatio)[0];
+        entries.forEach((entry) => ratios.set(entry.target, entry.isIntersecting ? entry.intersectionRatio : 0));
+        let centered = null;
+        let best = 0;
+        ratios.forEach((ratio, target) => {
+          if (ratio > best && target.isConnected) {
+            best = ratio;
+            centered = target;
+          }
+        });
 
-        if (!centered) {
+        if (!centered || best < 0.55) {
           return;
         }
 
-        const nextIndex = Number(centered.target.getAttribute("data-swip-index") || 0);
+        const nextIndex = Number(centered.getAttribute("data-swip-index") || 0);
         setActiveIndex((current) => {
           if (current !== nextIndex) {
             stopAllExploreMedia(null, { muteVideos: false });
@@ -155,7 +177,9 @@ export default function All({ active = true, currentUserId = "", focusPostId = "
       },
       // The clip coming in becomes current once it fills most of the screen,
       // so it starts playing as the swipe lands rather than after it settles.
-      { root: scroller, threshold: [0.55, 0.75, 0.95] },
+      // The lower lines mirror the upper ones, so the card going out reports
+      // in the same moment as the card coming in.
+      { root: scroller, threshold: [0, 0.05, 0.25, 0.45, 0.55, 0.75, 0.95] },
     );
 
     itemRefs.current.forEach((node) => {
@@ -238,11 +262,191 @@ export default function All({ active = true, currentUserId = "", focusPostId = "
     lockWheel();
   }
 
+  // Like TikTok and Reels, Swip moves the clips itself: the card follows the
+  // finger and, on release, glides exactly one clip on (a clear flick or a
+  // drag past half the screen) or back. The phone's own scrolling is held
+  // off during the drag, because its fling kept going underneath and could
+  // carry a hard swipe past a clip, and its snapping went back on swipes
+  // that ended short of half the screen.
+  const flickRef = useRef(null);
+  const touchMoveRef = useRef(null);
+
+  // A touch inside an expanded caption scrolls the caption, as before.
+  function insideInnerScroll(target, scroller) {
+    for (let node = target; node && node !== scroller; node = node.parentElement) {
+      if (node.scrollHeight > node.clientHeight + 1 && /auto|scroll/.test(getComputedStyle(node).overflowY)) return true;
+    }
+    return false;
+  }
+
+  function handleTouchStart(event) {
+    const scroller = scrollerRef.current;
+    if (event.touches.length !== 1 || !scroller || insideInnerScroll(event.target, scroller)) {
+      flickRef.current = null;
+      return;
+    }
+    // Shown as the finger lands, so the next clip's picture is back before
+    // the drag brings it into view.
+    markSwipMoving();
+    const touch = event.touches[0];
+    flickRef.current = { x: touch.clientX, y: touch.clientY, at: performance.now(), index: cardOnScreen(), dragging: false, dy: 0, dx: 0 };
+  }
+
+  touchMoveRef.current = (event) => {
+    const start = flickRef.current;
+    const scroller = scrollerRef.current;
+    const touch = event.touches[0];
+    if (!start || !scroller || !touch) return;
+    if (event.touches.length > 1) {
+      flickRef.current = null;
+      if (start.dragging) glideToIndex(cardOnScreen());
+      return;
+    }
+    start.dy = touch.clientY - start.y;
+    start.dx = touch.clientX - start.x;
+    if (!start.dragging) {
+      if (Math.abs(start.dy) < SWIP_DRAG_SLOP_PX || Math.abs(start.dy) <= Math.abs(start.dx)) {
+        if (Math.abs(start.dx) >= SWIP_DRAG_SLOP_PX) flickRef.current = null;
+        // Held off from the first move, or the phone's scroll starts first.
+        else if (event.cancelable && Math.abs(start.dy) > Math.abs(start.dx)) event.preventDefault();
+        return;
+      }
+      // A finger that catches a gliding clip carries on from where it is.
+      window.cancelAnimationFrame(glideRef.current);
+      start.dragging = true;
+      markSwipMoving();
+      // The card picks up from where it is; the swipe still counts from
+      // where the finger first went down.
+      start.scrollTop = scroller.scrollTop + start.dy;
+      scroller.style.scrollSnapType = "none";
+      scroller.style.scrollBehavior = "auto";
+      scroller.style.overflowY = "";
+    }
+    if (event.cancelable) event.preventDefault();
+    scroller.scrollTop = start.scrollTop - start.dy;
+  };
+
+  const scrollerShown = !feed.error && !(feed.loading && !videos.length);
+  useEffect(() => {
+    const scroller = scrollerRef.current;
+    if (!scroller) return undefined;
+    // Not through React: its touch listeners are passive and cannot hold
+    // the phone's scrolling off.
+    const onMove = (event) => touchMoveRef.current?.(event);
+    scroller.addEventListener("touchmove", onMove, { passive: false });
+    return () => scroller.removeEventListener("touchmove", onMove);
+  }, [scrollerShown]);
+
+  // The card lined up with the top of Swip right now (activeIndex can run a
+  // card ahead while the last glide settles).
+  function cardOnScreen() {
+    const scroller = scrollerRef.current;
+    if (!scroller) return activeIndex;
+    const top = scroller.getBoundingClientRect().top;
+    let best = activeIndex;
+    let bestGap = Infinity;
+    itemRefs.current.forEach((node, index) => {
+      if (!node) return;
+      const gap = Math.abs(node.getBoundingClientRect().top - top);
+      if (gap < bestGap) {
+        bestGap = gap;
+        best = index;
+      }
+    });
+    return best;
+  }
+
+  function handleTouchEnd(event) {
+    const start = flickRef.current;
+    flickRef.current = null;
+    const scroller = scrollerRef.current;
+    if (!start?.dragging || !scroller) return;
+    const lift = event.changedTouches?.[0];
+    const dy = lift && event.type === "touchend" ? lift.clientY - start.y : start.dy;
+    const speed = Math.abs(dy) / Math.max(1, performance.now() - start.at);
+    const height = scroller.clientHeight || 1;
+    const onward = Math.abs(dy) >= height / 2
+      || (Math.abs(dy) >= SWIP_FLICK_MIN_PX && (Math.abs(dy) >= height * SWIP_FLICK_DISTANCE || speed >= SWIP_FLICK_SPEED));
+    const target = onward
+      ? Math.min(Math.max(start.index + (dy < 0 ? 1 : -1), 0), videos.length - 1)
+      : start.index;
+    glideToIndex(target);
+  }
+
+  // The clip glides into place on its own (the phone's scrolling is off
+  // meanwhile), so a hard fling still moves exactly one clip.
+  function glideToIndex(index) {
+    const scroller = scrollerRef.current;
+    const node = itemRefs.current[index];
+    if (!scroller || !node) return;
+    window.cancelAnimationFrame(glideRef.current);
+    markSwipMoving();
+    scroller.style.overflowY = "hidden";
+    scroller.style.scrollSnapType = "none";
+    // Each frame's position must apply at once: a smooth scroll per frame
+    // lags behind and leaves the card short.
+    scroller.style.scrollBehavior = "auto";
+    const from = scroller.scrollTop;
+    // Where the card snaps: its top against the top of the scroller.
+    const to = from + node.getBoundingClientRect().top - scroller.getBoundingClientRect().top;
+    const startedAt = performance.now();
+    if (index !== activeIndex) {
+      stopAllExploreMedia(null, { muteVideos: false });
+      setActiveIndex(index);
+      requestSwipActivePlay(0, true);
+    }
+    const step = (now) => {
+      const progress = Math.min(1, (now - startedAt) / SWIP_GLIDE_MS);
+      const eased = 1 - (1 - progress) ** 3;
+      scroller.scrollTop = from + (to - from) * eased;
+      if (progress < 1) {
+        glideRef.current = window.requestAnimationFrame(step);
+        return;
+      }
+      scroller.style.overflowY = "";
+      scroller.style.scrollSnapType = "";
+      scroller.style.scrollBehavior = "";
+    };
+    glideRef.current = window.requestAnimationFrame(step);
+  }
+
   // A safety retry once scrolling stops (the card already starts playing
   // as soon as it becomes current).
   function handleScroll() {
+    markSwipMoving();
     requestSwipActivePlay(60, true);
   }
+
+  // At rest only the current clip's player is shown: on Android, two video
+  // players on screen together (even one just below the edge) made the
+  // WebView redraw every frame, about 90 a second while nothing moved,
+  // which kept the phone busy and warm. The others stay loaded underneath
+  // and show again the moment Swip moves.
+  const stillTimerRef = useRef(null);
+  function markSwipMoving() {
+    const scroller = scrollerRef.current;
+    if (!scroller) return;
+    if (scroller.classList.contains("kt-swip-still")) {
+      scroller.classList.remove("kt-swip-still");
+      // A paused player that was hidden shows black until it draws a frame
+      // again: a seek to where it already is (buffered, so instant) does it.
+      scroller.querySelectorAll('video[data-explore-active="false"]').forEach((video) => {
+        if (!video.paused || video.readyState < 2 || video.seeking) return;
+        const at = video.currentTime;
+        video.currentTime = at;
+      });
+    }
+    window.clearTimeout(stillTimerRef.current);
+    const settle = () => {
+      if (flickRef.current?.dragging) {
+        stillTimerRef.current = window.setTimeout(settle, SWIP_STILL_MS);
+        return;
+      }
+      scroller.classList.add("kt-swip-still");
+    };
+    stillTimerRef.current = window.setTimeout(settle, SWIP_STILL_MS);
+  }
+  useEffect(() => () => window.clearTimeout(stillTimerRef.current), []);
 
   if (feed.error) {
     return (
@@ -296,9 +500,12 @@ export default function All({ active = true, currentUserId = "", focusPostId = "
       ) : null}
       <div
         ref={scrollerRef}
-        className="relative h-full min-h-0 w-full min-w-0 snap-y snap-mandatory overflow-y-auto overflow-x-hidden bg-slate-950 scroll-smooth [scrollbar-width:none] [&::-webkit-scrollbar]:hidden"
+        className="kt-swip-still relative h-full min-h-0 w-full min-w-0 snap-y snap-mandatory overflow-y-auto overflow-x-hidden bg-slate-950 scroll-smooth [scrollbar-width:none] [&::-webkit-scrollbar]:hidden"
       onScroll={handleScroll}
       onWheel={handleWheel}
+      onTouchStart={handleTouchStart}
+      onTouchEnd={handleTouchEnd}
+      onTouchCancel={handleTouchEnd}
       style={{
         "--swip-item-height": "calc(100dvh - var(--explore-top-chrome-height,57px))",
         touchAction: "pan-y",
@@ -306,15 +513,15 @@ export default function All({ active = true, currentUserId = "", focusPostId = "
       }}
       >
       {videos.map((post, index) => {
-  // The current clip, the one before and the next two stay mounted; the
-  // current and upcoming ones buffer ahead so a swipe starts playing at once.
-  // (Kept even off Swip: dropping them there made Swip slow to respond.)
+  // Three players at most: the clip before (paused), the current one and the
+  // next one, which buffers and is primed (first frame ready) so a swipe
+  // lands on a clip that plays at once. Four, plus players dropped without
+  // being released, held up to 17 hardware decoders on a Galaxy A06 and
+  // Android closed KunThai.
   const offset = index - activeIndex;
   const shouldMountVideo = offset >= -1 && offset <= SWIP_PRELOAD_AHEAD;
   const preloadMode = offset >= 0 && offset <= swipBufferAhead() ? "auto" : "metadata";
-  // The clips right after this one are primed (first frames ready) so the
-  // next swipe plays instantly, like the big apps.
-  const prime = active && offset >= 1 && offset <= Math.min(swipBufferAhead(), 2);
+  const prime = active && offset === 1 && swipBufferAhead() >= 1;
 
   return (
     <section
@@ -378,8 +585,19 @@ export default function All({ active = true, currentUserId = "", focusPostId = "
   );
 }
 
-const SWIP_PRELOAD_AHEAD = 2;
-const SWIP_WARM_AHEAD = 5;
+const SWIP_PRELOAD_AHEAD = 1;
+const SWIP_WARM_AHEAD = 3;
+const SWIP_WARM_DELAY_MS = 1200;
+// A swipe moves one clip once it travels this far and is either this share
+// of the screen or this fast (px per ms).
+const SWIP_FLICK_MIN_PX = 40;
+const SWIP_FLICK_DISTANCE = 0.18;
+const SWIP_FLICK_SPEED = 0.35;
+const SWIP_GLIDE_MS = 240;
+// Quiet time after the last movement before the other clips are hidden.
+const SWIP_STILL_MS = 300;
+// Movement before a touch counts as a drag (below it, a tap).
+const SWIP_DRAG_SLOP_PX = 8;
 const SWIP_WARM_BYTES = 1024 * 1024;
 const warmedSwipClips = new Set();
 
@@ -419,7 +637,6 @@ function swipBufferAhead() {
     : null;
   const effectiveType = String(connection?.effectiveType || "").toLowerCase();
   if (connection?.saveData || effectiveType === "slow-2g" || effectiveType === "2g") return 0;
-  if (effectiveType === "3g") return 1;
   return SWIP_PRELOAD_AHEAD;
 }
 

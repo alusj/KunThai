@@ -13,7 +13,7 @@ import { copyPostLink, sharePost } from "../../urfeed/feed/post/postUtils";
 import { haptics } from "../../../../../Backend/services/feedbackService";
 import { useI18n } from "../../../../../i18n";
 import { readExploreSettings } from "../../../../../Backend/services/explore/preferencesService";
-import { isExploreVideoHeld, pauseOtherExploreMedia, playExploreMedia, stopAllExploreMedia } from "../../../shared/singleMediaPlayback";
+import { isExploreVideoHeld, mediaReleasedForHiding, pauseOtherExploreMedia, playExploreMedia, releaseVideoElement, stopAllExploreMedia } from "../../../shared/singleMediaPlayback";
 import ExploreActionDrawer from "../../../shared/ExploreActionDrawer";
 import PostAnalyticsPanel from "../../../shared/PostAnalyticsPanel";
 import RepostComposer from "../../../shared/RepostComposer";
@@ -56,7 +56,11 @@ function getClipWindow(post, realDuration = 0) {
     null;
 
   const videoDuration = Number.isFinite(realDuration) && realDuration > 0 ? realDuration : 0;
-  const start = Math.max(0, Math.min(Number(rawStart || 0), Math.max(0, videoDuration - 0.25)));
+  // Before the clip's length is known its trimmed start stands as saved:
+  // clamping it to 0 then made one part of the card seek to 0 and another
+  // to the trimmed start, over and over, re-downloading the clip.
+  const savedStart = Math.max(0, Number(rawStart || 0));
+  const start = videoDuration > 0 ? Math.min(savedStart, Math.max(0, videoDuration - 0.25)) : savedStart;
   const requestedEnd = rawEnd == null ? start + MAX_SWIP_SECONDS : Number(rawEnd);
   const maxEnd = videoDuration > 0 ? videoDuration : start + MAX_SWIP_SECONDS;
   const end = Math.min(maxEnd, Math.max(start + 0.5, requestedEnd), start + MAX_SWIP_SECONDS);
@@ -128,6 +132,11 @@ export default function VideoCard({
   const aiAvailability = useAiAvailability();
 
   const videoRef = useRef(null);
+  // Leaving Swip's window of cards: the player lets go of its decoder at once.
+  useEffect(() => {
+    const video = videoRef.current;
+    return () => releaseVideoElement(video);
+  }, []);
   const holdTimerRef = useRef(null);
   const holdStartRef = useRef(null);
   const tapTimerRef = useRef(null);
@@ -598,7 +607,8 @@ export default function VideoCard({
     const realDuration = Number.isFinite(video.duration) ? video.duration : 0;
     const nextClip = getClipWindow(post, realDuration);
 
-    if (video.currentTime < nextClip.start || video.currentTime >= nextClip.end) {
+    // A seek on its way is not repeated (each one drops buffered data).
+    if (!video.seeking && (video.currentTime < nextClip.start || video.currentTime >= nextClip.end)) {
       video.currentTime = nextClip.start;
     }
 
@@ -627,7 +637,7 @@ export default function VideoCard({
     }
 
     if (video.currentTime < nextClip.start) {
-      video.currentTime = nextClip.start;
+      if (!video.seeking) video.currentTime = nextClip.start;
       setProgress({ currentTime: 0, duration: nextClip.duration, realDuration });
       return;
     }
@@ -817,6 +827,9 @@ export default function VideoCard({
     function shouldResume() {
       if (!activeRef.current || userPausedRef.current || primingRef.current) return false;
       if (typeof document !== "undefined" && document.visibilityState !== "visible") return false;
+      // Locking the iPhone lets go of the media before the page is hidden;
+      // starting the clip again then brought back the lock-screen player.
+      if (mediaReleasedForHiding()) return false;
       if (commentOpen || actionMenuOpen || quickDeckOpen || repostOpen) return false;
       if (!readExploreSettings().video.autoplay) return false;
       if (isExploreVideoHeld(video)) return false;
@@ -855,7 +868,9 @@ export default function VideoCard({
 
     const observer = new IntersectionObserver(
       ([entry]) => {
-        if (entry.isIntersecting && active) {
+        // Mostly on screen, not merely still in view: a card sliding out
+        // under the finger crosses the threshold too, and must not restart.
+        if (entry.isIntersecting && entry.intersectionRatio >= 0.72 && active) {
           activeRef.current = true;
           startPlaybackSignals();
           // Seeking throws away buffered data; only rewind when needed.
@@ -935,6 +950,7 @@ export default function VideoCard({
         src={videoSrc}
         autoPlay={active && readExploreSettings().video.autoplay}
         data-explore-active={active ? "true" : "false"}
+        data-kt-clip-start={clip.start || undefined}
         controls={false}
         muted={false}
         playsInline

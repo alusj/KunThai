@@ -2,7 +2,7 @@ import { useEffect, useRef, useState } from "react";
 import { HiOutlineArrowPath, HiOutlinePhoto } from "react-icons/hi2";
 
 import { useI18n } from "../../../../../../i18n";
-import { pauseOtherExploreMedia, stopAllExploreMedia } from "../../../../shared/singleMediaPlayback";
+import { pauseOtherExploreMedia, releaseVideoElement, stopAllExploreMedia } from "../../../../shared/singleMediaPlayback";
 import { isAdvertPost } from "../../../../shared/advertUtils";
 import ZoomableImage from "../../../../shared/ZoomableImage";
 import VoiceNotePlayer from "../../../../../shared/voice/VoiceNotePlayer";
@@ -16,6 +16,12 @@ export default function PostMedia({ post, imageOnly = false }) {
   const [videoStatus, setVideoStatus] = useState(post.video_url ? "loading" : "idle");
   const [videoRetryKey, setVideoRetryKey] = useState(0);
   const videoRef = useRef(null);
+  // The post scrolling off UrFeed or a tab switch: the video lets go of its
+  // decoder at once (see releaseVideoElement).
+  useEffect(() => {
+    const video = videoRef.current;
+    return () => releaseVideoElement(video);
+  }, [post.video_url, videoRetryKey]);
   const advertPost = isAdvertPost(post);
   const clipRange = postClipRange(post);
   // Settings > Video: autoplay, default sound and data saver.

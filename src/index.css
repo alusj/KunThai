@@ -2480,3 +2480,17 @@ html[data-kt-platform="android"] .kt-feed-card {
   content-visibility: auto;
   contain-intrinsic-size: auto 560px;
 }
+
+/* Swip at rest shows only the current clip's player (see markSwipMoving). */
+.kt-swip-still video[data-explore-active="false"] {
+  visibility: hidden;
+}
+
+/* While Swip is open the WebView redraws the whole screen for every video
+   frame, recomputing every backdrop blur each time. The header and tabs sit
+   over the plain page background, where the blur shows nothing. */
+html[data-kt-swip-open] .kt-premium-header,
+html[data-kt-swip-open] [data-explore-chrome] {
+  -webkit-backdrop-filter: none;
+  backdrop-filter: none;
+}

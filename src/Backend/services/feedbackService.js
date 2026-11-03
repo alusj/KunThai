@@ -161,6 +161,19 @@ function primeAudioOnFirstGesture() {
 
 primeAudioOnFirstGesture();
 
+// The sound-effect engine sleeps while KunThai is off screen: a running audio
+// engine kept an iPhone's lock-screen "Now Playing" card after Swip's videos
+// had let go. The next sound effect wakes it (getAudioContext).
+export function suspendSoundEffects() {
+  try {
+    if (audioContext && audioContext.state === "running") audioContext.suspend().catch(() => {});
+  } catch {
+    // Best-effort only.
+  }
+}
+// Called by singleMediaPlayback.js when KunThai lets go of its media.
+if (typeof window !== "undefined") window.__ktSuspendSoundEffects = suspendSoundEffects;
+
 function playTones(notes, module, key) {
   try {
     if (!fxSettings().sounds || !moduleAllowed(module)) return;

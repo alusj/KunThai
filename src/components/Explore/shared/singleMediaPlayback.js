@@ -204,10 +204,30 @@ export function stopAllExploreMedia(exceptMedia = null, { muteVideos = true } = 
     if (muteVideos && media.tagName === "VIDEO") {
       media.muted = true;
     }
-    if (!Number.isNaN(media.currentTime)) {
-      media.currentTime = 0;
+    // Only a clip that has played goes back to the start (a trimmed Swip
+    // clip to its own start). Seeking one that is still downloading (Swip's
+    // next clips) restarted its download on every swipe, so the next clip was
+    // never ready when it was reached.
+    const start = Number(media.dataset?.ktClipStart) || 0;
+    if (Number.isFinite(media.currentTime) && !media.seeking && Math.abs(media.currentTime - start) > 0.25) {
+      media.currentTime = start;
     }
   });
+}
+
+// A video leaving the page lets go of its decoder now. Dropped without this,
+// a phone keeps the hardware decoder until it next cleans up memory; with
+// screens rebuilt on every tab switch, a Galaxy A06 held 12-17 at once and
+// Android closed KunThai.
+export function releaseVideoElement(video) {
+  if (!video) return;
+  try {
+    video.pause();
+    video.removeAttribute("src");
+    video.load();
+  } catch {
+    // An element that cannot be reset is left to the browser.
+  }
 }
 
 export function playExploreMedia(media, options) {
@@ -230,6 +250,8 @@ const releasedMedia = new Map();
 
 export function releaseMediaWhileHidden() {
   if (typeof document === "undefined") return 0;
+  // The sound-effect engine too (feedbackService.js registers this).
+  window.__ktSuspendSoundEffects?.();
   document.querySelectorAll("audio, video").forEach((media) => {
     const src = media.getAttribute("src");
     if (!src || releasedMedia.has(media)) return;
@@ -243,6 +265,12 @@ export function releaseMediaWhileHidden() {
     }
   });
   return releasedMedia.size;
+}
+
+// True while KunThai's media is let go (locked or in the background): Swip's
+// resume loop must not start the clip again before the app is back.
+export function mediaReleasedForHiding() {
+  return releasedMedia.size > 0;
 }
 
 export function restoreReleasedMedia() {
