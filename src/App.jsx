@@ -92,6 +92,8 @@ const PAGE_LOADERS = {
   transport: loadTransport,
 };
 const PRELOADED_MAIN_PAGES = new Set();
+// Main screens switch without the slide (see changePage).
+const INSTANT_MAIN_SWITCH = true;
 
 function normalizeMainPage(value) {
   const page = String(value || "").toLowerCase();
@@ -377,6 +379,17 @@ export default function App() {
     const currentIndex = PAGE_ORDER.indexOf(page);
     const nextIndex = PAGE_ORDER.indexOf(nextPage);
     const direction = nextIndex >= currentIndex ? "forward" : "backward";
+
+    // The switch is instant: the old screen is dropped and the next one shown
+    // (2026-11-03). The slide kept both whole screens alive, each its own
+    // full-screen layer, with the next drawn off to the side first; tapping
+    // the tabs quickly, an iPhone 13 had its page ended by WebKit within a
+    // minute, while the same build without the slide ran without a restart.
+    // The slide code below stays unused for now.
+    pageScrollRef.current[page] = window.scrollY || 0;
+    setMainPageDirection(direction);
+    setPage(nextPage);
+    if (INSTANT_MAIN_SWITCH) return;
     // The current screen slides out (pinned where it was scrolled) while the
     // next one slides in over it.
     // A screen swiped away a moment ago and chosen again mid-slide comes back
