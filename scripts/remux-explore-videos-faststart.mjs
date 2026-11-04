@@ -9,8 +9,9 @@
 //   SUPABASE_URL=https://<ref>.supabase.co SUPABASE_SERVICE_ROLE_KEY=... \
 //     node scripts/remux-explore-videos-faststart.mjs [--dry-run] [--limit N] [--only <post id>]
 //
-// --dry-run  lists the slow clips and rewraps them locally (needs ffmpeg) but
-//            uploads and changes nothing.
+// --dry-run  lists the slow clips and, when ffmpeg is installed, rewraps them
+//            locally to check the result; uploads and changes nothing. Reading
+//            needs no service key: SUPABASE_ANON_KEY is enough for a dry run.
 // Otherwise each rewrapped file is uploaded NEXT TO the original as
 // `<name>-faststart.mp4` and explore_posts.video_url is pointed at it. The
 // original files are kept, and every change is written to
@@ -23,10 +24,10 @@ import { join } from "node:path";
 
 import { readMp4Layout } from "../src/Backend/services/media/mp4Layout.js";
 
-const base = process.env.SUPABASE_URL;
-const key = process.env.SUPABASE_SERVICE_ROLE_KEY;
+const base = String(process.env.SUPABASE_URL || "").trim().replace(/\/+$/, "");
 const args = process.argv.slice(2);
 const dryRun = args.includes("--dry-run");
+const key = String(process.env.SUPABASE_SERVICE_ROLE_KEY || (dryRun ? process.env.SUPABASE_ANON_KEY : "") || "").trim();
 const argValue = (name) => (args.includes(name) ? args[args.indexOf(name) + 1] : "");
 const limit = Number(argValue("--limit")) || Infinity;
 const only = argValue("--only");
@@ -34,13 +35,18 @@ const BUCKET = "explore-media";
 const ROLLBACK_FILE = "remux-explore-videos-rollback.tsv";
 
 if (!base || !key) {
-  console.error("Needs SUPABASE_URL and SUPABASE_SERVICE_ROLE_KEY.");
+  console.error("Needs SUPABASE_URL and SUPABASE_SERVICE_ROLE_KEY (or SUPABASE_ANON_KEY with --dry-run).");
   process.exit(1);
 }
+const ffmpeg = process.env.FFMPEG || "ffmpeg";
+let hasFfmpeg = true;
 try {
-  execFileSync("ffmpeg", ["-version"], { stdio: "ignore" });
+  execFileSync(ffmpeg, ["-version"], { stdio: "ignore" });
 } catch {
-  console.error("Needs ffmpeg (brew install ffmpeg).");
+  hasFfmpeg = false;
+}
+if (!hasFfmpeg && !dryRun) {
+  console.error("Needs ffmpeg (brew install ffmpeg, or FFMPEG=/path/to/ffmpeg).");
   process.exit(1);
 }
 
@@ -98,6 +104,11 @@ for (const post of await loadPosts()) {
       continue;
     }
     done += 1;
+    if (!hasFfmpeg) {
+      console.log(`would fix ${post.id} ${layout} ${(size / 1048576).toFixed(1)} MB ${path} (no ffmpeg: not rewrapped)`);
+      tally.rewrapped += 1;
+      continue;
+    }
 
     const source = join(work, "source");
     const target = join(work, "faststart.mp4");
@@ -105,7 +116,7 @@ for (const post of await loadPosts()) {
     if (!response.ok) throw new Error(`download ${response.status}`);
     writeFileSync(source, Buffer.from(await response.arrayBuffer()));
     rmSync(target, { force: true });
-    execFileSync("ffmpeg", ["-v", "error", "-i", source, "-map", "0", "-c", "copy", "-movflags", "+faststart", "-f", "mp4", target], { stdio: "inherit" });
+    execFileSync(ffmpeg, ["-v", "error", "-i", source, "-map", "0", "-c", "copy", "-movflags", "+faststart", "-f", "mp4", target], { stdio: "inherit" });
 
     const output = readFileSync(target);
     const check = await readMp4Layout(new Blob([output]));
