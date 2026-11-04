@@ -1342,7 +1342,9 @@ export default function App() {
   // Explore, UrMall and UrRide in memory at once: on an iPhone 13, opening
   // Explore from UrMall then got the page ended by iOS (memory warning, then
   // a restart), many times a day. A screen left is rebuilt on the next visit
-  // from its saved content.
+  // from its saved content. (Keeping just the screen left last was tried on
+  // 2026-11-04: it re-rendered while hidden on every switch and froze a
+  // Galaxy A06 for 4.1 s over 29 quick taps, against 0.7 s without it.)
   function isPageMounted(targetPage) {
     return page === targetPage || leavingPage?.page === targetPage;
   }
