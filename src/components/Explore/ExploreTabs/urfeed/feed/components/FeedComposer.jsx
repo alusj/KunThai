@@ -2931,6 +2931,7 @@ if (!isMobileVideoDevice) {
         onCancel={() => setCautionOpen(false)}
         onConfirm={performSubmit}
         submitting={creating}
+        scheduledAt={!isAdvertMode ? postControls.publishAt : null}
       />
     </div>
   );

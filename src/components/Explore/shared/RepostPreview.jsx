@@ -86,6 +86,7 @@ export default function RepostPreview({ post, sourcePost = null, compact = false
           buttonClassName="relative block aspect-[4/3] w-full overflow-hidden bg-slate-100 text-left disabled:cursor-default"
           imgClassName="h-full w-full object-cover"
           restRadius={0}
+          allowSave={!source.downloadsDisabled}
         />
       ) : null}
       {source.videoUrl ? <RepostSwipVideo compact={compact} source={source} /> : null}

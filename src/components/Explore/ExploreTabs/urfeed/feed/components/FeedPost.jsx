@@ -35,7 +35,7 @@ import RepostComposer from "../../../../shared/RepostComposer";
 import PostAnalyticsPanel from "../../../../shared/PostAnalyticsPanel";
 import RepostPreview from "../../../../shared/RepostPreview";
 import PublishedPostSettings from "../../../../shared/postControls/PublishedPostSettings";
-import { postInteractionRules } from "../../../../../../Backend/services/explore/postControls";
+import { formatPostTime, postControlsOf, postInteractionRules, postLifecycle } from "../../../../../../Backend/services/explore/postControls";
 import {
   contentHasModerationFlags,
   PRIVACY_SETTINGS_EVENT,
@@ -94,6 +94,7 @@ export default function FeedPost({
   const [reportReason, setReportReason] = useState("");
   const [whyAdvertOpen, setWhyAdvertOpen] = useState(false);
   const [sensitiveRevealed, setSensitiveRevealed] = useState(false);
+  const [warningRevealed, setWarningRevealed] = useState(false);
   const [analyticsOpen, setAnalyticsOpen] = useState(false);
   const [, setPrivacyRevision] = useState(0);
   const optionsTimerRef = useRef(null);
@@ -106,6 +107,13 @@ export default function FeedPost({
     readExploreSettings().feed.showSensitiveWarnings !== false &&
     contentHasModerationFlags(post.body || "").length > 0;
   const interactionRules = postInteractionRules(post, { isOwner, followsAuthor: followed });
+  // The author's content warning (Sensitive / Graphic / Spoilers): the post
+  // stays covered until the reader chooses to view it. Not for the author.
+  const warningGateActive = Boolean(interactionRules.contentWarning) && !warningRevealed;
+  const contentGated = sensitiveGateActive || warningGateActive;
+  const warningKind = interactionRules.contentWarning || "sensitive";
+  const lifecycle = isOwner ? postLifecycle(post) : "live";
+  const ownControls = isOwner && lifecycle !== "live" ? postControlsOf(post) : null;
   const advert = getAdvertMeta(post);
   const advertPost = isAdvertPost(post);
   const aiAvailability = useAiAvailability();
@@ -302,16 +310,29 @@ export default function FeedPost({
         </div>
       ) : null}
 
-      {sensitiveGateActive ? (
+      {ownControls ? (
+        <p className={`mx-4 mb-3 inline-flex rounded-full px-3 py-1 text-xs font-black ${lifecycle === "scheduled" ? "bg-sky-100 text-sky-800 dark:bg-sky-400/15 dark:text-sky-200" : "bg-slate-200 text-slate-700 dark:bg-white/10 dark:text-slate-200"}`}>
+          {lifecycle === "scheduled"
+            ? t("postControls.scheduledBadge", { time: formatPostTime(ownControls.publishAt) })
+            : t("postControls.expiredBadge")}
+        </p>
+      ) : null}
+
+      {contentGated ? (
         <div className="px-4 pb-4">
           <div className="rounded-[22px] border border-amber-200 bg-amber-50 p-4">
-            <p className="text-sm font-black text-amber-900">{t("post.sensitiveContent")}</p>
+            <p className="text-sm font-black text-amber-900">
+              {warningGateActive ? t(`postControls.warnTitle${warningKind[0].toUpperCase()}${warningKind.slice(1)}`) : t("post.sensitiveContent")}
+            </p>
             <p className="mt-1 text-xs font-semibold leading-5 text-amber-800">
-              {t("post.sensitiveDesc")}
+              {warningGateActive ? t("postControls.warningBody") : t("post.sensitiveDesc")}
             </p>
             <button
               type="button"
-              onClick={() => setSensitiveRevealed(true)}
+              onClick={() => {
+                setSensitiveRevealed(true);
+                setWarningRevealed(true);
+              }}
               className="kt-pressable mt-3 h-10 rounded-2xl bg-amber-600 px-4 text-xs font-black text-white transition hover:bg-amber-700"
             >
               {t("post.viewPost")}
@@ -346,7 +367,7 @@ export default function FeedPost({
         )
       ) : null}
 
-      {!sensitiveGateActive && !advertPost && (hashtags.length || mentions.length || postLocation) ? (
+      {!contentGated && !advertPost && (hashtags.length || mentions.length || postLocation) ? (
         <div className="flex flex-wrap gap-2 px-4 pb-4">
           {hashtags.map((tag) => (
             <button
@@ -383,9 +404,9 @@ export default function FeedPost({
         </div>
       ) : null}
 
-      {!sensitiveGateActive ? <RepostPreview post={post} /> : null}
+      {!contentGated ? <RepostPreview post={post} /> : null}
 
-      {!sensitiveGateActive ? <PostMedia post={post} imageOnly={advertPost} /> : null}
+      {!contentGated ? <PostMedia post={post} imageOnly={advertPost} allowSave={interactionRules.canDownload} /> : null}
 
       <PostActions
         post={post}

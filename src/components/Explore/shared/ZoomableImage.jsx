@@ -65,6 +65,7 @@ export default function ZoomableImage({
   buttonClassName = "kt-pressable relative block aspect-[4/3] w-full overflow-hidden rounded-[20px] bg-slate-100 text-left",
   imgClassName = "h-full max-h-[520px] w-full max-w-full object-cover",
   restRadius = 20,
+  allowSave = true,
 }) {
   const { t } = useI18n();
   const [imagePreviewOpen, setImagePreviewOpen] = useState(false);
@@ -93,7 +94,7 @@ export default function ZoomableImage({
   }, [imagePreviewOpen, viewerPhase]);
 
   // Long-press the opened photo: Save image, Copy image, Report.
-  const photo = usePhotoActions({ url: imagePreviewOpen ? src : "", context: "post" });
+  const photo = usePhotoActions({ url: imagePreviewOpen ? src : "", context: "post", allowSave });
   const viewerGestures = useImageViewerGestures({
     enabled: imagePreviewOpen && viewerPhase === "open",
     onClose: closeImagePreview,
@@ -255,7 +256,7 @@ export default function ZoomableImage({
                   onClick={photo.openFromButton}
                   onPointerDown={(event) => event.stopPropagation()}
                   onPointerUp={(event) => event.stopPropagation()}
-                  className="pointer-events-auto ml-auto grid h-11 w-11 place-items-center rounded-full border border-white/15 bg-black/35 text-2xl text-white shadow-xl backdrop-blur-md"
+                  className={`pointer-events-auto ml-auto ${photo.hasActions ? "grid" : "hidden"} h-11 w-11 place-items-center rounded-full border border-white/15 bg-black/35 text-2xl text-white shadow-xl backdrop-blur-md`}
                   aria-label={i18nText("messageActions.moreOptions")}
                 >
                   <HiOutlineEllipsisHorizontal />

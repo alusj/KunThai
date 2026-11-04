@@ -14,18 +14,20 @@ const PUBLIC_STORAGE = "/storage/v1/object/public/";
 // openFromButton, layer }: spread or combine the handlers on the photo, put
 // openFromButton on the button, and render the layer once.
 // photo: { url, reportedUserId, context }.
-export function usePhotoActions({ url, reportedUserId = null, context = "photo" } = {}) {
+// allowSave false (a post whose owner turned downloads off) leaves out Save
+// image and Copy image; Report stays.
+export function usePhotoActions({ url, reportedUserId = null, context = "photo", allowSave = true } = {}) {
   const [menu, setMenu] = useState(null);
   const [reportOpen, setReportOpen] = useState(false);
   const reportable = /^https:\/\//i.test(String(url || "")) && String(url).includes(PUBLIC_STORAGE);
   const closeMenu = useCallback(() => setMenu(null), []);
 
-  const keys = ["saveImage", "copyImage", ...(reportable ? ["report"] : [])];
+  const keys = [...(allowSave ? ["saveImage", "copyImage"] : []), ...(reportable ? ["report"] : [])];
 
   // The card drops down under the button that was tapped.
   function openFromButton(event) {
     event?.stopPropagation?.();
-    if (!url) return;
+    if (!url || !keys.length) return;
     haptics.light("messages");
     prepareImageForActions(url);
     const rect = event.currentTarget.getBoundingClientRect();
@@ -49,7 +51,7 @@ export function usePhotoActions({ url, reportedUserId = null, context = "photo" 
       align: x > window.innerWidth / 2 ? "end" : "start",
       keys,
     });
-  }, { disabled: !url });
+  }, { disabled: !url || !keys.length });
 
   function select(key) {
     if (key === "report") setReportOpen(true);
@@ -69,5 +71,5 @@ export function usePhotoActions({ url, reportedUserId = null, context = "photo" 
       />
     </>
   );
-  return { handlers: press.handlers, openFromButton, layer };
+  return { handlers: press.handlers, openFromButton, layer, hasActions: keys.length > 0 };
 }

@@ -11,6 +11,11 @@ import {
   postControlErrorCode,
   postControlsOf,
   postInteractionRules,
+  postLifecycle,
+  scheduleProblem,
+  fromLocalInputValue,
+  toLocalInputValue,
+  normalizeTargetLocations,
 } from "./postControls.js";
 
 const A = "11111111-1111-4111-8111-111111111111";
@@ -51,7 +56,8 @@ test("flags are read from columns, or from the ranked feed's media_meta", () => 
   // A column that is present wins over a stale copy in media_meta.
   assert.equal(postControlsOf({ reposts_disabled: false, media_meta: { postControls: { repostsDisabled: true } } }).repostsDisabled, false);
   // Posts from before this feature have none of them.
-  assert.deepEqual(Object.values(postControlsOf({ id: "old" })).filter(Boolean), []);
+  assert.deepEqual(Object.values(postControlsOf({ id: "old" })).filter((value) => value === true || (typeof value === "string" && value)), []);
+  assert.equal(postLifecycle({ id: "old" }), "live");
 });
 
 test("precedence: owner first, then comments off over followers only", () => {
@@ -98,4 +104,45 @@ test("live reposts fill from originals the viewer can read, others read unavaila
   const [hidden] = fillLiveReposts([live], new Map());
   assert.equal(hidden.media_meta.repost.unavailable, true);
   assert.equal(hidden.media_meta.repost.body, undefined);
+});
+
+test("phase 2 settings become columns; target areas carry no coordinates", () => {
+  const columns = postControlColumns({
+    expiresAfter: "7d",
+    contentWarning: "graphic",
+    downloadsDisabled: true,
+    hiddenFromProfile: true,
+    targetLocations: [{ id: A, label: "Austin, Texas", lat: 30.2, lng: -97.7 }, { id: A, label: "austin, texas" }],
+  });
+  assert.equal(columns.expires_after, "7d");
+  assert.equal(columns.content_warning, "graphic");
+  assert.equal(columns.downloads_disabled, true);
+  assert.equal(columns.hidden_from_profile, true);
+  assert.deepEqual(columns.target_regions, [{ id: A, label: "Austin, Texas" }]);
+  assert.equal("publish_at" in columns, false);
+  assert.equal(normalizePostControls({ expiresAfter: "1y", contentWarning: "nsfw" }).expiresAfter, null);
+  assert.equal(normalizeTargetLocations(Array.from({ length: 8 }, (_, i) => ({ id: A, label: `Place ${i}` }))).length, 5);
+});
+
+test("scheduling: absolute UTC times, at least 5 minutes ahead, at most a year", () => {
+  const now = Date.parse("2026-11-04T12:00:00Z");
+  assert.equal(scheduleProblem("2026-11-04T12:02:00Z", now), "past");
+  assert.equal(scheduleProblem("2026-11-04T12:10:00Z", now), "");
+  assert.equal(scheduleProblem("2028-01-01T00:00:00Z", now), "far");
+  const iso = fromLocalInputValue(toLocalInputValue("2026-11-04T18:30:00Z"));
+  assert.equal(iso, "2026-11-04T18:30:00.000Z");
+  assert.equal(postControlColumns({ publishAt: "2026-11-05T09:00:00Z" }).publish_at, "2026-11-05T09:00:00.000Z");
+});
+
+test("lifecycle and viewer rules for scheduled, expired, warned and protected posts", () => {
+  const now = Date.parse("2026-11-04T12:00:00Z");
+  assert.equal(postLifecycle({ publish_at: "2026-11-04T13:00:00Z" }, now), "scheduled");
+  assert.equal(postLifecycle({ publish_at: "2026-11-04T11:00:00Z", expires_at: "2026-11-04T11:30:00Z" }, now), "expired");
+  assert.equal(postLifecycle({ media_meta: { postControls: { expiresAt: "2026-11-05T12:00:00Z" } } }, now), "live");
+  const viewer = postInteractionRules({ downloads_disabled: true, content_warning: "spoilers" });
+  assert.equal(viewer.canDownload, false);
+  assert.equal(viewer.contentWarning, "spoilers");
+  const owner = postInteractionRules({ downloads_disabled: true, content_warning: "spoilers" }, { isOwner: true });
+  assert.equal(owner.canDownload, true);
+  assert.equal(owner.contentWarning, null);
 });

@@ -37,3 +37,12 @@ test("refusal messages fit a toast (15 to 25 characters) in English", () => {
     assert.ok(length >= 15 && length <= 30, `${key} is ${length} characters`);
   }
 });
+
+test("phase 2 placeholders survive translation", () => {
+  for (const locale of LOCALES) {
+    const section = POST_CONTROLS[locale];
+    assert.match(section.scheduleHint, /\{zone\}/, `${locale}.scheduleHint`);
+    for (const key of ["scheduledBadge", "expiresBadge"]) assert.match(section[key], /\{time\}/, `${locale}.${key}`);
+    for (const key of ["locationsHint", "locationLimit"]) assert.match(section[key], /\{n\}/, `${locale}.${key}`);
+  }
+});

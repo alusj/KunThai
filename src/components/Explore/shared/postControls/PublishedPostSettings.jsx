@@ -59,6 +59,8 @@ export default function PublishedPostSettings({ open, post, ownerId = "", onClos
       loading={loading}
       loadError={loadError}
       saving={saving}
+      editing
+      scheduleEditable={Boolean(controls.scheduled)}
       onRetry={load}
       onClose={() => {
         if (!saving) onClose?.();

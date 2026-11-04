@@ -8,6 +8,13 @@
 // buttons it knows the server would refuse.
 
 export const MAX_EXCLUDED_ACCOUNTS = 100;
+export const MAX_TARGET_LOCATIONS = 5;
+export const EXPIRY_OPTIONS = Object.freeze(["24h", "7d", "30d"]);
+export const CONTENT_WARNINGS = Object.freeze(["sensitive", "graphic", "spoilers"]);
+// A scheduled time must be at least this far ahead (the database treats
+// anything within a minute as "now").
+export const MIN_SCHEDULE_LEAD_MS = 5 * 60 * 1000;
+export const MAX_SCHEDULE_AHEAD_MS = 365 * 24 * 60 * 60 * 1000;
 
 export const DEFAULT_POST_CONTROLS = Object.freeze({
   commentsDisabled: false,
@@ -17,6 +24,13 @@ export const DEFAULT_POST_CONTROLS = Object.freeze({
   likeCountHidden: false,
   repostsDisabled: false,
   excludedAccounts: [],
+  // Phase 2
+  hiddenFromProfile: false,
+  downloadsDisabled: false,
+  contentWarning: null,
+  expiresAfter: null,
+  publishAt: null,
+  targetLocations: [],
 });
 
 const FLAG_COLUMNS = Object.freeze({
@@ -26,6 +40,8 @@ const FLAG_COLUMNS = Object.freeze({
   likesDisabled: "likes_disabled",
   likeCountHidden: "like_count_hidden",
   repostsDisabled: "reposts_disabled",
+  hiddenFromProfile: "hidden_from_profile",
+  downloadsDisabled: "downloads_disabled",
 });
 
 export const POST_CONTROL_FLAGS = Object.freeze(Object.keys(FLAG_COLUMNS));
@@ -58,21 +74,92 @@ export function normalizeExcludedAccounts(list = [], { ownerId = "" } = {}) {
   return result;
 }
 
+/** A target area chip: a KunThai region id plus a label. Never coordinates. */
+export function normalizeTargetLocation(location = {}) {
+  const id = String(location.id || location.regionId || "").trim();
+  if (!UUID_PATTERN.test(id)) return null;
+  const label = String(location.label || location.regionName || "").trim().slice(0, 120);
+  if (!label) return null;
+  return {
+    id,
+    label,
+    regionName: String(location.regionName || "").trim(),
+    countryIso: String(location.countryIso || "").trim().toUpperCase().slice(0, 2),
+  };
+}
+
+export function normalizeTargetLocations(list = []) {
+  const seen = new Set();
+  const result = [];
+  for (const item of Array.isArray(list) ? list : []) {
+    const location = normalizeTargetLocation(item);
+    const key = location ? `${location.id}|${location.label.toLowerCase()}` : "";
+    if (!location || seen.has(key)) continue;
+    seen.add(key);
+    result.push(location);
+    if (result.length >= MAX_TARGET_LOCATIONS) break;
+  }
+  return result;
+}
+
+function normalizeIso(value) {
+  if (!value) return null;
+  const time = new Date(value).getTime();
+  return Number.isFinite(time) ? new Date(time).toISOString() : null;
+}
+
 export function normalizePostControls(input = {}, options = {}) {
   const source = input && typeof input === "object" ? input : {};
   const controls = { ...DEFAULT_POST_CONTROLS };
   for (const flag of POST_CONTROL_FLAGS) controls[flag] = source[flag] === true;
   controls.excludedAccounts = normalizeExcludedAccounts(source.excludedAccounts, options);
+  controls.contentWarning = CONTENT_WARNINGS.includes(source.contentWarning) ? source.contentWarning : null;
+  controls.expiresAfter = EXPIRY_OPTIONS.includes(source.expiresAfter) ? source.expiresAfter : null;
+  controls.publishAt = normalizeIso(source.publishAt);
+  controls.targetLocations = normalizeTargetLocations(source.targetLocations);
   return controls;
 }
 
 /** Any setting differs from the defaults (the Advanced button shows it). */
 export function hasAdvancedControls(controls = {}) {
-  return POST_CONTROL_FLAGS.some((flag) => controls?.[flag] === true) || (controls?.excludedAccounts?.length || 0) > 0;
+  return countActiveControls(controls) > 0;
 }
 
 export function countActiveControls(controls = {}) {
-  return POST_CONTROL_FLAGS.filter((flag) => controls?.[flag] === true).length + ((controls?.excludedAccounts?.length || 0) > 0 ? 1 : 0);
+  return POST_CONTROL_FLAGS.filter((flag) => controls?.[flag] === true).length
+    + ((controls?.excludedAccounts?.length || 0) > 0 ? 1 : 0)
+    + (controls?.contentWarning ? 1 : 0)
+    + (controls?.expiresAfter ? 1 : 0)
+    + (controls?.publishAt ? 1 : 0)
+    + ((controls?.targetLocations?.length || 0) > 0 ? 1 : 0);
+}
+
+/**
+ * Is a scheduled time acceptable? "" when it is; otherwise "past" (too soon)
+ * or "far" (more than a year ahead). Times are absolute instants (UTC); the
+ * picker shows them in the person's own timezone.
+ */
+export function scheduleProblem(publishAt, now = Date.now()) {
+  if (!publishAt) return "";
+  const time = new Date(publishAt).getTime();
+  if (!Number.isFinite(time) || time < now + MIN_SCHEDULE_LEAD_MS - 1000) return "past";
+  if (time > now + MAX_SCHEDULE_AHEAD_MS) return "far";
+  return "";
+}
+
+/** "2026-11-04T18:30" for a datetime-local input, in the device's timezone. */
+export function toLocalInputValue(iso) {
+  const date = iso ? new Date(iso) : null;
+  if (!date || !Number.isFinite(date.getTime())) return "";
+  const pad = (value) => String(value).padStart(2, "0");
+  return `${date.getFullYear()}-${pad(date.getMonth() + 1)}-${pad(date.getDate())}T${pad(date.getHours())}:${pad(date.getMinutes())}`;
+}
+
+/** A datetime-local value (device timezone) as a UTC ISO time, or null. */
+export function fromLocalInputValue(value) {
+  if (!value) return null;
+  const date = new Date(value);
+  return Number.isFinite(date.getTime()) ? date.toISOString() : null;
 }
 
 /**
@@ -81,12 +168,18 @@ export function countActiveControls(controls = {}) {
  * the post and its exclusions are saved together or not at all.
  * Default controls add nothing, so ordinary posts are unchanged.
  */
-export function postControlColumns(controls, { includeExclusions = true, always = false } = {}) {
+export function postControlColumns(controls, { includeExclusions = true, always = false, includeSchedule = false } = {}) {
   if (!controls || (!always && !hasAdvancedControls(controls))) return {};
   const normalized = normalizePostControls(controls);
   const columns = {};
   for (const flag of POST_CONTROL_FLAGS) columns[FLAG_COLUMNS[flag]] = normalized[flag];
   if (includeExclusions) columns.excluded_user_ids = normalized.excludedAccounts.map((account) => account.id);
+  columns.content_warning = normalized.contentWarning;
+  columns.expires_after = normalized.expiresAfter;
+  columns.target_regions = normalized.targetLocations.map(({ id, label }) => ({ id, label }));
+  // publish_at is only sent when scheduling (or rescheduling); the database
+  // refuses to move a post that is already live.
+  if (normalized.publishAt || includeSchedule) columns.publish_at = normalized.publishAt;
   return columns;
 }
 
@@ -98,7 +191,22 @@ export function postControlsOf(post = {}) {
     const column = post?.[FLAG_COLUMNS[flag]];
     controls[flag] = column === true || (column === undefined && fromMeta[flag] === true);
   }
+  const pick = (column, metaKey) => (post?.[column] !== undefined ? post[column] : fromMeta[metaKey]);
+  controls.contentWarning = CONTENT_WARNINGS.includes(pick("content_warning", "contentWarning")) ? pick("content_warning", "contentWarning") : null;
+  controls.expiresAfter = EXPIRY_OPTIONS.includes(pick("expires_after", "expiresAfter")) ? pick("expires_after", "expiresAfter") : null;
+  controls.expiresAt = normalizeIso(pick("expires_at", "expiresAt"));
+  controls.publishAt = normalizeIso(pick("publish_at", "publishAt"));
+  controls.publishedAt = normalizeIso(post?.published_at);
+  controls.targetLocations = normalizeTargetLocations(pick("target_regions", "targetRegions"));
   return controls;
+}
+
+/** "scheduled" (not live yet), "expired", or "live". */
+export function postLifecycle(post = {}, now = Date.now()) {
+  const controls = postControlsOf(post);
+  if (controls.publishAt && new Date(controls.publishAt).getTime() > now) return "scheduled";
+  if (controls.expiresAt && new Date(controls.expiresAt).getTime() <= now) return "expired";
+  return "live";
 }
 
 /**
@@ -115,6 +223,8 @@ export function postInteractionRules(post = {}, { isOwner = false, followsAuthor
       showLikeCount: true,
       showCommentCount: true,
       canRepost: true,
+      canDownload: true,
+      contentWarning: null,
       commentsHiddenNotice: controls.commentsHidden,
       controls,
     };
@@ -129,12 +239,14 @@ export function postInteractionRules(post = {}, { isOwner = false, followsAuthor
     showLikeCount: !controls.likeCountHidden && !controls.likesDisabled,
     showCommentCount: !controls.commentsHidden,
     canRepost: !controls.repostsDisabled,
+    canDownload: !controls.downloadsDisabled,
+    contentWarning: controls.contentWarning,
     commentsHiddenNotice: controls.commentsHidden,
     controls,
   };
 }
 
-const SERVER_CODES = ["KT_POST_UNAVAILABLE", "KT_COMMENTS_DISABLED", "KT_COMMENTS_FOLLOWERS_ONLY", "KT_LIKES_DISABLED", "KT_REPOSTS_DISABLED", "KT_TOO_MANY_EXCLUSIONS"];
+const SERVER_CODES = ["KT_POST_UNAVAILABLE", "KT_COMMENTS_DISABLED", "KT_COMMENTS_FOLLOWERS_ONLY", "KT_LIKES_DISABLED", "KT_REPOSTS_DISABLED", "KT_TOO_MANY_EXCLUSIONS", "KT_TOO_MANY_LOCATIONS", "KT_SCHEDULE_TOO_FAR"];
 
 /** The KT_* code inside a database refusal, or "". */
 export function postControlErrorCode(error) {
@@ -170,10 +282,22 @@ export function fillLiveReposts(posts = [], sourcesById = new Map()) {
           videoTrimEnd: source.video_trim_end ?? null,
           audioUrl: source.audio_url || "",
           audioDurationSeconds: source.audio_duration_seconds || null,
+          downloadsDisabled: source.downloads_disabled === true,
           createdAt: source.created_at || meta.repost.createdAt || null,
           unavailable: false,
         }
       : { ...meta.repost, unavailable: true };
     return { ...post, media_meta: { ...meta, repost } };
   });
+}
+
+/** A time in the person's own timezone and language, e.g. "Wed 5 Nov, 18:30". */
+export function formatPostTime(iso) {
+  const date = new Date(iso);
+  if (!iso || !Number.isFinite(date.getTime())) return "";
+  try {
+    return new Intl.DateTimeFormat(undefined, { weekday: "short", day: "numeric", month: "short", hour: "numeric", minute: "2-digit" }).format(date);
+  } catch {
+    return date.toLocaleString();
+  }
 }

@@ -30,6 +30,8 @@ import {
 } from "../services/explore/postOutbox";
 import { newClientPostId } from "../services/explore/postOutboxCore";
 import { postControlErrorCode } from "../services/explore/postControls";
+import { isScheduledForLater } from "../services/explore/postService";
+import { t as i18nText } from "../../i18n/index";
 import { showToast } from "../services/toastService";
 import {
   createExploreNotification,
@@ -1147,7 +1149,11 @@ export function useExploreFeed(scope = "feed") {
           writeFeedMemory(targetScope, { posts: targetPosts });
         });
 
-      if (isExplorePostVisibleInFeed(created) && !isAdvertDraft(created)) {
+      // A scheduled post: followers hear about it when it goes live (the
+      // server's publishing job), never before.
+      const scheduledForLater = isScheduledForLater(created);
+      if (scheduledForLater) showToast(i18nText("postControls.scheduledToast"), "success");
+      if (isExplorePostVisibleInFeed(created) && !isAdvertDraft(created) && !scheduledForLater) {
         const followerTarget = created.actor_type === SPACE_IDENTITY_TYPE
           ? { identityType: SPACE_IDENTITY_TYPE, identityId: created.actor_id || created.space_id }
           : created.user_id;

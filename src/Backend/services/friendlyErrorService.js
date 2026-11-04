@@ -173,6 +173,8 @@ const POST_CONTROL_REFUSALS = {
   KT_LIKES_DISABLED: "postControls.errLikesDisabled",
   KT_REPOSTS_DISABLED: "postControls.errRepostsDisabled",
   KT_TOO_MANY_EXCLUSIONS: "postControls.errTooManyExclusions",
+  KT_TOO_MANY_LOCATIONS: "postControls.errTooManyLocations",
+  KT_SCHEDULE_TOO_FAR: "postControls.errScheduleTooFar",
 };
 
 export function postControlRefusal(error) {

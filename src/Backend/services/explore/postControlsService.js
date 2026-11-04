@@ -11,6 +11,7 @@ import { getKunThaiPublicUserId, normalizeKunThaiPublicId } from "../identityCod
 import { EXPLORE_CACHE_EVENT, getPostsStorageKey } from "./cacheService";
 import {
   fillLiveReposts,
+  normalizeTargetLocation,
   isLiveRepost,
   normalizeExcludedAccounts,
   normalizePostControls,
@@ -94,10 +95,24 @@ export async function fetchPostExclusions(postId) {
   return ids.map((id) => (byId.has(id) ? profileToAccount(byId.get(id)) : { id, name: "", username: "", avatarUrl: "", kunthaiId: getKunThaiPublicUserId({ user_id: id }), unavailable: true }));
 }
 
-/** A published post's full settings, for the owner's "Post settings" sheet. */
+/**
+ * A published post's full settings, for the owner's "Post settings" sheet.
+ * The row is read fresh (a ranked feed copy carries only some of them).
+ */
 export async function loadPublishedPostControls(post) {
-  const excludedAccounts = await fetchPostExclusions(post.id);
-  return normalizePostControls({ ...postControlsOf(post), excludedAccounts });
+  const [{ data: row, error }, excludedAccounts] = await Promise.all([
+    supabase.from("explore_posts").select("*").eq("id", post.id).maybeSingle(),
+    fetchPostExclusions(post.id),
+  ]);
+  if (error) throw error;
+  const controls = postControlsOf(row || post);
+  return {
+    ...normalizePostControls({ ...controls, excludedAccounts }),
+    // Read-only facts the sheet shows (when it went live / expires).
+    expiresAt: controls.expiresAt,
+    publishedAt: controls.publishedAt,
+    scheduled: Boolean(controls.publishAt && new Date(controls.publishAt).getTime() > Date.now()),
+  };
 }
 
 /**
@@ -109,7 +124,7 @@ export async function savePublishedPostControls(postId, controls) {
   const normalized = normalizePostControls(controls);
   const { data, error } = await supabase
     .from("explore_posts")
-    .update(postControlColumns(normalized, { always: true }))
+    .update(postControlColumns(normalized, { always: true, includeSchedule: true }))
     .eq("id", postId)
     .select()
     .maybeSingle();
@@ -119,7 +134,12 @@ export async function savePublishedPostControls(postId, controls) {
   return data;
 }
 
-const CONTROL_FIELDS = ["comments_disabled", "comments_hidden", "comments_followers_only", "likes_disabled", "like_count_hidden", "reposts_disabled", "has_exclusions", "likes_count", "comments_count", "media_meta"];
+const CONTROL_FIELDS = [
+  "comments_disabled", "comments_hidden", "comments_followers_only", "likes_disabled", "like_count_hidden", "reposts_disabled",
+  "has_exclusions", "likes_count", "comments_count", "media_meta",
+  "hidden_from_profile", "downloads_disabled", "content_warning", "expires_after", "expires_at", "publish_at", "published_at",
+  "target_regions", "created_at",
+];
 
 /** Patch a post in every stored feed and tell open feeds to merge it. */
 export function updatePostInAllCaches(postId, row = {}) {
@@ -158,7 +178,7 @@ export async function hydrateLiveReposts(posts = []) {
   try {
     const { data, error } = await supabase
       .from("explore_posts")
-      .select("id, user_id, author_name, author_username, author_avatar_url, body, image_url, video_url, video_trim_start, video_trim_end, audio_url, audio_duration_seconds, created_at")
+      .select("id, user_id, author_name, author_username, author_avatar_url, body, image_url, video_url, video_trim_start, video_trim_end, audio_url, audio_duration_seconds, created_at, downloads_disabled")
       .in("id", ids);
     if (error) throw error;
     return fillLiveReposts(list, new Map((data || []).map((row) => [row.id, row])));
@@ -168,3 +188,53 @@ export async function hydrateLiveReposts(posts = []) {
 }
 
 export { normalizeExcludedAccounts };
+
+// ---- Target locations (discovery) ----------------------------------------
+// Places come from Photon (OpenStreetMap), the same search KunThai uses
+// elsewhere, ranked towards the United States but open to every country.
+// A pick is stored as the KunThai region that contains it (state, district,
+// region) plus its label. Coordinates are only used to rank results here and
+// are never saved with the post.
+const PHOTON_URL = "https://photon.komoot.io/api/";
+const US_CENTER = { lat: 39.8283, lng: -98.5795 };
+const AREA_LAYERS = ["city", "district", "locality", "county", "state"];
+
+function featureToArea(feature) {
+  const props = feature?.properties || {};
+  const name = String(props.name || props.city || props.county || props.state || "").trim();
+  const countryIso = String(props.countrycode || "").trim().toUpperCase();
+  if (!name || countryIso.length !== 2) return null;
+  const parts = [name, props.state && props.state !== name ? props.state : "", props.country || ""].filter(Boolean);
+  return {
+    key: `${props.osm_type || ""}${props.osm_id || parts.join("|")}`,
+    name,
+    label: parts.join(", "),
+    kind: String(props.type || props.osm_value || "").toLowerCase(),
+    countryIso,
+    // Most specific first, for matching a KunThai region.
+    names: [props.district, props.city, name, props.county, props.state].filter(Boolean),
+  };
+}
+
+export async function searchTargetAreas(query = "", { signal } = {}) {
+  const value = String(query || "").trim();
+  if (value.length < 2) return [];
+  const params = new URLSearchParams({ q: value, limit: "10", lang: "en", lat: String(US_CENTER.lat), lon: String(US_CENTER.lng), zoom: "4" });
+  for (const layer of AREA_LAYERS) params.append("layer", layer);
+  const response = await fetch(`${PHOTON_URL}?${params.toString()}`, { headers: { Accept: "application/json" }, signal });
+  if (!response.ok) throw new Error("Location search failed");
+  const data = await response.json();
+  const seen = new Set();
+  return (Array.isArray(data?.features) ? data.features : [])
+    .map(featureToArea)
+    .filter((area) => area && !seen.has(area.label.toLowerCase()) && seen.add(area.label.toLowerCase()))
+    .slice(0, 8);
+}
+
+/** The KunThai region for a picked place, as a chip, or null when KunThai has none for it. */
+export async function resolveTargetArea(area) {
+  const { data, error } = await supabase.rpc("kunthai_resolve_region_match", { p_country: area.countryIso, p_texts: area.names });
+  if (error) throw error;
+  if (!data?.id) return null;
+  return normalizeTargetLocation({ id: data.id, label: area.label, regionName: data.name || "", countryIso: data.countryIso || area.countryIso });
+}

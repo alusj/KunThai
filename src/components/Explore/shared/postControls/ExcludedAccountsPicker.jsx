@@ -5,6 +5,7 @@ import { searchAccountsToExclude } from "../../../../Backend/services/explore/po
 import { normalizeExcludedAccounts } from "../../../../Backend/services/explore/postControls";
 import { haptics } from "../../../../Backend/services/feedbackService";
 import { useI18n } from "../../../../i18n";
+import { usePopupRoom } from "./usePopupRoom";
 import Avatar from "../Avatar";
 
 const SEARCH_DEBOUNCE_MS = 300;
@@ -20,6 +21,8 @@ export default function ExcludedAccountsPicker({ accounts = [], ownerId = "", ma
   const inputRef = useRef(null);
   const wrapRef = useRef(null);
   const requestRef = useRef(0);
+  const blurTimerRef = useRef(0);
+  const pressRef = useRef(null);
   const selectedIds = new Set(accounts.map((account) => account.id));
   const atLimit = accounts.length >= max;
 
@@ -51,6 +54,8 @@ export default function ExcludedAccountsPicker({ accounts = [], ownerId = "", ma
   }, [query, ownerId]);
 
   // Keep the field low in the sheet so the suggestions above it have room.
+  useEffect(() => () => window.clearTimeout(blurTimerRef.current), []);
+
   useEffect(() => {
     if (!focused) return;
     wrapRef.current?.scrollIntoView?.({ block: "end", behavior: "smooth" });
@@ -70,6 +75,7 @@ export default function ExcludedAccountsPicker({ accounts = [], ownerId = "", ma
   }
 
   const showPopup = focused && state.status !== "idle";
+  const popupRoom = usePopupRoom(wrapRef, showPopup, [state.status, state.results.length]);
 
   return (
     <div className="px-2 pb-2">
@@ -100,7 +106,8 @@ export default function ExcludedAccountsPicker({ accounts = [], ownerId = "", ma
         <div ref={wrapRef} className="relative">
           {showPopup ? (
             <div
-              className="absolute bottom-full left-0 right-0 z-10 mb-2 max-h-60 overflow-y-auto rounded-2xl border border-[var(--kt-app-border)] bg-[var(--kt-app-surface-raised)] p-1 shadow-[0_-12px_32px_rgba(2,6,23,0.22)]"
+              style={{ maxHeight: popupRoom }}
+              className="absolute bottom-full left-0 right-0 z-10 mb-2 overflow-y-auto overscroll-contain rounded-2xl border border-[var(--kt-app-border)] bg-[var(--kt-app-surface-raised)] p-1 shadow-[0_-12px_32px_rgba(2,6,23,0.22)]"
               role="listbox"
               aria-label={t("postControls.searchLabel")}
             >
@@ -117,9 +124,28 @@ export default function ExcludedAccountsPicker({ accounts = [], ownerId = "", ma
                     role="option"
                     aria-selected={added}
                     disabled={added}
-                    // Keep focus in the field so the keyboard stays up.
-                    onPointerDown={(event) => event.preventDefault()}
-                    onClick={() => add(account)}
+                    // iOS closes the keyboard (and moves the sheet) before a
+                    // click arrives, so a tap is taken on finger-up; a drag
+                    // that scrolls the list is not a pick.
+                    onPointerDown={(event) => {
+                      event.preventDefault();
+                      pressRef.current = { id: account.id, y: event.clientY, x: event.clientX };
+                    }}
+                    onPointerUp={(event) => {
+                      const press = pressRef.current;
+                      pressRef.current = null;
+                      if (!press || press.id !== account.id) return;
+                      if (Math.abs(event.clientY - press.y) > 10 || Math.abs(event.clientX - press.x) > 10) return;
+                      event.preventDefault();
+                      add(account);
+                    }}
+                    onPointerCancel={() => {
+                      pressRef.current = null;
+                    }}
+                    onClick={(event) => {
+                      // Keyboard / screen reader activation (no pointer).
+                      if (event.detail === 0) add(account);
+                    }}
                     aria-label={t("postControls.add", { name: account.name || account.username })}
                     className="flex min-h-14 w-full items-center gap-3 rounded-xl px-2 py-2 text-left hover:bg-slate-900/5 dark:hover:bg-white/5 disabled:opacity-60"
                   >
@@ -144,14 +170,21 @@ export default function ExcludedAccountsPicker({ accounts = [], ownerId = "", ma
               type="search"
               value={query}
               onChange={(event) => setQuery(event.target.value)}
-              onFocus={() => setFocused(true)}
-              onBlur={() => setFocused(false)}
+              onFocus={() => {
+                window.clearTimeout(blurTimerRef.current);
+                setFocused(true);
+              }}
+              // Let a tap on a suggestion land before the list closes.
+              onBlur={() => {
+                window.clearTimeout(blurTimerRef.current);
+                blurTimerRef.current = window.setTimeout(() => setFocused(false), 300);
+              }}
               placeholder={t("postControls.searchPlaceholder")}
               autoComplete="off"
               autoCapitalize="none"
               spellCheck={false}
               enterKeyHint="search"
-              className="h-12 min-w-0 flex-1 bg-transparent text-base font-semibold text-[var(--kt-app-text)] outline-none placeholder:text-[var(--kt-app-text-muted)]"
+              className="h-12 min-w-0 flex-1 bg-transparent text-base font-semibold shadow-none ring-0 focus:outline-none focus-visible:outline-none text-[var(--kt-app-text)] outline-none placeholder:text-[var(--kt-app-text-muted)]"
             />
           </label>
         </div>
