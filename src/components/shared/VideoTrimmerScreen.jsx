@@ -2,7 +2,7 @@ import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { createPortal } from "react-dom";
 import { Pause, Play, Scissors, X } from "lucide-react";
 import { t as i18nText } from "../../i18n/index";
-import { canTrimVideos, formatVideoMb, trimVideoFile } from "../../Backend/services/media/videoTrimService";
+import { canTrimVideos, formatVideoMb, shouldTrimInstantly, trimVideoFile } from "../../Backend/services/media/videoTrimService";
 import { uiText as translateUi, useI18n as useUiLocale } from "../../i18n/index.js";
 import { inlineErrorMessage } from "../../Backend/services/friendlyErrorService";
 
@@ -34,6 +34,10 @@ export default function VideoTrimmerScreen({
   // untouched with the chosen start/end (players show only that part), so the
   // trim is instant. Larger files still need the re-encode below.
   instantRange = false,
+  // Also return larger files as a range: set in the app, where the phone's
+  // compressor cuts and shrinks the range before upload (a faststart MP4).
+  // The in-browser re-encode writes fragmented MP4 that starts slowly.
+  instantRangeAnySize = false,
 }) {
   useUiLocale();
   // Whether this engine can trim at all, checked once so the screen can say so
@@ -71,7 +75,12 @@ export default function VideoTrimmerScreen({
     };
   }, []);
 
-  const instantTrim = instantRange && Number(file?.size || 0) <= maxMb * 1024 * 1024;
+  const instantTrim = shouldTrimInstantly({
+    instantRange,
+    instantRangeAnySize,
+    fileBytes: file?.size,
+    maxBytes: maxMb * 1024 * 1024,
+  });
   const clipSeconds = Math.max(0, range.end - range.start);
   const clipTooLong = clipSeconds > maxSeconds + 0.05;
   const ready = duration > 0;

@@ -1,7 +1,7 @@
 import assert from "node:assert/strict";
 import test from "node:test";
 
-import { canTrimVideos, describeTrimSupport, formatVideoMb, pickRecorderMimeType, trimmedFileName } from "./videoTrimService.js";
+import { canTrimVideos, describeTrimSupport, formatVideoMb, pickRecorderMimeType, shouldTrimInstantly, trimmedFileName } from "./videoTrimService.js";
 
 // The browser paths are exercised in the app; these cover the decisions that
 // must hold everywhere, including the engines that cannot trim at all.
@@ -82,4 +82,15 @@ test("sizes read the way people expect", () => {
   assert.equal(formatVideoMb(1.5 * 1024 * 1024), "1.5");
   assert.equal(formatVideoMb(48 * 1024 * 1024), "48");
   assert.equal(formatVideoMb(0), "0.0");
+});
+
+test("in the app a large pick is returned as a range, never re-encoded in the browser", () => {
+  const MB = 1024 * 1024;
+  // Explore in the app: the phone cuts and compresses the range (faststart).
+  assert.equal(shouldTrimInstantly({ instantRange: true, instantRangeAnySize: true, fileBytes: 300 * MB, maxBytes: 50 * MB }), true);
+  // In a browser a large pick still needs the MediaRecorder re-encode.
+  assert.equal(shouldTrimInstantly({ instantRange: true, fileBytes: 300 * MB, maxBytes: 50 * MB }), false);
+  assert.equal(shouldTrimInstantly({ instantRange: true, fileBytes: 20 * MB, maxBytes: 50 * MB }), true);
+  // Screens without range support always re-encode.
+  assert.equal(shouldTrimInstantly({ instantRange: false, instantRangeAnySize: true, fileBytes: 1 * MB, maxBytes: 50 * MB }), false);
 });

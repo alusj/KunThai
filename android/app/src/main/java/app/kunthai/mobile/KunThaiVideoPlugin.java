@@ -189,6 +189,8 @@ public class KunThaiVideoPlugin extends Plugin {
         });
     }
 
+    private static final int MIN_VIDEO_BITRATE = 1_000_000;
+
     private static int even(double value) {
         return Math.max(2, (int) Math.round(value / 2.0) * 2);
     }
@@ -234,6 +236,9 @@ public class KunThaiVideoPlugin extends Plugin {
         Double startValue = call.getDouble("startSeconds", 0.0);
         double requestedStart = startValue == null ? 0 : startValue;
         Double requestedEnd = call.getDouble("endSeconds");
+        // Set when the file is not faststart (fragmented or index at the end):
+        // it must be rewritten even if it is light enough to skip.
+        boolean force = Boolean.TRUE.equals(call.getBoolean("force", false));
 
         io.execute(() -> {
             long durationMs;
@@ -271,8 +276,9 @@ public class KunThaiVideoPlugin extends Plugin {
             long bytes = sourceBytes(source, input);
             long totalBitrate = bitrate > 0 ? bitrate : (duration > 0 ? (long) (bytes * 8 / duration) : 0);
 
-            // Already light enough and nothing to cut: upload the original untouched.
-            if (!trimmed && !scaleDown && totalBitrate > 0 && totalBitrate <= videoBitrate * 1.3) {
+            // Already light enough, nothing to cut and already faststart: upload
+            // the original untouched.
+            if (!force && !trimmed && !scaleDown && totalBitrate > 0 && totalBitrate <= videoBitrate * 1.3) {
                 discard(input);
                 JSObject result = new JSObject();
                 result.put("skipped", true);
@@ -295,12 +301,21 @@ public class KunThaiVideoPlugin extends Plugin {
             int outHeight = scaleDown ? even(uprightHeight * scale) : 0;
 
             // Transformer must be built and run on a thread with a Looper.
-            main.post(() -> startExport(call, id, input, source, output, start, end, clipSeconds, trimmed, outWidth, outHeight, videoBitrate));
+            // Never encode above the source's own rate: a light clip rewritten
+            // only to put its index first must not double in size.
+            int targetBitrate = totalBitrate > 0
+                ? (int) Math.max(MIN_VIDEO_BITRATE, Math.min(videoBitrate, totalBitrate))
+                : videoBitrate;
+            // Nothing to cut or shrink, only the layout is wrong (fragmented, or
+            // index at the end): copy the frames as they are into a faststart
+            // file. No quality loss, same size, a few hundred ms.
+            boolean copyOnly = force && !trimmed && !scaleDown;
+            main.post(() -> startExport(call, id, input, source, output, start, end, clipSeconds, trimmed, outWidth, outHeight, targetBitrate, copyOnly));
         });
     }
 
     private void startExport(PluginCall call, String id, File input, Uri source, File output, double start, double end,
-                             double clipSeconds, boolean trimmed, int outWidth, int outHeight, int videoBitrate) {
+                             double clipSeconds, boolean trimmed, int outWidth, int outHeight, int videoBitrate, boolean copyOnly) {
         try {
             MediaItem.Builder item = new MediaItem.Builder().setUri(source);
             if (trimmed) {
@@ -316,19 +331,24 @@ public class KunThaiVideoPlugin extends Plugin {
             EditedMediaItem edited = new EditedMediaItem.Builder(item.build())
                 .setEffects(new Effects(Collections.<AudioProcessor>emptyList(), videoEffects))
                 .build();
+            // Copy-only keeps HDR and requests no encoder settings: either one
+            // would make Media3 re-encode. An H.264/AAC source is then copied
+            // as is; anything else is still converted to H.264/AAC.
             Composition composition = new Composition.Builder(new EditedMediaItemSequence(edited))
-                .setHdrMode(Composition.HDR_MODE_TONE_MAP_HDR_TO_SDR_USING_OPEN_GL)
+                .setHdrMode(copyOnly ? Composition.HDR_MODE_KEEP_HDR : Composition.HDR_MODE_TONE_MAP_HDR_TO_SDR_USING_OPEN_GL)
                 .build();
+
+            DefaultEncoderFactory.Builder encoders = new DefaultEncoderFactory.Builder(getContext()).setEnableFallback(true);
+            if (!copyOnly) {
+                encoders.setRequestedVideoEncoderSettings(new VideoEncoderSettings.Builder().setBitrate(videoBitrate).build());
+            }
 
             Transformer transformer = new Transformer.Builder(getContext())
                 .setVideoMimeType(MimeTypes.VIDEO_H264)
                 .setAudioMimeType(MimeTypes.AUDIO_AAC)
                 // Media3's own MP4 writer puts the index at the front (faststart).
                 .setMuxerFactory(new InAppMuxer.Factory.Builder().build())
-                .setEncoderFactory(new DefaultEncoderFactory.Builder(getContext())
-                    .setRequestedVideoEncoderSettings(new VideoEncoderSettings.Builder().setBitrate(videoBitrate).build())
-                    .setEnableFallback(true)
-                    .build())
+                .setEncoderFactory(encoders.build())
                 .addListener(new Transformer.Listener() {
                     @Override
                     public void onCompleted(@NonNull Composition done, @NonNull ExportResult exportResult) {
@@ -349,9 +369,14 @@ public class KunThaiVideoPlugin extends Plugin {
                     @Override
                     public void onError(@NonNull Composition done, @NonNull ExportResult exportResult, @NonNull ExportException exception) {
                         main.removeCallbacksAndMessages(id);
-                        discard(input);
                         //noinspection ResultOfMethodCallIgnored
                         output.delete();
+                        if (copyOnly) {
+                            // The copy failed (an unusual source): convert it instead.
+                            main.post(() -> startExport(call, id, input, source, output, start, end, clipSeconds, trimmed, outWidth, outHeight, videoBitrate, false));
+                            return;
+                        }
+                        discard(input);
                         call.reject("Video could not be prepared: " + exception.getMessage());
                     }
                 })

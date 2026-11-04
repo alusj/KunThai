@@ -53,6 +53,19 @@ export function describeTrimSupport() {
   return { strategy: "none", reason: "no-capture-stream" };
 }
 
+/**
+ * Whether "Trim" should return the original file with the chosen range
+ * (instant, players show only that part) instead of re-encoding it here.
+ * `instantRangeAnySize` is set in the app, where the phone's compressor cuts
+ * the range before upload: the in-browser re-encode below (MediaRecorder)
+ * always writes fragmented MP4, which takes seconds to start on Android.
+ */
+export function shouldTrimInstantly({ instantRange = false, instantRangeAnySize = false, fileBytes = 0, maxBytes = Infinity } = {}) {
+  if (!instantRange) return false;
+  if (instantRangeAnySize) return true;
+  return Number(fileBytes || 0) <= maxBytes;
+}
+
 export function canTrimVideos() {
   return describeTrimSupport().strategy !== "none";
 }

@@ -97,6 +97,9 @@ public class KunThaiVideoPlugin: CAPPlugin, CAPBridgedPlugin {
         let videoBitrate = call.getInt("videoBitrate") ?? 5_000_000
         let requestedStart = call.getDouble("startSeconds") ?? 0
         let requestedEnd = call.getDouble("endSeconds")
+        // Set when the file is not faststart (fragmented or index at the end):
+        // it must be rewritten even if it is light enough to skip.
+        let force = call.getBool("force") ?? false
 
         queue.async {
             defer { self.inputs[id] = nil }
@@ -107,7 +110,8 @@ public class KunThaiVideoPlugin: CAPPlugin, CAPBridgedPlugin {
                     maxShortSide: maxShortSide,
                     videoBitrate: videoBitrate,
                     requestedStart: requestedStart,
-                    requestedEnd: requestedEnd
+                    requestedEnd: requestedEnd,
+                    force: force
                 )
                 call.resolve(result)
             } catch {
@@ -121,7 +125,36 @@ public class KunThaiVideoPlugin: CAPPlugin, CAPBridgedPlugin {
         max(2, Int((value / 2).rounded()) * 2)
     }
 
-    private func transcode(id: String, input: URL, maxShortSide: CGFloat, videoBitrate: Int, requestedStart: Double, requestedEnd: Double?) throws -> [String: Any] {
+    private func mediaSubType(_ track: AVAssetTrack) -> FourCharCode? {
+        guard let first = track.formatDescriptions.first else { return nil }
+        return CMFormatDescriptionGetMediaSubType(first as! CMFormatDescription)
+    }
+
+    private func isH264(_ track: AVAssetTrack) -> Bool {
+        mediaSubType(track) == kCMVideoCodecType_H264
+    }
+
+    private func isAAC(_ track: AVAssetTrack) -> Bool {
+        mediaSubType(track) == kAudioFormatMPEG4AAC
+    }
+
+    /// Re-wraps the file without re-encoding, index first. nil when that fails.
+    private func copyFaststart(asset: AVAsset, id: String) -> URL? {
+        guard let session = AVAssetExportSession(asset: asset, presetName: AVAssetExportPresetPassthrough) else { return nil }
+        let output = workDirectory.appendingPathComponent("copy-\(id).mp4")
+        try? FileManager.default.removeItem(at: output)
+        session.outputURL = output
+        session.outputFileType = .mp4
+        session.shouldOptimizeForNetworkUse = true
+        let done = DispatchSemaphore(value: 0)
+        session.exportAsynchronously { done.signal() }
+        done.wait()
+        if session.status == .completed { return output }
+        try? FileManager.default.removeItem(at: output)
+        return nil
+    }
+
+    private func transcode(id: String, input: URL, maxShortSide: CGFloat, videoBitrate: Int, requestedStart: Double, requestedEnd: Double?, force: Bool) throws -> [String: Any] {
         let asset = AVURLAsset(url: input, options: [AVURLAssetPreferPreciseDurationAndTimingKey: true])
         guard let videoTrack = asset.tracks(withMediaType: .video).first else {
             throw NSError(domain: "KunThaiVideo", code: 1, userInfo: [NSLocalizedDescriptionKey: "No video track"])
@@ -142,11 +175,37 @@ public class KunThaiVideoPlugin: CAPPlugin, CAPBridgedPlugin {
         let sourceBitrate = Double(videoTrack.estimatedDataRate)
         let fileBytes = (try? FileManager.default.attributesOfItem(atPath: input.path)[.size] as? NSNumber)?.int64Value ?? 0
 
-        // Already light enough and nothing to cut: upload the original untouched.
-        if !trimmed && scale >= 1 && sourceBitrate > 0 && sourceBitrate <= Double(videoBitrate) * 1.3 {
+        // Already light enough, nothing to cut and already faststart: upload
+        // the original untouched.
+        if !force && !trimmed && scale >= 1 && sourceBitrate > 0 && sourceBitrate <= Double(videoBitrate) * 1.3 {
             try? FileManager.default.removeItem(at: input)
             return ["skipped": true, "bytes": fileBytes, "durationSeconds": duration]
         }
+
+        // Nothing to cut or shrink, only the layout is wrong (fragmented, or
+        // index at the end): copy the frames as they are into a faststart
+        // file. No quality loss, same size. H.264/AAC only, which every phone
+        // plays; anything else is converted below.
+        if force && !trimmed && scale >= 1 && isH264(videoTrack) && (audioTrack == nil || isAAC(audioTrack!)),
+           let copied = copyFaststart(asset: asset, id: id) {
+            try? FileManager.default.removeItem(at: input)
+            let bytes = (try? FileManager.default.attributesOfItem(atPath: copied.path)[.size] as? NSNumber)?.int64Value ?? 0
+            return [
+                "skipped": false,
+                "path": copied.path,
+                "bytes": bytes,
+                "width": outWidth,
+                "height": outHeight,
+                "durationSeconds": duration,
+                "trimmed": false,
+            ]
+        }
+
+        // Never encode above the source's own rate: a light clip rewritten
+        // only to put its index first must not double in size.
+        let targetBitrate = sourceBitrate > 0
+            ? max(1_000_000, min(videoBitrate, Int(sourceBitrate)))
+            : videoBitrate
 
         let output = workDirectory.appendingPathComponent("out-\(id).mp4")
         try? FileManager.default.removeItem(at: output)
@@ -223,7 +282,7 @@ public class KunThaiVideoPlugin: CAPPlugin, CAPBridgedPlugin {
             AVVideoHeightKey: outHeight,
             AVVideoColorPropertiesKey: colour,
             AVVideoCompressionPropertiesKey: [
-                AVVideoAverageBitRateKey: videoBitrate,
+                AVVideoAverageBitRateKey: targetBitrate,
                 AVVideoProfileLevelKey: AVVideoProfileLevelH264HighAutoLevel,
                 AVVideoMaxKeyFrameIntervalKey: Int(fps.rounded()) * 2,
                 AVVideoExpectedSourceFrameRateKey: Int(fps.rounded()),

@@ -1,4 +1,5 @@
 import { Capacitor, registerPlugin } from "@capacitor/core";
+import { readMp4Layout } from "./mp4Layout.js";
 
 // Before a video is uploaded (Explore Swip/UrFeed, UrMall), the KunThai app
 // compresses it on the phone: only the chosen trim window, H.264/AAC MP4, up to
@@ -10,6 +11,10 @@ import { Capacitor, registerPlugin } from "@capacitor/core";
 //
 // Never blocks an upload: in a browser, an older app build, or on any failure
 // the original file is uploaded exactly as before.
+//
+// A file that is not already faststart (fragmented MediaRecorder output,
+// index at the end) is always re-encoded, even when it is light enough to
+// skip: those files take seconds to start in Swip on Android.
 
 const KunThaiVideo = registerPlugin("KunThaiVideo");
 
@@ -43,13 +48,37 @@ function mp4Name(name = "") {
 }
 
 /**
+ * Whether the phone must re-encode `file` even when it is light enough to
+ * upload as-is: anything not known to be a faststart MP4/MOV.
+ */
+export async function needsFaststartRewrite(file) {
+  try {
+    return (await readMp4Layout(file)).layout !== "faststart";
+  } catch {
+    return true;
+  }
+}
+
+/**
+ * Whether the compressed output should be uploaded instead of the original.
+ * A forced rewrite is kept even when slightly bigger: it starts at once.
+ */
+export function shouldUseCompressedOutput({ outputBytes, originalBytes, trimmed, forced, maxBytes = Infinity }) {
+  if (!outputBytes) return false;
+  if (outputBytes > maxBytes) return false;
+  if (trimmed || forced) return true;
+  return outputBytes < originalBytes;
+}
+
+/**
  * Compresses `file` for upload. Resolves
  * { file, compressed, trimmed, durationSeconds } — `file` is the original when
  * nothing was done. `trimmed`: the file now holds only trimStart..trimEnd, so
  * that window must no longer be applied when playing it.
  */
-export async function compressVideoForUpload(file, { trimStart = 0, trimEnd = null, onProgress } = {}) {
+export async function compressVideoForUpload(file, { trimStart = 0, trimEnd = null, onProgress, maxBytes = Infinity } = {}) {
   if (!file || !canCompressVideosNatively()) return { file, compressed: false, trimmed: false };
+  const force = await needsFaststartRewrite(file);
 
   let listener = null;
   let outputPath = "";
@@ -86,6 +115,7 @@ export async function compressVideoForUpload(file, { trimStart = 0, trimEnd = nu
       ...(Number.isFinite(end) && end > start ? { endSeconds: end } : {}),
       maxShortSide: UPLOAD_MAX_SHORT_SIDE,
       videoBitrate: UPLOAD_VIDEO_BITRATE,
+      force,
     });
 
     if (result?.skipped || !result?.path) {
@@ -97,8 +127,15 @@ export async function compressVideoForUpload(file, { trimStart = 0, trimEnd = nu
     const response = await fetch(Capacitor.convertFileSrc(outputPath));
     if (!response.ok) throw new Error("Compressed video could not be read.");
     const blob = await response.blob();
-    // Never upload something bigger than what was picked.
-    if (!blob.size || (blob.size >= file.size && !result.trimmed)) {
+    // Never upload something bigger than what was picked, unless it had to
+    // be rewritten to start at once.
+    if (!shouldUseCompressedOutput({
+      outputBytes: blob.size,
+      originalBytes: file.size,
+      trimmed: Boolean(result.trimmed),
+      forced: force,
+      maxBytes,
+    })) {
       return { file, compressed: false, trimmed: false };
     }
     onProgress?.(1);
@@ -120,12 +157,13 @@ export async function compressVideoForUpload(file, { trimStart = 0, trimEnd = nu
  * Same, shaped for the upload services: the file to upload and the trim window
  * still to apply when playing it (null when the file is already just the clip).
  */
-export async function prepareVideoForUpload(file, { trimStart = null, trimEnd = null, onProgress } = {}) {
+export async function prepareVideoForUpload(file, { trimStart = null, trimEnd = null, onProgress, maxBytes } = {}) {
   const hasWindow = trimEnd != null && Number.isFinite(Number(trimEnd));
   const result = await compressVideoForUpload(file, {
     trimStart: hasWindow ? Number(trimStart) || 0 : 0,
     trimEnd: hasWindow ? Number(trimEnd) : null,
     onProgress,
+    maxBytes,
   });
   if (result.compressed && result.trimmed) {
     return { file: result.file, trimStart: null, trimEnd: null, compressed: true, durationSeconds: result.durationSeconds };

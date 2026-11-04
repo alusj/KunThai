@@ -1953,6 +1953,7 @@ if (!isMobileVideoDevice) {
           const prepared = await compressVideoForUpload(videoUploadFile, {
             trimStart: postDraft.mediaMeta?.videoTrimStart || 0,
             trimEnd: postDraft.mediaMeta?.videoTrimEnd,
+            maxBytes: MAX_EXPLORE_VIDEO_BYTES,
             onProgress: (fraction) => {
               const value = 8 + Math.round(Math.max(0, Math.min(1, fraction)) * 15);
               setPostingProgress(value);
@@ -1979,6 +1980,12 @@ if (!isMobileVideoDevice) {
             };
             postDraft.media_meta = postDraft.mediaMeta;
           }
+        }
+
+        // A large pick is attached as a range for the phone to cut (above). If
+        // that did not happen, the full original is still too big to post.
+        if (videoUploadFile && videoUploadFile.size > MAX_EXPLORE_VIDEO_BYTES) {
+          throw new Error("This video could not be made small enough to post. Trim a shorter part and try again.");
         }
 
         if (videoUploadFile) {
@@ -2251,12 +2258,18 @@ if (!isMobileVideoDevice) {
           maxMb={MAX_EXPLORE_VIDEO_MB}
           eyebrow={i18nText("ui.literals.k25866d0c0f6e")}
           instantRange
+          // In the app the phone cuts and compresses the chosen range before
+          // upload, so even a large pick skips the in-browser re-encode (its
+          // fragmented MP4 starts slowly in Swip).
+          instantRangeAnySize={canCompressVideosNatively()}
           onCancel={() => setTrimmerVideoFile(null)}
           onComplete={(trimmedFile, { durationSeconds, strategy, trimStart, trimEnd, sourceDurationSeconds } = {}) => {
             setTrimmerVideoFile(null);
             // The trimmer knows the clip length; a MediaRecorder WebM often
             // reports Infinity when measured, so it is not re-checked.
-            if (trimmedFile.size > MAX_EXPLORE_VIDEO_BYTES) {
+            // A range over a large original is fine: the phone shrinks it
+            // before upload, and posting stops if it cannot.
+            if (strategy !== "range" && trimmedFile.size > MAX_EXPLORE_VIDEO_BYTES) {
               showToast("Video is too large", "danger", { title: i18nText("ui.literals.ke248170a3849") });
               return;
             }
