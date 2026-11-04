@@ -2,6 +2,7 @@ import { useEffect, useLayoutEffect, useRef, useState } from "react";
 import { inlineErrorMessage, sanitizeUserMessage, shortErrorToast } from "../../../../../../Backend/services/friendlyErrorService";
 import { createPortal } from "react-dom";
 import {
+  HiOutlineAdjustmentsHorizontal,
   HiOutlineArrowsUpDown,
   HiOutlineAtSymbol,
   HiOutlineExclamationTriangle,
@@ -75,6 +76,8 @@ import {
 import { t as i18nText } from "../../../../../../i18n/index";
 import { checkOwnAccountDeactivated } from "../../../../../../Backend/services/accountLifecycleService";
 import ExploreAiButton from "../../../../shared/ExploreAiButton";
+import AdvancedPostSheet from "../../../../shared/postControls/AdvancedPostSheet";
+import { countActiveControls, normalizePostControls } from "../../../../../../Backend/services/explore/postControls";
 import { EXPLORE_COMPOSER_ACTIONS } from "../../../../../../Backend/services/ai/aiActionCatalog";
 import { loadExploreTopicsForAi, prepareImageForAi } from "../../../../../../Backend/services/ai/exploreAi";
 import { composerMediaKind, mergeHashtagsIntoText } from "../../../../../../Backend/services/ai/exploreAiModels";
@@ -432,6 +435,11 @@ export default function FeedComposer({ profile, creating, onSubmit }) {
   const [mentionResults, setMentionResults] = useState([]);
   const [mentionLoading, setMentionLoading] = useState(false);
   const [topicPickerOpen, setTopicPickerOpen] = useState(false);
+  // Advanced Post Controls: kept with the draft until the post is published;
+  // sent with the post itself, so nothing is written before then.
+  const [postControls, setPostControls] = useState(() => normalizePostControls(draft.post_controls, { ownerId: profile?.userId || "" }));
+  const [advancedOpen, setAdvancedOpen] = useState(false);
+  const activeControlCount = countActiveControls(postControls);
   const [topics, setTopics] = useState([]);
   const [topicsLoading, setTopicsLoading] = useState(false);
   const [primaryTopicSlug, setPrimaryTopicSlug] = useState(
@@ -653,6 +661,7 @@ export default function FeedComposer({ profile, creating, onSubmit }) {
       audio_duration_seconds: audioDuration,
       post_privacy: isAdvertMode ? "public" : privacy,
       post_type: isAdvertMode ? "advert" : "post",
+      post_controls: isAdvertMode ? null : postControls,
       media_meta: isAdvertMode
         ? { ...mediaMeta, advert: { ...advertForm } }
         : {
@@ -661,7 +670,7 @@ export default function FeedComposer({ profile, creating, onSubmit }) {
             ...(primaryTopic ? { primaryTopic: { slug: primaryTopic.slug, name: primaryTopic.name } } : {}),
           },
     });
-  }, [advertForm, audioDuration, audioPreview, imagePreview, isAdvertMode, mediaMeta, postTitle, primaryTopicSlug, privacy, topics, value, videoPreview]);
+  }, [advertForm, audioDuration, audioPreview, imagePreview, isAdvertMode, mediaMeta, postControls, postTitle, primaryTopicSlug, privacy, topics, value, videoPreview]);
 
   useEffect(() => {
     function handleCreatePost(event) {
@@ -1808,6 +1817,8 @@ export default function FeedComposer({ profile, creating, onSubmit }) {
     setMentionResults([]);
     setTopicPickerOpen(false);
     setPrimaryTopicSlug("");
+    setPostControls(normalizePostControls());
+    setAdvancedOpen(false);
     setRecordingPaused(false);
     setRecordingSeconds(0);
     stopRecordingTimer();
@@ -1945,6 +1956,7 @@ export default function FeedComposer({ profile, creating, onSubmit }) {
         media_meta: finalMediaMeta,
         mediaMeta: finalMediaMeta,
         advertCampaign: isAdvertMode ? cleanAdvertCampaignForSubmit(advertForm) : null,
+        post_controls: isAdvertMode ? null : postControls,
       };
 
       setFeedback("");
@@ -2155,6 +2167,7 @@ if (!isMobileVideoDevice) {
             media_meta: postDraft.mediaMeta,
             mediaMeta: postDraft.mediaMeta,
             advert_campaign: postDraft.advertCampaign,
+            post_controls: postDraft.post_controls,
           });
 
           if (pendingResult?.ok && pendingResult.post?.id) {
@@ -2231,6 +2244,7 @@ if (!isMobileVideoDevice) {
         media_meta: postDraft.mediaMeta,
         mediaMeta: postDraft.mediaMeta,
         advert_campaign: postDraft.advertCampaign,
+        post_controls: postDraft.post_controls,
       });
 
       if (result?.ok) {
@@ -2566,6 +2580,24 @@ if (!isMobileVideoDevice) {
                     >
                       <HiOutlineTag className="flex-none text-base" /> <span className="truncate">{selectedPrimaryTopic?.name || i18nText("ui.literals.k7e13bd176f89")}</span>
                     </button>
+                    <button
+                      type="button"
+                      onClick={() => {
+                        resetComposerToolPanels();
+                        setAdvancedOpen(true);
+                      }}
+                      aria-haspopup="dialog"
+                      aria-expanded={advancedOpen}
+                      className={`inline-flex h-9 min-w-0 max-w-full items-center gap-1.5 rounded-xl px-3 text-xs font-black transition ${
+                        activeControlCount ? "bg-sky-700 text-white" : "bg-white text-slate-700 shadow-sm ring-1 ring-slate-200 hover:bg-slate-50"
+                      }`}
+                    >
+                      <HiOutlineAdjustmentsHorizontal className="flex-none text-base" aria-hidden="true" />
+                      <span className="truncate">{i18nText("postControls.advanced")}</span>
+                      {activeControlCount ? (
+                        <span className="flex-none rounded-full bg-white px-1.5 text-[10px] font-black leading-4 text-sky-800">{activeControlCount}</span>
+                      ) : null}
+                    </button>
                   </div>
                 ) : null}
               </div>
@@ -2882,6 +2914,17 @@ if (!isMobileVideoDevice) {
         </>,
         document.body,
       ) : null}
+
+      <AdvancedPostSheet
+        open={advancedOpen && open}
+        initialControls={postControls}
+        ownerId={profile?.userId || ""}
+        onClose={() => setAdvancedOpen(false)}
+        onSave={(next) => {
+          setPostControls(next);
+          setAdvancedOpen(false);
+        }}
+      />
 
       <PostCautionDialog
         open={cautionOpen}

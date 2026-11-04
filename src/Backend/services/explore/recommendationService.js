@@ -1,6 +1,7 @@
 import supabase from "../../lib/supabaseClient";
 import { fetchRecommendedExploreAds, hydrateOwnedExploreAdverts } from "./advertService";
 import { fetchExplorePosts } from "./postService";
+import { hydrateLiveReposts } from "./postControlsService";
 
 const UUID_PATTERN = /^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i;
 const RECOMMENDED_SCOPES = new Set(["feed", "swip"]);
@@ -118,7 +119,7 @@ export async function fetchRecommendedExplorePosts(scope = "feed", options = {})
   }
 
   if (!error) {
-    const recommended = await attachPostActors((data || []).map((post) => markRecommendedPost(post, scope)));
+    const recommended = await hydrateLiveReposts(await attachPostActors((data || []).map((post) => markRecommendedPost(post, scope))));
     return attachDedicatedAdvertisements(recommended, scope, userId);
   }
 

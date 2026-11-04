@@ -17,6 +17,7 @@ import { AI_CONSENT } from "./aiConsent";
 import { URRIDE_REQUESTS } from "./urrideRequests";
 import { URRIDE_INVITE_LOCATION } from "./urrideInviteLocation";
 import { MESSAGE_ACTIONS } from "./messageActions";
+import { POST_CONTROLS } from "./postControls";
 import { URRIDE_COMPANY_ALERTS } from "./urrideCompanyAlerts";
 import { AUTH_TERMS } from "./authTerms";
 import { VOICE_NOTES } from "./voiceNotes";
@@ -59728,6 +59729,12 @@ for (const [locale, section] of Object.entries(URRIDE_INVITE_LOCATION)) {
 for (const [locale, section] of Object.entries(MESSAGE_ACTIONS)) {
   if (TRANSLATIONS[locale]) {
     TRANSLATIONS[locale].messageActions = section;
+  }
+}
+
+for (const [locale, section] of Object.entries(POST_CONTROLS)) {
+  if (TRANSLATIONS[locale]) {
+    TRANSLATIONS[locale].postControls = section;
   }
 }
 

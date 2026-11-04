@@ -1,5 +1,6 @@
 import {
   HiArrowPathRoundedSquare,
+  HiOutlineAdjustmentsHorizontal,
   HiOutlineBookmark,
   HiOutlineChartBar,
   HiOutlineEyeSlash,
@@ -21,6 +22,7 @@ export default function PostOptionsMenu({
   closing,
   followed,
   advertPost = false,
+  canRepost = true,
   isOwner,
   onClose,
   onCopy,
@@ -28,6 +30,7 @@ export default function PostOptionsMenu({
   onEdit,
   onFollow,
   onHide,
+  onPostSettings,
   onMuteAdvertiser,
   onReadWithAi,
   onReport,
@@ -41,6 +44,7 @@ export default function PostOptionsMenu({
   const { t } = useI18n();
   const ownerActions = [
     { label: advertPost ? t("post.editAdvert") : t("post.editPost"), icon: HiOutlinePencilSquare, action: onEdit },
+    ...(!advertPost && onPostSettings ? [{ label: t("postControls.editTitle"), icon: HiOutlineAdjustmentsHorizontal, action: onPostSettings }] : []),
     { label: saved ? t("post.removeSaved") : advertPost ? t("post.saveAdvert") : t("post.savePost"), icon: HiOutlineBookmark, action: onSave, active: saved },
     ...(!advertPost ? [{ label: t("post.repost"), icon: HiArrowPathRoundedSquare, action: onRepost }] : []),
     { label: t("post.share"), icon: HiOutlineShare, action: onShare },
@@ -53,7 +57,7 @@ export default function PostOptionsMenu({
     // Only present when KAI is available and the post has text.
     ...(onReadWithAi ? [{ label: t("ai.explore.translatePost"), icon: HiOutlineSparkles, action: onReadWithAi }] : []),
     { label: saved ? t("post.removeSaved") : advertPost ? t("post.saveAdvert") : t("post.savePost"), icon: HiOutlineBookmark, action: onSave, active: saved },
-    ...(!advertPost ? [{ label: t("post.repost"), icon: HiArrowPathRoundedSquare, action: onRepost }] : []),
+    ...(!advertPost && canRepost ? [{ label: t("post.repost"), icon: HiArrowPathRoundedSquare, action: onRepost }] : []),
     { label: t("post.share"), icon: HiOutlineShare, action: onShare },
     { label: t("post.copyLink"), icon: HiOutlineLink, action: onCopy },
     ...(followed ? [{ label: t("post.removeConnection"), icon: HiOutlineUserMinus, action: onFollow }] : []),

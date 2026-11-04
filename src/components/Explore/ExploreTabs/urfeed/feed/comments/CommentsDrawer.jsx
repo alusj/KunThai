@@ -27,6 +27,7 @@ import { useI18n } from "../../../../../../i18n";
 import ErrorState from "../../../../shared/ErrorState";
 import CommentDrawerComposer from "./CommentDrawerComposer";
 import CommentItem from "./CommentItem";
+import { postInteractionRules } from "../../../../../../Backend/services/explore/postControls";
 import { checkOwnAccountDeactivated } from "../../../../../../Backend/services/accountLifecycleService";
 import { uiText as translateUi, useI18n as useUiLocale } from "../../../../../../i18n/index.js";
 
@@ -51,6 +52,8 @@ export default function CommentsDrawer({ currentUserId, onClose, onCountChange, 
   const listRef = useRef(null);
   const sendPreviewTimerRef = useRef(null);
   const comments = useExploreComments(post?.id, currentUserId, post, open || rendered);
+  const isPostOwner = Boolean(currentUserId && post?.user_id === currentUserId);
+  const commentRules = postInteractionRules(post || {}, { isOwner: isPostOwner, followsAuthor: true });
   const isSwip = Boolean(post?.video_url || String(post?.feed_scope || "").toLowerCase() === "swip");
   const sortedThread = useMemo(() => sortCommentThread(comments.thread, sortMode), [comments.thread, sortMode]);
   useEffect(
@@ -302,7 +305,20 @@ export default function CommentsDrawer({ currentUserId, onClose, onCountChange, 
           ))}
         </div>
 
-        {ownAccountDeactivated && !isGuestMode() ? (
+        {commentRules.commentsHiddenNotice ? (
+          <p className="border-t border-slate-100 px-4 pt-3 text-center text-xs font-bold text-slate-500">
+            {t(isPostOwner ? "postControls.hiddenCommentsOwnerNotice" : "postControls.hiddenCommentsViewerNotice")}
+          </p>
+        ) : null}
+        {commentRules.commentBlock === "disabled" && !isGuestMode() ? (
+          // The owner turned comments off (Advanced Post Controls); the
+          // database refuses new ones anyway.
+          <div className="border-t border-slate-100 px-4 py-4">
+            <p className="rounded-[22px] border border-slate-200 bg-slate-50 p-4 text-center text-sm font-black text-slate-700">
+              {t("postControls.commentsOffNotice")}
+            </p>
+          </div>
+        ) : ownAccountDeactivated && !isGuestMode() ? (
           // Deactivated accounts keep their old comments but cannot add new ones.
           <div className="border-t border-slate-100 px-4 py-4">
             <div className="rounded-[22px] border border-amber-200 bg-amber-50 p-4 text-center">
@@ -327,6 +343,10 @@ export default function CommentsDrawer({ currentUserId, onClose, onCountChange, 
             </div>
           </div>
         ) : (
+          <>
+          {commentRules.controls.commentsFollowersOnly && !isPostOwner ? (
+            <p className="border-t border-slate-100 px-4 pt-3 text-center text-xs font-bold text-slate-500">{t("postControls.followersOnlyNotice")}</p>
+          ) : null}
           <CommentDrawerComposer
             currentUserId={currentUserId}
             post={post}
@@ -335,6 +355,7 @@ export default function CommentsDrawer({ currentUserId, onClose, onCountChange, 
             onSendPreview={previewSend}
             onSubmit={addComment}
           />
+          </>
         )}
       </section>
     </div>,

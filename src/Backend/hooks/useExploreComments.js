@@ -1,5 +1,5 @@
 import { useEffect, useMemo, useRef, useState } from "react";
-import { inlineErrorMessage, shortErrorToast } from "../services/friendlyErrorService";
+import { inlineErrorMessage, postControlRefusal, shortErrorToast } from "../services/friendlyErrorService";
 
 import supabase from "../lib/supabaseClient";
 import { subscribeToCurrentUserCommentLikes, subscribeToExploreComments } from "../services/explore/realtimeService";
@@ -342,9 +342,11 @@ export function useExploreComments(postId, currentUserId = "", post = null, enab
         writeCommentMemory(postId, { comments: next });
         return next;
       });
-      setError("Comment failed. Try again.");
-      showToast("Comment wasn't posted", "danger");
-      return { ok: false, error: inlineErrorMessage(err, "Comment failed. Try again.") };
+      // A post's own limits (comments off, followers only) get their reason.
+      const refusal = postControlRefusal(err);
+      setError(refusal || "Comment failed. Try again.");
+      showToast(shortErrorToast(err, "Comment wasn't posted"), "danger");
+      return { ok: false, error: refusal || inlineErrorMessage(err, "Comment failed. Try again.") };
     } finally {
       setPendingKeys((current) => {
         const next = new Set(current);

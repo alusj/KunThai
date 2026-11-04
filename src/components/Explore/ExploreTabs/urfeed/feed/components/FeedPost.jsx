@@ -34,6 +34,8 @@ import {
 import RepostComposer from "../../../../shared/RepostComposer";
 import PostAnalyticsPanel from "../../../../shared/PostAnalyticsPanel";
 import RepostPreview from "../../../../shared/RepostPreview";
+import PublishedPostSettings from "../../../../shared/postControls/PublishedPostSettings";
+import { postInteractionRules } from "../../../../../../Backend/services/explore/postControls";
 import {
   contentHasModerationFlags,
   PRIVACY_SETTINGS_EVENT,
@@ -80,6 +82,7 @@ export default function FeedPost({
   const [optionsOpen, setOptionsOpen] = useState(false);
   const [optionsClosing, setOptionsClosing] = useState(false);
   const [repostOpen, setRepostOpen] = useState(false);
+  const [settingsOpen, setSettingsOpen] = useState(false);
   const [commentsOpen, setCommentsOpen] = useState(false);
   const [deleteOpen, setDeleteOpen] = useState(false);
   const [deleting, setDeleting] = useState(false);
@@ -102,6 +105,7 @@ export default function FeedPost({
     readPrivacySettings().filterSensitiveContent !== false &&
     readExploreSettings().feed.showSensitiveWarnings !== false &&
     contentHasModerationFlags(post.body || "").length > 0;
+  const interactionRules = postInteractionRules(post, { isOwner, followsAuthor: followed });
   const advert = getAdvertMeta(post);
   const advertPost = isAdvertPost(post);
   const aiAvailability = useAiAvailability();
@@ -272,6 +276,7 @@ export default function FeedPost({
           <PostOptionsMenu
             closing={optionsClosing}
             advertPost={advertPost}
+            canRepost={interactionRules.canRepost}
             followed={followed}
             isOwner={isOwner}
             saved={saved}
@@ -284,6 +289,7 @@ export default function FeedPost({
             })}
             onFollow={() => runAction(followAndTrack)}
             onHide={() => runAction(onHide)}
+            onPostSettings={isOwner ? () => closeOptions(() => setSettingsOpen(true)) : undefined}
             onMuteAdvertiser={() => runAction(onMuteAdvertiser)}
             onReadWithAi={canReadWithAi ? () => closeOptions(() => openPostReaderAi(post, { locale })) : undefined}
             onReport={() => closeOptions(() => setReportOpen(true))}
@@ -383,11 +389,21 @@ export default function FeedPost({
 
       <PostActions
         post={post}
+        isOwner={isOwner}
         liked={liked}
         onLike={onLike}
         onComment={() => setCommentsOpen((current) => !current)}
         onShare={() => runAction(shareAndNotify)}
       />
+
+      {isOwner ? (
+        <PublishedPostSettings
+          open={settingsOpen}
+          post={post}
+          ownerId={currentUserId}
+          onClose={() => setSettingsOpen(false)}
+        />
+      ) : null}
 
       <CommentsDrawer
         currentUserId={currentUserId}

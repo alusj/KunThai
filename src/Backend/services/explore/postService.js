@@ -9,6 +9,8 @@ import { PROFILE_IDENTITY_TYPE, SPACE_IDENTITY_TYPE, getPostIdentity, normalizeI
 import { getPostSurface, orderPostsByIds, postBelongsToSurface } from "./profilePostsModel";
 import { normalizeSpaceResponsibilities } from "./spaceService";
 import { shouldUseLegacyMentionInsert } from "./mentionFallback.js";
+import { postControlColumns } from "./postControls";
+import { hydrateLiveReposts } from "./postControlsService";
 
 const MAX_SWIP_SECONDS = 15;
 const SPACE_POSTING_ROLES = new Set(["owner", "administrator", "moderator", "editor", "customer_support"]);
@@ -460,10 +462,12 @@ export async function fetchExplorePostCounts(postIds = []) {
   return counts;
 }
 
-async function hydratePostActionCounts(posts) {
-  if (!posts.length) {
-    return posts;
+async function hydratePostActionCounts(inputPosts) {
+  if (!inputPosts.length) {
+    return inputPosts;
   }
+
+  const posts = await hydrateLiveReposts(inputPosts);
 
   try {
     const counts = await fetchExplorePostCounts(posts.map((post) => post.id));
@@ -571,6 +575,10 @@ export async function createExplorePost(input, scope = "feed") {
     likes_count: 0,
     comments_count: 0,
     saves_count: 0,
+    // Advanced Post Controls: saved by this same insert (the database moves
+    // excluded_user_ids into explore_post_exclusions), so the post and its
+    // settings exist together or not at all. Defaults add nothing.
+    ...(hasAdvert ? {} : postControlColumns(payload.post_controls)),
   };
 
   logExploreFeed("post creation started", {

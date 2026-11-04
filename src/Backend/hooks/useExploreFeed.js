@@ -29,6 +29,7 @@ import {
   startOutboxAutoDrain,
 } from "../services/explore/postOutbox";
 import { newClientPostId } from "../services/explore/postOutboxCore";
+import { postControlErrorCode } from "../services/explore/postControls";
 import { showToast } from "../services/toastService";
 import {
   createExploreNotification,
@@ -1028,6 +1029,15 @@ export function useExploreFeed(scope = "feed") {
 
     function handleCacheEvent(event) {
       const detail = event.detail || {};
+      // Post settings changed (Advanced Post Controls): merge them in place
+      // in this feed and its in-memory copy, so the change shows at once.
+      if (detail.type === "update-post" && detail.postId && detail.patch) {
+        const merge = (list = []) => list.map((post) => (post?.id === detail.postId ? { ...post, ...detail.patch } : post));
+        setPosts((current) => merge(current));
+        const memory = readFeedMemory(scope);
+        if (memory?.posts?.some((post) => post?.id === detail.postId)) writeFeedMemory(scope, { posts: merge(memory.posts) });
+        return;
+      }
       if (detail.key === getPostsStorageKey(scope) || detail.scope === scope) {
         setPosts(readStoredPosts(scope).filter((post) => postBelongsInScope(post, scope)).filter(isLocallyVisiblePost));
       }
@@ -1328,9 +1338,18 @@ export function useExploreFeed(scope = "feed") {
       }
 
       refreshPostCounts([postId]);
+      dropPostIfUnavailable(err, postId);
       setError(inlineErrorMessage(err, `Unable to update ${type}.`));
       showToast(shortErrorToast(err, "Couldn't update post"), "danger");
     }
+  }
+
+  // The server said this account may no longer see the post (it was
+  // excluded after this device cached it): forget it everywhere here.
+  function dropPostIfUnavailable(err, postId) {
+    if (postControlErrorCode(err) !== "KT_POST_UNAVAILABLE") return;
+    setPosts((current) => current.filter((post) => post.id !== postId));
+    removePostFromAllCaches(postId);
   }
 
   async function addComment(postId, body) {
@@ -1378,7 +1397,9 @@ export function useExploreFeed(scope = "feed") {
         });
       }
     } catch (err) {
+      dropPostIfUnavailable(err, postId);
       setError(inlineErrorMessage(err, "Unable to add comment."));
+      showToast(shortErrorToast(err, "Comment wasn't posted"), "danger");
     }
   }
 
