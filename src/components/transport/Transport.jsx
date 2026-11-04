@@ -1,6 +1,7 @@
 import { useCallback, useEffect, useRef, useState } from "react";
 import { createPortal } from "react-dom";
 import { FiBriefcase, FiCheckCircle, FiFileText, FiShield, FiX } from "react-icons/fi";
+import InviteLocationNotice from "./InviteLocationNotice";
 
 import Body from "./Body/Body";
 import ActiveTripsScreen from "./ActiveTripsScreen";
@@ -1292,6 +1293,7 @@ export default function Transport({
               pickerLabels={nearbyAreaRequest?.pickerLabels || null}
               initialEmergencyRequest={nearbyAreaRequest?.emergency || null}
               onLocationPicked={acceptNearbyAreaLocation}
+              instantPick={Boolean(nearbyAreaRequest?.instantPick)}
               backLabel={getNearbyAreaBackLabel()}
               onOpenOperatorProfile={openOperatorProfileFromArea}
             />
@@ -2319,6 +2321,9 @@ function CompanyOperatorInviteCard({ invite, operatorHasDocuments = false, onAcc
                 ? t("urride.companyFix.inviteExpiredBody")
                 : t("urride.transport.inviteCard.bodyPending")}
       </p>
+      {!accepted && !rejected && !expired ? (
+        <InviteLocationNotice companyName={invite.companyName} />
+      ) : null}
       {!accepted && !rejected && !expired ? (
         <div className="mt-4 grid gap-2 sm:grid-cols-2">
         <button

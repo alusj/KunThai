@@ -241,6 +241,37 @@ function persistComposerLocationReturn(mode, location) {
   queueComposerAreaReturn(mode);
 }
 
+const COMPOSER_LOCATION_RESOLVED_EVENT = "kuntai-explore-composer-location-resolved";
+
+function sameComposerSpot(location, lat, lng) {
+  return Number(location?.lat) === lat && Number(location?.lng) === lng;
+}
+
+// The map hands a pick back at once, sometimes before the street name is
+// known. The name is read here afterwards and written into the saved draft
+// (and the open composer, via the event) unless the place was changed since.
+function fillComposerLocationAddress(mode, location) {
+  if (typeof location?.resolveAddress !== "function") return;
+  const lat = Number(location.lat ?? location.latitude);
+  const lng = Number(location.lng ?? location.longitude);
+  if (!Number.isFinite(lat) || !Number.isFinite(lng)) return;
+  Promise.resolve(location.resolveAddress()).then((resolved) => {
+    const address = String(resolved?.address || "").trim();
+    if (!address || address === location.address) return;
+    const draft = readDraft();
+    if (mode === "advert") {
+      const advert = draft.media_meta?.advert;
+      if (!advert || !sameComposerSpot(advert, lat, lng)) return;
+      writeDraft({ ...draft, media_meta: { ...draft.media_meta, advert: { ...advert, address } } });
+    } else {
+      const tagged = draft.media_meta?.location;
+      if (!tagged || !sameComposerSpot(tagged, lat, lng)) return;
+      writeDraft({ ...draft, media_meta: { ...draft.media_meta, location: { ...tagged, label: address, address } } });
+    }
+    window.dispatchEvent(new CustomEvent(COMPOSER_LOCATION_RESOLVED_EVENT, { detail: { mode, lat, lng, address } }));
+  }).catch(() => {});
+}
+
 function cleanAdvertForSubmit(advert = {}) {
   const normalized = normalizeAdvertDraft(advert);
   const hasCoordinates = hasAdvertCoordinates(normalized);
@@ -420,6 +451,7 @@ export default function FeedComposer({ profile, creating, onSubmit }) {
   const fileInputRef = useRef(null);
   const voicePhotosInputRef = useRef(null);
   const textareaRef = useRef(null);
+  const returnedFromAreaRef = useRef(false);
   const textPanelRef = useRef(null);
   const mediaPickerRef = useRef(null);
   const mediaPanelRef = useRef(null);
@@ -484,16 +516,42 @@ export default function FeedComposer({ profile, creating, onSubmit }) {
   useEffect(() => {
     const returnMode = consumeComposerAreaReturn();
     if (!returnMode) return;
+    // Back from the map: show the composer with the place attached, without
+    // the keyboard popping up over it.
+    returnedFromAreaRef.current = true;
     const displayReturn = consumeComposerDisplayReturn();
     setComposerClosing(false);
     if (displayReturn) {
       setComposerDisplay(displayReturn.display);
       setComposerDock(displayReturn.dock);
     }
-    setComposerMotionClass(`kt-composer-sheet-enter-${displayReturn?.dock || "bottom"}`);
+    // No slide-in: the composer is simply there again when the map closes.
+    setComposerMotionClass("");
     setComposerMode(returnMode);
     setOpen(true);
   }, []);
+
+  useEffect(() => {
+    function handleResolved(event) {
+      const { mode, lat, lng, address } = event.detail || {};
+      if (mode === "advert") {
+        setAdvertForm((current) => (sameComposerSpot(current, lat, lng) ? { ...current, address } : current));
+      } else {
+        setMediaMeta((current) => (current.location && sameComposerSpot(current.location, lat, lng)
+          ? { ...current, location: { ...current.location, label: address, address } }
+          : current));
+      }
+    }
+    window.addEventListener(COMPOSER_LOCATION_RESOLVED_EVENT, handleResolved);
+    return () => window.removeEventListener(COMPOSER_LOCATION_RESOLVED_EVENT, handleResolved);
+  }, []);
+
+  // Forget the map return once the composer closes (not on the first render).
+  const composerWasOpenRef = useRef(false);
+  useEffect(() => {
+    if (composerWasOpenRef.current && !open) returnedFromAreaRef.current = false;
+    composerWasOpenRef.current = open;
+  }, [open]);
 
   useBrowserBack(open, () => closeComposer(), "explore-composer");
   // Only the full-screen composer freezes the page. The half-screen sheet is
@@ -518,7 +576,7 @@ export default function FeedComposer({ profile, creating, onSubmit }) {
         composerScrollRef.current?.scrollTo({ top: 0, left: 0, behavior: "auto" });
       }
 
-      if (!isAdvertMode && requestedTool === "text") {
+      if (!isAdvertMode && requestedTool === "text" && !returnedFromAreaRef.current) {
         textareaRef.current?.focus();
       }
     };
@@ -1604,6 +1662,7 @@ export default function FeedComposer({ profile, creating, onSubmit }) {
             const address = location.address || location.label || location.name || formatLocationLabel(lat, lng);
 
             persistComposerLocationReturn("advert", location);
+            fillComposerLocationAddress("advert", location);
             setComposerMode("advert");
             setAdvertForm((current) => ({
               ...current,
@@ -1635,6 +1694,7 @@ export default function FeedComposer({ profile, creating, onSubmit }) {
             droppedName: "Advert pinned location",
           },
           pickerStart: "current",
+          instantPick: true,
           returnTo: "explore-advert",
           source: "explore-advert",
         },
@@ -1666,6 +1726,7 @@ export default function FeedComposer({ profile, creating, onSubmit }) {
             const label = location.address || location.label || location.name || formatLocationLabel(lat, lng);
 
             persistComposerLocationReturn("post", location);
+            fillComposerLocationAddress("post", location);
             setComposerMode("post");
             setMediaMeta((current) => ({
               ...current,
@@ -1700,6 +1761,7 @@ export default function FeedComposer({ profile, creating, onSubmit }) {
             droppedName: "Pinned post location",
           },
           pickerStart: "current",
+          instantPick: true,
           returnTo: "explore-post",
           source: "explore-post",
         },
@@ -2453,7 +2515,7 @@ if (!isMobileVideoDevice) {
                   ref={textareaRef}
                   value={value}
                   onChange={handleComposerTextChange}
-                  autoFocus={!isAdvertMode && attachmentMode === "text"}
+                  autoFocus={!isAdvertMode && attachmentMode === "text" && !returnedFromAreaRef.current}
                   placeholder={isAdvertMode ? i18nText("ui.literals.k72de600888e0") : i18nText("ui.literals.ka244e4a7b0d2")}
                   className={`w-full resize-none bg-transparent text-xl font-semibold leading-8 text-slate-900 outline-none placeholder:text-slate-400 ${
                     isAdvertMode ? "min-h-[96px] sm:min-h-[130px]" : "min-h-[140px] pb-12 sm:min-h-[170px]"

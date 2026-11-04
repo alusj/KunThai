@@ -369,6 +369,36 @@ function buildExactMapPointPreview(location, fallbackName = "Pinned location") {
   };
 }
 
+const PICKED_SPOT_TOLERANCE = 0.00002; // about 2 m
+
+function isSameSpot(first, second) {
+  const a = [Number(first?.lat), Number(first?.lng)];
+  const b = [Number(second?.lat), Number(second?.lng)];
+  if (![...a, ...b].every(Number.isFinite)) return false;
+  return Math.abs(a[0] - b[0]) <= PICKED_SPOT_TOLERANCE && Math.abs(a[1] - b[1]) <= PICKED_SPOT_TOLERANCE;
+}
+
+// The location a picker hands back without waiting for the map lookup. When
+// the street name for this exact spot is already known it is used; otherwise
+// the coordinates go back now, with resolveAddress() to read the street name.
+function buildInstantPickedLocation(point, knownPreview, fallbackName, source) {
+  const lat = Number(point?.lat ?? point?.latitude);
+  const lng = Number(point?.lng ?? point?.longitude);
+  if (knownPreview && !knownPreview.addressPending && isSameSpot(knownPreview, { lat, lng })) {
+    const { resolveAddress: _ignored, ...known } = knownPreview;
+    return { ...known, source };
+  }
+  const preview = buildPinnedLocationPreview({ lat, lng }, fallbackName);
+  return {
+    ...preview,
+    addressPending: true,
+    source,
+    resolveAddress: () => reverseGeocodePoint({ lat, lng })
+      .then((location) => buildPinnedLocationPreview(location, fallbackName))
+      .catch(() => null),
+  };
+}
+
 function formatPinnedLocationStatus(prefix, location) {
   const address = getDisplayAddress(location);
   const coordinateCode = location?.coordinateCode || formatCoordinateCode(location);
@@ -842,6 +872,8 @@ function NearbyAreaScreenContent({
   onBack,
   onDone,
   onLocationPicked,
+  // Hand the picked spot back at once (see handleAddDroppedPinLocation).
+  instantPick = false,
   initialDestination = null,
   autoRoute = false,
   mode = "standard",
@@ -1326,6 +1358,11 @@ function NearbyAreaScreenContent({
           setPickerStatus(t("urride.areaView.errGpsFallback"));
           return null;
         }
+        // With instantPick, "Add location" works as soon as the position is
+        // known; the street name follows (or is filled in after the pick).
+        if (instantPick) {
+          setCurrentPickerLocation(buildPinnedLocationPreview({ lat: Number(point.lat), lng: Number(point.lng), addressPending: true }, resolvedPickerLabels.currentName));
+        }
         return reverseGeocodePoint(point).then((location) => ({ ...location, accuracyMeters: point.accuracyMeters }));
       })
       .then((location) => {
@@ -1342,7 +1379,7 @@ function NearbyAreaScreenContent({
     return () => {
       cancelled = true;
     };
-  }, [businessPickerMode, isBusinessLocationPicker, resolvedPickerLabels.currentName, resolvedPickerLabels.currentStatus]);
+  }, [businessPickerMode, instantPick, isBusinessLocationPicker, resolvedPickerLabels.currentName, resolvedPickerLabels.currentStatus]);
 
   const resolveDroppedPinPreview = useCallback(async (point, target) => {
     const nextPosition = normalizePosition(point);
@@ -2271,9 +2308,18 @@ function NearbyAreaScreenContent({
 
   const handleAddCurrentPickerLocation = useCallback(() => {
     if (!currentPickerLocation) return;
-    onLocationPicked?.(currentPickerLocation);
-  }, [currentPickerLocation, onLocationPicked]);
+    if (!instantPick) {
+      onLocationPicked?.(currentPickerLocation);
+      return;
+    }
+    onLocationPicked?.(buildInstantPickedLocation(currentPickerLocation, currentPickerLocation, resolvedPickerLabels.currentName, currentPickerLocation.source || "currentLocation"));
+  }, [currentPickerLocation, instantPick, onLocationPicked, resolvedPickerLabels.currentName]);
 
+  // With instantPick (the Explore composer), "Add location" hands the pin back
+  // at once: the street name already read for this spot is used, otherwise
+  // the coordinates go back now and resolveAddress() lets the caller fill the
+  // street name in afterwards. Waiting for the map lookup felt like a search.
+  // Other pickers (registrations, addresses) still wait for the street name.
   const handleAddDroppedPinLocation = useCallback(async () => {
     const center = mapInstance?.getCenter?.();
     const point = center
@@ -2282,6 +2328,13 @@ function NearbyAreaScreenContent({
 
     if (!point?.lat || !point?.lng) {
       setPickerStatus(t("urride.areaView.pickerMoveExact"));
+      return;
+    }
+
+    if (instantPick) {
+      dropPinResolveRequestRef.current += 1;
+      setPickerBusy(false);
+      onLocationPicked?.(buildInstantPickedLocation(point, currentPickerLocation, resolvedPickerLabels.droppedName, "dropPin"));
       return;
     }
 
@@ -2300,7 +2353,7 @@ function NearbyAreaScreenContent({
     } finally {
       setPickerBusy(false);
     }
-  }, [mapInstance, onLocationPicked, resolvedPickerLabels.droppedName, userLocation]);
+  }, [currentPickerLocation, instantPick, mapInstance, onLocationPicked, resolvedPickerLabels.droppedName, userLocation]);
 
   const addLocationPinnedPreview = toMapPoint(addLocationDraft)
     ? buildExactMapPointPreview(addLocationDraft, areaAddLocationPickerLabels.droppedName)
@@ -2376,6 +2429,7 @@ function NearbyAreaScreenContent({
               setDropPinCollapseSignal((value) => value + 1);
             }}
             onAddDroppedPin={handleAddDroppedPinLocation}
+            addWhileBusy={instantPick}
             collapseSignal={dropPinCollapseSignal}
             expandSignal={dropPinExpandSignal}
           />
@@ -2803,6 +2857,9 @@ function BusinessLocationPickerChrome({
   onUseCurrent,
   onDropPin,
   onAddDroppedPin,
+  // The post/advert/store picker hands the pin back without waiting for the
+  // street-name lookup; the "add a place" form still waits for it.
+  addWhileBusy = false,
   collapseSignal = 0,
   expandSignal = 0,
 }) {
@@ -2911,10 +2968,10 @@ function BusinessLocationPickerChrome({
             <button
               type="button"
               onClick={onAddDroppedPin}
-              disabled={busy}
+              disabled={busy && !addWhileBusy}
               className="h-10 rounded-xl bg-blue-600 text-sm font-black text-white hover:bg-blue-700 disabled:opacity-60"
             >
-              {busy ? t("urride.areaView.adding") : t("urride.areaView.addLocationBtn")}
+              {busy && !addWhileBusy ? t("urride.areaView.adding") : t("urride.areaView.addLocationBtn")}
             </button>
           </div>
         </section>
@@ -2976,10 +3033,10 @@ function BusinessLocationPickerChrome({
                 <button
                   type="button"
                   onClick={onAddDroppedPin}
-                  disabled={busy}
+                  disabled={busy && !addWhileBusy}
                   className="h-11 rounded-2xl bg-blue-600 text-sm font-black text-white hover:bg-blue-700 disabled:opacity-60"
                 >
-                  {busy ? t("urride.areaView.adding") : t("urride.areaView.addLocationBtn")}
+                  {busy && !addWhileBusy ? t("urride.areaView.adding") : t("urride.areaView.addLocationBtn")}
                 </button>
               </>
             ) : (
@@ -2994,7 +3051,7 @@ function BusinessLocationPickerChrome({
                 <button
                   type="button"
                   onClick={onUseCurrent}
-                  disabled={busy || !currentLocation}
+                  disabled={!currentLocation || (busy && !addWhileBusy)}
                   className="h-11 rounded-2xl bg-blue-600 text-sm font-black text-white hover:bg-blue-700 disabled:opacity-60"
                 >
                   {t("urride.areaView.addLocationBtn")}
