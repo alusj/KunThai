@@ -17,6 +17,10 @@
 // original files are kept, and every change is written to
 // remux-explore-videos-rollback.tsv (post id, old url, new url) so it can be
 // undone. Re-runnable: a clip that is already faststart is skipped.
+//
+// Built for a slow, flaky link: every request is retried, and files move in
+// 6 MB pieces (ranged downloads, resumable TUS uploads) so a dropped
+// connection only repeats one piece.
 import { execFileSync } from "node:child_process";
 import { appendFileSync, mkdtempSync, readFileSync, rmSync, statSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
@@ -51,6 +55,93 @@ if (!hasFfmpeg && !dryRun) {
 }
 
 const headers = { Authorization: `Bearer ${key}`, apikey: key };
+const PIECE_BYTES = 6 * 1024 * 1024; // Supabase TUS uploads require 6 MB pieces.
+const TRIES = 6;
+const sleep = (ms) => new Promise((resolve) => setTimeout(resolve, ms));
+
+async function retry(label, task) {
+  for (let attempt = 1; ; attempt += 1) {
+    try {
+      return await task();
+    } catch (error) {
+      if (attempt >= TRIES || error?.final) throw error;
+      const wait = Math.min(60, 3 * 2 ** (attempt - 1));
+      console.log(`         ${label}: ${error.message}; retrying in ${wait}s (${attempt}/${TRIES - 1})`);
+      await sleep(wait * 1000);
+    }
+  }
+}
+
+function finalError(message) {
+  return Object.assign(new Error(message), { final: true });
+}
+
+async function fetchRange(url, start, end) {
+  return retry("download", async () => {
+    const response = await fetch(url, { headers: { Range: `bytes=${start}-${end}` }, signal: AbortSignal.timeout(120_000) });
+    if (response.status === 400 || response.status === 404) throw finalError(`range ${response.status}`);
+    if (response.status !== 206 && !response.ok) throw new Error(`range ${response.status}`);
+    return Buffer.from(await response.arrayBuffer());
+  });
+}
+
+async function download(url, size) {
+  const pieces = [];
+  for (let start = 0; start < size; start += PIECE_BYTES) {
+    pieces.push(await fetchRange(url, start, Math.min(size, start + PIECE_BYTES) - 1));
+  }
+  const data = Buffer.concat(pieces);
+  if (data.length !== size) throw new Error(`downloaded ${data.length} of ${size} bytes`);
+  return data;
+}
+
+const b64 = (value) => Buffer.from(value).toString("base64");
+
+// Resumable (TUS) upload, 6 MB at a time; after a dropped piece the server is
+// asked where it got to and the upload continues from there.
+async function uploadResumable(objectPath, data) {
+  const endpoint = `${base}/storage/v1/upload/resumable`;
+  const location = await retry("upload start", async () => {
+    const response = await fetch(endpoint, {
+      method: "POST",
+      headers: {
+        ...headers,
+        "Tus-Resumable": "1.0.0",
+        "Upload-Length": String(data.length),
+        "x-upsert": "true",
+        "Upload-Metadata": [
+          `bucketName ${b64(BUCKET)}`,
+          `objectName ${b64(objectPath)}`,
+          `contentType ${b64("video/mp4")}`,
+          `cacheControl ${b64("31536000")}`,
+        ].join(","),
+      },
+      signal: AbortSignal.timeout(60_000),
+    });
+    if (response.status !== 201) throw new Error(`upload start ${response.status} ${await response.text()}`);
+    const where = response.headers.get("location") || "";
+    return where.startsWith("http") ? where : new URL(where, endpoint).toString();
+  });
+
+  let offset = 0;
+  while (offset < data.length) {
+    offset = await retry("upload", async () => {
+      // Where the server actually is (a piece may have landed before the drop).
+      const head = await fetch(location, { method: "HEAD", headers: { ...headers, "Tus-Resumable": "1.0.0" }, signal: AbortSignal.timeout(60_000) });
+      if (!head.ok) throw new Error(`upload check ${head.status}`);
+      const at = Number(head.headers.get("upload-offset") || 0);
+      if (at >= data.length) return at;
+      const response = await fetch(location, {
+        method: "PATCH",
+        headers: { ...headers, "Tus-Resumable": "1.0.0", "Upload-Offset": String(at), "Content-Type": "application/offset+octet-stream" },
+        body: data.subarray(at, Math.min(data.length, at + PIECE_BYTES)),
+        signal: AbortSignal.timeout(300_000),
+      });
+      if (response.status !== 204) throw new Error(`upload piece ${response.status} ${await response.text()}`);
+      return Number(response.headers.get("upload-offset") || at + PIECE_BYTES);
+    });
+  }
+}
 const publicPrefix = `${base}/storage/v1/object/public/${BUCKET}/`;
 
 // Reads only the top-level box headers, with small range requests.
@@ -60,9 +151,8 @@ function remoteBlob(url, size) {
     slice(start, end) {
       return {
         async arrayBuffer() {
-          const response = await fetch(url, { headers: { Range: `bytes=${start}-${end - 1}` } });
-          if (response.status !== 206 && !response.ok) throw new Error(`range ${response.status}`);
-          return response.arrayBuffer();
+          const bytes = await fetchRange(url, start, end - 1);
+          return bytes.buffer.slice(bytes.byteOffset, bytes.byteOffset + bytes.byteLength);
         },
       };
     },
@@ -70,17 +160,23 @@ function remoteBlob(url, size) {
 }
 
 async function remoteSize(url) {
-  const response = await fetch(url, { headers: { Range: "bytes=0-0" } });
-  if (response.status !== 206) return 0;
-  return Number((response.headers.get("content-range") || "").split("/")[1]) || 0;
+  return retry("size", async () => {
+    const response = await fetch(url, { headers: { Range: "bytes=0-0" }, signal: AbortSignal.timeout(60_000) });
+    if (response.status === 400 || response.status === 404) return 0;
+    if (response.status !== 206) throw new Error(`size ${response.status}`);
+    return Number((response.headers.get("content-range") || "").split("/")[1]) || 0;
+  });
 }
 
 async function loadPosts() {
   const query = new URLSearchParams({ select: "id,video_url", video_url: "like.*", order: "created_at.asc" });
   if (only) query.set("id", `eq.${only}`);
-  const response = await fetch(`${base}/rest/v1/explore_posts?${query}`, { headers });
-  if (!response.ok) throw new Error(`posts ${response.status} ${await response.text()}`);
-  return (await response.json()).filter((post) => String(post.video_url || "").startsWith(publicPrefix));
+  const posts = await retry("posts", async () => {
+    const response = await fetch(`${base}/rest/v1/explore_posts?${query}`, { headers, signal: AbortSignal.timeout(60_000) });
+    if (!response.ok) throw new Error(`posts ${response.status} ${await response.text()}`);
+    return response.json();
+  });
+  return posts.filter((post) => String(post.video_url || "").startsWith(publicPrefix));
 }
 
 const work = mkdtempSync(join(tmpdir(), "kt-remux-"));
@@ -112,9 +208,7 @@ for (const post of await loadPosts()) {
 
     const source = join(work, "source");
     const target = join(work, "faststart.mp4");
-    const response = await fetch(url);
-    if (!response.ok) throw new Error(`download ${response.status}`);
-    writeFileSync(source, Buffer.from(await response.arrayBuffer()));
+    writeFileSync(source, await download(url, size));
     rmSync(target, { force: true });
     // First picture and sound track only: iPhone .mov files also carry a
     // metadata track that an MP4 cannot hold.
@@ -128,18 +222,21 @@ for (const post of await loadPosts()) {
     console.log(`${dryRun ? "would fix" : "fixing"} ${post.id} ${layout} ${(size / 1048576).toFixed(1)} MB -> ${(statSync(target).size / 1048576).toFixed(1)} MB ${newPath}`);
 
     if (!dryRun) {
-      const upload = await fetch(`${base}/storage/v1/object/${BUCKET}/${newPath}`, {
-        method: "POST",
-        headers: { ...headers, "Content-Type": "video/mp4", "Cache-Control": "max-age=31536000", "x-upsert": "true" },
-        body: output,
+      await uploadResumable(newPath, output);
+      // The uploaded file must be complete and faststart before any post points at it.
+      const uploadedSize = await remoteSize(newUrl);
+      if (uploadedSize !== output.length) throw new Error(`uploaded ${uploadedSize} of ${output.length} bytes`);
+      const uploaded = await readMp4Layout(remoteBlob(newUrl, uploadedSize));
+      if (uploaded.layout !== "faststart") throw new Error(`uploaded file reads as ${uploaded.layout}`);
+      await retry("update post", async () => {
+        const patch = await fetch(`${base}/rest/v1/explore_posts?id=eq.${post.id}`, {
+          method: "PATCH",
+          headers: { ...headers, "Content-Type": "application/json", Prefer: "return=minimal" },
+          body: JSON.stringify({ video_url: newUrl }),
+          signal: AbortSignal.timeout(60_000),
+        });
+        if (!patch.ok) throw new Error(`update ${patch.status} ${await patch.text()}`);
       });
-      if (!upload.ok) throw new Error(`upload ${upload.status} ${await upload.text()}`);
-      const patch = await fetch(`${base}/rest/v1/explore_posts?id=eq.${post.id}`, {
-        method: "PATCH",
-        headers: { ...headers, "Content-Type": "application/json", Prefer: "return=minimal" },
-        body: JSON.stringify({ video_url: newUrl }),
-      });
-      if (!patch.ok) throw new Error(`update ${patch.status} ${await patch.text()}`);
       appendFileSync(ROLLBACK_FILE, `${post.id}\t${url}\t${newUrl}\n`);
     }
     tally.rewrapped += 1;
