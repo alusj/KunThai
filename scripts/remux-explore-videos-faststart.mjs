@@ -116,7 +116,9 @@ for (const post of await loadPosts()) {
     if (!response.ok) throw new Error(`download ${response.status}`);
     writeFileSync(source, Buffer.from(await response.arrayBuffer()));
     rmSync(target, { force: true });
-    execFileSync(ffmpeg, ["-v", "error", "-i", source, "-map", "0", "-c", "copy", "-movflags", "+faststart", "-f", "mp4", target], { stdio: "inherit" });
+    // First picture and sound track only: iPhone .mov files also carry a
+    // metadata track that an MP4 cannot hold.
+    execFileSync(ffmpeg, ["-v", "error", "-i", source, "-map", "0:v:0", "-map", "0:a:0?", "-c", "copy", "-movflags", "+faststart", "-f", "mp4", target], { stdio: "inherit" });
 
     const output = readFileSync(target);
     const check = await readMp4Layout(new Blob([output]));
