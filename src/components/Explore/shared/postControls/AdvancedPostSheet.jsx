@@ -5,7 +5,12 @@ import { HiOutlineAdjustmentsHorizontal, HiOutlineXMark } from "react-icons/hi2"
 import { useBrowserBack } from "../../../../Backend/hooks/useBrowserBack";
 import { haptics } from "../../../../Backend/services/feedbackService";
 import {
+  AGE_PRESETS,
   CONTENT_WARNINGS,
+  MAX_AUDIENCE_AGE,
+  MIN_AUDIENCE_AGE,
+  agePresetId,
+  hasAgeRange,
   EXPIRY_OPTIONS,
   MAX_EXCLUDED_ACCOUNTS,
   MAX_TARGET_LOCATIONS,
@@ -52,6 +57,7 @@ export default function AdvancedPostSheet({
   const [locationsOn, setLocationsOn] = useState(() => (initialControls?.targetLocations?.length || 0) > 0);
   const [warningOn, setWarningOn] = useState(() => Boolean(initialControls?.contentWarning));
   const [scheduleOn, setScheduleOn] = useState(() => Boolean(initialControls?.publishAt));
+  const [ageOn, setAgeOn] = useState(() => hasAgeRange(initialControls));
   const closeTimerRef = useRef(null);
 
   // Opening: mount, then slide up on the next frame. Closing: slide down, then unmount.
@@ -77,6 +83,7 @@ export default function AdvancedPostSheet({
     setLocationsOn(next.targetLocations.length > 0);
     setWarningOn(Boolean(next.contentWarning));
     setScheduleOn(Boolean(next.publishAt));
+    setAgeOn(hasAgeRange(next));
   }, [open, initialKey, ownerId]);
 
   useBrowserBack(open, () => onClose?.(), "advanced-post-sheet");
@@ -96,6 +103,8 @@ export default function AdvancedPostSheet({
       ...draft,
       excludedAccounts: excludeOn ? draft.excludedAccounts : [],
       targetLocations: locationsOn ? draft.targetLocations : [],
+      ageMin: ageOn ? draft.ageMin : null,
+      ageMax: ageOn ? draft.ageMax : null,
       contentWarning: warningOn ? draft.contentWarning || "sensitive" : null,
       // Composing: off = publish when posted. Editing a scheduled post: off = publish now.
       publishAt: scheduleEditable ? (scheduleOn ? draft.publishAt : null) : draft.publishAt,
@@ -202,6 +211,28 @@ export default function AdvancedPostSheet({
           <TargetLocationsPicker
             locations={draft.targetLocations}
             onChange={(targetLocations) => setDraft((current) => ({ ...current, targetLocations }))}
+          />
+        ) : null}
+      </Section>
+
+      <Section title={t("postAudienceAge.section")}>
+        <ToggleRow
+          label={t("postAudienceAge.toggle")}
+          hint={t("postAudienceAge.hint")}
+          checked={ageOn}
+          badge={ageOn && hasAgeRange(draft) ? ageRangeLabel(t, draft) : ""}
+          onChange={(value) => {
+            setAgeOn(value);
+            // Turning it on starts from 18+, the most common choice.
+            if (value && !hasAgeRange(draft)) setDraft((current) => ({ ...current, ageMin: 18, ageMax: null }));
+          }}
+        />
+        {ageOn ? (
+          <AgeRangePicker
+            t={t}
+            ageMin={draft.ageMin}
+            ageMax={draft.ageMax}
+            onChange={({ ageMin, ageMax }) => setDraft((current) => ({ ...current, ageMin, ageMax }))}
           />
         ) : null}
       </Section>
@@ -353,6 +384,91 @@ export default function AdvancedPostSheet({
       </section>
     </div>,
     document.body,
+  );
+}
+
+/** "18+", "18–40" or "Under 30" in the active language. */
+function ageRangeLabel(t, { ageMin, ageMax }) {
+  if (ageMin != null && ageMax != null) return t("postAudienceAge.rangeBetween", { min: ageMin, max: ageMax });
+  if (ageMin != null) return t("postAudienceAge.rangeFrom", { min: ageMin });
+  if (ageMax != null) return t("postAudienceAge.rangeUnder", { n: ageMax + 1 });
+  return "";
+}
+
+const AGE_CHOICES = Array.from({ length: MAX_AUDIENCE_AGE - MIN_AUDIENCE_AGE }, (_, index) => MIN_AUDIENCE_AGE + index);
+
+// Quick choices (18+, 18–24, 25–40, under 30) and a custom From / To. "From"
+// at 13 and "To" at "No limit" are the open ends.
+function AgeRangePicker({ t, ageMin, ageMax, onChange }) {
+  const preset = agePresetId({ ageMin, ageMax });
+  const from = ageMin ?? MIN_AUDIENCE_AGE;
+  const selectClass = "mt-1 h-12 w-full rounded-2xl border border-[var(--kt-app-border-strong)] bg-[var(--kt-app-surface)] px-3 text-base font-semibold text-[var(--kt-app-text)] outline-none focus:border-sky-500";
+
+  return (
+    <div className="px-3 pb-3">
+      <div className="flex flex-wrap gap-2 pt-1" role="radiogroup" aria-label={t("postAudienceAge.section")}>
+        {AGE_PRESETS.map((option) => {
+          const active = option.id === preset;
+          return (
+            <button
+              key={option.id}
+              type="button"
+              role="radio"
+              aria-checked={active}
+              onClick={() => onChange({ ageMin: option.ageMin, ageMax: option.ageMax })}
+              className={`min-h-11 rounded-full px-4 text-sm font-black transition ${
+                active
+                  ? "bg-sky-700 text-white dark:bg-sky-500 dark:text-slate-950"
+                  : "border border-[var(--kt-app-border-strong)] bg-[var(--kt-app-surface)] text-[var(--kt-app-text-soft)]"
+              }`}
+            >
+              {ageRangeLabel(t, option)}
+            </button>
+          );
+        })}
+        <span
+          className={`inline-flex min-h-11 items-center rounded-full px-4 text-sm font-black ${
+            preset ? "border border-dashed border-[var(--kt-app-border-strong)] text-[var(--kt-app-text-muted)]" : "bg-sky-700 text-white dark:bg-sky-500 dark:text-slate-950"
+          }`}
+          aria-hidden={preset ? "true" : undefined}
+        >
+          {t("postAudienceAge.custom")}
+        </span>
+      </div>
+
+      <div className="mt-3 grid grid-cols-2 gap-3">
+        <label className="block">
+          <span className="text-xs font-black text-[var(--kt-app-text-soft)]">{t("postAudienceAge.from")}</span>
+          <select
+            value={String(from)}
+            onChange={(event) => {
+              const nextMin = Number(event.target.value);
+              onChange({ ageMin: nextMin, ageMax: ageMax != null && ageMax < nextMin ? nextMin : ageMax });
+            }}
+            className={selectClass}
+          >
+            {AGE_CHOICES.map((age) => <option key={age} value={age}>{age}</option>)}
+          </select>
+        </label>
+        <label className="block">
+          <span className="text-xs font-black text-[var(--kt-app-text-soft)]">{t("postAudienceAge.to")}</span>
+          <select
+            value={ageMax == null ? "" : String(ageMax)}
+            onChange={(event) => onChange({ ageMin, ageMax: event.target.value === "" ? null : Number(event.target.value) })}
+            className={selectClass}
+          >
+            <option value="">{t("postAudienceAge.noLimit")}</option>
+            {AGE_CHOICES.filter((age) => age >= from).map((age) => <option key={age} value={age}>{age}</option>)}
+          </select>
+        </label>
+      </div>
+
+      {hasAgeRange({ ageMin, ageMax }) ? (
+        <p className="mt-2 text-xs font-bold text-sky-700 dark:text-sky-300">
+          {t("postAudienceAge.summary", { range: ageRangeLabel(t, { ageMin, ageMax }) })}
+        </p>
+      ) : null}
+    </div>
   );
 }
 

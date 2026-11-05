@@ -16,6 +16,8 @@ import {
   fromLocalInputValue,
   toLocalInputValue,
   normalizeTargetLocations,
+  normalizeAgeRange,
+  agePresetId,
 } from "./postControls.js";
 
 const A = "11111111-1111-4111-8111-111111111111";
@@ -145,4 +147,30 @@ test("lifecycle and viewer rules for scheduled, expired, warned and protected po
   const owner = postInteractionRules({ downloads_disabled: true, content_warning: "spoilers" }, { isOwner: true });
   assert.equal(owner.canDownload, true);
   assert.equal(owner.contentWarning, null);
+});
+
+test("age range: clamped to 13–100, swapped when reversed, open ends are null", () => {
+  assert.deepEqual(normalizeAgeRange(18, 40), { ageMin: 18, ageMax: 40 });
+  assert.deepEqual(normalizeAgeRange(40, 18), { ageMin: 18, ageMax: 40 });
+  assert.deepEqual(normalizeAgeRange(5, 200), { ageMin: null, ageMax: null });
+  assert.deepEqual(normalizeAgeRange("", "29"), { ageMin: null, ageMax: 29 });
+  assert.deepEqual(normalizeAgeRange("abc", null), { ageMin: null, ageMax: null });
+  assert.equal(agePresetId({ ageMin: 18 }), "18plus");
+  assert.equal(agePresetId({ ageMax: 29 }), "under30");
+  assert.equal(agePresetId({ ageMin: 21, ageMax: 35 }), "");
+});
+
+test("age range rides with the post: counted, sent as columns and read back", () => {
+  const controls = normalizePostControls({ ageMin: 18, ageMax: 40 });
+  assert.equal(countActiveControls(controls), 1);
+  assert.equal(hasAdvancedControls(controls), true);
+  const columns = postControlColumns(controls);
+  assert.equal(columns.audience_age_min, 18);
+  assert.equal(columns.audience_age_max, 40);
+  assert.deepEqual(postControlsOf({ audience_age_min: 18, audience_age_max: null }).ageMin, 18);
+  assert.equal(postControlsOf({ audience_age_min: 18, audience_age_max: null }).ageMax, null);
+  assert.equal(hasAdvancedControls(normalizePostControls({})), false);
+  assert.deepEqual(postControlColumns(normalizePostControls({})), {});
+  assert.equal("audience_age_min" in postControlColumns(normalizePostControls({ commentsDisabled: true })), false);
+  assert.equal(postControlColumns(normalizePostControls({}), { always: true }).audience_age_min, null);
 });

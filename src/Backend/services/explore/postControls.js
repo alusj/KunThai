@@ -15,6 +15,17 @@ export const CONTENT_WARNINGS = Object.freeze(["sensitive", "graphic", "spoilers
 // anything within a minute as "now").
 export const MIN_SCHEDULE_LEAD_MS = 5 * 60 * 1000;
 export const MAX_SCHEDULE_AHEAD_MS = 365 * 24 * 60 * 60 * 1000;
+// Age range (2026-11-04). KunThai accounts are 13 or older; 100 is the top of
+// the picker. The database refuses anything outside these bounds.
+export const MIN_AUDIENCE_AGE = 13;
+export const MAX_AUDIENCE_AGE = 100;
+// Quick choices in the sheet: 18+, 18–24, 25–40 and under 30.
+export const AGE_PRESETS = Object.freeze([
+  Object.freeze({ id: "18plus", ageMin: 18, ageMax: null }),
+  Object.freeze({ id: "18to24", ageMin: 18, ageMax: 24 }),
+  Object.freeze({ id: "25to40", ageMin: 25, ageMax: 40 }),
+  Object.freeze({ id: "under30", ageMin: null, ageMax: 29 }),
+]);
 
 export const DEFAULT_POST_CONTROLS = Object.freeze({
   commentsDisabled: false,
@@ -31,6 +42,9 @@ export const DEFAULT_POST_CONTROLS = Object.freeze({
   expiresAfter: null,
   publishAt: null,
   targetLocations: [],
+  // Age range: null = no limit on that side.
+  ageMin: null,
+  ageMax: null,
 });
 
 const FLAG_COLUMNS = Object.freeze({
@@ -108,6 +122,33 @@ function normalizeIso(value) {
   return Number.isFinite(time) ? new Date(time).toISOString() : null;
 }
 
+function normalizeAge(value) {
+  if (value === null || value === undefined || value === "") return null;
+  const age = Math.round(Number(value));
+  if (!Number.isFinite(age)) return null;
+  return Math.min(MAX_AUDIENCE_AGE, Math.max(MIN_AUDIENCE_AGE, age));
+}
+
+/** { ageMin, ageMax } with each side null (no limit) or 13–100, min ≤ max. "13+" means no limit. */
+export function normalizeAgeRange(ageMin, ageMax) {
+  let min = normalizeAge(ageMin);
+  let max = normalizeAge(ageMax);
+  if (min !== null && max !== null && min > max) [min, max] = [max, min];
+  if (min === MIN_AUDIENCE_AGE) min = null;
+  if (max === MAX_AUDIENCE_AGE) max = null;
+  return { ageMin: min, ageMax: max };
+}
+
+export function hasAgeRange(controls = {}) {
+  return controls?.ageMin != null || controls?.ageMax != null;
+}
+
+/** The preset matching a range, or "" (custom). */
+export function agePresetId(controls = {}) {
+  const { ageMin, ageMax } = normalizeAgeRange(controls?.ageMin, controls?.ageMax);
+  return AGE_PRESETS.find((preset) => preset.ageMin === ageMin && preset.ageMax === ageMax)?.id || "";
+}
+
 export function normalizePostControls(input = {}, options = {}) {
   const source = input && typeof input === "object" ? input : {};
   const controls = { ...DEFAULT_POST_CONTROLS };
@@ -117,6 +158,7 @@ export function normalizePostControls(input = {}, options = {}) {
   controls.expiresAfter = EXPIRY_OPTIONS.includes(source.expiresAfter) ? source.expiresAfter : null;
   controls.publishAt = normalizeIso(source.publishAt);
   controls.targetLocations = normalizeTargetLocations(source.targetLocations);
+  Object.assign(controls, normalizeAgeRange(source.ageMin, source.ageMax));
   return controls;
 }
 
@@ -131,7 +173,8 @@ export function countActiveControls(controls = {}) {
     + (controls?.contentWarning ? 1 : 0)
     + (controls?.expiresAfter ? 1 : 0)
     + (controls?.publishAt ? 1 : 0)
-    + ((controls?.targetLocations?.length || 0) > 0 ? 1 : 0);
+    + ((controls?.targetLocations?.length || 0) > 0 ? 1 : 0)
+    + (hasAgeRange(controls) ? 1 : 0);
 }
 
 /**
@@ -177,6 +220,12 @@ export function postControlColumns(controls, { includeExclusions = true, always 
   columns.content_warning = normalized.contentWarning;
   columns.expires_after = normalized.expiresAfter;
   columns.target_regions = normalized.targetLocations.map(({ id, label }) => ({ id, label }));
+  // Only sent when a range is set, or when editing (to clear one), so an
+  // ordinary post never depends on these columns.
+  if (hasAgeRange(normalized) || always) {
+    columns.audience_age_min = normalized.ageMin;
+    columns.audience_age_max = normalized.ageMax;
+  }
   // publish_at is only sent when scheduling (or rescheduling); the database
   // refuses to move a post that is already live.
   if (normalized.publishAt || includeSchedule) columns.publish_at = normalized.publishAt;
@@ -198,6 +247,7 @@ export function postControlsOf(post = {}) {
   controls.publishAt = normalizeIso(pick("publish_at", "publishAt"));
   controls.publishedAt = normalizeIso(post?.published_at);
   controls.targetLocations = normalizeTargetLocations(pick("target_regions", "targetRegions"));
+  Object.assign(controls, normalizeAgeRange(pick("audience_age_min", "ageMin"), pick("audience_age_max", "ageMax")));
   return controls;
 }
 
