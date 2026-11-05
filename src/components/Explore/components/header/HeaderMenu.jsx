@@ -128,7 +128,11 @@ export function SocialMenuContent({ compact = false, currentProfile = null, onCl
 
   return (
     <>
-      <div className="flex-1 touch-pan-y overflow-y-auto overscroll-contain bg-slate-50 p-4 sm:p-6">
+      {/* In the side drawer (compact) the menu is its own scroller. Full
+          screen, the screen around it scrolls: a non-scrolling box with
+          overscroll-contain here would swallow every swipe on Android
+          (Chrome stops the scroll at it and never hands it to the screen). */}
+      <div className={`flex-1 bg-slate-50 p-4 sm:p-6 ${compact ? "min-h-0 touch-pan-y overflow-y-auto overscroll-contain" : ""}`}>
         <div className="mx-auto max-w-6xl space-y-5">
           <div className="rounded-[26px] border border-sky-100 bg-gradient-to-br from-white to-sky-50 p-2 shadow-sm">
             <MenuActionButton

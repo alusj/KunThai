@@ -2509,6 +2509,7 @@ function NearbyAreaScreenContent({
             <button
               type="button"
               onClick={openAddLocation}
+              data-direction="area-add-location"
               className="flex h-12 w-12 shrink-0 items-center justify-center rounded-2xl bg-green-600 text-white shadow-lg transition hover:bg-green-700"
               aria-label={t("urride.areaView.addLocationAria")}
             >

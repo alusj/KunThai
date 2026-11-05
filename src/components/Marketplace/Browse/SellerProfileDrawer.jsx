@@ -1444,7 +1444,8 @@ export default function SellerProfileDrawer({
 
               <div className="p-3 sm:p-5">
                 <div className="space-y-3">
-                  <div className="-mt-10 flex w-full max-w-full items-end gap-3">
+                  {/* relative z-10: the cover above is positioned, so without this it paints over the logo's top edge. */}
+                  <div className="relative z-10 -mt-10 flex w-full max-w-full items-end gap-3">
                     <div className="flex h-24 w-24 shrink-0 items-center justify-center overflow-hidden rounded-lg border-4 border-white bg-gray-950 text-white shadow-lg sm:h-28 sm:w-28">
                       {safeSeller.logoUrl ? <img src={resizedImageUrl(safeSeller.logoUrl, { width: 224, quality: 70 })} alt="" className="h-full w-full object-cover" /> : <Store size={32} />}
                     </div>

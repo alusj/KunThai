@@ -21,6 +21,8 @@ export const DIRECTION_CARDS = {
       "urmall-cart": ["Your cart", "Items you add wait here until you review and place your order."],
       "urmall-seller-notifications": ["Your business alerts", "Plan updates, reviews and important notices for your store appear here."],
       "urride-notifications": ["Your operator alerts", "New ride requests, trip updates and notices for your fleet appear here."],
+      "urmall-photo-search": ["Search with a photo", "Take or choose a photo and KAI finds matching products from sellers near you."],
+      "area-add-location": ["Add a place to the map", "Tap + to add a pickup point, shop, school or market. It is reviewed before others see it."],
       "kai-assistant": ["Meet KAI, your assistant", "Ask KAI to find products, rides or help with a form. Drag it anywhere."],
     },
   },
@@ -44,6 +46,8 @@ export const DIRECTION_CARDS = {
       "urmall-cart": ["Votre panier", "Les articles ajoutés attendent ici jusqu’à ce que vous passiez commande."],
       "urmall-seller-notifications": ["Les alertes de votre entreprise", "Mises à jour de forfait, avis et notifications importantes de votre boutique apparaissent ici."],
       "urride-notifications": ["Vos alertes d’opérateur", "Nouvelles demandes de trajet, mises à jour et avis pour votre véhicule apparaissent ici."],
+      "urmall-photo-search": ["Cherchez avec une photo", "Prenez ou choisissez une photo et KAI trouve des produits similaires chez les vendeurs proches."],
+      "area-add-location": ["Ajoutez un lieu sur la carte", "Touchez + pour ajouter un point de prise en charge, une boutique, une école ou un marché. Il est vérifié avant d’être visible."],
       "kai-assistant": ["Voici KAI, votre assistant", "Demandez à KAI des produits, des trajets ou de l’aide pour un formulaire. Déplacez-le où vous voulez."],
     },
   },
@@ -67,6 +71,8 @@ export const DIRECTION_CARDS = {
       "urmall-cart": ["Tu carrito", "Lo que añades espera aquí hasta que revises y hagas tu pedido."],
       "urmall-seller-notifications": ["Alertas de tu negocio", "Aquí aparecen actualizaciones del plan, reseñas y avisos importantes de tu tienda."],
       "urride-notifications": ["Tus alertas de operador", "Aquí aparecen nuevas solicitudes de viaje, actualizaciones y avisos de tu vehículo."],
+      "urmall-photo-search": ["Busca con una foto", "Toma o elige una foto y KAI encuentra productos similares de vendedores cercanos."],
+      "area-add-location": ["Añade un lugar al mapa", "Toca + para añadir un punto de recogida, tienda, escuela o mercado. Se revisa antes de que otros lo vean."],
       "kai-assistant": ["Conoce a KAI, tu asistente", "Pide a KAI productos, viajes o ayuda con un formulario. Arrástralo donde quieras."],
     },
   },
@@ -90,6 +96,8 @@ export const DIRECTION_CARDS = {
       "urmall-cart": ["سلة مشترياتك", "تنتظر هنا العناصر التي تضيفها حتى تراجع طلبك وترسله."],
       "urmall-seller-notifications": ["تنبيهات نشاطك التجاري", "تظهر هنا تحديثات الباقة والمراجعات والإشعارات المهمة لمتجرك."],
       "urride-notifications": ["تنبيهاتك كمشغّل", "تظهر هنا طلبات الرحلات الجديدة وتحديثات الرحلات والإشعارات الخاصة بمركبتك."],
+      "urmall-photo-search": ["ابحث بصورة", "التقط صورة أو اخترها، وسيجد KAI منتجات مطابقة لدى البائعين القريبين منك."],
+      "area-add-location": ["أضف مكانًا إلى الخريطة", "اضغط + لإضافة نقطة التقاء أو متجر أو مدرسة أو سوق. تتم مراجعته قبل أن يراه الآخرون."],
       "kai-assistant": ["تعرّف على KAI، مساعدك", "اطلب من KAI منتجات أو رحلات أو مساعدة في نموذج. اسحبه إلى أي مكان."],
     },
   },
@@ -113,6 +121,8 @@ export const DIRECTION_CARDS = {
       "urmall-cart": ["你的购物车", "加入的商品会保存在这里，直到你确认并下单。"],
       "urmall-seller-notifications": ["你的店铺通知", "套餐更新、评价和店铺的重要通知会显示在这里。"],
       "urride-notifications": ["你的运营者通知", "新的用车请求、行程更新和车辆通知会显示在这里。"],
+      "urmall-photo-search": ["用照片搜索", "拍摄或选择一张照片，KAI 会从你附近的卖家中找到相似商品。"],
+      "area-add-location": ["在地图上添加地点", "点按 + 添加上车点、商店、学校或市场。审核通过后其他人才能看到。"],
       "kai-assistant": ["认识你的助手 KAI", "让 KAI 帮你找商品、找车或填写表单。可拖动到任意位置。"],
     },
   },
@@ -172,6 +182,8 @@ export const DIRECTION_CARDS = {
       "urmall-cart": ["Seu carrinho", "Os itens adicionados ficam aqui até você revisar e fazer o pedido."],
       "urmall-seller-notifications": ["Alertas do seu negócio", "Atualizações do plano, avaliações e avisos importantes da sua loja aparecem aqui."],
       "urride-notifications": ["Seus alertas de operador", "Novos pedidos de viagem, atualizações e avisos do seu veículo aparecem aqui."],
+      "urmall-photo-search": ["Pesquise com uma foto", "Tire ou escolha uma foto e o KAI encontra produtos parecidos de vendedores perto de você."],
+      "area-add-location": ["Adicione um local ao mapa", "Toque em + para adicionar um ponto de embarque, loja, escola ou mercado. Ele é revisado antes de outros verem."],
       "kai-assistant": [
         "Conheça KAI, seu assistente",
         "Peça a KAI para encontrar produtos, passeios ou ajuda com um formulário. Arraste-o para qualquer lugar."
@@ -234,6 +246,8 @@ export const DIRECTION_CARDS = {
       "urmall-cart": ["आपकी कार्ट", "जोड़े गए आइटम यहाँ रहते हैं, जब तक आप जाँचकर ऑर्डर न करें।"],
       "urmall-seller-notifications": ["आपके बिज़नेस अलर्ट", "प्लान अपडेट, रिव्यू और आपकी दुकान की ज़रूरी सूचनाएँ यहाँ दिखती हैं।"],
       "urride-notifications": ["आपके ऑपरेटर अलर्ट", "नए राइड अनुरोध, ट्रिप अपडेट और आपके वाहन की सूचनाएँ यहाँ दिखती हैं।"],
+      "urmall-photo-search": ["फ़ोटो से खोजें", "फ़ोटो लें या चुनें, और KAI आपके पास के विक्रेताओं से मिलते-जुलते उत्पाद ढूँढेगा।"],
+      "area-add-location": ["मानचित्र पर जगह जोड़ें", "पिकअप पॉइंट, दुकान, स्कूल या बाज़ार जोड़ने के लिए + दबाएँ। दूसरों को दिखने से पहले इसकी समीक्षा होती है।"],
       "kai-assistant": [
         "अपने सहायक KAI से मिलें",
         "उत्पादों, सवारी या फॉर्म में मदद ढूंढने के लिए KAI से पूछें। इसे कहीं भी खींचें."
@@ -296,6 +310,8 @@ export const DIRECTION_CARDS = {
       "urmall-cart": ["আপনার কার্ট", "যোগ করা আইটেম এখানে থাকে, যতক্ষণ না আপনি দেখে অর্ডার দেন।"],
       "urmall-seller-notifications": ["আপনার ব্যবসার সতর্কতা", "প্ল্যান আপডেট, রিভিউ ও আপনার দোকানের গুরুত্বপূর্ণ নোটিশ এখানে দেখা যায়।"],
       "urride-notifications": ["আপনার অপারেটর সতর্কতা", "নতুন রাইড অনুরোধ, ট্রিপ আপডেট ও আপনার গাড়ির নোটিশ এখানে দেখা যায়।"],
+      "urmall-photo-search": ["ছবি দিয়ে খুঁজুন", "একটি ছবি তুলুন বা বেছে নিন, KAI আপনার কাছের বিক্রেতাদের থেকে মিলে যাওয়া পণ্য খুঁজে দেবে।"],
+      "area-add-location": ["মানচিত্রে একটি জায়গা যোগ করুন", "পিকআপ পয়েন্ট, দোকান, স্কুল বা বাজার যোগ করতে + চাপুন। অন্যরা দেখার আগে এটি পর্যালোচনা করা হয়।"],
       "kai-assistant": [
         "আপনার সহকারী KAI এর সাথে দেখা করুন",
         "পণ্য, রাইড বা একটি ফর্মের সাহায্যের জন্য KAI কে জিজ্ঞাসা করুন। যে কোন জায়গায় টেনে আনুন।"
@@ -358,6 +374,8 @@ export const DIRECTION_CARDS = {
       "urmall-cart": ["Keranjang Anda", "Barang yang Anda tambahkan menunggu di sini sampai Anda memesan."],
       "urmall-seller-notifications": ["Notifikasi bisnis Anda", "Pembaruan paket, ulasan, dan pemberitahuan penting toko Anda muncul di sini."],
       "urride-notifications": ["Notifikasi operator Anda", "Permintaan perjalanan baru, pembaruan perjalanan, dan pemberitahuan armada muncul di sini."],
+      "urmall-photo-search": ["Cari dengan foto", "Ambil atau pilih foto, lalu KAI menemukan produk serupa dari penjual di dekat Anda."],
+      "area-add-location": ["Tambahkan tempat ke peta", "Ketuk + untuk menambahkan titik jemput, toko, sekolah, atau pasar. Tempat ini ditinjau sebelum terlihat orang lain."],
       "kai-assistant": [
         "Temui KAI, asisten Anda",
         "Minta KAI untuk menemukan produk, wahana, atau bantuan terkait formulir. Seret ke mana saja."
@@ -420,6 +438,8 @@ export const DIRECTION_CARDS = {
       "urmall-cart": ["آپ کی کارٹ", "شامل کی گئی اشیاء یہاں رہتی ہیں جب تک آپ دیکھ کر آرڈر نہ دیں۔"],
       "urmall-seller-notifications": ["آپ کے کاروبار کے الرٹس", "پلان اپ ڈیٹس، ریویوز اور آپ کی دکان کے اہم نوٹس یہاں نظر آتے ہیں۔"],
       "urride-notifications": ["آپ کے آپریٹر الرٹس", "نئی سواری کی درخواستیں، ٹرپ اپ ڈیٹس اور آپ کی گاڑی کے نوٹس یہاں نظر آتے ہیں۔"],
+      "urmall-photo-search": ["تصویر سے تلاش کریں", "تصویر لیں یا منتخب کریں، اور KAI آپ کے قریب کے فروخت کنندگان سے ملتی جلتی مصنوعات تلاش کرے گا۔"],
+      "area-add-location": ["نقشے پر جگہ شامل کریں", "پک اپ پوائنٹ، دکان، اسکول یا بازار شامل کرنے کے لیے + دبائیں۔ دوسروں کو دکھنے سے پہلے اس کا جائزہ لیا جاتا ہے۔"],
       "kai-assistant": [
         "اپنے معاون، KAI سے ملیں۔",
         "KAI سے مصنوعات، سواری تلاش کرنے یا فارم میں مدد کے لیے کہیں۔ اسے کہیں بھی گھسیٹیں۔"
@@ -482,6 +502,8 @@ export const DIRECTION_CARDS = {
       "urmall-cart": ["Ваша корзина", "Добавленные товары ждут здесь, пока вы не оформите заказ."],
       "urmall-seller-notifications": ["Уведомления вашего бизнеса", "Здесь появляются обновления тарифа, отзывы и важные уведомления вашего магазина."],
       "urride-notifications": ["Ваши уведомления оператора", "Здесь появляются новые заказы поездок, обновления и уведомления по вашему транспорту."],
+      "urmall-photo-search": ["Поиск по фото", "Сделайте или выберите фото, и KAI найдёт похожие товары у продавцов рядом с вами."],
+      "area-add-location": ["Добавьте место на карту", "Нажмите +, чтобы добавить точку посадки, магазин, школу или рынок. Место проверяется, прежде чем его увидят другие."],
       "kai-assistant": [
         "Знакомьтесь, KAI, ваш помощник",
         "Попросите KAI найти продукты, аттракционы или помочь с формой. Перетащите его куда угодно."
@@ -545,6 +567,8 @@ export const DIRECTION_CARDS = {
       "urmall-cart": ["カート", "追加した商品は、確認して注文するまでここに保存されます。"],
       "urmall-seller-notifications": ["ビジネスのお知らせ", "プランの更新、レビュー、ストアの重要なお知らせがここに表示されます。"],
       "urride-notifications": ["オペレーターのお知らせ", "新しい乗車リクエスト、運行の更新、車両のお知らせがここに表示されます。"],
+      "urmall-photo-search": ["写真で検索", "写真を撮るか選ぶと、KAIが近くの販売者から似た商品を見つけます。"],
+      "area-add-location": ["地図に場所を追加", "+ をタップして乗車場所、店舗、学校、市場を追加します。ほかの人に表示される前に確認されます。"],
       "kai-assistant": [
         "あなたのアシスタント、KAI をご紹介します",
         "製品、乗り物を検索したり、フォームに関するサポートを依頼したりする場合は、KAI に依頼してください。任意の場所にドラッグします。"
@@ -607,6 +631,8 @@ export const DIRECTION_CARDS = {
       "urmall-cart": ["तुमची कार्ट", "जोडलेल्या वस्तू तुम्ही तपासून ऑर्डर करेपर्यंत इथे राहतात."],
       "urmall-seller-notifications": ["तुमच्या व्यवसायाच्या सूचना", "प्लॅन अपडेट, रिव्ह्यू आणि तुमच्या दुकानाच्या महत्त्वाच्या सूचना इथे दिसतात."],
       "urride-notifications": ["तुमच्या ऑपरेटर सूचना", "नवीन राइड विनंत्या, ट्रिप अपडेट आणि तुमच्या वाहनाच्या सूचना इथे दिसतात."],
+      "urmall-photo-search": ["फोटोने शोधा", "फोटो काढा किंवा निवडा, आणि KAI तुमच्या जवळच्या विक्रेत्यांकडील जुळणारी उत्पादने शोधेल."],
+      "area-add-location": ["नकाशावर ठिकाण जोडा", "पिकअप पॉइंट, दुकान, शाळा किंवा बाजार जोडण्यासाठी + दाबा. इतरांना दिसण्यापूर्वी त्याचे पुनरावलोकन होते."],
       "kai-assistant": [
         "तुमचा सहाय्यक KAI ला भेटा",
         "KAI ला उत्पादने, राइड शोधण्यासाठी किंवा फॉर्ममध्ये मदत करण्यासाठी विचारा. ते कुठेही ड्रॅग करा."
@@ -669,6 +695,8 @@ export const DIRECTION_CARDS = {
       "urmall-cart": ["Giỏ hàng của bạn", "Món bạn thêm sẽ chờ ở đây cho đến khi bạn xem lại và đặt hàng."],
       "urmall-seller-notifications": ["Thông báo của doanh nghiệp", "Cập nhật gói, đánh giá và thông báo quan trọng của cửa hàng xuất hiện tại đây."],
       "urride-notifications": ["Thông báo nhà vận hành", "Yêu cầu chuyến đi mới, cập nhật chuyến và thông báo cho xe của bạn xuất hiện tại đây."],
+      "urmall-photo-search": ["Tìm bằng ảnh", "Chụp hoặc chọn một ảnh, KAI sẽ tìm sản phẩm tương tự từ người bán gần bạn."],
+      "area-add-location": ["Thêm địa điểm lên bản đồ", "Chạm + để thêm điểm đón, cửa hàng, trường học hoặc chợ. Địa điểm được xem xét trước khi người khác thấy."],
       "kai-assistant": [
         "Hãy gặp KAI, trợ lý của bạn",
         "Hãy hỏi KAI để tìm sản phẩm, chuyến đi hoặc trợ giúp về biểu mẫu. Kéo nó đi bất cứ đâu."
@@ -731,6 +759,8 @@ export const DIRECTION_CARDS = {
       "urmall-cart": ["Ihr Warenkorb", "Hinzugefügte Artikel warten hier, bis Sie prüfen und bestellen."],
       "urmall-seller-notifications": ["Benachrichtigungen deines Geschäfts", "Tarif-Updates, Bewertungen und wichtige Hinweise für deinen Shop erscheinen hier."],
       "urride-notifications": ["Deine Betreiber-Benachrichtigungen", "Neue Fahrtanfragen, Fahrt-Updates und Hinweise zu deinem Fahrzeug erscheinen hier."],
+      "urmall-photo-search": ["Mit einem Foto suchen", "Nehmen oder wählen Sie ein Foto, und KAI findet passende Produkte von Verkäufern in Ihrer Nähe."],
+      "area-add-location": ["Einen Ort zur Karte hinzufügen", "Tippen Sie auf +, um einen Abholpunkt, ein Geschäft, eine Schule oder einen Markt hinzuzufügen. Er wird geprüft, bevor andere ihn sehen."],
       "kai-assistant": [
         "Lernen Sie KAI kennen, Ihren Assistenten",
         "Bitten Sie KAI um die Suche nach Produkten, Fahrten oder Hilfe bei einem Formular. Ziehen Sie es an eine beliebige Stelle."
