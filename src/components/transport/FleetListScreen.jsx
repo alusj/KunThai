@@ -323,7 +323,7 @@ function FleetListCard({ fleet, onViewCompany, onViewFleet, onShowVerification, 
           <button
             type="button"
             onClick={onShowVerification}
-            className="mt-2 block text-left text-xs font-medium text-gray-500 hover:text-sky-700"
+            className={`mt-2 block text-left text-xs font-bold hover:underline ${status.textClass || "text-gray-500"}`}
           >
             {t("urride.fleetList.readMore", { status: status.shortText })}
           </button>
@@ -339,9 +339,9 @@ function FleetListCard({ fleet, onViewCompany, onViewFleet, onShowVerification, 
                 the place the operator's phone last shared, and a rough
                 position said as rough. */}
             {fleet.distanceSource === "live" && liveDistanceLine(fleet) ? (
-              <InfoLine icon={FiNavigation} text={liveDistanceLine(fleet)} />
+              <InfoLine icon={FiNavigation} text={liveDistanceLine(fleet)} tone="distance" />
             ) : fleet.distanceSource === "recent" ? (
-              <InfoLine icon={FiNavigation} text={t("urride.fleetList.distanceRecent", { distance: Math.round(fleet.distanceKm * 10) / 10 })} />
+              <InfoLine icon={FiNavigation} text={t("urride.fleetList.distanceRecent", { distance: Math.round(fleet.distanceKm * 10) / 10 })} tone="distance" />
             ) : null}
             <InfoLine icon={FiMapPin} text={(fleet.distanceSource && fleet.lastSeenPlace) || fleet.currentLocation} />
           </>
@@ -399,12 +399,15 @@ function StatusPill({ active }) {
   );
 }
 
-function InfoLine({ icon, text }) {
+// tone "distance": the live distance line stands out in sky blue, so the
+// first thing a passenger reads is how far away the operator is.
+function InfoLine({ icon, text, tone = "" }) {
   useUiLocale();
+  const distance = tone === "distance";
   return (
     <div className="flex min-w-0 items-center gap-2">
-      {createElement(icon, { size: 15, className: "shrink-0 text-gray-500" })}
-      <span className="truncate">{translateUi(text)}</span>
+      {createElement(icon, { size: 15, className: `shrink-0 ${distance ? "text-sky-700" : "text-gray-500"}` })}
+      <span className={`truncate ${distance ? "font-bold text-sky-700" : ""}`}>{translateUi(text)}</span>
     </div>
   );
 }

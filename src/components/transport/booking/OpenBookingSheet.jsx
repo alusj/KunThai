@@ -51,6 +51,7 @@ import { useI18n, t } from "../../../i18n";
 import { uiText as translateUi } from "../../../i18n/index.js";
 import { useLateHourGate } from "./useLateHourGate";
 import { useTransportPassengerSetting } from "../shared/useTransportPassengerSetting";
+import MultiSeatNotice from "../shared/MultiSeatNotice";
 
 const RIDE_ICONS = { Motorcycle: FaMotorcycle, Tricycle: MdElectricRickshaw, Car: FaCarSide };
 const DELIVERY_ICONS = { Motorcycle: FaMotorcycle, Tricycle: MdElectricRickshaw, Car: FaShuttleVan };
@@ -564,10 +565,13 @@ export default function OpenBookingSheet({ open, draft = null, onClose, onOpenTr
                           placeholder={t("urride.booking.packagePlaceholder")}
                         />
                       ) : (
-                        <label className="space-y-1">
-                          <span className="text-xs font-black uppercase text-gray-500">{t("urride.booking.passengers")}</span>
-                          <PassengerCountSelect value={form.passengers} max={maxPassengers} onChange={(value) => updateForm({ passengers: value })} />
-                        </label>
+                        <>
+                          <label className="space-y-1">
+                            <span className="text-xs font-black uppercase text-gray-500">{t("urride.booking.passengers")}</span>
+                            <PassengerCountSelect value={form.passengers} max={maxPassengers} onChange={(value) => updateForm({ passengers: value })} />
+                          </label>
+                          <MultiSeatNotice variant="booking" seats={maxPassengers} />
+                        </>
                       )}
 
                       <PickupTimeFields

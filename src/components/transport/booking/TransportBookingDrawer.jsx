@@ -62,6 +62,7 @@ import { inlineErrorMessage } from "../../../Backend/services/friendlyErrorServi
 import { requestPreciseLocation } from "../../services/preciseLocationAccess";
 import { useLateHourGate } from "./useLateHourGate";
 import { useTransportPassengerSetting } from "../shared/useTransportPassengerSetting";
+import MultiSeatNotice from "../shared/MultiSeatNotice";
 
 const PASSENGER_CAUTION_KEY = "kunthai-passenger-booking-caution-accepted";
 
@@ -833,10 +834,13 @@ export default function TransportBookingDrawer({ open, target, onClose, onCreate
                   />
                 </>
               ) : (
-                <label className="space-y-1">
-                  <span className="text-xs font-black uppercase text-gray-500">{t("urride.booking.passengers")}</span>
-                  <PassengerCountSelect value={form.passengers} max={maxPassengers} onChange={(value) => updateForm({ passengers: value })} />
-                </label>
+                <>
+                  <label className="space-y-1">
+                    <span className="text-xs font-black uppercase text-gray-500">{t("urride.booking.passengers")}</span>
+                    <PassengerCountSelect value={form.passengers} max={maxPassengers} onChange={(value) => updateForm({ passengers: value })} />
+                  </label>
+                  <MultiSeatNotice variant="booking" seats={maxPassengers} />
+                </>
               )}
 
               <label className="space-y-1">

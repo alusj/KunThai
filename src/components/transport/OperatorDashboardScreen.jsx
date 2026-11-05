@@ -41,6 +41,8 @@ import OperatorDashboardSwitcher from "./OperatorDashboardSwitcher";
 import OnlineElsewhereCard from "./OnlineElsewhereCard";
 import GoingOnlineNoticeCard from "./GoingOnlineNoticeCard";
 import OperatorVisibilityStatus from "./OperatorVisibilityStatus";
+import OperatorTripAcceptedCard from "./live/OperatorTripAcceptedCard";
+import { OPERATOR_LIVE_TRIP_STATUSES } from "./live/operatorLiveTripStatuses";
 import HealthScoreCard from "../Marketplace/MarketplaceHeader/Business/MyBizDashboardHeader/HealthScoreCard";
 import RequestAccountDeletionPage from "./shared/RequestAccountDeletionPage";
 import AppBackTab from "../shared/AppBackTab";
@@ -427,6 +429,15 @@ export default function OperatorDashboardScreen({
     () => waitingPassengers.find((passenger) => ["in_progress", "paused", "start_requested"].includes(passenger.status)) || null,
     [waitingPassengers],
   );
+  // From acceptance until the trip is completed or cancelled: the floating
+  // "Trip accepted" card. On the dashboard view the live trip header card
+  // already covers a started trip, so the floating card steps aside there.
+  const acceptedTrip = useMemo(
+    () => waitingPassengers.find((passenger) => OPERATOR_LIVE_TRIP_STATUSES.includes(passenger.status)) || null,
+    [waitingPassengers],
+  );
+  const onDashboardView = activeView !== "waiting" && activeView !== "history";
+  const showAcceptedCard = Boolean(acceptedTrip) && !dashboardReadOnly && !(onDashboardView && liveTrip);
 
   useEffect(() => subscribeNotificationSeen(() => setSeenVersion((version) => version + 1)), []);
 
@@ -865,7 +876,7 @@ export default function OperatorDashboardScreen({
         </div>
       </header>
 
-      <main className="min-h-0 w-full flex-1 touch-pan-y overflow-y-auto overscroll-contain px-3 py-4 pb-[calc(var(--kt-safe-area-bottom)+1rem)] sm:px-5 xl:px-8 [-webkit-overflow-scrolling:touch]">
+      <main className={`min-h-0 w-full flex-1 touch-pan-y overflow-y-auto overscroll-contain px-3 py-4 sm:px-5 xl:px-8 [-webkit-overflow-scrolling:touch] ${showAcceptedCard ? "pb-[calc(var(--kt-safe-area-bottom)+15rem)]" : "pb-[calc(var(--kt-safe-area-bottom)+1rem)]"}`}>
         <EnforcementNoticeBanner targetTypes={["transport_operator"]} className="mb-4" />
         {dashboardError && (
           <div className="mb-4 rounded-2xl border border-amber-200 bg-amber-50 px-4 py-3 text-sm font-bold text-amber-800">
@@ -1059,6 +1070,14 @@ export default function OperatorDashboardScreen({
           </>
         )}
       </main>
+
+      {showAcceptedCard ? (
+        <OperatorTripAcceptedCard
+          trip={acceptedTrip}
+          onViewTrip={() => openDashboardView("waiting")}
+          onViewRoute={() => openPassengerTripRoute(acceptedTrip)}
+        />
+      ) : null}
 
       <OperatorVerificationModal
         open={verificationOpen}

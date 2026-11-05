@@ -19,6 +19,8 @@ import { URRIDE_INVITE_LOCATION } from "./urrideInviteLocation";
 import { MESSAGE_ACTIONS } from "./messageActions";
 import { POST_CONTROLS } from "./postControls";
 import { ACCOUNT_RECOVERY } from "./accountRecovery";
+import { POST_AUDIENCE_AGE } from "./postAudienceAge";
+import { URRIDE_SEATS_TRIP } from "./urrideSeatsTrip";
 import { URRIDE_COMPANY_ALERTS } from "./urrideCompanyAlerts";
 import { AUTH_TERMS } from "./authTerms";
 import { VOICE_NOTES } from "./voiceNotes";
@@ -59742,6 +59744,18 @@ for (const [locale, section] of Object.entries(POST_CONTROLS)) {
 for (const [locale, section] of Object.entries(ACCOUNT_RECOVERY)) {
   if (TRANSLATIONS[locale]) {
     TRANSLATIONS[locale].accountRecovery = section;
+  }
+}
+
+for (const [locale, section] of Object.entries(POST_AUDIENCE_AGE)) {
+  if (TRANSLATIONS[locale]) {
+    TRANSLATIONS[locale].postAudienceAge = section;
+  }
+}
+
+for (const [locale, section] of Object.entries(URRIDE_SEATS_TRIP)) {
+  if (TRANSLATIONS[locale]) {
+    TRANSLATIONS[locale].urrideSeatsTrip = section;
   }
 }
 

@@ -3,6 +3,7 @@ import { Ban, BadgeCheck, Building2, BusFront, Clock, FileText, ShieldAlert, Tru
 import { useI18n, t } from "../../../i18n";
 import PlanStagesCard from "../../shared/PlanStagesCard";
 import CautionFeatureGuide from "../../shared/CautionFeatureGuide";
+import MultiSeatNotice from "./MultiSeatNotice";
 import { uiText as translateUi, useI18n as useUiLocale } from "../../../i18n/index.js";
 
 const VERIFICATION_GUIDES = [
@@ -39,6 +40,8 @@ export default function TransportCautionCard({ showMenuNote = true }) {
           </p>
         </div>
       </div>
+
+      <MultiSeatNotice variant="caution" />
 
       <CautionFeatureGuide surface="urride" />
 

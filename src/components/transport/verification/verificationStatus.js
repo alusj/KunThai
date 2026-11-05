@@ -28,6 +28,8 @@ export const verificationStatuses = {
   notVerified: makeStatus(
     {
       colorClass: "border-red-200 bg-red-100 text-red-700",
+      // The plain-text line under the badge ("Not yet checked by KunThai").
+      textClass: "text-red-700",
       panelClass: "border-red-200 bg-red-50 text-red-900",
       actions: ["Choose verified operators", "View profile", "Report concern"],
     },
@@ -36,6 +38,8 @@ export const verificationStatuses = {
   pending: makeStatus(
     {
       colorClass: "border-amber-200 bg-amber-100 text-amber-800",
+      // The plain-text line under the badge ("Not yet checked by KunThai").
+      textClass: "text-amber-700",
       panelClass: "border-amber-200 bg-amber-50 text-amber-950",
       actions: ["View profile", "Continue carefully", "Choose verified operators"],
     },
@@ -44,6 +48,8 @@ export const verificationStatuses = {
   verified: makeStatus(
     {
       colorClass: "border-blue-200 bg-blue-100 text-blue-700",
+      // The plain-text line under the badge ("Not yet checked by KunThai").
+      textClass: "text-blue-700",
       panelClass: "border-blue-200 bg-blue-50 text-blue-950",
       actions: ["Book operator", "View profile"],
     },
@@ -52,6 +58,8 @@ export const verificationStatuses = {
   recommended: makeStatus(
     {
       colorClass: "border-green-200 bg-green-100 text-green-700",
+      // The plain-text line under the badge ("Not yet checked by KunThai").
+      textClass: "text-green-700",
       panelClass: "border-green-200 bg-green-50 text-green-950",
       actions: ["Book operator", "View profile"],
     },

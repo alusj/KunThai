@@ -364,13 +364,23 @@ function TripCard({ trip, onOpenActions, onTrackParcel, onCancel, onConfirmStart
 
   return (
     <article className="rounded-2xl border border-gray-100 bg-white p-4 shadow-sm">
-      <div className="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
-        <div className="min-w-0">
+      <div className="flex items-start justify-between gap-3">
+        <div className="min-w-0 flex-1">
           <p className="text-xs font-bold uppercase tracking-wide text-green-700">{t("urride.activeTrips.bookByLine", { mode: trip.mode, method: trip.bookingMethod })}</p>
           <h2 className="mt-1 text-lg font-black text-gray-950">{trip.title}</h2>
           <p className="mt-1 text-sm font-semibold text-gray-600">{t("urride.activeTrips.statusStage", { status: trip.status, stage: stageLabel })}</p>
         </div>
-        <span className={`shrink-0 rounded-full px-3 py-1 text-xs font-bold ${statusTone}`}>{stageLabel}</span>
+        <div className="flex shrink-0 flex-col items-end gap-2 sm:flex-row-reverse sm:items-center">
+          <span className={`order-2 shrink-0 rounded-full px-3 py-1 text-xs font-bold sm:order-none ${statusTone}`}>{stageLabel}</span>
+          <TripCardMenu
+            trip={trip}
+            operatorPhone={operatorPhone}
+            completed={trip.rawStatus === "completed"}
+            onViewFleet={onViewFleet}
+            onReport={onReport}
+            onReview={onReview}
+          />
+        </div>
       </div>
 
       <TripProgress trip={trip} />
@@ -436,34 +446,94 @@ function TripCard({ trip, onOpenActions, onTrackParcel, onCancel, onConfirmStart
           <FiShield size={16} />
           {t("urride.activeTrips.safetyDetails")}
         </button>
-        <button type="button" onClick={onViewFleet} disabled={!trip.fleetId} className="flex h-11 w-full items-center justify-center gap-2 rounded-2xl border border-gray-200 bg-white px-4 text-sm font-black text-gray-700 disabled:opacity-50">
-          {t("urride.activeTrips.fleetProfile")}
-        </button>
-        <a
-          href={operatorPhone ? `tel:${operatorPhone}` : undefined}
-          aria-disabled={!operatorPhone}
-          className={`flex h-11 w-full items-center justify-center gap-2 rounded-2xl px-4 text-sm font-black ${
-            operatorPhone
-              ? "bg-emerald-600 text-white"
-              : "pointer-events-none border border-gray-200 bg-gray-100 text-gray-400"
-          }`}
-        >
-          <FiPhone size={16} />
-          {t("urride.activeTrips.call")}
-        </a>
         {canCancel ? (
           <ActionButton label={t("urride.activeTrips.cancelBooking")} icon={FiXCircle} danger onClick={onCancel} fullWidth />
         ) : null}
       </div>
 
-      {trip.rawStatus === "completed" ? (
-        <div className="mt-4 grid gap-2">
-          <button type="button" onClick={onReport} className="h-11 w-full rounded-xl border border-red-100 bg-red-50 text-xs font-black text-red-700">{t("urride.activeTrips.reportOperator")}</button>
-          <button type="button" onClick={onReview} className="h-11 w-full rounded-xl bg-emerald-600 text-xs font-black text-white">{t("urride.activeTrips.ratePerformance")}</button>
-          <SaveOperatorButton fleet={trip.fleet} />
+    </article>
+  );
+}
+
+// The trip card's "⋯" menu: fleet profile, call, and once the trip is done,
+// report, rate & review and save operator. Verification and safety details
+// stay on the card itself.
+function TripCardMenu({ trip, operatorPhone, completed, onViewFleet, onReport, onReview }) {
+  useI18n();
+  const [open, setOpen] = useState(false);
+  const rootRef = useRef(null);
+
+  useEffect(() => {
+    if (!open) return undefined;
+    const onPointer = (event) => {
+      if (!rootRef.current?.contains(event.target)) setOpen(false);
+    };
+    const onKey = (event) => {
+      if (event.key === "Escape") setOpen(false);
+    };
+    document.addEventListener("pointerdown", onPointer, true);
+    document.addEventListener("keydown", onKey);
+    return () => {
+      document.removeEventListener("pointerdown", onPointer, true);
+      document.removeEventListener("keydown", onKey);
+    };
+  }, [open]);
+
+  const item = "flex min-h-12 w-full items-center gap-3 rounded-xl px-3 text-left text-sm font-black transition hover:bg-gray-50 disabled:opacity-50";
+  const run = (action) => () => {
+    setOpen(false);
+    action?.();
+  };
+
+  return (
+    <div ref={rootRef} className="relative">
+      <button
+        type="button"
+        onClick={() => setOpen((value) => !value)}
+        aria-label={t("urride.activeTrips.tripActions")}
+        aria-haspopup="menu"
+        aria-expanded={open}
+        data-testid="trip-card-menu"
+        className="kt-touchable grid h-10 w-10 place-items-center rounded-full border border-gray-200 bg-white text-gray-700 shadow-sm"
+      >
+        <FiMoreHorizontal size={20} />
+      </button>
+      {open ? (
+        <div role="menu" className="absolute right-0 top-12 z-30 w-64 rounded-2xl border border-gray-100 bg-white p-2 shadow-xl">
+          <button type="button" role="menuitem" onClick={run(onViewFleet)} disabled={!trip.fleetId} className={`${item} text-gray-800`}>
+            <FiTruck size={17} className="shrink-0 text-gray-500" />
+            {t("urride.activeTrips.fleetProfile")}
+          </button>
+          <a
+            role="menuitem"
+            href={operatorPhone ? `tel:${operatorPhone}` : undefined}
+            aria-disabled={!operatorPhone}
+            onClick={() => setOpen(false)}
+            className={`${item} ${operatorPhone ? "text-emerald-700" : "pointer-events-none text-gray-400"}`}
+          >
+            <FiPhone size={17} className="shrink-0" />
+            {t("urride.activeTrips.call")}
+          </a>
+          {completed ? (
+            <>
+              <div className="my-1 h-px bg-gray-100" aria-hidden="true" />
+              <button type="button" role="menuitem" onClick={run(onReview)} className={`${item} text-emerald-700`}>
+                <FiStar size={17} className="shrink-0" />
+                {t("urride.activeTrips.ratePerformance")}
+              </button>
+              <SaveOperatorButton
+                fleet={trip.fleet}
+                className={`${item} text-rose-700 disabled:opacity-100 disabled:text-emerald-700`}
+              />
+              <button type="button" role="menuitem" onClick={run(onReport)} className={`${item} text-red-700`}>
+                <FiFlag size={17} className="shrink-0" />
+                {t("urride.activeTrips.reportOperator")}
+              </button>
+            </>
+          ) : null}
         </div>
       ) : null}
-    </article>
+    </div>
   );
 }
 
