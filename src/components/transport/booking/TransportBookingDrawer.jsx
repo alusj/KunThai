@@ -42,6 +42,7 @@ import {
   TRANSPORT_SAVED_PLACES_EVENT,
 } from "../../services/passengerTransportService";
 import SavedAddressSuggestions from "../../shared/savedAddresses/SavedAddressSuggestions";
+import { getSavedAddressContact } from "../../shared/savedAddresses/savedAddressModel";
 import { haptics, sounds } from "../../../Backend/services/feedbackService";
 import { fetchTransportFleets } from "../../services/transportFleetService";
 import {
@@ -730,10 +731,15 @@ export default function TransportBookingDrawer({ open, target, onClose, onCreate
                   selectedPoint={form.pickupPoint}
                   center={searchCenter || form.dropoffPoint}
                   onChange={(value) => updateForm({ pickup: value, pickupPoint: null })}
-                  onSelect={(place) => updateForm({
-                    pickup: getBookingLocationInputValue(place),
-                    pickupPoint: normalizeBookingLocationPoint(place),
-                  })}
+                  onSelect={(place, { saved = false } = {}) => {
+                    const contact = saved ? getSavedAddressContact(place) : {};
+                    updateForm({
+                      pickup: getBookingLocationInputValue(place),
+                      pickupPoint: normalizeBookingLocationPoint(place),
+                      ...(contact.name ? { passengerName: contact.name } : {}),
+                      ...(contact.phone ? { phone: contact.phone } : {}),
+                    });
+                  }}
                   onLocateMe={() => openBookingLocationPicker("pickup", "current")}
                   onDropPin={() => openBookingLocationPicker("pickup", "dropPin")}
                   placeholder={t("urride.booking.pickupPlaceholder")}
@@ -748,10 +754,15 @@ export default function TransportBookingDrawer({ open, target, onClose, onCreate
                   selectedPoint={form.dropoffPoint}
                   center={form.pickupPoint || searchCenter}
                   onChange={(value) => updateForm({ dropoff: value, dropoffPoint: null })}
-                  onSelect={(place) => updateForm({
-                    dropoff: getBookingLocationInputValue(place),
-                    dropoffPoint: normalizeBookingLocationPoint(place),
-                  })}
+                  onSelect={(place, { saved = false } = {}) => {
+                    // A parcel's saved drop-off place names who receives it.
+                    const contact = saved && bookingMode === "delivery" ? getSavedAddressContact(place) : {};
+                    updateForm({
+                      dropoff: getBookingLocationInputValue(place),
+                      dropoffPoint: normalizeBookingLocationPoint(place),
+                      ...(contact.phone ? { receiverPhone: contact.phone } : {}),
+                    });
+                  }}
                   onLocateMe={() => openBookingLocationPicker("dropoff", "current")}
                   onDropPin={() => openBookingLocationPicker("dropoff", "dropPin")}
                   placeholder={t("urride.booking.dropoffPlaceholder")}
@@ -1019,8 +1030,10 @@ export function AddressSuggestionInput({ icon, label, value, selectedPoint, cent
   const showingSavedPlace = savedPlaces.some((place) => getBookingLocationInputValue(place) === typed);
   const showSuggestions = focused && !caution.open && !showingSavedPlace && (searching || suggestions.length > 0 || typed.length >= 2);
 
+  // A saved place carries its contact, so the caller can fill the name and
+  // phone as well; search results only fill the address.
   function pickSavedPlace(place) {
-    caution.act(() => onSelect(place));
+    caution.act(() => onSelect(place, { saved: true }));
     setFocused(false);
     setSuggestions([]);
     inputRef.current?.blur();

@@ -370,7 +370,7 @@ export function AddressAccuracyCaution({
   return (
     <div
       ref={cardRef}
-      className={`kt-address-accuracy-caution ${placement} z-[1600] max-h-[min(70dvh,34rem)] overflow-y-auto overscroll-contain rounded-[1.75rem] bg-white p-4 text-slate-950 shadow-2xl shadow-slate-950/25 dark:shadow-black/70`}
+      className={`kt-address-accuracy-caution ${placement} z-[1600] max-h-[min(70dvh,34rem)] overflow-y-auto overscroll-contain rounded-[1.75rem] border-2 border-amber-400 bg-white p-4 text-slate-950 shadow-2xl shadow-slate-950/25 dark:shadow-black/70`}
       role="alertdialog"
       aria-label={translateUi(title)}
     >

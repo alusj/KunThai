@@ -52,6 +52,7 @@ import { uiText as translateUi } from "../../../i18n/index.js";
 import { useLateHourGate } from "./useLateHourGate";
 import { useTransportPassengerSetting } from "../shared/useTransportPassengerSetting";
 import MultiSeatNotice from "../shared/MultiSeatNotice";
+import { getSavedAddressContact } from "../../shared/savedAddresses/savedAddressModel";
 
 const RIDE_ICONS = { Motorcycle: FaMotorcycle, Tricycle: MdElectricRickshaw, Car: FaCarSide };
 const DELIVERY_ICONS = { Motorcycle: FaMotorcycle, Tricycle: MdElectricRickshaw, Car: FaShuttleVan };
@@ -511,7 +512,15 @@ export default function OpenBookingSheet({ open, draft = null, onClose, onOpenTr
                           selectedPoint={form.pickupPoint}
                           center={searchCenter || form.dropoffPoint}
                           onChange={(value) => updateForm({ pickup: value, pickupPoint: null })}
-                          onSelect={(place) => updateForm({ pickup: getBookingLocationInputValue(place), pickupPoint: normalizeBookingLocationPoint(place) })}
+                          onSelect={(place, { saved = false } = {}) => {
+                            const contact = saved ? getSavedAddressContact(place) : {};
+                            updateForm({
+                              pickup: getBookingLocationInputValue(place),
+                              pickupPoint: normalizeBookingLocationPoint(place),
+                              ...(contact.name ? { passengerName: contact.name } : {}),
+                              ...(contact.phone ? { phone: contact.phone } : {}),
+                            });
+                          }}
                           onLocateMe={() => setAreaPicker({ kind: "pickup", start: "current" })}
                           onDropPin={() => setAreaPicker({ kind: "pickup", start: "dropPin" })}
                           placeholder={t("urride.booking.pickupPlaceholder")}

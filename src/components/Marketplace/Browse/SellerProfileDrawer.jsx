@@ -69,6 +69,7 @@ import { isCoordinatePlausibleForCountry } from "../../../Backend/utils/coordina
 import { t as i18nText } from "../../../i18n/index";
 import { uiText as translateUi, useI18n as useUiLocale } from "../../../i18n/index.js";
 import { shortErrorToast } from "../../../Backend/services/friendlyErrorService";
+import { guardGuestAction, isGuestMode } from "../../../Backend/services/guestModeService";
 
 function StarRatingInput({ value, onChange }) {
   useUiLocale();
@@ -879,7 +880,24 @@ function VerticalCatalogSection({ vertical, catalog, loading, sellerName, seller
   );
 }
 
-export default function SellerProfileDrawer({
+// Guests can browse products but not open a store's profile: the guest gate
+// card shows and the drawer closes again before anything loads.
+export default function SellerProfileDrawer(props) {
+  const { open, seller, onClose } = props;
+  const guestBlocked = Boolean(open && seller) && isGuestMode();
+
+  useEffect(() => {
+    if (!guestBlocked) return;
+    guardGuestAction("view", "store profile");
+    onClose?.();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [guestBlocked]);
+
+  if (guestBlocked) return null;
+  return <SellerProfileDrawerContent {...props} />;
+}
+
+function SellerProfileDrawerContent({
   seller,
   open,
   onClose,

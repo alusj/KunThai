@@ -15,6 +15,7 @@ import { showToast } from "../../../../../../../../Backend/services/toastService
 import { useI18n, t } from "../../../../../../../../i18n";
 import AppBackTab from "../../../../../../../shared/AppBackTab";
 import KunThaiIdHelpButton from "../../../../../../../shared/KunThaiIdHelpButton";
+import KunThaiAccountSearchField from "../../../../../../../shared/KunThaiAccountSearchField";
 import { t as i18nText } from "../../../../../../../../i18n/index";
 import { fetchBusinessSubscription, getCapacityStatus } from "../../../../../../../../Backend/services/businessSubscriptionService";
 import { hasBusinessPlans } from "../../../../../../../../Backend/services/marketplace/marketplaceBusinessKinds";
@@ -100,7 +101,8 @@ export default function BusinessAdmins({ onBack, onOpenPlans }) {
       return undefined;
     }
     if (detectPublicCodeKind(code) !== "kunthai") {
-      setLookup({ status: "invalid", name: "", message: t("urmall.biz.admins.invalidId") });
+      // A name or @username: the field's own suggestions are searching it.
+      setLookup({ status: /^KTU/i.test(code) ? "invalid" : "idle", name: "", message: /^KTU/i.test(code) ? t("urmall.biz.admins.invalidId") : "" });
       return undefined;
     }
 
@@ -255,17 +257,15 @@ export default function BusinessAdmins({ onBack, onOpenPlans }) {
               </div>
             );
           })() : null}
-          <form onSubmit={sendInvite} className="mt-4 flex gap-2">
-            <input
-              value={inviteCode}
-              onChange={(event) => setInviteCode(event.target.value.toUpperCase())}
-              placeholder="KTU-XXXX-XXXX-XXXX"
-              autoCapitalize="characters"
-              autoComplete="off"
-              spellCheck={false}
-              aria-label={t("urmall.biz.admins.idAria")}
-              className="h-12 min-w-0 flex-1 rounded-2xl border border-gray-200 bg-gray-50 px-4 text-sm font-bold uppercase tracking-wide outline-none transition focus:border-emerald-500 focus:bg-white focus:ring-4 focus:ring-emerald-100"
-            />
+          <form onSubmit={sendInvite} className="mt-4 flex items-start gap-2">
+            <div className="min-w-0 flex-1">
+              <KunThaiAccountSearchField
+                value={inviteCode}
+                onChange={setInviteCode}
+                ariaLabel={t("urmall.biz.admins.idAria")}
+                showConfirmation={false}
+              />
+            </div>
             <button
               type="submit"
               disabled={inviting || lookup.status !== "found"}

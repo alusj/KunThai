@@ -32,6 +32,7 @@ import {
   useAddressAreaValidation,
 } from "../../shared/AddressAreaValidation";
 import SavedAddressSuggestions from "../../shared/savedAddresses/SavedAddressSuggestions";
+import { constrainAddressPhone, getAddressPhoneCountry, getSavedAddressContact } from "../../shared/savedAddresses/savedAddressModel";
 import NearbyAreaScreen from "../../transport/NearbyAreaScreen";
 import useBodyScrollLock from "../../shared/useBodyScrollLock";
 import MediaGalleryViewer from "../../shared/MediaGalleryViewer";
@@ -63,16 +64,21 @@ import useOrderCautionGate from "../shared/useOrderCautionGate";
 import { orderCautionKindForProduct } from "../shared/orderCaution";
 import ClipVideo from "../../shared/ClipVideo";
 
+// Picking a saved delivery address fills the whole order contact in one tap:
+// the address and its map point, plus the saved contact name, phone, note and
+// front picture. Values the saved address lacks leave the typed ones alone.
 function mapSavedAddressToOrder(address = {}) {
+  const contact = getSavedAddressContact(address);
   return {
     addressType: address.category || address.type || "Resident",
     customCategory: address.customCategory || "",
-    buyerName: address.fullName || address.name || "",
-    phone: address.phone || "",
+    ...(contact.name ? { buyerName: contact.name } : {}),
+    ...(contact.phone ? { phone: contact.phone } : {}),
+    ...(contact.note ? { note: contact.note } : {}),
+    frontPictureUrl: contact.frontPictureUrl || "",
     address: address.street || address.address || address.detectedAddress || "",
     detectedAddress: address.detectedAddress || "",
     coordinates: address.coordinates || null,
-    note: address.note || "",
   };
 }
 
@@ -404,7 +410,7 @@ function ProductActionSheet({ children, labelledBy, maxWidth = "max-w-lg", onClo
 // The order form's delivery address. Reaching the field pops the buyer's saved
 // addresses (about two at a time, the rest scroll) so one tap fills it; typing
 // a new address raises the same accuracy caution as every address field.
-function DeliveryAddressField({ value, validationStatus, savedAddresses, onChange, onPickSaved, onLocateMe, onDropPin }) {
+function DeliveryAddressField({ value, validationStatus, savedAddresses, frontPictureUrl = "", onChange, onPickSaved, onLocateMe, onDropPin }) {
   useUiLocale();
   const [focused, setFocused] = useState(false);
   const inputRef = useRef(null);
@@ -471,6 +477,13 @@ function DeliveryAddressField({ value, validationStatus, savedAddresses, onChang
           readLessLabel={t("urmall.biz.reg.accuracyReadLess")}
         />
       </div>
+
+      {frontPictureUrl ? (
+        <div className="flex items-center gap-3 rounded-lg border border-emerald-100 bg-emerald-50 p-2">
+          <img src={resizedImageUrl(frontPictureUrl, { width: 120, quality: 65 })} alt="" className="h-12 w-12 shrink-0 rounded-md object-cover" />
+          <span className="min-w-0 text-xs font-bold leading-5 text-emerald-800">{t("addressBook.picture")}</span>
+        </div>
+      ) : null}
 
       <div className="grid grid-cols-1 gap-2">
         <button
@@ -633,7 +646,7 @@ export default function ProductDetailDrawer({
         setOrderForm((current) => ({
           ...current,
           buyerName: current.buyerName || buyerName,
-          phone: current.phone || phone,
+          phone: current.phone || constrainAddressPhone(phone),
         }));
       })
       .catch(() => null);
@@ -1298,8 +1311,10 @@ export default function ProductDetailDrawer({
                 />
                 <input
                   value={orderForm.phone}
-                  onChange={(event) => updateOrderForm({ phone: event.target.value })}
-                  placeholder={t("urmall.detail.phoneNumber")}
+                  onChange={(event) => updateOrderForm({ phone: constrainAddressPhone(event.target.value) })}
+                  placeholder={`${t("urmall.detail.phoneNumber")} · ${getAddressPhoneCountry(orderForm.phone).dialCode}`}
+                  inputMode="tel"
+                  autoComplete="tel"
                   className="h-11 min-w-0 rounded-lg border border-gray-200 px-3 text-sm font-semibold outline-none focus:border-emerald-500"
                 />
                 {isBooking ? (
@@ -1345,7 +1360,8 @@ export default function ProductDetailDrawer({
                     value={orderForm.address}
                     validationStatus={orderAddressValidation.status}
                     savedAddresses={savedAddresses}
-                    onChange={(value) => updateOrderForm({ address: value, coordinates: null })}
+                    frontPictureUrl={orderForm.frontPictureUrl}
+                    onChange={(value) => updateOrderForm({ address: value, coordinates: null, frontPictureUrl: "" })}
                     onPickSaved={(address) => updateOrderForm(mapSavedAddressToOrder(address))}
                     onLocateMe={() => openOrderAreaPicker("current")}
                     onDropPin={() => openOrderAreaPicker("dropPin")}

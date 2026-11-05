@@ -184,7 +184,9 @@ export default function CommentsDrawer({ currentUserId, onClose, onCountChange, 
     <div className={shellClass}>
       <button
         type="button"
-        className={`absolute inset-0 touch-none cursor-default bg-slate-950/45 backdrop-blur-sm ${backdropClass}`}
+        /* Clear backdrop: no blur and no dim, so the post or video stays fully
+           visible behind the comments. It still closes the sheet on tap. */
+        className={`absolute inset-0 touch-none cursor-default bg-transparent ${backdropClass}`}
         onClick={requestClose}
         aria-label={t("post.closeComments")}
       />

@@ -38,7 +38,7 @@ import {
 } from "../services/transportCompanyService";
 import { fetchTransportOperationBadgeState } from "../services/transportHeaderService";
 import { submitTransportSupportTicket } from "../services/bookingService";
-import { guardGuestAction } from "../../Backend/services/guestModeService";
+import { guardGuestAction, isGuestMode } from "../../Backend/services/guestModeService";
 import { useAccountType } from "../../Backend/services/accountTypeService";
 import { haptics } from "../../Backend/services/feedbackService";
 import OpenBookingSheet from "./booking/OpenBookingSheet";
@@ -1186,6 +1186,8 @@ export default function Transport({
 
   function openOperatorProfileFromArea({ fleetId, companyId } = {}) {
     if (!fleetId && !companyId) return;
+    // Guests stay on the map: operator and company profiles need an account.
+    if (guardGuestAction("view", fleetId ? "operator profile" : "company profile")) return;
     setRouteDirection("forward");
     setNearbyAreaOpen(false);
     setProfileReturnToArea(true);
@@ -1199,6 +1201,20 @@ export default function Transport({
     setProfileReturnToArea(false);
     setNearbyAreaOpen(true);
   }
+
+  // Every other way into an operator or company profile (links, search,
+  // bookings, saved operators) is closed to guests too: the gate card shows
+  // and the profile never opens.
+  useEffect(() => {
+    if (!activeCompanyId && !activeFleetId) return;
+    if (!guardGuestAction("view", activeFleetId ? "operator profile" : "company profile")) return;
+    setActiveCompanyId("");
+    setActiveFleetId(null);
+    setFleetReturnCompanyId("");
+    setCompanyReturnRentalId("");
+    if (profileReturnToArea) returnToAreaFromProfile();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [activeCompanyId, activeFleetId]);
 
   // Leaving the profile any other way (booking, another tab) forgets the return.
   useEffect(() => {
@@ -1608,7 +1624,7 @@ export default function Transport({
     );
   }
 
-  if (activeCompanyId) {
+  if (activeCompanyId && !isGuestMode()) {
     return renderWithAreaView(
       <div className={`${routePanelClass} kt-mobile-viewport`}>
         <PublicCompanyProfileScreen
@@ -1641,7 +1657,7 @@ export default function Transport({
     );
   }
 
-  if (activeFleetId) {
+  if (activeFleetId && !isGuestMode()) {
     return renderWithAreaView(
       <div className={`${routePanelClass} kt-mobile-viewport`}>
         <FleetProfileScreen

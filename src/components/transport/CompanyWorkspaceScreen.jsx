@@ -40,6 +40,7 @@ import { formatRelativeTime } from "../../Backend/services/explore/time";
 import { HiOutlineCheckCircle } from "react-icons/hi2";
 
 import AppBackTab from "../shared/AppBackTab";
+import KunThaiAccountSearchField from "../shared/KunThaiAccountSearchField";
 import { useAiRoleContext } from "../../Backend/services/ai/aiSurfaceService";
 import { useCampaignSurfaceRole } from "../../Backend/services/campaigns/campaignSurfaceStore";
 import CampaignInboxSection from "../shared/campaigns/CampaignInboxSection";
@@ -3325,7 +3326,10 @@ function FleetOperatorInvitationDrawer({ candidates = [], fleet, onClose, onSend
 
   useEffect(() => {
     const value = publicId.trim();
-    if (value.replace(/[^a-z0-9]/gi, "").length < 5) {
+    // Names and @usernames are searched by the field itself; only a KunThai
+    // ID (typed or picked from its suggestions) is checked as an operator.
+    const compactValue = value.replace(/[^a-z0-9]/gi, "");
+    if (compactValue.length < 5 || !/^KTU/i.test(compactValue)) {
       setLookup({ status: "idle", operator: null });
       return undefined;
     }
@@ -3364,9 +3368,17 @@ function FleetOperatorInvitationDrawer({ candidates = [], fleet, onClose, onSend
       if (found) send(publicId.trim());
     }}>
       <p className="text-sm font-semibold leading-6 text-slate-600">{t("urrideFleetHq.assignOperatorDetail")}</p>
-      <label className="block text-sm font-bold text-slate-700">KunThai ID
-        <input autoFocus required disabled={busy} value={publicId} onChange={(event) => { setPublicId(event.target.value); setError(""); }} placeholder="KTU-XXXX-XXXX" autoCapitalize="characters" autoComplete="off" className="mt-2 w-full rounded-2xl border border-slate-200 bg-white px-4 py-3 text-slate-950" />
-      </label>
+      <div className="block text-sm font-bold text-slate-700">
+        <span className="mb-2 block">KunThai ID</span>
+        <KunThaiAccountSearchField
+          autoFocus
+          disabled={busy}
+          value={publicId}
+          onChange={(value) => { setPublicId(value); setError(""); }}
+          ariaLabel={t("urrideFleetHq.assignOperator")}
+          showConfirmation={false}
+        />
+      </div>
       {lookup.status === "loading" ? <p className="text-sm font-bold text-slate-500">{t("urrideFleetHq.lookingUp")}</p> : null}
       {lookup.status === "missing" ? <p className="text-sm font-bold text-rose-600">{t("urrideFleetHq.idNotFound")}</p> : null}
       {found ? (

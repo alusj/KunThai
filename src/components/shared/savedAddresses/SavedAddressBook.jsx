@@ -38,7 +38,14 @@ import { showToast } from "../../../Backend/services/toastService";
 import { shortErrorToast } from "../../../Backend/services/friendlyErrorService";
 import { t, useI18n } from "../../../i18n";
 import { compressAddressPhoto } from "./addressPhoto";
-import { getAddressCategoryLabel, getAddressShareText, getAddressText } from "./savedAddressModel";
+import {
+  constrainAddressPhone,
+  getAddressCategoryLabel,
+  getAddressPhoneCountry,
+  getAddressShareText,
+  getAddressText,
+} from "./savedAddressModel";
+import { getCountryPhoneHint } from "../../../data/globalCountryProfiles";
 import { haptics } from "../../../Backend/services/feedbackService";
 
 // Long enough that the saving animation reads as a deliberate step even when
@@ -87,7 +94,9 @@ const inputClass =
 // "starting to type" and does not raise the caution by itself.
 function SavedAddressForm({ initial, categories, pickerLabels, pickerBackLabel, onSave, onCancel }) {
   useI18n();
-  const [draft, setDraft] = useState(initial);
+  // The account's phone arrives pre-filled; it is brought to its country's
+  // format at once, and stays editable within that country's digit count.
+  const [draft, setDraft] = useState(() => ({ ...initial, phone: constrainAddressPhone(initial.phone) }));
   const [saveState, setSaveState] = useState("idle"); // idle | saving | saved
   const [formError, setFormError] = useState("");
   const [photoBusy, setPhotoBusy] = useState(false);
@@ -99,6 +108,7 @@ function SavedAddressForm({ initial, categories, pickerLabels, pickerBackLabel, 
   const validation = useAddressAreaValidation(draft.street, { selectedPoint: point });
   const caution = useAddressAccuracyCaution(draft.street, { gate: false, lockOnEdit: true });
   const busy = saveState !== "idle";
+  const phoneCountry = getAddressPhoneCountry(draft.phone);
 
   useEffect(() => {
     const timer = window.setTimeout(() => {
@@ -233,12 +243,15 @@ function SavedAddressForm({ initial, categories, pickerLabels, pickerBackLabel, 
           <FieldLabel>{t("addressBook.phone")}</FieldLabel>
           <input
             value={draft.phone}
-            onChange={(event) => update({ phone: event.target.value })}
-            placeholder={t("addressBook.phonePlaceholder")}
+            onChange={(event) => update({ phone: constrainAddressPhone(event.target.value) })}
+            placeholder={getCountryPhoneHint(phoneCountry)}
             inputMode="tel"
             autoComplete="tel"
             className={inputClass}
           />
+          <span className="block text-[11px] font-semibold text-gray-500">
+            {t("addressBook.phoneCountryHint", { country: phoneCountry.name, digits: phoneCountry.maxLength })}
+          </span>
         </label>
       </div>
 
@@ -325,7 +338,9 @@ function SavedAddressForm({ initial, categories, pickerLabels, pickerBackLabel, 
       </label>
 
       <div className="space-y-2">
-        <FieldLabel>{t("addressBook.picture")}</FieldLabel>
+        <FieldLabel>
+          {t("addressBook.picture")} <span className="normal-case text-gray-400">· {t("addressBook.optional")}</span>
+        </FieldLabel>
         <div className="grid grid-cols-[96px_1fr] gap-3">
           <button
             type="button"
