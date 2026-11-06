@@ -3,10 +3,12 @@ import { MessageSquareText } from "lucide-react";
 import { requestOtpBySms } from "../../Backend/services/authService";
 import { useI18n } from "../../i18n";
 
-// Phone codes arrive on WhatsApp first; if WhatsApp can't reach the person the
-// same code follows by SMS automatically. This button lets them ask for the
-// SMS straight away. It unlocks a little after the code was sent (`sentAt`,
-// ms) and works once per code — a new `sentAt` (resend) resets it.
+// Phone codes arrive on WhatsApp first. SMS is sent only when WhatsApp fails
+// for certain, or when the person taps this button — never just because
+// WhatsApp is slow. It unlocks a little after the code was sent (`sentAt`, ms)
+// and works once per code; a new `sentAt` (resend) resets it. Depending on the
+// server's SMS mode the SMS carries the same code or its own code; either one
+// completes the same sign-in attempt.
 const WAIT_SECONDS = 20;
 
 export default function OtpSmsFallbackButton({ phone, sentAt, disabled = false }) {
