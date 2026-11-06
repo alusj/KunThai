@@ -2,6 +2,7 @@ import { useCallback, useEffect, useRef, useState } from "react";
 import { createPortal } from "react-dom";
 import { FiBriefcase, FiCheckCircle, FiFileText, FiShield, FiX } from "react-icons/fi";
 import InviteLocationNotice from "./InviteLocationNotice";
+import { recordProductOpen } from "../../Backend/services/churn/productOpenService";
 
 import Body from "./Body/Body";
 import ActiveTripsScreen from "./ActiveTripsScreen";
@@ -167,6 +168,15 @@ export default function Transport({
   useEffect(() => {
     operatorCompanyInvitesRef.current = operatorCompanyInvites;
   }, [operatorCompanyInvites]);
+
+  // Churn intelligence: an operator dashboard open (own or company) is UrRide
+  // operator activity, once a UTC day.
+  const operatorSideOpen = Boolean(
+    (operatorDashboardOpen && operatorAccount) || (companyOperatorDashboardOpen && companyOperatorAccount),
+  );
+  useEffect(() => {
+    if (operatorSideOpen && userId) void recordProductOpen("urride_operator", userId);
+  }, [operatorSideOpen, userId]);
 
   useEffect(() => {
     activeRef.current = active;

@@ -25,6 +25,7 @@ import VerificationQueueView from "./views/VerificationQueueView";
 import { verificationAttentionCount } from "./verificationStages.js";
 import StaffView from "./views/StaffView";
 import AuditLogView from "./views/AuditLogView";
+import ChurnIntelligenceView from "./views/ChurnIntelligenceView";
 import PlatformPulse from "./components/ops/PlatformPulse";
 import { touchAdminPresence } from "./operationsService";
 import {
@@ -212,6 +213,7 @@ function AdminWorkspace({ access, user, preview }) {
   else if (page === "notifications") content = <NotificationsView access={access} />;
   else if (page === "finance") content = <FinanceView cases={countryCases} onOpenCase={setSelectedCase} />;
   else if (page === "analytics") content = <AnalyticsView summary={visibleSummary} cases={countryCases} />;
+  else if (page === "churn") content = <ChurnIntelligenceView />;
   else if (page === "team") content = <StaffView access={access} user={user} />;
   else if (page === "actions") content = <ActionHistoryView user={user} />;
   else if (page === "audit") content = <AuditLogView />;

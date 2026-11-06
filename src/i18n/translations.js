@@ -28,6 +28,7 @@ import { APP_LOADING } from "./appLoading";
 import { WELCOME_SLIDES } from "./welcomeSlides";
 import { VOICE_POST_PHOTOS } from "./voicePostPhotos";
 import { ADMIN_YOUR_VOICE } from "./adminYourVoice";
+import { ADMIN_CHURN } from "./adminChurn";
 import { URMALL_SETTINGS } from "./urmallSettings";
 import { URRIDE_MAP_FIX2 } from "./urrideMapFix2";
 import { URRIDE_OPERATOR_PROFILE } from "./urrideOperatorProfile";
@@ -59798,6 +59799,12 @@ for (const [locale, section] of Object.entries(VOICE_POST_PHOTOS)) {
 for (const [locale, section] of Object.entries(ADMIN_YOUR_VOICE)) {
   if (TRANSLATIONS[locale]) {
     TRANSLATIONS[locale].adminYourVoice = section;
+  }
+}
+
+for (const [locale, section] of Object.entries(ADMIN_CHURN)) {
+  if (TRANSLATIONS[locale]) {
+    TRANSLATIONS[locale].adminChurn = section;
   }
 }
 
