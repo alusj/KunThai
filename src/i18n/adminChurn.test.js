@@ -33,11 +33,15 @@ test("the admin Churn page carries the same keys and placeholders in every langu
 });
 
 test("every key the page reads exists in English", () => {
-  const view = readFileSync(new URL("../admin/views/ChurnIntelligenceView.jsx", import.meta.url), "utf8");
+  const files = ["ChurnIntelligenceView.jsx", "ChurnSectorDetail.jsx", "ChurnRegionsPanel.jsx", "ChurnCampaignsPanel.jsx", "churnUi.jsx"];
+  const view = files.map((name) => readFileSync(new URL(`../admin/views/${name}`, import.meta.url), "utf8")).join("\n");
   const english = Object.fromEntries(flatten(ADMIN_CHURN.en));
   const used = [...view.matchAll(/tx\("([\w.]+)"/g)].map((match) => match[1]);
   for (const key of new Set([...used, "changeUp", "changeDown"])) assert.ok(key in english, `missing adminChurn.${key}`);
-  for (const group of ["tab", "status", "signal", "action", "product"]) {
+  for (const key of ["tab.regions", "tab.campaigns"]) assert.ok(key in english, key);
+  for (const product of Object.keys(ADMIN_CHURN.en.product)) assert.ok(`activity.${product}` in english, `activity.${product}`);
+  for (const audience of ["attention", "at_risk", "churned", "at_risk_churned"]) assert.ok(`audience.${audience}` in english, audience);
+  for (const group of ["tab", "status", "signal", "action", "product", "activity", "audience"]) {
     assert.ok(Object.keys(ADMIN_CHURN.en[group]).length, group);
   }
 });

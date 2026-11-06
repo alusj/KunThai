@@ -150,3 +150,139 @@ export const previewChurnAccessList = [
   { assignmentId: "team-4", userId: "ride-user", name: "UrRide Desk", email: "ride@kunthai.test", roleKey: "transport_manager", roleName: "Transport Manager", sectors: ["transport"], regions: ["SL"], products: ["urride_operator"], canViewUsers: true },
   { assignmentId: "team-5", userId: "analyst-user", name: "Growth Analyst", email: "growth@kunthai.test", roleKey: "analyst", roleName: "Analyst", sectors: ["all"], regions: ["all"], products: ["explore", "swip"], canViewUsers: false },
 ];
+
+// Phase 4 ------------------------------------------------------------------------
+
+previewChurnAccess.canSendCampaigns = true;
+previewChurnAccess.campaignProducts = PRODUCTS.map(([product]) => product);
+
+export function previewChurnProductDetail(product = "explore", country = null) {
+  const row = productRows.find((item) => item.product === product) || productRows[0];
+  const scale = country ? 0.6 : 1;
+  const n = (value) => Math.round(value * scale);
+  return {
+    scoredOn: today,
+    baselineDay: daysAgo(14),
+    product: row.product,
+    label: row.label,
+    sector: row.sector,
+    churnAfterDays: row.churnAfterDays,
+    tracksOpens: row.provisional,
+    provisional: row.provisional,
+    funnel: {
+      customers: n(row.users), opened30: n(row.mau * 0.95), active30: n(row.mau), active7: n(row.wau), acted30: n(row.mau * 0.7),
+      spent30: n(row.mau * 0.25), atRisk: n(row.atRisk), churned: n(row.churned), new: n(row.new), avgActiveDays30: 9.4, avgActions30: 31.2,
+    },
+    scoreBands: [
+      { from: 0, to: 19, users: n(row.users * 0.42) }, { from: 20, to: 39, users: n(row.users * 0.2) },
+      { from: 40, to: 59, users: n(row.users * 0.09) }, { from: 60, to: 79, users: n(row.atRisk * 0.7) }, { from: 80, to: 100, users: n(row.atRisk * 0.3) },
+    ],
+    signals: [
+      { key: "inactive", users: n(row.atRisk * 0.8), share: 0.18, withChurnRate: 0.41, withoutChurnRate: 0.06, lift: 6.83 },
+      { key: "usage_drop", users: n(row.atRisk * 0.5), share: 0.11, withChurnRate: 0.29, withoutChurnRate: 0.07, lift: 4.14 },
+      { key: "push_off", users: n(row.users * 0.3), share: 0.3, withChurnRate: 0.15, withoutChurnRate: 0.08, lift: 1.88 },
+      { key: "opens_only", users: n(row.atRisk * 0.2), share: 0.04, withChurnRate: null, withoutChurnRate: null, lift: null },
+    ],
+    spend30: product === "urmall_buyer" ? [{ currency: "SLE", amount: 48200 }, { currency: "NGN", amount: 210000 }] : [],
+    revenueAtRisk: product === "urmall_buyer" ? [{ currency: "SLE", amount: 9100 }] : [],
+    actions: [{ action: "explore_comeback", users: n(row.atRisk) }],
+    countries: [
+      { iso: "SL", name: "Sierra Leone", users: n(row.users * 0.6), churnRate: 0.2 },
+      { iso: "NG", name: "Nigeria", users: n(row.users * 0.25), churnRate: 0.16 },
+      { iso: "GH", name: "Ghana", users: n(row.users * 0.15), churnRate: 0.15 },
+    ].filter((item) => !country || item.iso === country),
+  };
+}
+
+const PREVIEW_REGIONS = {
+  SL: [
+    { id: "sl-w", name: "Western Area", typeLabel: "Area", users: 720, churned: 160, atRisk: 90, children: [
+      { id: "sl-wu", name: "Western Area Urban", typeLabel: "District", users: 610, churned: 128, atRisk: 80 },
+      { id: "sl-wr", name: "Western Area Rural", typeLabel: "District", users: 110, churned: 32, atRisk: 10 },
+    ] },
+    { id: "sl-n", name: "Northern", typeLabel: "Province", users: 210, churned: 40, atRisk: 30, children: [
+      { id: "sl-bo", name: "Bombali", typeLabel: "District", users: 150, churned: 25, atRisk: 20 },
+      { id: "sl-to", name: "Tonkolili", typeLabel: "District", users: 60, churned: 15, atRisk: 10 },
+    ] },
+    { id: "sl-e", name: "Eastern", typeLabel: "Province", users: 160, churned: 38, atRisk: 18, children: [] },
+    { id: "sl-s", name: "Southern", typeLabel: "Province", users: 90, churned: 12, atRisk: 9, children: [] },
+    { id: "sl-nw", name: "North Western", typeLabel: "Province", users: 50, churned: 11, atRisk: 3, children: [] },
+  ],
+};
+
+export function previewChurnRegions(country = "SL", product = null, parent = null) {
+  const top = PREVIEW_REGIONS[country] || [
+    { id: `${country}-1`, name: "Capital region", typeLabel: "Region", users: 220, churned: 40, atRisk: 25, children: [] },
+    { id: `${country}-2`, name: "North", typeLabel: "Region", users: 80, churned: 20, atRisk: 8, children: [] },
+  ];
+  const parentRow = parent ? top.find((item) => item.id === parent) : null;
+  const list = parentRow ? parentRow.children : top;
+  const shape = (item) => ({
+    id: item.id, name: item.name, typeLabel: item.typeLabel, hasChildren: Boolean(item.children?.length),
+    users: item.users, churned: item.churned, atRisk: item.atRisk, active: item.users - item.churned - item.atRisk, new: 0,
+    active30: item.users - item.churned, churnRate: item.users ? item.churned / item.users : null,
+  });
+  return {
+    scoredOn: today,
+    country,
+    countryName: previewChurnAccess.countries.find((item) => item.iso === country)?.name || country,
+    subdivisionLabel: "Districts",
+    parent: parentRow ? { id: parentRow.id, name: parentRow.name, typeLabel: parentRow.typeLabel, parentId: null, level: 1 } : null,
+    breadcrumb: parentRow ? [{ id: parentRow.id, name: parentRow.name }] : [],
+    people: list.reduce((sum, item) => sum + item.users, 0) + 12,
+    unplaced: 12,
+    regions: list.map(shape),
+    product,
+  };
+}
+
+// Phase 5 ------------------------------------------------------------------------
+
+export function previewChurnCampaignAudience({ audience = "attention", holdoutPct = 10, country = null } = {}) {
+  const base = { attention: 260, at_risk: 210, churned: 390, at_risk_churned: 600 }[audience] || 260;
+  const matching = country && country !== "all" ? Math.round(base * 0.6) : base;
+  const skipped = Math.round(matching * 0.1);
+  const eligible = matching - skipped;
+  const holdout = Math.round((eligible * holdoutPct) / 100);
+  return {
+    matching, recentlyContacted: skipped, eligible, holdoutPct, holdoutEstimate: holdout, targetEstimate: eligible - holdout,
+    reachableByPush: Math.round(eligible * 0.55), cap: 5000,
+    languages: [{ locale: "en", users: Math.round(eligible * 0.8) }, { locale: "fr", users: eligible - Math.round(eligible * 0.8) }],
+    countries: [{ iso: "SL", name: "Sierra Leone", users: Math.round(eligible * 0.7) }, { iso: "NG", name: "Nigeria", users: eligible - Math.round(eligible * 0.7) }],
+  };
+}
+
+const previewCampaignLog = [
+  {
+    id: "preview-c1", name: "Churn · UrMall buyers · urmall_cart_reminder", product: "urmall_buyer", country: "SL",
+    audience: { status: "at_risk", signal: null, action: "urmall_cart_reminder" }, action: "urmall_cart_reminder", holdoutPct: 10, windowDays: 30,
+    sentAt: new Date(Date.now() - 34 * 86400000).toISOString(), createdBy: "Chief Operations", daysSinceSend: 34, final: true,
+    target: 180, holdout: 20, skippedRecent: 6, delivered: 180, pushed: 102, opened: 77, clicked: 31,
+    targetRecovered: 63, holdoutRecovered: 4, targetRate: 0.35, holdoutRate: 0.2, liftPoints: 15,
+  },
+  {
+    id: "preview-c2", name: "Churn · Explore · explore_comeback", product: "explore", country: null,
+    audience: { status: "attention", signal: "inactive", action: null }, action: "explore_comeback", holdoutPct: 10, windowDays: 30,
+    sentAt: new Date(Date.now() - 6 * 86400000).toISOString(), createdBy: "Growth Analyst", daysSinceSend: 6, final: false,
+    target: 420, holdout: 47, skippedRecent: 0, delivered: 420, pushed: 260, opened: 140, clicked: 52,
+    targetRecovered: 96, holdoutRecovered: 6, targetRate: 0.2286, holdoutRate: 0.1277, liftPoints: 10.1,
+  },
+];
+
+export function previewChurnCampaignSend(input = {}) {
+  const audience = previewChurnCampaignAudience(input);
+  const row = {
+    ...previewCampaignLog[1], id: `preview-${Date.now()}`, name: input.name || `Churn · ${input.product} · ${input.action || input.audience}`,
+    product: input.product, country: input.country && input.country !== "all" ? input.country : null,
+    audience: { status: input.audience, signal: input.signal || null, action: input.action || null }, action: input.action || null,
+    sentAt: new Date().toISOString(), daysSinceSend: 0, final: false, target: audience.targetEstimate, holdout: audience.holdoutEstimate,
+    delivered: audience.targetEstimate, pushed: 0, opened: 0, clicked: 0, targetRecovered: 0, holdoutRecovered: 0,
+    targetRate: 0, holdoutRate: 0, liftPoints: 0, createdBy: "Chief Operations",
+  };
+  previewCampaignLog.unshift(row);
+  return { campaignId: row.id, name: row.name, target: row.target, holdout: row.holdout, skippedRecent: audience.recentlyContacted, notificationsCreated: row.target };
+}
+
+export function previewChurnCampaignResults() {
+  return previewCampaignLog;
+}

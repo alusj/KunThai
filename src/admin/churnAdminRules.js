@@ -16,8 +16,10 @@ export const WATCH_STATUSES = Object.freeze(["attention", "at_risk", "churned", 
 export const LEADER_PERIODS = Object.freeze([7, 30, 90]);
 
 export function visibleChurnTabs(access) {
-  const tabs = ["overview", "leaders"];
+  const tabs = ["overview", "leaders", "regions"];
   if (access?.canViewUsers) tabs.push("watchlist");
+  // Results are visible to everyone with churn access; the send form only with churn.campaigns.send.
+  tabs.push("campaigns");
   if (access?.canManageAccess) tabs.push("access");
   return tabs;
 }

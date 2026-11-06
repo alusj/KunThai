@@ -19,10 +19,10 @@ import {
 } from "./churnAdminRules.js";
 
 test("tabs follow the admin's churn permissions", () => {
-  assert.deepEqual(visibleChurnTabs({}), ["overview", "leaders"]);
-  assert.deepEqual(visibleChurnTabs({ canViewUsers: true }), ["overview", "leaders", "watchlist"]);
-  assert.deepEqual(visibleChurnTabs({ canViewUsers: true, canManageAccess: true }), ["overview", "leaders", "watchlist", "access"]);
-  assert.deepEqual(visibleChurnTabs({ canManageAccess: true }), ["overview", "leaders", "access"]);
+  assert.deepEqual(visibleChurnTabs({}), ["overview", "leaders", "regions", "campaigns"]);
+  assert.deepEqual(visibleChurnTabs({ canViewUsers: true }), ["overview", "leaders", "regions", "watchlist", "campaigns"]);
+  assert.deepEqual(visibleChurnTabs({ canViewUsers: true, canManageAccess: true }), ["overview", "leaders", "regions", "watchlist", "campaigns", "access"]);
+  assert.deepEqual(visibleChurnTabs({ canManageAccess: true }), ["overview", "leaders", "regions", "campaigns", "access"]);
 });
 
 test("rates, changes and growth", () => {

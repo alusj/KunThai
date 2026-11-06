@@ -17,6 +17,11 @@ import {
 } from "lucide-react";
 
 import { PageHeading } from "./AdminViews";
+import { BarList, Card, ErrorNote, Growth, Kpi, Loading, Money, Provisional, TableShell } from "./churnUi";
+import ChurnSectorDetail from "./ChurnSectorDetail";
+import ChurnRegionsPanel from "./ChurnRegionsPanel";
+import ChurnCampaignsPanel from "./ChurnCampaignsPanel";
+import { keyedLabel, productName, tx } from "../churnText.js";
 import {
   getChurnAccess,
   getChurnAccessList,
@@ -29,7 +34,6 @@ import {
   CHURN_PRODUCTS,
   LEADER_PERIODS,
   WATCH_STATUSES,
-  barWidth,
   countryLabel,
   formatCount,
   formatMoneyList,
@@ -44,112 +48,11 @@ import {
   visibleChurnTabs,
   weekdayName,
 } from "../churnAdminRules.js";
-import { getLocale, t as i18nText } from "../../i18n/index";
+import { getLocale } from "../../i18n/index";
 import { useI18n as useUiLocale } from "../../i18n/index.js";
 import { inlineErrorMessage } from "../../Backend/services/friendlyErrorService";
 
-const tx = (key, vars) => i18nText(`adminChurn.${key}`, vars);
 const INACTIVITY_RANGES = [[0, 6], [7, 13], [14, 29], [30, 59], [60, 89], [90, null]];
-
-function productName(product, fallback = "") {
-  const key = `adminChurn.product.${product}`;
-  const label = i18nText(key);
-  return label === key ? fallback || product : label;
-}
-
-function keyedLabel(group, key) {
-  const full = `adminChurn.${group}.${key}`;
-  const label = i18nText(full);
-  return label === full ? String(key || "").replaceAll("_", " ") : label;
-}
-
-function Card({ title, note, children, className = "" }) {
-  return (
-    <section className={`rounded-lg border border-zinc-200 bg-white p-4 shadow-sm ${className}`}>
-      {title ? <h2 className="text-sm font-black text-zinc-950">{title}</h2> : null}
-      {note ? <p className="mt-1 text-xs font-semibold text-zinc-500">{note}</p> : null}
-      <div className={title || note ? "mt-3" : ""}>{children}</div>
-    </section>
-  );
-}
-
-function Kpi({ label, value, detail, tone = "zinc", icon: Icon, compact = false }) {
-  const tones = {
-    zinc: "border-zinc-200 bg-white text-zinc-950",
-    red: "border-red-200 bg-red-50 text-red-950",
-    amber: "border-amber-200 bg-amber-50 text-amber-950",
-    emerald: "border-emerald-200 bg-emerald-50 text-emerald-950",
-    sky: "border-sky-200 bg-sky-50 text-sky-950",
-  };
-  return (
-    <div className={`min-h-28 min-w-0 rounded-lg border p-4 ${tones[tone]}`}>
-      <div className="flex items-start justify-between gap-3">
-        <p className="text-xs font-black uppercase opacity-65">{label}</p>
-        {Icon ? <Icon size={18} className="shrink-0 opacity-60" /> : null}
-      </div>
-      <div className={`mt-3 font-black ${compact ? "whitespace-nowrap text-base leading-6 sm:text-lg" : "break-words text-2xl sm:text-3xl"}`}>{value}</div>
-      {detail ? <p className="mt-1 text-xs font-semibold opacity-70">{detail}</p> : null}
-    </div>
-  );
-}
-
-function Bar({ value, max, tone = "bg-emerald-600" }) {
-  return (
-    <div className="h-2 w-full overflow-hidden rounded-full bg-zinc-100">
-      <div className={`h-full rounded-full ${tone}`} style={{ width: `${barWidth(value, max)}%` }} />
-    </div>
-  );
-}
-
-function BarList({ rows, locale, tone }) {
-  const max = Math.max(0, ...rows.map((row) => Number(row.value) || 0));
-  if (!rows.length) return <p className="text-sm font-semibold text-zinc-500">{tx("emptyList")}</p>;
-  return (
-    <ul className="space-y-2.5">
-      {rows.map((row) => (
-        <li key={row.key}>
-          <div className="flex items-baseline justify-between gap-3 text-xs font-bold text-zinc-700">
-            <span className="min-w-0 truncate">{row.label}</span>
-            <span className="shrink-0 tabular-nums text-zinc-950">{row.display ?? formatCount(row.value, locale)}</span>
-          </div>
-          <div className="mt-1"><Bar value={row.value} max={max} tone={row.tone || tone} /></div>
-        </li>
-      ))}
-    </ul>
-  );
-}
-
-function Growth({ value, locale }) {
-  if (value === null || value === undefined) return <span className="text-zinc-400">—</span>;
-  const up = value >= 0;
-  const Icon = up ? TrendingUp : TrendingDown;
-  return (
-    <span className={`inline-flex items-center gap-1 font-black ${up ? "text-emerald-700" : "text-red-700"}`}>
-      <Icon size={13} />{up ? "+" : ""}{formatPercent(value, locale)}
-    </span>
-  );
-}
-
-function Provisional() {
-  return <span className="ml-1.5 rounded bg-amber-100 px-1.5 py-0.5 text-[10px] font-black uppercase text-amber-800">{tx("provisionalBadge")}</span>;
-}
-
-function Money({ list, locale }) {
-  const lines = formatMoneyList(list, locale);
-  if (!lines.length) return <span>{tx("noRevenue")}</span>;
-  return <span className="flex flex-col gap-0.5">{lines.map((line) => <span key={line}>{line}</span>)}</span>;
-}
-
-function TableShell({ head, children }) {
-  return (
-    <div className="-mx-4 overflow-x-auto px-4">
-      <table className="w-full min-w-[34rem] text-left text-xs">
-        <thead><tr className="border-b border-zinc-200 text-[11px] font-black uppercase text-zinc-500">{head.map((cell, index) => <th key={index} className={`py-2 pr-3 ${index ? "text-right" : ""}`}>{cell}</th>)}</tr></thead>
-        <tbody className="divide-y divide-zinc-100 font-semibold text-zinc-700">{children}</tbody>
-      </table>
-    </div>
-  );
-}
 
 function Trend({ points }) {
   if (!points || points.length < 2) return <p className="text-sm font-semibold text-zinc-500">{tx("trendNeedsDays")}</p>;
@@ -169,14 +72,6 @@ function Trend({ points }) {
       </div>
     </div>
   );
-}
-
-function Loading() {
-  return <div className="flex items-center gap-2 py-10 text-sm font-bold text-zinc-500"><LoaderCircle className="animate-spin text-emerald-700" size={18} />{tx("loading")}</div>;
-}
-
-function ErrorNote({ message }) {
-  return <div role="alert" className="rounded-lg border border-red-200 bg-red-50 px-4 py-3 text-sm font-semibold text-red-700">{message}</div>;
 }
 
 // Overview -------------------------------------------------------------------
@@ -646,7 +541,7 @@ export default function ChurnIntelligenceView() {
 
       {access ? (
         <>
-          <section className="mb-5 flex flex-col gap-3 rounded-lg border border-zinc-200 bg-white p-3 shadow-sm xl:flex-row xl:items-center xl:justify-between">
+          <section className="mb-5 flex flex-col gap-3 rounded-lg border border-zinc-200 bg-white p-3 shadow-sm 2xl:flex-row 2xl:items-center 2xl:justify-between">
             <div className="flex min-w-0 gap-1 overflow-x-auto" role="tablist">
               {tabs.map((key) => (
                 <button key={key} type="button" role="tab" aria-selected={activeTab === key} onClick={() => setTab(key)}
@@ -656,7 +551,7 @@ export default function ChurnIntelligenceView() {
               ))}
             </div>
             {activeTab !== "access" ? (
-              <div className="grid grid-cols-2 gap-2 xl:w-[28rem]">
+              <div className="grid grid-cols-2 gap-2 2xl:w-[28rem]">
                 <label>
                   <span className="sr-only">{tx("filterCountry")}</span>
                   <span className="relative block">
@@ -689,10 +584,18 @@ export default function ChurnIntelligenceView() {
             </p>
           ) : null}
 
+          {activeTab === "overview" && product !== "all" ? (
+            <div className="mb-5"><ChurnSectorDetail key={`${reloadKey}-${product}-${country}`} product={product} country={country} locale={locale} /></div>
+          ) : null}
           {activeTab === "overview" ? (
             overview.error ? <ErrorNote message={overview.error} /> : overview.loading && !overview.data ? <Loading /> : <OverviewTab data={overview.data} locale={locale} />
           ) : null}
           {activeTab === "leaders" ? <LeadersTab key={reloadKey} country={country} product={product} locale={locale} /> : null}
+          {activeTab === "regions" ? (
+            <ChurnRegionsPanel key={reloadKey} country={country} product={product} locale={locale}
+              onPickCountry={(iso) => { if ((access.countries || []).some((item) => item.iso === iso)) setCountry(iso); }} />
+          ) : null}
+          {activeTab === "campaigns" ? <ChurnCampaignsPanel key={reloadKey} access={access} country={country} product={product} locale={locale} /> : null}
           {activeTab === "watchlist" ? <WatchlistTab key={reloadKey} country={country} product={product} locale={locale} /> : null}
           {activeTab === "access" ? <AccessTab key={reloadKey} products={products} /> : null}
         </>

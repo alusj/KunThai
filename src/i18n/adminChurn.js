@@ -3,6 +3,8 @@
 // read with t("adminChurn.<key>"). Every locale carries the same keys and the same
 // {placeholders}. KunThai, Explore, Swip, UrMall and UrRide stay as they are.
 
+import { ADMIN_CHURN_MORE } from "./adminChurnMore.js";
+
 const SHARED_PRODUCT_NAMES = { explore: "Explore", swip: "Swip" };
 
 export const ADMIN_CHURN = {
@@ -1957,3 +1959,12 @@ export const ADMIN_CHURN = {
     },
   },
 };
+
+// Phases 4 and 5 (sector detail, regions, campaigns) live in adminChurnMore.js.
+for (const [locale, more] of Object.entries(ADMIN_CHURN_MORE)) {
+  const base = ADMIN_CHURN[locale];
+  if (!base) continue;
+  const { tab, ...rest } = more;
+  Object.assign(base, rest);
+  base.tab = { ...base.tab, ...tab };
+}
