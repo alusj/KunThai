@@ -18,7 +18,7 @@ function flatten(node, prefix = "", result = {}) {
 test("every locale carries every notification hub key with the same placeholders", () => {
   assert.deepEqual(Object.keys(NOTIFICATION_HUB).sort(), [...LOCALES].sort());
   const english = flatten(NOTIFICATION_HUB.en);
-  assert.equal(Object.keys(english).length, 3);
+  assert.equal(Object.keys(english).length, 5);
   for (const locale of LOCALES) {
     const entries = flatten(NOTIFICATION_HUB[locale]);
     assert.deepEqual(Object.keys(entries).sort(), Object.keys(english).sort(), locale);
