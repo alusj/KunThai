@@ -18,6 +18,10 @@
     },
     "api/ai.js": {
       "maxDuration": 60
+    },
+    "api/explore-video-fix.js": {
+      "maxDuration": 60,
+      "includeFiles": "node_modules/@ffmpeg-installer/linux-x64/**"
     }
   },
   "crons": [

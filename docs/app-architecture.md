@@ -27,6 +27,7 @@ Vercel serverless functions are used where secrets or server-side execution are 
 - `api/ai.js`: KAI, the single entry point for every AI feature.
 - `api/privacy-request.js`: public privacy/data request intake.
 - `api/payments/[action].js`: Monime mobile-money Visibility Credit payments (`/api/monime-create-payment`, `-verify-payment`, `-resume-pending`, `-webhook`).
+- `api/explore-video-fix.js`: makes every Swip video a faststart MP4. The app calls it (POST) right after a video post; it checks the file's layout with a few range reads and, when it is fragmented or has its index at the end, rewraps it with the bundled ffmpeg (`@ffmpeg-installer`, no re-encode), uploads `<name>-faststart.mp4` next to the original and repoints the post. The daily `process-business-subscriptions` cron also calls it (GET, `CRON_SECRET`) for the last 72 hours of posts. Its own function so ffmpeg (~70 MB) is bundled nowhere else.
 - `api/cron/[job].js`: Vercel cron jobs (`admin-publish-scheduled` — scheduled admin notification publication using a service-role Supabase client — and `process-business-subscriptions`).
 
 Vercel Hobby allows at most 12 serverless functions per deployment and every `.js` file under `api/` is one function. Related endpoints therefore share a router function; `vercel.json` rewrites keep their original `/api/<name>` URLs. Put shared or handler code under `server/`, not `api/`.

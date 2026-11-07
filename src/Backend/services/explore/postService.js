@@ -1,7 +1,7 @@
 import supabase from "../../lib/supabaseClient";
 import { CONTENT_MODERATION_ENABLED } from "../../../config/contentModeration";
 import { isMissingColumn, isMissingTable, isUniqueViolation } from "./errors";
-import { MAX_EXPLORE_VIDEO_BYTES, removeUploadedMediaUrl, uploadMediaDataUrl, uploadMediaFile } from "./mediaService";
+import { MAX_EXPLORE_VIDEO_BYTES, removeUploadedMediaUrl, requestVideoFaststartCheck, uploadMediaDataUrl, uploadMediaFile } from "./mediaService";
 import { buildExploreProfileFromUser } from "./profileStorage";
 import { recordHashtagUsage } from "./hashtagService";
 import { normalizeExploreTopicSlug } from "../../../data/exploreTopics";
@@ -631,6 +631,8 @@ export async function createExplorePost(input, scope = "feed") {
     category: created.category,
     visibility: normalizePostPrivacy(created),
   });
+
+  if (created.video_url) requestVideoFaststartCheck(created.id);
 
   if (isExplorePostVisibleInFeed(created)) {
     await notifyMentionedUsers(created, draft);

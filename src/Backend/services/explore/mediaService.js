@@ -292,6 +292,28 @@ async function secureFileBytes(file) {
   }
 }
 
+// After a video post is saved, the server checks the posted file and, if it
+// would start slowly (fragmented MP4 from an older app or a browser, or the
+// index at the end), rewraps it and points the post at the fast copy
+// (api/explore-video-fix). Fire and forget: posting never waits for it or
+// fails because of it; a daily job catches anything missed.
+export function requestVideoFaststartCheck(postId) {
+  if (!postId) return;
+  Promise.resolve()
+    .then(async () => {
+      const { data } = await supabase.auth.getSession();
+      const accessToken = data?.session?.access_token;
+      if (!accessToken) return;
+      await fetch(apiUrl("/api/explore-video-fix"), {
+        method: "POST",
+        // The token goes in the body: a very large one was refused as a header.
+        headers: { "content-type": "application/json" },
+        body: JSON.stringify({ accessToken, postId }),
+      });
+    })
+    .catch(() => {});
+}
+
 // A one-time signed upload URL from KunThai's server (api/explore-upload).
 // Storage checks the ticket instead of the person's own token, which it
 // refused on some accounts ("Invalid Compact JWS").

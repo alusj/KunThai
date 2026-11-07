@@ -27,6 +27,7 @@
     "@capacitor/share": "^8.0.3",
     "@capacitor/status-bar": "^8.0.1",
     "@capgo/background-geolocation": "8.4.14",
+    "@ffmpeg-installer/ffmpeg": "^1.1.0",
     "@google/genai": "^2.22.0",
     "@supabase/auth-ui-react": "^0.4.7",
     "@supabase/auth-ui-shared": "^0.1.8",
