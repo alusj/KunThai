@@ -52,14 +52,33 @@ function drawn(element) {
   return style.display !== "none" && style.visibility !== "hidden";
 }
 
-// At least 60% of the element's area lies under the covering screen.
+function coversWholeScreen(element, viewWidth, viewHeight) {
+  if (window.getComputedStyle(element).position !== "fixed") return false;
+  const rect = element.getBoundingClientRect();
+  return rect.left <= 1 && rect.top <= 1 && rect.width >= viewWidth * 0.98 && rect.height >= viewHeight * 0.9;
+}
+
+function overlap(a, b) {
+  const width = Math.min(a.right, b.right) - Math.max(a.left, b.left);
+  const height = Math.min(a.bottom, b.bottom) - Math.max(a.top, b.top);
+  return width > 0 && height > 0 ? width * height : 0;
+}
+
+// At least 60% of the element's on-screen part lies under the covering
+// screen. Only the visible part counts: a feed that scrolls the whole page is
+// far taller than the screen.
 function mostlyCovered(element, cover) {
   const rect = element.getBoundingClientRect();
-  const area = rect.width * rect.height;
-  if (area < 1) return false;
-  const width = Math.min(rect.right, cover.right) - Math.max(rect.left, cover.left);
-  const height = Math.min(rect.bottom, cover.bottom) - Math.max(rect.top, cover.top);
-  return width > 0 && height > 0 && (width * height) / area >= 0.6;
+  const screen = { left: 0, top: 0, right: window.innerWidth, bottom: window.innerHeight };
+  const visible = overlap(rect, screen);
+  if (visible < 1) return false;
+  const visibleRect = {
+    left: Math.max(rect.left, 0),
+    top: Math.max(rect.top, 0),
+    right: Math.min(rect.right, screen.right),
+    bottom: Math.min(rect.bottom, screen.bottom),
+  };
+  return overlap(visibleRect, cover) / visible >= 0.6;
 }
 
 /**
@@ -85,8 +104,12 @@ export function planTypingLayers(field, { viewWidth = window.innerWidth, viewHei
   for (let node = layers[0]; node && node !== document.body; node = node.parentElement) {
     const insideOutermost = node === outermost || outermost.contains(node);
     if (!layers.includes(node) && insideOutermost) continue;
+    // A fixed layer over the whole screen hides everything drawn before it
+    // (content can spill far outside its box, so its size says nothing). An
+    // in-page panel only hides what it really covers.
+    const wholeScreen = coversWholeScreen(node, viewWidth, viewHeight);
     for (let sibling = node.previousElementSibling; sibling; sibling = sibling.previousElementSibling) {
-      if (drawn(sibling) && !sibling.contains(field) && mostlyCovered(sibling, cover)) hide.add(sibling);
+      if (drawn(sibling) && !sibling.contains(field) && (wholeScreen || mostlyCovered(sibling, cover))) hide.add(sibling);
     }
   }
 
