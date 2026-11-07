@@ -5,14 +5,15 @@ import { bytesToBase64, bytesToHex, hmacSha256 } from "./crypto.ts";
 import {
   type Env,
   handleManualFallback,
+  handleOrangeReceipt,
   handleSendSmsHook,
   handleVerify,
   handleWebhookEvent,
   handleWebhookVerify,
   nextSendAllowedAt,
 } from "./handlers.ts";
-import type { SmsMode } from "./providers.ts";
-import { ACTIVE_STATUSES, type Delivery, type Store } from "./store.ts";
+import { resetOrangeTokenCache, type SmsMode } from "./providers.ts";
+import { ACTIVE_STATUSES, type Channel, type Delivery, type Store, supabaseStore } from "./store.ts";
 
 const enc = new TextEncoder();
 const HOOK_KEY = crypto.getRandomValues(new Uint8Array(32));
@@ -44,15 +45,26 @@ const baseEnv: Env = {
   maxAttempts: 5,
   unreachableDays: 30,
   hookBudgetMs: 4000,
+  orangeClientId: "orange-id",
+  orangeClientSecret: "orange-secret",
+  orangeSenderAddress: "tel:+2320000",
+  orangeSenderName: "",
+  orangeTokenUrl: "https://api.orange.com/oauth/v3/token",
+  orangeApiBaseUrl: "https://api.orange.com",
+  orangeNumberPrefixes: [],
+  orangeReceiptToken: "orange-receipt-test",
 };
 const envWith = (smsMode: SmsMode): Env => ({ ...baseEnv, smsMode });
 
-function memStore() {
+const GLOBAL: Channel[] = ["whatsapp", "twilio_verify"];
+const SIERRA_LEONE: Channel[] = ["whatsapp", "orange_sms", "twilio_verify"];
+
+function memStore(channels: Channel[] = GLOBAL) {
   const rows = new Map<string, Delivery>();
   const unreachable = new Map<string, string>();
   const store: Store = {
     async getRoute() {
-      return { calling_code: "*", channels: ["whatsapp", "twilio_verify"] };
+      return { calling_code: channels === SIERRA_LEONE ? "232" : "*", channels };
     },
     async isWhatsAppUnreachable(phone, nowIso) {
       const u = unreachable.get(phone);
@@ -101,11 +113,19 @@ function mockFetch(plan: {
   twilioSend?: () => Response;
   twilioCheck?: (body: string) => Response;
   auth?: (body: string) => Response;
+  orangeToken?: () => Response;
+  orangeSend?: () => Response;
 } = {}) {
   const calls: Call[] = [];
   const f = (async (url: string, init: RequestInit) => {
     const body = String(init.body);
     calls.push({ url, body });
+    if (url.endsWith("/oauth/v3/token")) return plan.orangeToken ? plan.orangeToken() : Response.json({ access_token: "orange-at", expires_in: 3600 });
+    if (url.includes("/smsmessaging/v1/outbound/")) {
+      return plan.orangeSend
+        ? plan.orangeSend()
+        : Response.json({ outboundSMSMessageRequest: { resourceURL: "https://api.orange.com/smsmessaging/v1/outbound/tel%3A%2B2320000/requests/OR-1" } }, { status: 201 });
+    }
     if (url.includes("graph.facebook.com")) return plan.whatsapp ? plan.whatsapp() : Response.json({ messages: [{ id: "wamid.OK1" }] });
     if (url.endsWith("/VerificationCheck")) return plan.twilioCheck ? plan.twilioCheck(body) : Response.json({ status: "pending" });
     if (/Verifications\/VE/.test(url)) return Response.json({ status: "canceled" });
@@ -154,10 +174,11 @@ const statusEvent = (id: string, status: string, code?: number) => ({
 });
 const post = (path: string, body: unknown) => new Request(`https://x/otp-delivery/${path}`, { method: "POST", body: JSON.stringify(body) });
 
-function setup(mode: SmsMode = "verify_native", plan = {}) {
-  const m = memStore();
+function setup(mode: SmsMode = "verify_native", plan = {}, channels: Channel[] = GLOBAL, envPatch: Partial<Env> = {}) {
+  resetOrangeTokenCache();
+  const m = memStore(channels);
   const fx = mockFetch(plan);
-  const deps = { env: envWith(mode), store: m.store, fetch: fx.f, now, log, uuid, newCode };
+  const deps = { env: { ...envWith(mode), ...envPatch }, store: m.store, fetch: fx.f, now, log, uuid, newCode };
   return { ...m, ...fx, deps };
 }
 
@@ -464,4 +485,169 @@ test("definite WhatsApp failure with no time left: no SMS inside the hook, butto
   assert.equal(calls.filter((u) => u.includes("twilio")).length, 0);
   await handleManualFallback(post("fallback", { phone: "23277000024" }), deps);
   assert.equal(calls.filter((u) => u.includes("twilio")).length, 1);
+});
+
+// ---------------------------------------------------------------------------
+// Sierra Leone chain: WhatsApp -> Orange SMS -> Twilio Verify.
+
+const waError = () => Response.json({ error: { code: 131000 } }, { status: 400 });
+const orangeReceipt = (phone: string, deliveryStatus: string, token = baseEnv.orangeReceiptToken) =>
+  new Request(`https://x/otp-delivery/orange-status?token=${token}`, {
+    method: "POST",
+    body: JSON.stringify({ deliveryInfoNotification: { callbackData: "kunthai", deliveryInfo: { address: `tel:+${phone}`, deliveryStatus } } }),
+  });
+const sent = (calls: Call[]) =>
+  calls.map((c) => (c.url.includes("graph.facebook") ? "whatsapp" : c.url.includes("smsmessaging") ? "orange" : c.url.includes("verify.twilio") ? "twilio" : null)).filter(Boolean);
+
+test("routes: Sierra Leone numbers get the Orange step, the rest the global route (longest prefix wins)", async () => {
+  const routes = [
+    { calling_code: "*", channels: GLOBAL },
+    { calling_code: "232", channels: SIERRA_LEONE },
+  ];
+  const db = { from: () => ({ select: () => ({ eq: async () => ({ data: routes, error: null }) }) }) };
+  const st = supabaseStore(db);
+  assert.deepEqual((await st.getRoute("23276123456")).channels, SIERRA_LEONE);
+  assert.deepEqual((await st.getRoute("2348012345678")).channels, GLOBAL);
+  assert.deepEqual((await st.getRoute("14155550100")).channels, GLOBAL);
+});
+
+test("SL: WhatsApp working -> only WhatsApp is used", async () => {
+  const { deps, calls } = setup("verify_native", {}, SIERRA_LEONE);
+  assert.equal((await handleSendSmsHook(await hookRequest("23276000101"), deps)).status, 200);
+  assert.deepEqual(sent(calls), ["whatsapp"]);
+});
+
+test("SL: WhatsApp fails -> Orange sends the SAME code; Twilio not touched; that code signs in", async () => {
+  const { deps, calls, rows } = setup("verify_native", { whatsapp: waError }, SIERRA_LEONE);
+  assert.equal((await handleSendSmsHook(await hookRequest("23276000102"), deps)).status, 200);
+  assert.deepEqual(sent(calls), ["whatsapp", "orange"]);
+  const tokenCall = calls.find((c) => c.url.endsWith("/oauth/v3/token"))!;
+  assert.equal(tokenCall.body, "grant_type=client_credentials");
+  const sms = JSON.parse(calls.find((c) => c.url.includes("smsmessaging"))!.body).outboundSMSMessageRequest;
+  assert.equal(sms.address, "tel:+23276000102");
+  assert.equal(sms.senderAddress, "tel:+2320000");
+  assert.match(sms.outboundSMSTextMessage.message, new RegExp(`^${USER_CODE} is your KunThai`));
+  assert.ok(!calls.some((c) => c.body.includes(AUTH_OTP)), "Supabase's code never leaves");
+  const row = [...rows.values()][0];
+  assert.equal(row.current_channel, "orange_sms");
+  assert.equal(row.provider_message_id, "OR-1");
+  assert.equal(row.twilio_verification_sid, null);
+  assert.ok(row.user_code_ciphertext, "kept: Twilio may still be needed");
+  const res = await handleVerify(post("verify", { phone: "23276000102", token: USER_CODE }), deps);
+  assert.equal(res.status, 200);
+});
+
+test("SL: Orange not configured yet -> straight to Twilio Verify (today's setup)", async () => {
+  const { deps, calls } = setup("verify_native", { whatsapp: waError }, SIERRA_LEONE, { orangeClientId: "", orangeClientSecret: "" });
+  assert.equal((await handleSendSmsHook(await hookRequest("23276000103"), deps)).status, 200);
+  assert.deepEqual(sent(calls), ["whatsapp", "twilio"]);
+});
+
+test("SL: neither Meta nor Orange configured -> Twilio Verify only, code verifies through Twilio", async () => {
+  const { deps, calls } = setup(
+    "verify_native",
+    { twilioCheck: (b: string) => Response.json({ status: b.includes("Code=555111") ? "approved" : "pending" }) },
+    SIERRA_LEONE,
+    { whatsappToken: "", orangeClientId: "", orangeClientSecret: "" },
+  );
+  assert.equal((await handleSendSmsHook(await hookRequest("23276000104"), deps)).status, 200);
+  assert.deepEqual(sent(calls), ["twilio"]);
+  assert.equal((await handleVerify(post("verify", { phone: "23276000104", token: "555111" }), deps)).status, 200);
+});
+
+test("SL: Orange refuses (definite error) -> Twilio Verify", async () => {
+  const orangeSend = () => Response.json({ requestError: { policyException: { messageId: "POL0001" } } }, { status: 403 });
+  const { deps, calls, rows } = setup("verify_native", { whatsapp: waError, orangeSend }, SIERRA_LEONE);
+  assert.equal((await handleSendSmsHook(await hookRequest("23276000105"), deps)).status, 200);
+  assert.deepEqual(sent(calls), ["whatsapp", "orange", "twilio"]);
+  const row = [...rows.values()][0];
+  assert.equal(row.current_channel, "twilio_verify");
+  assert.equal(row.twilio_verification_sid, "VE123");
+  assert.ok((row.history as { result: string }[]).some((h) => h.result === "orange_POL0001"));
+});
+
+test("SL: Orange credentials rejected -> Twilio Verify", async () => {
+  const { deps, calls } = setup("verify_native", { whatsapp: waError, orangeToken: () => new Response("{}", { status: 401 }) }, SIERRA_LEONE);
+  await handleSendSmsHook(await hookRequest("23276000106"), deps);
+  assert.deepEqual(sent(calls), ["whatsapp", "twilio"]);
+});
+
+test("SL: Orange token expired mid-way -> one new token, then the SMS goes", async () => {
+  let sends = 0;
+  const orangeSend = () =>
+    ++sends === 1
+      ? new Response("{}", { status: 401 })
+      : Response.json({ outboundSMSMessageRequest: { resourceURL: ".../requests/OR-2" } }, { status: 201 });
+  const { deps, calls } = setup("verify_native", { whatsapp: waError, orangeSend }, SIERRA_LEONE);
+  await handleSendSmsHook(await hookRequest("23276000107"), deps);
+  assert.equal(calls.filter((c) => c.url.endsWith("/oauth/v3/token")).length, 2);
+  assert.deepEqual(sent(calls), ["whatsapp", "orange", "orange"]);
+});
+
+test("SL: Orange timeout is not definite -> no automatic Twilio; the button sends Twilio", async () => {
+  const { deps, calls } = setup("verify_native", { whatsapp: waError, orangeSend: () => { throw new Error("timeout"); } }, SIERRA_LEONE);
+  assert.equal((await handleSendSmsHook(await hookRequest("23276000108"), deps)).status, 200);
+  assert.deepEqual(sent(calls), ["whatsapp", "orange"]);
+  await handleManualFallback(post("fallback", { phone: "23276000108" }), deps);
+  assert.deepEqual(sent(calls), ["whatsapp", "orange", "twilio"]);
+});
+
+test("SL: number outside ORANGE_SMS_NUMBER_PREFIXES skips Orange", async () => {
+  const { deps, calls } = setup("verify_native", { whatsapp: waError }, SIERRA_LEONE, { orangeNumberPrefixes: ["23276", "23275"] });
+  await handleSendSmsHook(await hookRequest("23277000109"), deps);
+  assert.deepEqual(sent(calls), ["whatsapp", "twilio"]);
+  const s2 = setup("verify_native", { whatsapp: waError }, SIERRA_LEONE, { orangeNumberPrefixes: ["23276", "23275"] });
+  await handleSendSmsHook(await hookRequest("23276000109"), s2.deps);
+  assert.deepEqual(sent(s2.calls), ["whatsapp", "orange"]);
+});
+
+test("SL: WhatsApp 'failed' webhook -> Orange; Orange 'DeliveryImpossible' -> Twilio, once", async () => {
+  const { deps, calls, rows } = setup("verify_native", {}, SIERRA_LEONE);
+  await handleSendSmsHook(await hookRequest("23276000110"), deps);
+  await handleWebhookEvent(await metaRequest(statusEvent("wamid.OK1", "failed", 131047)), deps);
+  assert.deepEqual(sent(calls), ["whatsapp", "orange"]);
+  assert.equal((await handleOrangeReceipt(orangeReceipt("23276000110", "DeliveryImpossible", "wrong"), deps)).status, 403);
+  assert.deepEqual(sent(calls), ["whatsapp", "orange"], "a forged receipt sends nothing");
+  await handleOrangeReceipt(orangeReceipt("23276000110", "DeliveryImpossible"), deps);
+  await handleOrangeReceipt(orangeReceipt("23276000110", "DeliveryImpossible"), deps);
+  assert.deepEqual(sent(calls), ["whatsapp", "orange", "twilio"], "duplicate receipt sends nothing more");
+  assert.equal([...rows.values()][0].current_channel, "twilio_verify");
+});
+
+test("SL: Orange 'DeliveredToTerminal' marks the code delivered", async () => {
+  const { deps, rows } = setup("verify_native", { whatsapp: waError }, SIERRA_LEONE);
+  await handleSendSmsHook(await hookRequest("23276000111"), deps);
+  await handleOrangeReceipt(orangeReceipt("23276000111", "DeliveredToTerminal"), deps);
+  assert.equal([...rows.values()][0].status, "delivered");
+});
+
+test("SL: 'Send by SMS' while on WhatsApp -> Orange (not Twilio), once per code", async () => {
+  const { deps, calls } = setup("verify_native", {}, SIERRA_LEONE);
+  await handleSendSmsHook(await hookRequest("23276000112"), deps);
+  await handleManualFallback(post("fallback", { phone: "23276000112" }), deps);
+  await handleManualFallback(post("fallback", { phone: "23276000112" }), deps);
+  assert.deepEqual(sent(calls), ["whatsapp", "orange"]);
+  assert.equal((await handleVerify(post("verify", { phone: "23276000112", token: USER_CODE }), deps)).status, 200);
+});
+
+test("SL: 'Send by SMS' after Orange already sent -> Twilio Verify", async () => {
+  const { deps, calls } = setup("verify_native", { whatsapp: waError }, SIERRA_LEONE);
+  await handleSendSmsHook(await hookRequest("23276000113"), deps);
+  await handleManualFallback(post("fallback", { phone: "23276000113" }), deps);
+  assert.deepEqual(sent(calls), ["whatsapp", "orange", "twilio"]);
+});
+
+test("SL custom-code mode: Twilio after Orange still carries the SAME code", async () => {
+  const orangeSend = () => Response.json({}, { status: 500 });
+  const { deps, calls, rows } = setup("verify_custom_code", { whatsapp: waError, orangeSend }, SIERRA_LEONE);
+  await handleSendSmsHook(await hookRequest("23276000114"), deps);
+  const twilio = calls.find((c) => c.url.includes("verify.twilio"))!;
+  assert.equal(new URLSearchParams(twilio.body).get("CustomCode"), USER_CODE);
+  assert.equal([...rows.values()][0].user_code_ciphertext, null, "last channel used: code wiped");
+});
+
+test("global route never calls Orange", async () => {
+  const { deps, calls } = setup("verify_native", { whatsapp: waError });
+  await handleSendSmsHook(await hookRequest("2348012345678"), deps);
+  assert.deepEqual(sent(calls), ["whatsapp", "twilio"]);
 });

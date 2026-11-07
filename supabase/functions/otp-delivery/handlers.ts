@@ -31,6 +31,7 @@ import {
   type Config,
   type Fetch,
   type SendResult,
+  sendOrangeSms,
   sendSms,
   sendWhatsApp,
   setTwilioVerificationStatus,
@@ -55,6 +56,9 @@ export interface Env extends Config {
   // Supabase Auth waits at most 5 s for an HTTP hook (all retries included);
   // the hook must answer well inside that.
   hookBudgetMs: number;
+  // Shared secret in the Orange delivery-receipt URL (?token=...). Empty =
+  // receipts are refused.
+  orangeReceiptToken: string;
 }
 
 export interface Deps {
@@ -120,9 +124,13 @@ const isSms = (ch: Channel | null) => ch === "twilio_verify" || ch === "orange_s
 
 async function sendOn(c: Ctx, channel: Channel, phone: string, code: string, timeoutMs: number): Promise<SendResult> {
   if (channel === "whatsapp") return await sendWhatsApp(c.env, phone, code, c.fetch, timeoutMs);
+  if (channel === "orange_sms") return await sendOrangeSms(c.env, phone, code, c.fetch, timeoutMs);
   if (channel === "twilio_verify") return await sendSms(c.env, phone, code, c.fetch, timeoutMs);
-  return { ok: false, definite: true, errorCode: "channel_unavailable" }; // orange_sms: not built yet
+  return { ok: false, definite: true, errorCode: "channel_unavailable" };
 }
+
+// The person's code may still be needed while a later channel could send it.
+const laterChannelExists = (row: Delivery, step: number) => step < row.channels.length - 1;
 
 // Tries channels from `startStep` on. Stops at the first accepted send, or at
 // a non-definite failure (no automatic second message on uncertainty).
@@ -162,12 +170,15 @@ async function deliverFrom(
           step,
           current_channel: channel,
           status: "sent",
-          provider_message_id: sms ? row.provider_message_id : r.messageId,
-          sms_mode: sms ? (r.smsMode ?? null) : row.sms_mode,
-          twilio_verification_sid: sms && r.smsMode !== "messaging" ? r.messageId : row.twilio_verification_sid,
+          // WhatsApp and Orange ids are matched by their status callbacks;
+          // a Twilio Verify id lives in twilio_verification_sid instead.
+          provider_message_id: channel === "twilio_verify" ? row.provider_message_id : r.messageId,
+          sms_mode: channel === "twilio_verify" ? (r.smsMode ?? null) : row.sms_mode,
+          twilio_verification_sid: channel === "twilio_verify" && r.smsMode !== "messaging" ? r.messageId : row.twilio_verification_sid,
           history,
-          // Once SMS went out there is nothing left to fall back to.
-          user_code_ciphertext: sms ? null : row.user_code_ciphertext,
+          // Once the last channel's SMS went out there is nothing left to
+          // fall back to. After Orange, Twilio may still need the same code.
+          user_code_ciphertext: sms && !laterChannelExists(row, step) ? null : row.user_code_ciphertext,
         },
       };
     }
@@ -310,8 +321,8 @@ export async function handleWebhookEvent(req: Request, deps: Deps): Promise<Resp
         }
         // Definite failure: next channel, once, same attempt.
         if (row.status !== "sent" || Date.parse(row.expires_at) <= c.now().getTime()) continue;
+        // Channels that need our code and can't get it are skipped inside deliverFrom.
         const code = row.user_code_ciphertext ? await decryptCode(c.env.otpCodeKey, userAad(row.id), row.user_code_ciphertext) : "";
-        if (!code && c.env.smsMode !== "verify_native") continue;
         const r = await deliverFrom(c, row, code, row.step + 1, `whatsapp_failed_${errCode}`);
         await c.store.updateDelivery(row.id, r.delivered ? r.patch : { ...r.patch, status: "exhausted" });
       }
@@ -333,18 +344,20 @@ export async function handleManualFallback(req: Request, deps: Deps): Promise<Re
   } catch {
     return done();
   }
-  if (phone.length < 8 || c.env.smsMode === "off") return done();
+  if (phone.length < 8) return done();
   try {
     const row = await c.store.latestActive(phone, c.now().toISOString());
-    if (!row || row.manual_fallback_used || isSms(row.current_channel)) return done();
-    const needsOurCode = c.env.smsMode !== "verify_native";
-    if (needsOurCode && !row.user_code_ciphertext) return done();
-    // Claim the fallback first so double taps can't send twice.
-    await c.store.updateDelivery(row.id, { manual_fallback_used: true });
+    if (!row || row.manual_fallback_used) return done();
+    // The next SMS channel after the one in use: WhatsApp -> Orange (where the
+    // route has it) -> Twilio. If the route has no SMS step left and the code
+    // went by WhatsApp, Twilio is added as the last resort.
     const smsStep = row.channels.findIndex((ch, i) => i > row.step && isSms(ch));
+    if (smsStep < 0 && isSms(row.current_channel)) return done();
     const channels = smsStep >= 0 ? row.channels : [...row.channels, "twilio_verify" as Channel];
     const startStep = smsStep >= 0 ? smsStep : channels.length - 1;
-    const code = needsOurCode ? await decryptCode(c.env.otpCodeKey, userAad(row.id), row.user_code_ciphertext!) : "";
+    // Claim the fallback first so double taps can't send twice.
+    await c.store.updateDelivery(row.id, { manual_fallback_used: true });
+    const code = row.user_code_ciphertext ? await decryptCode(c.env.otpCodeKey, userAad(row.id), row.user_code_ciphertext) : "";
     const r = await deliverFrom(c, { ...row, channels }, code, startStep, "manual");
     const keepStatus = row.status === "delivered" ? "delivered" : "sent";
     await c.store.updateDelivery(row.id, r.delivered ? { ...r.patch, channels, status: keepStatus } : { history: r.patch.history });
@@ -352,6 +365,43 @@ export async function handleManualFallback(req: Request, deps: Deps): Promise<Re
     c.log({ event: "fallback_error", message: (err as Error).message });
   }
   return done();
+}
+
+// POST /otp-delivery/orange-status?token=...  (Orange SMS delivery receipts)
+// Body: {"deliveryInfoNotification":{"deliveryInfo":{"address":"tel:+232…",
+// "deliveryStatus":"DeliveredToTerminal" | "DeliveryImpossible" | …}}}
+// DeliveryImpossible on the code we just sent by Orange -> Twilio Verify, once.
+export async function handleOrangeReceipt(req: Request, deps: Deps): Promise<Response> {
+  const c = ctx(deps);
+  const token = new URL(req.url).searchParams.get("token") ?? "";
+  if (!c.env.orangeReceiptToken || !timingSafeEqual(token, c.env.orangeReceiptToken)) {
+    c.log({ event: "orange_receipt_rejected", reason: "bad_token" });
+    return new Response("Forbidden", { status: 403 });
+  }
+  let info: { address?: string; deliveryStatus?: string } | undefined;
+  try {
+    info = (await req.json())?.deliveryInfoNotification?.deliveryInfo;
+  } catch {
+    return new Response("OK", { status: 200 });
+  }
+  const phone = digitsOnly(info?.address);
+  const status = String(info?.deliveryStatus ?? "");
+  if (phone.length < 8 || !status) return new Response("OK", { status: 200 });
+  try {
+    const row = await c.store.latestActive(phone, c.now().toISOString());
+    if (!row || row.current_channel !== "orange_sms") return new Response("OK", { status: 200 });
+    c.log({ event: "orange_status", id: row.id, status });
+    if (status === "DeliveredToTerminal") {
+      if (row.status === "sent") await c.store.updateDelivery(row.id, { status: "delivered", delivered_at: c.now().toISOString() });
+    } else if (status === "DeliveryImpossible" && row.status === "sent") {
+      const code = row.user_code_ciphertext ? await decryptCode(c.env.otpCodeKey, userAad(row.id), row.user_code_ciphertext) : "";
+      const r = await deliverFrom(c, row, code, row.step + 1, "orange_failed");
+      await c.store.updateDelivery(row.id, r.delivered ? r.patch : { ...r.patch, status: "exhausted" });
+    }
+  } catch (err) {
+    c.log({ event: "orange_receipt_error", message: (err as Error).message });
+  }
+  return new Response("OK", { status: 200 });
 }
 
 // POST /otp-delivery/verify  {phone, token, type?}

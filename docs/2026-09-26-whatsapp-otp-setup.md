@@ -1,6 +1,6 @@
 # WhatsApp-first phone OTP: setup and security model
 
-_Updated 2026-09-29. Do not enable the Send SMS hook until every item in
+_Updated 2026-11-06 (Orange SMS step for Sierra Leone). Do not enable the Send SMS hook until every item in
 "Before enabling" is done._
 
 ## Who owns and validates the code
@@ -62,10 +62,38 @@ so a long lockout let a stranger block a real user's signup or recovery for
 three days. Turn on Supabase CAPTCHA (Turnstile/hCaptcha) for sign-up and
 password recovery to cut abuse further.
 
+### Delivery order by country
+
+| Numbers | 1st | 2nd | 3rd |
+| --- | --- | --- | --- |
+| Sierra Leone (`+232`) | WhatsApp | Orange SMS | Twilio Verify |
+| Everyone else (`*`) | WhatsApp | Twilio Verify | — |
+
+Routes live in `kunthai_otp_routes` (longest calling-code prefix wins;
+`20261106120000_otp_sierra_leone_route.sql` adds `232`). A step whose
+provider has no credentials yet is skipped instantly, so **today, with only
+Twilio set up, every code goes out through Twilio Verify**. WhatsApp and
+Orange start being used the moment their secrets are set; no code change.
+
+The next step runs only when the current one **definitely** failed:
+
+- WhatsApp: API error, not configured, number not on WhatsApp, or a
+  `failed` status webhook from Meta.
+- Orange: not configured, number outside `ORANGE_SMS_NUMBER_PREFIXES`, bad
+  credentials, an API error, or a `DeliveryImpossible` delivery receipt.
+- A timeout is **not** definite (the message may still arrive), so nothing is
+  sent automatically; the person can tap "Send by SMS".
+
+"Send by SMS" (once per code) moves to the next SMS step after the one in
+use: on WhatsApp it sends Orange in Sierra Leone and Twilio elsewhere; after
+Orange it sends Twilio.
+
 ### SMS fallback: one attempt, never a conflicting code
 
-SMS goes out only on a definite WhatsApp failure (API error or a `failed`
-status webhook) or when the person taps "Send by SMS". No timer.
+SMS goes out only on a definite failure of the step before it (above) or when
+the person taps "Send by SMS". No timer.
+
+Orange always carries the same KunThai code. For Twilio:
 
 `OTP_SMS_MODE` picks how:
 
@@ -95,12 +123,41 @@ never a second Supabase code, so two sessions can't come from one attempt.
   finish a pending sign-in within its 10 minutes. Keep the key only in Edge
   Function secrets.
 
+## Orange SMS (Sierra Leone): turning it on
+
+Built for the Orange Developer SMS API (OAuth2 client credentials + the
+`smsmessaging/v1/outbound` endpoint). When Orange hands over the contract:
+
+1. Set secrets (`supabase secrets set … --project-ref gwiqnoymozmvzhfjvysy`):
+   - `ORANGE_CLIENT_ID`, `ORANGE_CLIENT_SECRET`: the app's credentials.
+   - `ORANGE_SMS_SENDER_ADDRESS`: the sender Orange assigns, e.g. `tel:+2320000`.
+   - `ORANGE_SMS_SENDER_NAME` (optional): an approved sender name such as `KunThai`.
+   - `ORANGE_SMS_NUMBER_PREFIXES` (optional): if Orange only delivers to its own
+     subscribers, list their prefixes with the country code, comma-separated
+     (e.g. `23275,23276,23278,23279`). Other numbers then skip to Twilio.
+   - `ORANGE_TOKEN_URL`, `ORANGE_API_BASE_URL`: only if Orange gives different
+     URLs (defaults `https://api.orange.com/oauth/v3/token` and
+     `https://api.orange.com`).
+   - `ORANGE_RECEIPT_TOKEN`: any long random string (`openssl rand -hex 24`).
+2. Subscribe to delivery receipts once, so a failed Orange SMS falls back to
+   Twilio:
+   ```bash
+   curl -X POST "https://api.orange.com/smsmessaging/v1/outbound/tel%3A%2B2320000/subscriptions" \
+     -H "Authorization: Bearer <access token>" -H "Content-Type: application/json" \
+     -d '{"deliveryReceiptSubscription":{"callbackReference":{"notifyURL":"https://gwiqnoymozmvzhfjvysy.supabase.co/functions/v1/otp-delivery/orange-status?token=<ORANGE_RECEIPT_TOKEN>","callbackData":"kunthai"}}}'
+   ```
+3. Redeploy `otp-delivery` so the new secrets load.
+
+Without receipts Orange still works; a lost SMS just isn't retried
+automatically (the "Send by SMS" button still sends Twilio).
+
 ## Endpoints (`/functions/v1/otp-delivery`, deployed with `--no-verify-jwt`)
 
 - `POST /` — Send SMS hook (Standard Webhooks signature, `SEND_SMS_HOOK_SECRET`)
 - `GET /webhook` — Meta `hub.challenge` (`WHATSAPP_WEBHOOK_VERIFY_TOKEN`)
 - `POST /webhook` — Meta status events, `X-Hub-Signature-256` with `WHATSAPP_APP_SECRET`
-- `POST /fallback` — `{ phone }`, "Send by SMS", once per code, same answer always
+- `POST /orange-status?token=…` — Orange delivery receipts (`ORANGE_RECEIPT_TOKEN`)
+- `POST /fallback` — `{ phone }`, "Send by SMS" (next SMS step), once per code, same answer always
 - `POST /verify` — `{ phone, token, type? }`, attempt-limited; returns a Supabase session
 
 ## Before enabling (in this order)
@@ -108,8 +165,9 @@ never a second Supabase code, so two sessions can't come from one attempt.
 1. Meta: `kunthai_login_code` approved (Authentication, Copy code, security
    line, "Expires in 10 minutes", language `en`); app published; webhook set
    with the `messages` field; WABA `1085681717402830` subscribed to the app.
-2. Apply migrations `20260926170000_otp_delivery_chain.sql` and
-   `20260928120000_otp_delivery_hardening.sql`.
+2. Apply migrations `20260926170000_otp_delivery_chain.sql`,
+   `20260928120000_otp_delivery_hardening.sql` and
+   `20261106120000_otp_sierra_leone_route.sql`.
 3. Supabase Auth config (Management API or dashboard):
    `sms_otp_length = 10`, `sms_otp_exp = 600`; raise the token-verification
    rate limit (all `/verify` calls now come from the Edge Function).
@@ -118,7 +176,9 @@ never a second Supabase code, so two sessions can't come from one attempt.
    `WHATSAPP_PHONE_NUMBER_ID=1394928910365376`,
    `WHATSAPP_OTP_TEMPLATE=kunthai_login_code`, `WHATSAPP_OTP_TEMPLATE_LANG=en`,
    `WHATSAPP_APP_SECRET`, `WHATSAPP_WEBHOOK_VERIFY_TOKEN`, `TWILIO_ACCOUNT_SID`,
-   `TWILIO_AUTH_TOKEN`, `TWILIO_VERIFY_SERVICE_SID`, `OTP_SMS_MODE`.
+   `TWILIO_AUTH_TOKEN`, `TWILIO_VERIFY_SERVICE_SID`, `OTP_SMS_MODE`, and the
+   Orange secrets above once Orange is ready. Missing WhatsApp or Orange
+   secrets are fine: those steps are skipped and Twilio sends.
    `SUPABASE_URL`, `SUPABASE_ANON_KEY` and `SUPABASE_SERVICE_ROLE_KEY` are
    provided automatically.
 5. `supabase functions deploy otp-delivery --no-verify-jwt --project-ref gwiqnoymozmvzhfjvysy`

@@ -5,7 +5,8 @@
 //   POST /otp-delivery            Supabase Send SMS Hook (Standard Webhooks signature)
 //   GET  /otp-delivery/webhook    Meta webhook verification (hub.challenge)
 //   POST /otp-delivery/webhook    Meta status events (X-Hub-Signature-256)
-//   POST /otp-delivery/fallback   "Send code by SMS instead" (same code, once)
+//   POST /otp-delivery/orange-status?token=…  Orange SMS delivery receipts
+//   POST /otp-delivery/fallback   "Send code by SMS instead" (next SMS channel, once)
 //   POST /otp-delivery/verify     Attempt-limited check; exchanges Supabase's
 //                                 internal code for a session
 
@@ -14,6 +15,7 @@ import {
   CORS_HEADERS,
   type Env,
   handleManualFallback,
+  handleOrangeReceipt,
   handleSendSmsHook,
   handleWebhookEvent,
   handleVerify,
@@ -56,6 +58,16 @@ const env: Env = {
   maxAttempts: num(Deno.env.get("OTP_MAX_ATTEMPTS"), 5),
   unreachableDays: num(Deno.env.get("OTP_WHATSAPP_UNREACHABLE_DAYS"), 30),
   hookBudgetMs: num(Deno.env.get("OTP_HOOK_BUDGET_MS"), 4000),
+  // Orange SMS (Sierra Leone route). Leave ORANGE_CLIENT_ID unset until the
+  // contract is live: the Orange step is then skipped and Twilio is used.
+  orangeClientId: get("ORANGE_CLIENT_ID"),
+  orangeClientSecret: get("ORANGE_CLIENT_SECRET"),
+  orangeSenderAddress: get("ORANGE_SMS_SENDER_ADDRESS"),
+  orangeSenderName: get("ORANGE_SMS_SENDER_NAME"),
+  orangeTokenUrl: get("ORANGE_TOKEN_URL") || "https://api.orange.com/oauth/v3/token",
+  orangeApiBaseUrl: get("ORANGE_API_BASE_URL") || "https://api.orange.com",
+  orangeNumberPrefixes: get("ORANGE_SMS_NUMBER_PREFIXES").split(",").map((p) => p.replace(/\D/g, "")).filter(Boolean),
+  orangeReceiptToken: get("ORANGE_RECEIPT_TOKEN"),
 };
 
 const store = supabaseStore(
@@ -71,6 +83,7 @@ Deno.serve(async (req) => {
     if (route === "/" && req.method === "POST") return await handleSendSmsHook(req, deps);
     if (route === "/webhook" && req.method === "GET") return handleWebhookVerify(req, deps);
     if (route === "/webhook" && req.method === "POST") return await handleWebhookEvent(req, deps);
+    if (route === "/orange-status" && req.method === "POST") return await handleOrangeReceipt(req, deps);
     if (route === "/fallback" && req.method === "POST") return await handleManualFallback(req, deps);
     if (route === "/verify" && req.method === "POST") return await handleVerify(req, deps);
     return new Response("Not found", { status: 404 });
