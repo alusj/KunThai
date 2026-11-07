@@ -43,7 +43,20 @@ export let previewCases = [
     case_type: "operator_verification", resource_type: "transport_operator_verification", title: "Operator identity review",
     description: "Licence and vehicle ownership documents are ready for manual review.", status: "new", priority: "urgent",
     subject_user_id: "user-1", assignee_user_id: null, created_at: hoursAgo(1.2), updated_at: hoursAgo(1.2), sla_due_at: hoursAhead(0.8),
-    metadata: { source: { full_name: "Mohamed Kamara", city: "Freetown", country: "Sierra Leone", country_iso: "SL", display_code: "KT-18426" } },
+    metadata: {
+      source: { full_name: "Mohamed Kamara", city: "Freetown", country: "Sierra Leone", country_iso: "SL", display_code: "KT-18426" },
+      owner: { kind: "operator", id: "preview-operator-1", name: "Mohamed Kamara", code: "18426" },
+    },
+  },
+  {
+    id: "8dbce57b-e46b-4a38-8c28-0dd801f2f109", case_number: 1129, sector: "transport", queue: "verification",
+    case_type: "document_verification", resource_type: "transport_document_verification", title: "Document Verification",
+    description: "", status: "new", priority: "normal",
+    subject_user_id: null, assignee_user_id: null, created_at: hoursAgo(1.1), updated_at: hoursAgo(1.1), sla_due_at: hoursAhead(22),
+    metadata: {
+      source: { operator_id: "preview-operator-1", document_type: "drivers_license", country_iso: "SL" },
+      owner: { kind: "operator", id: "preview-operator-1", name: "Mohamed Kamara", code: "18426" },
+    },
   },
   {
     id: "8dbce57b-e46b-4a38-8c28-0dd801f2f102", case_number: 1127, sector: "explore", queue: "reports",

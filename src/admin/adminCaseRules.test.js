@@ -11,6 +11,8 @@ import {
   fallbackDecisionCapabilities,
   fetchAllPages,
   filterMyWork,
+  formatCaseOwner,
+  getCaseOwner,
   isMissingRpcError,
   isSignedUrlStale,
   isoToDateTimeLocal,
@@ -85,10 +87,34 @@ test("server dashboard counts win over loaded-case counts unless a country filte
 
 test("server search filter escapes wildcards and or() syntax", () => {
   assert.equal(buildCaseSearchOrFilter(""), "");
-  assert.equal(buildCaseSearchOrFilter("scam"), 'title.ilike."%scam%",description.ilike."%scam%"');
+  assert.equal(
+    buildCaseSearchOrFilter("scam"),
+    'title.ilike."%scam%",description.ilike."%scam%",metadata->owner->>name.ilike."%scam%",metadata->owner->>code.ilike."%scam%"',
+  );
   const tricky = buildCaseSearchOrFilter('50% off, (fake) "deal"_x');
-  assert.equal(tricky, 'title.ilike."%50\\\\% off, (fake) \\"deal\\"\\\\_x%",description.ilike."%50\\\\% off, (fake) \\"deal\\"\\\\_x%"');
+  assert.ok(tricky.startsWith('title.ilike."%50\\\\% off, (fake) \\"deal\\"\\\\_x%",description.ilike."%50\\\\% off, (fake) \\"deal\\"\\\\_x%",'));
   assert.ok(buildCaseSearchOrFilter("KT-000123").endsWith(",case_number.eq.123"));
+  assert.doesNotMatch(buildCaseSearchOrFilter("KT-000123"), /owner->>code\.eq/, "a zero-padded number is a case number");
+  // KT-51337 is how an operator's dashboard shows operator 51337.
+  assert.match(buildCaseSearchOrFilter("KT-51337"), /metadata->owner->>code\.eq\.51337/);
+  assert.match(buildCaseSearchOrFilter("51337"), /metadata->owner->>code\.ilike\."%51337%"/);
+});
+
+test("a case names the operator, company or business it is about", () => {
+  const owner = { kind: "operator", id: "op-1", name: "Alusine Kamara", code: "51337" };
+  const documentCase = { resource_type: "transport_document_verification", title: "Document Verification", metadata: { owner, source: { operator_id: "op-1" } } };
+  assert.deepEqual(getCaseOwner(documentCase), owner);
+  assert.equal(formatCaseOwner(documentCase), "Alusine Kamara · Operator 51337");
+  assert.equal(formatCaseOwner({ metadata: { owner: { kind: "company", name: "KunThai TP", code: "KTC-1X9QXCK" } } }), "KunThai TP · Company KTC-1X9QXCK");
+  assert.equal(formatCaseOwner({ metadata: { owner: { kind: "business", name: "Kallon Home", code: "UM-14288" } } }), "Kallon Home · Business UM-14288");
+  // Older cases, or a deleted account: the name and code saved on the case.
+  assert.equal(
+    formatCaseOwner({ resource_type: "transport_operator_verification", resource_id: "op-2", metadata: { source: { full_name: "Alus Jay", operator_code: 27716 } } }),
+    "Alus Jay · Operator 27716",
+  );
+  assert.equal(formatCaseOwner({ resource_type: "transport_document_verification", metadata: { source: { operator_id: "gone" } } }), "");
+  assert.equal(getCaseOwner({ resource_type: "explore_post_report", metadata: { source: { full_name: "x" } } }), null);
+  assert.equal(formatCaseOwner({}), "");
 });
 
 test("authority is taken per sector, capped by the staff level", () => {
@@ -174,3 +200,14 @@ test("Approve & recommend is offered on operator, UrRide company and vehicle, an
   assert.equal(fleet.approve_recommend.reason, DECISION_REASONS.notRecommendable);
   assert.equal(classifyDecisionResult({ id: "case", status: "resolved", resolution_code: "approve_recommend" }, "approve_recommend"), "applied");
 });
+
+test("the migration stores the owner the console reads", async () => {
+  const { readFileSync } = await import("node:fs");
+  const sql = readFileSync(new URL("../../supabase/migrations/20261028150000_admin_case_owner_codes.sql", import.meta.url), "utf8");
+  for (const [kind, name, code] of [["operator", "operator.full_name", "operator.operator_code"], ["company", "company.company_name", "company.company_code"], ["business", "business.business_name", "business.public_business_id"]]) {
+    assert.match(sql, new RegExp(`'kind', '${kind}', 'id', [a-z]+\\.id, 'name', ${name.replace(".", "\\.")}, 'code', ${code.replace(".", "\\.")}`), kind);
+  }
+  assert.match(sql, /create trigger admin_cases_attach_owner\s+before insert on public\.admin_cases/);
+});
+
+

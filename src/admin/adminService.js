@@ -18,6 +18,7 @@ import {
   dateTimeLocalToIso,
   fallbackDecisionCapabilities,
   fetchAllPages,
+  getCaseOwner,
   isMissingRpcError,
   mergeCaseLists,
   normalizeDecisionCapabilities,
@@ -175,7 +176,10 @@ export function getCaseSearchText(item = {}) {
     .filter(([, value]) => value === null || ["string", "number", "boolean"].includes(typeof value))
     .map(([key, value]) => `${key} ${value}`)
     .join(" ");
-  return `${item.case_number || ""} ${item.title || ""} ${item.description || ""} ${item.sector || ""} ${item.queue || ""} ${getCaseTypeLabel(item)} ${getCaseCountryLabel(item)} ${sourceText}`.toLowerCase();
+  const owner = getCaseOwner(item);
+  // Operator codes also as the operator dashboard shows them (KT-51337).
+  const ownerText = owner ? `${owner.name} ${owner.code} ${owner.kind === "operator" && owner.code ? `kt-${owner.code}` : ""}` : "";
+  return `${item.case_number || ""} ${item.title || ""} ${item.description || ""} ${item.sector || ""} ${item.queue || ""} ${getCaseTypeLabel(item)} ${getCaseCountryLabel(item)} ${sourceText} ${ownerText}`.toLowerCase();
 }
 
 function titleCaseForService(value = "") {
@@ -239,6 +243,26 @@ export async function getAdminCases(filters = {}) {
   if (searchFilter) query = query.or(searchFilter);
   const rows = unwrap(await query, "Unable to load admin cases.") || [];
   return filters.country ? rows.filter((item) => matchesCaseCountry(item, filters.country)) : rows;
+}
+
+// Verification cases about one operator, company or business (directory
+// drawer), newest first: the account case itself plus its vehicle and
+// document cases, which name it in metadata.owner.
+export async function getOwnerVerificationCases(ownerId, limit = 100) {
+  if (!ownerId) return [];
+  if (isAdminPreview()) {
+    return previewDelay(previewCases.filter((item) => item.queue === "verification"
+      && (item.resource_id === ownerId || getCaseOwner(item)?.id === ownerId)));
+  }
+  const id = String(ownerId).replace(/[^0-9a-f-]/gi, "");
+  const rows = unwrap(await supabase
+    .from("admin_cases")
+    .select("*")
+    .eq("queue", "verification")
+    .or(`resource_id.eq.${id},metadata->owner->>id.eq.${id}`)
+    .order("created_at", { ascending: false })
+    .limit(limit), "Unable to load this record's cases.") || [];
+  return rows;
 }
 
 const OPEN_CASE_PAGE_SIZE = 1000;

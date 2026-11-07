@@ -199,9 +199,9 @@ function AdminWorkspace({ access, user, preview }) {
   if (page === "overview") content = <OverviewView pulse={<PlatformPulse canOpen={(id) => visiblePages.has(id)} onOpen={setPage} />} summary={visibleSummary} cases={countryCases} onOpenCase={setSelectedCase} onNavigate={setPage} refreshing={refreshing} onRefresh={() => refresh(true)} />;
   else if (page === "my-work") content = <QueueView title={globalSearch ? i18nText("ui.literals.kc7e7e82fe077", { value0: globalSearch }) : i18nText("ui.literals.k57a125343d6e")} description={globalSearch ? i18nText("ui.literals.k2d6c8f04b6bd") : i18nText("ui.literals.k2d21261b5279")} cases={globalSearch ? searchedCases : myWorkCases} onOpenCase={setSelectedCase} />;
   else if (page === "users") content = <UsersView access={access} />;
-  else if (page === "urmall-businesses") content = <DirectoryView key={`biz-${navKey}`} pageId={page} targetType="marketplace_business" access={access} />;
-  else if (page === "urride-operators") content = <DirectoryView key={`op-${navKey}`} pageId={page} targetType="transport_operator" access={access} />;
-  else if (page === "urride-companies") content = <DirectoryView key={`co-${navKey}`} pageId={page} targetType="transport_company" access={access} />;
+  else if (page === "urmall-businesses") content = <DirectoryView key={`biz-${navKey}`} pageId={page} targetType="marketplace_business" access={access} onOpenCase={setSelectedCase} />;
+  else if (page === "urride-operators") content = <DirectoryView key={`op-${navKey}`} pageId={page} targetType="transport_operator" access={access} onOpenCase={setSelectedCase} />;
+  else if (page === "urride-companies") content = <DirectoryView key={`co-${navKey}`} pageId={page} targetType="transport_company" access={access} onOpenCase={setSelectedCase} />;
   else if (["explore", "marketplace", "transport"].includes(page)) content = <SectorView sector={page} cases={countryCases} onOpenCase={setSelectedCase} />;
   else if (page === "verification") content = <VerificationQueueView title={i18nText("ui.literals.k03128bed9062")} description={i18nText("ui.literals.k549d652bdd02")} cases={countryCases} onOpenCase={setSelectedCase} />;
   else if (page === "reports") content = <QueueView title={i18nText("ui.literals.k6d18054c6543")} description={i18nText("ui.literals.ke6c9a95abd64")} cases={countryCases} defaultQueue="reports" onOpenCase={setSelectedCase} />;
@@ -234,7 +234,7 @@ function AdminWorkspace({ access, user, preview }) {
       {error ? <div role="alert" className="mb-4 rounded-lg border border-red-200 bg-red-50 px-4 py-3 text-sm font-semibold text-red-700">{translateUi(error)}</div> : null}
       <GlobalOperationsFilter countryFilter={countryFilter} countryOptions={countryOptions} onCountryFilterChange={setCountryFilter} totalCases={cases.length} visibleCases={countryCases.length} />
       {content}
-      {selectedCase ? <CaseDrawer item={selectedCase} access={access} currentUserId={user?.id} onClose={() => setSelectedCase(null)} onUpdated={updateCase} onOpenCase={setSelectedCase} /> : null}
+      {selectedCase ? <CaseDrawer key={selectedCase.id} item={selectedCase} access={access} currentUserId={user?.id} onClose={() => setSelectedCase(null)} onUpdated={updateCase} onOpenCase={setSelectedCase} /> : null}
       {preview ? null : <AiAssistantHost />}
       {preview ? null : <AiFloatingButton />}
     </AdminShell>

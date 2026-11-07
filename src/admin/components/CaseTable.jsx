@@ -1,6 +1,7 @@
 import { ArrowUpRight, CircleUserRound } from "lucide-react";
 import { caseStatusLabel, formatCaseNumber, formatRelativeTime, titleCase } from "../adminConfig";
 import { getCaseCountryLabel, getCaseTypeLabel } from "../adminService";
+import { formatCaseOwner } from "../adminCaseRules.js";
 import { t as i18nText } from "../../i18n/index";
 import { uiText as translateUi, useI18n as useUiLocale } from "../../i18n/index.js";
 
@@ -53,6 +54,7 @@ export default function CaseTable({ cases = [], onOpen, emptyTitle = "No cases i
                 <td className="whitespace-nowrap px-4 py-3 text-xs font-black text-zinc-700">{formatCaseNumber(item.case_number)}</td>
                 <td className="max-w-sm px-4 py-3">
                   <p className="truncate text-sm font-black text-zinc-950">{item.title}</p>
+                  {formatCaseOwner(item) ? <p className="mt-0.5 truncate text-xs font-bold text-emerald-700">{formatCaseOwner(item)}</p> : null}
                   <p className="mt-1 truncate text-xs font-medium text-zinc-500">{titleCase(item.queue)} · {titleCase(item.case_type)}</p>
                 </td>
                 <td className="px-4 py-3"><span className={`inline-flex rounded-full px-2 py-1 text-[11px] font-black ${sectorStyles[item.sector] || sectorStyles.platform}`}>{item.sector === "marketplace" ? "UrMall" : titleCase(item.sector)}</span></td>
@@ -83,6 +85,7 @@ export default function CaseTable({ cases = [], onOpen, emptyTitle = "No cases i
               <div>
                 <p className="text-xs font-black text-zinc-500">{formatCaseNumber(item.case_number)}</p>
                 <p className="mt-1 text-sm font-black text-zinc-950">{item.title}</p>
+                {formatCaseOwner(item) ? <p className="mt-0.5 text-xs font-bold text-emerald-700">{formatCaseOwner(item)}</p> : null}
               </div>
               <ArrowUpRight className="shrink-0 text-zinc-400" size={18} />
             </div>

@@ -1,7 +1,7 @@
 import { useEffect, useRef, useState } from "react";
 import { CheckCircle2, ClipboardCheck, ExternalLink, FileAudio, FileText, FileVideo, Image as ImageIcon, LoaderCircle, MessageSquareText, RotateCcw, ShieldCheck, ShieldOff, SlidersHorizontal, UserRoundCheck, X } from "lucide-react";
 import { ADMIN_SECTORS, CASE_DECISIONS, CASE_STATUSES, caseStatusLabel, formatCaseNumber, formatDateTime, formatRelativeTime, titleCase } from "../adminConfig";
-import { classifyDecisionResult, dateTimeLocalToIso, isSignedUrlStale, isoToDateTimeLocal, sectorAuthorityLevel } from "../adminCaseRules.js";
+import { classifyDecisionResult, dateTimeLocalToIso, formatCaseOwner, isSignedUrlStale, isoToDateTimeLocal, sectorAuthorityLevel } from "../adminCaseRules.js";
 import { ACCOUNT_CONTROL_REASON_SUGGESTIONS, INTERNAL_NOTE_SUGGESTIONS, applyCaseContext, getDecisionReasonSuggestions } from "../adminTextSuggestions";
 import { addCaseNote, applyCaseDecision, claimCase, getAdminAccountControl, getAdminCaseContent, getAdminCaseEvidence, getCaseActionHistory, getCaseActivity, getCaseCountryLabel, getCaseDecisionCapabilities, getCaseTypeLabel, getVerificationRequests, requestVerificationDocuments, resignEvidenceUrl, reviewCaseApproval, setAdminUserStatus, transitionCase, undoCaseAction } from "../adminService";
 import SuggestedTextSelect from "./SuggestedTextSelect";
@@ -311,6 +311,7 @@ export default function CaseDrawer({ item, access, currentUserId = "", onClose, 
               <span className="rounded-full bg-amber-50 px-2 py-1 text-amber-800">{titleCase(item.priority)}</span>
             </div>
             <h1 className="mt-4 text-xl font-black text-zinc-950">{item.title}</h1>
+            {formatCaseOwner(item) ? <p className="mt-1 text-sm font-black text-emerald-700">{formatCaseOwner(item)}</p> : null}
             <p className="mt-2 text-sm font-medium leading-6 text-zinc-600">{item.description || i18nText("ui.literals.k18793984046d")}</p>
 
             <dl className="mt-5 grid gap-4 border-t border-zinc-100 pt-5 sm:grid-cols-2 lg:grid-cols-5">
