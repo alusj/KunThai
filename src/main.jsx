@@ -16,6 +16,8 @@ import { initCountryConfig } from "./Backend/services/countryConfigService.js";
 import { t as i18nText } from "./i18n/index";
 import { installMobileViewportVariables } from "./Backend/services/mobileViewportService";
 import { installKeyboardFieldVisibility } from "./Backend/services/keyboardFieldVisibility";
+import { installTypingLayers } from "./Backend/services/typingLayers";
+import { installOverlayScrollLock } from "./Backend/services/overlayScrollLock";
 import { installNativeShare } from "./Backend/services/nativeShare";
 import { installNativeGeolocation } from "./Backend/services/nativeGeolocation";
 import { lazyWithRetry } from "./Backend/utils/lazyWithRetry";
@@ -53,6 +55,8 @@ initCountryConfig();
 installMobileViewportVariables();
 // The field being typed in always glides clear of the keyboard.
 installKeyboardFieldVisibility();
+installTypingLayers();
+installOverlayScrollLock();
 // In the iOS / Android app, Share buttons open the phone's share sheet and
 // share kunthai.app links rather than the app's on-device address.
 installNativeShare();

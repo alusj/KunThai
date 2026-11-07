@@ -225,6 +225,30 @@
     padding-bottom: calc(var(--kt-safe-area-bottom) + 0.75rem);
   }
 
+  /* typingLayers.js: while a field is being typed in, the screens drawn
+     underneath its own screen are hidden (they keep their place), and a
+     partial sheet holding the field fills the screen. Toasts stay. */
+  [data-kt-under-typing] {
+    visibility: hidden !important;
+  }
+
+  [data-kt-keep-visible] {
+    visibility: visible !important;
+  }
+
+  [data-kt-typing-full] {
+    box-sizing: border-box !important;
+    height: 100% !important;
+    max-height: 100% !important;
+    min-height: 0 !important;
+    margin-top: 0 !important;
+    margin-bottom: 0 !important;
+    align-self: stretch !important;
+    padding-top: var(--kt-safe-area-top, 0px) !important;
+    border-top-left-radius: 0 !important;
+    border-top-right-radius: 0 !important;
+  }
+
   .kt-conversation-screen {
     box-sizing: border-box;
     /* Lifts the message box above a keyboard the app page has not made room

@@ -110,6 +110,7 @@ export default function ToastProvider({ children }) {
       {/* An elevated toast (a background registration finishing) lifts the
           stack above modals and full-screen overlays while it is shown. */}
       <div
+        data-kt-keep-visible
         className="pointer-events-none fixed inset-x-0 top-[calc(env(safe-area-inset-top)+0.75rem)] z-[1700] flex flex-col items-center gap-2 px-3 sm:top-5"
         style={items.some((item) => item.elevated && !item.leaving) ? { zIndex: 2147483150 } : undefined}
       >

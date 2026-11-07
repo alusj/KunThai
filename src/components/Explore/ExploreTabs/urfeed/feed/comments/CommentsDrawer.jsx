@@ -27,6 +27,7 @@ import { useI18n } from "../../../../../../i18n";
 import ErrorState from "../../../../shared/ErrorState";
 import CommentDrawerComposer from "./CommentDrawerComposer";
 import CommentItem from "./CommentItem";
+import useBodyScrollLock from "../../../../../shared/useBodyScrollLock";
 import { postInteractionRules } from "../../../../../../Backend/services/explore/postControls";
 import { checkOwnAccountDeactivated } from "../../../../../../Backend/services/accountLifecycleService";
 import { uiText as translateUi, useI18n as useUiLocale } from "../../../../../../i18n/index.js";
@@ -52,6 +53,9 @@ export default function CommentsDrawer({ currentUserId, onClose, onCountChange, 
   const listRef = useRef(null);
   const sendPreviewTimerRef = useRef(null);
   const comments = useExploreComments(post?.id, currentUserId, post, open || rendered);
+  // The screen behind the comments stays still: swipes only scroll the
+  // comment list itself (or nothing).
+  useBodyScrollLock(Boolean(open || rendered));
   const isPostOwner = Boolean(currentUserId && post?.user_id === currentUserId);
   const commentRules = postInteractionRules(post || {}, { isOwner: isPostOwner, followsAuthor: true });
   const isSwip = Boolean(post?.video_url || String(post?.feed_scope || "").toLowerCase() === "swip");
