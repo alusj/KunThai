@@ -43,6 +43,7 @@ import {
 } from "../../services/passengerTransportService";
 import SavedAddressSuggestions from "../../shared/savedAddresses/SavedAddressSuggestions";
 import { getSavedAddressContact } from "../../shared/savedAddresses/savedAddressModel";
+import FrontPictureField from "../../shared/frontPicture/FrontPictureField";
 import { haptics, sounds } from "../../../Backend/services/feedbackService";
 import { fetchTransportFleets } from "../../services/transportFleetService";
 import {
@@ -164,6 +165,7 @@ export default function TransportBookingDrawer({ open, target, onClose, onCreate
     packageDescription: "",
     receiverPhone: "",
     note: "",
+    frontPictureUrl: "",
     bookingMethod: "distance",
     bookedHours: "1",
   });
@@ -271,6 +273,7 @@ export default function TransportBookingDrawer({ open, target, onClose, onCreate
       packageDescription: draftForm?.packageDescription || "",
       receiverPhone: draftForm?.receiverPhone || "",
       note: draftForm?.note || "",
+      frontPictureUrl: draftForm?.frontPictureUrl || "",
     }));
   }, [open, target]);
 
@@ -738,6 +741,7 @@ export default function TransportBookingDrawer({ open, target, onClose, onCreate
                       pickupPoint: normalizeBookingLocationPoint(place),
                       ...(contact.name ? { passengerName: contact.name } : {}),
                       ...(contact.phone ? { phone: contact.phone } : {}),
+                      ...(contact.frontPictureUrl ? { frontPictureUrl: contact.frontPictureUrl } : {}),
                     });
                   }}
                   onLocateMe={() => openBookingLocationPicker("pickup", "current")}
@@ -761,6 +765,8 @@ export default function TransportBookingDrawer({ open, target, onClose, onCreate
                       dropoff: getBookingLocationInputValue(place),
                       dropoffPoint: normalizeBookingLocationPoint(place),
                       ...(contact.phone ? { receiverPhone: contact.phone } : {}),
+                      // A parcel goes to the drop-off: its picture is the useful one.
+                      ...(contact.frontPictureUrl ? { frontPictureUrl: contact.frontPictureUrl } : {}),
                     });
                   }}
                   onLocateMe={() => openBookingLocationPicker("dropoff", "current")}
@@ -864,6 +870,12 @@ export default function TransportBookingDrawer({ open, target, onClose, onCreate
                   className="w-full resize-none rounded-xl border border-gray-200 bg-gray-50 px-3 py-3 text-sm font-semibold outline-none focus:border-emerald-500"
                 />
               </label>
+
+              <FrontPictureField
+                value={form.frontPictureUrl}
+                onChange={(value) => updateForm({ frontPictureUrl: value })}
+                disabled={submitting}
+              />
             </section>
 
             <section className="mt-4 rounded-2xl border border-amber-200 bg-amber-50 p-4">

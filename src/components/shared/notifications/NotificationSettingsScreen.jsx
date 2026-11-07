@@ -184,6 +184,15 @@ function NotificationSettingsContent({ sector = "explore" }) {
           busy={savingKey === "social_enabled"}
           onChange={(value) => setUnifiedKey("social_enabled", value)}
         />
+        {/* Same switch as Settings > Sounds > In-app banners: on, a
+            notification from another section pops up on whatever screen is
+            open; off, no notification pop-ups anywhere in the app. */}
+        <Row
+          label={t("notificationHub.globalToasts")}
+          detail={t("notificationHub.globalToastsDetail")}
+          checked={exploreSettings?.feedbackFx?.banners !== false}
+          onChange={(value) => updateSection("feedbackFx", { banners: value })}
+        />
         {unified.social_enabled !== false ? (
           <div className="px-3 py-3">
             <p className="px-1 pb-2 text-xs font-black uppercase tracking-wide text-slate-400">{t("notificationHub.alertTypes")}</p>

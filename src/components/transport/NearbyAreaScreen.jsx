@@ -78,6 +78,7 @@ import { buildTrafficIntelligence } from "../../Backend/services/trafficSignals"
 import { uiText as translateUi, useI18n as useUiLocale } from "../../i18n/index.js";
 import AppPortal from "../shared/AppPortal";
 import TransportCautionSheet from "./shared/TransportCautionSheet";
+import LiveLocationViewer from "../shared/liveLocation/LiveLocationViewer";
 
 const DROP_PIN_CARD_REVEAL_DELAY_MS = 4_000;
 
@@ -952,6 +953,42 @@ function NearbyAreaScreenContent({
   const [selectionLocked, setSelectionLocked] = useState(false);
   const [mapInstance, setMapInstance] = useState(null);
   const [selectedSearchLocation, setSelectedSearchLocation] = useState(null);
+  // Before a route starts the person sees the place first (where it is, how
+  // far, about how long) and picks Route there or Close. `fromEntry` = Area
+  // View was opened just to route there (a shop, a profile, a booking): Close
+  // then goes back where they came from.
+  const [routePreview, setRoutePreview] = useState(null);
+
+  function previewRouteTo(location, { fromEntry = false } = {}) {
+    if (!Number.isFinite(Number(location?.lat)) || !Number.isFinite(Number(location?.lng))) {
+      setSelectedSearchLocation(location);
+      return;
+    }
+    setSelectedSearchLocation(null);
+    setRoutePreview({ location, fromEntry });
+  }
+
+  // A route requested from outside Area View. Screens that already showed the
+  // place (Live location viewer) and emergencies route straight away.
+  function startEntryRoute(location) {
+    if (initialDestination?.routePreviewed || initialEmergencyRequest) {
+      setSelectedSearchLocation(location);
+      return;
+    }
+    previewRouteTo(location, { fromEntry: true });
+  }
+
+  function confirmRoutePreview() {
+    const location = routePreview?.location;
+    setRoutePreview(null);
+    if (location) setSelectedSearchLocation(location);
+  }
+
+  function closeRoutePreview() {
+    const fromEntry = routePreview?.fromEntry;
+    setRoutePreview(null);
+    if (fromEntry) onBack?.();
+  }
   const [operatorRoutePlan, setOperatorRoutePlan] = useState(null);
   const [recenterSignal, setRecenterSignal] = useState(0);
   const [fleetFocusRequest, setFleetFocusRequest] = useState(null);
@@ -1608,7 +1645,7 @@ function NearbyAreaScreenContent({
           setSearchResults([]);
           setLocationPanelOpen(false);
           setSearchOverlayOpen(false);
-          if (autoRoute) setSelectedSearchLocation(resolvedDestination);
+          if (autoRoute) startEntryRoute(resolvedDestination);
 
           saveSearchHistory({ query: searchText, result: resolvedDestination, selected: true }).then(() => {
             getRecentSearchHistory().then(setRecentSearches);
@@ -1641,13 +1678,15 @@ function NearbyAreaScreenContent({
     setSearching(false);
     setLocationPanelOpen(false);
     setSearchOverlayOpen(false);
-    if (autoRoute) setSelectedSearchLocation(destination);
+    if (autoRoute) startEntryRoute(destination);
 
     flyMapTo(mapInstance, {
       center: [destination.lng, destination.lat],
       zoom: 15.5,
       essential: true,
     });
+    // startEntryRoute only reads props this effect already depends on.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [autoRoute, initialDestination, initialDestinationKey, mapInstance]);
 
   useEffect(() => {
@@ -2177,7 +2216,7 @@ function NearbyAreaScreenContent({
     setLocationPanelOpen(false);
     setSearchOverlayOpen(false);
     setOperatorRoutePlan(null);
-    setSelectedSearchLocation(result);
+    previewRouteTo(result);
 
     if (document.activeElement) document.activeElement.blur();
 
@@ -2666,6 +2705,22 @@ function NearbyAreaScreenContent({
             onConfirm={acceptAreaViewGuide}
           />
         ) : null}
+
+        <LiveLocationViewer
+          open={Boolean(routePreview)}
+          title={routePreview?.location?.name || routePreview?.location?.label || ""}
+          source={routePreview ? {
+            kind: "place",
+            lat: routePreview.location.lat,
+            lng: routePreview.location.lng,
+            address: routePreview.location.address || routePreview.location.fullAddress || "",
+            // App categories ("Restaurant", "Destination") are shown; raw map
+            // types from search ("unclassified", "residential") are not.
+            subtitle: /^[A-Z]/.test(String(routePreview.location.category || "")) ? routePreview.location.category : "",
+          } : null}
+          onRoute={confirmRoutePreview}
+          onClose={closeRoutePreview}
+        />
 
         <EmergencySheet
           open={sosOpen}

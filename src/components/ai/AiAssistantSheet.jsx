@@ -1,4 +1,5 @@
 import { useEffect, useMemo, useRef, useState } from "react";
+import useBackdropClose from "./useBackdropClose";
 import { AnimatePresence, motion } from "framer-motion";
 import { createPortal } from "react-dom";
 import {
@@ -114,6 +115,7 @@ export default function AiAssistantSheet({ open, request, onClose }) {
   const startedRef = useRef("");
 
   useBodyScrollLock(open);
+  const closeFromBackdrop = useBackdropClose(open, onClose);
 
   const sourceText = String(request?.text || "").trim();
   const resultKind = ai.result?.kind || "";
@@ -291,7 +293,7 @@ export default function AiAssistantSheet({ open, request, onClose }) {
           exit={{ opacity: 0 }}
           transition={{ duration: 0.18 }}
           role="presentation"
-          onMouseDown={onClose}
+          onMouseDown={closeFromBackdrop}
         >
           <motion.section
             role="dialog"

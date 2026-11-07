@@ -31,6 +31,7 @@ import { getMyRegion, selectRegionScopedPromotions } from "../regions/regionServ
 import { promotionHasCountryTargets, promotionReachesCountry } from "../regions/promotionTargeting";
 import { rankMarketplaceProductsNearby, rankMarketplacePromotionsForBuyer } from "./marketplaceDiscovery";
 import { getBuyerInterests, recordBuyerSignal } from "./buyerInterestService";
+import { FRONT_PICTURE_KINDS, saveFrontPicture } from "../frontPictureService";
 
 function toOptionalNumber(value) {
   if (value === null || value === undefined || value === "") return null;
@@ -1320,6 +1321,12 @@ export async function createBuyerProductOrder(product, orderInput = {}) {
     });
 
   if (error) throw new Error(error.message);
+
+  // Optional front picture of the delivery address. Never fails the order.
+  const orderId = Array.isArray(data) ? data[0]?.id : data?.id;
+  if (orderInput.frontPictureUrl && orderInput.fulfillment !== "pickup" && orderId) {
+    await saveFrontPicture(FRONT_PICTURE_KINDS.order, orderId, orderInput.frontPictureUrl);
+  }
 
   invalidateCache("buyer-orders");
   window.dispatchEvent(new CustomEvent("marketplace-orders-updated"));

@@ -3060,7 +3060,7 @@ function CompanyActivityDrawer({ activities, company, notificationPreferences, o
               <article
                 key={activity.id}
                 onClick={() => onRead?.(activity)}
-                className={`rounded-2xl border p-4 shadow-sm transition ${activity.read ? "border-slate-100 bg-white" : "border-blue-100 bg-blue-50/90"}`}
+                className={`rounded-2xl border p-4 shadow-sm transition ${activity.read ? "kt-notif-read" : "kt-notif-unread kt-notif-tone-sky"}`}
               >
                 <div className="flex items-start gap-3">
                   <span className="mt-0.5 flex h-9 w-9 shrink-0 items-center justify-center rounded-xl bg-blue-50 text-blue-700">

@@ -103,6 +103,8 @@ import {
 import { uiText as translateUi, useI18n as useUiLocale } from "../../i18n/index.js";
 import { inlineErrorMessage, shortErrorToast } from "../../Backend/services/friendlyErrorService";
 import AppPortal from "../shared/AppPortal";
+import FrontPictureView from "../shared/frontPicture/FrontPictureView";
+import { FRONT_PICTURE_KINDS } from "../../Backend/services/frontPictureService";
 import ShareProfileSheet from "../shared/share/ShareProfileSheet";
 import EnforcementNoticeBanner from "../shared/EnforcementNoticeBanner";
 import VerificationRequestNotice from "../shared/VerificationRequestNotice";
@@ -1914,7 +1916,7 @@ function OperatorAlertsContainer({ alerts }) {
     <DashboardContainer title={t("urride.opDash.operatorAlerts")} subtitle={t("urride.opDash.operatorAlertsSub")} icon={FiBell}>
       <div className="grid gap-2">
         {alerts.length ? alerts.slice(0, 4).map((alert) => (
-          <div key={alert.id} className={`rounded-2xl border px-4 py-3 ${alert.read ? "border-gray-100 bg-white" : "border-green-100 bg-green-50/90"}`}>
+          <div key={alert.id} className={`rounded-2xl border px-4 py-3 ${alert.read ? "kt-notif-read" : "kt-notif-unread kt-notif-tone-green"}`}>
             {(() => {
               const text = notificationDisplayText(alert.title, alert.body);
               return (
@@ -2014,7 +2016,7 @@ function OperatorAlertsDrawer({
               <article
                 key={alert.id}
                 onClick={() => onRead?.(alert)}
-                className={`rounded-2xl border p-4 shadow-sm transition ${alert.read ? "border-gray-100 bg-white" : "border-green-100 bg-green-50/90"}`}
+                className={`rounded-2xl border p-4 shadow-sm transition ${alert.read ? "kt-notif-read" : "kt-notif-unread kt-notif-tone-green"}`}
               >
                 {(() => {
                   const text = notificationDisplayText(alert.title, alert.body);
@@ -2398,6 +2400,16 @@ export function OperatorTripRequestCard({ passenger, account, isActive, readOnly
         <MiniRow stacked label={t("urride.opDash.fare")} value={passenger.fare} />
         <MiniRow stacked label={t("urride.booking.pickupTime")} value={formatTripPickupTime(passenger.raw?.scheduled_at)} />
       </div>
+
+      {/* The passenger's optional front picture (gate / entrance). An open
+          booking keeps one per booking, a direct booking one per trip. */}
+      <FrontPictureView
+        className="mt-3"
+        sources={[
+          { kind: FRONT_PICTURE_KINDS.openBooking, id: passenger.raw?.open_booking_id },
+          { kind: FRONT_PICTURE_KINDS.trip, id: passenger.raw?.id || passenger.id },
+        ]}
+      />
 
       <div className="mt-4 grid gap-2 sm:grid-cols-2">
         <button

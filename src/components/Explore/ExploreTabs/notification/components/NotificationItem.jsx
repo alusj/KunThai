@@ -64,7 +64,7 @@ export default function NotificationItem({ followed, item, onFollowBack, onOpen 
   return (
     <article
       className={`flex w-full gap-3 rounded-[22px] border px-4 py-4 text-left shadow-sm transition duration-200 hover:-translate-y-0.5 hover:shadow-md ${
-        item.read ? "border-slate-200 bg-white" : "border-sky-100 bg-sky-50/90"
+        item.read ? "kt-notif-read" : "kt-notif-unread kt-notif-tone-sky"
       }`}
     >
       <div className="relative h-12 w-12 shrink-0">

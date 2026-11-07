@@ -3,6 +3,7 @@ import { friendlyErrorMessage } from "../../Backend/services/friendlyErrorServic
 import { getActiveCountryProfile, getCountryCurrencyCode } from "../../data/globalCountryProfiles";
 import { calculateFleetFare } from "./transportPricingService";
 import { defaultFleetService } from "./fleetServiceOffer";
+import { FRONT_PICTURE_KINDS, saveFrontPicture } from "../../Backend/services/frontPictureService";
 
 async function getCurrentPassenger(message = "Sign in to book transport.") {
   const { data, error } = await supabase.auth.getUser();
@@ -214,6 +215,11 @@ export async function createTransportBooking(booking) {
   }
 
   const trips = Array.isArray(data) ? data : [data].filter(Boolean);
+  // Optional front picture: saved before operators are told, so it is there
+  // when they open the request. Never fails the booking.
+  if (booking.frontPictureUrl) {
+    await saveFrontPicture(FRONT_PICTURE_KINDS.trip, trips.map((trip) => trip?.id), booking.frontPictureUrl);
+  }
   await notifyOperatorsAboutTrips({ trips, fleets: targetFleets, booking, passengerName, tripType, now });
   const primaryTrip = trips[0] || null;
 

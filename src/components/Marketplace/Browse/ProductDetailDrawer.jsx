@@ -63,6 +63,7 @@ import AppPortal from "../../shared/AppPortal";
 import useOrderCautionGate from "../shared/useOrderCautionGate";
 import { orderCautionKindForProduct } from "../shared/orderCaution";
 import ClipVideo from "../../shared/ClipVideo";
+import FrontPictureField from "../../shared/frontPicture/FrontPictureField";
 
 // Picking a saved delivery address fills the whole order contact in one tap:
 // the address and its map point, plus the saved contact name, phone, note and
@@ -75,7 +76,8 @@ function mapSavedAddressToOrder(address = {}) {
     ...(contact.name ? { buyerName: contact.name } : {}),
     ...(contact.phone ? { phone: contact.phone } : {}),
     ...(contact.note ? { note: contact.note } : {}),
-    frontPictureUrl: contact.frontPictureUrl || "",
+    // A saved address without a picture keeps one the buyer added here.
+    ...(contact.frontPictureUrl ? { frontPictureUrl: contact.frontPictureUrl } : {}),
     address: address.street || address.address || address.detectedAddress || "",
     detectedAddress: address.detectedAddress || "",
     coordinates: address.coordinates || null,
@@ -410,7 +412,7 @@ function ProductActionSheet({ children, labelledBy, maxWidth = "max-w-lg", onClo
 // The order form's delivery address. Reaching the field pops the buyer's saved
 // addresses (about two at a time, the rest scroll) so one tap fills it; typing
 // a new address raises the same accuracy caution as every address field.
-function DeliveryAddressField({ value, validationStatus, savedAddresses, frontPictureUrl = "", onChange, onPickSaved, onLocateMe, onDropPin }) {
+function DeliveryAddressField({ value, validationStatus, savedAddresses, onChange, onPickSaved, onLocateMe, onDropPin }) {
   useUiLocale();
   const [focused, setFocused] = useState(false);
   const inputRef = useRef(null);
@@ -477,13 +479,6 @@ function DeliveryAddressField({ value, validationStatus, savedAddresses, frontPi
           readLessLabel={t("urmall.biz.reg.accuracyReadLess")}
         />
       </div>
-
-      {frontPictureUrl ? (
-        <div className="flex items-center gap-3 rounded-lg border border-emerald-100 bg-emerald-50 p-2">
-          <img src={resizedImageUrl(frontPictureUrl, { width: 120, quality: 65 })} alt="" className="h-12 w-12 shrink-0 rounded-md object-cover" />
-          <span className="min-w-0 text-xs font-bold leading-5 text-emerald-800">{t("addressBook.picture")}</span>
-        </div>
-      ) : null}
 
       <div className="grid grid-cols-1 gap-2">
         <button
@@ -1360,8 +1355,7 @@ export default function ProductDetailDrawer({
                     value={orderForm.address}
                     validationStatus={orderAddressValidation.status}
                     savedAddresses={savedAddresses}
-                    frontPictureUrl={orderForm.frontPictureUrl}
-                    onChange={(value) => updateOrderForm({ address: value, coordinates: null, frontPictureUrl: "" })}
+                    onChange={(value) => updateOrderForm({ address: value, coordinates: null })}
                     onPickSaved={(address) => updateOrderForm(mapSavedAddressToOrder(address))}
                     onLocateMe={() => openOrderAreaPicker("current")}
                     onDropPin={() => openOrderAreaPicker("dropPin")}
@@ -1397,6 +1391,15 @@ export default function ProductDetailDrawer({
                 placeholder={isBooking ? t("urmall.detail.bookingNotePlaceholder") : t("urmall.detail.orderNotePlaceholder")}
                 className="mt-2 h-11 w-full rounded-lg border border-gray-200 px-3 text-sm font-semibold outline-none focus:border-emerald-500"
               />
+
+              {!isBooking && orderForm.fulfillment !== "pickup" ? (
+                <FrontPictureField
+                  className="mt-3"
+                  value={orderForm.frontPictureUrl || ""}
+                  onChange={(value) => updateOrderForm({ frontPictureUrl: value })}
+                  disabled={orderSubmitting}
+                />
+              ) : null}
 
               {!isBooking ? <div className="mt-4 rounded-lg bg-gray-50 p-3">
                 <div className="flex items-center justify-between gap-3">

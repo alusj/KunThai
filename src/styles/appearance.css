@@ -759,3 +759,26 @@ html.dark .kt-voice-light {
 .kt-voice-time {
   color: var(--kt-voice-time);
 }
+
+/* Notification cards, the same in Explore, UrMall and UrRide:
+   - not seen yet: counted in the bell badge (the badge clears when the list
+     opens, on every phone signed in to the account);
+   - opened but not read: deep tint, a thick coloured edge and a dot;
+   - read (tapped or "mark as read"): light, muted card.
+   kt-notif-tone-* picks the section colour. */
+.kt-notif-unread {
+  border-width: 1px;
+  border-left-width: 4px;
+}
+.kt-notif-unread.kt-notif-tone-sky { background-color: #e0f2fe; border-color: #7dd3fc; border-left-color: #0284c7; }
+.kt-notif-unread.kt-notif-tone-green { background-color: #dcfce7; border-color: #86efac; border-left-color: #16a34a; }
+.kt-notif-unread.kt-notif-tone-emerald { background-color: #d1fae5; border-color: #6ee7b7; border-left-color: #059669; }
+.kt-notif-read {
+  background-color: #ffffff;
+  border-color: #f1f5f9;
+}
+.kt-notif-read > * { opacity: 0.68; }
+html.dark .kt-notif-unread.kt-notif-tone-sky { background-color: rgb(14 165 233 / 0.24) !important; border-color: rgb(56 189 248 / 0.45) !important; border-left-color: #38bdf8 !important; }
+html.dark .kt-notif-unread.kt-notif-tone-green { background-color: rgb(22 163 74 / 0.24) !important; border-color: rgb(74 222 128 / 0.42) !important; border-left-color: #4ade80 !important; }
+html.dark .kt-notif-unread.kt-notif-tone-emerald { background-color: rgb(16 185 129 / 0.24) !important; border-color: rgb(52 211 153 / 0.42) !important; border-left-color: #34d399 !important; }
+html.dark .kt-notif-read { background-color: rgb(255 255 255 / 0.03) !important; border-color: rgb(255 255 255 / 0.06) !important; }

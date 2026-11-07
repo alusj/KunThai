@@ -10,6 +10,7 @@ import {
   shouldFallBackToLegacy,
   snapshotFromTripRows,
 } from "./broadcastBookingModels";
+import { FRONT_PICTURE_KINDS, saveFrontPicture } from "../../Backend/services/frontPictureService";
 
 // UrRide broadcast bookings: the request goes to every available operator
 // nearby at once and the first to accept gets the trip. Every call falls back
@@ -30,7 +31,17 @@ function markMissing(error) {
  * wave, maxWave, waveExpiresAt, mode: "broadcast" | "legacy", tripIds }.
  * notifiedCount 0 means nobody of that type could be reached at all.
  */
+// Optional front picture of the pickup / drop-off: kept per open booking, so
+// operators in every wave see it. Never fails the booking.
 export async function createBroadcastBooking(booking) {
+  const result = await createBroadcastBookingRows(booking);
+  if (booking?.frontPictureUrl && result?.openBookingId) {
+    await saveFrontPicture(FRONT_PICTURE_KINDS.openBooking, result.openBookingId, booking.frontPictureUrl);
+  }
+  return result;
+}
+
+async function createBroadcastBookingRows(booking) {
   if (broadcastUnavailable || chooseCreateMode({ scheduledAt: booking.scheduledAt }) === "legacy") {
     return withMode(await createOpenBooking(booking), "legacy");
   }

@@ -53,6 +53,7 @@ import { useLateHourGate } from "./useLateHourGate";
 import { useTransportPassengerSetting } from "../shared/useTransportPassengerSetting";
 import MultiSeatNotice from "../shared/MultiSeatNotice";
 import { getSavedAddressContact } from "../../shared/savedAddresses/savedAddressModel";
+import FrontPictureField from "../../shared/frontPicture/FrontPictureField";
 
 const RIDE_ICONS = { Motorcycle: FaMotorcycle, Tricycle: MdElectricRickshaw, Car: FaCarSide };
 const DELIVERY_ICONS = { Motorcycle: FaMotorcycle, Tricycle: MdElectricRickshaw, Car: FaShuttleVan };
@@ -74,6 +75,7 @@ const EMPTY_FORM = {
   passengers: "1",
   packageDescription: "",
   note: "",
+  frontPictureUrl: "",
   pickupTime: "now",
   scheduledAt: "",
 };
@@ -519,6 +521,7 @@ export default function OpenBookingSheet({ open, draft = null, onClose, onOpenTr
                               pickupPoint: normalizeBookingLocationPoint(place),
                               ...(contact.name ? { passengerName: contact.name } : {}),
                               ...(contact.phone ? { phone: contact.phone } : {}),
+                              ...(contact.frontPictureUrl ? { frontPictureUrl: contact.frontPictureUrl } : {}),
                             });
                           }}
                           onLocateMe={() => setAreaPicker({ kind: "pickup", start: "current" })}
@@ -599,6 +602,12 @@ export default function OpenBookingSheet({ open, draft = null, onClose, onOpenTr
                           className="w-full resize-none rounded-xl border border-gray-200 bg-gray-50 px-3 py-3 text-sm font-semibold outline-none focus:border-emerald-500"
                         />
                       </label>
+
+                      <FrontPictureField
+                        value={form.frontPictureUrl}
+                        onChange={(value) => updateForm({ frontPictureUrl: value })}
+                        disabled={sending}
+                      />
                     </section>
 
                     <section className="rounded-2xl border border-gray-200 bg-white p-4 shadow-sm">
