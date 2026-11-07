@@ -1,5 +1,6 @@
 import { useState } from "react";
 import CenteredModal from "../shared/CenteredModal";
+import InviteLocationNotice from "./InviteLocationNotice";
 import { getOperatorCompanyAccessQuote, OPERATOR_COMPANY_ACCESS_CREDITS } from "../services/operatorCompanyAccessService";
 import { requestExploreScreen } from "../../Backend/services/notificationBannerService";
 import { t as i18nText } from "../../i18n/index";
@@ -46,6 +47,7 @@ export default function CompanyOperatorAccessModal({ invite, quote, onClose, onC
         <p className="mt-2">{i18nText("ui.literals.k34049ee5c6d7")} {Number(access?.balance || 0)} {i18nText("ui.literals.k66c22fad3a99")}</p>
         <p className="mt-1">{i18nText("ui.literals.k04863d5bcba7")} {fee} {i18nText("ui.literals.k66c22fad3a99")}{!fee ? i18nText("ui.literals.kd69b4600a1ce") : ""}</p>
       </div>
+      <InviteLocationNotice companyName={invite?.companyName} className="mt-4" />
       {error ? <p role="alert" className="mt-3 text-sm font-semibold text-red-700">{translateUi(error)}</p> : null}
       {insufficient ? (
         <>

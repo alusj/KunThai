@@ -710,9 +710,17 @@ function normalizeCompanyAccount(input = {}, userId = "") {
 
 function writeLocalCompanyAccount(userId, account) {
   const normalized = normalizeCompanyAccount(account, userId);
-  localStorage.setItem(scopedKey(COMPANY_ACCOUNT_PREFIX, userId), JSON.stringify(normalized));
+  const key = scopedKey(COMPANY_ACCOUNT_PREFIX, userId);
+  const serialized = JSON.stringify(normalized);
+  const unchanged = localStorage.getItem(key) === serialized;
+  localStorage.setItem(key, serialized);
   persistCompanyInvites(normalized);
-  window.dispatchEvent(new CustomEvent(COMPANY_EVENT, { detail: normalized }));
+  // Only a real change is announced. Loading the company writes this copy
+  // too, and listeners (CrossServiceActivityHost) reload the company on the
+  // event, so announcing an unchanged copy re-fired the load forever: about
+  // 40 requests every 2-3 seconds, which queued the operator's own actions
+  // (going offline) behind them on a slow connection.
+  if (!unchanged) window.dispatchEvent(new CustomEvent(COMPANY_EVENT, { detail: normalized }));
   return normalized;
 }
 

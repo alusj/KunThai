@@ -1,83 +1,216 @@
-# WhatsApp-first phone OTP: setup
+# WhatsApp-first phone OTP: setup and security model
 
-Supabase Auth still creates and checks every phone code. The **Send SMS Hook**
-hands each code to the `otp-delivery` Edge Function
-(`supabase/functions/otp-delivery/`), which delivers that same code:
+_Updated 2026-11-06 (Orange SMS step for Sierra Leone). Do not enable the Send SMS hook until every item in
+"Before enabling" is done._
 
-1. **WhatsApp** (Meta Cloud API, Authentication template)
-2. **Twilio Verify** SMS: used if WhatsApp fails, reports the number undeliverable,
-   has not reported delivery after 20 s, or the person taps "Send by SMS".
+## Who owns and validates the code
 
-Channel order per country is stored in `kunthai_otp_routes` (default `*` =
-whatsapp → twilio_verify). Orange will be added there later as `orange_sms`.
+There are two codes per sign-in attempt. Only one of them ever reaches a person.
 
-## Order matters: do NOT enable the hook first
+| | Supabase Auth internal code | KunThai code |
+| --- | --- | --- |
+| Issued by | Supabase Auth (`crypto.GenerateOtp(sms_otp_length)`) | `otp-delivery` (`generateNumericCode`) |
+| Length | **10 digits** (`sms_otp_length = 10`) | 6 digits |
+| Delivered to | nobody — handed to the Send SMS hook only | the person, by WhatsApp (or SMS) |
+| Stored as | hash in `auth.users` (Supabase) + AES-GCM ciphertext in `kunthai_otp_deliveries.auth_code_ciphertext` until used | HMAC in `user_code_hash`; AES-GCM ciphertext only while an SMS of the same code may still go out |
+| Expiry | `sms_otp_exp` (Supabase, set **600 s**) | `OTP_CODE_TTL_SECONDS` (600 s, ≤ Supabase's) |
+| Checked by | Supabase `/verify`, called **only by otp-delivery** | otp-delivery `/verify`: 5 attempts per code, counted atomically |
+| Issues the session | Supabase Auth | — |
 
-While the hook is on, Supabase sends no SMS itself. If the function or its
-secrets are missing, signup and password-recovery codes stop arriving. Follow
-the steps in order.
+Flow: app asks Supabase for a code → Supabase calls the hook with its 10-digit
+code → otp-delivery stores it encrypted, makes a 6-digit code, sends that on
+WhatsApp → the person types the 6-digit code → app calls
+`otp-delivery/verify` → after the attempt check, otp-delivery calls Supabase
+`/verify` with the 10-digit code → Supabase issues the session → the app calls
+`supabase.auth.setSession`.
 
-### 1. Apply the migration
-Run `web/supabase/migrations/20260926170000_otp_delivery_chain.sql` in the SQL
-Editor.
+Source check (supabase/auth, `internal/api/verify.go`): with the hook enabled
+Supabase does **not** ask Twilio Verify to check codes
+(`if !config.Hook.SendSMS.Enabled && config.Sms.IsTwilioVerifyProvider()`); it
+compares the hash itself with `isOtpValid(..., config.Sms.OtpExp)`. It has **no
+per-code failed-attempt counter**, only a per-IP verify rate limit.
 
-### 2. Meta
-- WhatsApp Manager → Message templates → create an **Authentication** template
-  with a **Copy code** button (e.g. name `kunthai_otp`, language English (US) `en_US`).
-- Get the **Phone Number ID** and a **permanent System User token** with
-  `whatsapp_business_messaging`.
-- App → Settings → Basic → **App Secret**.
+### Why the direct-Supabase bypass is closed
 
-### 3. Twilio
-- Ask Twilio support to enable **Custom Verification Code** on your Verify
-  service. Until they do, Verify refuses our code. Optionally set
-  `TWILIO_MESSAGING_SERVICE_SID` so a plain Twilio SMS carries the code instead.
+Anyone can call Supabase `/verify` with the public anon key. They can't use it
+to skip KunThai's attempt limit:
 
-### 4. Secrets (run from `D:\Projects\KunThai`)
-```
-supabase secrets set --project-ref gwiqnoymozmvzhfjvysy \
-  OTP_CODE_KEY="$(openssl rand -base64 32)" \
-  WHATSAPP_ACCESS_TOKEN=... WHATSAPP_PHONE_NUMBER_ID=... \
-  WHATSAPP_OTP_TEMPLATE=kunthai_otp WHATSAPP_OTP_TEMPLATE_LANG=en_US \
-  WHATSAPP_APP_SECRET=... WHATSAPP_WEBHOOK_VERIFY_TOKEN=<any long random string> \
-  TWILIO_ACCOUNT_SID=... TWILIO_AUTH_TOKEN=... TWILIO_VERIFY_SERVICE_SID=VA...
-```
-Optional: `TWILIO_MESSAGING_SERVICE_SID`, `OTP_CODE_TTL_SECONDS` (default 600;
-keep equal to Auth → Providers → Phone → OTP expiry), `WHATSAPP_GRAPH_VERSION`.
+- The 6-digit code people receive is not Supabase's code, so Supabase rejects it.
+- Supabase's own code is 10 digits and never sent anywhere. At a verify limit of
+  even 1,000 requests per IP per 5 minutes, one IP gets ~2,000 guesses in a
+  10-minute code life: a 2 in 10,000,000 chance. Guessing needs millions of IPs.
+- The hook **fails closed**: if Supabase sends a code shorter than
+  `OTP_MIN_AUTH_OTP_LENGTH` (10), nothing is delivered and the request errors.
+  Forgetting to set `sms_otp_length` can't silently reopen the bypass.
 
-### 5. Deploy
-```
-supabase functions deploy otp-delivery --no-verify-jwt --project-ref gwiqnoymozmvzhfjvysy
-```
+Guessing the 6-digit code through KunThai: 5 attempts per code, at most 10
+codes per number per day → at most 50 guesses per day out of 1,000,000
+(0.005 %).
 
-### 6. Meta webhook
-App → WhatsApp → Configuration → Webhook:
-- Callback URL: `https://gwiqnoymozmvzhfjvysy.supabase.co/functions/v1/otp-delivery/whatsapp-webhook`
-- Verify token: the `WHATSAPP_WEBHOOK_VERIFY_TOKEN` value
-- Subscribe to the **messages** field.
+### Send limits (revised)
 
-### 7. Enable the hook (last)
-Dashboard → Authentication → Hooks → **Send SMS hook** → HTTPS:
-- URL: `https://gwiqnoymozmvzhfjvysy.supabase.co/functions/v1/otp-delivery/send-sms`
-- Generate the secret, then `supabase secrets set SEND_SMS_HOOK_SECRET="v1,whsec_..."`
+| Limit | Value | Enforced by |
+| --- | --- | --- |
+| Between codes for one account | 60 s | Supabase `sms_max_frequency` |
+| Codes per number | 5 per rolling hour, 10 per rolling 24 h | hook (`OTP_MAX_CODES_PER_HOUR`, `OTP_MAX_CODES_PER_DAY`) |
+| Lockout | none beyond the rolling window: sending resumes as soon as the oldest code ages out | hook |
+| Project-wide SMS/WhatsApp volume | Supabase "SMS sent" rate limit | Supabase |
+| App-side pacing (UX only) | 5 per hour, then wait 1 hour | `otpRequestGuardService.js` |
 
-The Twilio Verify phone provider settings can stay as they are. With the hook
-on, Supabase verifies codes itself and no longer asks Twilio to check them.
+The old 72-hour lockout was removed: anyone can request codes for any number,
+so a long lockout let a stranger block a real user's signup or recovery for
+three days. Turn on Supabase CAPTCHA (Turnstile/hCaptcha) for sign-up and
+password recovery to cut abuse further.
+
+### Delivery order by country
+
+| Numbers | 1st | 2nd | 3rd |
+| --- | --- | --- | --- |
+| Sierra Leone (`+232`) | WhatsApp | Orange SMS | Twilio Verify |
+| Everyone else (`*`) | WhatsApp | Twilio Verify | — |
+
+Routes live in `kunthai_otp_routes` (longest calling-code prefix wins;
+`20261106120000_otp_sierra_leone_route.sql` adds `232`). A step whose
+provider has no credentials yet is skipped instantly, so **today, with only
+Twilio set up, every code goes out through Twilio Verify**. WhatsApp and
+Orange start being used the moment their secrets are set; no code change.
+
+The next step runs only when the current one **definitely** failed:
+
+- WhatsApp: API error, not configured, number not on WhatsApp, or a
+  `failed` status webhook from Meta.
+- Orange: not configured, number outside `ORANGE_SMS_NUMBER_PREFIXES`, bad
+  credentials, an API error, or a `DeliveryImpossible` delivery receipt.
+- A timeout is **not** definite (the message may still arrive), so nothing is
+  sent automatically; the person can tap "Send by SMS".
+
+"Send by SMS" (once per code) moves to the next SMS step after the one in
+use: on WhatsApp it sends Orange in Sierra Leone and Twilio elsewhere; after
+Orange it sends Twilio.
+
+### SMS fallback: one attempt, never a conflicting code
+
+SMS goes out only on a definite failure of the step before it (above) or when
+the person taps "Send by SMS". No timer.
+
+Orange always carries the same KunThai code. For Twilio:
+
+`OTP_SMS_MODE` picks how:
+
+| Mode | What the SMS carries | Needs |
+| --- | --- | --- |
+| `verify_native` (default) | Twilio Verify's own code | any Verify service |
+| `verify_custom_code` | the same KunThai code | Twilio to enable custom codes on the service |
+| `messaging` | the same KunThai code | a Twilio Messaging Service with a sender for Sierra Leone |
+| `off` | no SMS | — |
+
+In `verify_native` the person may hold two codes (WhatsApp and SMS), but both
+belong to **one** delivery row, **one** attempt counter and **one** Supabase
+code. Either code works; the first correct one finishes the attempt, the
+Twilio verification is cancelled, and the Supabase code is used once. There is
+never a second Supabase code, so two sessions can't come from one attempt.
+
+### Secrets and data
+
+- `OTP_CODE_KEY` derives separate HMAC and AES keys. Ciphertexts are bound to
+  their row and purpose (AES-GCM associated data).
+- A database check refuses finished rows that still hold code material.
+- Tables are service-role only (RLS on, grants revoked from `anon` and
+  `authenticated`).
+- Logs contain a masked phone (`+232…72`), the channel and provider error
+  codes. Never codes, tokens or secrets.
+- Residual risk: someone holding **both** the database and `OTP_CODE_KEY` could
+  finish a pending sign-in within its 10 minutes. Keep the key only in Edge
+  Function secrets.
+
+## Orange SMS (Sierra Leone): turning it on
+
+Built for the Orange Developer SMS API (OAuth2 client credentials + the
+`smsmessaging/v1/outbound` endpoint). When Orange hands over the contract:
+
+1. Set secrets (`supabase secrets set … --project-ref gwiqnoymozmvzhfjvysy`):
+   - `ORANGE_CLIENT_ID`, `ORANGE_CLIENT_SECRET`: the app's credentials.
+   - `ORANGE_SMS_SENDER_ADDRESS`: the sender Orange assigns, e.g. `tel:+2320000`.
+   - `ORANGE_SMS_SENDER_NAME` (optional): an approved sender name such as `KunThai`.
+   - `ORANGE_SMS_NUMBER_PREFIXES` (optional): if Orange only delivers to its own
+     subscribers, list their prefixes with the country code, comma-separated
+     (e.g. `23275,23276,23278,23279`). Other numbers then skip to Twilio.
+   - `ORANGE_TOKEN_URL`, `ORANGE_API_BASE_URL`: only if Orange gives different
+     URLs (defaults `https://api.orange.com/oauth/v3/token` and
+     `https://api.orange.com`).
+   - `ORANGE_RECEIPT_TOKEN`: any long random string (`openssl rand -hex 24`).
+2. Subscribe to delivery receipts once, so a failed Orange SMS falls back to
+   Twilio:
+   ```bash
+   curl -X POST "https://api.orange.com/smsmessaging/v1/outbound/tel%3A%2B2320000/subscriptions" \
+     -H "Authorization: Bearer <access token>" -H "Content-Type: application/json" \
+     -d '{"deliveryReceiptSubscription":{"callbackReference":{"notifyURL":"https://gwiqnoymozmvzhfjvysy.supabase.co/functions/v1/otp-delivery/orange-status?token=<ORANGE_RECEIPT_TOKEN>","callbackData":"kunthai"}}}'
+   ```
+3. Redeploy `otp-delivery` so the new secrets load.
+
+Without receipts Orange still works; a lost SMS just isn't retried
+automatically (the "Send by SMS" button still sends Twilio).
+
+## Endpoints (`/functions/v1/otp-delivery`, deployed with `--no-verify-jwt`)
+
+- `POST /` — Send SMS hook (Standard Webhooks signature, `SEND_SMS_HOOK_SECRET`)
+- `GET /webhook` — Meta `hub.challenge` (`WHATSAPP_WEBHOOK_VERIFY_TOKEN`)
+- `POST /webhook` — Meta status events, `X-Hub-Signature-256` with `WHATSAPP_APP_SECRET`
+- `POST /orange-status?token=…` — Orange delivery receipts (`ORANGE_RECEIPT_TOKEN`)
+- `POST /fallback` — `{ phone }`, "Send by SMS" (next SMS step), once per code, same answer always
+- `POST /verify` — `{ phone, token, type? }`, attempt-limited; returns a Supabase session
+
+## Before enabling (in this order)
+
+1. Meta: `kunthai_login_code` approved (Authentication, Copy code, security
+   line, "Expires in 10 minutes", language `en`); app published; webhook set
+   with the `messages` field; WABA `1085681717402830` subscribed to the app.
+2. Apply migrations `20260926170000_otp_delivery_chain.sql`,
+   `20260928120000_otp_delivery_hardening.sql` and
+   `20261106120000_otp_sierra_leone_route.sql`.
+3. Supabase Auth config (Management API or dashboard):
+   `sms_otp_length = 10`, `sms_otp_exp = 600`; raise the token-verification
+   rate limit (all `/verify` calls now come from the Edge Function).
+4. Secrets: `OTP_CODE_KEY` (`openssl rand -base64 32`), `WHATSAPP_ACCESS_TOKEN`
+   (system user **kunthai-otp**, never the temporary token),
+   `WHATSAPP_PHONE_NUMBER_ID=1394928910365376`,
+   `WHATSAPP_OTP_TEMPLATE=kunthai_login_code`, `WHATSAPP_OTP_TEMPLATE_LANG=en`,
+   `WHATSAPP_APP_SECRET`, `WHATSAPP_WEBHOOK_VERIFY_TOKEN`, `TWILIO_ACCOUNT_SID`,
+   `TWILIO_AUTH_TOKEN`, `TWILIO_VERIFY_SERVICE_SID`, `OTP_SMS_MODE`, and the
+   Orange secrets above once Orange is ready. Missing WhatsApp or Orange
+   secrets are fine: those steps are skipped and Twilio sends.
+   `SUPABASE_URL`, `SUPABASE_ANON_KEY` and `SUPABASE_SERVICE_ROLE_KEY` are
+   provided automatically.
+5. `supabase functions deploy otp-delivery --no-verify-jwt --project-ref gwiqnoymozmvzhfjvysy`
+6. Ship the app change (`authService.js` verifies through `otp-delivery/verify`)
+   to web **and** to Android/iOS builds, with `VITE_WHATSAPP_OTP_ENABLED=true`.
+   Installed builds that call `supabase.auth.verifyOtp` directly **cannot**
+   verify once the hook is on.
+7. Turn on the Send SMS hook
+   (`https://gwiqnoymozmvzhfjvysy.supabase.co/functions/v1/otp-delivery`) and
+   save its secret as `SEND_SMS_HOOK_SECRET`.
 
 ### Rollback
-Turn the Send SMS hook off. Supabase goes back to sending through Twilio Verify
-directly. The app needs no change: the "Send by SMS" button simply does nothing.
+
+Turn the hook off, then retire codes that are still open so the app stops
+routing them through otp-delivery:
+
+```sql
+update kunthai_otp_deliveries
+   set status = 'superseded', user_code_ciphertext = null, auth_code_ciphertext = null
+ where status in ('sending', 'sent', 'delivered', 'exhausted');
+```
+
+Supabase goes back to Twilio Verify for sending and checking. The app's
+`/verify` call answers `not_tracked` and the app falls back to
+`supabase.auth.verifyOtp`, so no app change is needed.
 
 ## Checking it works
-- `select phone, channels, step, current_channel, status, history, created_at
-   from kunthai_otp_deliveries order by created_at desc limit 20;`
-- Function logs: Dashboard → Edge Functions → otp-delivery → Logs.
-- A number with no WhatsApp should show `whatsapp` failing (131026), then
-  `twilio_verify` ok, and be listed in `kunthai_otp_whatsapp_unreachable`.
 
-## Per-country routes
 ```sql
--- e.g. once Orange is built, for Liberia:
-insert into kunthai_otp_routes (calling_code, channels)
-values ('231', array['whatsapp','orange_sms','twilio_verify']);
+select left(phone, 3) || '…' || right(phone, 2) as phone, channels, step, current_channel,
+       status, sms_mode, attempts, manual_fallback_used, history, created_at
+  from kunthai_otp_deliveries order by created_at desc limit 20;
 ```
+
+Tests: `node --experimental-strip-types --test supabase/functions/otp-delivery/handlers.test.ts`

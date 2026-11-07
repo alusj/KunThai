@@ -65,12 +65,56 @@ export const signUpWithPhone = async (phone, password, country = "") => {
   }
 };
 
-export const verifyPhoneOtp = async (phone, token) => {
-  const { data, error } = await supabase.auth.verifyOtp({
-    phone,
-    token,
-    type: "sms",
+// While the Send SMS hook is on, the code the person receives is issued by the
+// otp-delivery function, not by Supabase. It is checked there (5 attempts per
+// code) and exchanged server-side for a Supabase session, so it can't be
+// brute-forced against Supabase directly. Returns null when otp-delivery is not
+// tracking this code (hook off / rollback): Supabase then checks it itself.
+const verifyPhoneOtpViaDelivery = async (phone, token, type = "sms") => {
+  if (!WHATSAPP_OTP_ENABLED) return null;
+  const { data, error } = await supabase.functions.invoke("otp-delivery/verify", {
+    body: { phone, token, type },
   });
+  if (!error && data?.session?.access_token) {
+    return await supabase.auth.setSession({
+      access_token: data.session.access_token,
+      refresh_token: data.session.refresh_token,
+    });
+  }
+  const response = error?.context;
+  const body =
+    response && typeof response.json === "function"
+      ? await response.json().catch(() => ({}))
+      : {};
+  // Only a definite answer from otp-delivery stops here. "not_tracked" (hook
+  // off), a missing function or a network error fall back to Supabase, which
+  // simply rejects the code if the hook is on.
+  if (!["locked", "wrong_code", "expired"].includes(body.reason)) return null;
+  const left = Number(body.attemptsLeft || 0);
+  const messages = {
+    locked: "Too many incorrect attempts. Please request a new code.",
+    expired: "This code has expired. Please request a new one.",
+    wrong_code: `Incorrect code. ${left} attempt${left === 1 ? "" : "s"} left.`,
+  };
+  return {
+    data: { user: null, session: null },
+    error: {
+      name: "AuthApiError",
+      status: body.reason === "locked" ? 429 : 400,
+      code: `otp_${body.reason || "unavailable"}`,
+      message: messages[body.reason],
+    },
+  };
+};
+
+export const verifyPhoneOtp = async (phone, token) => {
+  const { data, error } =
+    (await verifyPhoneOtpViaDelivery(phone, token)) ??
+    (await supabase.auth.verifyOtp({
+      phone,
+      token,
+      type: "sms",
+    }));
 
   if (!error && data?.user) {
     const metadata = data.user.user_metadata || {};
@@ -199,15 +243,18 @@ export const requestPhonePasswordRecoveryOtp = async (phone) => {
 };
 
 export const verifyPhoneRecoveryOtp = async (phone, token) => {
-  return await supabase.auth.verifyOtp({
-    phone,
-    token,
-    type: "sms",
-  });
+  return (
+    (await verifyPhoneOtpViaDelivery(phone, token)) ??
+    (await supabase.auth.verifyOtp({
+      phone,
+      token,
+      type: "sms",
+    }))
+  );
 };
 
 // On only once the otp-delivery function and the Supabase Send SMS Hook are
-// live (web/docs/2026-09-26-whatsapp-otp-setup.md). Until then codes come from
+// live (docs/2026-09-26-whatsapp-otp-setup.md). Until then codes come from
 // Twilio as before, and the WhatsApp wording and "Send by SMS" stay hidden.
 export const WHATSAPP_OTP_ENABLED = import.meta.env?.VITE_WHATSAPP_OTP_ENABLED === "true";
 

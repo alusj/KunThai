@@ -50,6 +50,8 @@ import {
 } from "./Backend/services/visibilityCreditService";
 import { showToast } from "./Backend/services/toastService";
 import { ensureExploreProfile } from "./Backend/services/explore/profileService";
+import { recordProductOpen } from "./Backend/services/churn/productOpenService";
+import { productForMainPage } from "./Backend/services/churn/productOpenRules";
 import { preloadMainDashboardData } from "./Backend/services/dashboardPreloadService";
 import { haptics, installSelectionHaptics } from "./Backend/services/feedbackService";
 import { canStartNavigationGesture, navigationGesturesLocked } from "./Backend/services/gestureArbitration";
@@ -894,6 +896,20 @@ export default function App() {
     }
   }, [page, userId]);
 
+  // Churn intelligence: record which sector was opened today (Explore, UrMall
+  // buyer or seller side, UrRide). Also on coming back to the app, so someone
+  // who leaves it open across days still counts. Throttled to once a UTC day.
+  const openedProduct = productForMainPage(page, marketplaceNav.sub || "");
+  useEffect(() => {
+    if (!userId || !openedProduct) return undefined;
+    void recordProductOpen(openedProduct, userId);
+    const onVisible = () => {
+      if (document.visibilityState === "visible") void recordProductOpen(openedProduct, userId);
+    };
+    document.addEventListener("visibilitychange", onVisible);
+    return () => document.removeEventListener("visibilitychange", onVisible);
+  }, [openedProduct, userId]);
+
   useEffect(() => {
     if (!userId || !onboardingComplete) return;
 
@@ -1342,7 +1358,9 @@ export default function App() {
   // Explore, UrMall and UrRide in memory at once: on an iPhone 13, opening
   // Explore from UrMall then got the page ended by iOS (memory warning, then
   // a restart), many times a day. A screen left is rebuilt on the next visit
-  // from its saved content.
+  // from its saved content. (Keeping just the screen left last was tried on
+  // 2026-11-04: it re-rendered while hidden on every switch and froze a
+  // Galaxy A06 for 4.1 s over 29 quick taps, against 0.7 s without it.)
   function isPageMounted(targetPage) {
     return page === targetPage || leavingPage?.page === targetPage;
   }

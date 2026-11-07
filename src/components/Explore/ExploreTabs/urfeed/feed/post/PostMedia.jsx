@@ -11,7 +11,7 @@ import { t as i18nText } from "../../../../../../i18n/index";
 import { uiText as translateUi, useI18n as useUiLocale } from "../../../../../../i18n/index.js";
 import { useExploreSettingsSnapshot } from "../../../../../../Backend/hooks/useExplorePreferences";
 
-export default function PostMedia({ post, imageOnly = false }) {
+export default function PostMedia({ post, imageOnly = false, allowSave = true }) {
   const { t } = useI18n();
   const [videoStatus, setVideoStatus] = useState(post.video_url ? "loading" : "idle");
   const [videoRetryKey, setVideoRetryKey] = useState(0);
@@ -61,7 +61,7 @@ export default function PostMedia({ post, imageOnly = false }) {
   return (
     <>
       {post.image_url ? (
-        <ZoomableImage src={post.image_url} eager={advertPost} idKey={post.id} />
+        <ZoomableImage src={post.image_url} eager={advertPost} idKey={post.id} allowSave={allowSave} />
       ) : null}
 
       {post.video_url && !imageOnly ? (

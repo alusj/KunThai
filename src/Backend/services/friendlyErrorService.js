@@ -107,6 +107,8 @@ export const TOAST_MAX_LENGTH = 25;
 // global offline toast.
 export function shortErrorToast(error, fallback) {
   if (isConnectionFailure(error)) return t("common.networkLost");
+  const refusal = postControlRefusal(error);
+  if (refusal) return refusal;
   const message = friendlyErrorMessage(error, fallback);
   return message.length >= TOAST_MIN_LENGTH && message.length <= TOAST_MAX_LENGTH ? message : fallback;
 }
@@ -129,6 +131,8 @@ export function friendlyErrorMessage(error, fallback = "") {
   if (isNetworkError(error)) {
     return t("common.networkLost");
   }
+  const refusal = postControlRefusal(error);
+  if (refusal) return refusal;
   const message = typeof error === "string" ? error : String(error?.message || "").trim();
   if (message) return sanitizeUserMessage(message);
   return fallback || t("common.tryAgain");
@@ -158,4 +162,24 @@ export function sanitizeUserMessage(message) {
     return t("common.tryAgain");
   }
   return text;
+}
+
+// A post's owner limited this action (Advanced Post Controls). The database
+// refuses it with a KT_* code; the person gets the plain reason instead.
+const POST_CONTROL_REFUSALS = {
+  KT_POST_UNAVAILABLE: "postControls.errPostUnavailable",
+  KT_COMMENTS_DISABLED: "postControls.errCommentsDisabled",
+  KT_COMMENTS_FOLLOWERS_ONLY: "postControls.errCommentsFollowersOnly",
+  KT_LIKES_DISABLED: "postControls.errLikesDisabled",
+  KT_REPOSTS_DISABLED: "postControls.errRepostsDisabled",
+  KT_TOO_MANY_EXCLUSIONS: "postControls.errTooManyExclusions",
+  KT_TOO_MANY_LOCATIONS: "postControls.errTooManyLocations",
+  KT_SCHEDULE_TOO_FAR: "postControls.errScheduleTooFar",
+};
+
+export function postControlRefusal(error) {
+  if (!error) return "";
+  const text = typeof error === "string" ? error : `${error.message || ""} ${error.details || ""}`;
+  const code = Object.keys(POST_CONTROL_REFUSALS).find((key) => text.includes(key));
+  return code ? t(POST_CONTROL_REFUSALS[code]) : "";
 }

@@ -19,6 +19,8 @@ import { useSellerSales } from "../../../../../Backend/hooks/useSellerSales";
 import { deleteSellerOrder, updateSellerOrderStatus } from "../../../../../Backend/services/marketplace/sellerSalesService";
 import { formatCurrency } from "../../../../../Backend/utils/formatCurrency";
 import { formatOrderFulfillment, parseOrderDeliveryDetails } from "../../../../../Backend/utils/orderDeliveryDetails";
+import FrontPictureView from "../../../../shared/frontPicture/FrontPictureView";
+import { FRONT_PICTURE_KINDS } from "../../../../../Backend/services/frontPictureService";
 import { useI18n, t } from "../../../../../i18n";
 import { useBackSwipe } from "../../../../../Backend/hooks/useBackSwipe";
 import { useBrowserBack } from "../../../../../Backend/hooks/useBrowserBack";
@@ -378,6 +380,8 @@ function SellerOrderDetailSheet({ order, onClose, onStatusChange, onDelete, onLo
               </div>
             );
           })}
+          {/* The buyer's optional front picture of the delivery address. */}
+          <FrontPictureView sources={[{ kind: FRONT_PICTURE_KINDS.order, id: order.id }]} />
         </div>
 
         <div className="mt-4 grid grid-cols-2 gap-2">

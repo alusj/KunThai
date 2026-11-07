@@ -414,6 +414,7 @@ export default function MarketplaceSearchOverlay({
               <button
                 type="button"
                 onClick={pickPhoto}
+                data-direction="urmall-photo-search"
                 className="relative flex h-11 w-11 flex-none items-center justify-center rounded-2xl bg-gradient-to-br from-slate-900 via-slate-800 to-sky-800 text-white shadow-md shadow-slate-950/20 ring-1 ring-white/15"
                 aria-label={t("ai.urmall.photoSearch")}
                 title={t("ai.urmall.photoSearch")}

@@ -32,6 +32,7 @@ import {
   useAddressAreaValidation,
 } from "../../shared/AddressAreaValidation";
 import SavedAddressSuggestions from "../../shared/savedAddresses/SavedAddressSuggestions";
+import { constrainAddressPhone, getAddressPhoneCountry, getSavedAddressContact } from "../../shared/savedAddresses/savedAddressModel";
 import NearbyAreaScreen from "../../transport/NearbyAreaScreen";
 import useBodyScrollLock from "../../shared/useBodyScrollLock";
 import MediaGalleryViewer from "../../shared/MediaGalleryViewer";
@@ -62,17 +63,24 @@ import AppPortal from "../../shared/AppPortal";
 import useOrderCautionGate from "../shared/useOrderCautionGate";
 import { orderCautionKindForProduct } from "../shared/orderCaution";
 import ClipVideo from "../../shared/ClipVideo";
+import FrontPictureField from "../../shared/frontPicture/FrontPictureField";
 
+// Picking a saved delivery address fills the whole order contact in one tap:
+// the address and its map point, plus the saved contact name, phone, note and
+// front picture. Values the saved address lacks leave the typed ones alone.
 function mapSavedAddressToOrder(address = {}) {
+  const contact = getSavedAddressContact(address);
   return {
     addressType: address.category || address.type || "Resident",
     customCategory: address.customCategory || "",
-    buyerName: address.fullName || address.name || "",
-    phone: address.phone || "",
+    ...(contact.name ? { buyerName: contact.name } : {}),
+    ...(contact.phone ? { phone: contact.phone } : {}),
+    ...(contact.note ? { note: contact.note } : {}),
+    // A saved address without a picture keeps one the buyer added here.
+    ...(contact.frontPictureUrl ? { frontPictureUrl: contact.frontPictureUrl } : {}),
     address: address.street || address.address || address.detectedAddress || "",
     detectedAddress: address.detectedAddress || "",
     coordinates: address.coordinates || null,
-    note: address.note || "",
   };
 }
 
@@ -633,7 +641,7 @@ export default function ProductDetailDrawer({
         setOrderForm((current) => ({
           ...current,
           buyerName: current.buyerName || buyerName,
-          phone: current.phone || phone,
+          phone: current.phone || constrainAddressPhone(phone),
         }));
       })
       .catch(() => null);
@@ -1298,8 +1306,10 @@ export default function ProductDetailDrawer({
                 />
                 <input
                   value={orderForm.phone}
-                  onChange={(event) => updateOrderForm({ phone: event.target.value })}
-                  placeholder={t("urmall.detail.phoneNumber")}
+                  onChange={(event) => updateOrderForm({ phone: constrainAddressPhone(event.target.value) })}
+                  placeholder={`${t("urmall.detail.phoneNumber")} · ${getAddressPhoneCountry(orderForm.phone).dialCode}`}
+                  inputMode="tel"
+                  autoComplete="tel"
                   className="h-11 min-w-0 rounded-lg border border-gray-200 px-3 text-sm font-semibold outline-none focus:border-emerald-500"
                 />
                 {isBooking ? (
@@ -1381,6 +1391,15 @@ export default function ProductDetailDrawer({
                 placeholder={isBooking ? t("urmall.detail.bookingNotePlaceholder") : t("urmall.detail.orderNotePlaceholder")}
                 className="mt-2 h-11 w-full rounded-lg border border-gray-200 px-3 text-sm font-semibold outline-none focus:border-emerald-500"
               />
+
+              {!isBooking && orderForm.fulfillment !== "pickup" ? (
+                <FrontPictureField
+                  className="mt-3"
+                  value={orderForm.frontPictureUrl || ""}
+                  onChange={(value) => updateOrderForm({ frontPictureUrl: value })}
+                  disabled={orderSubmitting}
+                />
+              ) : null}
 
               {!isBooking ? <div className="mt-4 rounded-lg bg-gray-50 p-3">
                 <div className="flex items-center justify-between gap-3">

@@ -5,9 +5,12 @@ import { showToast } from "../../../../Backend/services/toastService";
 import {
   confirmTotpEnrollment,
   disableTwoFactor,
+  generateBackupCodes,
+  getBackupCodeCount,
   getTwoFactorState,
   startTotpEnrollment,
 } from "../../../../Backend/services/twoFactorService";
+import BackupCodesPanel from "./BackupCodesPanel";
 import { t as i18nText } from "../../../../i18n/index";
 import { uiText as translateUi, useI18n as useUiLocale } from "../../../../i18n/index.js";
 import { inlineErrorMessage } from "../../../../Backend/services/friendlyErrorService";
@@ -30,11 +33,16 @@ export default function TwoFactorSection() {
   const [error, setError] = useState("");
   const [disableConfirmOpen, setDisableConfirmOpen] = useState(false);
   const [secretShown, setSecretShown] = useState(false);
+  // Backup codes: shown once after they are made; the count afterwards.
+  const [backupCodes, setBackupCodes] = useState(null);
+  const [backupCount, setBackupCount] = useState(null);
 
   async function refresh() {
     try {
       setLoading(true);
-      setState(await getTwoFactorState());
+      const nextState = await getTwoFactorState();
+      setState(nextState);
+      setBackupCount(nextState.enabled ? await getBackupCodeCount() : null);
       setError("");
     } catch (nextError) {
       setError(inlineErrorMessage(nextError, i18nText("ui.literals.kfd2b3dcbf810")));
@@ -71,6 +79,8 @@ export default function TwoFactorSection() {
       await confirmTotpEnrollment(enrollment.factorId, confirmCode);
       setEnrollment(null);
       setConfirmCode("");
+      // The session has just passed two-step, so backup codes can be made now.
+      await createBackupCodes();
       await refresh();
       showToast("Two-step login is on", "success", {
         title: i18nText("ui.literals.k913949913e4f"),
@@ -79,6 +89,14 @@ export default function TwoFactorSection() {
       setError(inlineErrorMessage(nextError, i18nText("ui.literals.k45ada43c3cbd")));
     } finally {
       setBusy(false);
+    }
+  }
+
+  async function createBackupCodes() {
+    try {
+      setBackupCodes(await generateBackupCodes());
+    } catch {
+      setError(i18nText("accountRecovery.createFailed"));
     }
   }
 
@@ -197,6 +215,39 @@ export default function TwoFactorSection() {
             </button>
           </div>
         </form>
+      ) : null}
+
+      {backupCodes?.length ? (
+        <BackupCodesPanel
+          codes={backupCodes}
+          onDone={async () => {
+            setBackupCodes(null);
+            setBackupCount(await getBackupCodeCount());
+          }}
+        />
+      ) : null}
+
+      {!loading && state.enabled && !backupCodes?.length && backupCount !== null ? (
+        <div className="mt-4 rounded-2xl border border-slate-200 bg-slate-50 p-4">
+          <p className="text-sm font-black text-slate-950">{i18nText("accountRecovery.backupTitle")}</p>
+          <p className="mt-1 text-sm font-semibold leading-6 text-slate-600">
+            {backupCount > 0 ? i18nText("accountRecovery.remaining", { n: backupCount }) : i18nText("accountRecovery.noneYet")}
+          </p>
+          <button
+            type="button"
+            onClick={async () => {
+              setBusy(true);
+              setError("");
+              await createBackupCodes();
+              setBusy(false);
+            }}
+            disabled={busy}
+            className="mt-3 min-h-11 w-full rounded-2xl border border-emerald-200 bg-white px-4 text-sm font-black text-emerald-800 disabled:opacity-60"
+          >
+            {backupCount > 0 ? i18nText("accountRecovery.regenerate") : i18nText("accountRecovery.create")}
+          </button>
+          {backupCount > 0 ? <p className="mt-2 text-xs font-semibold text-slate-500">{i18nText("accountRecovery.regenerateHint")}</p> : null}
+        </div>
       ) : null}
 
       {!loading && state.enabled ? (

@@ -220,7 +220,7 @@ export default function BuyerNotifications({ onOpenChange, onUnreadCountChange, 
                     <article
                       key={notification.id}
                       onClick={() => notification.sourceTable === "platform_notifications" ? openNotification(notification) : markRead(notification)}
-                      className={`rounded-2xl border p-3 ${!notification.read ? "border-emerald-100 bg-emerald-50" : "border-slate-100 bg-white"}`}
+                      className={`rounded-2xl border p-3 ${!notification.read ? "kt-notif-unread kt-notif-tone-emerald" : "kt-notif-read"}`}
                     >
                       <div className="flex items-start gap-3">
                         <span className="flex h-10 w-10 shrink-0 items-center justify-center rounded-2xl bg-white text-emerald-700 shadow-sm">

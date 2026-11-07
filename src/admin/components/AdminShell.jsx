@@ -1,5 +1,6 @@
 import { useCallback, useEffect, useMemo, useState } from "react";
 import {
+  Activity,
   Archive,
   BadgeCheck,
   BellRing,
@@ -56,6 +57,7 @@ import { inlineErrorMessage } from "../../Backend/services/friendlyErrorService"
 import { useConsoleLock } from "../consoleLockContext";
 
 const ICONS = {
+  Activity,
   BadgeCheck,
   BellRing,
   Building2,
@@ -370,7 +372,7 @@ export default function AdminShell({ access, user, page, setPage, children, case
                     className={`flex h-10 w-full items-center gap-3 rounded-md px-2.5 text-left text-sm font-bold transition ${active ? "bg-white text-zinc-950" : "text-zinc-400 hover:bg-zinc-900 hover:text-white"}`}
                   >
                     <Icon size={18} aria-hidden="true" />
-                    <span className="flex-1 truncate">{translateUi(item.label)}</span>
+                    <span className="flex-1 truncate">{item.labelKey ? i18nText(item.labelKey) : translateUi(item.label)}</span>
                     {item.id === "my-work" && caseCount > 0 ? (
                       <span className={`min-w-5 rounded-full px-1.5 py-0.5 text-center text-[10px] font-black ${active ? "bg-emerald-100 text-emerald-800" : "bg-zinc-800 text-zinc-300"}`}>{caseCount}</span>
                     ) : null}

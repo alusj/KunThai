@@ -1,4 +1,6 @@
 import { useEffect, useMemo, useRef, useState } from "react";
+import useBackdropClose from "../useBackdropClose";
+import { haptics } from "../../../Backend/services/feedbackService";
 import { AnimatePresence, motion } from "framer-motion";
 import { createPortal } from "react-dom";
 import {
@@ -71,6 +73,14 @@ import { uiText as translateUi, useI18n as useUiLocale } from "../../../i18n/ind
 const HEIGHT_STEPS = [25, 50, 75];
 const DEFAULT_HEIGHT = 75;
 
+// One smooth slide that settles without bouncing (the iOS sheet curve), in
+// and out. A spring overshot, and on phones the keyboard opening mid-slide
+// resized the panel, so it looked like it shook.
+const SHEET_EASE_IN = [0.32, 0.72, 0, 1];
+const SHEET_EASE_OUT = [0.4, 0, 1, 1];
+const isTouchDevice = () =>
+  typeof window !== "undefined" && typeof window.matchMedia === "function" && window.matchMedia("(pointer: coarse)").matches;
+
 function IconButton({ onClick, label, children, disabled = false, active = "" }) {
   useUiLocale();
   return (
@@ -142,10 +152,18 @@ export default function AiChatPanel({ open, request, onClose }) {
   }
 
   useBodyScrollLock(open);
+  const closeFromBackdrop = useBackdropClose(open, onClose);
 
-  // Every new conversation opens at the default height.
+  // Every new conversation opens at the default height. The size is reset
+  // without its height animation, so it never grows or shrinks while the
+  // panel is sliding in.
+  const [sizeAnimated, setSizeAnimated] = useState(false);
+  const settledRef = useRef(false);
   useEffect(() => {
-    if (open) setHeightStep(HEIGHT_STEPS.indexOf(DEFAULT_HEIGHT));
+    if (!open) return;
+    settledRef.current = false;
+    setSizeAnimated(false);
+    setHeightStep(HEIGHT_STEPS.indexOf(DEFAULT_HEIGHT));
   }, [open, request?.key]);
 
   function send(text, extra = {}) {
@@ -204,15 +222,79 @@ export default function AiChatPanel({ open, request, onClose }) {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [open, request?.key, request?.message]);
 
-  useEffect(() => {
-    if (!open) return undefined;
-    const timer = window.setTimeout(() => inputRef.current?.focus({ preventScroll: true }), 120);
-    return () => window.clearTimeout(timer);
-  }, [open]);
+  // Focus the message box once the panel has settled, and only where there
+  // is a hardware keyboard: on a phone the on-screen keyboard would push the
+  // panel up right as it opens. People tap the box when they want to type.
+  function handleSheetSettled() {
+    if (!open) return;
+    settledRef.current = true;
+    setSizeAnimated(true);
+    if (!isTouchDevice()) inputRef.current?.focus({ preventScroll: true });
+  }
 
   useEffect(() => {
-    listRef.current?.scrollTo({ top: listRef.current.scrollHeight, behavior: "smooth" });
+    // Jump to the latest message while the panel slides in; glide afterwards.
+    listRef.current?.scrollTo({ top: listRef.current.scrollHeight, behavior: settledRef.current ? "smooth" : "auto" });
   }, [conversation.messages.length, conversation.busy, tripFlow.transcript.length, tripFlow.busy, formGuide.transcript.length, formGuide.question]);
+
+  // A short vibration for each thing KAI does: a light tap when it starts
+  // answering, the smallest tick each time it moves to a new step mid-search
+  // (searching -> comparing -> ...), and a short success buzz when the reply
+  // is done (a light tap if it failed). The guided trip booking taps when it
+  // starts working and when it finishes. Follows the Vibration switch.
+  const lastReply = [...conversation.messages].reverse().find((message) => message.author !== "user");
+  const replyStatus = lastReply ? `${lastReply.id}:${lastReply.status}` : "";
+  const progressStep = conversation.busy ? String(conversation.progress || "").split(",").filter(Boolean)[0] || "" : "";
+  const anyFlowBusy = Boolean(tripFlow.busy);
+  const hapticStateRef = useRef({ busy: false, step: "", reply: "", flowBusy: false });
+  useEffect(() => {
+    const previous = hapticStateRef.current;
+    hapticStateRef.current = { busy: conversation.busy, step: progressStep, reply: replyStatus, flowBusy: anyFlowBusy };
+    if (!open) return;
+    if (conversation.busy && !previous.busy) haptics.light();
+    else if (conversation.busy && progressStep && previous.step && progressStep !== previous.step) haptics.selection();
+    if (replyStatus !== previous.reply && previous.reply.split(":")[0] === replyStatus.split(":")[0]) {
+      if (lastReply?.status === "done") haptics.success();
+      else if (lastReply?.status === "error") haptics.light();
+    }
+    if (anyFlowBusy && !previous.flowBusy) haptics.light();
+    else if (!anyFlowBusy && previous.flowBusy) haptics.success();
+    // lastReply is described by replyStatus.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [open, conversation.busy, progressStep, replyStatus, anyFlowBusy]);
+
+  // The keyboard shrinks the app (Capacitor Keyboard resize "native"), and the
+  // panel with it. The message list then keeps its old scroll position, so the
+  // newest messages slid under the text box. While the person is reading the
+  // latest messages, the list stays pinned to the bottom whenever its size
+  // changes (keyboard up or down, panel size, a growing text box), so the last
+  // message always sits just above the text box and keyboard.
+  const pinnedToLatestRef = useRef(true);
+  function rememberListPosition() {
+    const list = listRef.current;
+    if (!list) return;
+    pinnedToLatestRef.current = list.scrollHeight - list.scrollTop - list.clientHeight < 80;
+  }
+  function scrollToLatest() {
+    const list = listRef.current;
+    if (list) list.scrollTop = list.scrollHeight;
+  }
+  function keepLatestInView() {
+    pinnedToLatestRef.current = true;
+    // Once now, and again when the keyboard has finished opening.
+    scrollToLatest();
+    window.setTimeout(scrollToLatest, 350);
+  }
+  useEffect(() => {
+    const list = listRef.current;
+    if (!open || !list || typeof ResizeObserver === "undefined") return undefined;
+    pinnedToLatestRef.current = true;
+    const observer = new ResizeObserver(() => {
+      if (pinnedToLatestRef.current) scrollToLatest();
+    });
+    observer.observe(list);
+    return () => observer.disconnect();
+  }, [open]);
 
   // When the filled booking form opens, the chat steps out of the way.
   useEffect(() => onTripHandOff(() => onClose?.()), [onClose]);
@@ -265,20 +347,22 @@ export default function AiChatPanel({ open, request, onClose }) {
           initial={{ opacity: 0 }}
           animate={{ opacity: 1 }}
           exit={{ opacity: 0 }}
-          transition={{ duration: 0.16 }}
-          onMouseDown={onClose}
+          transition={{ duration: 0.26, ease: "easeOut" }}
+          onMouseDown={closeFromBackdrop}
           role="presentation"
         >
           <motion.section
             role="dialog"
             aria-modal="true"
             aria-label={t("ai.chat.title")}
-            style={{ height: `${heightPercent}dvh` }}
-            className="flex w-full flex-col overflow-hidden rounded-t-3xl bg-slate-50 shadow-2xl transition-[height] duration-300 ease-out motion-reduce:transition-none sm:max-w-md sm:rounded-l-3xl sm:rounded-tr-none"
-            initial={{ y: 60, opacity: 0.6 }}
-            animate={{ y: 0, opacity: 1 }}
-            exit={{ y: 60, opacity: 0 }}
-            transition={{ type: "spring", stiffness: 320, damping: 32 }}
+            style={{ height: `${heightPercent}dvh`, willChange: "transform" }}
+            className={`flex w-full flex-col overflow-hidden rounded-t-3xl bg-slate-50 shadow-2xl sm:max-w-md sm:rounded-l-3xl sm:rounded-tr-none ${
+              sizeAnimated ? "transition-[height] duration-300 ease-out motion-reduce:transition-none" : ""
+            }`}
+            initial={{ y: "100%" }}
+            animate={{ y: 0, transition: { duration: 0.36, ease: SHEET_EASE_IN } }}
+            exit={{ y: "100%", transition: { duration: 0.26, ease: SHEET_EASE_OUT } }}
+            onAnimationComplete={handleSheetSettled}
             onMouseDown={(event) => event.stopPropagation()}
           >
             <motion.header
@@ -343,7 +427,12 @@ export default function AiChatPanel({ open, request, onClose }) {
               </button>
             </motion.header>
 
-            <div ref={listRef} className="flex-1 space-y-3 overflow-y-auto overscroll-contain px-3 py-4" aria-live="polite">
+            <div
+              ref={listRef}
+              onScroll={rememberListPosition}
+              className="flex-1 space-y-3 overflow-y-auto overscroll-contain px-3 py-4"
+              aria-live="polite"
+            >
               {empty ? (
                 <div className="space-y-3 px-1">
                   <div className="rounded-2xl border border-slate-200 bg-white p-4">
@@ -507,7 +596,7 @@ export default function AiChatPanel({ open, request, onClose }) {
               </div>
             ) : null}
 
-            <footer className="border-t border-slate-200 bg-white px-3 pb-[max(0.75rem,env(safe-area-inset-bottom))] pt-2.5">
+            <footer data-kt-keyboard-avoid="off" className="border-t border-slate-200 bg-white px-3 pb-[max(0.75rem,env(safe-area-inset-bottom))] pt-2.5">
               {!empty && !conversation.busy && !tripQuestion && !guideQuestion ? (
                 <div className="-mx-3 mb-2 flex gap-1.5 overflow-x-auto px-3 [scrollbar-width:none] [&::-webkit-scrollbar]:hidden" aria-label={t("ai.chat.quickActions")}>
                   {prompts.map((prompt) => (
@@ -531,6 +620,7 @@ export default function AiChatPanel({ open, request, onClose }) {
               >
                 <textarea
                   ref={inputRef}
+                  onFocus={keepLatestInView}
                   value={draft}
                   onChange={(event) => setDraft(event.target.value.slice(0, 1_500))}
                   onKeyDown={(event) => {

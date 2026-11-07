@@ -1,5 +1,6 @@
 import { Component, useCallback, useEffect, useLayoutEffect, useRef, useState } from "react";
 import { ArrowLeft, Share2 } from "lucide-react";
+import { Capacitor } from "@capacitor/core";
 
 import { useBrowserBack } from "../../../../../Backend/hooks/useBrowserBack";
 import { useExploreFeed } from "../../../../../Backend/hooks/useExploreFeed";
@@ -280,6 +281,7 @@ export default function All({ active = true, currentUserId = "", focusPostId = "
   }
 
   function handleTouchStart(event) {
+    if (!OWN_SWIPE) return;
     const scroller = scrollerRef.current;
     if (event.touches.length !== 1 || !scroller || insideInnerScroll(event.target, scroller)) {
       flickRef.current = null;
@@ -329,7 +331,7 @@ export default function All({ active = true, currentUserId = "", focusPostId = "
   const scrollerShown = !feed.error && !(feed.loading && !videos.length);
   useEffect(() => {
     const scroller = scrollerRef.current;
-    if (!scroller) return undefined;
+    if (!scroller || !OWN_SWIPE) return undefined;
     // Not through React: its touch listeners are passive and cannot hold
     // the phone's scrolling off.
     const onMove = (event) => touchMoveRef.current?.(event);
@@ -425,7 +427,7 @@ export default function All({ active = true, currentUserId = "", focusPostId = "
   const stillTimerRef = useRef(null);
   function markSwipMoving() {
     const scroller = scrollerRef.current;
-    if (!scroller) return;
+    if (!scroller || !OWN_SWIPE) return;
     if (scroller.classList.contains("kt-swip-still")) {
       scroller.classList.remove("kt-swip-still");
       // A paused player that was hidden shows black until it draws a frame
@@ -500,7 +502,7 @@ export default function All({ active = true, currentUserId = "", focusPostId = "
       ) : null}
       <div
         ref={scrollerRef}
-        className="kt-swip-still relative h-full min-h-0 w-full min-w-0 snap-y snap-mandatory overflow-y-auto overflow-x-hidden bg-slate-950 scroll-smooth [scrollbar-width:none] [&::-webkit-scrollbar]:hidden"
+        className={`${OWN_SWIPE ? "kt-swip-still " : ""}relative h-full min-h-0 w-full min-w-0 snap-y snap-mandatory overflow-y-auto overflow-x-hidden bg-slate-950 scroll-smooth [scrollbar-width:none] [&::-webkit-scrollbar]:hidden`}
       onScroll={handleScroll}
       onWheel={handleWheel}
       onTouchStart={handleTouchStart}
@@ -586,6 +588,12 @@ export default function All({ active = true, currentUserId = "", focusPostId = "
 }
 
 const SWIP_PRELOAD_AHEAD = 1;
+// Android: Swip moves the clips itself (the phone's fling ran on under a
+// swipe and skipped clips) and hides idle players (two on screen made the
+// WebView redraw nonstop). The iPhone keeps its own smooth scrolling, which
+// snap-always already stops at every clip; there a hidden player would not
+// get its first frame ready, so the next clip started slower.
+const OWN_SWIPE = Capacitor.getPlatform() === "android";
 const SWIP_WARM_AHEAD = 3;
 const SWIP_WARM_DELAY_MS = 1200;
 // A swipe moves one clip once it travels this far and is either this share

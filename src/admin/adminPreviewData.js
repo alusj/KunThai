@@ -23,6 +23,7 @@ export const previewAccess = {
     "transport.operators.view", "transport.operators.enforce", "transport.operators.suspend",
     "transport.companies.view", "transport.companies.enforce", "transport.companies.suspend",
     "notifications.direct",
+    "churn.view", "churn.users.view",
   ],
   staff: { staffNumber: "KTS-01001", levelKey: "executive", levelName: "Executive", levelRank: 8, maxAuthority: 5, department: "executive", jobTitle: "Chief Admin", status: "active" },
   roles: [{

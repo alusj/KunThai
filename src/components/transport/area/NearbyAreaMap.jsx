@@ -2052,6 +2052,12 @@ export default function NearbyAreaMap({
   const showNavigationCard = Boolean(routeLoading || routeInfo || routeError);
   const routeRecoveryNeeded = Boolean((routeStatusKey === "wrong" || routeError) && !arrivalReachedRef.current);
   const navigationCollapsed = navigationSnap === "collapsed";
+  // A route problem keeps its colour on the card even while collapsed.
+  const routeProblemTone = routeError || routeStatusKey === "wrong"
+    ? "wrong"
+    : routeStatusKey === "warning"
+      ? "warning"
+      : "";
   const routeDistanceLabel = routeInfo?.distance || (routeLoading ? t("urride.areaMap.findingRoute") : t("urride.areaMap.routeWord"));
   const routeDurationLabel = routeInfo?.duration || (routeError ? t("urride.areaMap.checkRoute") : "");
   const routeSummaryLabel = routeDurationLabel ? `${routeDistanceLabel} - ${routeDurationLabel}` : routeDistanceLabel;
@@ -2110,8 +2116,25 @@ export default function NearbyAreaMap({
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [selectedLocation]);
 
+  // When the person collapses the card during a route problem (warning or
+  // wrong route), it stays collapsed: GPS updates no longer pop it back open.
+  // The route line and the collapsed card keep the problem colour. Cleared
+  // once they are back on route, or when a new route is drawn.
+  const problemCardDismissedRef = useRef(false);
+
   function snapForRouteUpdate() {
+    problemCardDismissedRef.current = false;
     return collapseForSearchSelectionRef.current ? "collapsed" : "half";
+  }
+
+  function openNavigationForProblem() {
+    if (problemCardDismissedRef.current) return;
+    setNavigationSnap("half");
+  }
+
+  function collapseNavigationOnRoute() {
+    problemCardDismissedRef.current = false;
+    setNavigationSnap("collapsed");
   }
 
   function setNextNavigationSnap(direction) {
@@ -2119,13 +2142,18 @@ export default function NearbyAreaMap({
     // search-selection collapse on later route updates.
     collapseForSearchSelectionRef.current = false;
     const snaps = ["collapsed", "half", "expanded"];
-    setNavigationSnap((current) => {
-      const index = Math.max(0, snaps.indexOf(current));
-      const nextIndex = direction === "up"
-        ? Math.min(snaps.length - 1, index + 1)
-        : Math.max(0, index - 1);
-      return snaps[nextIndex];
-    });
+    const index = Math.max(0, snaps.indexOf(navigationSnap));
+    const nextIndex = direction === "up"
+      ? Math.min(snaps.length - 1, index + 1)
+      : Math.max(0, index - 1);
+    const nextSnap = snaps[nextIndex];
+    if (nextSnap === "collapsed") {
+      const status = routeStatusRef.current;
+      problemCardDismissedRef.current = Boolean(routeError || status === "warning" || status === "wrong");
+    } else {
+      problemCardDismissedRef.current = false;
+    }
+    setNavigationSnap(nextSnap);
   }
 
   function handleNavigationDragStart(event) {
@@ -2485,7 +2513,7 @@ export default function NearbyAreaMap({
       setRouteLineColor(mapRef.current, ROUTE_STATUS.correct.color);
       setRouteError("");
       setRescueMessage("");
-      setNavigationSnap("collapsed");
+      collapseNavigationOnRoute();
       setLocationStatus(t("urride.areaMap.routeUpdated"));
       setRouteInfo((current) =>
         current
@@ -2509,7 +2537,7 @@ export default function NearbyAreaMap({
       routeStatusRef.current = "wrong";
       setRouteStatusKey("wrong");
       setRouteLineColor(mapRef.current, ROUTE_STATUS.wrong.color);
-      setNavigationSnap("half");
+      openNavigationForProblem();
     } finally {
       backgroundRerouteBusyRef.current = false;
     }
@@ -2566,7 +2594,7 @@ export default function NearbyAreaMap({
         routeStatusRef.current = "correct";
         setRouteStatusKey("correct");
         setRouteLineColor(mapRef.current, ROUTE_STATUS.correct.color);
-        setNavigationSnap("collapsed");
+        collapseNavigationOnRoute();
         setRescueMessage(t("urride.areaMap.saveMeRecovered"));
       } else if (selectedLocation?.lat && selectedLocation?.lng) {
         routeStatusRef.current = "wrong";
@@ -3809,7 +3837,7 @@ export default function NearbyAreaMap({
             setRouteStatusKey(nextStatusKey);
 
             if (nextStatusKey === "warning" || nextStatusKey === "wrong") {
-              setNavigationSnap("half");
+              openNavigationForProblem();
             }
           }
 
@@ -3824,11 +3852,12 @@ export default function NearbyAreaMap({
 
           setRouteLineColor(mapRef.current, ROUTE_STATUS[nextStatusKey].color);
           if (nextStatusKey === "correct") {
-            setNavigationSnap("collapsed");
+            collapseNavigationOnRoute();
             setRescueMessage("");
           } else if (nextStatusKey !== "checking") {
-            // "Checking" works quietly; the card opens only for a real problem.
-            setNavigationSnap("half");
+            // "Checking" works quietly; the card opens only for a real problem,
+            // and stays collapsed if the person collapsed it.
+            openNavigationForProblem();
           }
           setTrafficInsight((current) => {
             const next = getLiveTrafficInsight(
@@ -4179,7 +4208,14 @@ export default function NearbyAreaMap({
       {showNavigationCard && (
         <div
           data-snap={navigationSnap}
-          className="area-route-sheet absolute z-30 rounded-3xl bg-white/95 text-slate-950 shadow-2xl backdrop-blur"
+          data-route-problem={routeProblemTone || undefined}
+          className={`area-route-sheet absolute z-30 rounded-3xl text-slate-950 shadow-2xl backdrop-blur ${
+            routeProblemTone === "wrong"
+              ? "border-2 border-red-500 bg-red-50/95"
+              : routeProblemTone === "warning"
+                ? "border-2 border-yellow-400 bg-yellow-50/95"
+                : "bg-white/95"
+          }`}
         >
           <div
             className="area-route-sheet-handle flex cursor-grab touch-none flex-col items-center px-4 pt-3 active:cursor-grabbing"
@@ -4197,7 +4233,9 @@ export default function NearbyAreaMap({
             <button
               type="button"
               onClick={() => setNextNavigationSnap(navigationCollapsed ? "up" : "down")}
-              className="kt-pressable rounded-full bg-green-50 px-3 py-1.5 text-xs font-black uppercase tracking-wide text-green-700"
+              className={`kt-pressable rounded-full px-3 py-1.5 text-xs font-black uppercase tracking-wide ${
+                routeProblemTone ? ROUTE_STATUS[routeProblemTone].className : "bg-green-50 text-green-700"
+              }`}
               aria-label={navigationCollapsed ? t("urride.areaMap.expandSheet") : t("urride.areaMap.collapseSheet")}
             >
               {routeInfo?.routePlan ? t("urride.areaMap.operatorRoutePreview") : t("urride.areaMap.liveNavigation")}

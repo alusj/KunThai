@@ -4,6 +4,7 @@ import { ExternalLink, ShieldAlert } from "lucide-react";
 import { haptics } from "../../../Backend/services/feedbackService";
 import { useI18n } from "../../../i18n";
 import { openLegalPage } from "../../shared/legalLinks";
+import { formatPostTime } from "../../../Backend/services/explore/postControls";
 
 const POLICY_LINKS = [
   { labelKey: "post.communityStandards", href: "/policy-center/community-standards" },
@@ -16,7 +17,9 @@ const CAUTION_RULE_KEYS = ["post.cautionRule1", "post.cautionRule2", "post.cauti
 // Shown every time a member publishes to Explore. KunThai does not
 // pre-moderate posts, so the author confirms responsibility before the
 // content goes live.
-export default function PostCautionDialog({ open, onCancel, onConfirm, submitting = false }) {
+// scheduledAt (ISO): the post goes live later (Advanced Post Controls), so
+// the check says when instead of "immediately".
+export default function PostCautionDialog({ open, onCancel, onConfirm, submitting = false, scheduledAt = null }) {
   const { t } = useI18n();
   if (!open) return null;
 
@@ -44,7 +47,7 @@ export default function PostCautionDialog({ open, onCancel, onConfirm, submittin
             <div className="min-w-0">
               <p className="text-[11px] font-black uppercase tracking-[0.18em] text-orange-700">{t("post.strictPostingCheck")}</p>
               <h2 id="post-caution-title" className="mt-1 text-xl font-black leading-tight text-slate-950">
-                {t("post.goesLiveImmediately")}
+                {scheduledAt ? t("postControls.scheduledBadge", { time: formatPostTime(scheduledAt) }) : t("post.goesLiveImmediately")}
               </h2>
             </div>
           </div>
@@ -95,7 +98,7 @@ export default function PostCautionDialog({ open, onCancel, onConfirm, submittin
               }}
               className="kt-pressable h-12 rounded-2xl bg-orange-500 text-sm font-black text-white shadow-lg shadow-orange-900/25 transition hover:bg-orange-600 disabled:opacity-60"
             >
-              {submitting ? t("post.publishing") : t("post.acceptPublish")}
+              {submitting ? t("post.publishing") : scheduledAt ? t("postControls.scheduleToggle") : t("post.acceptPublish")}
             </button>
           </div>
         </div>

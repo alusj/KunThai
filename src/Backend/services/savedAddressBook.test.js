@@ -26,9 +26,9 @@ test("UrMall delivery addresses and UrRide saved places render the same address 
   }
 });
 
-test("the caution card has no border and stacks Locate me, Drop a pin, Enter manually", () => {
+test("the caution card has a clear amber border and stacks Locate me, Drop a pin, Enter manually", () => {
   const card = cautionSource.slice(cautionSource.indexOf("export function AddressAccuracyCaution"), cautionSource.indexOf("export function AddressAreaStatusIcon"));
-  assert.doesNotMatch(card.match(/kt-address-accuracy-caution \$\{placement\}[^`]*/)[0], /\bborder\b/);
+  assert.match(card.match(/kt-address-accuracy-caution \$\{placement\}[^`]*/)[0], /\bborder-2 border-amber-400\b/);
   assert.match(card, /kt-address-caution-actions mt-4 grid grid-cols-1 gap-2/);
   const order = ["onClick={onLocateMe}", "onClick={onDropPin}", "onClick={onContinueWriting}"].map((needle) => card.indexOf(needle));
   assert.ok(order.every((index) => index > 0));

@@ -7,6 +7,7 @@ import {
   HiOutlineHandThumbUp,
 } from "react-icons/hi2";
 import { t as i18nText } from "../../../../../i18n/index";
+import { postInteractionRules } from "../../../../../Backend/services/explore/postControls";
 import { uiText as translateUi, useI18n as useUiLocale } from "../../../../../i18n/index.js";
 
 function RailButton({ active, children, label, title, onClick, danger = false, emphasis = "tap" }) {
@@ -61,6 +62,7 @@ function RailButton({ active, children, label, title, onClick, danger = false, e
 
 export default function SwipActionRail({
   fullscreen = false,
+  isOwner = false,
   post,
   liked,
   saved,
@@ -71,15 +73,20 @@ export default function SwipActionRail({
   onSave,
 }) {
   useUiLocale();
+  // Advanced Post Controls: likes off removes the button; hidden counts show
+  // only to the owner. The database enforces both.
+  const rules = postInteractionRules(post, { isOwner, followsAuthor: true });
   return (
     <div
       className="absolute bottom-[calc(var(--kt-safe-area-bottom)+7rem)] right-[max(0.5rem,var(--kt-safe-area-right))] z-20 flex flex-col items-center gap-1 rounded-full border border-white/18 bg-black/30 px-1 py-1.5 shadow-xl xs:gap-1.5 xs:px-1.5 xs:py-2 sm:right-5"
       data-gesture-lock="swip-actions"
     >
-      <RailButton active={liked} emphasis="like" label={post.likes_count ?? 0} title={i18nText("ui.literals.kc7e02c95fe85")} onClick={onLike}>
-        <HiOutlineHandThumbUp />
-      </RailButton>
-      <RailButton label={post.comments_count ?? 0} title={i18nText("ui.literals.kfce06e20e5f7")} onClick={onComment}>
+      {rules.canLike ? (
+        <RailButton active={liked} emphasis="like" label={rules.showLikeCount ? post.likes_count ?? 0 : ""} title={i18nText("ui.literals.kc7e02c95fe85")} onClick={onLike}>
+          <HiOutlineHandThumbUp />
+        </RailButton>
+      ) : null}
+      <RailButton label={rules.showCommentCount ? post.comments_count ?? 0 : ""} title={i18nText("ui.literals.kfce06e20e5f7")} onClick={onComment}>
         <HiOutlineChatBubbleOvalLeft />
       </RailButton>
       <RailButton active={saved} label={post.saves_count ?? 0} title={saved ? i18nText("ui.literals.kc0ae8f6ea841") : i18nText("ui.literals.kefc007a393f6")} onClick={onSave}>

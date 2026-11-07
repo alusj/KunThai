@@ -15,6 +15,18 @@ export default function RepostPreview({ post, sourcePost = null, compact = false
   useUiLocale();
   const source = sourcePost ? buildExploreRepostSnapshot(sourcePost) : post?.media_meta?.repost || post?.mediaMeta?.repost;
   if (!source) return null;
+  // A live repost whose original this viewer can't read (excluded, or not
+  // loaded yet): nothing of the original is shown.
+  if (source.live && (source.unavailable || !source.authorUserId)) {
+    return (
+      <section className={`overflow-hidden rounded-[22px] border-2 border-slate-200 bg-slate-50 ${compact ? "" : "mx-4 mb-4"}`}>
+        <p className="flex items-center gap-2 px-4 py-4 text-sm font-bold text-slate-500">
+          <Repeat2 size={15} strokeWidth={2.5} />
+          {t("postControls.repostUnavailable")}
+        </p>
+      </section>
+    );
+  }
 
   function openAuthorProfile() {
     if (compact) return;
@@ -74,6 +86,7 @@ export default function RepostPreview({ post, sourcePost = null, compact = false
           buttonClassName="relative block aspect-[4/3] w-full overflow-hidden bg-slate-100 text-left disabled:cursor-default"
           imgClassName="h-full w-full object-cover"
           restRadius={0}
+          allowSave={!source.downloadsDisabled}
         />
       ) : null}
       {source.videoUrl ? <RepostSwipVideo compact={compact} source={source} /> : null}

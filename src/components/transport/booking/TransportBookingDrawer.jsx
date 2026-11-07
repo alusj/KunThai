@@ -42,6 +42,8 @@ import {
   TRANSPORT_SAVED_PLACES_EVENT,
 } from "../../services/passengerTransportService";
 import SavedAddressSuggestions from "../../shared/savedAddresses/SavedAddressSuggestions";
+import { getSavedAddressContact } from "../../shared/savedAddresses/savedAddressModel";
+import FrontPictureField from "../../shared/frontPicture/FrontPictureField";
 import { haptics, sounds } from "../../../Backend/services/feedbackService";
 import { fetchTransportFleets } from "../../services/transportFleetService";
 import {
@@ -62,6 +64,7 @@ import { inlineErrorMessage } from "../../../Backend/services/friendlyErrorServi
 import { requestPreciseLocation } from "../../services/preciseLocationAccess";
 import { useLateHourGate } from "./useLateHourGate";
 import { useTransportPassengerSetting } from "../shared/useTransportPassengerSetting";
+import MultiSeatNotice from "../shared/MultiSeatNotice";
 
 const PASSENGER_CAUTION_KEY = "kunthai-passenger-booking-caution-accepted";
 
@@ -162,6 +165,7 @@ export default function TransportBookingDrawer({ open, target, onClose, onCreate
     packageDescription: "",
     receiverPhone: "",
     note: "",
+    frontPictureUrl: "",
     bookingMethod: "distance",
     bookedHours: "1",
   });
@@ -269,6 +273,7 @@ export default function TransportBookingDrawer({ open, target, onClose, onCreate
       packageDescription: draftForm?.packageDescription || "",
       receiverPhone: draftForm?.receiverPhone || "",
       note: draftForm?.note || "",
+      frontPictureUrl: draftForm?.frontPictureUrl || "",
     }));
   }, [open, target]);
 
@@ -729,10 +734,16 @@ export default function TransportBookingDrawer({ open, target, onClose, onCreate
                   selectedPoint={form.pickupPoint}
                   center={searchCenter || form.dropoffPoint}
                   onChange={(value) => updateForm({ pickup: value, pickupPoint: null })}
-                  onSelect={(place) => updateForm({
-                    pickup: getBookingLocationInputValue(place),
-                    pickupPoint: normalizeBookingLocationPoint(place),
-                  })}
+                  onSelect={(place, { saved = false } = {}) => {
+                    const contact = saved ? getSavedAddressContact(place) : {};
+                    updateForm({
+                      pickup: getBookingLocationInputValue(place),
+                      pickupPoint: normalizeBookingLocationPoint(place),
+                      ...(contact.name ? { passengerName: contact.name } : {}),
+                      ...(contact.phone ? { phone: contact.phone } : {}),
+                      ...(contact.frontPictureUrl ? { frontPictureUrl: contact.frontPictureUrl } : {}),
+                    });
+                  }}
                   onLocateMe={() => openBookingLocationPicker("pickup", "current")}
                   onDropPin={() => openBookingLocationPicker("pickup", "dropPin")}
                   placeholder={t("urride.booking.pickupPlaceholder")}
@@ -747,10 +758,17 @@ export default function TransportBookingDrawer({ open, target, onClose, onCreate
                   selectedPoint={form.dropoffPoint}
                   center={form.pickupPoint || searchCenter}
                   onChange={(value) => updateForm({ dropoff: value, dropoffPoint: null })}
-                  onSelect={(place) => updateForm({
-                    dropoff: getBookingLocationInputValue(place),
-                    dropoffPoint: normalizeBookingLocationPoint(place),
-                  })}
+                  onSelect={(place, { saved = false } = {}) => {
+                    // A parcel's saved drop-off place names who receives it.
+                    const contact = saved && bookingMode === "delivery" ? getSavedAddressContact(place) : {};
+                    updateForm({
+                      dropoff: getBookingLocationInputValue(place),
+                      dropoffPoint: normalizeBookingLocationPoint(place),
+                      ...(contact.phone ? { receiverPhone: contact.phone } : {}),
+                      // A parcel goes to the drop-off: its picture is the useful one.
+                      ...(contact.frontPictureUrl ? { frontPictureUrl: contact.frontPictureUrl } : {}),
+                    });
+                  }}
                   onLocateMe={() => openBookingLocationPicker("dropoff", "current")}
                   onDropPin={() => openBookingLocationPicker("dropoff", "dropPin")}
                   placeholder={t("urride.booking.dropoffPlaceholder")}
@@ -833,10 +851,13 @@ export default function TransportBookingDrawer({ open, target, onClose, onCreate
                   />
                 </>
               ) : (
-                <label className="space-y-1">
-                  <span className="text-xs font-black uppercase text-gray-500">{t("urride.booking.passengers")}</span>
-                  <PassengerCountSelect value={form.passengers} max={maxPassengers} onChange={(value) => updateForm({ passengers: value })} />
-                </label>
+                <>
+                  <label className="space-y-1">
+                    <span className="text-xs font-black uppercase text-gray-500">{t("urride.booking.passengers")}</span>
+                    <PassengerCountSelect value={form.passengers} max={maxPassengers} onChange={(value) => updateForm({ passengers: value })} />
+                  </label>
+                  <MultiSeatNotice variant="booking" seats={maxPassengers} />
+                </>
               )}
 
               <label className="space-y-1">
@@ -849,6 +870,12 @@ export default function TransportBookingDrawer({ open, target, onClose, onCreate
                   className="w-full resize-none rounded-xl border border-gray-200 bg-gray-50 px-3 py-3 text-sm font-semibold outline-none focus:border-emerald-500"
                 />
               </label>
+
+              <FrontPictureField
+                value={form.frontPictureUrl}
+                onChange={(value) => updateForm({ frontPictureUrl: value })}
+                disabled={submitting}
+              />
             </section>
 
             <section className="mt-4 rounded-2xl border border-amber-200 bg-amber-50 p-4">
@@ -1015,8 +1042,10 @@ export function AddressSuggestionInput({ icon, label, value, selectedPoint, cent
   const showingSavedPlace = savedPlaces.some((place) => getBookingLocationInputValue(place) === typed);
   const showSuggestions = focused && !caution.open && !showingSavedPlace && (searching || suggestions.length > 0 || typed.length >= 2);
 
+  // A saved place carries its contact, so the caller can fill the name and
+  // phone as well; search results only fill the address.
   function pickSavedPlace(place) {
-    caution.act(() => onSelect(place));
+    caution.act(() => onSelect(place, { saved: true }));
     setFocused(false);
     setSuggestions([]);
     inputRef.current?.blur();

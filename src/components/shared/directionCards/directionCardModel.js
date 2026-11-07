@@ -11,6 +11,8 @@ export const DIRECTION_CARD_ORDER = [
   // are their "start here" actions in UrRide and UrMall.
   "urride-open-booking",
   "urmall-search",
+  // Inside the open search overlay, the KAI photo-search camera.
+  "urmall-photo-search",
   "urmall-messages",
   "urmall-notifications",
   "urmall-cart",
@@ -24,6 +26,7 @@ export const DIRECTION_CARD_ORDER = [
   "area-sos",
   "area-lock",
   "area-focus",
+  "area-add-location",
   "kai-assistant",
 ];
 

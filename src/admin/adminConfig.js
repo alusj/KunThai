@@ -77,6 +77,7 @@ export const ADMIN_NAV_GROUPS = [
       { id: "notifications", label: "Notifications", icon: "BellRing", permission: "notifications.view" },
       { id: "finance", label: "Finance", icon: "Landmark", permission: "finance.view" },
       { id: "analytics", label: "Analytics", icon: "ChartNoAxesCombined", permission: "analytics.view" },
+      { id: "churn", label: "Churn intelligence", labelKey: "adminChurn.title", icon: "Activity", permission: "churn.view" },
     ],
   },
   {

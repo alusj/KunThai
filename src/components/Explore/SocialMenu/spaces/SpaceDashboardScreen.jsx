@@ -42,6 +42,7 @@ import { useActionFeedbackScope } from "../../../../Backend/services/buttonFeedb
 import Avatar from "../../shared/Avatar";
 import EmptyState from "../../shared/EmptyState";
 import KunThaiIdHelpButton from "../../../shared/KunThaiIdHelpButton";
+import KunThaiAccountSearchField from "../../../shared/KunThaiAccountSearchField";
 import { t as i18nText } from "../../../../i18n/index";
 import { t } from "../../../../i18n";
 import { uiText as translateUi, useI18n as useUiLocale } from "../../../../i18n/index.js";
@@ -248,7 +249,9 @@ export default function SpaceDashboardScreen({
       return undefined;
     }
     if (detectPublicCodeKind(code) !== "kunthai") {
-      setInviteLookup({ status: "invalid", name: "", message: i18nText("ui.literals.kf9f1334b2e12") });
+      // A name or @username: the field's own suggestions are searching it.
+      const looksLikeId = /^KTU/i.test(code);
+      setInviteLookup({ status: looksLikeId ? "invalid" : "idle", name: "", message: looksLikeId ? i18nText("ui.literals.kf9f1334b2e12") : "" });
       return undefined;
     }
 
@@ -431,7 +434,12 @@ export default function SpaceDashboardScreen({
 
           <div className="mt-4 grid gap-3 md:grid-cols-3">
             <Field label="KunThai ID" action={<KunThaiIdHelpButton subject="team member" tone="sky" />}>
-              <input value={invite.kunthaiId} onChange={(event) => setInvite((current) => ({ ...current, kunthaiId: event.target.value.toUpperCase() }))} placeholder="KTU-XXXX-XXXX-XXXX" autoCapitalize="characters" autoComplete="off" spellCheck={false} aria-label={i18nText("ui.literals.k77243a6fff0d")} className="h-12 w-full rounded-2xl bg-slate-100 px-4 text-sm font-bold uppercase tracking-wide text-slate-900 outline-none transition focus:bg-white focus:ring-4 focus:ring-sky-100" />
+              <KunThaiAccountSearchField
+                value={invite.kunthaiId}
+                onChange={(value) => setInvite((current) => ({ ...current, kunthaiId: value }))}
+                ariaLabel={i18nText("ui.literals.k77243a6fff0d")}
+                showConfirmation={false}
+              />
               {inviteLookup.status === "found" ? (
                 <p aria-live="polite" className="kt-modal-enter mt-1.5 text-xs font-black text-emerald-600">✓ {inviteLookup.name}</p>
               ) : inviteLookup.status === "checking" ? (

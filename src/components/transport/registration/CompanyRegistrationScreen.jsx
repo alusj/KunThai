@@ -31,6 +31,7 @@ import AppBackTab from "../../shared/AppBackTab";
 import AddressLocationField from "../../shared/AddressLocationField";
 import AccountSetupLoader from "../../shared/AccountSetupLoader";
 import CenteredModal from "../../shared/CenteredModal";
+import KunThaiAccountSearchField from "../../shared/KunThaiAccountSearchField";
 import KunThaiIdHelpButton from "../../shared/KunThaiIdHelpButton";
 import { AddressAreaStatusIcon, useAddressAreaValidation } from "../../shared/AddressAreaValidation";
 import { ScreenSlideTransition, StepSlideTransition } from "../../shared/motion";
@@ -1703,6 +1704,15 @@ function FleetCard({ acceptedPublicIds = [], errors = {}, fleet, form, index, lo
       return undefined;
     }
 
+    // A name or @username is being searched in the field's own suggestions;
+    // only a KunThai ID (typed, pasted or picked there) is checked here.
+    if (!/^KTU/i.test(target.replace(/[^a-z0-9]/gi, ""))) {
+      setOperatorMatch(null);
+      setLookupStatus("");
+      setLookingUp(false);
+      return undefined;
+    }
+
     const compactTarget = target.replace(/[^a-z0-9]/gi, "");
     if (compactTarget.length < 7) {
       // Keep any previous match on screen instead of flashing it away on every
@@ -1874,15 +1884,11 @@ function FleetCard({ acceptedPublicIds = [], errors = {}, fleet, form, index, lo
           <KunThaiIdHelpButton subject="operator" tone="blue" />
         </div>
         <div className="mt-4">
-          <input
+          <KunThaiAccountSearchField
             value={operatorId}
-            onChange={(event) => setOperatorId(event.target.value.toUpperCase())}
-            placeholder={t("urride.companyReg.operatorIdPlaceholder")}
-            autoCapitalize="characters"
-            autoComplete="off"
-            spellCheck={false}
-            aria-label={t("urride.companyReg.addOperatorHeading")}
-            className="h-11 w-full rounded-2xl border border-slate-200 bg-slate-50 px-4 text-sm font-black uppercase tracking-wide outline-none transition focus:border-blue-500 focus:bg-white focus:ring-4 focus:ring-blue-100"
+            onChange={setOperatorId}
+            ariaLabel={t("urride.companyReg.addOperatorHeading")}
+            showConfirmation={false}
           />
         </div>
         {errors[i18nText("ui.literals.k5c30e91aa380", { value0: fleet.localId })] ? <p className="mt-3 text-sm font-bold text-rose-700" role="alert">{errors[i18nText("ui.literals.k5c30e91aa380", { value0: fleet.localId })]}</p> : null}

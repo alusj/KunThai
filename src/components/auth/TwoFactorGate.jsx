@@ -4,8 +4,11 @@ import { LogOut, ShieldCheck } from "lucide-react";
 import { signOutUser } from "../../Backend/services/authService";
 import {
   checkTwoFactorChallenge,
+  formatBackupCode,
+  recoverWithBackupCode,
   verifyTwoFactorLogin,
 } from "../../Backend/services/twoFactorService";
+import { showToast } from "../../Backend/services/toastService";
 import { t as i18nText } from "../../i18n/index";
 import { uiText as translateUi, useI18n as useUiLocale } from "../../i18n/index.js";
 import { inlineErrorMessage } from "../../Backend/services/friendlyErrorService";
@@ -27,6 +30,9 @@ export default function TwoFactorGate({ user, children, onResolved, onDeferred, 
   const [code, setCode] = useState("");
   const [verifying, setVerifying] = useState(false);
   const [error, setError] = useState("");
+  // Lost authenticator: a backup code turns two-step off and lets them in.
+  const [backupMode, setBackupMode] = useState(false);
+  const [backupCode, setBackupCode] = useState("");
   const userId = user?.id || "";
   const guest = Boolean(user?.is_anonymous);
 
@@ -104,6 +110,27 @@ export default function TwoFactorGate({ user, children, onResolved, onDeferred, 
     }
   }
 
+  async function handleBackup(event) {
+    event.preventDefault();
+    try {
+      setVerifying(true);
+      setError("");
+      const recovered = await recoverWithBackupCode(backupCode);
+      if (!recovered) {
+        setError(i18nText("accountRecovery.gateWrongCode"));
+        return;
+      }
+      showToast(i18nText("accountRecovery.recoveredToast"), "warning");
+      setRequired(false);
+      onResolved?.(false);
+    } catch (nextError) {
+      const tooMany = /KT_MFA_TOO_MANY_ATTEMPTS/.test(String(nextError?.message || ""));
+      setError(tooMany ? i18nText("accountRecovery.gateTooMany") : inlineErrorMessage(nextError, i18nText("accountRecovery.gateWrongCode")));
+    } finally {
+      setVerifying(false);
+    }
+  }
+
   return (
     <div className="flex min-h-dvh items-center justify-center bg-slate-100 px-4 py-8">
       <section className="w-full max-w-md rounded-2xl border border-slate-200 bg-white p-6 shadow-sm sm:p-8">
@@ -115,6 +142,43 @@ export default function TwoFactorGate({ user, children, onResolved, onDeferred, 
           {i18nText("ui.literals.kf0aab8865fd9")}
         </p>
 
+        {backupMode ? (
+          <form onSubmit={handleBackup} className="mt-5 space-y-3">
+            <label className="block text-sm font-black text-slate-800" htmlFor="kt-backup-code">{i18nText("accountRecovery.gateBackupLabel")}</label>
+            <input
+              id="kt-backup-code"
+              type="text"
+              autoFocus
+              autoCapitalize="characters"
+              autoComplete="one-time-code"
+              spellCheck={false}
+              value={backupCode}
+              onChange={(event) => setBackupCode(formatBackupCode(event.target.value))}
+              placeholder="ABCDE-12345"
+              className="w-full rounded-xl border border-slate-300 bg-white px-4 py-3 text-center font-mono text-lg font-black tracking-[0.2em] text-slate-900 outline-none transition placeholder:text-slate-300 focus:border-emerald-500 focus:ring-2 focus:ring-emerald-500/20"
+            />
+            {error ? (
+              <p className="rounded-xl border border-rose-200 bg-rose-50 px-4 py-3 text-sm font-bold text-rose-700">{translateUi(error)}</p>
+            ) : null}
+            <button
+              type="submit"
+              disabled={verifying || backupCode.replace("-", "").length < 10}
+              className="min-h-12 w-full rounded-xl bg-emerald-600 px-4 py-3 text-sm font-black text-white transition hover:bg-emerald-700 disabled:opacity-60"
+            >
+              {verifying ? i18nText("ui.literals.kbf6ea5406002") : i18nText("accountRecovery.gateBackupSubmit")}
+            </button>
+            <button
+              type="button"
+              onClick={() => {
+                setBackupMode(false);
+                setError("");
+              }}
+              className="min-h-11 w-full text-sm font-black text-emerald-700"
+            >
+              {i18nText("accountRecovery.gateUseApp")}
+            </button>
+          </form>
+        ) : (
         <form onSubmit={handleVerify} className="mt-5 space-y-3">
           <input
             type="text"
@@ -135,7 +199,18 @@ export default function TwoFactorGate({ user, children, onResolved, onDeferred, 
           >
             {verifying ? i18nText("ui.literals.kbf6ea5406002") : i18nText("ui.literals.k882666b4379f")}
           </button>
+          <button
+            type="button"
+            onClick={() => {
+              setBackupMode(true);
+              setError("");
+            }}
+            className="min-h-11 w-full text-sm font-black text-emerald-700"
+          >
+            {i18nText("accountRecovery.gateUseBackup")}
+          </button>
         </form>
+        )}
 
         <button
           type="button"

@@ -257,9 +257,7 @@ export default function NotificationButton({ companyAccount, openRequest = 0, op
                       key={notification.id}
                       onClick={() => notification.sourceTable === "platform_notifications" ? openPlatformNotification(notification) : markNotificationRead(notification)}
                       className={`rounded-2xl border p-3 ${
-                        !notification.read
-                          ? "border-green-100 bg-green-50"
-                          : "border-slate-100 bg-white"
+                        !notification.read ? "kt-notif-unread kt-notif-tone-green" : "kt-notif-read"
                       }`}
                     >
                       <div className="flex items-start gap-3">

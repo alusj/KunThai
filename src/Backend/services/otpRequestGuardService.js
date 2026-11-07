@@ -1,12 +1,14 @@
 // Client-side OTP request pacing shared by account creation and password
-// recovery. The second OTP for a phone number is the last one allowed; after
-// it, further requests stay blocked for 72 hours. The floating "stay near your
-// device" card is triggered by the `isSecond` flag returned here.
+// recovery. It mirrors the server limit in the otp-delivery function (5 codes
+// per number per rolling hour): the fifth code in an hour is the last one, and
+// the next can be requested once an hour has passed since the first. The
+// server also caps codes at 10 per 24 hours and answers with its own message.
+// The floating "stay near your device" card is triggered by the `isLast`
+// flag (also returned as `isSecond` for existing callers).
 
 const STORAGE_PREFIX = "kunthai.otpRequests:";
-const MAX_OTP_REQUESTS = 2;
-const BLOCK_WINDOW_MS = 72 * 60 * 60 * 1000;
-const COUNT_WINDOW_MS = 24 * 60 * 60 * 1000;
+const MAX_OTP_REQUESTS = 5;
+const COUNT_WINDOW_MS = 60 * 60 * 1000;
 
 function storageKey(phone) {
   return `${STORAGE_PREFIX}${String(phone || "").replace(/\D/g, "")}`;
@@ -63,14 +65,16 @@ export function registerOtpRequest(phone) {
 
   const withinWindow = existing && now - Number(existing.firstAt || 0) < COUNT_WINDOW_MS && !existing.blockedUntil;
   const count = (withinWindow ? Number(existing.count || 0) : 0) + 1;
+  const firstAt = withinWindow ? Number(existing.firstAt) : now;
   const entry = {
     count,
-    firstAt: withinWindow ? existing.firstAt : now,
-    blockedUntil: count >= MAX_OTP_REQUESTS ? now + BLOCK_WINDOW_MS : 0,
+    firstAt,
+    blockedUntil: count >= MAX_OTP_REQUESTS ? firstAt + COUNT_WINDOW_MS : 0,
   };
   writeEntry(phone, entry);
 
-  return { count, isSecond: count === MAX_OTP_REQUESTS, blockedUntil: entry.blockedUntil };
+  const isLast = count === MAX_OTP_REQUESTS;
+  return { count, isLast, isSecond: isLast, blockedUntil: entry.blockedUntil };
 }
 
 // A successful verification releases the guard so the next legitimate flow

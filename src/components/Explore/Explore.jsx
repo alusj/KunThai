@@ -972,6 +972,8 @@ export default function Explore({ active = true, onNavigateMain, onScreenModeCha
   }
 
   function openViewedProfile(authorProfile) {
+    // Guests browse posts but cannot open anyone's profile or Space.
+    if (guardGuestAction("view", authorProfile?.spaceId || authorProfile?.identityType === "space" ? "space" : "profile")) return;
     stopAllExploreMedia();
     exploreNav.rememberScrollPosition();
     setViewedProfile(authorProfile);

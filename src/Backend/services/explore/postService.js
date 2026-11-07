@@ -9,6 +9,8 @@ import { PROFILE_IDENTITY_TYPE, SPACE_IDENTITY_TYPE, getPostIdentity, normalizeI
 import { getPostSurface, orderPostsByIds, postBelongsToSurface } from "./profilePostsModel";
 import { normalizeSpaceResponsibilities } from "./spaceService";
 import { shouldUseLegacyMentionInsert } from "./mentionFallback.js";
+import { postControlColumns } from "./postControls";
+import { hydrateLiveReposts } from "./postControlsService";
 
 const MAX_SWIP_SECONDS = 15;
 const SPACE_POSTING_ROLES = new Set(["owner", "administrator", "moderator", "editor", "customer_support"]);
@@ -460,10 +462,12 @@ export async function fetchExplorePostCounts(postIds = []) {
   return counts;
 }
 
-async function hydratePostActionCounts(posts) {
-  if (!posts.length) {
-    return posts;
+async function hydratePostActionCounts(inputPosts) {
+  if (!inputPosts.length) {
+    return inputPosts;
   }
+
+  const posts = await hydrateLiveReposts(inputPosts);
 
   try {
     const counts = await fetchExplorePostCounts(posts.map((post) => post.id));
@@ -571,6 +575,10 @@ export async function createExplorePost(input, scope = "feed") {
     likes_count: 0,
     comments_count: 0,
     saves_count: 0,
+    // Advanced Post Controls: saved by this same insert (the database moves
+    // excluded_user_ids into explore_post_exclusions), so the post and its
+    // settings exist together or not at all. Defaults add nothing.
+    ...(hasAdvert ? {} : postControlColumns(payload.post_controls)),
   };
 
   logExploreFeed("post creation started", {
@@ -634,13 +642,20 @@ export async function createExplorePost(input, scope = "feed") {
 
   if (created.video_url) requestVideoFaststartCheck(created.id);
 
-  if (isExplorePostVisibleInFeed(created)) {
+  // A scheduled post tells mentioned people when it goes live (the
+  // publishing job does it), not now.
+  if (isExplorePostVisibleInFeed(created) && !isScheduledForLater(created)) {
     await notifyMentionedUsers(created, draft);
   }
 
   await recordHashtagUsage(hashtags, user.id).catch(() => {});
 
   return created;
+}
+
+export function isScheduledForLater(post) {
+  const time = post?.publish_at ? new Date(post.publish_at).getTime() : NaN;
+  return Number.isFinite(time) && time > Date.now();
 }
 
 async function notifyMentionedUsers(post, draft) {
@@ -915,6 +930,12 @@ function applyIdentityFilter(query, identity) {
   return query.eq("user_id", target.id).neq("actor_type", SPACE_IDENTITY_TYPE);
 }
 
+// "Hide from profile" (Advanced Post Controls): such posts stay in feeds and
+// search but are left off the profile for everyone except their author.
+function applyProfileVisibility(query, viewerId) {
+  return viewerId ? query.or(`hidden_from_profile.eq.false,user_id.eq.${viewerId}`) : query.eq("hidden_from_profile", false);
+}
+
 function applySurfaceFilter(query, surface) {
   if (surface === "swip") return query.not("video_url", "is", null).neq("video_url", "");
   if (surface === "feed") return query.or("video_url.is.null,video_url.eq.");
@@ -936,7 +957,7 @@ export async function fetchIdentityPosts(identity, options = {}) {
   const offset = Math.max(0, Number(options.offset) || 0);
   const context = await getCurrentUserContext();
 
-  const query = applySurfaceFilter(applyIdentityFilter(supabase.from("explore_posts").select("*"), target), surface)
+  const query = applyProfileVisibility(applySurfaceFilter(applyIdentityFilter(supabase.from("explore_posts").select("*"), target), surface), context.userId)
     .order("created_at", { ascending: false })
     .range(offset, offset + limit - 1);
   const { data, error } = await query;
@@ -964,11 +985,13 @@ export async function countIdentityPosts(identity) {
   const target = normalizeIdentityTarget(identity || "");
   if (!target.id) return { feed: 0, swip: 0 };
 
+  const viewerId = await getCurrentUserId().catch(() => null);
+
   async function count(surface) {
-    const query = applySurfaceFilter(
+    const query = applyProfileVisibility(applySurfaceFilter(
       applyIdentityFilter(supabase.from("explore_posts").select("id", { count: "exact", head: true }), target),
       surface,
-    );
+    ), viewerId);
     const { count: total, error } = await query;
     if (error) {
       if (isMissingTable(error)) return 0;

@@ -51,6 +51,9 @@ import { useI18n, t } from "../../../i18n";
 import { uiText as translateUi } from "../../../i18n/index.js";
 import { useLateHourGate } from "./useLateHourGate";
 import { useTransportPassengerSetting } from "../shared/useTransportPassengerSetting";
+import MultiSeatNotice from "../shared/MultiSeatNotice";
+import { getSavedAddressContact } from "../../shared/savedAddresses/savedAddressModel";
+import FrontPictureField from "../../shared/frontPicture/FrontPictureField";
 
 const RIDE_ICONS = { Motorcycle: FaMotorcycle, Tricycle: MdElectricRickshaw, Car: FaCarSide };
 const DELIVERY_ICONS = { Motorcycle: FaMotorcycle, Tricycle: MdElectricRickshaw, Car: FaShuttleVan };
@@ -72,6 +75,7 @@ const EMPTY_FORM = {
   passengers: "1",
   packageDescription: "",
   note: "",
+  frontPictureUrl: "",
   pickupTime: "now",
   scheduledAt: "",
 };
@@ -510,7 +514,16 @@ export default function OpenBookingSheet({ open, draft = null, onClose, onOpenTr
                           selectedPoint={form.pickupPoint}
                           center={searchCenter || form.dropoffPoint}
                           onChange={(value) => updateForm({ pickup: value, pickupPoint: null })}
-                          onSelect={(place) => updateForm({ pickup: getBookingLocationInputValue(place), pickupPoint: normalizeBookingLocationPoint(place) })}
+                          onSelect={(place, { saved = false } = {}) => {
+                            const contact = saved ? getSavedAddressContact(place) : {};
+                            updateForm({
+                              pickup: getBookingLocationInputValue(place),
+                              pickupPoint: normalizeBookingLocationPoint(place),
+                              ...(contact.name ? { passengerName: contact.name } : {}),
+                              ...(contact.phone ? { phone: contact.phone } : {}),
+                              ...(contact.frontPictureUrl ? { frontPictureUrl: contact.frontPictureUrl } : {}),
+                            });
+                          }}
                           onLocateMe={() => setAreaPicker({ kind: "pickup", start: "current" })}
                           onDropPin={() => setAreaPicker({ kind: "pickup", start: "dropPin" })}
                           placeholder={t("urride.booking.pickupPlaceholder")}
@@ -564,10 +577,13 @@ export default function OpenBookingSheet({ open, draft = null, onClose, onOpenTr
                           placeholder={t("urride.booking.packagePlaceholder")}
                         />
                       ) : (
-                        <label className="space-y-1">
-                          <span className="text-xs font-black uppercase text-gray-500">{t("urride.booking.passengers")}</span>
-                          <PassengerCountSelect value={form.passengers} max={maxPassengers} onChange={(value) => updateForm({ passengers: value })} />
-                        </label>
+                        <>
+                          <label className="space-y-1">
+                            <span className="text-xs font-black uppercase text-gray-500">{t("urride.booking.passengers")}</span>
+                            <PassengerCountSelect value={form.passengers} max={maxPassengers} onChange={(value) => updateForm({ passengers: value })} />
+                          </label>
+                          <MultiSeatNotice variant="booking" seats={maxPassengers} />
+                        </>
                       )}
 
                       <PickupTimeFields
@@ -586,6 +602,12 @@ export default function OpenBookingSheet({ open, draft = null, onClose, onOpenTr
                           className="w-full resize-none rounded-xl border border-gray-200 bg-gray-50 px-3 py-3 text-sm font-semibold outline-none focus:border-emerald-500"
                         />
                       </label>
+
+                      <FrontPictureField
+                        value={form.frontPictureUrl}
+                        onChange={(value) => updateForm({ frontPictureUrl: value })}
+                        disabled={sending}
+                      />
                     </section>
 
                     <section className="rounded-2xl border border-gray-200 bg-white p-4 shadow-sm">

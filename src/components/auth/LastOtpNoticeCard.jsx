@@ -3,9 +3,9 @@ import { ShieldAlert } from "lucide-react";
 import { t as i18nText } from "../../i18n/index";
 import { useI18n as useUiLocale } from "../../i18n/index.js";
 
-// Centered floating caution shown right after the SECOND OTP is sent (account
-// creation or password recovery). That second code is the last one allowed for
-// this number until the 72-hour cooldown ends.
+// Centered floating caution shown right after the last OTP allowed in the
+// current hour is sent (account creation or password recovery). The next code
+// can be requested one hour after the first one (see otpRequestGuardService).
 export default function LastOtpNoticeCard({ open, onCancel, onVerify }) {
   useUiLocale();
   if (!open) return null;

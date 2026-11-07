@@ -15,7 +15,12 @@ import { APPLE_IAP } from "./appleIap";
 import { GOOGLE_PLAY_BILLING } from "./googlePlayBilling";
 import { AI_CONSENT } from "./aiConsent";
 import { URRIDE_REQUESTS } from "./urrideRequests";
+import { URRIDE_INVITE_LOCATION } from "./urrideInviteLocation";
 import { MESSAGE_ACTIONS } from "./messageActions";
+import { POST_CONTROLS } from "./postControls";
+import { ACCOUNT_RECOVERY } from "./accountRecovery";
+import { POST_AUDIENCE_AGE } from "./postAudienceAge";
+import { URRIDE_SEATS_TRIP } from "./urrideSeatsTrip";
 import { URRIDE_COMPANY_ALERTS } from "./urrideCompanyAlerts";
 import { AUTH_TERMS } from "./authTerms";
 import { VOICE_NOTES } from "./voiceNotes";
@@ -23,6 +28,7 @@ import { APP_LOADING } from "./appLoading";
 import { WELCOME_SLIDES } from "./welcomeSlides";
 import { VOICE_POST_PHOTOS } from "./voicePostPhotos";
 import { ADMIN_YOUR_VOICE } from "./adminYourVoice";
+import { ADMIN_CHURN } from "./adminChurn";
 import { URMALL_SETTINGS } from "./urmallSettings";
 import { URRIDE_MAP_FIX2 } from "./urrideMapFix2";
 import { URRIDE_OPERATOR_PROFILE } from "./urrideOperatorProfile";
@@ -59718,9 +59724,39 @@ for (const [locale, section] of Object.entries(URRIDE_REQUESTS)) {
   }
 }
 
+for (const [locale, section] of Object.entries(URRIDE_INVITE_LOCATION)) {
+  if (TRANSLATIONS[locale]) {
+    TRANSLATIONS[locale].urrideInviteLocation = section;
+  }
+}
+
 for (const [locale, section] of Object.entries(MESSAGE_ACTIONS)) {
   if (TRANSLATIONS[locale]) {
     TRANSLATIONS[locale].messageActions = section;
+  }
+}
+
+for (const [locale, section] of Object.entries(POST_CONTROLS)) {
+  if (TRANSLATIONS[locale]) {
+    TRANSLATIONS[locale].postControls = section;
+  }
+}
+
+for (const [locale, section] of Object.entries(ACCOUNT_RECOVERY)) {
+  if (TRANSLATIONS[locale]) {
+    TRANSLATIONS[locale].accountRecovery = section;
+  }
+}
+
+for (const [locale, section] of Object.entries(POST_AUDIENCE_AGE)) {
+  if (TRANSLATIONS[locale]) {
+    TRANSLATIONS[locale].postAudienceAge = section;
+  }
+}
+
+for (const [locale, section] of Object.entries(URRIDE_SEATS_TRIP)) {
+  if (TRANSLATIONS[locale]) {
+    TRANSLATIONS[locale].urrideSeatsTrip = section;
   }
 }
 
@@ -59763,6 +59799,12 @@ for (const [locale, section] of Object.entries(VOICE_POST_PHOTOS)) {
 for (const [locale, section] of Object.entries(ADMIN_YOUR_VOICE)) {
   if (TRANSLATIONS[locale]) {
     TRANSLATIONS[locale].adminYourVoice = section;
+  }
+}
+
+for (const [locale, section] of Object.entries(ADMIN_CHURN)) {
+  if (TRANSLATIONS[locale]) {
+    TRANSLATIONS[locale].adminChurn = section;
   }
 }
 

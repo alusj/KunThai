@@ -12,6 +12,30 @@ import {
 import { t as i18nText, uiText } from "../../../../i18n/index";
 import { uiText as translateUi, useI18n as useUiLocale } from "../../../../i18n/index.js";
 import { inlineErrorMessage, isConnectionFailure } from "../../../../Backend/services/friendlyErrorService";
+import { getRecoveryEmailState, requestRecoveryEmailConfirmation } from "../../../../Backend/services/emailRecoveryService";
+
+const OFFER_DISMISSED_PREFIX = "kt_linked_email_offer_dismissed.";
+
+// An account with no email of its own (phone sign-up) that has linked a
+// social login with an email is offered that email for account recovery.
+// Nothing changes unless they accept; then Supabase sends the confirmation.
+function linkedEmailToOffer(identities = []) {
+  for (const identity of identities) {
+    if (!["google", "apple", "facebook"].includes(identity?.provider)) continue;
+    const email = String(identity?.identity_data?.email || "").trim().toLowerCase();
+    // Apple's private relay addresses still deliver, so they are fine.
+    if (email && email.includes("@")) return email;
+  }
+  return "";
+}
+
+function offerDismissed(userId) {
+  try {
+    return window.localStorage.getItem(OFFER_DISMISSED_PREFIX + userId) === "1";
+  } catch {
+    return false;
+  }
+}
 
 // Lets a signed-in KunThai user connect a social login to their account — the
 // path for a phone-only account whose email does not match the Google/Facebook
@@ -29,21 +53,55 @@ export default function LinkedAccountsSection({ currentUserId = "" }) {
   const [error, setError] = useState("");
   const [notice, setNotice] = useState("");
   const [confirmUnlink, setConfirmUnlink] = useState("");
+  const [emailOffer, setEmailOffer] = useState("");
+  const [offerBusy, setOfferBusy] = useState(false);
 
   const refresh = useCallback(async () => {
     try {
       const { data, error: idError } = await supabase.auth.getUserIdentities();
       if (idError) throw idError;
-      setIdentities(data?.identities || []);
+      const list = data?.identities || [];
+      setIdentities(list);
+      const offer = linkedEmailToOffer(list);
+      if (offer && currentUserId && !offerDismissed(currentUserId)) {
+        const recovery = await getRecoveryEmailState().catch(() => ({ status: "unknown" }));
+        setEmailOffer(recovery.status === "none" ? offer : "");
+      } else {
+        setEmailOffer("");
+      }
     } catch {
       // Non-fatal: treat every provider as linkable rather than blocking the UI.
       setIdentities([]);
     }
-  }, []);
+  }, [currentUserId]);
 
   useEffect(() => {
     refresh();
   }, [refresh]);
+
+  async function acceptEmailOffer() {
+    if (offerBusy || !emailOffer) return;
+    setOfferBusy(true);
+    setError("");
+    try {
+      await requestRecoveryEmailConfirmation(emailOffer);
+      setNotice(i18nText("accountRecovery.linkEmailSent", { email: emailOffer }));
+      setEmailOffer("");
+    } catch (err) {
+      setError(inlineErrorMessage(err, i18nText("accountRecovery.linkEmailFailed")));
+    } finally {
+      setOfferBusy(false);
+    }
+  }
+
+  function dismissEmailOffer() {
+    try {
+      window.localStorage.setItem(OFFER_DISMISSED_PREFIX + currentUserId, "1");
+    } catch {
+      // Not remembered on this device; it is offered again next time.
+    }
+    setEmailOffer("");
+  }
 
   // Native linking finishes through the shared deep-link callback; refresh the
   // linked list and surface the outcome.
@@ -133,6 +191,33 @@ export default function LinkedAccountsSection({ currentUserId = "" }) {
           ) : null}
           {notice ? (
             <p className="mt-3 rounded-2xl bg-emerald-50 px-3 py-2 text-sm font-bold text-emerald-700">{translateUi(notice)}</p>
+          ) : null}
+
+          {emailOffer ? (
+            <div className="mt-3 rounded-2xl border border-sky-200 bg-sky-50 p-4">
+              <p className="text-sm font-black text-slate-950">{i18nText("accountRecovery.linkEmailTitle")}</p>
+              <p className="mt-1 break-words text-sm font-semibold leading-6 text-slate-600">
+                {i18nText("accountRecovery.linkEmailBody", { email: emailOffer })}
+              </p>
+              <div className="mt-3 grid gap-2 sm:grid-cols-2">
+                <button
+                  type="button"
+                  onClick={dismissEmailOffer}
+                  disabled={offerBusy}
+                  className="min-h-11 rounded-2xl border border-slate-200 bg-white px-4 text-sm font-black text-slate-700 disabled:opacity-60"
+                >
+                  {i18nText("accountRecovery.linkEmailLater")}
+                </button>
+                <button
+                  type="button"
+                  onClick={acceptEmailOffer}
+                  disabled={offerBusy}
+                  className="min-h-11 rounded-2xl bg-sky-700 px-4 text-sm font-black text-white disabled:opacity-60"
+                >
+                  {offerBusy ? i18nText("exploreSettingsFix.working") : i18nText("accountRecovery.linkEmailUse")}
+                </button>
+              </div>
+            </div>
           ) : null}
 
           <div className="mt-4 space-y-2">

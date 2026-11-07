@@ -1,6 +1,8 @@
 import { useCallback, useEffect, useRef, useState } from "react";
 import { createPortal } from "react-dom";
 import { FiBriefcase, FiCheckCircle, FiFileText, FiShield, FiX } from "react-icons/fi";
+import InviteLocationNotice from "./InviteLocationNotice";
+import { recordProductOpen } from "../../Backend/services/churn/productOpenService";
 
 import Body from "./Body/Body";
 import ActiveTripsScreen from "./ActiveTripsScreen";
@@ -37,7 +39,7 @@ import {
 } from "../services/transportCompanyService";
 import { fetchTransportOperationBadgeState } from "../services/transportHeaderService";
 import { submitTransportSupportTicket } from "../services/bookingService";
-import { guardGuestAction } from "../../Backend/services/guestModeService";
+import { guardGuestAction, isGuestMode } from "../../Backend/services/guestModeService";
 import { useAccountType } from "../../Backend/services/accountTypeService";
 import { haptics } from "../../Backend/services/feedbackService";
 import OpenBookingSheet from "./booking/OpenBookingSheet";
@@ -166,6 +168,15 @@ export default function Transport({
   useEffect(() => {
     operatorCompanyInvitesRef.current = operatorCompanyInvites;
   }, [operatorCompanyInvites]);
+
+  // Churn intelligence: an operator dashboard open (own or company) is UrRide
+  // operator activity, once a UTC day.
+  const operatorSideOpen = Boolean(
+    (operatorDashboardOpen && operatorAccount) || (companyOperatorDashboardOpen && companyOperatorAccount),
+  );
+  useEffect(() => {
+    if (operatorSideOpen && userId) void recordProductOpen("urride_operator", userId);
+  }, [operatorSideOpen, userId]);
 
   useEffect(() => {
     activeRef.current = active;
@@ -1185,6 +1196,8 @@ export default function Transport({
 
   function openOperatorProfileFromArea({ fleetId, companyId } = {}) {
     if (!fleetId && !companyId) return;
+    // Guests stay on the map: operator and company profiles need an account.
+    if (guardGuestAction("view", fleetId ? "operator profile" : "company profile")) return;
     setRouteDirection("forward");
     setNearbyAreaOpen(false);
     setProfileReturnToArea(true);
@@ -1198,6 +1211,20 @@ export default function Transport({
     setProfileReturnToArea(false);
     setNearbyAreaOpen(true);
   }
+
+  // Every other way into an operator or company profile (links, search,
+  // bookings, saved operators) is closed to guests too: the gate card shows
+  // and the profile never opens.
+  useEffect(() => {
+    if (!activeCompanyId && !activeFleetId) return;
+    if (!guardGuestAction("view", activeFleetId ? "operator profile" : "company profile")) return;
+    setActiveCompanyId("");
+    setActiveFleetId(null);
+    setFleetReturnCompanyId("");
+    setCompanyReturnRentalId("");
+    if (profileReturnToArea) returnToAreaFromProfile();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [activeCompanyId, activeFleetId]);
 
   // Leaving the profile any other way (booking, another tab) forgets the return.
   useEffect(() => {
@@ -1292,6 +1319,7 @@ export default function Transport({
               pickerLabels={nearbyAreaRequest?.pickerLabels || null}
               initialEmergencyRequest={nearbyAreaRequest?.emergency || null}
               onLocationPicked={acceptNearbyAreaLocation}
+              instantPick={Boolean(nearbyAreaRequest?.instantPick)}
               backLabel={getNearbyAreaBackLabel()}
               onOpenOperatorProfile={openOperatorProfileFromArea}
             />
@@ -1606,7 +1634,7 @@ export default function Transport({
     );
   }
 
-  if (activeCompanyId) {
+  if (activeCompanyId && !isGuestMode()) {
     return renderWithAreaView(
       <div className={`${routePanelClass} kt-mobile-viewport`}>
         <PublicCompanyProfileScreen
@@ -1639,7 +1667,7 @@ export default function Transport({
     );
   }
 
-  if (activeFleetId) {
+  if (activeFleetId && !isGuestMode()) {
     return renderWithAreaView(
       <div className={`${routePanelClass} kt-mobile-viewport`}>
         <FleetProfileScreen
@@ -2319,6 +2347,9 @@ function CompanyOperatorInviteCard({ invite, operatorHasDocuments = false, onAcc
                 ? t("urride.companyFix.inviteExpiredBody")
                 : t("urride.transport.inviteCard.bodyPending")}
       </p>
+      {!accepted && !rejected && !expired ? (
+        <InviteLocationNotice companyName={invite.companyName} />
+      ) : null}
       {!accepted && !rejected && !expired ? (
         <div className="mt-4 grid gap-2 sm:grid-cols-2">
         <button

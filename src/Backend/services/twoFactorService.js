@@ -94,3 +94,43 @@ export async function verifyTwoFactorLogin(code) {
   await confirmTotpEnrollment(state.factorId, code);
   return true;
 }
+
+// ---- Backup codes (migration 20261104150000) --------------------------------
+// 10 one-time codes shown once when two-step is set up: the way back in for
+// someone who loses their authenticator app, with or without an email on the
+// account. The database keeps only hashes and limits wrong guesses.
+
+/** New backup codes (replacing old ones). Needs a session that passed two-step. */
+export async function generateBackupCodes() {
+  const { data, error } = await supabase.rpc("kunthai_generate_mfa_backup_codes");
+  if (error) throw error;
+  return Array.isArray(data) ? data : [];
+}
+
+/** How many unused backup codes the account has. */
+export async function getBackupCodeCount() {
+  const { data, error } = await supabase.rpc("kunthai_mfa_backup_code_count");
+  if (error) return null;
+  return Number(data) || 0;
+}
+
+/** "ABCDE-12345" for anything typed with or without the dash, spaces or case. */
+export function formatBackupCode(value = "") {
+  const clean = String(value).replace(/[^0-9a-z]/gi, "").toUpperCase().slice(0, 10);
+  return clean.length > 5 ? `${clean.slice(0, 5)}-${clean.slice(5)}` : clean;
+}
+
+/**
+ * Use a backup code on the two-step screen. A right code turns two-step off
+ * for the account (so the person can sign in and set it up again); returns
+ * false for a wrong code. Throws KT_MFA_TOO_MANY_ATTEMPTS after 5 wrong
+ * codes in an hour.
+ */
+export async function recoverWithBackupCode(code) {
+  const { data, error } = await supabase.rpc("kunthai_recover_mfa_with_backup_code", { p_code: formatBackupCode(code) });
+  if (error) throw error;
+  if (data !== true) return false;
+  // The session still lists the removed authenticator until it is refreshed.
+  await supabase.auth.refreshSession().catch(() => null);
+  return true;
+}

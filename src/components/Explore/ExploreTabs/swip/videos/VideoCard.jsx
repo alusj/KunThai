@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
-import { BarChart3, CircleHelp, Copy, Download, Eye, EyeOff, Flag, Heart, Link, Repeat2, Send, Sparkles, Trash2, VolumeX, X } from "lucide-react";
+import { BarChart3, CircleHelp, Copy, Download, Eye, EyeOff, Flag, Heart, Link, Repeat2, Send, SlidersHorizontal, Sparkles, Trash2, VolumeX, X } from "lucide-react";
 
 import { useBrowserBack } from "../../../../../Backend/hooks/useBrowserBack";
 import {
@@ -9,6 +9,8 @@ import {
   recordRecommendationSignal,
 } from "../../../../../Backend/services/exploreService";
 import CommentsDrawer from "../../urfeed/feed/comments/CommentsDrawer";
+import PublishedPostSettings from "../../../shared/postControls/PublishedPostSettings";
+import { postInteractionRules } from "../../../../../Backend/services/explore/postControls";
 import { copyPostLink, sharePost } from "../../urfeed/feed/post/postUtils";
 import { haptics } from "../../../../../Backend/services/feedbackService";
 import { useI18n } from "../../../../../i18n";
@@ -100,6 +102,14 @@ export default function VideoCard({
 }) {
   const { t, locale } = useI18n();
   const [commentOpen, setCommentOpen] = useState(false);
+  const [settingsOpen, setSettingsOpen] = useState(false);
+  const [warningRevealed, setWarningRevealed] = useState(false);
+  const interactionRules = postInteractionRules(post, { isOwner, followsAuthor: true });
+  // The author's content warning covers the clip, which stays paused until
+  // the viewer chooses to watch.
+  const warningGateActive = Boolean(interactionRules.contentWarning) && !warningRevealed;
+  const warningGateRef = useRef(warningGateActive);
+  warningGateRef.current = warningGateActive;
   const [deleteOpen, setDeleteOpen] = useState(false);
   const [deleting, setDeleting] = useState(false);
   const [mediaError, setMediaError] = useState("");
@@ -321,6 +331,11 @@ export default function VideoCard({
 
     const video = videoRef.current;
     if (!video) return;
+
+    if (warningGateRef.current) {
+      video.pause();
+      return;
+    }
 
     if (video.currentTime < clip.start || video.currentTime >= clip.end) {
       video.currentTime = clip.start;
@@ -702,6 +717,7 @@ export default function VideoCard({
     setActionMenuClosing(false);
     setQuickDeckOpen(false);
     setQuickDeckClosing(false);
+    if (!interactionRules.canLike) return;
     setLikeBurst(true);
     window.clearTimeout(likeBurstTimerRef.current);
     likeBurstTimerRef.current = window.setTimeout(() => setLikeBurst(false), 620);
@@ -830,7 +846,7 @@ export default function VideoCard({
       // Locking the iPhone lets go of the media before the page is hidden;
       // starting the clip again then brought back the lock-screen player.
       if (mediaReleasedForHiding()) return false;
-      if (commentOpen || actionMenuOpen || quickDeckOpen || repostOpen) return false;
+      if (commentOpen || actionMenuOpen || quickDeckOpen || repostOpen || settingsOpen) return false;
       if (!readExploreSettings().video.autoplay) return false;
       if (isExploreVideoHeld(video)) return false;
       return video.paused && !video.ended;
@@ -853,7 +869,7 @@ export default function VideoCard({
       window.removeEventListener("pageshow", onVisible);
       window.removeEventListener("focus", onVisible);
     };
-  }, [active, actionMenuOpen, commentOpen, quickDeckOpen, repostOpen, requestActivePlayback]);
+  }, [active, actionMenuOpen, commentOpen, quickDeckOpen, repostOpen, requestActivePlayback, settingsOpen]);
 
   // A clip buffered ahead of time may already be playable when this card
   // mounts or becomes active.
@@ -1023,6 +1039,33 @@ export default function VideoCard({
         </div>
       ) : null}
 
+      {warningGateActive ? (
+        <div
+          className="absolute inset-0 z-[15] flex items-center justify-center bg-slate-950/95 px-8 text-center"
+          onClick={(event) => event.stopPropagation()}
+        >
+          <div className="max-w-xs">
+            <p className="text-lg font-black text-white">
+              {t(`postControls.warnTitle${interactionRules.contentWarning[0].toUpperCase()}${interactionRules.contentWarning.slice(1)}`)}
+            </p>
+            <p className="mt-2 text-sm font-semibold leading-6 text-slate-300">{t("postControls.warningBody")}</p>
+            <button
+              type="button"
+              onPointerDown={(event) => event.stopPropagation()}
+              onClick={(event) => {
+                event.stopPropagation();
+                warningGateRef.current = false;
+                setWarningRevealed(true);
+                requestActivePlayback({ userGesture: true });
+              }}
+              className="mt-5 min-h-12 rounded-2xl bg-white px-6 text-sm font-black text-slate-950"
+            >
+              {t("postControls.warningShow")}
+            </button>
+          </div>
+        </div>
+      ) : null}
+
       {likeBurst ? (
         <div className="pointer-events-none absolute inset-0 z-[6] grid place-items-center">
           <span className="kt-swip-like-burst grid h-24 w-24 place-items-center rounded-full bg-white/16 text-white shadow-[0_24px_80px_rgba(255,255,255,0.22)] backdrop-blur-sm">
@@ -1034,6 +1077,7 @@ export default function VideoCard({
       {!displayMinimal ? (
         <SwipActionRail
           fullscreen={fullscreen}
+          isOwner={isOwner}
           post={post}
           liked={liked}
           saved={saved}
@@ -1074,6 +1118,15 @@ export default function VideoCard({
 
       {!displayMinimal ? <VideoProgress currentTime={progress.currentTime} duration={progress.duration} onSeek={handleSeek} /> : null}
 
+      {isOwner && settingsOpen ? (
+        <PublishedPostSettings
+          open={settingsOpen}
+          post={post}
+          ownerId={currentUserId}
+          onClose={() => setSettingsOpen(false)}
+        />
+      ) : null}
+
       <CommentsDrawer
         currentUserId={currentUserId}
         open={commentOpen}
@@ -1094,7 +1147,7 @@ export default function VideoCard({
     <div className="overflow-hidden rounded-[26px] border border-white/70 bg-white/90 p-2 shadow-[0_24px_70px_rgba(15,23,42,0.28)] backdrop-blur-2xl">
       <SwipActionItem icon={Send} title={t("swip.shareSwip")} onClick={handleShare} />
       <SwipActionItem icon={Link} title={t("swip.copyLink")} onClick={handleCopyLink} />
-      <SwipActionItem icon={Download} title={t("swip.saveVideo")} onClick={handleDownload} />
+      {interactionRules.canDownload ? <SwipActionItem icon={Download} title={t("swip.saveVideo")} onClick={handleDownload} /> : null}
       <SwipActionItem icon={Copy} title={t("swip.copyCaption")} onClick={handleCopyCaption} />
       {aiAvailability.available && !isOwner && isTranslatableText(post.body) ? (
         <SwipActionItem
@@ -1110,7 +1163,14 @@ export default function VideoCard({
           onClick={() => closeActionMenu(() => setAnalyticsOpen(true))}
         />
       ) : null}
-      {!advertPost ? <SwipActionItem icon={Repeat2} title={t("swip.repost")} onClick={handleRepost} /> : null}
+      {isOwner && !advertPost ? (
+        <SwipActionItem
+          icon={SlidersHorizontal}
+          title={t("postControls.editTitle")}
+          onClick={() => closeActionMenu(() => setSettingsOpen(true))}
+        />
+      ) : null}
+      {!advertPost && interactionRules.canRepost ? <SwipActionItem icon={Repeat2} title={t("swip.repost")} onClick={handleRepost} /> : null}
       <SwipActionItem icon={displayMinimal ? Eye : EyeOff} title={displayMinimal ? t("swip.showDisplay") : t("swip.clearDisplay")} onClick={toggleDisplayMinimal} />
 
       {advertPost && !isOwner ? <SwipActionItem icon={CircleHelp} title={t("swip.whySeeing")} onClick={handleWhyAdvert} /> : null}
@@ -1160,9 +1220,9 @@ export default function VideoCard({
               </button>
             </div>
             <div className="mt-4 grid grid-cols-3 gap-2">
-              <SwipQuickAction icon={Download} label={t("swip.save")} onClick={handleDownload} />
+              {interactionRules.canDownload ? <SwipQuickAction icon={Download} label={t("swip.save")} onClick={handleDownload} /> : null}
               <SwipQuickAction icon={displayMinimal ? Eye : EyeOff} label={displayMinimal ? t("swip.show") : t("swip.focus")} onClick={toggleDisplayMinimal} />
-              {!advertPost ? <SwipQuickAction icon={Repeat2} label={t("swip.repost")} onClick={handleRepost} /> : null}
+              {!advertPost && interactionRules.canRepost ? <SwipQuickAction icon={Repeat2} label={t("swip.repost")} onClick={handleRepost} /> : null}
               <SwipQuickAction icon={Link} label={t("swip.copyLink")} onClick={handleCopyLink} />
               <SwipQuickAction icon={Send} label={t("swip.share")} onClick={handleShare} />
               {!isOwner ? <SwipQuickAction danger icon={Flag} label={t("swip.report")} onClick={handleReport} /> : <SwipQuickAction icon={Copy} label={t("swip.caption")} onClick={handleCopyCaption} />}

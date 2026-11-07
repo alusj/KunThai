@@ -54,7 +54,11 @@ function markerElement(className) {
 // (`source.kind === "share"`) or an operator (`"operator"`, Track operator).
 // Follows the position as it changes, shows how far it is from this phone and
 // how fresh it is, and, for the sharer, a Stop sharing button.
-export default function LiveLocationViewer({ open, onClose, title = "", source, isMine = false, fleetType = "", returnTo = "" }) {
+//
+// `source.kind === "place"` is the same screen for a fixed place ({ lat, lng,
+// address, subtitle }): shown before any route starts, so the person sees
+// where it is and how far, then picks Route there (`onRoute`) or Close.
+export default function LiveLocationViewer({ open, onClose, onRoute, title = "", source, isMine = false, fleetType = "", returnTo = "" }) {
   useI18n();
   const mapNode = useRef(null);
   const mapRef = useRef(null);
@@ -66,7 +70,12 @@ export default function LiveLocationViewer({ open, onClose, title = "", source, 
   const [me, setMe] = useState(null);
   const [now, setNow] = useState(() => Date.now());
   const [loaded, setLoaded] = useState(false);
-  const sourceKey = source ? `${source.kind}:${source.shareId || source.fleetId}:${source.tripId || ""}` : "";
+  const isPlace = source?.kind === "place";
+  const sourceKey = source
+    ? isPlace
+      ? `place:${source.lat},${source.lng}`
+      : `${source.kind}:${source.shareId || source.fleetId}:${source.tripId || ""}`
+    : "";
 
   // The position being watched.
   useEffect(() => {
@@ -75,6 +84,13 @@ export default function LiveLocationViewer({ open, onClose, title = "", source, 
     setTarget(null);
     setShare(null);
     followRef.current = true;
+    if (source.kind === "place") {
+      const lat = Number(source.lat);
+      const lng = Number(source.lng);
+      setLoaded(true);
+      setTarget(Number.isFinite(lat) && Number.isFinite(lng) ? { lat, lng, place: source.address || "" } : null);
+      return undefined;
+    }
     if (source.kind === "share") {
       return watchLiveShare(source.shareId, (next) => {
         setLoaded(true);
@@ -161,7 +177,9 @@ export default function LiveLocationViewer({ open, onClose, title = "", source, 
   const metres = target && me ? distanceInMeters(me, target) : NaN;
   const eta = Number.isFinite(metres) ? estimateTravelMinutes(metres / 1000, fleetType) : null;
   const approximate = Number(target?.accuracyM) > 100;
-  const status = source.kind === "share"
+  const status = isPlace
+    ? source.subtitle || ""
+    : source.kind === "share"
     ? ended
       ? t("liveSharing.ended")
       : share?.expiresAt
@@ -182,6 +200,10 @@ export default function LiveLocationViewer({ open, onClose, title = "", source, 
   // distance, ETA and directions), the same as any shared place.
   function openRoute() {
     if (!target) return;
+    if (onRoute) {
+      onRoute();
+      return;
+    }
     onClose?.();
     const name = title || t("liveSharing.someone");
     window.dispatchEvent(new CustomEvent("kuntai-open-area-view", {
@@ -197,6 +219,8 @@ export default function LiveLocationViewer({ open, onClose, title = "", source, 
           status: "private",
           lat: target.lat,
           lng: target.lng,
+          // This screen was the preview: Area View routes straight away.
+          routePreviewed: true,
         },
         ...(returnTo ? { returnTo } : {}),
         source: "live-location",
@@ -218,8 +242,8 @@ export default function LiveLocationViewer({ open, onClose, title = "", source, 
           </button>
           <div className="min-w-0 flex-1">
             <h2 className="truncate text-base font-black text-slate-950">{title}</h2>
-            <p className={`truncate text-xs font-bold ${ended || (loaded && !target) ? "text-slate-500" : "text-emerald-700"}`}>
-              {[status, target && !ended ? agoText(secondsAgo(target.locatedAt, now)) : ""].filter(Boolean).join(" · ")}
+            <p className={`truncate text-xs font-bold ${isPlace || ended || (loaded && !target) ? "text-slate-500" : "text-emerald-700"}`}>
+              {[status, target && !ended && !isPlace ? agoText(secondsAgo(target.locatedAt, now)) : ""].filter(Boolean).join(" · ")}
             </p>
           </div>
         </header>

@@ -3,7 +3,6 @@ import { useEffect, useRef, useState } from "react";
 import {
   HiOutlineArrowRight,
   HiOutlineCheckCircle,
-  HiOutlineMagnifyingGlass,
   HiOutlinePaperAirplane,
 } from "react-icons/hi2";
 
@@ -11,6 +10,7 @@ import { MINIMUM_CREDIT_TRANSFER_BALANCE } from "../../../../Backend/services/vi
 import { useI18n } from "../../../../i18n";
 import CenteredModal from "../../../shared/CenteredModal";
 import KunThaiIdHelpButton from "../../../shared/KunThaiIdHelpButton";
+import KunThaiAccountSearchField from "../../../shared/KunThaiAccountSearchField";
 import Avatar from "../../shared/Avatar";
 import { uiText as translateUi } from "../../../../i18n/index.js";
 import { inlineErrorMessage } from "../../../../Backend/services/friendlyErrorService";
@@ -74,7 +74,10 @@ export default function ShareVisibilityCreditsModal({
     setRecipient(EMPTY_RECIPIENT);
     setMessage("");
 
-    if (input.replace(/[^a-z0-9]/gi, "").length < 6) {
+    // A name or @username is searched in the field's own suggestions; the
+    // recipient is checked once it holds a KunThai ID (typed or picked).
+    const compactInput = input.replace(/[^a-z0-9]/gi, "");
+    if (compactInput.length < 6 || !/^KTU/i.test(compactInput)) {
       setLookupState(input ? "typing" : "idle");
       return undefined;
     }
@@ -158,22 +161,18 @@ export default function ShareVisibilityCreditsModal({
         ) : (
           <>
             <div className="mt-5 flex min-h-8 items-center justify-between gap-3">
-              <label className="block text-xs font-black uppercase tracking-[0.14em] text-slate-600" htmlFor="credit-recipient-id">
+              <span className="block text-xs font-black uppercase tracking-[0.14em] text-slate-600">
                 {t("profile.recipientId")}
-              </label>
+              </span>
               <KunThaiIdHelpButton subject="credit recipient" tone="sky" />
             </div>
-            <div className="relative mt-2">
-              <HiOutlineMagnifyingGlass className="pointer-events-none absolute left-4 top-1/2 -translate-y-1/2 text-lg text-slate-400" />
-              <input
-                id="credit-recipient-id"
+            <div className="mt-2">
+              <KunThaiAccountSearchField
                 value={kunThaiId}
-                onChange={(event) => setKunThaiId(event.target.value.toUpperCase())}
-                placeholder="KTU-XXXX-XXXX-XXXX"
-                autoComplete="off"
-                autoCapitalize="characters"
-                spellCheck={false}
-                className="h-12 w-full rounded-2xl border border-slate-200 bg-slate-50 pl-11 pr-4 text-sm font-black uppercase tracking-wide text-slate-950 outline-none transition focus:border-sky-400 focus:bg-white focus:ring-4 focus:ring-sky-100"
+                onChange={setKunThaiId}
+                excludeUserId={currentUserId}
+                ariaLabel={t("profile.recipientId")}
+                showConfirmation={false}
               />
             </div>
 

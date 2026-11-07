@@ -2,6 +2,7 @@ import { useEffect, useLayoutEffect, useRef, useState } from "react";
 import { inlineErrorMessage, sanitizeUserMessage, shortErrorToast } from "../../../../../../Backend/services/friendlyErrorService";
 import { createPortal } from "react-dom";
 import {
+  HiOutlineAdjustmentsHorizontal,
   HiOutlineArrowsUpDown,
   HiOutlineAtSymbol,
   HiOutlineExclamationTriangle,
@@ -75,6 +76,8 @@ import {
 import { t as i18nText } from "../../../../../../i18n/index";
 import { checkOwnAccountDeactivated } from "../../../../../../Backend/services/accountLifecycleService";
 import ExploreAiButton from "../../../../shared/ExploreAiButton";
+import AdvancedPostSheet from "../../../../shared/postControls/AdvancedPostSheet";
+import { countActiveControls, normalizePostControls } from "../../../../../../Backend/services/explore/postControls";
 import { EXPLORE_COMPOSER_ACTIONS } from "../../../../../../Backend/services/ai/aiActionCatalog";
 import { loadExploreTopicsForAi, prepareImageForAi } from "../../../../../../Backend/services/ai/exploreAi";
 import { composerMediaKind, mergeHashtagsIntoText } from "../../../../../../Backend/services/ai/exploreAiModels";
@@ -241,6 +244,37 @@ function persistComposerLocationReturn(mode, location) {
   queueComposerAreaReturn(mode);
 }
 
+const COMPOSER_LOCATION_RESOLVED_EVENT = "kuntai-explore-composer-location-resolved";
+
+function sameComposerSpot(location, lat, lng) {
+  return Number(location?.lat) === lat && Number(location?.lng) === lng;
+}
+
+// The map hands a pick back at once, sometimes before the street name is
+// known. The name is read here afterwards and written into the saved draft
+// (and the open composer, via the event) unless the place was changed since.
+function fillComposerLocationAddress(mode, location) {
+  if (typeof location?.resolveAddress !== "function") return;
+  const lat = Number(location.lat ?? location.latitude);
+  const lng = Number(location.lng ?? location.longitude);
+  if (!Number.isFinite(lat) || !Number.isFinite(lng)) return;
+  Promise.resolve(location.resolveAddress()).then((resolved) => {
+    const address = String(resolved?.address || "").trim();
+    if (!address || address === location.address) return;
+    const draft = readDraft();
+    if (mode === "advert") {
+      const advert = draft.media_meta?.advert;
+      if (!advert || !sameComposerSpot(advert, lat, lng)) return;
+      writeDraft({ ...draft, media_meta: { ...draft.media_meta, advert: { ...advert, address } } });
+    } else {
+      const tagged = draft.media_meta?.location;
+      if (!tagged || !sameComposerSpot(tagged, lat, lng)) return;
+      writeDraft({ ...draft, media_meta: { ...draft.media_meta, location: { ...tagged, label: address, address } } });
+    }
+    window.dispatchEvent(new CustomEvent(COMPOSER_LOCATION_RESOLVED_EVENT, { detail: { mode, lat, lng, address } }));
+  }).catch(() => {});
+}
+
 function cleanAdvertForSubmit(advert = {}) {
   const normalized = normalizeAdvertDraft(advert);
   const hasCoordinates = hasAdvertCoordinates(normalized);
@@ -401,6 +435,11 @@ export default function FeedComposer({ profile, creating, onSubmit }) {
   const [mentionResults, setMentionResults] = useState([]);
   const [mentionLoading, setMentionLoading] = useState(false);
   const [topicPickerOpen, setTopicPickerOpen] = useState(false);
+  // Advanced Post Controls: kept with the draft until the post is published;
+  // sent with the post itself, so nothing is written before then.
+  const [postControls, setPostControls] = useState(() => normalizePostControls(draft.post_controls, { ownerId: profile?.userId || "" }));
+  const [advancedOpen, setAdvancedOpen] = useState(false);
+  const activeControlCount = countActiveControls(postControls);
   const [topics, setTopics] = useState([]);
   const [topicsLoading, setTopicsLoading] = useState(false);
   const [primaryTopicSlug, setPrimaryTopicSlug] = useState(
@@ -420,6 +459,7 @@ export default function FeedComposer({ profile, creating, onSubmit }) {
   const fileInputRef = useRef(null);
   const voicePhotosInputRef = useRef(null);
   const textareaRef = useRef(null);
+  const returnedFromAreaRef = useRef(false);
   const textPanelRef = useRef(null);
   const mediaPickerRef = useRef(null);
   const mediaPanelRef = useRef(null);
@@ -484,16 +524,42 @@ export default function FeedComposer({ profile, creating, onSubmit }) {
   useEffect(() => {
     const returnMode = consumeComposerAreaReturn();
     if (!returnMode) return;
+    // Back from the map: show the composer with the place attached, without
+    // the keyboard popping up over it.
+    returnedFromAreaRef.current = true;
     const displayReturn = consumeComposerDisplayReturn();
     setComposerClosing(false);
     if (displayReturn) {
       setComposerDisplay(displayReturn.display);
       setComposerDock(displayReturn.dock);
     }
-    setComposerMotionClass(`kt-composer-sheet-enter-${displayReturn?.dock || "bottom"}`);
+    // No slide-in: the composer is simply there again when the map closes.
+    setComposerMotionClass("");
     setComposerMode(returnMode);
     setOpen(true);
   }, []);
+
+  useEffect(() => {
+    function handleResolved(event) {
+      const { mode, lat, lng, address } = event.detail || {};
+      if (mode === "advert") {
+        setAdvertForm((current) => (sameComposerSpot(current, lat, lng) ? { ...current, address } : current));
+      } else {
+        setMediaMeta((current) => (current.location && sameComposerSpot(current.location, lat, lng)
+          ? { ...current, location: { ...current.location, label: address, address } }
+          : current));
+      }
+    }
+    window.addEventListener(COMPOSER_LOCATION_RESOLVED_EVENT, handleResolved);
+    return () => window.removeEventListener(COMPOSER_LOCATION_RESOLVED_EVENT, handleResolved);
+  }, []);
+
+  // Forget the map return once the composer closes (not on the first render).
+  const composerWasOpenRef = useRef(false);
+  useEffect(() => {
+    if (composerWasOpenRef.current && !open) returnedFromAreaRef.current = false;
+    composerWasOpenRef.current = open;
+  }, [open]);
 
   useBrowserBack(open, () => closeComposer(), "explore-composer");
   // Only the full-screen composer freezes the page. The half-screen sheet is
@@ -518,7 +584,7 @@ export default function FeedComposer({ profile, creating, onSubmit }) {
         composerScrollRef.current?.scrollTo({ top: 0, left: 0, behavior: "auto" });
       }
 
-      if (!isAdvertMode && requestedTool === "text") {
+      if (!isAdvertMode && requestedTool === "text" && !returnedFromAreaRef.current) {
         textareaRef.current?.focus();
       }
     };
@@ -595,6 +661,7 @@ export default function FeedComposer({ profile, creating, onSubmit }) {
       audio_duration_seconds: audioDuration,
       post_privacy: isAdvertMode ? "public" : privacy,
       post_type: isAdvertMode ? "advert" : "post",
+      post_controls: isAdvertMode ? null : postControls,
       media_meta: isAdvertMode
         ? { ...mediaMeta, advert: { ...advertForm } }
         : {
@@ -603,7 +670,7 @@ export default function FeedComposer({ profile, creating, onSubmit }) {
             ...(primaryTopic ? { primaryTopic: { slug: primaryTopic.slug, name: primaryTopic.name } } : {}),
           },
     });
-  }, [advertForm, audioDuration, audioPreview, imagePreview, isAdvertMode, mediaMeta, postTitle, primaryTopicSlug, privacy, topics, value, videoPreview]);
+  }, [advertForm, audioDuration, audioPreview, imagePreview, isAdvertMode, mediaMeta, postControls, postTitle, primaryTopicSlug, privacy, topics, value, videoPreview]);
 
   useEffect(() => {
     function handleCreatePost(event) {
@@ -1604,6 +1671,7 @@ export default function FeedComposer({ profile, creating, onSubmit }) {
             const address = location.address || location.label || location.name || formatLocationLabel(lat, lng);
 
             persistComposerLocationReturn("advert", location);
+            fillComposerLocationAddress("advert", location);
             setComposerMode("advert");
             setAdvertForm((current) => ({
               ...current,
@@ -1635,6 +1703,7 @@ export default function FeedComposer({ profile, creating, onSubmit }) {
             droppedName: "Advert pinned location",
           },
           pickerStart: "current",
+          instantPick: true,
           returnTo: "explore-advert",
           source: "explore-advert",
         },
@@ -1666,6 +1735,7 @@ export default function FeedComposer({ profile, creating, onSubmit }) {
             const label = location.address || location.label || location.name || formatLocationLabel(lat, lng);
 
             persistComposerLocationReturn("post", location);
+            fillComposerLocationAddress("post", location);
             setComposerMode("post");
             setMediaMeta((current) => ({
               ...current,
@@ -1700,6 +1770,7 @@ export default function FeedComposer({ profile, creating, onSubmit }) {
             droppedName: "Pinned post location",
           },
           pickerStart: "current",
+          instantPick: true,
           returnTo: "explore-post",
           source: "explore-post",
         },
@@ -1746,6 +1817,8 @@ export default function FeedComposer({ profile, creating, onSubmit }) {
     setMentionResults([]);
     setTopicPickerOpen(false);
     setPrimaryTopicSlug("");
+    setPostControls(normalizePostControls());
+    setAdvancedOpen(false);
     setRecordingPaused(false);
     setRecordingSeconds(0);
     stopRecordingTimer();
@@ -1883,6 +1956,7 @@ export default function FeedComposer({ profile, creating, onSubmit }) {
         media_meta: finalMediaMeta,
         mediaMeta: finalMediaMeta,
         advertCampaign: isAdvertMode ? cleanAdvertCampaignForSubmit(advertForm) : null,
+        post_controls: isAdvertMode ? null : postControls,
       };
 
       setFeedback("");
@@ -2100,6 +2174,7 @@ if (!isMobileVideoDevice) {
             media_meta: postDraft.mediaMeta,
             mediaMeta: postDraft.mediaMeta,
             advert_campaign: postDraft.advertCampaign,
+            post_controls: postDraft.post_controls,
           });
 
           if (pendingResult?.ok && pendingResult.post?.id) {
@@ -2176,6 +2251,7 @@ if (!isMobileVideoDevice) {
         media_meta: postDraft.mediaMeta,
         mediaMeta: postDraft.mediaMeta,
         advert_campaign: postDraft.advertCampaign,
+        post_controls: postDraft.post_controls,
       });
 
       if (result?.ok) {
@@ -2466,7 +2542,7 @@ if (!isMobileVideoDevice) {
                   ref={textareaRef}
                   value={value}
                   onChange={handleComposerTextChange}
-                  autoFocus={!isAdvertMode && attachmentMode === "text"}
+                  autoFocus={!isAdvertMode && attachmentMode === "text" && !returnedFromAreaRef.current}
                   placeholder={isAdvertMode ? i18nText("ui.literals.k72de600888e0") : i18nText("ui.literals.ka244e4a7b0d2")}
                   className={`w-full resize-none bg-transparent text-xl font-semibold leading-8 text-slate-900 outline-none placeholder:text-slate-400 ${
                     isAdvertMode ? "min-h-[96px] sm:min-h-[130px]" : "min-h-[140px] pb-12 sm:min-h-[170px]"
@@ -2516,6 +2592,24 @@ if (!isMobileVideoDevice) {
                       }`}
                     >
                       <HiOutlineTag className="flex-none text-base" /> <span className="truncate">{selectedPrimaryTopic?.name || i18nText("ui.literals.k7e13bd176f89")}</span>
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => {
+                        resetComposerToolPanels();
+                        setAdvancedOpen(true);
+                      }}
+                      aria-haspopup="dialog"
+                      aria-expanded={advancedOpen}
+                      className={`inline-flex h-9 min-w-0 max-w-full items-center gap-1.5 rounded-xl px-3 text-xs font-black transition ${
+                        activeControlCount ? "bg-sky-700 text-white" : "bg-white text-slate-700 shadow-sm ring-1 ring-slate-200 hover:bg-slate-50"
+                      }`}
+                    >
+                      <HiOutlineAdjustmentsHorizontal className="flex-none text-base" aria-hidden="true" />
+                      <span className="truncate">{i18nText("postControls.advanced")}</span>
+                      {activeControlCount ? (
+                        <span className="flex-none rounded-full bg-white px-1.5 text-[10px] font-black leading-4 text-sky-800">{activeControlCount}</span>
+                      ) : null}
                     </button>
                   </div>
                 ) : null}
@@ -2834,11 +2928,23 @@ if (!isMobileVideoDevice) {
         document.body,
       ) : null}
 
+      <AdvancedPostSheet
+        open={advancedOpen && open}
+        initialControls={postControls}
+        ownerId={profile?.userId || ""}
+        onClose={() => setAdvancedOpen(false)}
+        onSave={(next) => {
+          setPostControls(next);
+          setAdvancedOpen(false);
+        }}
+      />
+
       <PostCautionDialog
         open={cautionOpen}
         onCancel={() => setCautionOpen(false)}
         onConfirm={performSubmit}
         submitting={creating}
+        scheduledAt={!isAdvertMode ? postControls.publishAt : null}
       />
     </div>
   );

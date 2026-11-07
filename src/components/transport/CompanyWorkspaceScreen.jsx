@@ -35,10 +35,12 @@ import {
   UsersRound,
   X,
 } from "lucide-react";
-import { FiActivity, FiMapPin } from "react-icons/fi";
+import { FiActivity, FiClock, FiMapPin } from "react-icons/fi";
+import { formatRelativeTime } from "../../Backend/services/explore/time";
 import { HiOutlineCheckCircle } from "react-icons/hi2";
 
 import AppBackTab from "../shared/AppBackTab";
+import KunThaiAccountSearchField from "../shared/KunThaiAccountSearchField";
 import { useAiRoleContext } from "../../Backend/services/ai/aiSurfaceService";
 import { useCampaignSurfaceRole } from "../../Backend/services/campaigns/campaignSurfaceStore";
 import CampaignInboxSection from "../shared/campaigns/CampaignInboxSection";
@@ -132,6 +134,17 @@ const TAB_LABEL_KEYS = {
 function companyVerificationText(status, fallback) {
   if (!status) return fallback;
   return status === "suspended" ? status : verificationStatusLabel(status);
+}
+
+// The company's verification status in its own colour: green when verified
+// (and recommended), blue when verified, amber while under review, red when
+// rejected, not verified or suspended.
+function companyVerificationTone(status) {
+  const value = String(status || "").trim().toLowerCase().replace(/[\s-]+/g, "_");
+  if (["recommended", "verified_recommended"].includes(value)) return "border-green-200 bg-green-50 text-green-700";
+  if (["verified", "approved"].includes(value)) return "border-blue-200 bg-blue-50 text-blue-700";
+  if (["rejected", "declined", "not_verified", "unverified", "suspended"].includes(value)) return "border-red-200 bg-red-50 text-red-700";
+  return "border-amber-200 bg-amber-50 text-amber-700";
 }
 
 function tabLabel(tab) {
@@ -1166,7 +1179,13 @@ export default function CompanyWorkspaceScreen({ company, initialTab = "Overview
               </button>
               <p className="max-w-lg text-sm font-semibold leading-5 text-slate-600">{company.address || company.city || t("urride.companyWs.cityNotAdded")}</p>
               {company.phone ? <a href={`tel:${company.phone}`} className="text-sm font-bold text-blue-700">{company.phone}</a> : null}
-              <p className="text-xs font-semibold text-slate-500">{company.companyCode} · {companyVerificationText(company.verificationStatus, t("urride.companyWs.statusNotStarted"))}</p>
+              <p className="flex flex-wrap items-center justify-center gap-2 text-xs font-semibold text-slate-500">
+                <span>{company.companyCode}</span>
+                <span className={`inline-flex items-center gap-1 rounded-full border px-2.5 py-0.5 font-black ${companyVerificationTone(company.verificationStatus)}`}>
+                  <ShieldCheck size={12} aria-hidden="true" />
+                  {companyVerificationText(company.verificationStatus, t("urride.companyWs.statusNotStarted"))}
+                </span>
+              </p>
               <p className="text-xs text-slate-500">{t("urride.companyWs.ownerId")}: {company.ownerPublicId}</p>
             </div>
             <div className={`mt-4 grid gap-2 ${metrics.length > 3 ? "grid-cols-2 sm:grid-cols-4" : "grid-cols-3"}`}>
@@ -1909,7 +1928,10 @@ function AllRequests({ bookings = [], onOpenBookings, rentalRequests = [], onOpe
           </div>
           {bookings.slice(0, 5).map((booking) => (
             <button key={booking.id} type="button" onClick={onOpenBookings} disabled={!onOpenBookings} className="kt-touchable rounded-3xl border border-emerald-100 bg-white p-4 text-left shadow-sm">
-              <p className="text-xs font-black uppercase tracking-wide text-emerald-700">{translateUi(booking.requestType || "Passenger ride")} · {translateUi(booking.status || "")}</p>
+              <div className="flex items-start justify-between gap-3">
+                <p className="text-xs font-black uppercase tracking-wide text-emerald-700">{translateUi(booking.requestType || "Passenger ride")} · {translateUi(booking.status || "")}</p>
+                <RequestTime value={booking.createdAt || booking.created_at || booking.raw?.created_at} />
+              </div>
               <h3 className="mt-1 font-black text-slate-950">{booking.passengerName || booking.name}</h3>
               <p className="mt-1 text-sm font-semibold text-slate-500">{booking.route}</p>
               <p className="mt-1 text-xs font-bold text-slate-400">{booking.fleetName}{booking.plateNumber ? ` · ${booking.plateNumber}` : ""}</p>
@@ -2658,6 +2680,19 @@ function Colleagues({ canManageOperators, fleets = [], onAddOperator, onManageOp
   );
 }
 
+// "5 mins ago" on a request card, so its age reads at a glance; the exact
+// date and time is in the tooltip.
+function RequestTime({ value }) {
+  const time = value ? new Date(value) : null;
+  if (!time || !Number.isFinite(time.getTime())) return null;
+  return (
+    <time dateTime={time.toISOString()} title={time.toLocaleString()} className="inline-flex shrink-0 items-center gap-1 text-[11px] font-bold text-slate-400">
+      <FiClock size={11} aria-hidden="true" />
+      {formatRelativeTime(time.toISOString())}
+    </time>
+  );
+}
+
 function Requests({ requests }) {
   useUiLocale();
   if (!requests.length) return <EmptyPanel title={t("urride.companyWs.noRequestsTitle")} body={t("urride.companyWs.noRequestsBody")} />;
@@ -2667,7 +2702,10 @@ function Requests({ requests }) {
         <section key={request.requestId} className="rounded-3xl border border-slate-100 bg-white p-4 shadow-sm">
           <div className="flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
             <div>
-              <p className="text-xs font-black uppercase tracking-wide text-slate-400">{request.expired ? t("urride.companyFix.inviteExpired") : translateUi(request.status)}</p>
+              <div className="flex items-start justify-between gap-3">
+                <p className="text-xs font-black uppercase tracking-wide text-slate-400">{request.expired ? t("urride.companyFix.inviteExpired") : translateUi(request.status)}</p>
+                <RequestTime value={request.updatedAt || request.createdAt} />
+              </div>
               {request.expired ? <p className="mt-1 text-xs font-bold text-slate-500">{t("urride.companyFix.inviteExpiredCompanyBody")}</p> : null}
               <h3 className="mt-1 font-black text-slate-950">{request.name}</h3>
               <p className="mt-1 text-sm font-semibold text-slate-500">{request.publicId} - {request.fleetName || request.fleetType}</p>
@@ -3022,7 +3060,7 @@ function CompanyActivityDrawer({ activities, company, notificationPreferences, o
               <article
                 key={activity.id}
                 onClick={() => onRead?.(activity)}
-                className={`rounded-2xl border p-4 shadow-sm transition ${activity.read ? "border-slate-100 bg-white" : "border-blue-100 bg-blue-50/90"}`}
+                className={`rounded-2xl border p-4 shadow-sm transition ${activity.read ? "kt-notif-read" : "kt-notif-unread kt-notif-tone-sky"}`}
               >
                 <div className="flex items-start gap-3">
                   <span className="mt-0.5 flex h-9 w-9 shrink-0 items-center justify-center rounded-xl bg-blue-50 text-blue-700">
@@ -3288,7 +3326,10 @@ function FleetOperatorInvitationDrawer({ candidates = [], fleet, onClose, onSend
 
   useEffect(() => {
     const value = publicId.trim();
-    if (value.replace(/[^a-z0-9]/gi, "").length < 5) {
+    // Names and @usernames are searched by the field itself; only a KunThai
+    // ID (typed or picked from its suggestions) is checked as an operator.
+    const compactValue = value.replace(/[^a-z0-9]/gi, "");
+    if (compactValue.length < 5 || !/^KTU/i.test(compactValue)) {
       setLookup({ status: "idle", operator: null });
       return undefined;
     }
@@ -3327,9 +3368,17 @@ function FleetOperatorInvitationDrawer({ candidates = [], fleet, onClose, onSend
       if (found) send(publicId.trim());
     }}>
       <p className="text-sm font-semibold leading-6 text-slate-600">{t("urrideFleetHq.assignOperatorDetail")}</p>
-      <label className="block text-sm font-bold text-slate-700">KunThai ID
-        <input autoFocus required disabled={busy} value={publicId} onChange={(event) => { setPublicId(event.target.value); setError(""); }} placeholder="KTU-XXXX-XXXX" autoCapitalize="characters" autoComplete="off" className="mt-2 w-full rounded-2xl border border-slate-200 bg-white px-4 py-3 text-slate-950" />
-      </label>
+      <div className="block text-sm font-bold text-slate-700">
+        <span className="mb-2 block">KunThai ID</span>
+        <KunThaiAccountSearchField
+          autoFocus
+          disabled={busy}
+          value={publicId}
+          onChange={(value) => { setPublicId(value); setError(""); }}
+          ariaLabel={t("urrideFleetHq.assignOperator")}
+          showConfirmation={false}
+        />
+      </div>
       {lookup.status === "loading" ? <p className="text-sm font-bold text-slate-500">{t("urrideFleetHq.lookingUp")}</p> : null}
       {lookup.status === "missing" ? <p className="text-sm font-bold text-rose-600">{t("urrideFleetHq.idNotFound")}</p> : null}
       {found ? (
