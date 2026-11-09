@@ -38,6 +38,7 @@ import {
   updateOperatorCompanyInvite,
 } from "../services/transportCompanyService";
 import { fetchTransportOperationBadgeState } from "../services/transportHeaderService";
+import { PLATFORM_NOTIFICATIONS_CHANGED_EVENT } from "../../Backend/services/surfaceNotificationModels";
 import { submitTransportSupportTicket } from "../services/bookingService";
 import { guardGuestAction, isGuestMode } from "../../Backend/services/guestModeService";
 import { useAccountType } from "../../Backend/services/accountTypeService";
@@ -979,9 +980,11 @@ export default function Transport({
     const unsubscribeSeen = subscribeNotificationSeen(refreshCompanyOperationBadge);
     window.addEventListener("transport-trip-updated", refreshCompanyOperationBadge);
     window.addEventListener("transport-booking-created", refreshCompanyOperationBadge);
+    window.addEventListener(PLATFORM_NOTIFICATIONS_CHANGED_EVENT, refreshCompanyOperationBadge);
 
     return () => {
       alive = false;
+      window.removeEventListener(PLATFORM_NOTIFICATIONS_CHANGED_EVENT, refreshCompanyOperationBadge);
       if (intervalId) window.clearInterval(intervalId);
       unsubscribe?.();
       unsubscribeSeen?.();

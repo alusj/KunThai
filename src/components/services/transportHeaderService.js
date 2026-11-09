@@ -1,5 +1,7 @@
 import supabase from "../../Backend/lib/supabaseClient";
 import { getUnseenNotificationCount } from "../../Backend/services/notificationSeenStore";
+import { fetchCompanyPlatformNotifications } from "../../Backend/services/surfaceNotificationService";
+import { fetchCampaignInbox } from "../../Backend/services/campaigns/campaignDeliveryService";
 import { fetchActiveTrips } from "./passengerTransportService";
 import { getTransportCompanyBookingQueue } from "./transportCompanyService";
 import { fetchOperatorDashboard } from "./transportOperatorAccountService";
@@ -178,6 +180,11 @@ export async function fetchTransportOperationBadgeCount(operatorAccount, company
   return state.totalCount;
 }
 
+// Rows in a dashboard inbox the person has not opened or looked at yet.
+function unopenedInboxRows(rows = []) {
+  return rows.filter((row) => row.status === "unread" && !row.seen_at);
+}
+
 export async function fetchTransportOperationBadgeState(operatorAccount, companyAccount) {
   // Notification ids and scopes mirror the operator/company workspaces. Booking
   // counts stay tied to the live action queues and only clear after a status action.
@@ -190,9 +197,12 @@ export async function fetchTransportOperationBadgeState(operatorAccount, company
   );
   const [operatorState, companyState] = await Promise.all([
     operatorAccount?.id
-      ? fetchOperatorDashboard(operatorAccount.id, operatorAccount.fleetId || null)
-        .catch(() => operatorAccount?.dashboard || {})
-        .then((dashboard) => {
+      ? Promise.all([
+        fetchOperatorDashboard(operatorAccount.id, operatorAccount.fleetId || null)
+          .catch(() => operatorAccount?.dashboard || {}),
+        fetchCampaignInbox("urride.operator").catch(() => []),
+      ])
+        .then(([dashboard, inboxRows]) => {
           const scope = `transport:${operatorAccount.id}`;
           const operatorFleetId = operatorAccount.fleetId || dashboard?.fleetId || null;
           const operatorFleetName = operatorAccount.fleetName || dashboard?.fleetName || "My fleet";
@@ -205,13 +215,26 @@ export async function fetchTransportOperationBadgeState(operatorAccount, company
             fleetName: passenger.fleetName || operatorFleetName,
             unread: true,
           }));
-          const notificationItems = (dashboard?.alerts || []).map((alert) => ({
-            ...alert,
-            id: `operator-alert-${alert.id}`,
-            activityScope: scope,
-            activitySource: "operator",
-            unread: alert.status !== "read",
-          }));
+          const notificationItems = [
+            ...(dashboard?.alerts || []).map((alert) => ({
+              ...alert,
+              id: `operator-alert-${alert.id}`,
+              activityScope: scope,
+              activitySource: "operator",
+              unread: alert.status !== "read",
+            })),
+            // KunThai's own notices for the operator (plans, verification,
+            // credits). Listing them in the dashboard inbox clears them.
+            ...unopenedInboxRows(inboxRows).map((row) => ({
+              id: `operator-platform-${row.id}`,
+              created_at: row.created_at,
+              title: row.title,
+              body: row.body,
+              activityScope: scope,
+              activitySource: "operator",
+              unread: true,
+            })),
+          ];
           return {
             bookingCount: bookingItems.length,
             notificationCount: getUnseenNotificationCount(scope, notificationItems, { unreadOnly: true }),
@@ -221,9 +244,12 @@ export async function fetchTransportOperationBadgeState(operatorAccount, company
         })
       : Promise.resolve({ bookingCount: 0, notificationCount: 0, bookingItems: [], notificationItems: [] }),
     companyAccount?.id && (canViewCompanyBookings || canViewCompanyNotifications)
-      ? getTransportCompanyBookingQueue(companyAccount)
-        .catch(() => [])
-        .then((bookings) => {
+      ? Promise.all([
+        getTransportCompanyBookingQueue(companyAccount).catch(() => []),
+        canViewCompanyNotifications ? fetchCompanyPlatformNotifications(companyAccount.id).catch(() => []) : [],
+        canViewCompanyNotifications ? fetchCampaignInbox("urride.company").catch(() => []) : [],
+      ])
+        .then(([bookings, platformRows, inboxRows]) => {
           const scope = `transport:${companyAccount.id}`;
           const bookingItems = (canViewCompanyBookings ? bookings : []).map((booking) => ({
             ...booking,
@@ -234,18 +260,41 @@ export async function fetchTransportOperationBadgeState(operatorAccount, company
             fleetName: booking.fleetName || "Company fleet",
             unread: true,
           }));
-          const notificationItems = (canViewCompanyNotifications ? companyAccount.activities || [] : [])
-            .filter((activity) => {
-              const type = String(activity.activity_type || activity.activityType || "");
-              return type.startsWith("operator_invite_") || type === "trip_status_updated";
-            })
-            .map((activity) => ({
-              ...activity,
-              id: `company-activity-${activity.id}`,
+          const platformIds = new Set(platformRows.map((row) => row.rawId));
+          const notificationItems = [
+            ...(canViewCompanyNotifications ? companyAccount.activities || [] : [])
+              .filter((activity) => {
+                const type = String(activity.activity_type || activity.activityType || "");
+                return type.startsWith("operator_invite_") || type === "trip_status_updated";
+              })
+              .map((activity) => ({
+                ...activity,
+                id: `company-activity-${activity.id}`,
+                activityScope: scope,
+                activitySource: "company",
+                unread: true,
+              })),
+            // KunThai's notices for Fleet HQ (plan renewals, rentals). Same
+            // ids as the company inbox, so opening it clears them.
+            ...platformRows.filter((row) => row.unread).map((row) => ({
+              id: `company-platform-${row.rawId}`,
+              created_at: row.created_at,
+              title: row.title,
+              body: row.body,
               activityScope: scope,
               activitySource: "company",
               unread: true,
-            }));
+            })),
+            ...unopenedInboxRows(inboxRows).filter((row) => !platformIds.has(row.id)).map((row) => ({
+              id: `company-campaign-${row.id}`,
+              created_at: row.created_at,
+              title: row.title,
+              body: row.body,
+              activityScope: scope,
+              activitySource: "company",
+              unread: true,
+            })),
+          ];
           return {
             bookingCount: bookingItems.length,
             notificationCount: getUnseenNotificationCount(scope, notificationItems, { unreadOnly: true }),

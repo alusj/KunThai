@@ -54,7 +54,7 @@ export default function FrontPictureView({ sources = [], className = "" }) {
       {zoomed ? (
         <AppPortal>
           <div
-            className="fixed inset-0 z-[2147483000] flex items-center justify-center bg-slate-950/90 p-4"
+            className="fixed inset-0 z-[2147483000] flex items-center justify-center bg-[#000000] p-4"
             role="dialog"
             aria-modal="true"
             aria-label={t("addressBook.picture")}

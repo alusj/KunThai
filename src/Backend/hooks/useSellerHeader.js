@@ -12,6 +12,7 @@ import {
   subscribeSellerHeaderChanges,
 } from "../services/marketplace/sellerHeaderService";
 import { MARKETPLACE_BUSINESS_CHANGED_EVENT } from "../services/marketplace/sellerRegistrationService";
+import { PLATFORM_NOTIFICATIONS_CHANGED_EVENT } from "../services/surfaceNotificationModels";
 
 const SELLER_SEEN_SCOPES = {
   orders: "urmall:seller:orders",
@@ -127,12 +128,14 @@ export function useSellerHeader() {
     window.addEventListener("marketplace-seller-messages-updated", handleMessagesUpdated);
     window.addEventListener("marketplace-orders-updated", handleMessagesUpdated);
     window.addEventListener("marketplace-seller-notifications-updated", handleMessagesUpdated);
+    window.addEventListener(PLATFORM_NOTIFICATIONS_CHANGED_EVENT, handleMessagesUpdated);
     window.addEventListener(MARKETPLACE_BUSINESS_CHANGED_EVENT, handleBusinessChanged);
     return () => {
       window.removeEventListener("marketplace-message-sent", handleMessagesUpdated);
       window.removeEventListener("marketplace-seller-messages-updated", handleMessagesUpdated);
       window.removeEventListener("marketplace-orders-updated", handleMessagesUpdated);
       window.removeEventListener("marketplace-seller-notifications-updated", handleMessagesUpdated);
+      window.removeEventListener(PLATFORM_NOTIFICATIONS_CHANGED_EVENT, handleMessagesUpdated);
       window.removeEventListener(MARKETPLACE_BUSINESS_CHANGED_EVENT, handleBusinessChanged);
     };
   }, []);

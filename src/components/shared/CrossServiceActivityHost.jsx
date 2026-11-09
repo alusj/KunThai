@@ -12,6 +12,8 @@ import {
 import { showKunThaiSystemNotification } from "../../Backend/services/pushService";
 import { t as i18nText } from "../../i18n/index";
 import { fetchSurfacePlatformNotifications } from "../../Backend/services/surfaceNotificationService";
+import { PLATFORM_NOTIFICATIONS_CHANGED_EVENT } from "../../Backend/services/surfaceNotificationModels";
+import { App as CapacitorApp } from "@capacitor/app";
 import { getUrMallBuyerSettings } from "../../Backend/services/marketplace/marketplaceBuyerSettings";
 
 const ACTIVITY_REFRESH_MS = 20_000;
@@ -424,6 +426,25 @@ export default function CrossServiceActivityHost({
     ];
     eventNames.forEach((eventName) => window.addEventListener(eventName, refreshAll));
 
+    // Coming back to KunThai (a push was seen outside the app): live events
+    // sent while it was away never arrive, so every badge reloads at once
+    // instead of waiting for the next timer.
+    let returnTimer = 0;
+    const refreshOnReturn = () => {
+      if (typeof document !== "undefined" && document.visibilityState === "hidden") return;
+      window.clearTimeout(returnTimer);
+      returnTimer = window.setTimeout(() => {
+        if (!active) return;
+        refreshAll();
+        window.dispatchEvent(new CustomEvent(PLATFORM_NOTIFICATIONS_CHANGED_EVENT, { detail: { sector: "all" } }));
+      }, 300);
+    };
+    document.addEventListener("visibilitychange", refreshOnReturn);
+    window.addEventListener("focus", refreshOnReturn);
+    const appStateListener = Promise.resolve(CapacitorApp.addListener("appStateChange", ({ isActive }) => {
+      if (isActive) refreshOnReturn();
+    })).catch(() => null);
+
     loadActivityModules().then(async (modules) => {
       if (!active) return;
       sellerCleanup = await modules.sellerHeader.subscribeSellerHeaderChanges(refreshMarketplace).catch(() => () => {});
@@ -449,6 +470,7 @@ export default function CrossServiceActivityHost({
             const sector = String(payload.new?.sector || payload.old?.sector || "");
             if (sector === "marketplace") refreshMarketplace();
             if (sector === "transport") refreshTransport();
+            window.dispatchEvent(new CustomEvent(PLATFORM_NOTIFICATIONS_CHANGED_EVENT, { detail: { sector } }));
           },
         )
         .on(
@@ -470,6 +492,10 @@ export default function CrossServiceActivityHost({
       transportCompanyCleanup();
       passengerTripCleanup();
       eventNames.forEach((eventName) => window.removeEventListener(eventName, refreshAll));
+      window.clearTimeout(returnTimer);
+      document.removeEventListener("visibilitychange", refreshOnReturn);
+      window.removeEventListener("focus", refreshOnReturn);
+      appStateListener.then((listener) => listener?.remove?.()).catch(() => {});
       if (realtimeChannel) supabase.removeChannel(realtimeChannel);
     };
   }, [onMarketplaceCountChange, onTransportCountChange, userId]);

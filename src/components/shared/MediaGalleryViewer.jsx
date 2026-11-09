@@ -113,7 +113,7 @@ export default function MediaGalleryViewer({
 
   return createPortal(
     <div
-      className={`${closing ? "kt-media-zoom-exit" : "kt-media-zoom-enter"} kt-mobile-screen fixed inset-0 z-[1500] flex flex-col overflow-hidden bg-slate-950 text-white`}
+      className={`${closing ? "kt-media-zoom-exit" : "kt-media-zoom-enter"} kt-mobile-screen fixed inset-0 z-[1500] flex flex-col overflow-hidden bg-[#000000] text-white`}
       role="dialog"
       aria-modal="true"
       aria-label={translateUi(copy.aria)}

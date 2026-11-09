@@ -212,7 +212,7 @@ export default function ZoomableImage({
         ? createPortal(
             <div
               ref={viewerGestures.viewportRef}
-              className="fixed inset-0 z-[1200] h-dvh w-full overflow-hidden overscroll-none [contain:strict]"
+              className="fixed inset-0 z-[1500] h-dvh w-full overflow-hidden overscroll-none [contain:strict]"
               role="dialog"
               aria-modal="true"
               aria-label={t("post.fullScreenViewer")}
@@ -226,9 +226,11 @@ export default function ZoomableImage({
               {...combineHandlers(viewerGestures.stageHandlers, photo.handlers)}
             >
               <div
-                className="kt-image-viewer-backdrop absolute inset-0 h-full w-full bg-slate-950"
+                className="kt-image-viewer-backdrop absolute inset-0 h-full w-full bg-[#000000]"
                 style={{
-                  opacity: viewerPhase === "open" ? 0.96 * (1 - viewerGestures.dismissProgress) : 0,
+                  // Solid: only the photo is on screen. What is behind shows
+                  // only once a swipe to close is well under way.
+                  opacity: viewerPhase === "open" ? 1 - Math.max(0, viewerGestures.dismissProgress - 0.5) * 2 : 0,
                   transitionDuration: viewerGestures.isDragging ? "0ms" : undefined,
                 }}
                 aria-hidden="true"

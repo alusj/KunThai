@@ -14,6 +14,7 @@ import {
   subscribeNotificationSeen,
 } from "../../../Backend/services/notificationSeenStore";
 import { fetchTransportOperationBadgeState } from "../../services/transportHeaderService";
+import { PLATFORM_NOTIFICATIONS_CHANGED_EVENT } from "../../../Backend/services/surfaceNotificationModels";
 import { useI18n, t } from "../../../i18n";
 
 export default function Header({
@@ -103,10 +104,12 @@ export default function Header({
     const unsubscribeSeen = subscribeNotificationSeen(refreshOperatorBadge);
     window.addEventListener("transport-trip-updated", refreshOperatorBadge);
     window.addEventListener("transport-booking-created", refreshOperatorBadge);
+    window.addEventListener(PLATFORM_NOTIFICATIONS_CHANGED_EVENT, refreshOperatorBadge);
 
     return () => {
       alive = false;
       if (intervalId) window.clearInterval(intervalId);
+      window.removeEventListener(PLATFORM_NOTIFICATIONS_CHANGED_EVENT, refreshOperatorBadge);
       unsubscribeSeen?.();
       window.removeEventListener("transport-trip-updated", refreshOperatorBadge);
       window.removeEventListener("transport-booking-created", refreshOperatorBadge);

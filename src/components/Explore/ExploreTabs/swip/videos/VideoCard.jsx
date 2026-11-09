@@ -10,7 +10,7 @@ import {
 } from "../../../../../Backend/services/exploreService";
 import CommentsDrawer from "../../urfeed/feed/comments/CommentsDrawer";
 import PublishedPostSettings from "../../../shared/postControls/PublishedPostSettings";
-import { postInteractionRules } from "../../../../../Backend/services/explore/postControls";
+import { formatPostTime, postControlsOf, postInteractionRules, postLifecycle } from "../../../../../Backend/services/explore/postControls";
 import { copyPostLink, sharePost } from "../../urfeed/feed/post/postUtils";
 import { haptics } from "../../../../../Backend/services/feedbackService";
 import { useI18n } from "../../../../../i18n";
@@ -105,6 +105,9 @@ export default function VideoCard({
   const [settingsOpen, setSettingsOpen] = useState(false);
   const [warningRevealed, setWarningRevealed] = useState(false);
   const interactionRules = postInteractionRules(post, { isOwner, followsAuthor: true });
+  // The author sees that this clip is not live yet (or has ended); nobody
+  // else can load it at all.
+  const ownLifecycle = isOwner ? postLifecycle(post) : "live";
   // The author's content warning covers the clip, which stays paused until
   // the viewer chooses to watch.
   const warningGateActive = Boolean(interactionRules.contentWarning) && !warningRevealed;
@@ -1037,6 +1040,14 @@ export default function VideoCard({
             <span className="h-7 w-7 animate-spin rounded-full border-2 border-white/35 border-t-white" />
           </div>
         </div>
+      ) : null}
+
+      {ownLifecycle !== "live" ? (
+        <p className={`pointer-events-none absolute left-4 top-4 z-20 rounded-full px-3 py-1.5 text-xs font-black shadow-lg ${ownLifecycle === "scheduled" ? "bg-sky-600 text-white" : "bg-slate-800 text-white"}`}>
+          {ownLifecycle === "scheduled"
+            ? t("postControls.scheduledBadge", { time: formatPostTime(postControlsOf(post).publishAt) })
+            : t("postControls.expiredBadge")}
+        </p>
       ) : null}
 
       {warningGateActive ? (

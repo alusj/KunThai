@@ -1,3 +1,7 @@
+// A notification row changed, or the app just came back to the foreground
+// (while it was away, live events were missed). Every badge reloads on this.
+export const PLATFORM_NOTIFICATIONS_CHANGED_EVENT = "kunthai-platform-notifications-changed";
+
 const SURFACE_SECTORS = {
   explore: new Set(["explore", "platform", "all"]),
   marketplace: new Set(["marketplace"]),

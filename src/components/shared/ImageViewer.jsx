@@ -175,7 +175,7 @@ export default function ImageViewer({ src, alt = "", onClose }) {
 
   return createPortal(
     <div
-      className="fixed inset-0 z-[2000] flex items-center justify-center bg-black/92 backdrop-blur-sm"
+      className="fixed inset-0 z-[2000] flex items-center justify-center bg-[#000000]"
       role="dialog"
       aria-modal="true"
       aria-label={alt || i18nText("ui.literals.k50e19fda0d5b")}
