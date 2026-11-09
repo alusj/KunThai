@@ -50,6 +50,8 @@ import DeletionReasonPicker from "../shared/DeletionReasonPicker";
 import { deleteWithReason, EMPTY_DELETION_REASON } from "../../Backend/services/accountDeletionReasonService";
 import ShareProfileSheet from "../shared/share/ShareProfileSheet";
 import HealthScoreCard from "../Marketplace/MarketplaceHeader/Business/MyBizDashboardHeader/HealthScoreCard";
+import TrustedTag from "../shared/TrustedTag";
+import { companySetupChecklist, isTrustedSetup, isVerifiedStatus, setupScore } from "../../Backend/services/setupStatus";
 import { useI18n, t } from "../../i18n";
 import { useNavigationStack } from "../../Backend/hooks/useNavigationStack";
 import { useBrowserBack } from "../../Backend/hooks/useBrowserBack";
@@ -381,20 +383,15 @@ export default function CompanyWorkspaceScreen({ company, initialTab = "Overview
   // operator's fleet-setup card, so a company sees and finishes the details that
   // build trust and unlock verification.
   const companyHealth = useMemo(() => {
-    const checklist = [
-      { label: t("urride.companyWs.health.name"), complete: Boolean(company?.companyName) },
-      { label: t("urride.companyWs.health.type"), complete: Boolean(company?.companyType) },
-      { label: t("urride.companyWs.health.base"), complete: Boolean(company?.city || company?.address) },
-      { label: t("urride.companyWs.health.areas"), complete: (company?.operatingAreas || []).length > 0 },
-      { label: t("urride.companyWs.health.policy"), complete: Boolean(company?.supportPolicy) },
-      { label: t("urride.companyWs.health.documents"), complete: Object.keys(company?.documents || {}).length > 0 },
-      { label: t("urride.companyWs.health.fleet"), complete: fleets.length > 0 },
-      { label: t("urride.companyWs.health.operator"), complete: acceptedOperators.length > 0 },
-      // KunThai's verification is a review, not a setup step the company can
-      // finish itself, so it is not part of this score (it is shown on its own).
-    ];
-    const completeCount = checklist.filter((item) => item.complete).length;
-    const score = Math.round((completeCount / checklist.length) * 100);
+    // KunThai's verification is a review, not a setup step the company can
+    // finish itself, so it is not part of this score (it is shown on its own).
+    const checklist = companySetupChecklist({
+      company: company || {},
+      operatingAreas: company?.operatingAreas || [],
+      fleetCount: fleets.length,
+      operatorCount: acceptedOperators.length,
+    }).map((item) => ({ ...item, label: t(`urride.companyWs.health.${item.id}`) }));
+    const score = setupScore(checklist);
     return {
       score,
       label: t("urride.companyWs.health.label"),
@@ -1185,6 +1182,7 @@ export default function CompanyWorkspaceScreen({ company, initialTab = "Overview
                   <ShieldCheck size={12} aria-hidden="true" />
                   {companyVerificationText(company.verificationStatus, t("urride.companyWs.statusNotStarted"))}
                 </span>
+                {isTrustedSetup(companyHealth.score >= 100, company.verificationStatus) ? <TrustedTag verified={isVerifiedStatus(company.verificationStatus)} /> : null}
               </p>
               <p className="text-xs text-slate-500">{t("urride.companyWs.ownerId")}: {company.ownerPublicId}</p>
             </div>

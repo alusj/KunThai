@@ -71,6 +71,8 @@ import { useRegistrationRecoveryNotice, useRegistrationTask } from "../../../Bac
 import { REGISTRATION_KINDS } from "../../../Backend/services/registration/registrationTaskCore";
 import { startRegistrationTask } from "../../../Backend/services/registration/registrationTaskRunner";
 import { haptics } from "../../../Backend/services/feedbackService";
+import NeedsAttentionTag from "../../shared/NeedsAttentionTag";
+import { companySetupChecklist, sectionsNeedingAttention } from "../../../Backend/services/setupStatus";
 
 const steps = [
   { labelKey: "urride.companyReg.stepCompany", icon: FiBriefcase },
@@ -1071,6 +1073,17 @@ export default function CompanyRegistrationScreen({ existingCompany = null, focu
     );
   }
 
+
+  // Follows the form, so a section's label goes as soon as it is filled in.
+  const companySectionsToFix = editing
+    ? sectionsNeedingAttention(companySetupChecklist({
+      company: form,
+      operatingAreas: String(areaText || "").split(",").map((area) => area.trim()).filter(Boolean),
+      fleetCount: fleets.length,
+      operatorCount: (existingCompany?.fleets || []).flatMap((fleet) => fleet.operators || []).filter((operator) => operator.status === "accepted").length,
+    }))
+    : new Set();
+
   return (
     <ScreenSlideTransition
       screenKey="transport-company-registration-form"
@@ -1175,6 +1188,7 @@ export default function CompanyRegistrationScreen({ existingCompany = null, focu
               ] : [
                 {
                   title: t("urride.companyReg.secCompanyProfile"),
+                  needsAttention: companySectionsToFix.has("profile"),
                   summary: [form.companyName, companyTypeLabel(form.companyType), form.phone].filter(Boolean).join("  •  ") || t("urride.companyReg.notSetYet"),
                   node: (
                     <CompanyIdentityStep
@@ -1189,6 +1203,7 @@ export default function CompanyRegistrationScreen({ existingCompany = null, focu
                 },
                 {
                   title: t("urride.companyReg.secCompanyBase"),
+                  needsAttention: companySectionsToFix.has("base"),
                   summary: [form.city, form.country, form.address].filter(Boolean).join("  •  ") || t("urride.companyReg.notSetYet"),
                   node: (
                     <LocationOperationsStep
@@ -1205,6 +1220,7 @@ export default function CompanyRegistrationScreen({ existingCompany = null, focu
                 },
                 {
                   title: t("urride.companyReg.secFleets"),
+                  needsAttention: companySectionsToFix.has("fleets"),
                   summary: `${fleets.length === 1 ? t("urride.companyReg.fleetCountOne", { count: fleets.length }) : t("urride.companyReg.fleetCountMany", { count: fleets.length })}${
                     [...new Set(fleets.map((fleet) => fleet.fleetType).filter(Boolean))].length
                       ? `  •  ${[...new Set(fleets.map((fleet) => fleet.fleetType).filter(Boolean))].join(", ")}`
@@ -1438,6 +1454,7 @@ function CompanyEditSections({ sections = [], openSection, onToggle, onSave, sav
             >
               <div className="min-w-0">
                 <h2 className="text-base font-black text-slate-950 sm:text-lg">{translateUi(section.title)}</h2>
+                {section.needsAttention ? <NeedsAttentionTag className="mt-2" /> : null}
                 {open ? null : (
                   <p className="mt-1 line-clamp-2 text-sm font-medium text-slate-600">{translateUi(section.summary)}</p>
                 )}

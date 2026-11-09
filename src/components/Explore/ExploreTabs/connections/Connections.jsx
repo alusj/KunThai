@@ -26,7 +26,6 @@ export default function Connections({ currentUserId = "", onViewProfile }) {
     }),
     [circle.items.length, circle.totalCount, discover.items.length, discover.totalCount, followers.items.length, followers.totalCount],
   );
-  const loading = circle.loading || followers.loading || discover.loading;
 
   function switchConnectionTab(nextTab) {
     if (nextTab === tab) return;
@@ -47,7 +46,9 @@ export default function Connections({ currentUserId = "", onViewProfile }) {
       <ConnectionsSummary
         activeTab={tab}
         counts={counts}
-        loading={loading && !circle.items.length && !followers.items.length && !discover.items.length}
+        // Each tile keeps its skeleton until its own list has answered, so
+        // no tile ever shows 0 before its real number.
+        loading={{ mycircle: circle.loading, followers: followers.loading, discover: discover.loading }}
         onSelect={switchConnectionTab}
         slideDirection={slideDirection}
       />

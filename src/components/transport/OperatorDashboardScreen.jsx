@@ -44,6 +44,8 @@ import OperatorVisibilityStatus from "./OperatorVisibilityStatus";
 import OperatorTripAcceptedCard from "./live/OperatorTripAcceptedCard";
 import { OPERATOR_LIVE_TRIP_STATUSES } from "./live/operatorLiveTripStatuses";
 import HealthScoreCard from "../Marketplace/MarketplaceHeader/Business/MyBizDashboardHeader/HealthScoreCard";
+import TrustedTag from "../shared/TrustedTag";
+import { isTrustedSetup, isVerifiedStatus, operatorSetupChecklist, setupScore } from "../../Backend/services/setupStatus";
 import RequestAccountDeletionPage from "./shared/RequestAccountDeletionPage";
 import AppBackTab from "../shared/AppBackTab";
 import { useAiRoleContext } from "../../Backend/services/ai/aiSurfaceService";
@@ -317,21 +319,11 @@ export default function OperatorDashboardScreen({
   // Fleet setup completion, mirroring UrMall's store-setup widget so operators
   // can see and finish the details that improve trust and verification.
   const operatorHealth = useMemo(() => {
-    const checklist = [
-      { label: t("urride.opDash.health.name"), complete: Boolean(form.name) },
-      { label: t("urride.opDash.health.phone"), complete: Boolean(form.phone) },
-      { label: t("urride.opDash.health.cityBase"), complete: Boolean(form.city || form.homeBaseLocation || form.operatingArea) },
-      { label: t("urride.opDash.health.vehicleType"), complete: Boolean(form.fleetType) },
-      { label: t("urride.opDash.health.plate"), complete: Boolean(form.plateNumber) },
-      { label: t("urride.opDash.health.makeModel"), complete: Boolean(form.make && form.model) },
-      { label: t("urride.opDash.health.pricing"), complete: [form.baseFare, form.pricePerKm, form.pricePerHour].some((value) => Number(value || 0) > 0) },
-      { label: t("urride.opDash.health.documents"), complete: !documentsSkipped },
-    ];
     // KunThai's review is not a setup step the operator can finish: it is shown
     // on its own badge (Fleet profile), so setup reaches 100% once the operator
     // has added every detail and document.
-    const completeCount = checklist.filter((item) => item.complete).length;
-    const score = Math.round((completeCount / checklist.length) * 100);
+    const checklist = operatorSetupChecklist(form, documentsSkipped).map((item) => ({ ...item, label: t(`urride.opDash.health.${item.id}`) }));
+    const score = setupScore(checklist);
     return {
       score,
       label: t("urride.opDash.health.label"),
@@ -972,6 +964,7 @@ export default function OperatorDashboardScreen({
             >
               {translateUi(verification.label)}
             </button>
+            {isTrustedSetup(operatorHealth.score >= 100, verificationStatus) ? <TrustedTag verified={isVerifiedStatus(verificationStatus)} /> : null}
           </div>
 
           <h2 className="mt-4 text-3xl font-black text-gray-950">{fleetName}</h2>

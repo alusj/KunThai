@@ -3,7 +3,7 @@ import { HiOutlineSparkles, HiOutlineUserGroup, HiOutlineUsers } from "react-ico
 import { useI18n } from "../../../../../i18n";
 import { uiText as translateUi } from "../../../../../i18n/index.js";
 
-export default function ConnectionsSummary({ activeTab = "mycircle", counts, loading = false, onSelect, slideDirection = "forward" }) {
+export default function ConnectionsSummary({ activeTab = "mycircle", counts, loading = {}, onSelect, slideDirection = "forward" }) {
   const { t } = useI18n();
   const items = [
     { id: "mycircle", label: t("connections.connected"), value: counts.circle, icon: HiOutlineUserGroup },
@@ -32,7 +32,7 @@ export default function ConnectionsSummary({ activeTab = "mycircle", counts, loa
             }`}
           >
             <Icon className={`text-xl ${active ? "text-sky-700" : "text-sky-700"}`} />
-            {loading ? (
+            {loading[item.id] ? (
               <div className="mt-3 h-8 w-10 animate-pulse rounded-full bg-slate-100" />
             ) : (
               <p className="mt-3 text-2xl font-black text-slate-950">{item.value}</p>

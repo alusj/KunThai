@@ -38,6 +38,8 @@ import { inlineErrorMessage } from "../../../Backend/services/friendlyErrorServi
 import usePhoneInUse from "../../../Backend/hooks/usePhoneInUse";
 import { useAiScreen } from "../../../Backend/services/ai/aiScreenContext";
 import { buildFleetRegistrationAiContext } from "./fleetRegistrationAi";
+import NeedsAttentionTag from "../../shared/NeedsAttentionTag";
+import { operatorSetupChecklist, sectionsNeedingAttention } from "../../../Backend/services/setupStatus";
 
 // Stored enum values stay English (saved on the account + compared); display is
 // localized via urride.fleetEdit.enum.<value>.
@@ -224,6 +226,9 @@ export default function FleetEditDrawer({ account, onBack, onSaved }) {
   }
 
   const answeredCount = questions.filter((question) => answers[question.key] != null && answers[question.key] !== "").length;
+
+  // Follows the form, so a section's label goes as soon as it is filled in.
+  const needsAttention = sectionsNeedingAttention(operatorSetupChecklist(form, Boolean(account.documentsSkipped)));
 
   const sections = [
     {
@@ -459,6 +464,7 @@ export default function FleetEditDrawer({ account, onBack, onSaved }) {
                     <section.icon size={17} className="text-green-700" />
                     {translateUi(section.title)}
                   </h2>
+                  {needsAttention.has(section.key) ? <NeedsAttentionTag className="mt-2" /> : null}
                   {open ? null : (
                     <p className="mt-1 line-clamp-2 text-sm font-medium text-gray-600">{translateUi(section.summary)}</p>
                   )}

@@ -1,7 +1,9 @@
 import { useState } from "react";
 import { FiCheckCircle, FiChevronUp, FiEdit2 } from "react-icons/fi";
 
-import { URMALL_BUSINESS_KIND_LABELS } from "../../../../../Backend/services/marketplace/sellerRegistrationService";
+import { URMALL_BUSINESS_KIND_LABELS, getReadinessChecklist } from "../../../../../Backend/services/marketplace/sellerRegistrationService";
+import { sellerSectionsNeedingAttention } from "../../../../../Backend/services/setupStatus";
+import NeedsAttentionTag from "../../../../shared/NeedsAttentionTag";
 import { t } from "../../../../../i18n";
 import BusinessIdentityStep from "./BusinessIdentityStep";
 import LocationContactStep from "./LocationContactStep";
@@ -85,6 +87,8 @@ export default function BusinessEditSections({ registration }) {
   useUiLocale();
   const [openIndex, setOpenIndex] = useState(-1);
   const [savedIndex, setSavedIndex] = useState(-1);
+  // Follows the form, so a section's label goes as soon as it is filled in.
+  const needsAttention = sellerSectionsNeedingAttention(getReadinessChecklist(registration.form));
 
   async function handleSave(index) {
     const result = await registration.saveEdits();
@@ -120,6 +124,7 @@ export default function BusinessEditSections({ registration }) {
                 <h2 className="text-lg font-black text-gray-950">
                   {t(`urmall.biz.reg.${section.titleKey}`)}
                 </h2>
+                {needsAttention.has(section.key) ? <NeedsAttentionTag className="mt-2" /> : null}
                 {open ? null : (
                   <p className="mt-1 line-clamp-2 text-sm font-medium text-gray-600">
                     {section.summarize(registration.form)}

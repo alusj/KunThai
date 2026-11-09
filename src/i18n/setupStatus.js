@@ -1,0 +1,111 @@
+// "This needs attention" on the store and fleet edit screens, and the Trusted
+// tag on their dashboards (2026-11-09). Grafted onto TRANSLATIONS as
+// `setupStatus`; read with t("setupStatus.<key>"). Every locale carries the
+// same keys.
+export const SETUP_STATUS = {
+  en: {
+    needsAttention: "This needs attention",
+    trusted: "Trusted",
+    trustedSubmitted: "You've submitted all your details and documents. KunThai is reviewing them, and your profile will show as verified once that's done.",
+    trustedVerified: "You've submitted all your details and documents, and KunThai has verified them.",
+    gotIt: "Got it",
+  },
+  fr: {
+    needsAttention: "À compléter",
+    trusted: "Fiable",
+    trustedSubmitted: "Vous avez envoyé tous vos renseignements et documents. KunThai les examine, et votre profil apparaîtra comme vérifié une fois terminé.",
+    trustedVerified: "Vous avez envoyé tous vos renseignements et documents, et KunThai les a vérifiés.",
+    gotIt: "Compris",
+  },
+  es: {
+    needsAttention: "Esto requiere atención",
+    trusted: "De confianza",
+    trustedSubmitted: "Has enviado todos tus datos y documentos. KunThai los está revisando y tu perfil aparecerá como verificado cuando termine.",
+    trustedVerified: "Has enviado todos tus datos y documentos, y KunThai los ha verificado.",
+    gotIt: "Entendido",
+  },
+  zh: {
+    needsAttention: "此项需要处理",
+    trusted: "值得信赖",
+    trustedSubmitted: "你已提交所有资料和文件。KunThai 正在审核，审核完成后你的主页将显示为已验证。",
+    trustedVerified: "你已提交所有资料和文件，KunThai 已完成验证。",
+    gotIt: "知道了",
+  },
+  ar: {
+    needsAttention: "يحتاج هذا إلى انتباهك",
+    trusted: "موثوق",
+    trustedSubmitted: "لقد أرسلت جميع بياناتك ومستنداتك. تراجعها KunThai الآن، وسيظهر ملفك كموثّق عند الانتهاء.",
+    trustedVerified: "لقد أرسلت جميع بياناتك ومستنداتك، وقد وثّقتها KunThai.",
+    gotIt: "حسنًا",
+  },
+  pt: {
+    needsAttention: "Isto precisa de atenção",
+    trusted: "Confiável",
+    trustedSubmitted: "Você enviou todos os seus dados e documentos. A KunThai está analisando, e seu perfil aparecerá como verificado quando terminar.",
+    trustedVerified: "Você enviou todos os seus dados e documentos, e a KunThai os verificou.",
+    gotIt: "Entendi",
+  },
+  hi: {
+    needsAttention: "इस पर ध्यान देना है",
+    trusted: "भरोसेमंद",
+    trustedSubmitted: "आपने अपनी सारी जानकारी और दस्तावेज़ जमा कर दिए हैं। KunThai उनकी समीक्षा कर रहा है, पूरा होने पर आपकी प्रोफ़ाइल सत्यापित दिखेगी।",
+    trustedVerified: "आपने अपनी सारी जानकारी और दस्तावेज़ जमा कर दिए हैं, और KunThai ने उन्हें सत्यापित कर दिया है।",
+    gotIt: "समझ गया",
+  },
+  bn: {
+    needsAttention: "এতে মনোযোগ দিতে হবে",
+    trusted: "বিশ্বস্ত",
+    trustedSubmitted: "আপনি আপনার সব তথ্য ও নথি জমা দিয়েছেন। KunThai সেগুলো পর্যালোচনা করছে, শেষ হলে আপনার প্রোফাইল যাচাইকৃত দেখাবে।",
+    trustedVerified: "আপনি আপনার সব তথ্য ও নথি জমা দিয়েছেন, এবং KunThai সেগুলো যাচাই করেছে।",
+    gotIt: "বুঝেছি",
+  },
+  id: {
+    needsAttention: "Ini perlu diperhatikan",
+    trusted: "Tepercaya",
+    trustedSubmitted: "Anda telah mengirim semua data dan dokumen. KunThai sedang meninjaunya, dan profil Anda akan tampil terverifikasi setelah selesai.",
+    trustedVerified: "Anda telah mengirim semua data dan dokumen, dan KunThai telah memverifikasinya.",
+    gotIt: "Mengerti",
+  },
+  ur: {
+    needsAttention: "اس پر توجہ درکار ہے",
+    trusted: "قابلِ اعتماد",
+    trustedSubmitted: "آپ نے اپنی تمام تفصیلات اور دستاویزات جمع کرا دی ہیں۔ KunThai ان کا جائزہ لے رہا ہے، مکمل ہونے پر آپ کی پروفائل تصدیق شدہ دکھے گی۔",
+    trustedVerified: "آپ نے اپنی تمام تفصیلات اور دستاویزات جمع کرا دی ہیں، اور KunThai نے ان کی تصدیق کر دی ہے۔",
+    gotIt: "سمجھ گیا",
+  },
+  ru: {
+    needsAttention: "Требует внимания",
+    trusted: "Надёжный",
+    trustedSubmitted: "Вы отправили все данные и документы. KunThai проверяет их, и после этого ваш профиль будет отмечен как подтверждённый.",
+    trustedVerified: "Вы отправили все данные и документы, и KunThai их подтвердил.",
+    gotIt: "Понятно",
+  },
+  ja: {
+    needsAttention: "対応が必要です",
+    trusted: "信頼済み",
+    trustedSubmitted: "すべての情報と書類を提出しました。KunThai が確認中で、完了するとプロフィールが認証済みと表示されます。",
+    trustedVerified: "すべての情報と書類を提出し、KunThai が認証しました。",
+    gotIt: "わかりました",
+  },
+  mr: {
+    needsAttention: "याकडे लक्ष द्यायचे आहे",
+    trusted: "विश्वासार्ह",
+    trustedSubmitted: "तुम्ही तुमची सर्व माहिती आणि कागदपत्रे सादर केली आहेत. KunThai त्यांचा आढावा घेत आहे, पूर्ण झाल्यावर तुमची प्रोफाइल पडताळलेली दिसेल.",
+    trustedVerified: "तुम्ही तुमची सर्व माहिती आणि कागदपत्रे सादर केली आहेत, आणि KunThai ने त्यांची पडताळणी केली आहे.",
+    gotIt: "समजले",
+  },
+  vi: {
+    needsAttention: "Mục này cần bổ sung",
+    trusted: "Đáng tin cậy",
+    trustedSubmitted: "Bạn đã gửi đầy đủ thông tin và giấy tờ. KunThai đang xem xét, và hồ sơ của bạn sẽ hiển thị là đã xác minh khi hoàn tất.",
+    trustedVerified: "Bạn đã gửi đầy đủ thông tin và giấy tờ, và KunThai đã xác minh.",
+    gotIt: "Đã hiểu",
+  },
+  de: {
+    needsAttention: "Das braucht deine Aufmerksamkeit",
+    trusted: "Vertrauenswürdig",
+    trustedSubmitted: "Du hast alle Angaben und Dokumente eingereicht. KunThai prüft sie gerade, danach wird dein Profil als verifiziert angezeigt.",
+    trustedVerified: "Du hast alle Angaben und Dokumente eingereicht, und KunThai hat sie verifiziert.",
+    gotIt: "Verstanden",
+  },
+};

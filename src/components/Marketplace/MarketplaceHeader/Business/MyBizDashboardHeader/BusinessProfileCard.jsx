@@ -25,6 +25,8 @@ import { MarketplaceVerificationInline, MarketplaceVerificationModal } from "../
 import { planTierMeets } from "../../../../../Backend/services/businessSubscriptionService";
 import { useI18n, t } from "../../../../../i18n";
 import { t as i18nText } from "../../../../../i18n/index";
+import TrustedTag from "../../../../shared/TrustedTag";
+import { isTrustedSetup, isVerifiedStatus } from "../../../../../Backend/services/setupStatus";
 import { uiText as translateUi, useI18n as useUiLocale } from "../../../../../i18n/index.js";
 
 const TIER_BADGE = { pro: "Pro", premium: "Premium" };
@@ -44,7 +46,7 @@ function StatusPill({ icon: Icon, label, active }) {
   );
 }
 
-export default function BusinessProfileCard({ business, status, onEditProfile, onOpenSection, onOpenPlans, planName = "Free", planCode = "free", planAvailable = false }) {
+export default function BusinessProfileCard({ business, setupComplete = false, status, onEditProfile, onOpenSection, onOpenPlans, planName = "Free", planCode = "free", planAvailable = false }) {
   useI18n();
   const [verificationOpen, setVerificationOpen] = useState(false);
   const [verificationAnchor, setVerificationAnchor] = useState(null);
@@ -178,6 +180,9 @@ export default function BusinessProfileCard({ business, status, onEditProfile, o
               verified={business.verified}
               onClick={openVerificationDetails}
             />
+            {isTrustedSetup(setupComplete, business.verificationStatus) ? (
+              <TrustedTag verified={Boolean(business.verified) || isVerifiedStatus(business.verificationStatus)} />
+            ) : null}
             <MarketplaceVerificationInline
               audience="seller"
               status={business.verificationStatus}

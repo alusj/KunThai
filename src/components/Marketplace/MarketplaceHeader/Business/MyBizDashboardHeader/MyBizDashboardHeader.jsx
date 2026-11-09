@@ -19,11 +19,15 @@ export default function MyBizDashboardHeader({
   // seller-dashboard skeletons.
   if (loading || !business || !storeStatus || !health || !today) return null;
 
+  // Everything submitted: the setup card goes and the profile shows Trusted.
+  const setupComplete = Number(health.score || 0) >= 100 || (health.missingItems || []).length === 0;
+
   return (
     <div className="space-y-4">
-      <HealthScoreCard health={health} onEditProfile={onEditProfile} />
+      {setupComplete ? null : <HealthScoreCard health={health} onEditProfile={onEditProfile} />}
       <BusinessProfileCard
         business={business}
+        setupComplete={setupComplete}
         status={storeStatus}
         onEditProfile={onEditProfile}
         onOpenSection={onOpenSection}
