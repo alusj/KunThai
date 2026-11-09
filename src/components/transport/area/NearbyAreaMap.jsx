@@ -39,6 +39,7 @@ import { t as i18nText } from "../../../i18n/index";
 import { inlineErrorMessage } from "../../../Backend/services/friendlyErrorService";
 import { useDashboardResumeHold } from "../../../Backend/hooks/useDashboardResumeHold";
 import { registerOfflineMapProtocol, saveAreaAround, toOfflineUrl } from "./mapOfflineCache";
+import { placeIconSvg, placeTypeForLocation } from "../../../Backend/services/nearbyPlaceTypes";
 
 // Map data is kept on the phone (mapOfflineCache.js): the map opens at once
 // after a restart and keeps working without a connection where it was used.
@@ -532,14 +533,16 @@ function createAreaLocationMarker(location) {
   wrapper.style.borderRadius = "999px";
   wrapper.style.display = "grid";
   wrapper.style.placeItems = "center";
-  wrapper.style.background = "#0f172a";
+  // Each kind of place has its own icon and colour.
+  const place = placeTypeForLocation(location);
+  wrapper.style.background = place.color;
   wrapper.style.border = "3px solid white";
   wrapper.style.boxShadow = "0 10px 24px rgba(0,0,0,0.35)";
   wrapper.style.color = "white";
-  wrapper.style.fontSize = "18px";
   wrapper.style.cursor = "pointer";
   wrapper.title = location?.name || t("urride.areaMap.tNearbyLocation");
-  wrapper.textContent = location?.category === "Emergency" ? "🚨" : "📍";
+  wrapper.setAttribute("aria-label", wrapper.title);
+  wrapper.innerHTML = placeIconSvg(place, 20);
   return wrapper;
 }
 

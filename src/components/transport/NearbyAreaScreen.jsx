@@ -54,6 +54,7 @@ import {
   storeDetectedCountryContext,
 } from "../../data/globalCountryProfiles";
 import { getEmergencyContacts } from "../../data/emergencyContacts";
+import { ADD_LOCATION_CATEGORIES, approvedPlaceToSearchResult, matchApprovedPlaces } from "../../Backend/services/nearbyPlaceTypes";
 import { isMapFleetTypeVisible } from "../../data/globalTransportCapabilities";
 import { haptics, sounds } from "../../Backend/services/feedbackService";
 import { showToast } from "../../Backend/services/toastService";
@@ -99,6 +100,7 @@ const CATEGORY_LABEL_KEYS = {
   Schools: "urride.areaView.catSchools",
   Markets: "urride.areaView.catMarkets",
   Emergency: "urride.areaView.catEmergency",
+  Services: "nearbyPlaces.catServices",
   Community: "urride.areaView.catCommunity",
 };
 
@@ -111,6 +113,9 @@ const ADD_CATEGORY_LABEL_KEYS = {
   Police: "urride.areaView.addPolice",
   "Fire Station": "urride.areaView.addFire",
   "Fuel Station": "urride.areaView.addFuel",
+  "Garage / Tyre Repair": "nearbyPlaces.addGarage",
+  "Hotel / Safe Stay": "nearbyPlaces.addHotel",
+  "ATM / Mobile Money": "nearbyPlaces.addAtm",
   "Pickup Point": "urride.areaView.addPickup",
   "Transport Park": "urride.areaView.addPark",
   Market: "urride.areaView.addMarket",
@@ -133,20 +138,7 @@ function addCategoryDisplay(category) {
   return ADD_CATEGORY_LABEL_KEYS[category] ? t(ADD_CATEGORY_LABEL_KEYS[category]) : String(category || "");
 }
 
-const addCategories = [
-  "Shop",
-  "School",
-  "Supermarket",
-  "Pharmacy",
-  "Hospital / Clinic",
-  "Police",
-  "Fire Station",
-  "Fuel Station",
-  "Pickup Point",
-  "Transport Park",
-  "Market",
-  "Other",
-];
+const addCategories = ADD_LOCATION_CATEGORIES;
 
 const primaryLocationCategories = locationCategories.slice(0, 3);
 const moreLocationCategories = locationCategories.slice(3);
@@ -185,6 +177,26 @@ const emergencySearchActions = {
     query: "fire station",
     addCategory: "Fire Station",
   },
+  fuel: {
+    query: "fuel station",
+    addCategory: "Fuel Station",
+    areaCategory: "Services",
+  },
+  garage: {
+    query: "car repair",
+    addCategory: "Garage / Tyre Repair",
+    areaCategory: "Services",
+  },
+  hotel: {
+    query: "hotel",
+    addCategory: "Hotel / Safe Stay",
+    areaCategory: "Services",
+  },
+  atm: {
+    query: "atm",
+    addCategory: "ATM / Mobile Money",
+    areaCategory: "Services",
+  },
 };
 
 const areaCategoryAddDefaults = {
@@ -193,6 +205,7 @@ const areaCategoryAddDefaults = {
   Schools: "School",
   Markets: "Market",
   Emergency: "Hospital / Clinic",
+  Services: "Garage / Tyre Repair",
   Community: "Other",
 };
 
@@ -203,6 +216,7 @@ const areaCategoryLabels = {
   Schools: "urride.areaView.lblSchool",
   Markets: "urride.areaView.lblMarket",
   Emergency: "urride.areaView.lblEmergency",
+  Services: "nearbyPlaces.lblServices",
   Community: "urride.areaView.lblCommunity",
 };
 
@@ -511,6 +525,7 @@ const addCategoryActionKeys = {
   Schools: "urrideMapFix2.addSchools",
   Markets: "urrideMapFix2.addMarkets",
   Emergency: "urrideMapFix2.addEmergency",
+  Services: "nearbyPlaces.addServicesAction",
   Community: "urrideMapFix2.addCommunity",
 };
 
@@ -1019,6 +1034,7 @@ function NearbyAreaScreenContent({
   const [areaViewGuideOpen, setAreaViewGuideOpen] = useState(shouldShowAreaViewGuide);
   const [dontShowAreaViewGuide, setDontShowAreaViewGuide] = useState(false);
   const mapCenterRef = useRef(null);
+  const liveLocationsRef = useRef([]);
   const userLocationRef = useRef(null);
   const lastPublishedCenterRef = useRef(null);
   const mapCenterPublishTimerRef = useRef(null);
@@ -1101,6 +1117,8 @@ function NearbyAreaScreenContent({
     droppedName: "Pinned location",
   };
 
+  liveLocationsRef.current = liveLocations;
+
   const displayLocations = useMemo(() => {
     const ids = new Set();
     const referencePoint = getAreaReferencePoint(mapCenter, userLocation);
@@ -1163,7 +1181,9 @@ function NearbyAreaScreenContent({
     ].join(":");
   }, [autoRoute, initialDestination]);
 
-  const openAddLocation = useCallback((categoryHint = "") => {
+  const openAddLocation = useCallback((rawCategoryHint = "") => {
+    // The "+" button hands over its tap event, which is not a category.
+    const categoryHint = typeof rawCategoryHint === "string" ? rawCategoryHint : "";
     const draft = getAddLocationDraftForCategory(categoryHint);
     const categoryLabel = getAreaCategoryLabel(categoryHint);
     const hasCategoryHint = Boolean(String(categoryHint || "").trim());
@@ -1885,8 +1905,14 @@ function NearbyAreaScreenContent({
 
       try {
         const searchCenter = mapCenterRef.current || userLocationRef.current;
-        const results = await searchLocations(text, searchCenter, { sortByDistance: searchSortByDistance });
+        const mapResults = await searchLocations(text, searchCenter, { sortByDistance: searchSortByDistance }).catch(() => []);
         if (searchRequestRef.current !== requestId) return;
+        // Places approved on KunThai come first, so a verified garage is not
+        // buried under map results (or lost when map search is unavailable).
+        const results = [
+          ...matchApprovedPlaces(liveLocationsRef.current, text).map(approvedPlaceToSearchResult),
+          ...(mapResults || []),
+        ];
         // Results are found around the map view, but the distance shown is
         // from the person, the same origin the routing card uses. Straight
         // line first (instant), then the road distance replaces it.
@@ -2157,7 +2183,7 @@ function NearbyAreaScreenContent({
     const query = action.query || String(type || "").trim();
 
     setSosOpen(false);
-    setActiveCategory("Emergency");
+    setActiveCategory(action.areaCategory || "Emergency");
     setOperatorRoutePlan(null);
     setLocationPanelOpen(false);
     setSelectedSearchLocation(null);

@@ -19,6 +19,7 @@ import { URRIDE_INVITE_LOCATION } from "./urrideInviteLocation";
 import { MESSAGE_ACTIONS } from "./messageActions";
 import { POST_CONTROLS } from "./postControls";
 import { ACCOUNT_RECOVERY } from "./accountRecovery";
+import { NEARBY_PLACES } from "./nearbyPlaces";
 import { POST_AUDIENCE_AGE } from "./postAudienceAge";
 import { URRIDE_SEATS_TRIP } from "./urrideSeatsTrip";
 import { URRIDE_COMPANY_ALERTS } from "./urrideCompanyAlerts";
@@ -59745,6 +59746,12 @@ for (const [locale, section] of Object.entries(POST_CONTROLS)) {
 for (const [locale, section] of Object.entries(ACCOUNT_RECOVERY)) {
   if (TRANSLATIONS[locale]) {
     TRANSLATIONS[locale].accountRecovery = section;
+  }
+}
+
+for (const [locale, section] of Object.entries(NEARBY_PLACES)) {
+  if (TRANSLATIONS[locale]) {
+    TRANSLATIONS[locale].nearbyPlaces = section;
   }
 }
 

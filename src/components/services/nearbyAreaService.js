@@ -6,6 +6,7 @@ export const locationCategories = [
   "Schools",
   "Markets",
   "Emergency",
+  "Services",
   "Community",
 ];
 

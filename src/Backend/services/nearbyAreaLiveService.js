@@ -1,6 +1,7 @@
 import supabase from "../lib/supabaseClient";
 import { cachedQuery } from "../lib/queryCache";
 import { normalizeCountryIso } from "../../data/globalCountryProfiles";
+import { placeTypeForCategory } from "./nearbyPlaceTypes";
 
 const OPERATOR_STALE_MINUTES = 10;
 const ACTIVE_OPERATOR_WINDOW_MS = OPERATOR_STALE_MINUTES * 60 * 1000;
@@ -188,12 +189,13 @@ function normalizeLocationCategory(category) {
 
   if (["fleet", "fleets", "operator", "transport"].includes(value)) return "Fleets";
   if (["pickup", "pickup point", "transport park", "park"].includes(value)) return "Pickup";
-  if (["shop", "shops", "supermarket", "pharmacy", "fuel station"].includes(value)) return "Shops";
+  if (["shop", "shops", "supermarket", "pharmacy"].includes(value)) return "Shops";
   if (["school", "schools"].includes(value)) return "Schools";
   if (["market", "markets"].includes(value)) return "Markets";
   if (["hospital", "clinic", "hospital / clinic", "police", "fire station", "fire service", "emergency"].includes(value)) return "Emergency";
 
-  return "Community";
+  // Fuel, garages, hotels, cash, and names typed under "Other".
+  return placeTypeForCategory(value).filter;
 }
 
 function normalizeOperator(row) {

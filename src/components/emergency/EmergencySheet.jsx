@@ -1,12 +1,17 @@
 import {
+  Banknote,
+  BedDouble,
   Building2,
   Flame,
+  Fuel,
   HeartPulse,
+  LifeBuoy,
   MapPin,
   Phone,
   Pill,
   ShieldAlert,
   Siren,
+  Wrench,
   X,
 } from "lucide-react";
 import { getEmergencyContacts } from "../../data/emergencyContacts";
@@ -40,6 +45,14 @@ const nearbyActions = [
     description: "Locate fire service support",
     icon: Flame,
   },
+];
+
+// When someone is stuck rather than in danger. Same search as the tiles above.
+const strandedActions = [
+  { id: "fuel", label: "nearbyPlaces.fuelLabel", description: "nearbyPlaces.fuelDesc", icon: Fuel },
+  { id: "garage", label: "nearbyPlaces.garageLabel", description: "nearbyPlaces.garageDesc", icon: Wrench },
+  { id: "hotel", label: "nearbyPlaces.hotelLabel", description: "nearbyPlaces.hotelDesc", icon: BedDouble },
+  { id: "atm", label: "nearbyPlaces.atmLabel", description: "nearbyPlaces.atmDesc", icon: Banknote },
 ];
 
 function safeTelHref(number) {
@@ -263,6 +276,30 @@ export default function EmergencySheet({
                     </span>
                     <span className="mt-3 block text-sm font-black leading-tight text-slate-950">{uiText(action.label)}</span>
                     <span className="mt-1 block text-xs font-bold leading-4 text-slate-500">{uiText(action.description)}</span>
+                  </button>
+                );
+              })}
+            </div>
+
+            <div className="mb-2 mt-5 flex items-center gap-2 text-sm font-black text-slate-900">
+              <LifeBuoy size={17} className="text-amber-600" />
+              {i18nText("nearbyPlaces.strandedTitle")}
+            </div>
+            <div className="grid grid-cols-2 gap-3">
+              {strandedActions.map((action) => {
+                const Icon = action.icon;
+                return (
+                  <button
+                    key={action.id}
+                    type="button"
+                    onClick={() => onNavigateNearby?.(action.id)}
+                    className="min-h-[118px] rounded-2xl border border-slate-100 bg-white p-3 text-left shadow-[0_12px_28px_rgba(15,23,42,0.07)] transition active:scale-[0.98]"
+                  >
+                    <span className="flex h-10 w-10 items-center justify-center rounded-2xl bg-slate-950 text-white">
+                      <Icon size={19} />
+                    </span>
+                    <span className="mt-3 block text-sm font-black leading-tight text-slate-950">{i18nText(action.label)}</span>
+                    <span className="mt-1 block text-xs font-bold leading-4 text-slate-500">{i18nText(action.description)}</span>
                   </button>
                 );
               })}
