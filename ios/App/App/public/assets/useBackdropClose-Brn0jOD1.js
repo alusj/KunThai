@@ -1,1 +1,0 @@
-import{a as o}from"./vendor-iA3un2B6.js";const n=450;function c(r,u){const t=o.useRef(0);return o.useLayoutEffect(()=>{r&&(t.current=Date.now())},[r]),e=>{e.target===e.currentTarget&&(Date.now()-t.current<n||u?.())}}export{c as u};
