@@ -287,20 +287,30 @@ async function runProductDetailQuery(productId) {
   throw new Error(lastError?.message || "Unable to load product details.");
 }
 
-async function getCurrentUserId(message = "Sign in to continue.") {
+// The signed-in account from the saved session, without a trip to the
+// sign-in server (the database checks the account on every read and write).
+// Asking the server first made every message wait one more round trip.
+async function currentAuthUser() {
+  const { data: sessionData } = await supabase.auth.getSession();
+  if (sessionData?.session?.user?.id) return sessionData.session.user;
   const { data, error } = await supabase.auth.getUser();
-  if (error || !data?.user?.id) throw new Error(message);
-  return data.user.id;
+  return error ? null : data?.user || null;
+}
+
+async function getCurrentUserId(message = "Sign in to continue.") {
+  const user = await currentAuthUser();
+  if (!user?.id) throw new Error(message);
+  return user.id;
 }
 
 async function getCurrentBuyer(message = "Sign in to continue.") {
-  const { data, error } = await supabase.auth.getUser();
-  if (error || !data?.user?.id) throw new Error(message);
+  const user = await currentAuthUser();
+  if (!user?.id) throw new Error(message);
 
-  const meta = data.user.user_metadata || {};
+  const meta = user.user_metadata || {};
   return {
-    id: data.user.id,
-    name: meta.full_name || meta.name || meta.username || data.user.email?.split("@")[0] || "Buyer",
+    id: user.id,
+    name: meta.full_name || meta.name || meta.username || user.email?.split("@")[0] || "Buyer",
   };
 }
 

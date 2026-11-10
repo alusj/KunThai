@@ -912,6 +912,11 @@ export async function saveTransportCompanyDraft(draft) {
   return payload;
 }
 
+export async function clearTransportCompanyDraft() {
+  const user = await getCurrentUser("Sign in before cancelling your company registration.");
+  localStorage.removeItem(scopedKey(COMPANY_DRAFT_PREFIX, user.id));
+}
+
 export async function setActiveTransportCompanyId(companyId) {
   const user = await getCurrentUser();
   if (companyId) localStorage.setItem(scopedKey(ACTIVE_COMPANY_PREFIX, user.id), companyId);

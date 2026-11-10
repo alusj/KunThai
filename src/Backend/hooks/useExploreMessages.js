@@ -1,4 +1,5 @@
 import { useEffect, useMemo, useRef, useState } from "react";
+import { useAppReturn } from "./useAppReturn";
 import {
   clearPendingConversationOpen,
   deleteExploreMessage,
@@ -24,6 +25,8 @@ import {
   spaceInboxCacheKey,
   startExploreConversation,
   startExploreSpaceConversation,
+  subscribeToExploreInstantDelivery,
+  takePrefetchedMessagePage,
   subscribeToExploreMessages,
 } from "../services/explore/messageService";
 import { setBannerContext } from "../services/notificationBannerService";
@@ -31,6 +34,7 @@ import { readExploreSettings } from "../services/explore/preferencesService";
 import { blockExploreUser, fetchBlockedIdentityKeys, fetchBlockedUsers, readBlockedUsers } from "../services/explore/safetyService";
 import {
   filterBlockedConversations,
+  acceptsInstantDelivery,
   filterBlockedMessages,
   isBlockedMessageError,
   mergeMessagePages,
@@ -138,7 +142,7 @@ function mergeMessageList(messages = [], incomingMessage = {}) {
   if (!incomingMessage?.id && !incomingMessage?.conversationId) return messages;
   const exactIndex = messages.findIndex((message) => message.id === incomingMessage.id);
   if (exactIndex >= 0) {
-    return messages.map((message, index) => (index === exactIndex ? { ...message, ...incomingMessage, pending: false } : message));
+    return messages.map((message, index) => (index === exactIndex ? { ...message, ...incomingMessage, pending: false, instant: Boolean(incomingMessage.instant) } : message));
   }
 
   const pendingIndex = messages.findIndex((message) => messagesLookLikeSamePending(message, incomingMessage));
@@ -247,7 +251,18 @@ export function useExploreMessages(currentProfile, initialRecipient) {
   const [error, setError] = useState("");
   const [messages, setMessages] = useState([]);
   const [pendingMessageKeys, setPendingMessageKeys] = useState(new Set());
+  // Bumped when KunThai comes back to the screen: the live feed reconnects
+  // and the inbox and open thread are read again.
+  const [realtimeEpoch, setRealtimeEpoch] = useState(0);
+  // A chat opened from a profile before the server has confirmed it: the
+  // first message waits for that (usually well under a second).
+  const openingRef = useRef(null);
+  const reloadRef = useRef(null);
   const [blockedKeys, setBlockedKeys] = useState(() => readBlockedUsers());
+  const blockedKeysRef = useRef(blockedKeys);
+  blockedKeysRef.current = blockedKeys;
+  // Messages already counted as unread (an instant copy, then its saved row).
+  const countedIncomingRef = useRef(new Set());
   const [hasOlderMessages, setHasOlderMessages] = useState(false);
   const [loadingOlderMessages, setLoadingOlderMessages] = useState(false);
   const loadingOlderRef = useRef(false);
@@ -456,7 +471,8 @@ export function useExploreMessages(currentProfile, initialRecipient) {
         const page = await fetchExploreMessagePage(activeConversation.id, cacheKey);
         // Keep older pages the person already scrolled back to.
         setMessages((current) => {
-          const nextMessages = mergeMessagePages(current.filter((message) => !message.pending), page.messages);
+          // An instant copy whose saved row never came (the send failed) goes.
+          const nextMessages = mergeMessagePages(current.filter((message) => !message.pending && !message.instant), page.messages);
           cacheConversationMessages(activeConversation.id, nextMessages);
           return nextMessages;
         });
@@ -485,18 +501,48 @@ export function useExploreMessages(currentProfile, initialRecipient) {
       // Messaging a Space opens the thread with the Space itself (its team
       // answers), never a direct chat with the owner. Acting as a Space,
       // messaging a person opens that person's thread in the Space inbox.
+      // The chat opens at once (Message on a profile goes straight to it, never
+      // through the inbox): the saved thread with this person when there is
+      // one, otherwise an empty thread under their name. The server then
+      // confirms the conversation and the latest messages arrive in place.
+      const viewKey = `opening:${recipientSpaceId || initialRecipient.userId || initialRecipient.username}`;
+      const known = !recipientSpaceId && !spaceId && initialRecipient.userId
+        ? conversationsRef.current.find((conversation) => !conversation.spaceId
+          && (conversation.participantIds || []).includes(initialRecipient.userId)
+          && (conversation.participantIds || []).includes(currentUserId))
+        : null;
+      const knownMessages = known
+        ? MESSAGES_MEMORY.get(cacheKey)?.messagesByConversation?.[known.id] || readCachedExploreMessages(known.id, cacheKey)
+        : [];
+      setActiveConversation(known
+        ? { ...known, viewKey }
+        : {
+          id: viewKey,
+          viewKey,
+          opening: true,
+          participantIds: [currentUserId, initialRecipient.userId].filter(Boolean),
+          participants: initialRecipient.userId ? { [initialRecipient.userId]: initialRecipient } : {},
+          counterpart: { ...initialRecipient, userId: initialRecipient.userId || "" },
+          spaceId: recipientSpaceId || spaceId || "",
+        });
+      setMessages(knownMessages);
+      setConversationLoading(!knownMessages.length);
+
       const opening = recipientSpaceId
         ? startExploreSpaceConversation(currentProfile, { ...initialRecipient, spaceId: recipientSpaceId })
         : spaceId
           ? startExploreSpaceConversation(currentProfile, { spaceId }, { customerUserId: initialRecipient.userId, customer: initialRecipient })
           : startExploreConversation(currentProfile, initialRecipient);
+      openingRef.current = { viewKey, promise: opening };
       opening.then(async (conversation) => {
-        setConversationLoading(true);
+        if (activeConversationRef.current?.viewKey !== viewKey) return;
+        activeConversationRef.current = { ...conversation, viewKey };
+        setActiveConversation({ ...conversation, viewKey });
         const page = await fetchExploreMessagePage(conversation.id, cacheKey);
-        setMessages(page.messages);
+        if (activeConversationRef.current?.viewKey !== viewKey) return;
+        setMessages((current) => mergeMessagePages(current.filter((message) => !message.pending), page.messages));
         setHasOlderMessages(page.hasMore);
         cacheConversationMessages(conversation.id, page.messages);
-        setActiveConversation(conversation);
         setConversationLoading(false);
         scheduleConversationSync(0);
       }).catch((err) => {
@@ -532,6 +578,9 @@ export function useExploreMessages(currentProfile, initialRecipient) {
     function applyIncomingMessage(incomingMessage) {
       if (!incomingMessage?.conversationId) return false;
       const preview = getMessagePreview(incomingMessage);
+      // An instant copy and then its saved row: the unread count goes up once.
+      const alreadyCounted = countedIncomingRef.current.has(incomingMessage.id);
+      if (incomingMessage.id) countedIncomingRef.current.add(incomingMessage.id);
       const conversationKnown = conversationsRef.current.some((conversation) => conversation.id === incomingMessage.conversationId);
 
       setConversationList((current) => {
@@ -540,7 +589,7 @@ export function useExploreMessages(currentProfile, initialRecipient) {
         return current
           .map((conversation) => {
             if (conversation.id !== incomingMessage.conversationId) return conversation;
-            const unreadCount = isIncomingMessage(conversation, incomingMessage, currentUserId)
+            const unreadCount = isIncomingMessage(conversation, incomingMessage, currentUserId) && !alreadyCounted
               ? Number(conversation.unreadCount || 0) + (activeConversationRef.current?.id === incomingMessage.conversationId ? 0 : 1)
               : Number(conversation.unreadCount || 0);
             return {
@@ -630,16 +679,30 @@ export function useExploreMessages(currentProfile, initialRecipient) {
     }
 
     const unsubscribeRealtime = subscribeToExploreMessages(currentUserId, handleMessageEvent);
+    const unsubscribeInstant = subscribeToExploreInstantDelivery(currentUserId, (row) => {
+      if (!acceptsInstantDelivery(row, conversationsRef.current, currentUserId, blockedKeysRef.current)) return;
+      applyIncomingMessage({ ...normalizeIncomingMessage(row), instant: true });
+    });
     window.addEventListener(EXPLORE_MESSAGE_EVENT, handleMessageEvent);
     window.addEventListener("storage", handleMessageEvent);
     return () => {
       unsubscribeRealtime();
+      unsubscribeInstant();
       window.removeEventListener(EXPLORE_MESSAGE_EVENT, handleMessageEvent);
       window.removeEventListener("storage", handleMessageEvent);
     };
     // The realtime channel stays stable for the active inbox; refs provide current UI state.
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [cacheKey]);
+  }, [cacheKey, realtimeEpoch]);
+
+  reloadRef.current = reload;
+  useAppReturn(() => {
+    if (!currentUserId) return;
+    setRealtimeEpoch((current) => current + 1);
+    // Past the in-memory copy: read the server.
+    persistentHydrationRef.current = true;
+    reloadRef.current?.();
+  });
 
   // The newest unread message from the other side: marking read runs only
   // when it changes, never on every new message length.
@@ -671,7 +734,7 @@ export function useExploreMessages(currentProfile, initialRecipient) {
     setActiveConversation(conversation);
     try {
       setError("");
-      const page = await fetchExploreMessagePage(conversation.id, cacheKey);
+      const page = (await takePrefetchedMessagePage(conversation.id)) || await fetchExploreMessagePage(conversation.id, cacheKey);
       setMessages(page.messages);
       setHasOlderMessages(page.hasMore);
       cacheConversationMessages(conversation.id, page.messages);
@@ -747,7 +810,13 @@ export function useExploreMessages(currentProfile, initialRecipient) {
 
   async function sendMessage(body) {
     const draft = normalizeOutgoingMessage(body);
-    const conversationId = activeConversation?.id;
+    let sendingConversation = activeConversation;
+    if (sendingConversation?.opening && openingRef.current?.viewKey === sendingConversation.viewKey) {
+      const confirmed = await openingRef.current.promise.catch(() => null);
+      if (!confirmed?.id) return { ok: false, error: "Message failed. Try again." };
+      sendingConversation = { ...confirmed, viewKey: sendingConversation.viewKey };
+    }
+    const conversationId = sendingConversation?.id;
     const signature = [conversationId || "", currentUserId, draft.type, draft.body, draft.mediaUrl].join("|");
 
     if (!conversationId || (!draft.body && !draft.mediaUrl) || pendingMessageKeys.has(signature)) {
@@ -789,7 +858,11 @@ export function useExploreMessages(currentProfile, initialRecipient) {
     );
 
     try {
-      const created = await sendExploreMessage(conversationId, currentProfile, body, { optimisticManaged: true });
+      // A direct thread: the other person gets the message at once.
+      const deliverTo = sendingConversation?.spaceId || sendingConversation?.spaceInbox
+        ? []
+        : (sendingConversation?.participantIds || []).filter((id) => id && id !== currentUserId);
+      const created = await sendExploreMessage(conversationId, currentProfile, body, { optimisticManaged: true, deliverTo });
       if (created) {
         setMessages((current) => {
           const nextMessages = mergeMessageList(current.filter((message) => message.id !== tempMessage.id), created);
@@ -1016,15 +1089,28 @@ export function useExploreMessages(currentProfile, initialRecipient) {
       });
     }
 
+    // The answer names the request (respondsTo), so both people see the
+    // request card change to Approved or Declined.
     if (action === "approveLocationRequest") {
+      const requestId = payload.message?.id || "";
       openMessageAreaView("approveLocationRequest", (location) =>
         sendMessage({
           type: "location_share",
           body: formatSharedLocationMessage(location),
-          metadata: buildSharedLocationMetadata(location),
+          metadata: { ...buildSharedLocationMetadata(location), ...(requestId ? { respondsTo: requestId } : {}) },
         }),
       );
       return { ok: true };
+    }
+
+    if (action === "declineLocationRequest") {
+      const requestId = payload.message?.id || "";
+      if (!requestId) return { ok: false, error: "Unable to identify this request." };
+      return sendMessage({
+        type: "text",
+        body: `${myName} declined the location request.`,
+        metadata: { textKey: "locationDeclined", declinerName: myName, respondsTo: requestId },
+      });
     }
 
     if (action === "openSharedLocation") {

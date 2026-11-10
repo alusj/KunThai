@@ -104,3 +104,27 @@ test("previews and location messages are rendered from keys", () => {
   );
   assert.equal(locationMessageParts({ body: "old message" }), null);
 });
+
+import { acceptsInstantDelivery, locationRequestAnswers } from "./messageInboxModels.js";
+
+test("an instant copy is shown only from the other person in a known direct thread", () => {
+  const conversations = [{ id: "c1", participantIds: ["me", "jay"] }, { id: "s1", spaceId: "space", participantIds: ["me", "jay"] }];
+  const row = { id: "m1", conversation_id: "c1", sender_id: "jay", body: "Hi" };
+  assert.equal(acceptsInstantDelivery(row, conversations, "me"), true);
+  assert.equal(acceptsInstantDelivery({ ...row, sender_id: "me" }, conversations, "me"), false);
+  assert.equal(acceptsInstantDelivery({ ...row, sender_id: "stranger" }, conversations, "me"), false);
+  assert.equal(acceptsInstantDelivery({ ...row, conversation_id: "unknown" }, conversations, "me"), false);
+  assert.equal(acceptsInstantDelivery({ ...row, conversation_id: "s1" }, conversations, "me"), false);
+  assert.equal(acceptsInstantDelivery({ ...row, media_url: "x" }, conversations, "me"), false);
+  assert.equal(acceptsInstantDelivery(row, conversations, "me", new Set(["jay"])), false);
+});
+
+test("a location request shows the answer that names it", () => {
+  const answers = locationRequestAnswers([
+    { id: "r1", type: "location_request" },
+    { id: "a1", type: "location_share", metadata: { respondsTo: "r1" } },
+    { id: "d1", type: "text", metadata: { textKey: "locationDeclined", respondsTo: "r2" } },
+    { id: "x1", type: "text", metadata: { respondsTo: "r3" }, deletedAt: "now" },
+  ]);
+  assert.deepEqual(answers, { r1: "approved", r2: "declined" });
+});

@@ -12,12 +12,15 @@ import {
 } from "react-icons/hi2";
 
 import {
+  currentCareUserId,
   createUserCareFeedback,
   fetchUserCareFeedback,
   validateUserCareAttachment,
 } from "../../../../Backend/services/explore/userCareService";
 import { showToast } from "../../../../Backend/services/toastService";
 import SocialScreenHeader from "../shared/SocialScreenHeader";
+import CancelRegistrationButton from "../../../shared/CancelRegistrationButton";
+import { clearVoiceDraft, readVoiceDraft, writeVoiceDraft } from "../../../../Backend/services/explore/yourVoiceDraft";
 import { t as i18nText, uiText } from "../../../../i18n/index";
 import { uiText as translateUi, useI18n as useUiLocale } from "../../../../i18n/index.js";
 import { inlineErrorMessage } from "../../../../Backend/services/friendlyErrorService";
@@ -67,6 +70,9 @@ export default function YourVoiceScreen({ hideHeader = false, initialDraft = nul
   const [submitting, setSubmitting] = useState(false);
   const [recording, setRecording] = useState(false);
   const [recordingSeconds, setRecordingSeconds] = useState(0);
+  const [draftUserId, setDraftUserId] = useState("");
+  const [hasSavedDraft, setHasSavedDraft] = useState(false);
+  const formRef = useRef(null);
   const screenshotInputRef = useRef(null);
   const recorderRef = useRef(null);
   const chunksRef = useRef([]);
@@ -86,6 +92,28 @@ export default function YourVoiceScreen({ hideHeader = false, initialDraft = nul
       setFeedback(i18nText("ui.literals.k2b963575353c"));
     }
   }, [initialDraft]);
+
+  // A saved draft comes back when the screen opens, with the form in view. A
+  // "report this screen" request brings its own contents and wins.
+  useEffect(() => {
+    let active = true;
+    currentCareUserId().then((userId) => {
+      if (!active) return;
+      setDraftUserId(userId);
+      const saved = readVoiceDraft(userId);
+      if (!saved) return;
+      setHasSavedDraft(true);
+      if (initialDraft) return;
+      setForm((current) => ({ ...current, ...saved.form }));
+      if (saved.currentScreen) setCurrentScreen(saved.currentScreen);
+      window.requestAnimationFrame(() => formRef.current?.scrollIntoView({ block: "start" }));
+    }).catch(() => {});
+    return () => {
+      active = false;
+    };
+    // Read once, when the screen opens.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
 
   useEffect(() => {
     let active = true;
@@ -233,6 +261,8 @@ export default function YourVoiceScreen({ hideHeader = false, initialDraft = nul
       setVoiceNote(null);
       setCurrentScreen("Explore / Your Voice");
       if (screenshotInputRef.current) screenshotInputRef.current.value = "";
+      clearVoiceDraft(draftUserId);
+      setHasSavedDraft(false);
       setFeedback(i18nText("ui.literals.ke9c05bfc7aef"));
       showToast("Thanks, feedback sent", "success");
     } catch (error) {
@@ -240,6 +270,23 @@ export default function YourVoiceScreen({ hideHeader = false, initialDraft = nul
     } finally {
       setSubmitting(false);
     }
+  }
+
+  function saveVoiceDraft() {
+    if (!writeVoiceDraft(draftUserId, form, currentScreen)) return;
+    setHasSavedDraft(true);
+    showToast("Draft has been saved", "success");
+  }
+
+  function startAfresh() {
+    clearVoiceDraft(draftUserId);
+    setHasSavedDraft(false);
+    setForm(emptyForm());
+    setScreenshot(null);
+    setVoiceNote(null);
+    setFeedback("");
+    setCurrentScreen("Explore / Your Voice");
+    if (screenshotInputRef.current) screenshotInputRef.current.value = "";
   }
 
   return (
@@ -261,7 +308,7 @@ export default function YourVoiceScreen({ hideHeader = false, initialDraft = nul
           </div>
         </section>
 
-        <form onSubmit={submit} className="rounded-[28px] border border-slate-200 bg-white p-5 shadow-sm sm:p-6">
+        <form ref={formRef} onSubmit={submit} className="scroll-mt-4 rounded-[28px] border border-slate-200 bg-white p-5 shadow-sm sm:p-6">
           <div className="grid gap-4 lg:grid-cols-2">
             <Field label={i18nText("ui.literals.kff2f042bfcce")}>
               <select value={form.feedbackType} onChange={(event) => setForm((current) => ({ ...current, feedbackType: event.target.value }))} className="h-12 w-full rounded-2xl bg-slate-100 px-4 text-sm font-black text-slate-800 outline-none">
@@ -292,6 +339,8 @@ export default function YourVoiceScreen({ hideHeader = false, initialDraft = nul
           <div className="mt-4 rounded-2xl bg-slate-50 px-4 py-3 text-xs font-bold leading-5 text-slate-500">{i18nText("ui.literals.k3676bb0b4170")} {uiText(currentScreen)}</div>
           {feedback ? <p role="status" className="mt-4 rounded-2xl bg-sky-50 px-4 py-3 text-sm font-black leading-6 text-sky-800">{translateUi(feedback)}</p> : null}
           <button type="submit" disabled={submitting || recording} className="mt-5 flex h-12 w-full items-center justify-center gap-2 rounded-2xl bg-sky-700 text-sm font-black text-white transition hover:bg-sky-800 disabled:opacity-50"><HiOutlinePaperAirplane className="text-lg" /> {submitting ? i18nText("ui.literals.kd3c78a10f7c4") : i18nText("ui.literals.k5b341f5ba850")}</button>
+          <button type="button" onClick={saveVoiceDraft} disabled={submitting || (!form.title.trim() && !form.message.trim())} className="mt-2 h-12 w-full rounded-2xl border border-sky-200 bg-white text-sm font-black text-sky-700 disabled:opacity-50">{i18nText("registrationResume.saveDraft")}</button>
+          {hasSavedDraft ? <CancelRegistrationButton onConfirm={startAfresh} disabled={submitting} className="mt-2 h-11 w-full text-sm" /> : null}
         </form>
 
         <section>

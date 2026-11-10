@@ -95,9 +95,16 @@ function ApplicationRow({ application, onOpen }) {
   );
 }
 
+function latestDraft(applications = []) {
+  return applications
+    .filter((item) => item.status === "draft")
+    .sort((a, b) => String(b.updatedAt || "").localeCompare(String(a.updatedAt || "")))[0] || null;
+}
+
 export default function JoinKunThaiScreen({ hideHeader = false }) {
   useUiLocale();
   const [view, setView] = useState("hub");
+  const [resuming, setResuming] = useState(true);
   const [applications, setApplications] = useState([]);
   const [catalogue, setCatalogue] = useState(null);
   const [detail, setDetail] = useState(null);
@@ -108,16 +115,30 @@ export default function JoinKunThaiScreen({ hideHeader = false }) {
   const loadApplications = useCallback(async () => {
     setError("");
     try {
-      setApplications(await fetchMyApplications());
+      const rows = await fetchMyApplications();
+      setApplications(rows);
+      return rows;
     } catch (loadError) {
       setError(inlineErrorMessage(loadError, i18nText("ui.literals.k69723a1d8710")));
+      return [];
     } finally {
       setLoading(false);
     }
   }, []);
 
+  // A draft reopens directly, on the form it was saved in; the list of paths
+  // is one Back away.
   useEffect(() => {
-    loadApplications();
+    let alive = true;
+    (async () => {
+      const rows = await loadApplications();
+      const draft = latestDraft(rows);
+      if (alive && draft) await openApplication(draft);
+      if (alive) setResuming(false);
+    })();
+    return () => {
+      alive = false;
+    };
   }, [loadApplications]);
 
   async function openApplication(application) {
@@ -168,7 +189,6 @@ export default function JoinKunThaiScreen({ hideHeader = false }) {
 
   async function discardDraft() {
     if (!detail?.application?.id) return;
-    if (!window.confirm(i18nText("exploreMessagesFix.joinDiscardConfirm"))) return;
     try {
       await discardDraftApplication(detail.application.id);
       clearLocalDraft(detail.application.userId, detail.application.id);
@@ -220,7 +240,11 @@ export default function JoinKunThaiScreen({ hideHeader = false }) {
           />
         ) : null}
 
-        {view === "hub" ? (
+        {view === "hub" && resuming ? (
+          <div className="kt-startup-shimmer h-48 rounded-[28px]" aria-busy="true" />
+        ) : null}
+
+        {view === "hub" && !resuming ? (
           <>
             <section className="rounded-[28px] border border-sky-100 bg-gradient-to-br from-white to-sky-50 p-5 shadow-sm sm:p-6">
               <p className="text-xs font-black uppercase tracking-[0.2em] text-sky-700">{i18nText("ui.literals.k17d2f5e61683")}</p>

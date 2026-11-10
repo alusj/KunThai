@@ -1,5 +1,5 @@
 import AppBackTab from "../../../shared/AppBackTab";
-import { useCallback, useEffect, useLayoutEffect, useRef, useState } from "react";
+import { useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState } from "react";
 import Avatar from "../../shared/Avatar";
 import {
   EXPLORE_MESSAGE_ACTIVITY_EVENT,
@@ -15,7 +15,7 @@ import MessageComposer from "./MessageComposer";
 import { t as i18nText } from "../../../../i18n/index";
 import MessagePrivacyNotice from "../../../shared/MessagePrivacyNotice";
 import { uiText as translateUi, useI18n as useUiLocale } from "../../../../i18n/index.js";
-import { PRESENCE_LABEL_KEYS } from "../../../../Backend/services/explore/messageInboxModels.js";
+import { PRESENCE_LABEL_KEYS, locationRequestAnswers } from "../../../../Backend/services/explore/messageInboxModels.js";
 import { showToast } from "../../../../Backend/services/toastService";
 import MessageActionMenu from "../../../shared/messageActions/MessageActionMenu";
 import { copyMessageText, prepareImageForActions, readMenuAnchor, revealMessage, runImageAction, submitReport } from "../../../shared/messageActions/messageActionDom.js";
@@ -140,6 +140,7 @@ export default function ConversationScreen({
     canShowSeenFor(peerUserId).then((value) => { if (active) setReceiptsEnabled(value === true); }).catch(() => {});
     return () => { active = false; };
   }, [peerUserId]);
+  const requestAnswers = useMemo(() => locationRequestAnswers(messages), [messages]);
   const lastSeenOwnMessageId = receiptsEnabled
     ? [...messages].reverse().find((message) => isMine(message) && message.read && !message.pending)?.id || ""
     : "";
@@ -373,13 +374,13 @@ export default function ConversationScreen({
             seen={message.id === lastSeenOwnMessageId}
             selected={menu?.message?.id === message.id}
             senderLabel={teammateLabel(message)}
-            canBlock={!peerIsSpace}
             otherUserName={otherName}
             quoteAuthor={message.replySnapshot ? authorOf(message.replySnapshot.senderId) : ""}
             onLongPress={openMenu}
             onOpenQuote={(replyToId) => revealMessage(messagesRef.current, replyToId)}
             onApproveLocationRequest={() => onAction?.("approveLocationRequest", { message, userId: user.userId })}
-            onBlockUser={() => onAction?.("blockUser", { message, userId: user.userId })}
+            onDeclineLocationRequest={() => onAction?.("declineLocationRequest", { message, userId: user.userId })}
+            requestStatus={message.type === "location_request" ? requestAnswers[message.id] || "" : ""}
             onOpenSharedLocation={() => onAction?.("openSharedLocation", { message, userId: user.userId })}
           />
         ))}

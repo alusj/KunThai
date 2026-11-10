@@ -56,6 +56,11 @@ function extensionFor(file, fallback) {
   return byType[file?.type] || fallback;
 }
 
+export async function currentCareUserId() {
+  const { data } = await supabase.auth.getSession();
+  return data?.session?.user?.id || "";
+}
+
 async function currentUser() {
   const { data, error } = await supabase.auth.getUser();
   if (error) throw error;

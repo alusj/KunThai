@@ -107,6 +107,18 @@ function writeDraft(step, form) {
   return payload;
 }
 
+export function hasSavedSellerDraft() {
+  return Boolean(readDraft());
+}
+
+export function clearSavedSellerDraft() {
+  try {
+    localStorage.removeItem(DRAFT_KEY);
+  } catch {
+    // Nothing to clear.
+  }
+}
+
 function countPickedFiles(form) {
   if (typeof Blob === "undefined") return 0;
   return [...Object.values(form.identity || {}), ...Object.values(form.trustPayout || {})]

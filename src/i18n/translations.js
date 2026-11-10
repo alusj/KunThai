@@ -21,6 +21,8 @@ import { POST_CONTROLS } from "./postControls";
 import { ACCOUNT_RECOVERY } from "./accountRecovery";
 import { NEARBY_PLACES } from "./nearbyPlaces";
 import { SETUP_STATUS } from "./setupStatus";
+import { REGISTRATION_RESUME } from "./registrationResume";
+import { LOCATION_REQUEST_REPLY } from "./locationRequestReply";
 import { POST_AUDIENCE_AGE } from "./postAudienceAge";
 import { URRIDE_SEATS_TRIP } from "./urrideSeatsTrip";
 import { URRIDE_COMPANY_ALERTS } from "./urrideCompanyAlerts";
@@ -59766,6 +59768,18 @@ for (const [locale, section] of Object.entries(NEARBY_PLACES)) {
 for (const [locale, section] of Object.entries(SETUP_STATUS)) {
   if (TRANSLATIONS[locale]) {
     TRANSLATIONS[locale].setupStatus = section;
+  }
+}
+
+for (const [locale, section] of Object.entries(REGISTRATION_RESUME)) {
+  if (TRANSLATIONS[locale]) {
+    TRANSLATIONS[locale].registrationResume = section;
+  }
+}
+
+for (const [locale, section] of Object.entries(LOCATION_REQUEST_REPLY)) {
+  if (TRANSLATIONS[locale]) {
+    TRANSLATIONS[locale].locationRequestReply = section;
   }
 }
 

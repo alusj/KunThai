@@ -33,6 +33,7 @@ export default function MessagesScreen({ currentProfile, hideHeader = false, ini
   const [closingConversation, setClosingConversation] = useState(null);
   const [closingMessages, setClosingMessages] = useState([]);
   const previousConversationRef = useRef(null);
+  const openedFromListRef = useRef(false);
   const lastMessagesRef = useRef([]);
   const visibleConversation = messages.activeConversation || closingConversation;
 
@@ -53,7 +54,10 @@ export default function MessagesScreen({ currentProfile, hideHeader = false, ini
     previousConversationRef.current = current;
 
     if (current) {
-      setScreenAction("push");
+      // Opened straight from a profile: the chat is the first thing shown,
+      // with nothing sliding in over the inbox.
+      setScreenAction(!previous && current.viewKey && !openedFromListRef.current ? "idle" : "push");
+      openedFromListRef.current = true;
       setClosingConversation(null);
       return undefined;
     }
@@ -153,7 +157,7 @@ export default function MessagesScreen({ currentProfile, hideHeader = false, ini
       {visibleConversation ? (
         <div className={`absolute inset-0 z-10 ${panelClass}`}>
           <ConversationScreen
-            key={visibleConversation.id}
+            key={visibleConversation.viewKey || visibleConversation.id}
             conversation={visibleConversation}
             currentUserId={currentUserId}
             loading={messages.conversationLoading}

@@ -12,12 +12,14 @@ import {
   FiUser,
 } from "react-icons/fi";
 import AppBackTab from "../../shared/AppBackTab";
+import CancelRegistrationButton from "../../shared/CancelRegistrationButton";
 import AccountSetupLoader from "../../shared/AccountSetupLoader";
 import CenteredModal from "../../shared/CenteredModal";
 import { ScreenSlideTransition, StepSlideTransition } from "../../shared/motion";
 import { useDirectionalStep } from "../../shared/motionHooks";
 import { scrollToFirstBlockingFieldSoon } from "../../shared/formValidationNavigation";
 import {
+  clearOperatorDraft,
   getOperatorDraft,
   saveOperatorAccount,
   saveOperatorDraft,
@@ -178,7 +180,7 @@ function clearFieldError(errors, field) {
   return next;
 }
 
-export default function FleetRegistrationDrawer({ onClose, onComplete, onSaveExit, onViewOneKmPreview, backgroundAllowed = true }) {
+export default function FleetRegistrationDrawer({ onClose, onCancelRegistration, onComplete, onSaveExit, onViewOneKmPreview, backgroundAllowed = true }) {
   useI18n();
   // The fleet is saved by a background task: leaving this screen never
   // cancels it, and reopening shows it (or, after a failure elsewhere, the
@@ -513,6 +515,15 @@ export default function FleetRegistrationDrawer({ onClose, onComplete, onSaveExi
     setShowSaveCheckpoint(false);
     setSavedMessage(t("urride.fleetReg.checkpointSaved"));
     window.setTimeout(() => setSavedMessage(""), 4200);
+  };
+
+  const cancelRegistration = async () => {
+    try {
+      await clearOperatorDraft();
+      onCancelRegistration?.();
+    } catch (error) {
+      setSubmitError(inlineErrorMessage(error, t("urride.fleetReg.draftError")));
+    }
   };
 
   const saveAndExit = () => {
@@ -1006,6 +1017,9 @@ export default function FleetRegistrationDrawer({ onClose, onComplete, onSaveExi
               </button>
 
               <div className="grid gap-2 sm:flex sm:items-center sm:justify-end">
+              {onCancelRegistration ? (
+                <CancelRegistrationButton onConfirm={cancelRegistration} disabled={savingDraft} className="h-11 px-2 text-sm" />
+              ) : null}
               {step === 4 ? (
               <button
                 type="button"

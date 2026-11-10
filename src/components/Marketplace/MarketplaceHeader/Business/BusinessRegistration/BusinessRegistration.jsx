@@ -2,7 +2,8 @@ import { useEffect, useRef, useState } from "react";
 
 import BusinessSellerEntryAnimation from "./BusinessSellerEntryAnimation";
 import NearbyAreaScreen from "../../../../transport/NearbyAreaScreen";
-import { useSellerRegistration } from "../../../../../Backend/hooks/useSellerRegistration";
+import { clearSavedSellerDraft, hasSavedSellerDraft, useSellerRegistration } from "../../../../../Backend/hooks/useSellerRegistration";
+import CancelRegistrationButton from "../../../../shared/CancelRegistrationButton";
 import AppBackTab from "../../../../shared/AppBackTab";
 import AccountSetupLoader from "../../../../shared/AccountSetupLoader";
 import CenteredModal from "../../../../shared/CenteredModal";
@@ -30,13 +31,20 @@ const STEP_TITLE_KEYS = [
   "stepReview",
 ];
 
-export default function BusinessRegistration({ mode = "create", onComplete, onExit }) {
+// Cancelling starts a new attempt: everything in the form, the intro and the
+// caution included, comes back as if for the first time.
+export default function BusinessRegistration(props) {
+  const [attempt, setAttempt] = useState(0);
+  return <BusinessRegistrationFlow key={attempt} {...props} onRestart={() => setAttempt((current) => current + 1)} />;
+}
+
+function BusinessRegistrationFlow({ mode = "create", onComplete, onExit, onRestart }) {
   useI18n();
   const editing = mode === "edit";
-  // A business already saving (or one that failed while the user was
-  // elsewhere) reopens straight on its saving screen / its entered details,
+  // A saved draft, a business already saving (or one that failed while the
+  // user was elsewhere) reopens straight on its step / its saving screen,
   // never on the intro and caution again.
-  const [resuming] = useState(() => !editing && Boolean(getAdoptableRegistrationTask(REGISTRATION_KINDS.URMALL)));
+  const [resuming] = useState(() => !editing && (Boolean(getAdoptableRegistrationTask(REGISTRATION_KINDS.URMALL)) || hasSavedSellerDraft()));
   const [showIntro, setShowIntro] = useState(!editing && !resuming);
   const [acceptedCaution, setAcceptedCaution] = useState(editing || resuming);
   const [leavingCaution, setLeavingCaution] = useState(false);
@@ -91,7 +99,7 @@ export default function BusinessRegistration({ mode = "create", onComplete, onEx
       return;
     }
 
-    if (!editing && acceptedCaution) {
+    if (!editing && acceptedCaution && !resuming) {
       setAcceptedCaution(false);
       return;
     }
@@ -218,6 +226,11 @@ export default function BusinessRegistration({ mode = "create", onComplete, onEx
     setSaveCheckpointOpen(true);
   }
 
+  function cancelRegistration() {
+    clearSavedSellerDraft();
+    onRestart?.();
+  }
+
   function handleSaveAndExit() {
     setSaveCheckpointOpen(false);
     onExit?.();
@@ -310,6 +323,13 @@ export default function BusinessRegistration({ mode = "create", onComplete, onEx
 
               <div className="flex flex-col gap-2 sm:items-end">
                 <div className="flex flex-wrap justify-end gap-3">
+                  {!editing ? (
+                    <CancelRegistrationButton
+                      onConfirm={cancelRegistration}
+                      disabled={registration.submitting}
+                      className="px-2 py-3 text-sm"
+                    />
+                  ) : null}
                   {!editing ? (
                     <button
                       type="button"

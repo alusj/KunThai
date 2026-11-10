@@ -1,3 +1,4 @@
+import CancelRegistrationButton from "../../../shared/CancelRegistrationButton";
 import { useEffect, useMemo, useRef, useState } from "react";
 import {
   HiOutlineArrowLeft,
@@ -340,9 +341,7 @@ export default function JoinApplicationForm({ catalogue, detail, onCancel, onDet
           </p>
           <div className="flex flex-none items-center gap-3">
             {onDiscard ? (
-              <button type="button" onClick={onDiscard} className="text-xs font-black text-rose-600 hover:text-rose-700">
-                {i18nText("ui.literals.k3a09ce0de183")}
-              </button>
+              <CancelRegistrationButton onConfirm={onDiscard} className="text-xs" />
             ) : null}
             <button type="button" onClick={leaveForm} className="text-xs font-black text-slate-500 hover:text-slate-800">
               {i18nText("ui.literals.kbbfa773e5a63")}

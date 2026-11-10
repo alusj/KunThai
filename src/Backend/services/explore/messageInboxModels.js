@@ -204,12 +204,40 @@ export function messagePreviewParts(message) {
   return { key: "previewMessage" };
 }
 
+// The answer to each location request in a thread, by request id: a shared
+// location that names the request approves it, a decline declines it.
+export function locationRequestAnswers(messages = []) {
+  const answers = {};
+  for (const message of messages) {
+    const requestId = message?.metadata?.respondsTo;
+    if (!requestId || message.deletedAt) continue;
+    answers[requestId] = message.metadata.textKey === "locationDeclined" ? "declined" : "approved";
+  }
+  return answers;
+}
+
+// A message handed straight to this account's private channel (instant
+// delivery) is shown only when it belongs to a known direct thread, comes from
+// the other person in it, carries no file, and that person is not blocked.
+// The saved row follows and confirms it.
+export function acceptsInstantDelivery(row, conversations = [], currentUserId = "", blockedKeys = new Set()) {
+  if (!row?.id || !row.conversation_id || !row.sender_id || row.sender_id === currentUserId) return false;
+  if (row.media_url) return false;
+  const conversation = conversations.find((item) => item.id === row.conversation_id);
+  if (!conversation || conversation.spaceId || conversation.spaceInbox) return false;
+  if (!(conversation.participantIds || []).includes(row.sender_id)) return false;
+  return !blockedKeys.has(row.sender_id) && !blockedKeys.has(`profile:${row.sender_id}`);
+}
+
 // Location messages store a text key so each reader sees them in their own
 // language; the English body stays as the fallback for older app versions.
 export function locationMessageParts(message) {
   const metadata = message?.metadata || {};
   if (metadata.textKey === "locationRequest") {
     return { key: "locationRequestBody", vars: { name: metadata.requesterName || "" } };
+  }
+  if (metadata.textKey === "locationDeclined") {
+    return { namespace: "locationRequestReply", key: "declinedBody", vars: { name: metadata.declinerName || "" } };
   }
   if (metadata.textKey === "locationShare") {
     const label = metadata.address || metadata.name || "";

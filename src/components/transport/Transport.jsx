@@ -22,6 +22,9 @@ import CompanyRegistrationScreen from "./registration/CompanyRegistrationScreen"
 import FleetRegistrationDrawer from "./registration/FleetRegistrationDrawer";
 import FleetEditDrawer from "./registration/FleetEditDrawer";
 import TransportRegistrationTypeScreen from "./registration/TransportRegistrationTypeScreen";
+import { latestSavedRegistration } from "../services/transportRegistrationResume";
+import { getOperatorDraft } from "../services/transportOperatorAccountService";
+import { getTransportCompanyDraft } from "../services/transportCompanyService";
 import VerificationDetailsModal from "./verification/VerificationDetailsModal";
 import PassengerLiveTripHeaderCard from "./live/PassengerLiveTripHeaderCard";
 import AppBackTab from "../shared/AppBackTab";
@@ -288,8 +291,24 @@ export default function Transport({
     return () => window.removeEventListener(KAI_TRIP_BOOKING_EVENT, handleKaiTripBooking);
   }, []);
 
-  function openRegistrationChooser() {
+  // A saved registration reopens directly, on the step it was saved at: no
+  // caution card, no solo/company choice.
+  async function openRegistrationChooser() {
     if (registrationBlocked("transport-chooser")) return;
+    const [soloDraft, companyDraft] = await Promise.all([
+      getOperatorDraft().catch(() => null),
+      getTransportCompanyDraft().catch(() => null),
+    ]);
+    const saved = latestSavedRegistration(soloDraft, companyDraft);
+    if (saved === "company") {
+      openCompanyRegistration("saved-draft");
+      return;
+    }
+    if (saved === "solo") {
+      openSoloRegistration("saved-draft");
+      return;
+    }
+
     setRegistrationSource("transport-chooser");
     setRegistrationType(null);
     setRegistrationOpen(true);
@@ -370,6 +389,20 @@ export default function Transport({
     }
 
     setRegistrationSource(null);
+  }
+
+  // "Cancel and start afresh": the saved draft is already gone. A registration
+  // begun from the UrRide home goes back to its first screen.
+  function restartRegistrationFlow() {
+    if (registrationSource === "transport-chooser" || registrationSource === "saved-draft") {
+      setRouteDirection("backward");
+      setRegistrationSource("transport-chooser");
+      setRegistrationType(null);
+      setCompanyRegistrationMode("full");
+      setCompanyRegistrationFleetId("");
+      return;
+    }
+    exitRegistrationFlow();
   }
 
   function closeOperatorDashboard() {
@@ -1424,6 +1457,7 @@ export default function Transport({
             focusFleetId={companyRegistrationFleetId}
             mode={companyRegistrationMode}
             onBack={closeRegistrationFlow}
+            onCancelRegistration={restartRegistrationFlow}
             onSaved={setCompanyAccount}
             onSaveExit={exitRegistrationFlow}
             onViewOneKmPreview={openRegistrationOneKmPreview}
@@ -1451,6 +1485,7 @@ export default function Transport({
           // is updated afterwards), so that save cannot move to the background.
           backgroundAllowed={registrationSource !== "company-invite"}
           onClose={closeRegistrationFlow}
+          onCancelRegistration={registrationSource === "company-invite" ? undefined : restartRegistrationFlow}
           onSaveExit={exitRegistrationFlow}
           onViewOneKmPreview={openRegistrationOneKmPreview}
           onComplete={finishOperatorRegistration}

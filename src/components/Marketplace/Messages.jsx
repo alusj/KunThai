@@ -28,6 +28,8 @@ import { NAV_TRANSITION_MS } from "../shared/navigationMotion";
 import { useMarketplaceMessageActions } from "../../Backend/hooks/useMarketplaceMessageActions";
 import { ComposerContextBar } from "../shared/messageActions/MessageActionParts";
 import MarketplaceChatMessages from "./MarketplaceChatMessages";
+import { addDeliveredMessage } from "../../Backend/services/marketplace/marketplaceLiveMessages";
+import { useAppReturn } from "../../Backend/hooks/useAppReturn";
 
 function readFileAsDataUrl(file) {
   return new Promise((resolve, reject) => {
@@ -129,11 +131,25 @@ export default function Messages({ initialConversationId = "", onBack, onInitial
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
+  // Coming back to KunThai reconnects the live feed and reads the list again.
+  const [liveEpoch, setLiveEpoch] = useState(0);
+  const messagesRef = useRef(messages);
+  messagesRef.current = messages;
+  useAppReturn(() => {
+    setLiveEpoch((current) => current + 1);
+    loadMessages({ silent: true });
+  });
+
   useEffect(() => {
     let unsubscribe = null;
     let active = true;
 
-    subscribeBuyerMarketplaceMessages(() => loadMessages({ silent: true }), {
+    subscribeBuyerMarketplaceMessages((row) => {
+      // The seller's message shows at once; the quiet reload confirms it.
+      const conversation = messagesRef.current.find((item) => item.businessId === row?.business_id);
+      if (conversation) setEchoes((current) => addDeliveredMessage(current, conversation.id, row, "buyer"));
+      loadMessages({ silent: true });
+    }, {
       // Edits and deletes for everyone from the seller (not read receipts).
       onUpdate: (row) => {
         if (row?.edited_at || row?.deleted_at) loadMessages({ silent: true });
@@ -154,7 +170,10 @@ export default function Messages({ initialConversationId = "", onBack, onInitial
       active = false;
       unsubscribe?.();
     };
-  }, []);
+    // Resubscribes when KunThai comes back (liveEpoch); loadMessages only
+    // uses state setters.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [liveEpoch]);
 
   useEffect(() => {
     return () => {

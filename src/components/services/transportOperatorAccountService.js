@@ -574,6 +574,12 @@ export async function saveOperatorDraft(draft) {
   return scopedDraft;
 }
 
+export async function clearOperatorDraft() {
+  const userId = await getCurrentUserId("Sign in before cancelling your fleet draft.");
+  localStorage.removeItem(getDraftKey(userId));
+  localStorage.removeItem(DRAFT_KEY);
+}
+
 export function getLegacyOperatorAccount() {
   const stored = safeParse(localStorage.getItem(LEGACY_ACCOUNT_KEY));
   return stored?.userId ? stored : null;

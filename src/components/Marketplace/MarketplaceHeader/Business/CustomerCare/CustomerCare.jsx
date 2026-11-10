@@ -27,6 +27,8 @@ import { NAV_TRANSITION_MS } from "../../../../shared/navigationMotion";
 import { useMarketplaceMessageActions } from "../../../../../Backend/hooks/useMarketplaceMessageActions";
 import { ComposerContextBar } from "../../../../shared/messageActions/MessageActionParts";
 import MarketplaceChatMessages from "../../../MarketplaceChatMessages";
+import { addDeliveredMessage } from "../../../../../Backend/services/marketplace/marketplaceLiveMessages";
+import { useAppReturn } from "../../../../../Backend/hooks/useAppReturn";
 
 const CONVERSATION_TRANSITION_MS = NAV_TRANSITION_MS;
 
@@ -143,11 +145,23 @@ export default function CustomerCare({ onBack } = {}) {
     };
   }, []);
 
+  // Coming back to KunThai reconnects the live feed and reads the list again.
+  const [liveEpoch, setLiveEpoch] = useState(0);
+  useAppReturn(() => {
+    setLiveEpoch((current) => current + 1);
+    reload?.();
+  });
+
   useEffect(() => {
     let unsubscribe = null;
     let active = true;
 
-    subscribeSellerMarketplaceMessages(() => reload?.(), {
+    subscribeSellerMarketplaceMessages((row) => {
+      // One thread per buyer: the buyer's message shows at once in it, and
+      // the quiet reload confirms it.
+      if (row?.buyer_id) setEchoes((current) => addDeliveredMessage(current, row.buyer_id, row, "seller"));
+      reload?.();
+    }, {
       // Edits and deletes for everyone from the buyer (not read receipts).
       onUpdate: (row) => {
         if (row?.edited_at || row?.deleted_at) reload?.();
@@ -168,7 +182,7 @@ export default function CustomerCare({ onBack } = {}) {
       active = false;
       unsubscribe?.();
     };
-  }, [reload]);
+  }, [reload, liveEpoch]);
 
   function clearTransitionTimer() {
     if (transitionTimerRef.current) {

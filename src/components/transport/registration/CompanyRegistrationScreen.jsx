@@ -22,12 +22,14 @@ import { getKunThaiPublicUserId } from "../../../Backend/services/identityCodeSe
 import { getOnboardingProfile } from "../../../Backend/services/onboardingService";
 import {
   createTransportCompanyFleetCode,
+  clearTransportCompanyDraft,
   getTransportCompanyDraft,
   lookupTransportOperatorByKunThaiId,
   saveTransportCompanyAccount,
   saveTransportCompanyDraft,
 } from "../../services/transportCompanyService";
 import AppBackTab from "../../shared/AppBackTab";
+import CancelRegistrationButton from "../../shared/CancelRegistrationButton";
 import AddressLocationField from "../../shared/AddressLocationField";
 import AccountSetupLoader from "../../shared/AccountSetupLoader";
 import CenteredModal from "../../shared/CenteredModal";
@@ -303,7 +305,7 @@ function compactPublicId(value = "") {
   return String(value).replace(/[^a-z0-9]/gi, "").toUpperCase();
 }
 
-export default function CompanyRegistrationScreen({ existingCompany = null, focusFleetId = "", mode = "full", onBack, onComplete, onSaved, onSaveExit, onViewOneKmPreview }) {
+export default function CompanyRegistrationScreen({ existingCompany = null, focusFleetId = "", mode = "full", onBack, onCancelRegistration, onComplete, onSaved, onSaveExit, onViewOneKmPreview }) {
   useI18n();
   const addOperatorMode = mode === "addOperator";
   const addRentalMode = mode === "addRental";
@@ -879,6 +881,15 @@ export default function CompanyRegistrationScreen({ existingCompany = null, focu
     showStatus(t("urride.companyReg.draftSavedContinue"), "success");
   }
 
+  async function cancelRegistration() {
+    try {
+      await clearTransportCompanyDraft();
+      onCancelRegistration?.();
+    } catch (error) {
+      showSaveError(error, t("urride.companyReg.draftError"));
+    }
+  }
+
   function saveAndExit() {
     setSaveCheckpointOpen(false);
     if (onSaveExit) {
@@ -1311,6 +1322,9 @@ export default function CompanyRegistrationScreen({ existingCompany = null, focu
                 <span className="flex items-center justify-center gap-2"><FiChevronLeft /> {t("urride.companyReg.backBtn")}</span>
               </button>
               <div className="grid gap-2 sm:flex sm:justify-end">
+                {mode === "full" && !existingCompany && onCancelRegistration ? (
+                  <CancelRegistrationButton onConfirm={cancelRegistration} disabled={saving || submitting} className="h-11 px-2 text-sm" />
+                ) : null}
                 {!incrementalFleetMode ? <button
                   type="button"
                   onClick={handleSaveDraft}

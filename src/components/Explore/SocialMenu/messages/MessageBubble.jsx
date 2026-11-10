@@ -19,7 +19,7 @@ import { DeletedMessageBody, MessageReplyQuote } from "../../../shared/messageAc
 // Location messages carry a text key so they read in the viewer's language.
 function locationText(message) {
   const parts = locationMessageParts(message);
-  return parts ? i18nText(`exploreMessagesFix.${parts.key}`, parts.vars) : message.body || "";
+  return parts ? i18nText(`${parts.namespace || "exploreMessagesFix"}.${parts.key}`, parts.vars) : message.body || "";
 }
 
 // One message in an Explore thread. Holding it opens the thread's action menu
@@ -28,7 +28,7 @@ export default function MessageBubble({
   mine,
   message,
   onApproveLocationRequest,
-  onBlockUser,
+  onDeclineLocationRequest,
   onLongPress,
   onOpenQuote,
   onOpenSharedLocation,
@@ -39,7 +39,8 @@ export default function MessageBubble({
   // Space inbox: which teammate sent one of "our" replies ("Sent by Aminata").
   senderLabel = "",
   // A Space is not a person: its threads offer no "block sender".
-  canBlock = true,
+  // "approved" or "declined" once a location request has been answered.
+  requestStatus = "",
 }) {
   const { t } = useI18n();
   const otherName = otherUserName || t("messages.thisUser");
@@ -127,8 +128,18 @@ export default function MessageBubble({
               </p>
             </div>
           </div>
-          {!mine ? (
-            <div className={`mt-3 grid gap-2 ${canBlock ? "grid-cols-2" : "grid-cols-1"}`}>
+          {requestStatus ? (
+            <p className={`mt-2 inline-flex items-center gap-1 rounded-full px-2.5 py-1 text-[11px] font-black ${
+              requestStatus === "approved"
+                ? mine ? "bg-white/15 text-white" : "bg-emerald-50 text-emerald-700"
+                : mine ? "bg-white/15 text-white/85" : "bg-slate-100 text-slate-600"
+            }`}>
+              {requestStatus === "approved" ? <HiOutlineShieldCheck /> : <HiOutlineNoSymbol />}
+              {i18nText(`locationRequestReply.${requestStatus}`)}
+            </p>
+          ) : null}
+          {!mine && !requestStatus ? (
+            <div className="mt-3 grid grid-cols-2 gap-2">
               <button
                 type="button"
                 onClick={(event) => runMessageAction(event, onApproveLocationRequest)}
@@ -137,16 +148,14 @@ export default function MessageBubble({
                 <HiOutlineShieldCheck />
                 {t("messages.approve")}
               </button>
-              {canBlock ? (
-                <button
-                  type="button"
-                  onClick={(event) => runMessageAction(event, onBlockUser)}
-                  className="flex h-10 items-center justify-center gap-1.5 rounded-2xl bg-white px-3 text-xs font-black text-rose-700"
-                >
-                  <HiOutlineNoSymbol />
-                  {t("messages.block")}
-                </button>
-              ) : null}
+              <button
+                type="button"
+                onClick={(event) => runMessageAction(event, onDeclineLocationRequest)}
+                className="flex h-10 items-center justify-center gap-1.5 rounded-2xl border border-slate-200 bg-white px-3 text-xs font-black text-slate-700"
+              >
+                <HiOutlineNoSymbol />
+                {i18nText("locationRequestReply.decline")}
+              </button>
             </div>
           ) : null}
           <p className={`mt-1 text-[10px] font-bold ${mine ? "text-white/55" : "text-slate-400"}`}>
@@ -241,7 +250,7 @@ export default function MessageBubble({
             className={message.body ? "mb-2" : ""}
           />
         ) : null}
-        {message.body ? <p>{message.body}</p> : mediaType === "audio" ? null : mediaType === "image" ? <p>{t("messages.photo")}</p> : mediaType === "video" ? <p>{i18nText("exploreMessagesFix.previewVideo")}</p> : null}
+        {message.body ? <p>{metadata.textKey === "locationDeclined" ? locationText(message) : message.body}</p> : mediaType === "audio" ? null : mediaType === "image" ? <p>{t("messages.photo")}</p> : mediaType === "video" ? <p>{i18nText("exploreMessagesFix.previewVideo")}</p> : null}
         <p className={`mt-1 text-[10px] font-bold ${mine ? "text-white/55" : "text-slate-400"}`}>
           {timeLabel}
         </p>

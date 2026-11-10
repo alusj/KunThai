@@ -29,9 +29,28 @@ let realtimeSubscriptionSequence = 0;
 // Explore) is mounted; the id waits here until useExploreMessages consumes it.
 let pendingOpenConversationId = "";
 
+// A notification tap starts reading the thread's latest messages at once,
+// while Explore is still opening, so they are there when the chat appears.
+let prefetchedPage = null;
+const PREFETCH_FRESH_MS = 15000;
+
+export function takePrefetchedMessagePage(conversationId) {
+  const prefetched = prefetchedPage;
+  if (!prefetched || prefetched.conversationId !== conversationId) return null;
+  prefetchedPage = null;
+  return Date.now() - prefetched.startedAt < PREFETCH_FRESH_MS ? prefetched.promise : null;
+}
+
 export function requestConversationOpen(conversationId) {
   pendingOpenConversationId = String(conversationId || "");
   if (!pendingOpenConversationId) return;
+  if (isUuid(pendingOpenConversationId)) {
+    prefetchedPage = {
+      conversationId: pendingOpenConversationId,
+      startedAt: Date.now(),
+      promise: fetchExploreMessagePage(pendingOpenConversationId).catch(() => null),
+    };
+  }
   window.dispatchEvent(new CustomEvent(EXPLORE_OPEN_CONVERSATION_EVENT, { detail: { conversationId: pendingOpenConversationId } }));
 }
 
@@ -176,8 +195,17 @@ function isUuid(value) {
 }
 
 async function getAuthenticatedUserId(profileUserId = "") {
-  const { data, error } = await supabase.auth.getUser();
-  const authenticatedUserId = data?.user?.id || "";
+  // The saved session names the account without a trip to the sign-in
+  // server (the database checks the account on every write anyway). Asking
+  // the server first held every message back by one more round trip.
+  const { data: sessionData } = await supabase.auth.getSession();
+  let authenticatedUserId = sessionData?.session?.user?.id || "";
+  let error = null;
+  if (!isUuid(authenticatedUserId)) {
+    const result = await supabase.auth.getUser();
+    authenticatedUserId = result.data?.user?.id || "";
+    error = result.error;
+  }
 
   if (error || !isUuid(authenticatedUserId)) {
     throw new Error("Please sign in again before opening messages.");
@@ -1186,8 +1214,11 @@ export async function sendExploreMessage(conversationId, senderProfile, body, op
   const mediaUrl = !isLocalConversation && draft.mediaUrl
     ? await uploadPrivateMessageMedia(draft.mediaUrl, draft.type, conversationId, senderId)
     : draft.mediaUrl;
+  // Named here, not by the database, so the instant copy and the saved row
+  // are recognised as the same message.
+  const messageId = isLocalConversation ? "" : newMessageId();
   const message = {
-    id: `message-${Date.now()}`,
+    id: messageId || `message-${Date.now()}`,
     conversationId,
     senderId,
     body: draft.body,
@@ -1225,7 +1256,14 @@ export async function sendExploreMessage(conversationId, senderProfile, body, op
     read: message.read,
     created_at: message.createdAt,
     ...(message.replyToId ? { reply_to_id: message.replyToId } : {}),
+    ...(messageId ? { id: messageId } : {}),
   };
+
+  // Text and location messages reach a direct contact at once; files wait
+  // for the saved row (their stored copy must exist first).
+  if (messageId && !payload.media_url && Array.isArray(options.deliverTo) && options.deliverTo.length) {
+    deliverInstantly(options.deliverTo, { ...payload, id: messageId });
+  }
 
   let data = null;
   let error = null;
@@ -1437,6 +1475,44 @@ export function subscribeToExploreMessageActivity(conversationId) {
 
 export function fetchExploreMessageActivity() {
   return Object.values(readObject(MESSAGE_ACTIVITY_KEY));
+}
+
+// Instant delivery: each account listens on its own private channel
+// ("explore-user:<id>"); a sender hands a new direct message to the
+// recipient's channel while it saves. Who may listen or send is set in the
+// database (20261110153000_explore_instant_delivery.sql); without that, or
+// offline, the send simply fails and the saved row arrives as before.
+export function subscribeToExploreInstantDelivery(currentUserId, onMessage) {
+  if (!isUuid(currentUserId)) return () => {};
+  const channel = supabase
+    .channel(`explore-user:${currentUserId}`, { config: { private: true } })
+    .on("broadcast", { event: "message" }, ({ payload }) => onMessage?.(payload))
+    .subscribe();
+  return () => supabase.removeChannel(channel);
+}
+
+const instantDeliveryChannels = new Map();
+
+function deliverInstantly(recipientIds, row) {
+  for (const recipientId of recipientIds) {
+    if (!isUuid(recipientId)) continue;
+    let channel = instantDeliveryChannels.get(recipientId);
+    if (!channel) {
+      // Never joined: send() goes over HTTP, checked against the send rule.
+      channel = supabase.channel(`explore-user:${recipientId}`, { config: { private: true } });
+      instantDeliveryChannels.set(recipientId, channel);
+    }
+    channel.send({ type: "broadcast", event: "message", payload: row }).catch(() => {});
+  }
+}
+
+function newMessageId() {
+  try {
+    if (typeof crypto !== "undefined" && crypto.randomUUID) return crypto.randomUUID();
+  } catch {
+    // Fall through: the database names the message.
+  }
+  return "";
 }
 
 export function subscribeToExploreMessages(currentUserId, onChange) {
