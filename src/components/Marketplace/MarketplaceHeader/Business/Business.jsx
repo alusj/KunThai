@@ -128,7 +128,7 @@ function SellerFullScreen({ animation = "stack", children, hideHeader = false, e
   );
 }
 
-export default function Business({ initialScreen = "", onBack, onInitialScreenHandled }) {
+export default function Business({ initialScreen = "", initialChat = null, onBack, onInitialScreenHandled }) {
   // Saving actions here get a button spinner and a success vibration.
   useActionFeedbackScope();
   useI18n();
@@ -264,10 +264,10 @@ export default function Business({ initialScreen = "", onBack, onInitialScreenHa
   useEffect(() => {
     if (!hasBusiness || !initialScreen) return;
     if (activeScreen !== initialScreen) {
-      pushSellerScreen({ screen: initialScreen, state: { openedFromNotification: true } });
+      pushSellerScreen({ screen: initialScreen, state: { openedFromNotification: true, ...(initialScreen === "messages" && initialChat ? { chat: initialChat } : {}) } });
     }
     onInitialScreenHandled?.();
-  }, [activeScreen, hasBusiness, initialScreen, onInitialScreenHandled, pushSellerScreen]);
+  }, [activeScreen, hasBusiness, initialChat, initialScreen, onInitialScreenHandled, pushSellerScreen]);
 
   useEffect(() => {
     if (!hasBusiness) return undefined;
@@ -530,7 +530,7 @@ export default function Business({ initialScreen = "", onBack, onInitialScreenHa
           onBack={goBackSellerScreen}
           open={screenPanelOpen}
         >
-          <CustomerCare onBack={goBackSellerScreen} />
+          <CustomerCare onBack={goBackSellerScreen} initialChat={sellerCurrentEntry.state?.chat || null} />
         </SellerFullScreen>
       );
     }

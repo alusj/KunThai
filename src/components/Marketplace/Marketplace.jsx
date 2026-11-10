@@ -78,6 +78,8 @@ export default function Marketplace({ active = true, nav, setNav, onActivityChan
   const [messageConversationId, setMessageConversationId] = useState("");
   const [requestedMenuScreen, setRequestedMenuScreen] = useState("");
   const [businessInitialScreen, setBusinessInitialScreen] = useState("");
+  // The seller chat a notification asked for ({ businessId, buyerId }).
+  const [businessInitialChat, setBusinessInitialChat] = useState(null);
 
   // Cross-service deep-links switch to UrMall and open the requested buyer or
   // seller workspace. Consume pending requests on mount and also honor them
@@ -101,6 +103,7 @@ export default function Marketplace({ active = true, nav, setNav, onActivityChan
         // "business-register": reopen "Add business" after a registration
         // that could not finish in the background.
         setBusinessInitialScreen(screen === "business-messages" ? "messages" : screen === "business-register" ? "addBusiness" : "");
+        setBusinessInitialChat(screen === "business-messages" && detail.chat?.buyerId ? detail.chat : null);
         setNav({ root: "marketplace", sub: "business" });
       }
     }
@@ -336,6 +339,7 @@ export default function Marketplace({ active = true, nav, setNav, onActivityChan
       <div className={`${businessClosing ? "kt-explore-stack-leave-right" : "kt-explore-stack-enter"} kt-mobile-viewport`}>
         <Business
           initialScreen={businessInitialScreen}
+          initialChat={businessInitialChat}
           onInitialScreenHandled={() => setBusinessInitialScreen("")}
           onBack={closeMyBiz}
         />

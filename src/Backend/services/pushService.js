@@ -84,7 +84,7 @@ function isPushSupported() {
 // push that carries only a URL.
 function navigateToTarget(target = "", url = "") {
   {
-    const [kind, id] = normalizePushRoute(target).split(":");
+    const [kind, id, chatStore = "", chatBuyer = ""] = normalizePushRoute(target).split(":");
     if (kind === "conversation" && id) {
       requestConversationOpen(id);
       requestExploreScreen("Messages");
@@ -102,6 +102,17 @@ function navigateToTarget(target = "", url = "") {
       const screen = id === "messages" || id === "orders" || id === "business-messages" || id === "business"
         ? id
         : id === "admin-roles" ? "admin-roles" : "";
+      // A message notification names its chat: the store for a buyer
+      // ("urmall:messages:<store>"), the store and buyer for the seller team
+      // ("urmall:business-messages:<store>:<buyer>"). It opens that chat.
+      if (screen === "messages" && chatStore) {
+        requestMarketplaceScreen("messages", { conversationId: chatStore });
+        return;
+      }
+      if (screen === "business-messages" && chatStore && chatBuyer) {
+        requestMarketplaceScreen("business-messages", { chat: { businessId: chatStore, buyerId: chatBuyer } });
+        return;
+      }
       requestMarketplaceScreen(screen);
       return;
     }

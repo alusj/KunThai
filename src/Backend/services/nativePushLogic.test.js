@@ -168,6 +168,9 @@ test("every route a push carries opens a known screen; malformed ones fall back"
   assert.equal(opens("urmall:messages"), "urmall:messages");
   assert.equal(opens("urmall:business-messages"), "urmall:business-messages");
   assert.equal(opens("urmall:business"), "urmall:business");
+  // A message notification names its chat (store; store and buyer).
+  assert.equal(opens("urmall:messages:store-1"), "urmall:messages:store-1");
+  assert.equal(opens("urmall:business-messages:store-1:buyer-1"), "urmall:business-messages:store-1:buyer-1");
   assert.equal(opens("urride"), "urride");
   assert.equal(opens("urride:trip:123"), "urride:trip:123");
   assert.deepEqual(pushTapRoute("urmall:nowhere"), { route: "urmall", kind: "urmall", fallback: true, reason: "unknown UrMall screen" });

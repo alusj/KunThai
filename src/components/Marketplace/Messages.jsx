@@ -109,15 +109,19 @@ export default function Messages({ initialConversationId = "", onBack, onInitial
     threadRef: threadScrollRef,
   });
 
+  const serverLoadedRef = useRef(false);
+
   async function loadMessages({ silent = false } = {}) {
     if (!silent) setLoading(true);
     setError("");
 
     try {
       const rows = await fetchBuyerMessages();
+      serverLoadedRef.current = true;
       setMessages(rows);
       setActiveId((current) => (rows.some((row) => row.id === current) ? current : current ? "" : current));
     } catch (err) {
+      serverLoadedRef.current = true;
       if (!silent) setError(inlineErrorMessage(err, t("urmall.messages.loadFailed")));
     } finally {
       if (!silent) setLoading(false);
@@ -185,17 +189,24 @@ export default function Messages({ initialConversationId = "", onBack, onInitial
 
   useEffect(() => {
     if (!initialConversationId || loading) return;
-    const conversation = messages.find((message) => message.id === initialConversationId);
+    // A notification names the store; the in-app list names the chat.
+    const conversation = messages.find((message) => message.id === initialConversationId)
+      || messages.find((message) => message.businessId === initialConversationId);
     if (conversation) {
       clearTransitionTimer();
       setClosingMessage(null);
       setSendError("");
-      setScreenAction("push");
-      setActiveId(initialConversationId);
+      // Messages is already sliding in: the chat is shown in place, not
+      // slid in a second time.
+      setScreenAction("idle");
+      setActiveId(conversation.id);
       if (conversation.unread) {
-        setMessages((current) => current.map((message) => message.id === initialConversationId ? { ...message, unread: false } : message));
+        setMessages((current) => current.map((message) => message.id === conversation.id ? { ...message, unread: false } : message));
         markBuyerMarketplaceConversationRead(conversation).catch(() => loadMessages({ silent: true }));
       }
+    } else if (!serverLoadedRef.current) {
+      // The saved list may not have this chat yet: wait for the server's.
+      return;
     }
     onInitialConversationHandled?.();
   }, [initialConversationId, loading, messages, onInitialConversationHandled]);

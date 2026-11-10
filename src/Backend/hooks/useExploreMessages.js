@@ -257,6 +257,8 @@ export function useExploreMessages(currentProfile, initialRecipient) {
   // A chat opened from a profile before the server has confirmed it: the
   // first message waits for that (usually well under a second).
   const openingRef = useRef(null);
+  // The account or Space the screen was last reset for (see the reset below).
+  const resetCacheKeyRef = useRef(cacheKey);
   const reloadRef = useRef(null);
   const [blockedKeys, setBlockedKeys] = useState(() => readBlockedUsers());
   const blockedKeysRef = useRef(blockedKeys);
@@ -369,9 +371,16 @@ export function useExploreMessages(currentProfile, initialRecipient) {
     persistentHydrationRef.current = Boolean(!cached.conversations?.length && persistedConversations.length);
     conversationsRef.current = nextConversations;
     setConversationState(nextConversations);
-    setActiveConversation(null);
-    setMessages([]);
-    setConversationLoading(false);
+    // Only a switch of account or Space closes the open chat. On the first
+    // run nothing is open yet, except a chat a notification tap (or Message
+    // on a profile) has just opened: closing it here sent a tap that had to
+    // start KunThai to the inbox instead of the chat.
+    if (resetCacheKeyRef.current !== cacheKey) {
+      setActiveConversation(null);
+      setMessages([]);
+      setConversationLoading(false);
+    }
+    resetCacheKeyRef.current = cacheKey;
     setPendingMessageKeys(new Set());
     setError("");
     setLoading(Boolean(currentUserId && !nextConversations.length));

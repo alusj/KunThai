@@ -2,6 +2,7 @@ import { useEffect, useRef, useState } from "react";
 import { HiOutlineBuildingOffice2 } from "react-icons/hi2";
 
 import { useExploreMessages } from "../../../../Backend/hooks/useExploreMessages";
+import { peekPendingConversationOpen } from "../../../../Backend/services/explore/messageService";
 import { useHideAiAssistant } from "../../../../Backend/services/ai/aiScreenContext";
 import { useI18n } from "../../../../i18n";
 import EmptyState from "../../shared/EmptyState";
@@ -33,6 +34,18 @@ export default function MessagesScreen({ currentProfile, hideHeader = false, ini
   const [closingConversation, setClosingConversation] = useState(null);
   const [closingMessages, setClosingMessages] = useState([]);
   const previousConversationRef = useRef(null);
+  // A tapped notification is opening a chat: the inbox is not shown first
+  // (at most for a moment, until the chat appears).
+  const [awaitingTappedChat, setAwaitingTappedChat] = useState(() => Boolean(peekPendingConversationOpen()) || Boolean(initialRecipient));
+  useEffect(() => {
+    if (!awaitingTappedChat) return undefined;
+    if (messages.activeConversation) {
+      setAwaitingTappedChat(false);
+      return undefined;
+    }
+    const timer = window.setTimeout(() => setAwaitingTappedChat(false), 2500);
+    return () => window.clearTimeout(timer);
+  }, [awaitingTappedChat, messages.activeConversation]);
   const openedFromListRef = useRef(false);
   const lastMessagesRef = useRef([]);
   const visibleConversation = messages.activeConversation || closingConversation;
@@ -52,6 +65,11 @@ export default function MessagesScreen({ currentProfile, hideHeader = false, ini
     const current = messages.activeConversation;
     const previous = previousConversationRef.current;
     previousConversationRef.current = current;
+    // The same chat updated in place (the server confirming a chat opened
+    // from a profile, a new message, a read receipt): no new slide. Sliding
+    // it in again made the chat appear to open twice.
+    const identity = (conversation) => conversation ? conversation.viewKey || conversation.id : "";
+    if (current && previous && identity(current) === identity(previous)) return undefined;
 
     if (current) {
       // Opened straight from a profile: the chat is the first thing shown,
@@ -97,7 +115,7 @@ export default function MessagesScreen({ currentProfile, hideHeader = false, ini
   return (
     <div className="relative flex h-full min-h-0 flex-col overflow-hidden">
       <div
-        className="flex h-full min-h-0 flex-col overflow-hidden"
+        className={`flex h-full min-h-0 flex-col overflow-hidden ${awaitingTappedChat && !visibleConversation ? "invisible" : ""}`}
         aria-hidden={visibleConversation ? true : undefined}
         inert={visibleConversation ? "true" : undefined}
       >

@@ -41,9 +41,24 @@ function readFileAsDataUrl(file) {
   });
 }
 
-export default function CustomerCare({ onBack } = {}) {
+export default function CustomerCare({ onBack, initialChat = null } = {}) {
   useI18n();
   const { conversations, loading, reload } = useSellerCustomerCare();
+  // A tapped message notification opens that buyer's chat straight away
+  // (only for the store open on this dashboard; another store's chat is
+  // found in its own Messages).
+  const initialChatHandledRef = useRef(false);
+  useEffect(() => {
+    if (initialChatHandledRef.current || !initialChat?.buyerId || !conversations.length) return;
+    const conversation = conversations.find((item) => item.id === initialChat.buyerId
+      && (!initialChat.businessId || !item.businessId || item.businessId === initialChat.businessId));
+    if (!conversation) return;
+    initialChatHandledRef.current = true;
+    openConversation(conversation, { slide: false });
+    // openConversation only uses state setters and this conversation.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [conversations, initialChat]);
+
   const [activeId, setActiveId] = useState("");
   const [closingConversation, setClosingConversation] = useState(null);
   const [conversationAction, setConversationAction] = useState("idle");
@@ -329,11 +344,11 @@ export default function CustomerCare({ onBack } = {}) {
   }
 
 
-  async function openConversation(conversation) {
+  async function openConversation(conversation, { slide = true } = {}) {
     clearTransitionTimer();
     setSendError("");
     setClosingConversation(null);
-    setConversationAction("push");
+    setConversationAction(slide ? "push" : "idle");
     setActiveId(conversation.id);
     transitionTimerRef.current = window.setTimeout(() => {
       setConversationAction("idle");
