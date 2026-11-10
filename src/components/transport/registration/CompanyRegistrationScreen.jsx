@@ -1283,6 +1283,9 @@ export default function CompanyRegistrationScreen({ existingCompany = null, focu
                 onViewOneKmPreview={handleViewOneKmPreview}
                 lockRentalCategory={addRentalMode}
                 transportOnly={transportOnlyMode}
+                // "Add fleet" registers the vehicle alone; an operator is
+                // assigned from Fleet HQ later.
+                withOperatorInvite={!addFleetMode}
               />
             ) : null}
             {step === 3 ? (
@@ -1646,7 +1649,7 @@ function CompanyAreaViewStatus({ validation }) {
   );
 }
 
-function FleetBuilderStep({ acceptedOperators = [], allowMultiple = true, errors = {}, fleets, form, lockRentalCategory = false, transportOnly = false, onAddFleet, onInvite, onRemoveFleet, onUpdateFleet, onUploadFleetDocument, onViewOneKmPreview }) {
+function FleetBuilderStep({ acceptedOperators = [], allowMultiple = true, errors = {}, fleets, form, lockRentalCategory = false, transportOnly = false, withOperatorInvite = true, onAddFleet, onInvite, onRemoveFleet, onUpdateFleet, onUploadFleetDocument, onViewOneKmPreview }) {
   useUiLocale();
   const acceptedPublicIds = acceptedOperators.map((operator) => compactPublicId(operator.publicId)).filter(Boolean);
   return (
@@ -1664,6 +1667,7 @@ function FleetBuilderStep({ acceptedOperators = [], allowMultiple = true, errors
         {fleets.map((fleet, index) => (
           <FleetCard
             key={fleet.localId}
+            withOperatorInvite={withOperatorInvite}
             fleet={fleet}
             errors={errors}
             acceptedPublicIds={acceptedPublicIds}
@@ -1684,7 +1688,7 @@ function FleetBuilderStep({ acceptedOperators = [], allowMultiple = true, errors
   );
 }
 
-function FleetCard({ acceptedPublicIds = [], errors = {}, fleet, form, index, lockRentalCategory = false, transportOnly = false, onInvite, onRemove, onUpdate, onUploadDocument, onViewOneKmPreview, removable }) {
+function FleetCard({ acceptedPublicIds = [], errors = {}, fleet, form, index, lockRentalCategory = false, transportOnly = false, withOperatorInvite = true, onInvite, onRemove, onUpdate, onUploadDocument, onViewOneKmPreview, removable }) {
   useUiLocale();
   const [operatorId, setOperatorId] = useState("");
   const [lookupStatus, setLookupStatus] = useState("");
@@ -1889,7 +1893,7 @@ function FleetCard({ acceptedPublicIds = [], errors = {}, fleet, form, index, lo
       </section>
       <FleetSafetySection errors={errors} fleet={fleet} onUpdate={onUpdate} />
 
-      {fleet.serviceCategory !== "Rental" && <div data-field-error={errors[`${fleet.localId}-operators`] ? "true" : undefined} className={`mt-5 rounded-3xl border bg-white p-4 ${errors[`${fleet.localId}-operators`] ? "border-rose-200" : "border-blue-100"}`}>
+      {withOperatorInvite && fleet.serviceCategory !== "Rental" && <div data-field-error={errors[`${fleet.localId}-operators`] ? "true" : undefined} className={`mt-5 rounded-3xl border bg-white p-4 ${errors[`${fleet.localId}-operators`] ? "border-rose-200" : "border-blue-100"}`}>
         <div className="flex items-start gap-3">
           <FiUserPlus className="mt-1 text-blue-700" />
           <div className="min-w-0 flex-1">

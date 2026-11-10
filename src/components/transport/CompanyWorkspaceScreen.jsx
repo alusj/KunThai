@@ -86,9 +86,12 @@ import { OperatorLiveTripHeaderCard, OperatorTripRequestCard } from "./OperatorD
 import LiveLocationViewer from "../shared/liveLocation/LiveLocationViewer";
 import {
   COMPANY_OPERATOR_ROLES,
+  getTransportCompanyAccount,
   getTransportCompanyBookingQueue,
-  inviteOperatorToCompanyFleet,
+  assignOperatorToCompanyVehicle,
+  inviteOperatorToCompanyTeam,
   lookupTransportOperatorByKunThaiId,
+  pendingCompanyTeamInvites,
   deleteTransportCompany,
   leaveTransportCompany,
   manageTransportCompanyFleet,
@@ -211,6 +214,8 @@ export default function CompanyWorkspaceScreen({ company, initialTab = "Overview
   const [removeOperator, setRemoveOperator] = useState(null);
   const [fleetAction, setFleetAction] = useState(null);
   const [invitationFleet, setInvitationFleet] = useState(null);
+  // "Add operator": invite to the team alone, no vehicle.
+  const [teamInviteOpen, setTeamInviteOpen] = useState(false);
   // "Assign to a vehicle" for an operator who has none.
   const [assignVehicleOperator, setAssignVehicleOperator] = useState(null);
   // Why the last operator action failed, shown inside the open sheet (a toast
@@ -256,7 +261,7 @@ export default function CompanyWorkspaceScreen({ company, initialTab = "Overview
   const fleets = useMemo(() => (company?.fleets || []).filter((fleet) => !fleet.archivedAt), [company?.fleets]);
   const operationalFleets = fleets.filter((fleet) => fleet.serviceCategory !== "Rental");
   const rentalFleetCount = fleets.length - operationalFleets.length;
-  const requests = fleets.flatMap((fleet) =>
+  const requests = [...fleets.flatMap((fleet) =>
     (fleet.operators || []).map((operator) => ({
       ...operator,
       companyFleetId: fleet.id,
@@ -276,7 +281,7 @@ export default function CompanyWorkspaceScreen({ company, initialTab = "Overview
       fleetActiveStatus: fleet.activeStatus,
       fleetVisibleToPassengers: fleet.isVisibleToPassengers,
     })),
-  );
+  ), ...pendingCompanyTeamInvites(company)];
   // Documents are optional: an accepted operator counts as active even before
   // any identity documents are submitted. Only outstanding registrations stay pending.
   // One person accepted on two fleets is still one colleague.
@@ -879,12 +884,12 @@ export default function CompanyWorkspaceScreen({ company, initialTab = "Overview
       const updatedCompany = await manageTransportCompanyFleet(company, fleet, action, options);
       const copy = action === "delete"
         ? t("urride.companyWs.fleetDeleted")
-        : t("urride.companyWs.fleetOperatorRemoved");
+        : t("urrideTeamOperators.detachedStatus");
       setLocalStatus(copy);
       onCompanyUpdate?.(updatedCompany);
       setFleetAction(null);
       setFleetConfirm(null);
-      showToast(action === "delete" ? "Fleet has been deleted" : "Operator left the fleet", "success");
+      showToast(action === "delete" ? "Fleet has been deleted" : "Operator off vehicle", "success");
     } catch (error) {
       showToast(shortErrorToast(error, "Couldn't update fleet"), "danger");
     } finally {
@@ -958,9 +963,21 @@ export default function CompanyWorkspaceScreen({ company, initialTab = "Overview
     onAddRentalFleet?.();
   }
 
+  // "Add operator and fleet": a vehicle and its operator together.
   async function requestAddOperator() {
     if (!(await hasCapacityFor("operators"))) return;
+    if (!(await hasCapacityFor("vehicles"))) return;
     onRegisterCompany?.();
+  }
+
+  async function requestAddTeamOperator() {
+    if (!(await hasCapacityFor("operators"))) return;
+    setTeamInviteOpen(true);
+  }
+
+  async function reloadCompany() {
+    const fresh = await getTransportCompanyAccount().catch(() => null);
+    if (fresh?.id === company?.id) onCompanyUpdate?.(fresh);
   }
 
   function switchCompanyTab(tab) {
@@ -1456,7 +1473,8 @@ export default function CompanyWorkspaceScreen({ company, initialTab = "Overview
             company={company}
             open={addMenuOpen}
             onClose={() => setAddMenuOpen(false)}
-            onAddOperator={canAddOperators ? () => runAfterAddMenuClose(requestAddOperator) : undefined}
+            onAddOperator={canAddOperators ? () => runAfterAddMenuClose(requestAddTeamOperator) : undefined}
+            onAddOperatorAndFleet={canAddOperators && canAddFleets && onRegisterCompany ? () => runAfterAddMenuClose(requestAddOperator) : undefined}
             onAddFleet={canAddFleets && onAddFleet ? () => runAfterAddMenuClose(requestAddFleet) : undefined}
             onAddRental={canAddRentalFleets && onAddRentalFleet ? () => runAfterAddMenuClose(requestAddRental) : undefined}
           />
@@ -1501,16 +1519,20 @@ export default function CompanyWorkspaceScreen({ company, initialTab = "Overview
             vehicles={vehiclesWithoutOperator}
             onClose={() => setAssignVehicleOperator(null)}
             onAssign={async (fleet) => {
-              const invite = await inviteOperatorToCompanyFleet(company, fleet, assignVehicleOperator.publicId);
-              onCompanyUpdate?.({
-                ...company,
-                fleets: fleets.map((item) => item.id === fleet.id ? {
-                  ...item,
-                  operators: [...(item.operators || []).filter((entry) => entry.requestId !== invite.requestId), invite],
-                } : item),
-              });
+              const result = await assignOperatorToCompanyVehicle(company, fleet, assignVehicleOperator);
+              await reloadCompany();
               setAssignVehicleOperator(null);
-              showToast(invite.status === "accepted" ? "Operator already assigned" : "Invitation sent", "success");
+              showToast(result.assigned ? "Vehicle assigned" : "Invitation sent", "success");
+            }}
+          /> : null}
+          {teamInviteOpen ? <FleetOperatorInvitationDrawer
+            company={company}
+            onClose={() => setTeamInviteOpen(false)}
+            onSend={async (publicId) => {
+              await inviteOperatorToCompanyTeam(company, publicId);
+              await reloadCompany();
+              setTeamInviteOpen(false);
+              showToast("Operator invite sent", "success");
             }}
           /> : null}
           {invitationFleet ? <FleetOperatorInvitationDrawer
@@ -1518,16 +1540,14 @@ export default function CompanyWorkspaceScreen({ company, initialTab = "Overview
             fleet={invitationFleet}
             onClose={() => setInvitationFleet(null)}
             onSend={async (publicId) => {
-              const invite = await inviteOperatorToCompanyFleet(company, invitationFleet, publicId);
-              onCompanyUpdate?.({
-                ...company,
-                fleets: fleets.map((fleet) => fleet.id === invitationFleet.id ? {
-                  ...fleet,
-                  operators: [...(fleet.operators || []).filter((item) => item.requestId !== invite.requestId), invite],
-                } : fleet),
-              });
+              // Someone already on the team is assigned at once; anyone else
+              // gets the vehicle invitation.
+              const member = operatorsWithoutVehicle.find((item) => String(item.publicId || "").toLowerCase() === String(publicId || "").trim().toLowerCase());
+              const person = member?.userId ? member : await lookupTransportOperatorByKunThaiId(String(publicId || "").trim()).catch(() => null);
+              const result = await assignOperatorToCompanyVehicle(company, invitationFleet, { ...(person || {}), publicId: person?.publicId || publicId });
+              await reloadCompany();
               setInvitationFleet(null);
-              showToast(invite.status === "accepted" ? "Operator already assigned" : "Invitation sent", "success");
+              showToast(result.assigned ? "Vehicle assigned" : "Invitation sent", "success");
             }}
           /> : null}
           <FleetConfirmDrawer
@@ -2706,7 +2726,7 @@ function Requests({ requests }) {
               </div>
               {request.expired ? <p className="mt-1 text-xs font-bold text-slate-500">{t("urride.companyFix.inviteExpiredCompanyBody")}</p> : null}
               <h3 className="mt-1 font-black text-slate-950">{request.name}</h3>
-              <p className="mt-1 text-sm font-semibold text-slate-500">{request.publicId} - {request.fleetName || request.fleetType}</p>
+              <p className="mt-1 text-sm font-semibold text-slate-500">{request.publicId} - {request.fleetName || request.fleetType || t("urrideFleetHq.noVehicle")}</p>
               {request.status === "accepted_pending_documents" || request.documents?.operatorDocumentsRequired || request.documents?.registrationRequired ? (
                 <p className="mt-2 text-xs font-bold text-blue-700">{t("urride.companyWs.acceptedOptional")}</p>
               ) : null}
@@ -3314,7 +3334,8 @@ function OperatorActionDrawer({ busy, canManage, company, error = "", onAddOpera
 // and the owner's name is shown before anything is sent. Operators already in
 // the company without a vehicle can be picked directly. Sending creates the
 // usual invitation.
-function FleetOperatorInvitationDrawer({ candidates = [], fleet, onClose, onSend }) {
+// Without a fleet ("Add operator" from the + menu) it invites to the team only.
+function FleetOperatorInvitationDrawer({ candidates = [], company = null, fleet = null, onClose, onSend }) {
   useUiLocale();
   const [publicId, setPublicId] = useState("");
   const [busy, setBusy] = useState(false);
@@ -3359,13 +3380,15 @@ function FleetOperatorInvitationDrawer({ candidates = [], fleet, onClose, onSend
   const found = lookup.status === "found" ? lookup.operator : null;
   const pickable = candidates.filter((operator) => operator.publicId && operator.serviceStatus !== "suspended");
 
-  return <FleetHqActionSheet label={t("urrideFleetHq.assignOperator")} open onClose={close}>
-    <ActionSheetHeader eyebrow={fleet.fleetName || fleet.fleetCode} icon={UserRoundPlus} title={t("urrideFleetHq.assignOperator")} onClose={close} />
+  const title = fleet ? t("urrideFleetHq.assignOperator") : t("urrideAddMenu.operatorTitle");
+  const eyebrow = fleet ? fleet.fleetName || fleet.fleetCode : company?.companyName || t("urride.companyWs.fleetHqFallback");
+  return <FleetHqActionSheet label={title} open onClose={close}>
+    <ActionSheetHeader eyebrow={eyebrow} icon={UserRoundPlus} title={title} onClose={close} />
     <form className="max-h-[68dvh] space-y-4 overflow-y-auto bg-slate-50 p-4" onSubmit={(event) => {
       event.preventDefault();
       if (found) send(publicId.trim());
     }}>
-      <p className="text-sm font-semibold leading-6 text-slate-600">{t("urrideFleetHq.assignOperatorDetail")}</p>
+      <p className="text-sm font-semibold leading-6 text-slate-600">{fleet ? t("urrideFleetHq.assignOperatorDetail") : t("urrideTeamOperators.teamOperatorBody")}</p>
       <div className="block text-sm font-bold text-slate-700">
         <span className="mb-2 block">KunThai ID</span>
         <KunThaiAccountSearchField
@@ -3373,7 +3396,7 @@ function FleetOperatorInvitationDrawer({ candidates = [], fleet, onClose, onSend
           disabled={busy}
           value={publicId}
           onChange={(value) => { setPublicId(value); setError(""); }}
-          ariaLabel={t("urrideFleetHq.assignOperator")}
+          ariaLabel={title}
           showConfirmation={false}
         />
       </div>
@@ -3496,7 +3519,7 @@ function PlanLimitDrawer({ canUpgrade = false, limit, onClose, onUpgrade }) {
   );
 }
 
-function AddToCompanyDrawer({ company, onAddFleet, onAddOperator, onAddRental, onClose, open }) {
+function AddToCompanyDrawer({ company, onAddFleet, onAddOperator, onAddOperatorAndFleet, onAddRental, onClose, open }) {
   useUiLocale();
   return (
     <FleetHqActionSheet label={t("urrideAddMenu.addNew")} onClose={onClose} open={open}>
@@ -3511,7 +3534,7 @@ function AddToCompanyDrawer({ company, onAddFleet, onAddOperator, onAddRental, o
         <div className="grid gap-3">
           {onAddOperator ? (
             <OperatorActionButton
-              detail={t("urrideAddMenu.operatorDetail")}
+              detail={t("urrideTeamOperators.addOperatorDetail")}
               icon={UserRoundPlus}
               label={t("urrideAddMenu.operatorTitle")}
               onClick={onAddOperator}
@@ -3519,10 +3542,18 @@ function AddToCompanyDrawer({ company, onAddFleet, onAddOperator, onAddRental, o
           ) : null}
           {onAddFleet ? (
             <OperatorActionButton
-              detail={t("urrideAddMenu.fleetDetail")}
+              detail={t("urrideTeamOperators.addFleetDetail")}
               icon={Truck}
               label={t("urrideAddMenu.fleetTitle")}
               onClick={onAddFleet}
+            />
+          ) : null}
+          {onAddOperatorAndFleet ? (
+            <OperatorActionButton
+              detail={t("urrideTeamOperators.addBothDetail")}
+              icon={UsersRound}
+              label={t("urrideTeamOperators.addBothTitle")}
+              onClick={onAddOperatorAndFleet}
             />
           ) : null}
           {onAddRental ? (
@@ -3573,10 +3604,10 @@ function FleetActionDrawer({ busy, canManage, company, fleet, onAssignOperator, 
           ) : null}
           {canManage && assignedOperator ? (
             <OperatorActionButton
-              detail={t("urride.companyWs.removeOpFromFleetDetail", { name: assignedOperator.name || t("urride.companyWs.assignedOperatorFallback") })}
+              detail={t("urrideTeamOperators.detachDetail", { name: assignedOperator.name || t("urride.companyWs.assignedOperatorFallback") })}
               disabled={busy}
               icon={UsersRound}
-              label={t("urride.companyWs.removeOpFromFleet")}
+              label={t("urrideTeamOperators.detachTitle")}
               onClick={() => onRemoveOperator?.(fleet)}
             />
           ) : null}
@@ -3613,7 +3644,7 @@ function FleetConfirmDrawer({ busy, confirm, onClose, onConfirm, open }) {
         <div className={`rounded-2xl border px-4 py-3 text-sm font-bold leading-6 ${isDelete ? "border-rose-100 bg-rose-50 text-rose-900" : "border-amber-100 bg-amber-50 text-amber-900"}`}>
           {isDelete
             ? t("urride.companyWs.deleteFleetWarning")
-            : t("urride.companyWs.removeOperatorWarning")}
+            : t("urrideTeamOperators.detachWarning")}
         </div>
         <div className="mt-4 grid gap-2 sm:grid-cols-2">
           <button type="button" disabled={busy} onClick={onClose} className="h-12 rounded-2xl border border-slate-200 bg-white px-4 text-sm font-black text-slate-700 disabled:opacity-60">
@@ -3625,7 +3656,7 @@ function FleetConfirmDrawer({ busy, confirm, onClose, onConfirm, open }) {
             onClick={onConfirm}
             className={`h-12 rounded-2xl px-4 text-sm font-black text-white shadow-lg disabled:opacity-60 ${isDelete ? "bg-rose-600 shadow-rose-700/15" : "bg-amber-600 shadow-amber-700/15"}`}
           >
-            {busy ? t("urride.companyWs.working") : isDelete ? t("urride.companyWs.deleteFleet") : t("urride.companyWs.removeOperatorConfirm")}
+            {busy ? t("urride.companyWs.working") : isDelete ? t("urride.companyWs.deleteFleet") : t("urrideTeamOperators.detachTitle")}
           </button>
         </div>
       </div>

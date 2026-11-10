@@ -43,6 +43,7 @@ import { URRIDE_TRIP_CARD } from "./urrideTripCard";
 import { URRIDE_PARCEL } from "./urrideParcel";
 import { REGISTRATION_EXAMPLES } from "./registrationExamples";
 import { URRIDE_ADD_MENU } from "./urrideAddMenu";
+import { URRIDE_TEAM_OPERATORS } from "./urrideTeamOperators";
 import { TEXT_SIZE } from "./textSize";
 import { URRIDE_FLEET_HQ } from "./urrideFleetHq";
 import { NOTIFICATION_HUB } from "./notificationHub";
@@ -59597,6 +59598,12 @@ for (const [locale, section] of Object.entries(REGISTRATION_EXAMPLES)) {
 for (const [locale, section] of Object.entries(URRIDE_ADD_MENU)) {
   if (TRANSLATIONS[locale]) {
     TRANSLATIONS[locale].urrideAddMenu = section;
+  }
+}
+
+for (const [locale, section] of Object.entries(URRIDE_TEAM_OPERATORS)) {
+  if (TRANSLATIONS[locale]) {
+    TRANSLATIONS[locale].urrideTeamOperators = section;
   }
 }
 

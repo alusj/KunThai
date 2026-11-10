@@ -1954,6 +1954,85 @@ export async function inviteOperatorToCompanyFleet(company, fleet, publicId) {
   return normalizeInvite(data);
 }
 
+// "Add operator": invite someone to the company team without a vehicle.
+// Once they accept they are listed under Operators with no vehicle, and the
+// company assigns one later (assignOperatorToCompanyVehicle).
+export async function inviteOperatorToCompanyTeam(company, publicId) {
+  const user = await getCurrentUser("Sign in to invite an operator.");
+  if (!company?.id || !company.access?.canManageOperators) {
+    throw new Error("You do not have permission to invite operators.");
+  }
+  const ownerPublicId = compact(company.ownerPublicId || company.owner_public_id || "");
+  if (ownerPublicId && compact(publicId) === ownerPublicId) {
+    throw new Error("The company owner cannot be invited as an operator. Use another operator's KunThai ID.");
+  }
+  const operator = await lookupTransportOperatorByKunThaiId(String(publicId || "").trim());
+  if (!operator?.userId) throw new Error("No account found. Check the KunThai ID and try again.");
+  const ownerUserId = company.userId || company.owner_user_id || company.ownerUserId || "";
+  if ((ownerUserId && operator.userId === ownerUserId) || (ownerPublicId && compact(operator.publicId) === ownerPublicId)) {
+    throw new Error("The company owner cannot be invited as an operator. Use another operator's KunThai ID.");
+  }
+  if (operator.userId === user.id) throw new Error("You cannot invite yourself. Use another operator's KunThai ID.");
+
+  const { data: companyInvites, error: lookupError } = await supabase.from("transport_company_operator_invites")
+    .select("*").eq("company_id", company.id);
+  if (lookupError) throw lookupError;
+  assertOperatorNotAlreadyAdded(companyInvites, { ...operator, operator_id: operator.id, operator_user_id: operator.userId }, company.fleets || []);
+  await assertBusinessCapacity("urride", company.id, "operators", 1);
+
+  const row = {
+    company_fleet_id: null,
+    fleet_code: null,
+    request_id: `team-${crypto.randomUUID()}`,
+    operator_id: operator.id || null,
+    operator_user_id: operator.userId,
+    operator_name: operator.name,
+    operator_city: operator.city || "",
+    verification_status: operator.verificationStatus || "pending",
+    status: "pending",
+    documents: {},
+  };
+  // An earlier team invitation (declined, withdrawn, expired) is reopened.
+  const earlier = (companyInvites || []).find((invite) => !invite.company_fleet_id
+    && (invite.operator_user_id === operator.userId || (operator.publicId && invite.operator_public_id === operator.publicId)));
+  const query = earlier
+    ? supabase.from("transport_company_operator_invites")
+      .update({ ...row, responded_at: null, created_at: new Date().toISOString(), updated_at: new Date().toISOString() })
+      .eq("id", earlier.id).eq("company_id", company.id)
+    : supabase.from("transport_company_operator_invites")
+      .insert({ ...row, company_id: company.id, operator_public_id: operator.publicId });
+  const { data, error } = await query.select("*").single();
+  if (error) throw error;
+  return normalizeInvite(data);
+}
+
+// Gives a team operator a vehicle. Someone already on the team is assigned at
+// once (no second invitation); anyone else gets the usual vehicle invitation.
+// Returns { assigned: true } or { invited: true, invite }.
+export async function assignOperatorToCompanyVehicle(company, fleet, operator = {}) {
+  const userId = operator.userId || operator.operatorUserId || "";
+  if (userId && asUuid(fleet?.id)) {
+    const { error } = await supabase.rpc("assign_transport_company_operator_vehicle", {
+      p_company_fleet_id: fleet.id,
+      p_operator_user_id: userId,
+    });
+    if (!error) return { assigned: true };
+    const notOnTeam = error.code === "P0002" || String(error.message || "").includes("operator_not_on_team");
+    if (!notOnTeam && !isMissingFunction(error)) throw new Error(friendlyErrorMessage(error, "This operator could not be assigned."));
+  }
+  if (!operator.publicId) throw new Error("This operator has no KunThai ID to invite.");
+  const invite = await inviteOperatorToCompanyFleet(company, fleet, operator.publicId);
+  return { invited: true, invite };
+}
+
+/** Invitations to the team alone that are still waiting for an answer. */
+export function pendingCompanyTeamInvites(company = {}) {
+  return (company.invites || [])
+    .filter((invite) => !(invite.company_fleet_id || invite.companyFleetId) && String(invite.status || "").toLowerCase() === "pending")
+    .map((invite) => normalizeInvite(invite))
+    .filter((invite) => !invite.expired);
+}
+
 export async function lookupTransportOperatorByKunThaiId(value) {
   const requestedId = normalizeKunThaiPublicId(value);
   const compactId = compact(value);
