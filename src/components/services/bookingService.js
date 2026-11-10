@@ -1,4 +1,5 @@
 import supabase from "../../Backend/lib/supabaseClient";
+import { supportTicketPriority } from "./transportSupportPriority";
 import { friendlyErrorMessage } from "../../Backend/services/friendlyErrorService";
 import { getActiveCountryProfile, getCountryCurrencyCode } from "../../data/globalCountryProfiles";
 import { calculateFleetFare } from "./transportPricingService";
@@ -378,7 +379,7 @@ export async function submitTransportSupportTicket(input) {
     tripId: input.tripId || "",
     fleetId: input.fleetId || "",
     topic: input.topic || "Trip support",
-    priority: input.priority || "normal",
+    ...supportTicketPriority(input.priority),
     body: String(input.body || "").trim(),
     createdAt: new Date().toISOString(),
   };
@@ -394,7 +395,7 @@ export async function submitTransportSupportTicket(input) {
       fleet_id: ticket.fleetId || null,
       topic: ticket.topic,
       priority: ticket.priority,
-      body: ticket.body,
+      body: ticket.safetyCritical ? `[Safety critical]\n${ticket.body}` : ticket.body,
       status: "open",
       created_at: ticket.createdAt,
     })
