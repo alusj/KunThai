@@ -153,6 +153,11 @@ Deno.serve(async (request) => {
           ...(picture ? { avatar_url: picture, picture } : {}),
           ...(facebookEmail ? { email: facebookEmail, email_verified: true } : {}),
           signed_in_with: "facebook_native",
+          // A new account has not been through onboarding. Saved here, at
+          // creation, so the app never mistakes it for a returning member
+          // (it gets an automatic Explore profile the moment it exists).
+          onboarding_complete: false,
+          onboarding_step: 1,
         },
       });
       if (createError) throw createError;

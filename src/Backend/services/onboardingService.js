@@ -105,11 +105,21 @@ async function finalizeOAuthRegistration(user) {
   const flow = consumeOAuthFlow();
   if (!flow) return user;
 
-  const provider = user?.app_metadata?.provider || "";
   const createdAt = Date.parse(user?.created_at || "");
   const metadata = user.user_metadata || {};
-  const hasOnboardingMetadata = Object.prototype.hasOwnProperty.call(metadata, "onboarding_complete")
-    || Object.prototype.hasOwnProperty.call(metadata, "onboarding_step");
+  // An account made by the native Facebook sign-in is stored as an "email"
+  // account and arrives already marked "onboarding not done" by the server
+  // (facebook-native-signin), without the registration details set below.
+  // Without this it was never finalized: with no onboarding state saved, a
+  // restart took its automatic Explore profile for a returning member's and
+  // opened the app as if registration had been finished.
+  const nativeFacebook = metadata.signed_in_with === "facebook_native";
+  const provider = nativeFacebook ? "facebook" : user?.app_metadata?.provider || "";
+  const serverMarkedOnly = nativeFacebook && metadata.onboarding_complete === false && !metadata.registration_method;
+  const hasOnboardingMetadata = !serverMarkedOnly && (
+    Object.prototype.hasOwnProperty.call(metadata, "onboarding_complete")
+    || Object.prototype.hasOwnProperty.call(metadata, "onboarding_step")
+  );
   const firstProviderRegistration = ["google", "apple", "facebook"].includes(flow.provider)
     && provider === flow.provider
     && Number.isFinite(createdAt)
@@ -127,7 +137,7 @@ async function finalizeOAuthRegistration(user) {
       account_type: metadata.account_type || "both",
       primary_surface: metadata.primary_surface || DEFAULT_NAV,
       onboarding_complete: false,
-      onboarding_step: 1,
+      onboarding_step: Number(metadata.onboarding_step) || 1,
       registration_method: flow.provider,
       email_verified_by_provider: Boolean(user.email_confirmed_at),
       ...(inviteCode ? { visibility_invite_code: inviteCode } : {}),
@@ -140,6 +150,14 @@ async function finalizeOAuthRegistration(user) {
   }
 
   return data?.user || user;
+}
+
+const NEW_ACCOUNT_WINDOW_MS = 30 * 24 * 60 * 60 * 1000;
+
+export function isUnfinishedNewAccount(user, now = Date.now()) {
+  if (user?.user_metadata?.onboarding_complete !== false) return false;
+  const createdAt = Date.parse(user?.created_at || "");
+  return Number.isFinite(createdAt) && now - createdAt < NEW_ACCOUNT_WINDOW_MS;
 }
 
 function hasExplicitOnboardingState(user) {
@@ -349,6 +367,16 @@ export async function getOnboardingProfile(sessionUser = null) {
 
   const authProfile = buildProfileFromUser(user);
   if (authProfile.onboardingComplete) {
+    return authProfile;
+  }
+
+  // A recently created account that is explicitly marked "onboarding not
+  // done" is a new registration, never a returning member: it resumes
+  // onboarding where it stopped. The checks below are for older accounts
+  // from before onboarding state was saved. (A new Facebook account that
+  // closed the app mid-onboarding was matched by them on the next start and
+  // opened as if it had finished registering.)
+  if (isUnfinishedNewAccount(user)) {
     return authProfile;
   }
 
