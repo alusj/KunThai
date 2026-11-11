@@ -23,6 +23,17 @@ export function notifyNativeAppReady() {
   KunThaiLaunch.ready().catch(() => {});
 }
 
+// While a chat is open the native page keeps its full height and the web app
+// moves the message box with the keyboard (chatKeyboardGlide.js).
+export function setNativeChatKeyboard(active) {
+  try {
+    if (!Capacitor.isNativePlatform() || !Capacitor.isPluginAvailable("KunThaiLaunch")) return Promise.resolve();
+  } catch {
+    return Promise.resolve();
+  }
+  return KunThaiLaunch.setChatKeyboard({ active: Boolean(active) }).catch(() => {});
+}
+
 // Whether a member is signed in on this phone. The native app reads it at the
 // next fresh start: the KunThai splash only for a returning signed-in member;
 // a first-time visitor, or anyone after signing out or "Add account", goes

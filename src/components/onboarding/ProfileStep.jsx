@@ -224,8 +224,8 @@ export default function ProfileStep({ values, saving = false, error, errorCode =
 
   return (
     <OnboardingFrame
-      step={2}
-      total={4}
+      step={1}
+      total={3}
       title={t("onboarding.profile.title")}
       subtitle={t("onboarding.profile.subtitle")}
     >
@@ -604,13 +604,15 @@ export default function ProfileStep({ values, saving = false, error, errorCode =
       </CenteredModal>
 
       <div className="mt-6 flex flex-wrap gap-3">
-        <button
-          type="button"
-          onClick={onBack}
-          className="rounded-[20px] border border-slate-300 bg-white px-5 py-3 text-sm font-semibold text-slate-700 transition hover:bg-slate-50"
-        >
-          {t("onboarding.back")}
-        </button>
+        {onBack ? (
+          <button
+            type="button"
+            onClick={onBack}
+            className="rounded-[20px] border border-slate-300 bg-white px-5 py-3 text-sm font-semibold text-slate-700 transition hover:bg-slate-50"
+          >
+            {t("onboarding.back")}
+          </button>
+        ) : null}
         <button
           type="button"
           disabled={saving}

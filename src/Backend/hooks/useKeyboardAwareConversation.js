@@ -1,5 +1,7 @@
 import { useCallback, useEffect, useLayoutEffect, useRef, useState } from "react";
+import { Capacitor } from "@capacitor/core";
 import { Keyboard } from "@capacitor/keyboard";
+import { startChatKeyboardGlide } from "../services/chatKeyboardGlide";
 
 const KEYBOARD_SETTLE_DELAYS = [60, 180, 360];
 
@@ -34,7 +36,15 @@ export function useKeyboardAwareConversation({ activeKey = "", itemCount = 0, th
     settleConversation();
   }, [activeKey, itemCount, settleConversation]);
 
+  // In the app the page keeps its size and the message box glides with the
+  // keyboard. A mobile browser still resizes, so the thread is kept pinned.
   useEffect(() => {
+    if (!activeKey || !Capacitor.isNativePlatform()) return undefined;
+    return startChatKeyboardGlide(() => threadRef.current);
+  }, [activeKey, threadRef]);
+
+  useEffect(() => {
+    if (Capacitor.isNativePlatform()) return () => clearTimers();
     const viewport = window.visualViewport;
     const handleViewportChange = () => settleConversation();
     viewport?.addEventListener("resize", handleViewportChange);

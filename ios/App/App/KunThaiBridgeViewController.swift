@@ -45,6 +45,9 @@ class KunThaiBridgeViewController: CAPBridgeViewController {
     private var splashMinimumUntil = Date.distantPast
     private var webReady = false
     private var loadingObservation: NSKeyValueObservation?
+    private var chatScrollObservation: NSKeyValueObservation?
+    private var chatKeyboardActive = false
+    private var keyboardCovered: CGFloat = 0
 
     override open func capacitorDidLoad() {
         bridge?.registerPluginInstance(KunThaiAppleSignInPlugin())
@@ -108,6 +111,7 @@ class KunThaiBridgeViewController: CAPBridgeViewController {
 
     deinit {
         loadingObservation?.invalidate()
+        chatScrollObservation?.invalidate()
         NotificationCenter.default.removeObserver(self)
     }
 
@@ -152,11 +156,41 @@ class KunThaiBridgeViewController: CAPBridgeViewController {
               let endFrame = (notification.userInfo?[UIResponder.keyboardFrameEndUserInfoKey] as? NSValue)?.cgRectValue
         else { return }
         let keyboardInWindow = window.convert(endFrame, from: window.screen.coordinateSpace)
-        let covered = max(0, window.bounds.maxY - keyboardInWindow.minY)
+        keyboardCovered = max(0, window.bounds.maxY - keyboardInWindow.minY)
+        if !chatKeyboardActive { applyKeyboardCovered() }
+    }
+
+    private func applyKeyboardCovered() {
+        guard let webView, let window = webView.window else { return }
         let current = webView.frame
-        let height = window.bounds.height - current.origin.y - covered
+        let height = window.bounds.height - current.origin.y - keyboardCovered
         guard height > 0, abs(current.height - height) >= 1 else { return }
         webView.frame = CGRect(x: current.origin.x, y: current.origin.y, width: window.bounds.width - current.origin.x, height: height)
+    }
+
+    // While a chat is open the page keeps its full height and the web app moves
+    // the message box with the keyboard (chatKeyboardGlide.js). WebKit may still
+    // try to pan the page to show the field, so the page is held where it is.
+    func setChatKeyboard(active: Bool) {
+        guard chatKeyboardActive != active else { return }
+        chatKeyboardActive = active
+        chatScrollObservation?.invalidate()
+        chatScrollObservation = nil
+        guard active else {
+            applyKeyboardCovered()
+            return
+        }
+        guard let scrollView = webView?.scrollView else { return }
+        // A chat can open while the page is still sized for a keyboard.
+        if keyboardCovered > 0 {
+            keyboardCovered = 0
+            applyKeyboardCovered()
+        }
+        let held = scrollView.contentOffset
+        chatScrollObservation = scrollView.observe(\.contentOffset, options: [.new]) { scrollView, _ in
+            guard abs(scrollView.contentOffset.y - held.y) > 0.5 else { return }
+            scrollView.contentOffset = held
+        }
     }
 
     @objc private func appearanceDidChange() {
@@ -322,7 +356,16 @@ public class KunThaiLaunchPlugin: CAPPlugin, CAPBridgedPlugin {
         CAPPluginMethod(name: "ready", returnType: CAPPluginReturnPromise),
         CAPPluginMethod(name: "setSignedIn", returnType: CAPPluginReturnPromise),
         CAPPluginMethod(name: "setAppearance", returnType: CAPPluginReturnPromise),
+        CAPPluginMethod(name: "setChatKeyboard", returnType: CAPPluginReturnPromise),
     ]
+
+    @objc func setChatKeyboard(_ call: CAPPluginCall) {
+        let active = call.getBool("active") ?? false
+        DispatchQueue.main.async { [weak self] in
+            (self?.bridge?.viewController as? KunThaiBridgeViewController)?.setChatKeyboard(active: active)
+            call.resolve()
+        }
+    }
 
     @objc func ready(_ call: CAPPluginCall) {
         DispatchQueue.main.async {

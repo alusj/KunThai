@@ -21,8 +21,8 @@ export default function ReadyStep({ values, saving, error, onBack, onFinish }) {
 
   return (
     <OnboardingFrame
-      step={4}
-      total={4}
+      step={3}
+      total={3}
       title={t("onboarding.ready.title")}
       subtitle={t("onboarding.ready.subtitle")}
     >

@@ -27,8 +27,8 @@ export default function InterestsStep({ values, saving = false, onToggleInterest
 
   return (
     <OnboardingFrame
-      step={3}
-      total={4}
+      step={2}
+      total={3}
       title={t("onboarding.interests.title")}
       subtitle={t("onboarding.interests.subtitle")}
     >

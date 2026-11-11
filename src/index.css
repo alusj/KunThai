@@ -251,9 +251,10 @@
 
   .kt-conversation-screen {
     box-sizing: border-box;
-    /* Lifts the message box above a keyboard the app page has not made room
-       for yet (mobileViewportService). Not animated: when the page then
-       shrinks this drops to 0 in the same frame, and the box stays put. */
+    position: relative;
+    /* Outside the app (or for a field that is not the message box) the page
+       still resizes: this lifts the box until it has (mobileViewportService).
+       In a chat in the app, chatKeyboardGlide.js moves it. */
     padding-bottom: var(--kt-keyboard-overlap, 0px);
     height: 100%;
     min-height: 0;
@@ -263,7 +264,40 @@
     contain: layout paint;
   }
 
+  /* The body of every chat is plain, with one quiet KunThai mark. It belongs
+     to the screen, which never moves: messages and keyboard pass over it. */
+  .kt-conversation-screen::before {
+    content: "KunThai";
+    position: absolute;
+    inset: 0;
+    z-index: 0;
+    display: flex;
+    align-items: flex-start;
+    justify-content: center;
+    /* High enough to stay clear of the message box with the keyboard up. */
+    padding-top: 30vh;
+    color: rgb(15 23 42 / 0.05);
+    font-size: 3.25rem;
+    font-weight: 800;
+    letter-spacing: -0.03em;
+    pointer-events: none;
+    user-select: none;
+  }
+
+  .dark .kt-conversation-screen::before {
+    color: rgb(255 255 255 / 0.05);
+  }
+
+  /* Solid, so the thread can slide up beneath it with the keyboard. */
+  .kt-chat-top {
+    position: relative;
+    z-index: 5;
+    flex: none;
+  }
+
   .kt-message-thread {
+    position: relative;
+    z-index: 1;
     min-height: 0;
     flex: 1 1 0%;
     overflow-y: auto;
@@ -278,11 +312,18 @@
     flex: none;
     padding-bottom: max(1rem, calc(var(--kt-safe-area-bottom) + 0.625rem));
     transform: translateZ(0);
-    transition: padding-bottom 220ms var(--kt-ease-standard), box-shadow 220ms var(--kt-ease-standard);
   }
 
-  html[data-kt-keyboard-open="true"] .kt-message-composer {
-    padding-bottom: 0.5rem;
+  /* Reaches below the message box, so nothing shows under it as it rises. */
+  .kt-message-composer::after {
+    content: "";
+    position: absolute;
+    top: 100%;
+    left: 0;
+    right: 0;
+    height: 100vh;
+    background: inherit;
+    pointer-events: none;
   }
 
   .kt-message-composer-row {

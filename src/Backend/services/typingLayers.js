@@ -64,6 +64,23 @@ function overlap(a, b) {
   return width > 0 && height > 0 ? width * height : 0;
 }
 
+/**
+ * A sheet or dialog is alone in its layer, apart from an empty backdrop. Beside
+ * real content (a chat's header and messages, a list under a search box) the
+ * box is a bar in a screen, and stretching it would cover that screen.
+ */
+export function hasContentBeside(node, styleOf = (element) => window.getComputedStyle(element)) {
+  for (const sibling of Array.from(node.parentElement?.children || [])) {
+    if (sibling === node) continue;
+    const style = styleOf(sibling);
+    if (style.display === "none" || style.position === "absolute" || style.position === "fixed") continue;
+    const rect = sibling.getBoundingClientRect();
+    if (rect.width <= 0 || rect.height <= 0) continue;
+    if (sibling.children.length > 0 || String(sibling.textContent || "").trim()) return true;
+  }
+  return false;
+}
+
 // At least 60% of the element's on-screen part lies under the covering
 // screen. Only the visible part counts: a feed that scrolls the whole page is
 // far taller than the screen.
@@ -114,14 +131,15 @@ export function planTypingLayers(field, { viewWidth = window.innerWidth, viewHei
   }
 
   // The partial sheet: the topmost layer's child on the way to the field,
-  // when it is clearly shorter than the layer (a bottom sheet or dialog).
+  // when it is clearly shorter than the layer and alone in it (a bottom sheet
+  // or dialog; never a message box or search bar inside a full screen).
   let sheet = null;
   const top = layers[0];
   const topRect = top.getBoundingClientRect();
   for (let node = field.parentElement; node && node !== top; node = node.parentElement) {
     if (node.parentElement === top) {
       const rect = node.getBoundingClientRect();
-      if (rect.height < topRect.height - 24) sheet = node;
+      if (rect.height < topRect.height - 24 && !hasContentBeside(node)) sheet = node;
       break;
     }
   }
@@ -164,6 +182,9 @@ export function installTypingLayers() {
   function apply(field) {
     if (field === activeField) return;
     release();
+    // A chat in the app keeps its full size (chatKeyboardGlide.js): nothing can
+    // show around it, and hiding the screens under it would delay the keyboard.
+    if (root.dataset.ktChatKeyboard === "true" && field.closest(".kt-message-composer")) return;
     const plan = planTypingLayers(field);
     if (!plan.hide.length && !plan.sheet) return;
     activeField = field;

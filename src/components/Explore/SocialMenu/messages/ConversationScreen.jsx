@@ -305,7 +305,8 @@ export default function ConversationScreen({
   }
 
   return (
-    <section className="kt-conversation-screen flex min-w-0 flex-col bg-white" data-back-swipe-scope>
+    <section className="kt-conversation-screen flex min-w-0 flex-col bg-slate-50" data-back-swipe-scope>
+      <div className="kt-chat-top bg-white">
       <div className="flex min-w-0 items-center gap-3 border-b border-slate-200 px-4 py-3">
         <AppBackTab onBack={onBack} label={i18nText("ui.literals.k0050d622ebf2")} historyKey="explore-conversation" />
         <button
@@ -347,8 +348,9 @@ export default function ConversationScreen({
           {translateUi("Replying as {value0}. Your Space team shares this conversation.", { value0: replyingAs })}
         </p>
       ) : null}
+      </div>
 
-      <div ref={messagesRef} onScroll={handleThreadScroll} className="kt-message-thread space-y-3 bg-slate-50 px-4 py-4 kuntai-scrollbar-none">
+      <div ref={messagesRef} onScroll={handleThreadScroll} className="kt-message-thread space-y-3 px-4 py-4 kuntai-scrollbar-none">
         {hasOlderMessages ? (
           <button
             type="button"

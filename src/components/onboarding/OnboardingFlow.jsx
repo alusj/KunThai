@@ -3,7 +3,6 @@ import { useEffect, useMemo, useRef, useState } from "react";
 import { markOnboardingComplete, updateOnboardingProfile } from "../../Backend/services/onboardingService";
 import { fetchUserTopicFollows, saveUserTopicFollows } from "../../Backend/services/explore/topicService";
 import { getActiveCountryProfile } from "../../data/globalCountryProfiles";
-import WelcomeStep from "./WelcomeStep";
 import ProfileStep from "./ProfileStep";
 import InterestsStep from "./InterestsStep";
 import ReadyStep from "./ReadyStep";
@@ -56,9 +55,19 @@ function normalizeProfile(profile) {
   };
 }
 
+// Saved steps keep their old numbers (2 = identity, 3 = interests, 4 = ready).
+// Step 1 was a "<provider> connected" welcome screen; it is gone for every
+// kind of sign-up, so onboarding opens on the identity screen.
+const FIRST_STEP = 2;
+const LAST_STEP = 4;
+
+function clampStep(step) {
+  return Math.min(Math.max(Number(step) || FIRST_STEP, FIRST_STEP), LAST_STEP);
+}
+
 export default function OnboardingFlow({ profile, onComplete }) {
   useI18n();
-  const [step, setStep] = useState(Math.min(Math.max(profile?.onboardingStep ?? 1, 1), 4));
+  const [step, setStep] = useState(() => clampStep(profile?.onboardingStep));
   const [values, setValues] = useState(() => normalizeProfile(profile));
   const [saving, setSaving] = useState(false);
   const [direction, setDirection] = useState("forward");
@@ -76,7 +85,7 @@ export default function OnboardingFlow({ profile, onComplete }) {
   useEffect(() => {
     if (!profile || finishing || userEditedRef.current) return;
 
-    if (!navigatedRef.current) setStep(Math.min(Math.max(profile.onboardingStep ?? 1, 1), 4));
+    if (!navigatedRef.current) setStep(clampStep(profile.onboardingStep));
     setValues(normalizeProfile(profile));
     setError("");
     setErrorCode("");
@@ -155,16 +164,9 @@ export default function OnboardingFlow({ profile, onComplete }) {
   };
 
   const handleNext = async () => {
-    const nextStep = Math.min(step + 1, 4);
+    const nextStep = Math.min(step + 1, LAST_STEP);
     navigatedRef.current = true;
     setDirection("forward");
-
-    if (step === 1) {
-      setError("");
-      setErrorCode("");
-      setStep(nextStep);
-      return;
-    }
 
     if (saving) return;
     setSaving(true);
@@ -183,7 +185,7 @@ export default function OnboardingFlow({ profile, onComplete }) {
   };
 
   const handleBack = async () => {
-    const nextStep = Math.max(step - 1, 1);
+    const nextStep = Math.max(step - 1, FIRST_STEP);
     navigatedRef.current = true;
     setDirection("backward");
     setError("");
@@ -219,10 +221,9 @@ export default function OnboardingFlow({ profile, onComplete }) {
 
   let content;
 
-  if (step === 1) {
-    content = <WelcomeStep profile={safeValues} onNext={handleNext} />;
-  } else if (step === 2) {
-    content = <ProfileStep values={safeValues} saving={saving} error={error} errorCode={errorCode} onChange={updateField} onBack={handleBack} onNext={handleNext} />;
+  if (step <= FIRST_STEP) {
+    // The first screen: nothing to go back to.
+    content = <ProfileStep values={safeValues} saving={saving} error={error} errorCode={errorCode} onChange={updateField} onNext={handleNext} />;
   } else if (step === 3) {
     content = (
       <InterestsStep

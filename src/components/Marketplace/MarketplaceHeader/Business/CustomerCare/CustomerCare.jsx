@@ -407,6 +407,7 @@ export default function CustomerCare({ onBack, initialChat = null } = {}) {
 
     return (
       <section className={`kt-conversation-screen absolute inset-0 z-10 flex flex-col bg-gray-50 ${panelClass}`} data-back-swipe-scope>
+        <div className="kt-chat-top bg-white">
         <header className="kt-header-glass flex h-16 shrink-0 items-center gap-3 px-3 sm:px-4">
           <AppBackTab
             onBack={closeConversation}
@@ -424,6 +425,7 @@ export default function CustomerCare({ onBack, initialChat = null } = {}) {
         </header>
 
         <MessagePrivacyNotice compact variant="urmall" />
+        </div>
 
         <div ref={threadScrollRef} className="kt-message-thread space-y-3 px-4 py-4 sm:px-6 lg:px-8">
           <MarketplaceChatMessages
