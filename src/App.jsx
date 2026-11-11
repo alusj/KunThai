@@ -63,6 +63,7 @@ import {
   resolveScreenshotAttachment,
 } from "./Backend/services/screenshotCaptureService";
 import { readDefaultMainPage } from "./Backend/services/mainDashboardPreference";
+import { setFeedScrollTarget } from "./Backend/services/explore/feedMountHint";
 import { resolveResumeDashboard, shouldResetToDashboard } from "./Backend/services/dashboardResume";
 import { clearBrowserBackStack } from "./Backend/hooks/useBrowserBack";
 import { lazyWithRetry } from "./Backend/utils/lazyWithRetry";
@@ -436,6 +437,9 @@ export default function App() {
     setPage(nextPage);
   }, [leavingPage, page]);
   changePageRef.current = changePage;
+  // Explore is rebuilt on each return to it: tell UrFeed where it will be
+  // scrolled to, so its first frame draws just the posts around there.
+  if (page !== "explore") setFeedScrollTarget(pageScrollRef.current.explore || 0);
   const userId = user?.id || "";
   const guestSession = Boolean(user?.is_anonymous);
   setNotificationSeenUser(userId);

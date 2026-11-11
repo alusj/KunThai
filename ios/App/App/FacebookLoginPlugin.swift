@@ -1,4 +1,5 @@
 import Foundation
+import AppTrackingTransparency
 import Capacitor
 import FacebookCore
 import FacebookLogin
@@ -61,19 +62,85 @@ public class KunThaiFacebookLoginPlugin: CAPPlugin, CAPBridgedPlugin {
                 call.reject("Facebook sign-in is already in progress.", "in_progress")
                 return
             }
+            self.inProgress = true
+            // Facebook only switches to its own app ("Continue as <name>") for
+            // a person who allowed tracking; without it the SDK uses Limited
+            // Login, a web page that asks for the Facebook password. Apple's
+            // prompt is shown once, here, the first time Facebook is chosen.
+            // Whatever the answer, sign-in carries on.
+            self.requestTrackingIfUndecided {
+                self.waitForAppSwitchSetting {
+                    self.startLogin(call, permissions: permissions, hashedNonce: hashedNonce)
+                }
+            }
+        }
+    }
+
+    private func requestTrackingIfUndecided(_ done: @escaping () -> Void) {
+        guard #available(iOS 14, *), ATTrackingManager.trackingAuthorizationStatus == .notDetermined else {
+            done()
+            return
+        }
+        ATTrackingManager.requestTrackingAuthorization { _ in
+            DispatchQueue.main.async { done() }
+        }
+    }
+
+    // Whether the SDK may switch to the Facebook app is a setting it fetches
+    // from Facebook after it starts, and it counts as "no" until it arrives.
+    // A sign-in started before then used the web login page. Wait for it
+    // (2 s at most) before starting.
+    private func waitForAppSwitchSetting(_ done: @escaping () -> Void) {
+        var finished = false
+        let finish: (String) -> Void = { note in
+            DispatchQueue.main.async {
+                if finished { return }
+                finished = true
+                #if DEBUG
+                print("[kt-facebook] appSwitchSetting \(note)")
+                #endif
+                done()
+            }
+        }
+        _FeatureManager.shared.check(.loginFastAppSwitch) { enabled in
+            finish("loaded enabled=\(enabled)")
+        }
+        DispatchQueue.main.asyncAfter(deadline: .now() + 2) { finish("timed out") }
+    }
+
+    private func startLogin(_ call: CAPPluginCall, permissions: [String], hashedNonce: String) {
+        do {
             // Classic login (tracking enabled) is the mode that can switch to
             // the Facebook app; the SDK itself falls back to Limited Login in
             // its browser sheet when the phone does not allow tracking.
             guard let configuration = LoginConfiguration(permissions: permissions, tracking: .enabled, nonce: hashedNonce) else {
+                self.inProgress = false
                 call.reject("Could not start Facebook sign-in.", "bad_configuration")
                 return
             }
             // A stale session from an earlier sign-in must not be reused.
             self.manager.logOut()
-            self.inProgress = true
+            #if DEBUG
+            // Debug builds only: why the SDK does or does not switch to the Facebook app.
+            var tracking = "n/a"
+            if #available(iOS 14, *) { tracking = String(ATTrackingManager.trackingAuthorizationStatus.rawValue) }
+            var token: NSObjectProtocol?
+            token = NotificationCenter.default.addObserver(forName: UIApplication.didEnterBackgroundNotification, object: nil, queue: .main) { _ in
+                print("[kt-facebook] left KunThai for another app")
+                if let token = token { NotificationCenter.default.removeObserver(token) }
+            }
+            print("[kt-facebook] att=\(tracking) sdkTracking=\(Settings.shared.isAdvertiserTrackingEnabled) fbauth2=\(UIApplication.shared.canOpenURL(URL(string: "fbauth2://")!)) fbapi=\(UIApplication.shared.canOpenURL(URL(string: "fbapi://")!))")
+            #endif
 
             self.manager.logIn(viewController: self.bridge?.viewController, configuration: configuration) { result in
                 self.inProgress = false
+                #if DEBUG
+                switch result {
+                case .cancelled: print("[kt-facebook] result=cancelled")
+                case .failed(let error): print("[kt-facebook] result=failed \(error)")
+                case .success(_, _, let token): print("[kt-facebook] result=success accessToken=\(token != nil) authToken=\(AuthenticationToken.current != nil)")
+                }
+                #endif
                 switch result {
                 case .cancelled:
                     call.reject("Facebook sign-in was cancelled.", "cancelled")

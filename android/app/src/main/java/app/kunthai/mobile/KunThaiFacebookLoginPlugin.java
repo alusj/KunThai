@@ -1,10 +1,13 @@
 package app.kunthai.mobile;
 
+import android.content.Intent;
+
 import androidx.activity.result.ActivityResultRegistryOwner;
 
 import com.facebook.CallbackManager;
 import com.facebook.FacebookCallback;
 import com.facebook.FacebookException;
+import com.facebook.login.LoginConfiguration;
 import com.facebook.login.LoginManager;
 import com.facebook.login.LoginResult;
 import com.getcapacitor.JSArray;
@@ -34,12 +37,20 @@ import java.util.List;
 // meta-data in AndroidManifest.xml.
 @CapacitorPlugin(name = "KunThaiFacebookLogin")
 public class KunThaiFacebookLoginPlugin extends Plugin {
+    private static CallbackManager sharedCallbackManager;
     private CallbackManager callbackManager;
     private PluginCall pendingCall;
+
+    // The sign-in with a nonce returns through the activity's result
+    // (MainActivity.onActivityResult hands it here).
+    static boolean handleActivityResult(int requestCode, int resultCode, Intent data) {
+        return sharedCallbackManager != null && sharedCallbackManager.onActivityResult(requestCode, resultCode, data);
+    }
 
     @Override
     public void load() {
         callbackManager = CallbackManager.Factory.create();
+        sharedCallbackManager = callbackManager;
         LoginManager.getInstance().registerCallback(callbackManager, new FacebookCallback<LoginResult>() {
             @Override
             public void onSuccess(LoginResult result) {
@@ -86,6 +97,13 @@ public class KunThaiFacebookLoginPlugin extends Plugin {
                 // Keep the defaults.
             }
         }
+        // With a nonce the SDK also returns an identity token (OpenID), which
+        // signs in to Supabase directly. An account whose Facebook shares no
+        // email can only sign in that way: the access-token route needs an
+        // email, and without one the app used to fall back to the web page
+        // asking for the Facebook password.
+        final String nonce = call.getString("nonce", "");
+        if (!permissions.contains(LoginConfiguration.OPENID)) permissions.add(LoginConfiguration.OPENID);
         final List<String> loginPermissions = permissions;
 
         getActivity().runOnUiThread(() -> {
@@ -96,6 +114,14 @@ public class KunThaiFacebookLoginPlugin extends Plugin {
             pendingCall = call;
             // A stale session from an earlier sign-in must not be reused.
             LoginManager.getInstance().logOut();
+            if (nonce != null && !nonce.isEmpty()) {
+                try {
+                    LoginManager.getInstance().logIn(getActivity(), new LoginConfiguration(loginPermissions, nonce));
+                    return;
+                } catch (Exception ignored) {
+                    // A nonce the SDK does not accept: sign in without one.
+                }
+            }
             LoginManager.getInstance().logIn((ActivityResultRegistryOwner) getActivity(), callbackManager, loginPermissions);
         });
     }

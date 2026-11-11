@@ -5,7 +5,7 @@ import All from "./tabs/All";
 
 import { useLifecycleAudit } from "../../../../Backend/services/lifecycleAudit";
 import { recordProductOpen } from "../../../../Backend/services/churn/productOpenService";
-export default function Swip({ active = true, currentUserId = "", focusPostId = "", focusPost = null, focusRequest = null, onReturnToRepost, onViewProfile, profile }) {
+export default function Swip({ active = true, standby = false, currentUserId = "", focusPostId = "", focusPost = null, focusRequest = null, onReturnToRepost, onViewProfile, profile }) {
   useLifecycleAudit("section", "Swip");
 
   // Churn intelligence: Swip is its own sector (once a UTC day).
@@ -68,6 +68,7 @@ export default function Swip({ active = true, currentUserId = "", focusPostId = 
       <div className="min-h-0 flex-1 overflow-hidden">
         <All
           active={active}
+          standby={standby}
           currentUserId={currentUserId}
           focusPostId={focusPostId}
           focusPost={focusPost}

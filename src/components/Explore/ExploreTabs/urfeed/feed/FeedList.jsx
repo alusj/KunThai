@@ -1,10 +1,11 @@
-import { Fragment, useEffect, useRef, useState } from "react";
+import { Fragment, startTransition, useEffect, useRef, useState } from "react";
 import { Share2, UserRoundPlus } from "lucide-react";
 
 import { useExploreFollows } from "../../../../../Backend/hooks/useExploreFollows";
 import { readExploreSettings } from "../../../../../Backend/services/explore/preferencesService";
 import { shareKunThaiLink } from "../../../../../Backend/services/shareCtaService";
 import { isAdvertPost } from "../../../shared/advertUtils";
+import { initialFeedPostCount } from "../../../../../Backend/services/explore/feedMountHint";
 import { fetchExploreConnections, getPostIdentity, recordExploreAdvertEvent, recordRecommendationSignal } from "../../../../../Backend/services/exploreService";
 import { useI18n } from "../../../../../i18n";
 import Avatar from "../../../shared/Avatar";
@@ -47,10 +48,34 @@ export default function FeedList({
   onLoadMore,
   hasMore = false,
   loadingMore = false,
+  progressive = false,
 }) {
   const { t } = useI18n();
   const { followedUsers, toggleFollow } = useExploreFollows(currentUserId);
-  const autoLoad = useAutoLoadMore({ hasMore, loadingMore, onLoadMore, itemCount: posts?.length || 0 });
+  // Progressive: the first frame draws only the posts around where the feed
+  // opens (feedMountHint.js), so the screen shows sooner; the rest are added
+  // straight after as a transition, which React builds in small pieces.
+  const [mountLimit, setMountLimit] = useState(() => (progressive ? initialFeedPostCount() : Infinity));
+  useEffect(() => {
+    if (mountLimit !== Infinity) startTransition(() => setMountLimit(Infinity));
+    // Once, right after the first frame.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
+  const partial = progressive && mountLimit < (posts?.length || 0);
+  // Scrolled close to the end of the part drawn so far before the rest has
+  // arrived: draw the rest now rather than show an empty end.
+  const [partialEnd, partialEndRef] = useState(null);
+  useEffect(() => {
+    if (!partialEnd || typeof IntersectionObserver === "undefined") return undefined;
+    const observer = new IntersectionObserver(([entry]) => {
+      if (entry?.isIntersecting) setMountLimit(Infinity);
+    }, { rootMargin: "0px 0px 700px 0px" });
+    observer.observe(partialEnd);
+    return () => observer.disconnect();
+  }, [partialEnd]);
+  const shownPosts = partial ? posts.slice(0, mountLimit) : posts;
+  // No "load more" while part of the saved list is still to be drawn.
+  const autoLoad = useAutoLoadMore({ hasMore: hasMore && !partial, loadingMore, onLoadMore, itemCount: posts?.length || 0 });
 
   async function handleFollow(post) {
     const identity = getPostIdentity(post);
@@ -84,7 +109,7 @@ export default function FeedList({
   return (
     <div className="mt-4 w-full overflow-x-clip px-4 pb-8 sm:px-5 lg:px-8">
       <div className="w-full max-w-full space-y-4 overflow-x-clip">
-        {(posts || []).map((post, postIndex) => (
+        {(shownPosts || []).map((post, postIndex) => (
           <Fragment key={post.id}>
           <ObservedFeedPost post={post}>
             <FeedPost
@@ -135,7 +160,7 @@ export default function FeedList({
         ))}
       </div>
 
-      {hasMore ? (
+      {partial ? <div ref={partialEndRef} aria-hidden="true" className="h-px" /> : hasMore ? (
         // More posts load by themselves as the end comes into view; the
         // button only appears when loading keeps failing (e.g. offline).
         <div ref={autoLoad.sentinelRef} className="mx-auto mt-5 flex min-h-12 items-center justify-center">

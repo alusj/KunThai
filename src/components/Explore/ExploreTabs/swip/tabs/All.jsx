@@ -18,7 +18,7 @@ import { uiText as translateUi } from "../../../../../i18n/index.js";
 const WHEEL_THRESHOLD_PX = 70;
 const WHEEL_LOCK_MS = 720;
 
-export default function All({ active = true, currentUserId = "", focusPostId = "", focusPost = null, focusRequest = null, onlyUserId = "", onReturnToRepost, onViewProfile, profile }) {
+export default function All({ active = true, standby = false, currentUserId = "", focusPostId = "", focusPost = null, focusRequest = null, onlyUserId = "", onReturnToRepost, onViewProfile, profile }) {
   const { t } = useI18n();
   const feed = useExploreFeed("swip");
   const feedVideos = getSwipVideos(feed.posts, onlyUserId).filter(isRenderableSwipPost);
@@ -521,9 +521,12 @@ export default function All({ active = true, currentUserId = "", focusPostId = "
   // being released, held up to 17 hardware decoders on a Galaxy A06 and
   // Android closed KunThai.
   const offset = index - activeIndex;
-  const shouldMountVideo = offset >= -1 && offset <= SWIP_PRELOAD_AHEAD;
+  // Standby (Swip is built but another Explore tab is on show): one player
+  // only, the clip Swip will open on, loaded and with its first frame ready,
+  // so it plays the moment Swip is entered.
+  const shouldMountVideo = standby ? offset === 0 : offset >= -1 && offset <= SWIP_PRELOAD_AHEAD;
   const preloadMode = offset >= 0 && offset <= swipBufferAhead() ? "auto" : "metadata";
-  const prime = active && offset === 1 && swipBufferAhead() >= 1;
+  const prime = swipBufferAhead() >= 1 && (standby ? offset === 0 : active && offset === 1);
 
   return (
     <section

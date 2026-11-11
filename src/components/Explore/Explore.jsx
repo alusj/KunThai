@@ -1,5 +1,5 @@
 // src/Explore/Explore.jsx
-import { memo, useCallback, useDeferredValue, useEffect, useLayoutEffect, useRef, useState } from "react";
+import { memo, startTransition, useCallback, useDeferredValue, useEffect, useLayoutEffect, useRef, useState } from "react";
 import { createPortal } from "react-dom";
 //import { useAuth } from "../../Backend/hooks/useAuth";
 import { useBackSwipe } from "../../Backend/hooks/useBackSwipe";
@@ -81,6 +81,8 @@ import ExploreTabs from "./ExploreTabs/ExploreTabs";
 import PostingStatusBanner from "./shared/PostingStatusBanner";
 import PostOutboxIndicator from "./shared/PostOutboxIndicator";
 import { stopAllExploreMedia } from "./shared/singleMediaPlayback";
+import { createFlagStore } from "./shared/flagStore";
+import { setFeedScrollTarget } from "../../Backend/services/explore/feedMountHint";
 import { uiText as translateUi, useI18n as useUiLocale } from "../../i18n/index.js";
 import { inlineErrorMessage, isConnectionFailure } from "../../Backend/services/friendlyErrorService";
 import { announceConnectionTrouble } from "../../Backend/services/networkService";
@@ -120,6 +122,15 @@ const TAB_DRAG_COMMIT_VELOCITY = 0.45; // px per millisecond
 const TAB_DRAG_SETTLE_MS = 190;
 // A tab tapped in the bar slides the same way a finger swipe settles.
 const TAB_TAP_SLIDE_MS = 320;
+// UrFeed and Swip stay built once Explore is open, the one not on show
+// hidden and at rest (Swip with a single player, its first clip ready). A
+// finger slide between them then has nothing to build: building the whole
+// section in the middle of the drag is what made the slide stop and start.
+// Connections is still built only when opened. Empty this list to go back
+// to one section at a time (should an iPhone run short of memory again).
+const KEEP_BUILT_TABS = ["UrFeed", "Swip"];
+// Quiet time on a tab before the other one is built in the background.
+const TAB_WARM_DELAY_MS = 1200;
 const LEFT_SIDE_MENU_SCREENS = new Set(["Menu", "Messages"]);
 const COMMENT_TARGET_NOTIFICATION_TYPES = new Set(["comment", "reply", "creator_reply", "thread_reply", "mention"]);
 
@@ -156,6 +167,8 @@ export default function Explore({ active = true, onNavigateMain, onScreenModeCha
   const [leavingTab, setLeavingTab] = useState(null);
   // The section a finger drag is bringing in, built for the drag's preview.
   const [dragPreviewTab, setDragPreviewTab] = useState("");
+  // Sections kept built while not on show (KEEP_BUILT_TABS).
+  const [keptTabs, setKeptTabs] = useState([]);
   const leavingTabTimerRef = useRef(null);
   const [swipPreviewTarget, setSwipPreviewTarget] = useState("");
   const [postFocusRequest, setPostFocusRequest] = useState(null);
@@ -273,6 +286,35 @@ export default function Explore({ active = true, onNavigateMain, onScreenModeCha
   const profile = activeSpaceProfile || personalProfile;
   const currentUserId = user?.id || personalProfile?.userId || "";
   const profileExists = !authLoading && Boolean(user?.id && profile);
+
+  // UrFeed follows this itself (flagStore.js): passed as a prop, every tab
+  // switch and every menu screen redrew all of the feed's posts.
+  const urFeedOnShow = active && activeTab === "UrFeed" && !feedCovered;
+  const [urFeedActiveStore] = useState(() => createFlagStore(urFeedOnShow));
+  useEffect(() => {
+    urFeedActiveStore.set(urFeedOnShow);
+  }, [urFeedActiveStore, urFeedOnShow]);
+
+  // After a quiet moment on a tab, the other kept section is built in the
+  // background, in small pieces (a transition), never during a slide.
+  useEffect(() => {
+    if (!active || !profileExists || anyExploreOverlayVisible) return undefined;
+    const wanted = KEEP_BUILT_TABS.filter((tab) => !keptTabs.includes(tab));
+    if (!wanted.length) return undefined;
+    let timer = 0;
+    const warm = () => {
+      if (exploreGestureRef.current?.mode || tabSlideRef.current) {
+        timer = window.setTimeout(warm, TAB_WARM_DELAY_MS);
+        return;
+      }
+      // The tab on show is kept first (nothing to build), then the other.
+      const next = wanted.includes(activeTab) ? activeTab : wanted[0];
+      if (next === "UrFeed") setFeedScrollTarget(tabScrollRef.current.UrFeed || 0);
+      startTransition(() => setKeptTabs((current) => (current.includes(next) ? current : [...current, next])));
+    };
+    timer = window.setTimeout(warm, wanted.includes(activeTab) ? 0 : TAB_WARM_DELAY_MS);
+    return () => window.clearTimeout(timer);
+  }, [active, profileExists, anyExploreOverlayVisible, activeTab, keptTabs]);
 
   // Acting as a Space on Explore: share links carry the Space's invite code,
   // so a friend who joins through them earns the Space its credits. Leaving
@@ -1247,6 +1289,7 @@ export default function Explore({ active = true, onNavigateMain, onScreenModeCha
     // it), and both slide together. Painting the next tab in place first and
     // sliding it over a still UrFeed made iPhone draw UrFeed's photos again
     // mid-switch, which looked like a reload.
+    buildTabForSlide(tab);
     prepareIncomingPanel(tab, -sign * width);
     toNode.style.willChange = "transform";
     fromNode.style.transition = "none";
@@ -1356,7 +1399,16 @@ export default function Explore({ active = true, onNavigateMain, onScreenModeCha
   // in. All three at once (and Swip's video players) was too much memory for
   // an iPhone: opening Explore from UrMall got the page ended by iOS.
   function exploreTabBuilt(tab) {
-    return activeTab === tab || leavingTab?.tab === tab || dragPreviewTab === tab;
+    return activeTab === tab || leavingTab?.tab === tab || dragPreviewTab === tab || keptTabs.includes(tab);
+  }
+
+  // A section sliding in that is not built yet (Connections, or a slide in
+  // the first moments on Explore) is built in the background, in pieces, so
+  // the panels keep following the finger meanwhile.
+  function buildTabForSlide(tab) {
+    if (exploreTabBuilt(tab)) return;
+    if (tab === "UrFeed") setFeedScrollTarget(tabScrollRef.current.UrFeed || 0);
+    startTransition(() => setDragPreviewTab(tab));
   }
 
   function getExploreTabPanelClass(tab) {
@@ -1464,7 +1516,7 @@ export default function Explore({ active = true, onNavigateMain, onScreenModeCha
     if (targetIndex >= 0 && targetIndex < EXPLORE_TAB_ORDER.length) {
       gesture.mode = "tabs";
       gesture.incomingTab = EXPLORE_TAB_ORDER[targetIndex];
-      setDragPreviewTab(gesture.incomingTab);
+      buildTabForSlide(gesture.incomingTab);
       // sign is the horizontal direction panels travel: -1 toward the next
       // tab (finger moves left), +1 toward the previous tab.
       gesture.sign = targetIndex > currentIndex ? -1 : 1;
@@ -2159,7 +2211,7 @@ export default function Explore({ active = true, onNavigateMain, onScreenModeCha
       style={getExploreTabPanelStyle("UrFeed")}
     >
       {exploreTabBuilt("UrFeed") ? <MemoUrFeed
-        active={active && activeTab === "UrFeed" && !feedCovered}
+        activeStore={urFeedActiveStore}
         focusRequest={postFocusRequest?.tab === "UrFeed" ? postFocusRequest : null}
         profile={profile}
         onViewProfile={viewProfileFromTab}
@@ -2175,6 +2227,7 @@ export default function Explore({ active = true, onNavigateMain, onScreenModeCha
     >
       {exploreTabBuilt("Swip") ? <MemoSwip
         active={active && activeTab === "Swip" && swipFullScreen && !feedCovered}
+        standby={activeTab !== "Swip"}
         currentUserId={profile.userId}
         focusPostId={postFocusRequest?.tab === "Swip" ? postFocusRequest.postId : swipPreviewTarget}
         focusPost={postFocusRequest?.tab === "Swip" ? postFocusRequest.post : null}

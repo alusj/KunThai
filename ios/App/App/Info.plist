@@ -70,6 +70,8 @@
 	<string>KunThai uses the microphone only when you record a voice note or a video with sound.</string>
 	<key>NSPhotoLibraryAddUsageDescription</key>
 	<string>KunThai saves photos and videos to your library only when you choose to save them.</string>
+	<key>NSUserTrackingUsageDescription</key>
+	<string>Allowing this lets Continue with Facebook open the Facebook app and sign you in with the account already on this phone, without typing your Facebook password. KunThai does not use it for advertising.</string>
 	<key>NSPhotoLibraryUsageDescription</key>
 	<string>KunThai opens your photo library only when you choose photos or videos to share or upload.</string>
 	<key>UIBackgroundModes</key>

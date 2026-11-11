@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useRef } from "react";
+import { useEffect, useMemo, useRef, useSyncExternalStore } from "react";
 
 import { useExploreFeed } from "../../../../Backend/hooks/useExploreFeed";
 import { paceExploreAdvertPosts } from "../../../../Backend/services/exploreService";
@@ -26,13 +26,56 @@ function feedActions(feed) {
   };
 }
 
-export default function UrFeed({ active = true, focusRequest = null, profile, onViewProfile }) {
+const ALWAYS_ON_SHOW = { get: () => true, subscribe: () => () => {} };
+
+// Scrolls to a post opened from a notification once UrFeed is on show. Its
+// own small component: it alone is drawn again when UrFeed is shown or
+// hidden (activeStore), instead of every post in the feed.
+function FeedFocusRequest({ activeStore, focusRequest, posts }) {
+  const active = useSyncExternalStore(activeStore.subscribe, activeStore.get);
+  const handledFocusKeyRef = useRef("");
+
+  useEffect(() => {
+    const requestKey = focusRequest?.key || "";
+    const postId = focusRequest?.postId || "";
+    if (!active || !requestKey || !postId || handledFocusKeyRef.current === requestKey) return undefined;
+    if (!posts.some((post) => post.id === postId)) return undefined;
+
+    // Wait until the notification screen and tab transition have released
+    // their scroll restoration. A deterministic jump is more reliable than a
+    // long smooth scroll whose destination shifts as media finishes laying out.
+    const focusTimer = window.setTimeout(() => {
+      const node = document.getElementById(`post-${postId}`);
+      if (!node) return;
+
+      handledFocusKeyRef.current = requestKey;
+      node.scrollIntoView({ behavior: "auto", block: "center" });
+      node.classList.remove("kt-notification-post-focus");
+      void node.offsetWidth;
+      node.classList.add("kt-notification-post-focus");
+
+      window.setTimeout(() => {
+        node.scrollIntoView({ behavior: "auto", block: "center" });
+        if (focusRequest.openComments) {
+          window.dispatchEvent(new CustomEvent("explore-open-post-comments", {
+            detail: { postId, commentId: focusRequest.commentId || "" },
+          }));
+        }
+      }, 120);
+      window.setTimeout(() => node.classList.remove("kt-notification-post-focus"), 2200);
+    }, 420);
+
+    return () => window.clearTimeout(focusTimer);
+  }, [active, focusRequest, posts]);
+
+  return null;
+}
+
+export default function UrFeed({ activeStore = ALWAYS_ON_SHOW, focusRequest = null, profile, onViewProfile }) {
   useLifecycleAudit("section", "UrFeed");
   const { locale: memoLocale } = useUiLocale();
   const feed = useExploreFeed("feed");
   const circleFeed = useExploreFeed("connections");
-  const handledFocusKeyRef = useRef("");
-
   useEffect(() => {
     const focusedPost = focusRequest?.post;
     if (!focusedPost?.id) return;
@@ -75,41 +118,9 @@ export default function UrFeed({ active = true, focusRequest = null, profile, on
     [feed.posts, circleFeed.posts, profile?.userId, memoLocale],
   );
 
-  useEffect(() => {
-    const requestKey = focusRequest?.key || "";
-    const postId = focusRequest?.postId || "";
-    if (!active || !requestKey || !postId || handledFocusKeyRef.current === requestKey) return undefined;
-    if (!posts.some((post) => post.id === postId)) return undefined;
-
-    // Wait until the notification screen and tab transition have released
-    // their scroll restoration. A deterministic jump is more reliable than a
-    // long smooth scroll whose destination shifts as media finishes laying out.
-    const focusTimer = window.setTimeout(() => {
-      const node = document.getElementById(`post-${postId}`);
-      if (!node) return;
-
-      handledFocusKeyRef.current = requestKey;
-      node.scrollIntoView({ behavior: "auto", block: "center" });
-      node.classList.remove("kt-notification-post-focus");
-      void node.offsetWidth;
-      node.classList.add("kt-notification-post-focus");
-
-      window.setTimeout(() => {
-        node.scrollIntoView({ behavior: "auto", block: "center" });
-        if (focusRequest.openComments) {
-          window.dispatchEvent(new CustomEvent("explore-open-post-comments", {
-            detail: { postId, commentId: focusRequest.commentId || "" },
-          }));
-        }
-      }, 120);
-      window.setTimeout(() => node.classList.remove("kt-notification-post-focus"), 2200);
-    }, 420);
-
-    return () => window.clearTimeout(focusTimer);
-  }, [active, focusRequest, posts]);
-
   return (
     <PullToRefresh onRefresh={() => Promise.all([feed.reload(), circleFeed.reload()])}>
+      <FeedFocusRequest activeStore={activeStore} focusRequest={focusRequest} posts={posts} />
       <FeedComposer
         profile={profile}
         creating={feed.creating}
@@ -118,6 +129,9 @@ export default function UrFeed({ active = true, focusRequest = null, profile, on
       <FeedList
         profile={profile}
         posts={posts}
+        // The first frame holds the posts near the top; the rest follow at
+        // once in the background. A post being opened needs the whole list.
+        progressive={!focusRequest}
         loading={(feed.loading || circleFeed.loading) && posts.length === 0}
         error={feed.error || circleFeed.error}
         onLoadMore={() => Promise.all([feed.loadMore(), circleFeed.loadMore()])}

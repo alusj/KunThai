@@ -25,6 +25,13 @@ import org.json.JSONObject;
 import java.io.ByteArrayOutputStream;
 
 public class MainActivity extends BridgeActivity {
+    // "Continue with Facebook" with a nonce returns its result here.
+    @Override
+    protected void onActivityResult(int requestCode, int resultCode, android.content.Intent data) {
+        if (KunThaiFacebookLoginPlugin.handleActivityResult(requestCode, resultCode, data)) return;
+        super.onActivityResult(requestCode, resultCode, data);
+    }
+
     // Channel id @capgo/background-geolocation uses for its "KunThai: you're online"
     // foreground-service notification (its service's package name).
     private static final String LOCATION_SHARING_CHANNEL_ID = "com.capgo.capacitor_background_geolocation";
