@@ -81,6 +81,30 @@ async function signInWithAccessToken(accessToken) {
   if (!verified?.session) throw new Error("Session was not established after sign-in. Please try again.");
 }
 
+// Facebook remembers that the person approved KunThai and, from then on,
+// signs them in without showing anything: no "Continue as <name>" screen, so
+// they never see which Facebook account is being used (or get the chance to
+// pick another). KunThai keeps its own session and never uses the Facebook
+// one again, so once signed in it hands the approval back. The next
+// "Continue with Facebook" then shows Facebook's confirm screen with the
+// account's name. Best effort: a failure changes nothing, and a Limited Login
+// token (iPhone, tracking off) cannot do this; that route shows Facebook's
+// page each time anyway.
+const FACEBOOK_GRAPH = "https://graph.facebook.com/v24.0";
+
+async function forgetFacebookApproval(accessToken) {
+  if (!accessToken || typeof fetch !== "function") return;
+  try {
+    await fetch(`${FACEBOOK_GRAPH}/me/permissions`, {
+      method: "DELETE",
+      headers: { Authorization: `Bearer ${accessToken}` },
+      credentials: "omit",
+    });
+  } catch {
+    // Offline or refused: the next sign-in is simply silent, as before.
+  }
+}
+
 // Resolves { status: "success" } or { status: "cancelled" }; throws on failure
 // (error.fallBackToWeb marks the ones the browser flow should retry).
 export async function signInWithNativeFacebook() {
@@ -106,6 +130,7 @@ export async function signInWithNativeFacebook() {
   if (authenticationToken) {
     try {
       await signInWithAuthenticationToken(authenticationToken, rawNonce);
+      void forgetFacebookApproval(accessToken);
       return { status: "success" };
     } catch (error) {
       // Supabase only accepts some Facebook OIDC tokens (iOS Limited Login);
@@ -116,6 +141,7 @@ export async function signInWithNativeFacebook() {
 
   if (accessToken) {
     await signInWithAccessToken(accessToken);
+    void forgetFacebookApproval(accessToken);
     return { status: "success" };
   }
 
