@@ -132,13 +132,14 @@ Deno.serve(async (request) => {
     }
     let email = String(match?.email || "");
     let created = false;
+    let userId = String(match?.user_id || "");
 
     if (!match) {
       // Facebook shared no email: the account is created on its internal
       // sign-in address and reads as an account without an email.
       const signInEmail = facebookEmail || placeholderEmail(facebookId);
       const picture = profile.picture?.data?.is_silhouette ? "" : profile.picture?.data?.url || "";
-      const { error: createError } = await admin.auth.admin.createUser({
+      const { data: createdUser, error: createError } = await admin.auth.admin.createUser({
         email: signInEmail,
         email_confirm: true,
         user_metadata: {
@@ -157,6 +158,24 @@ Deno.serve(async (request) => {
       if (createError) throw createError;
       email = signInEmail;
       created = true;
+      userId = String(createdUser?.user?.id || "");
+    }
+
+    // The account carries this person's Facebook identity, so a sign-in that
+    // goes through the sign-in service itself (iPhone Limited Login) reaches
+    // the same account instead of making a second one. A repeat does nothing.
+    if (userId && (created || match?.matched_by !== "facebook")) {
+      const { error: linkIdentityError } = await admin.rpc("kunthai_link_facebook_identity", {
+        p_user_id: userId,
+        p_facebook_id: facebookId,
+        p_identity: {
+          name: profile.name || "",
+          full_name: profile.name || "",
+          ...(facebookEmail ? { email: facebookEmail, email_verified: true } : {}),
+          provider_id: facebookId,
+        },
+      });
+      if (linkIdentityError) console.error("facebook-native-signin: identity link failed");
     }
 
     if (!email && match?.user_id) {
