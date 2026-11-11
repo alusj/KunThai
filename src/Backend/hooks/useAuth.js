@@ -6,6 +6,7 @@ import supabase from "../lib/supabaseClient";
 import { clearExploreMessageCache } from "../services/explore/messageService";
 import { clearTransientSessionNavigation, readSessionContinuity, rememberSocialAccount, vaultSessionSnapshot } from "../services/sessionService";
 import { markStartupOffline, startupLooksOffline } from "../services/startupConnection";
+import { hidePlaceholderEmail } from "../services/placeholderEmail";
 
 function isBrokenJwtUser(error) {
   const message = String(error?.message || error || "").toLowerCase();
@@ -46,7 +47,7 @@ function readSavedSessionUser() {
     if (!key || typeof localStorage === "undefined") return null;
     const saved = JSON.parse(localStorage.getItem(key) || "null");
     const user = saved?.user || saved?.currentSession?.user || null;
-    return user?.id ? user : null;
+    return user?.id ? hidePlaceholderEmail(user) : null;
   } catch {
     return null;
   }

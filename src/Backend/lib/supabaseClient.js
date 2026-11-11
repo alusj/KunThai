@@ -2,6 +2,7 @@ import { createClient } from "@supabase/supabase-js";
 
 import { createReadRetryingFetch, setConnectivityProbeUrl } from "../services/networkService";
 import { captureOAuthReturn } from "../services/oauthReturnService";
+import { hidePlaceholderEmail } from "../services/placeholderEmail";
 import { isRetryableSupabaseRead } from "./supabaseReadRequests";
 
 const supabaseUrl = import.meta.env.VITE_SUPABASE_URL;
@@ -55,6 +56,22 @@ const supabase = createClient(supabaseUrl, supabaseAnonKey, {
 // only affects the local identity check — an invalid/expired token still fails
 // at the actual query. When there is genuinely no session, the user is null and
 // the normal sign-in prompts still fire.
+// A sign-in placeholder address (placeholderEmail.js) never reaches the app:
+// it is cleared from the user wherever supabase-js hands one over (the saved
+// session, the server check and every auth event), so the account reads as
+// what it is, one with no email.
+const nativeGetSession = supabase.auth.getSession.bind(supabase.auth);
+supabase.auth.getSession = async (...args) => {
+  const result = await nativeGetSession(...args);
+  hidePlaceholderEmail(result?.data?.session?.user);
+  return result;
+};
+const nativeOnAuthStateChange = supabase.auth.onAuthStateChange.bind(supabase.auth);
+supabase.auth.onAuthStateChange = (callback) => nativeOnAuthStateChange((event, session) => {
+  hidePlaceholderEmail(session?.user);
+  return callback(event, session);
+});
+
 const nativeGetUser = supabase.auth.getUser.bind(supabase.auth);
 async function cachedSessionUser() {
   try {
@@ -78,6 +95,7 @@ async function validatedUser(jwt) {
     return { data: { user: await cachedSessionUser() }, error: null };
   }
   const result = await nativeGetUser(jwt).catch((error) => ({ data: { user: null }, error }));
+  hidePlaceholderEmail(result?.data?.user);
   if (result?.data?.user?.id) return result;
   // Only a network fault falls back to the cached session; a real auth
   // rejection passes through so genuine sign-outs still work.

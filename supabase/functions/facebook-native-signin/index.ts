@@ -13,6 +13,14 @@
 //   4. returns a one-time sign-in token hash (admin generateLink, nothing is
 //      emailed) that the app redeems with supabase.auth.verifyOtp.
 //
+// An account with no email (Facebook shared none, e.g. a phone-number Facebook
+// account) cannot get that one-time token, so it is given an internal sign-in
+// address first: fb_<facebook id>@kunthai.invalid, already confirmed, never
+// emailed (".invalid" cannot receive mail) and never shown: the app clears it
+// (src/Backend/services/placeholderEmail.js) and the database triggers skip
+// it (public.kunthai_visible_email). If Facebook does share an email, the
+// account gets that real address instead.
+//
 // Environment: SUPABASE_URL, SUPABASE_SERVICE_ROLE_KEY (provided by Supabase),
 // optional FACEBOOK_APP_ID (defaults to KunThai's) and FACEBOOK_APP_SECRET
 // (only needed if "Require App Secret" is on in the Facebook app; then every
@@ -24,6 +32,11 @@ const FACEBOOK_APP_ID = Deno.env.get("FACEBOOK_APP_ID") || "1594667472308339";
 const FACEBOOK_APP_SECRET = Deno.env.get("FACEBOOK_APP_SECRET") || "";
 const GRAPH = "https://graph.facebook.com/v24.0";
 const REQUEST_TIMEOUT_MS = 10_000;
+const PLACEHOLDER_EMAIL_DOMAIN = "kunthai.invalid";
+
+function placeholderEmail(facebookId: string) {
+  return `fb_${facebookId}@${PLACEHOLDER_EMAIL_DOMAIN}`;
+}
 
 const CORS_HEADERS = {
   "Access-Control-Allow-Origin": "*",
@@ -106,18 +119,27 @@ Deno.serve(async (request) => {
     });
     if (lookupError) throw lookupError;
 
-    const match = Array.isArray(matches) ? matches[0] : null;
+    let match = Array.isArray(matches) ? matches[0] : null;
+    if (!match) {
+      // An account this function created earlier on the internal sign-in
+      // address has no Facebook identity row; it is found by that address.
+      const { data: placeholderMatches, error: placeholderError } = await admin.rpc("kunthai_facebook_signin_lookup", {
+        p_facebook_id: facebookId,
+        p_email: placeholderEmail(facebookId),
+      });
+      if (placeholderError) throw placeholderError;
+      match = Array.isArray(placeholderMatches) ? placeholderMatches[0] : null;
+    }
     let email = String(match?.email || "");
     let created = false;
 
     if (!match) {
-      // Same rule as the web sign-in: KunThai needs the Facebook email.
-      if (!facebookEmail) {
-        return json(422, { code: "facebook_no_email", message: "Facebook did not share your email address." });
-      }
+      // Facebook shared no email: the account is created on its internal
+      // sign-in address and reads as an account without an email.
+      const signInEmail = facebookEmail || placeholderEmail(facebookId);
       const picture = profile.picture?.data?.is_silhouette ? "" : profile.picture?.data?.url || "";
       const { error: createError } = await admin.auth.admin.createUser({
-        email: facebookEmail,
+        email: signInEmail,
         email_confirm: true,
         user_metadata: {
           iss: "https://graph.facebook.com/me",
@@ -128,20 +150,34 @@ Deno.serve(async (request) => {
           ...(profile.first_name ? { given_name: profile.first_name } : {}),
           ...(profile.last_name ? { family_name: profile.last_name } : {}),
           ...(picture ? { avatar_url: picture, picture } : {}),
-          email: facebookEmail,
-          email_verified: true,
+          ...(facebookEmail ? { email: facebookEmail, email_verified: true } : {}),
           signed_in_with: "facebook_native",
         },
       });
       if (createError) throw createError;
-      email = facebookEmail;
+      email = signInEmail;
       created = true;
     }
 
+    if (!email && match?.user_id) {
+      // The account linked to this Facebook person has no email, so there is
+      // nothing to issue a one-time token for. Give it Facebook's own email
+      // when Facebook shares one and no other account has it; otherwise the
+      // internal sign-in address. Confirmed at once: nothing is sent.
+      const candidates = facebookEmail ? [facebookEmail, placeholderEmail(facebookId)] : [placeholderEmail(facebookId)];
+      for (const candidate of candidates) {
+        const { error: updateError } = await admin.auth.admin.updateUserById(match.user_id, {
+          email: candidate,
+          email_confirm: true,
+        });
+        if (!updateError) {
+          email = candidate;
+          break;
+        }
+      }
+    }
+
     if (!email) {
-      // An account linked to this Facebook person but without an email (e.g.
-      // a phone account) cannot get a one-time email token; the app falls
-      // back to the web sign-in.
       return json(409, { code: "account_without_email", message: "Use the web Facebook sign-in for this account." });
     }
 

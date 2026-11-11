@@ -39,7 +39,11 @@ function verifiedAuthPhone(user) {
 
 export function buildProfileFromUser(user) {
   const metadata = user?.user_metadata ?? {};
-  const provider = user?.app_metadata?.provider ?? "email";
+  // An account created by the native Facebook sign-in is stored by the
+  // sign-in service as an "email" account; its metadata says where it came from.
+  const provider = metadata.signed_in_with === "facebook_native"
+    ? "facebook"
+    : user?.app_metadata?.provider ?? "email";
   const providerName =
     provider === "google"
       ? "Google"

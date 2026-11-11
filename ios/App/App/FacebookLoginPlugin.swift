@@ -69,9 +69,7 @@ public class KunThaiFacebookLoginPlugin: CAPPlugin, CAPBridgedPlugin {
             // prompt is shown once, here, the first time Facebook is chosen.
             // Whatever the answer, sign-in carries on.
             self.requestTrackingIfUndecided {
-                self.waitForAppSwitchSetting {
-                    self.startLogin(call, permissions: permissions, hashedNonce: hashedNonce)
-                }
+                self.startLogin(call, permissions: permissions, hashedNonce: hashedNonce)
             }
         }
     }
@@ -86,34 +84,18 @@ public class KunThaiFacebookLoginPlugin: CAPPlugin, CAPBridgedPlugin {
         }
     }
 
-    // Whether the SDK may switch to the Facebook app is a setting it fetches
-    // from Facebook after it starts, and it counts as "no" until it arrives.
-    // A sign-in started before then used the web login page. Wait for it
-    // (2 s at most) before starting.
-    private func waitForAppSwitchSetting(_ done: @escaping () -> Void) {
-        var finished = false
-        let finish: (String) -> Void = { note in
-            DispatchQueue.main.async {
-                if finished { return }
-                finished = true
-                #if DEBUG
-                print("[kt-facebook] appSwitchSetting \(note)")
-                #endif
-                done()
-            }
-        }
-        _FeatureManager.shared.check(.loginFastAppSwitch) { enabled in
-            finish("loaded enabled=\(enabled)")
-        }
-        DispatchQueue.main.asyncAfter(deadline: .now() + 2) { finish("timed out") }
-    }
-
     private func startLogin(_ call: CAPPluginCall, permissions: [String], hashedNonce: String) {
         do {
             // Classic login (tracking enabled) is the mode that can switch to
             // the Facebook app; the SDK itself falls back to Limited Login in
             // its browser sheet when the phone does not allow tracking.
-            guard let configuration = LoginConfiguration(permissions: permissions, tracking: .enabled, nonce: hashedNonce) else {
+            // No switch to the Facebook app (appSwitch: .disabled). Tried on
+            // 2026-11-11 with SDK 18.1.1: KunThai handed over correctly, but
+            // the Facebook app opened on its feed, never showed its confirm
+            // screen and never came back, so sign-in was stuck. The SDK's own
+            // sign-in sheet does return; with tracking allowed it uses the
+            // person's Facebook session and offers the Facebook app itself.
+            guard let configuration = LoginConfiguration(permissions: permissions, tracking: .enabled, nonce: hashedNonce, appSwitch: .disabled) else {
                 self.inProgress = false
                 call.reject("Could not start Facebook sign-in.", "bad_configuration")
                 return
