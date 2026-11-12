@@ -1,7 +1,6 @@
 import supabase from "../../lib/supabaseClient";
-import { isMissingColumn, isMissingTable, isUniqueViolation } from "./errors";
+import { isMissingColumn, isMissingTable } from "./errors";
 import {
-  escapeLikePattern,
   isInlineImageUrl,
   resolveProfileDisplayName,
   sameUsername,
@@ -162,13 +161,8 @@ export async function ensureExploreProfile(user) {
     userId: user.id,
   };
 
-  let row = await upsertExploreProfile(user.id, fallback).catch((error) => (isUniqueViolation(error) ? "taken" : null));
-  if (row === "taken") {
-    // The generated username belongs to someone else (usernames are unique
-    // ignoring case): keep it recognisable with a short suffix.
-    fallback.username = `${String(fallback.username || "user").slice(0, 24)}_${user.id.replace(/-/g, "").slice(0, 5)}`;
-    row = await upsertExploreProfile(user.id, fallback).catch(() => null);
-  }
+  // Usernames may repeat between people (the KunThai ID tells them apart).
+  const row = await upsertExploreProfile(user.id, fallback).catch(() => null);
   const profile = row ? toAppProfile(row, fallback) : fallback;
   writeStoredProfile(user.id, profile);
   return profile;
@@ -199,21 +193,6 @@ export class ProfileSaveError extends Error {
     this.name = "ProfileSaveError";
     this.code = code;
   }
-}
-
-async function usernameTakenByOther(userId, username) {
-  const { data, error } = await supabase
-    .from("explore_profiles")
-    .select("user_id")
-    .ilike("username", escapeLikePattern(username))
-    .neq("user_id", userId)
-    .limit(1);
-
-  if (error) {
-    if (isMissingTable(error)) return false;
-    throw error;
-  }
-  return Boolean(data?.length);
 }
 
 // Uploads a newly chosen image. A failed upload never stores the inline data:
@@ -279,9 +258,6 @@ export async function updateExploreProfile(patch) {
     if (reason) {
       throw new ProfileSaveError(`username-${reason}`, "Usernames are 3-30 letters, numbers, dots or underscores, and cannot start with a dot.");
     }
-    if (await usernameTakenByOther(user.id, username)) {
-      throw new ProfileSaveError("username-taken", "That username is taken. Try another one.");
-    }
   }
 
   // A display name is required; it falls back to the username, never to an email.
@@ -304,17 +280,9 @@ export async function updateExploreProfile(patch) {
     coverUploadFailed: cover.failed,
   };
 
-  // Save the public profile first: a taken username stops the save before the
-  // account details change.
-  let savedRow = null;
-  try {
-    savedRow = await upsertExploreProfile(user.id, updated);
-  } catch (error) {
-    if (isUniqueViolation(error)) {
-      throw new ProfileSaveError("username-taken", "That username is taken. Try another one.");
-    }
-    throw error;
-  }
+  // Save the public profile first. Usernames may repeat between people: the
+  // KunThai ID is what tells accounts apart.
+  const savedRow = await upsertExploreProfile(user.id, updated);
   if (savedRow?.updated_at) updated.updatedAt = savedRow.updated_at;
 
   const authData = {

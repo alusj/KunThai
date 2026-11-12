@@ -3,6 +3,7 @@ import { Cake, Camera, CheckCircle2, Mail, MapPin, Phone, Search, ShieldCheck } 
 import { FaFacebookF, FaInstagram, FaTiktok, FaTwitter, FaWhatsapp, FaYoutube } from "react-icons/fa";
 
 import { EMAIL_ALREADY_LINKED_CODE, PHONE_ALREADY_LINKED_CODE } from "../../Backend/services/accountIdentityService";
+import { isPhoneUsedByAnotherAccount } from "../../Backend/services/phoneOwnershipService";
 import { detectSocialPlatform, normalizeSocialLinks } from "../../Backend/services/explore/socialLinks";
 import FindAccountModal from "../auth/FindAccountModal";
 import RecoveryEmailNote from "../auth/RecoveryEmailNote";
@@ -139,7 +140,11 @@ export default function ProfileStep({ values, saving = false, error, errorCode =
   const formRef = useRef(null);
   const ageYears = computeAgeYears(values.dateOfBirth);
   const isUnderage = ageYears !== null && ageYears < MINIMUM_AGE;
-  const phoneConflict = errorCode === PHONE_ALREADY_LINKED_CODE;
+  // The number the inline check found on another account (cleared on edit).
+  const [takenPhone, setTakenPhone] = useState("");
+  const [checkingPhone, setCheckingPhone] = useState(false);
+  const phoneConflict = errorCode === PHONE_ALREADY_LINKED_CODE
+    || (Boolean(takenPhone) && takenPhone === String(values.phone || "").trim());
   const emailConflict = errorCode === EMAIL_ALREADY_LINKED_CODE;
   // A phone sign-up keeps the number it verified: changing it here would no
   // longer match the number used to sign in.
@@ -162,6 +167,27 @@ export default function ProfileStep({ values, saving = false, error, errorCode =
   const emailValue = values.email.trim();
   const emailValid = !emailValue || /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(emailValue);
 
+  // One phone number, one KunThai account: check the number while the person
+  // types, so a number already used elsewhere is refused before Continue.
+  const phoneToCheck = !phoneLocked && phoneValidation.valid ? String(values.phone || "").trim() : "";
+  const phoneCheckCountry = phoneCountry?.iso2 || "";
+  useEffect(() => {
+    if (!phoneToCheck) return undefined;
+    let active = true;
+    const timer = window.setTimeout(async () => {
+      setCheckingPhone(true);
+      const used = await isPhoneUsedByAnotherAccount(phoneToCheck, phoneCheckCountry);
+      if (!active) return;
+      setCheckingPhone(false);
+      setTakenPhone(used === true ? phoneToCheck : "");
+    }, 450);
+    return () => {
+      active = false;
+      window.clearTimeout(timer);
+      setCheckingPhone(false);
+    };
+  }, [phoneToCheck, phoneCheckCountry]);
+
   // A save rejected for a taken email or phone points at that field.
   useEffect(() => {
     if (emailConflict || phoneConflict) scrollToFirstBlockingFieldSoon(formRef.current);
@@ -182,7 +208,7 @@ export default function ProfileStep({ values, saving = false, error, errorCode =
     return nextErrors;
   }
 
-  function handleContinue() {
+  async function handleContinue() {
     const nextErrors = validateProfileFields();
     setFieldErrors(nextErrors);
     // Age is a hard eligibility gate: surface the caution card and stop here.
@@ -194,6 +220,15 @@ export default function ProfileStep({ values, saving = false, error, errorCode =
     if (Object.keys(nextErrors).length) {
       scrollToFirstBlockingFieldSoon(formRef.current);
       return;
+    }
+    // Never move on with a number another account already uses.
+    if (phoneToCheck) {
+      const used = await isPhoneUsedByAnotherAccount(phoneToCheck, phoneCheckCountry);
+      if (used === true) {
+        setTakenPhone(phoneToCheck);
+        scrollToFirstBlockingFieldSoon(formRef.current);
+        return;
+      }
     }
     onNext?.();
   }
@@ -615,7 +650,7 @@ export default function ProfileStep({ values, saving = false, error, errorCode =
         ) : null}
         <button
           type="button"
-          disabled={saving}
+          disabled={saving || phoneConflict || checkingPhone}
           onClick={handleContinue}
           className="rounded-[20px] bg-slate-950 px-5 py-3 text-sm font-semibold text-white transition hover:bg-slate-800 disabled:cursor-not-allowed disabled:opacity-50"
         >
