@@ -1,6 +1,7 @@
 import supabase from "../../lib/supabaseClient";
 import { uploadSmallCopy } from "../../lib/smallImageCopy";
 import { isMissingTable } from "../explore/errors";
+import { assertNotOwnBusiness, toSelfActionError } from "../selfActionGuard";
 import { optimizeImageFile } from "./imageOptimization";
 import { COUNTRY_PRIMARY_TIMEZONES } from "../../../data/timezoneCountries";
 import { assertPromotionTargeting, normalizeCountrySelection, promotionReachesCountry } from "../regions/promotionTargeting";
@@ -643,9 +644,11 @@ export async function createVerticalBooking(product, input = {}) {
   };
   if (!payload.business_id || !["hotel", "property"].includes(payload.listing_type)) throw new Error("This listing cannot accept bookings yet.");
   if (!payload.buyer_name || !payload.phone || !payload.start_date) throw new Error("Add your name, phone number, and booking date.");
+  // A business owner never books their own listing.
+  await assertNotOwnBusiness(payload.business_id, buyerId);
 
   const { data, error } = await supabase.from("marketplace_vertical_bookings").insert(payload).select().single();
-  if (error) throw new Error(error.message || "Unable to send this booking request.");
+  if (error) throw toSelfActionError(new Error(error.message || "Unable to send this booking request."));
   window.dispatchEvent(new CustomEvent("marketplace-vertical-activity-updated", { detail: { businessId: payload.business_id } }));
   return data;
 }

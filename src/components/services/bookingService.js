@@ -1,6 +1,7 @@
 import supabase from "../../Backend/lib/supabaseClient";
 import { supportTicketPriority } from "./transportSupportPriority";
 import { friendlyErrorMessage } from "../../Backend/services/friendlyErrorService";
+import { assertNotOwnFleets, toSelfActionError } from "../../Backend/services/selfActionGuard";
 import { getActiveCountryProfile, getCountryCurrencyCode } from "../../data/globalCountryProfiles";
 import { calculateFleetFare } from "./transportPricingService";
 import { defaultFleetService } from "./fleetServiceOffer";
@@ -117,6 +118,8 @@ export async function createTransportBooking(booking) {
   if (!targetFleets.length) {
     throw new Error("Choose at least one nearby operator before sending this booking.");
   }
+  // An operator never books their own fleet.
+  await assertNotOwnFleets(targetFleets.map((target) => target.id), passenger.id);
 
   const tripType = normalizeTripType(booking.mode, fleet);
   const passengerName = buildPassengerName(passenger, booking);
@@ -212,6 +215,8 @@ export async function createTransportBooking(booking) {
   }
 
   if (error) {
+    const selfError = toSelfActionError(error);
+    if (selfError !== error) throw selfError;
     throw new Error(friendlyErrorMessage(error, "Unable to send this booking to the operator."));
   }
 

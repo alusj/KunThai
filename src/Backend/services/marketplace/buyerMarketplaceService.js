@@ -1,4 +1,5 @@
 import supabase from "../../lib/supabaseClient";
+import { assertNotOwnBusiness, SELF_MESSAGE_CODE, toSelfActionError } from "../selfActionGuard";
 import { cachedQuery, invalidateCache } from "../../lib/queryCache";
 import {
   fetchHiddenMarketplaceMessageIds,
@@ -1285,6 +1286,8 @@ export async function checkoutBuyerCart(deliveryLocation = "", options = {}) {
 export async function createBuyerProductOrder(product, orderInput = {}) {
   const buyer = await getCurrentBuyer("Sign in to order this product.");
   if (!product?.id || !product?.businessId) throw new Error("Choose a valid product.");
+  // A business owner never orders from their own business.
+  await assertNotOwnBusiness(product.businessId, buyer.id);
 
   const requestedQuantity = Number(orderInput.quantity || 1);
   if (!Number.isFinite(requestedQuantity)) throw new Error("Enter a valid order quantity.");
@@ -1330,7 +1333,7 @@ export async function createBuyerProductOrder(product, orderInput = {}) {
       ...orderCountryContext(product),
     });
 
-  if (error) throw new Error(error.message);
+  if (error) throw toSelfActionError(new Error(error.message));
 
   // Optional front picture of the delivery address. Never fails the order.
   const orderId = Array.isArray(data) ? data[0]?.id : data?.id;
@@ -1609,6 +1612,8 @@ export async function sendBuyerMarketplaceMessage({ seller, product, topic, mess
   const buyer = await getCurrentBuyer("Sign in to message this seller.");
   const businessId = seller?.id || product?.businessId;
   if (!businessId) throw new Error("Choose a seller to message.");
+  // A business owner never messages their own business as a customer.
+  await assertNotOwnBusiness(businessId, buyer.id, SELF_MESSAGE_CODE);
   const conversationTopic = topic?.trim() || product?.name || "UrMall message";
   const productId = product?.isVertical ? null : product?.id || null;
   const conversationContext = product?.isVertical ? `${product.verticalType || "listing"}:${product.id}` : productId;
@@ -1637,7 +1642,7 @@ export async function sendBuyerMarketplaceMessage({ seller, product, topic, mess
     .select()
     .single();
 
-  if (error) throw new Error(error.message);
+  if (error) throw toSelfActionError(new Error(error.message));
   invalidateCache("buyer-messages");
   window.dispatchEvent(new CustomEvent("marketplace-message-sent"));
   window.dispatchEvent(new CustomEvent("marketplace-seller-messages-updated"));
