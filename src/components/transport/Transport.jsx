@@ -10,6 +10,7 @@ import FleetListScreen from "./FleetListScreen";
 import FleetProfileScreen from "./FleetProfileScreen";
 import NearbyAreaScreen from "./NearbyAreaScreen";
 import OperatorDashboardScreen from "./OperatorDashboardScreen";
+import OwnSurfaceOpeningSkeleton from "./OwnSurfaceOpeningSkeleton";
 import SavedOperatorsScreen from "./SavedOperatorsScreen";
 import TransportBookingDrawer from "./booking/TransportBookingDrawer";
 import CompanyWorkspaceScreen from "./CompanyWorkspaceScreen";
@@ -1992,29 +1993,14 @@ export default function Transport({
   // dashboard as soon as the account is known.
   if (pendingOwnSurface) {
     return renderWithAreaView(
-      <div className={`${routePanelClass} kt-mobile-viewport flex min-h-full flex-col bg-gray-50`}>
-        <div className="flex items-center gap-3 px-4 pb-3 pt-[max(0.75rem,env(safe-area-inset-top))]">
-          <AppBackTab
-            onBack={() => {
-              setRouteDirection("backward");
-              setPendingOwnSurface("");
-            }}
-            label={t("urride.transport.back.transport")}
-            historyKey="transport-opening-own-surface"
-            className="rounded-full border border-slate-200 bg-white hover:bg-slate-50"
-          />
-          <h1 className="truncate text-lg font-black text-slate-950">
-            {pendingOwnSurface === "company" ? t("urride.header.openFleetHq") : t("urride.header.openMyFleet")}
-          </h1>
-        </div>
-        <div className="space-y-3 px-4" role="status" aria-live="polite" data-loading-region="own-surface-opening">
-          <div className="kt-startup-shimmer h-28 rounded-3xl bg-slate-200/70" />
-          <div className="grid grid-cols-2 gap-3">
-            <div className="kt-startup-shimmer h-24 rounded-3xl bg-slate-200/70" />
-            <div className="kt-startup-shimmer h-24 rounded-3xl bg-slate-200/70" />
-          </div>
-          <div className="kt-startup-shimmer h-40 rounded-3xl bg-slate-200/70" />
-        </div>
+      <div className={routePanelClass}>
+        <OwnSurfaceOpeningSkeleton
+          kind={pendingOwnSurface}
+          onBack={() => {
+            setRouteDirection("backward");
+            setPendingOwnSurface("");
+          }}
+        />
       </div>,
     );
   }
