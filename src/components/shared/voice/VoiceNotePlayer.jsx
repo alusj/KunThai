@@ -45,7 +45,28 @@ export default function VoiceNotePlayer({ src = "", seed = "", durationHint = 0,
     fallbackRef.current = null;
   }, [src, durationHint]);
 
-  useEffect(() => () => fallbackRef.current?.stop?.(), []);
+  useEffect(() => () => {
+    fallbackRef.current?.stop?.();
+    fallbackRef.current?.context?.close?.().catch?.(() => {});
+  }, []);
+
+  // Leaving the screen (or locking the phone): the note stops and its audio
+  // engine closes, so iOS keeps no lock-screen "Now Playing" card. The
+  // decoded note stays; the next play opens a new engine.
+  useEffect(() => {
+    function release() {
+      if (document.visibilityState !== "hidden" || !fallbackRef.current?.context) return;
+      fallbackRef.current.stop?.();
+      fallbackRef.current.context.close?.().catch?.(() => {});
+      fallbackRef.current = { ...fallbackRef.current, context: null };
+    }
+    document.addEventListener("visibilitychange", release);
+    window.addEventListener("pagehide", release);
+    return () => {
+      document.removeEventListener("visibilitychange", release);
+      window.removeEventListener("pagehide", release);
+    };
+  }, []);
 
   // MediaRecorder files often carry no duration (Infinity). Seeking far past
   // the end makes the browser work it out; then jump back to the start.
@@ -75,7 +96,8 @@ export default function VoiceNotePlayer({ src = "", seed = "", durationHint = 0,
     setDecoding(true);
     try {
       let decoded = fallbackRef.current?.buffer;
-      const context = fallbackRef.current?.context || new Context();
+      const previous = fallbackRef.current?.context;
+      const context = previous && previous.state !== "closed" ? previous : new Context();
       if (!decoded) {
         const response = await fetch(src);
         if (!response.ok) throw new Error("fetch failed");

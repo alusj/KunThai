@@ -252,6 +252,24 @@ export function releaseMediaWhileHidden() {
   if (typeof document === "undefined") return 0;
   // The sound-effect engine too (feedbackService.js registers this).
   window.__ktSuspendSoundEffects?.();
+  // Nothing for the lock screen to show: no title, no playback state, no
+  // play / skip buttons.
+  try {
+    const session = navigator.mediaSession;
+    if (session) {
+      session.metadata = null;
+      session.playbackState = "none";
+      ["play", "pause", "seekbackward", "seekforward", "previoustrack", "nexttrack", "seekto", "stop"].forEach((action) => {
+        try {
+          session.setActionHandler(action, null);
+        } catch {
+          // An action this browser does not know.
+        }
+      });
+    }
+  } catch {
+    // No Media Session support.
+  }
   document.querySelectorAll("audio, video").forEach((media) => {
     const src = media.getAttribute("src");
     if (!src || releasedMedia.has(media)) return;
