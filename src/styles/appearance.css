@@ -6,15 +6,40 @@
  * replacing component classes or touching interaction and layout logic.
  */
 
-/* Settings > Appearance > Text size. Every Tailwind size is in rem, so the
- * page's base size scales text (and its spacing) across all services.
- * Medium is the browser default. Form fields keep 16px (no iOS zoom). */
+/* Settings > Appearance > Text size, close to Facebook's app at Medium
+ * (body text about 15px, names and times about 13px). Only text grows:
+ * Tailwind's text sizes multiply by --kt-text-scale (tailwind.config.js),
+ * spacing and icons keep their size. Small is the text KunThai had before;
+ * Medium is the default. Form fields never go under 16px (no iOS zoom). */
+:root {
+  --kt-text-scale: 1.1;
+}
+
 html[data-text-size="small"] {
-  font-size: 87.5%;
+  --kt-text-scale: 1;
 }
 
 html[data-text-size="large"] {
-  font-size: 112.5%;
+  --kt-text-scale: 1.22;
+}
+
+body {
+  font-size: calc(1rem * var(--kt-text-scale));
+  font-weight: 500;
+  -webkit-font-smoothing: antialiased;
+}
+
+/* Fixed-pixel sizes used for small labels follow the setting too. */
+html .text-\[9px\] { font-size: calc(9px * var(--kt-text-scale)); }
+html .text-\[10px\] { font-size: calc(10px * var(--kt-text-scale)); }
+html .text-\[11px\] { font-size: calc(11px * var(--kt-text-scale)); }
+html .text-\[13px\] { font-size: calc(13px * var(--kt-text-scale)); }
+html .text-\[15px\] { font-size: calc(15px * var(--kt-text-scale)); }
+
+html input,
+html textarea,
+html select {
+  font-size: max(16px, calc(1rem * var(--kt-text-scale)));
 }
 
 :root {

@@ -28,6 +28,33 @@ export default {
         },
       },
 
+      // Settings > Appearance > Text size scales text only (appearance.css sets
+      // --kt-text-scale): spacing, buttons and icons keep their size, so a
+      // bigger text never crowds the headers. Line heights follow the text.
+      fontSize: {
+        xs: ["calc(0.75rem * var(--kt-text-scale, 1))", { lineHeight: "calc(1rem * var(--kt-text-scale, 1))" }],
+        sm: ["calc(0.875rem * var(--kt-text-scale, 1))", { lineHeight: "calc(1.25rem * var(--kt-text-scale, 1))" }],
+        base: ["calc(1rem * var(--kt-text-scale, 1))", { lineHeight: "calc(1.5rem * var(--kt-text-scale, 1))" }],
+        lg: ["calc(1.125rem * var(--kt-text-scale, 1))", { lineHeight: "calc(1.75rem * var(--kt-text-scale, 1))" }],
+        xl: ["calc(1.25rem * var(--kt-text-scale, 1))", { lineHeight: "calc(1.75rem * var(--kt-text-scale, 1))" }],
+        "2xl": ["calc(1.5rem * var(--kt-text-scale, 1))", { lineHeight: "calc(2rem * var(--kt-text-scale, 1))" }],
+        "3xl": ["calc(1.875rem * var(--kt-text-scale, 1))", { lineHeight: "calc(2.25rem * var(--kt-text-scale, 1))" }],
+        "4xl": ["calc(2.25rem * var(--kt-text-scale, 1))", { lineHeight: "calc(2.5rem * var(--kt-text-scale, 1))" }],
+        "5xl": ["calc(3rem * var(--kt-text-scale, 1))", { lineHeight: "1" }],
+        "6xl": ["calc(3.75rem * var(--kt-text-scale, 1))", { lineHeight: "1" }],
+      },
+
+      // One step heavier everywhere, like Facebook's app: body text is never
+      // thin, and the order (normal < medium < semibold < bold < black) stays.
+      fontWeight: {
+        normal: "500",
+        medium: "600",
+        semibold: "700",
+        bold: "800",
+        extrabold: "800",
+        black: "900",
+      },
+
       boxShadow: {
         soft: "0 4px 12px rgba(0,0,0,0.15)",
         card: "0 6px 20px rgba(0,0,0,0.25)",
