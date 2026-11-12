@@ -36,6 +36,22 @@ function getContainedImageRect(image) {
   };
 }
 
+// The closed viewer's photo, drawn at its open size but moved and scaled
+// over the thumbnail and clipped to the thumbnail's crop (object-cover) and
+// corners. Only transform and clip-path change between closed and open, so
+// the zoom runs on the compositor instead of re-laying out every frame.
+function sharedClosedStyle(origin, target, radius) {
+  const scale = Math.max(origin.width / target.width, origin.height / target.height) || 1;
+  const dx = origin.left + origin.width / 2 - (target.left + target.width / 2);
+  const dy = origin.top + origin.height / 2 - (target.top + target.height / 2);
+  const insetX = Math.max(0, (target.width - origin.width / scale) / 2);
+  const insetY = Math.max(0, (target.height - origin.height / scale) / 2);
+  return {
+    transform: `translate3d(${dx}px, ${dy}px, 0) scale(${scale})`,
+    clipPath: `inset(${insetY}px ${insetX}px ${insetY}px ${insetX}px round ${radius / scale}px)`,
+  };
+}
+
 function readElementRect(element) {
   if (!element) return null;
   const rect = element.getBoundingClientRect();
@@ -74,6 +90,9 @@ export default function ZoomableImage({
   const [viewerTarget, setViewerTarget] = useState(null);
   const [imageStatus, setImageStatus] = useState(src ? "loading" : "idle");
   const [imageRetryKey, setImageRetryKey] = useState(0);
+  // The full-size photo fades in over the feed's copy once it has loaded.
+  const [fullImageLoaded, setFullImageLoaded] = useState(false);
+  const [fullImageFailed, setFullImageFailed] = useState(false);
   const thumbnailButtonRef = useRef(null);
   const thumbnailImageRef = useRef(null);
   const viewerTimerRef = useRef(null);
@@ -84,6 +103,9 @@ export default function ZoomableImage({
     if (!imagePreviewOpen || viewerPhase === "exiting") return;
 
     window.clearTimeout(viewerTimerRef.current);
+    // Fly back to where the post is now (the feed may have moved).
+    const currentOrigin = readElementRect(thumbnailButtonRef.current);
+    if (currentOrigin && currentOrigin.width > 0) setViewerOrigin(currentOrigin);
     setViewerPhase("exiting");
     viewerTimerRef.current = window.setTimeout(() => {
       setImagePreviewOpen(false);
@@ -163,6 +185,8 @@ export default function ZoomableImage({
     window.clearTimeout(viewerTimerRef.current);
     setViewerOrigin(origin);
     setViewerTarget(getContainedImageRect(thumbnailImageRef.current));
+    setFullImageLoaded(false);
+    setFullImageFailed(false);
     setViewerPhase("entering");
     setImagePreviewOpen(true);
   }
@@ -265,35 +289,63 @@ export default function ZoomableImage({
                 </button>
               </div>
 
-              <img
-                ref={viewerGestures.imageRef}
-                src={src}
-                alt={translateUi(alt)}
-                draggable="false"
-                onError={() => {
-                  setImageStatus("error");
-                  closeImagePreview();
-                }}
-                className="kt-image-viewer-shared fixed z-10 select-none object-contain shadow-2xl [backface-visibility:hidden]"
-                style={{
-                  left: `${(viewerPhase === "open" ? viewerTarget : viewerOrigin).left}px`,
-                  top: `${(viewerPhase === "open" ? viewerTarget : viewerOrigin).top}px`,
-                  width: `${(viewerPhase === "open" ? viewerTarget : viewerOrigin).width}px`,
-                  height: `${(viewerPhase === "open" ? viewerTarget : viewerOrigin).height}px`,
-                  borderRadius: viewerPhase === "open" ? `${viewerGestures.dismissProgress * 24}px` : `${restRadius}px`,
-                  transform: viewerPhase === "open"
-                    ? `translate3d(${viewerGestures.pan.x + viewerGestures.dragOffset.x}px, ${viewerGestures.pan.y + viewerGestures.dragOffset.y}px, 0) scale(${viewerGestures.scale * (1 - viewerGestures.dismissProgress * 0.12)})`
-                    : "translate3d(0, 0, 0) scale(1)",
-                  transformOrigin: "center",
-                  cursor: viewerGestures.scale > 1
-                    ? viewerGestures.isDragging ? "grabbing" : "grab"
-                    : "zoom-in",
-                  touchAction: "none",
-                  // Not the iPhone's own photo menu: holding opens KunThai's.
-                  WebkitTouchCallout: "none",
-                  transitionDuration: viewerGestures.isDragging ? "0ms" : undefined,
-                }}
-              />
+              {(() => {
+                const open = viewerPhase === "open";
+                const closed = sharedClosedStyle(viewerOrigin, viewerTarget, restRadius);
+                const dragging = viewerGestures.isDragging;
+                return (
+                  <div
+                    ref={viewerGestures.imageRef}
+                    className="kt-image-viewer-shared fixed z-10 select-none overflow-hidden shadow-2xl"
+                    style={{
+                      left: `${viewerTarget.left}px`,
+                      top: `${viewerTarget.top}px`,
+                      width: `${viewerTarget.width}px`,
+                      height: `${viewerTarget.height}px`,
+                      transform: open
+                        ? `translate3d(${viewerGestures.pan.x + viewerGestures.dragOffset.x}px, ${viewerGestures.pan.y + viewerGestures.dragOffset.y}px, 0) scale(${viewerGestures.scale * (1 - viewerGestures.dismissProgress * 0.12)})`
+                        : closed.transform,
+                      clipPath: open
+                        ? `inset(0px 0px 0px 0px round ${viewerGestures.dismissProgress * 24}px)`
+                        : closed.clipPath,
+                      WebkitClipPath: open
+                        ? `inset(0px 0px 0px 0px round ${viewerGestures.dismissProgress * 24}px)`
+                        : closed.clipPath,
+                      transformOrigin: "center",
+                      cursor: viewerGestures.scale > 1
+                        ? dragging ? "grabbing" : "grab"
+                        : "zoom-in",
+                      touchAction: "none",
+                      // Not the iPhone's own photo menu: holding opens KunThai's.
+                      WebkitTouchCallout: "none",
+                      transitionDuration: dragging ? "0ms" : undefined,
+                    }}
+                  >
+                    {/* The copy already shown in the feed: decoded, so the zoom
+                        never starts on a blank frame. */}
+                    <img
+                      src={resizedImageUrl(src, { width: 720, quality: 72 })}
+                      alt={translateUi(alt)}
+                      draggable="false"
+                      className="pointer-events-none absolute inset-0 h-full w-full select-none object-contain"
+                      style={{ WebkitTouchCallout: "none" }}
+                    />
+                    {fullImageFailed ? null : (
+                      <img
+                        src={src}
+                        alt=""
+                        aria-hidden="true"
+                        draggable="false"
+                        decoding="async"
+                        onLoad={() => setFullImageLoaded(true)}
+                        onError={() => setFullImageFailed(true)}
+                        className="pointer-events-none absolute inset-0 h-full w-full select-none object-contain transition-opacity duration-200"
+                        style={{ opacity: fullImageLoaded && open ? 1 : 0, WebkitTouchCallout: "none" }}
+                      />
+                    )}
+                  </div>
+                );
+              })()}
               {/* The menu and Report sheet are portaled, but their events still
                   bubble here through React: keep them from the viewer's gestures. */}
               <div

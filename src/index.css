@@ -1930,13 +1930,15 @@
 }
 
 .kt-image-viewer-shared {
-  will-change: left, top, width, height, border-radius, transform;
+  /* Only compositor-friendly properties move: the photo is laid out once at
+     its open size and zooms in and out with transform and clip-path. */
+  will-change: transform, clip-path;
   transform: translateZ(0);
-  transition-duration: 370ms;
-  transition-property: left, top, width, height, border-radius, transform;
-  /* Gentle ease-out so pinch/double-tap zoom and the swipe-down spring-back
-     glide instead of snapping. */
-  transition-timing-function: cubic-bezier(0.22, 0.61, 0.36, 1);
+  transition-duration: 360ms;
+  transition-property: transform, clip-path, -webkit-clip-path;
+  /* Gentle ease-out so the open/close zoom, pinch/double-tap zoom and the
+     swipe-down spring-back glide instead of snapping. */
+  transition-timing-function: cubic-bezier(0.2, 0.8, 0.2, 1);
 }
 
 @keyframes kt-seller-action-menu-enter {
