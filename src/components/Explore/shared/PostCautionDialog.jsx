@@ -1,7 +1,9 @@
+import { useEffect } from "react";
 import { createPortal } from "react-dom";
+import { AnimatePresence, motion } from "framer-motion";
 import { ExternalLink, ShieldAlert } from "lucide-react";
 
-import { haptics } from "../../../Backend/services/feedbackService";
+import { haptics, sounds } from "../../../Backend/services/feedbackService";
 import { useI18n } from "../../../i18n";
 import { openLegalPage } from "../../shared/legalLinks";
 import { formatPostTime } from "../../../Backend/services/explore/postControls";
@@ -21,21 +23,47 @@ const CAUTION_RULE_KEYS = ["post.cautionRule1", "post.cautionRule2", "post.cauti
 // the check says when instead of "immediately".
 export default function PostCautionDialog({ open, onCancel, onConfirm, submitting = false, scheduledAt = null }) {
   const { t } = useI18n();
-  if (!open) return null;
+
+  // The card asks for attention: a short warning buzz and a soft chime as it
+  // rises (each follows the member's own vibration / sound settings).
+  useEffect(() => {
+    if (!open) return;
+    haptics.warning("explore");
+    sounds.caution("explore");
+  }, [open]);
+
+  if (typeof document === "undefined") return null;
 
   return createPortal(
-    <div className="fixed inset-0 z-[1450] flex items-center justify-center overflow-hidden overscroll-none [contain:strict]" role="presentation">
-      <button
+    <AnimatePresence>
+      {open ? (
+    <motion.div
+      key="post-caution"
+      className="fixed inset-0 z-[1450] flex items-center justify-center overflow-hidden overscroll-none [contain:strict]"
+      role="presentation"
+      initial={{ opacity: 1 }}
+      exit={{ opacity: 1 }}
+      transition={{ duration: 0.22 }}
+    >
+      <motion.button
         type="button"
         aria-label={t("post.goBackEditAria")}
         onClick={onCancel}
-        className="kt-backdrop absolute inset-0 bg-slate-950/65 backdrop-blur-[2px]"
+        className="absolute inset-0 bg-slate-950/65"
+        initial={{ opacity: 0 }}
+        animate={{ opacity: 1 }}
+        exit={{ opacity: 0 }}
+        transition={{ duration: 0.2, ease: "easeOut" }}
       />
-      <section
+      <motion.section
         role="alertdialog"
         aria-modal="true"
         aria-labelledby="post-caution-title"
-        className="kt-toast-expand-in relative m-3 w-full max-w-md overflow-hidden rounded-[28px] border border-orange-300 bg-white shadow-2xl shadow-orange-950/25"
+        className="relative m-3 w-full max-w-md overflow-hidden rounded-[28px] border border-orange-300 bg-white shadow-2xl shadow-orange-950/25 will-change-transform"
+        initial={{ opacity: 0, y: 28, scale: 0.94 }}
+        animate={{ opacity: 1, y: 0, scale: 1 }}
+        exit={{ opacity: 0, y: 18, scale: 0.97, transition: { duration: 0.16, ease: "easeIn" } }}
+        transition={{ type: "spring", stiffness: 380, damping: 30, mass: 0.9 }}
       >
         <div className="h-1.5 bg-gradient-to-r from-orange-500 via-rose-500 to-red-600" />
 
@@ -102,8 +130,10 @@ export default function PostCautionDialog({ open, onCancel, onConfirm, submittin
             </button>
           </div>
         </div>
-      </section>
-    </div>,
+      </motion.section>
+    </motion.div>
+      ) : null}
+    </AnimatePresence>,
     document.body,
   );
 }

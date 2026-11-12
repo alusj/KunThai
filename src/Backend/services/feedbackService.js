@@ -211,6 +211,11 @@ export const sounds = {
   notification(module) {
     playTones([{ from: 880, duration: 0.07 }, { from: 880, duration: 0.07 }], module, "notification");
   },
+  // A soft, low two-note chime: "please read this before you go on" (the
+  // caution card before an Explore post goes live). Quiet on purpose.
+  caution(module) {
+    playTones([{ from: 784, duration: 0.08, volume: 0.035 }, { from: 587, duration: 0.13, volume: 0.035 }], module, "caution");
+  },
   send(module) {
     playTones([{ from: 620, to: 380, duration: 0.11, volume: 0.045 }], module, "send");
   },
