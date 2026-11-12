@@ -55,6 +55,7 @@ import { inlineErrorMessage } from "./Backend/services/friendlyErrorService";
 import { takeOAuthReturnFailure } from "./Backend/services/oauthReturnService";
 import { uiText as translateUi, useI18n as useUiLocale } from "./i18n/index.js";
 import { isNativeApp } from "./Backend/lib/apiUrl";
+import { OAUTH_RETURNING_EVENT } from "./Backend/services/oauthProgress";
 
 function AuthMessage({ tone = "info", children }) {
   useUiLocale();
@@ -510,10 +511,28 @@ export default function Login({ finishingSignIn = false }) {
   // Native OAuth completes asynchronously through the deep-link callback. This
   // listener releases the provider button and surfaces provider/cancel errors;
   // on success the auth-state change routes away from Login on its own.
+  // From the moment Google / Facebook / Apple hand back an account until the
+  // app routes away, the form stays covered by "Signing you in...".
+  const [completingSignIn, setCompletingSignIn] = useState(false);
+  useEffect(() => {
+    function handleReturning(event) {
+      setCompletingSignIn(event.detail?.active !== false);
+    }
+    window.addEventListener(OAUTH_RETURNING_EVENT, handleReturning);
+    return () => window.removeEventListener(OAUTH_RETURNING_EVENT, handleReturning);
+  }, []);
+  // Never leave the cover up if nothing routes away (a stalled network).
+  useEffect(() => {
+    if (!completingSignIn || finishingSignIn) return undefined;
+    const timer = window.setTimeout(() => setCompletingSignIn(false), 25000);
+    return () => window.clearTimeout(timer);
+  }, [completingSignIn, finishingSignIn]);
+
   useEffect(() => {
     function handleOAuthSettled(event) {
       const detail = event.detail || {};
       setProviderLoading("");
+      if (detail.status !== "success") setCompletingSignIn(false);
       if (detail.status === "error") {
         const emailLink = !peekOAuthFlow() && readEmailRecoveryFlag();
         clearOAuthFlow();
@@ -902,7 +921,7 @@ export default function Login({ finishingSignIn = false }) {
 
   return (
     <div className="kt-auth-shell flex flex-col items-center overflow-y-auto bg-slate-100 px-3 pt-[max(0.75rem,env(safe-area-inset-top))] pb-[max(0.75rem,env(safe-area-inset-bottom))] sm:px-4 sm:pt-[max(2rem,env(safe-area-inset-top))] sm:pb-[max(2rem,env(safe-area-inset-bottom))]">
-      {finishingSignIn ? (
+      {finishingSignIn || completingSignIn ? (
         // Signed in; the account check is still running. Cover the form so it
         // does not look like sign-in bounced back to this screen.
         <div

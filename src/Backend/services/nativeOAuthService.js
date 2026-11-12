@@ -17,6 +17,7 @@ import { Browser } from "@capacitor/browser";
 
 import supabase from "../lib/supabaseClient";
 import { describeOAuthFailure } from "./oauthErrors";
+import { emitOAuthReturning } from "./oauthProgress";
 import { canUseNativeAppleSignIn, signInWithNativeApple } from "./appleNativeSignIn";
 import { canUseNativeFacebookSignIn, shouldFallBackToWeb, signInWithNativeFacebook } from "./facebookNativeSignIn";
 
@@ -115,6 +116,9 @@ async function handleCallbackUrl(rawUrl) {
   devLog("callback received");
 
   const { code, error, errorDescription } = parseCallback(url);
+  // Cover Login before the browser closes, so the form never shows while the
+  // code is exchanged.
+  if (code && !error) emitOAuthReturning(true);
 
   // Bring the user back to the app; the SFSafariViewController / Custom Tab has
   // served its purpose.
@@ -231,6 +235,7 @@ async function startNativeFacebookLogin() {
   } catch (err) {
     if (shouldFallBackToWeb(err)) {
       devLog("Facebook native login unavailable, using the browser", { code: err?.code });
+      emitOAuthReturning(false);
       return false;
     }
     devLog("Facebook native login failed");

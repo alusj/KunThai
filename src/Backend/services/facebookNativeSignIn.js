@@ -18,6 +18,7 @@
 import { Capacitor, registerPlugin } from "@capacitor/core";
 
 import supabase from "../lib/supabaseClient";
+import { emitOAuthReturning } from "./oauthProgress";
 import { sha256Hex } from "./appleNativeSignIn";
 
 const KunThaiFacebookLogin = registerPlugin("KunThaiFacebookLogin");
@@ -126,6 +127,8 @@ export async function signInWithNativeFacebook() {
 
   const authenticationToken = result?.authenticationToken || "";
   const accessToken = result?.accessToken || "";
+  // An account was chosen: cover Login while the token becomes a session.
+  if (authenticationToken || accessToken) emitOAuthReturning(true);
 
   if (authenticationToken) {
     try {

@@ -12,6 +12,7 @@
 import { Capacitor, registerPlugin } from "@capacitor/core";
 
 import supabase from "../lib/supabaseClient";
+import { emitOAuthReturning } from "./oauthProgress";
 import { appleNameMetadataPatch } from "./providerNames";
 
 const KunThaiAppleSignIn = registerPlugin("KunThaiAppleSignIn");
@@ -61,6 +62,7 @@ export async function signInWithNativeApple() {
     throw new Error("Apple did not return a sign-in token. Please try again.");
   }
 
+  emitOAuthReturning(true);
   const { data, error } = await supabase.auth.signInWithIdToken({
     provider: "apple",
     token: credential.identityToken,
