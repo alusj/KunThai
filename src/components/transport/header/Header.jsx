@@ -73,17 +73,9 @@ export default function Header({
   const hasCompanyAccount = Boolean(companyAccount?.id || companyAccount?.companyName || companyAccount?.companyCode);
   const accountLoading = operatorLoading || companyLoading;
   // A fresh start: the entrance this account had last time shows at once.
-  // Tapped before the live check answers, it opens once the check is done,
-  // so it never routes on a guess.
+  // Tapped before the live check answers, Transport opens a loading screen at
+  // once and turns it into the right place when the check is done.
   const hintedEntrance = accountLoading && Boolean(accountHint?.operator || accountHint?.company);
-  const [openWhenLoaded, setOpenWhenLoaded] = useState(false);
-  useEffect(() => {
-    if (!openWhenLoaded || accountLoading) return;
-    setOpenWhenLoaded(false);
-    handleOperatorOpen();
-    // handleOperatorOpen only calls the latest onRegisterFleet.
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [accountLoading, openWhenLoaded]);
   const handleNotificationCountChange = useCallback((count) => {
     setPassengerNotificationCount(Number(count || 0));
   }, []);
@@ -147,7 +139,7 @@ export default function Header({
                 badge={0}
                 hasCompanyAccount={Boolean(accountHint?.company)}
                 hasOperatorAccount={Boolean(accountHint?.operator)}
-                onClick={() => setOpenWhenLoaded(true)}
+                onClick={() => onRegisterFleet?.(accountHint?.operator ? "operator" : "company")}
               />
             ) : accountLoading || accountTypeLoading ? (
               // Same placeholder UrMall's seller entry uses: until the operator

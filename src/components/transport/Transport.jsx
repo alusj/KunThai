@@ -251,6 +251,42 @@ export default function Transport({
     setActiveTripsOpen(true);
   }
 
+  // The operator's own surface: their operator dashboard, else the company
+  // workspace, else registration. Decided only on loaded accounts.
+  function routeOwnSurface() {
+    if (operatorAccount) {
+      openOperatorDashboard("dashboard");
+      return;
+    }
+
+    if (companyAccount?.access?.canViewCompanyHq) {
+      setRouteDirection("forward");
+      setCompanyWorkspaceInitialTab("Overview");
+      setCompanyWorkspaceOpen(true);
+      return;
+    }
+
+    openRegistrationChooser();
+  }
+
+  // Header "My fleet" / "Fleet HQ". Always answers the tap at once: the
+  // dashboard when the accounts are known (or the operator account saved on
+  // this phone is already here), otherwise an opening screen that turns into
+  // the right place when they arrive. Never routes on a guess.
+  function openOwnSurface(kind = "") {
+    if (guardGuestAction("register", "transport account")) return;
+    if (!operatorLoading && !companyLoading) {
+      routeOwnSurface();
+      return;
+    }
+    if (operatorAccount && kind !== "company") {
+      openOperatorDashboard("dashboard");
+      return;
+    }
+    setRouteDirection("forward");
+    setPendingOwnSurface(kind || "operator");
+  }
+
   function openOperatorDashboard(view = "dashboard") {
     if (operatorDashboardCloseTimer.current) {
       window.clearTimeout(operatorDashboardCloseTimer.current);
@@ -874,6 +910,15 @@ export default function Transport({
   // problem — one toast with a retry — rather than a card wedged into the
   // dashboard. The global network toast already covers a missing connection.
   const [operatorLoadKey, setOperatorLoadKey] = useState(0);
+  const [pendingOwnSurface, setPendingOwnSurface] = useState("");
+
+  useEffect(() => {
+    if (!pendingOwnSurface || operatorLoading || companyLoading) return;
+    setPendingOwnSurface("");
+    routeOwnSurface();
+    // routeOwnSurface reads this render's loaded accounts.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [companyLoading, operatorLoading, pendingOwnSurface]);
 
   useEffect(() => {
     let alive = true;
@@ -1942,6 +1987,38 @@ export default function Transport({
   // Where the Open booking button sits: in the header's registration slot for
   // a Personal account without fleets or companies; otherwise in the middle of
   // the dashboard cards. Nothing is shown until the accounts are known.
+  // A tap on "My fleet" / "Fleet HQ" before the accounts have loaded opens
+  // this screen at once (like UrMall's seller entrance) and becomes the
+  // dashboard as soon as the account is known.
+  if (pendingOwnSurface) {
+    return renderWithAreaView(
+      <div className={`${routePanelClass} kt-mobile-viewport flex min-h-full flex-col bg-gray-50`}>
+        <div className="flex items-center gap-3 px-4 pb-3 pt-[max(0.75rem,env(safe-area-inset-top))]">
+          <AppBackTab
+            onBack={() => {
+              setRouteDirection("backward");
+              setPendingOwnSurface("");
+            }}
+            label={t("urride.transport.back.transport")}
+            historyKey="transport-opening-own-surface"
+            className="rounded-full border border-slate-200 bg-white hover:bg-slate-50"
+          />
+          <h1 className="truncate text-lg font-black text-slate-950">
+            {pendingOwnSurface === "company" ? t("urride.header.openFleetHq") : t("urride.header.openMyFleet")}
+          </h1>
+        </div>
+        <div className="space-y-3 px-4" role="status" aria-live="polite" data-loading-region="own-surface-opening">
+          <div className="kt-startup-shimmer h-28 rounded-3xl bg-slate-200/70" />
+          <div className="grid grid-cols-2 gap-3">
+            <div className="kt-startup-shimmer h-24 rounded-3xl bg-slate-200/70" />
+            <div className="kt-startup-shimmer h-24 rounded-3xl bg-slate-200/70" />
+          </div>
+          <div className="kt-startup-shimmer h-40 rounded-3xl bg-slate-200/70" />
+        </div>
+      </div>,
+    );
+  }
+
   const hasTransportCompany = Boolean(companyAccount?.id || companyAccount?.companyName || companyAccount?.companyCode);
   const transportAccountsLoading = operatorLoading || companyLoading || accountTypeLoading;
   const accountHint = operatorLoading || companyLoading ? readAccountHint(userId) : null;
@@ -1983,22 +2060,7 @@ export default function Transport({
             },
           });
         }}
-        onRegisterFleet={() => {
-          if (guardGuestAction("register", "transport account")) return;
-          if (operatorAccount) {
-            openOperatorDashboard("dashboard");
-            return;
-          }
-
-          if (companyAccount?.access?.canViewCompanyHq) {
-            setRouteDirection("forward");
-            setCompanyWorkspaceInitialTab("Overview");
-            setCompanyWorkspaceOpen(true);
-            return;
-          }
-
-          openRegistrationChooser();
-        }}
+        onRegisterFleet={openOwnSurface}
       />
       <PassengerLiveTripHeaderCard
         onOpenTrips={(request) => {
