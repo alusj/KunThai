@@ -18,6 +18,7 @@ import { PLATFORM_NOTIFICATIONS_CHANGED_EVENT } from "../../../Backend/services/
 import { useI18n, t } from "../../../i18n";
 
 export default function Header({
+  accountHint = null,
   accountTypeLoading = false,
   openBookingInHeader = false,
   onOpenBooking,
@@ -71,6 +72,18 @@ export default function Header({
   const hasOperatorAccount = Boolean(operatorAccount);
   const hasCompanyAccount = Boolean(companyAccount?.id || companyAccount?.companyName || companyAccount?.companyCode);
   const accountLoading = operatorLoading || companyLoading;
+  // A fresh start: the entrance this account had last time shows at once.
+  // Tapped before the live check answers, it opens once the check is done,
+  // so it never routes on a guess.
+  const hintedEntrance = accountLoading && Boolean(accountHint?.operator || accountHint?.company);
+  const [openWhenLoaded, setOpenWhenLoaded] = useState(false);
+  useEffect(() => {
+    if (!openWhenLoaded || accountLoading) return;
+    setOpenWhenLoaded(false);
+    handleOperatorOpen();
+    // handleOperatorOpen only calls the latest onRegisterFleet.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [accountLoading, openWhenLoaded]);
   const handleNotificationCountChange = useCallback((count) => {
     setPassengerNotificationCount(Number(count || 0));
   }, []);
@@ -129,7 +142,14 @@ export default function Header({
         title="UrRide"
         left={(
           <>
-            {accountLoading || accountTypeLoading ? (
+            {hintedEntrance ? (
+              <OperatorButton
+                badge={0}
+                hasCompanyAccount={Boolean(accountHint?.company)}
+                hasOperatorAccount={Boolean(accountHint?.operator)}
+                onClick={() => setOpenWhenLoaded(true)}
+              />
+            ) : accountLoading || accountTypeLoading ? (
               // Same placeholder UrMall's seller entry uses: until the operator
               // and company accounts are known, never show a guessed icon
               // (the "register" + flashing before "my fleet").

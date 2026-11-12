@@ -79,6 +79,36 @@ const TRANSPORT_ACCOUNT_MEMORY = {
   companyAccounts: [],
 };
 
+// What this account had last time (an operator account, a company), kept on
+// the device for the next fresh start: UrRide's header then shows the right
+// entrance together with the passenger screen instead of a loading
+// placeholder. Tied to the account id; the live check still decides, and a tap
+// before it finishes waits for it (Header.jsx).
+const ACCOUNT_HINT_KEY = "kunthai.urride.account-hint.v1";
+
+function readAccountHint(userId) {
+  if (!userId) return null;
+  try {
+    const hint = JSON.parse(localStorage.getItem(ACCOUNT_HINT_KEY) || "null");
+    if (!hint || hint.userId !== userId || (!hint.operator && !hint.company)) return null;
+    return { operator: Boolean(hint.operator), company: Boolean(hint.company) };
+  } catch {
+    return null;
+  }
+}
+
+function writeAccountHint(userId, operator, company) {
+  try {
+    if (userId && (operator || company)) {
+      localStorage.setItem(ACCOUNT_HINT_KEY, JSON.stringify({ userId, operator: Boolean(operator), company: Boolean(company) }));
+    } else {
+      localStorage.removeItem(ACCOUNT_HINT_KEY);
+    }
+  } catch {
+    // Storage blocked: the next fresh start just waits for the check.
+  }
+}
+
 function sameJsonValue(a, b) {
   if (a === b) return true;
   try {
@@ -881,6 +911,17 @@ export default function Transport({
     if (!operatorLoading) TRANSPORT_ACCOUNT_MEMORY.operatorLoaded = true;
   }, [operatorAccount, operatorLoading]);
 
+  // Remember what this account has for the next fresh start (see
+  // readAccountHint), once both checks have answered.
+  useEffect(() => {
+    if (operatorLoading || companyLoading || !userId) return;
+    writeAccountHint(
+      userId,
+      Boolean(operatorAccount),
+      Boolean(companyAccount?.id || companyAccount?.companyName || companyAccount?.companyCode),
+    );
+  }, [companyAccount, companyLoading, operatorAccount, operatorLoading, userId]);
+
   useEffect(() => {
     TRANSPORT_ACCOUNT_MEMORY.companyAccount = companyAccount;
     TRANSPORT_ACCOUNT_MEMORY.companyAccounts = companyAccounts;
@@ -1395,15 +1436,43 @@ export default function Transport({
     );
   }
 
-  if (registrationAreaPreviewOpen) {
+  const registrationOneKmPreview = (
+    <NearbyAreaScreen
+      onBack={closeRegistrationOneKmPreview}
+      onDone={closeRegistrationOneKmPreview}
+      mode="oneKmPreview"
+      backLabel={t("urride.transport.back.priceForm")}
+    />
+  );
+
+  // The 1 km preview opens over the registration form, which stays mounted
+  // underneath: the chosen fleet type, the open cards and the typed prices
+  // are exactly as they were when the person comes back.
+  // The wrapper is always rendered (same tree whether the preview is open or
+  // not), so React never remounts the form.
+  function withRegistrationOneKmPreview(form) {
+    return (
+      <>
+        <div
+          aria-hidden={registrationAreaPreviewOpen ? "true" : undefined}
+          inert={registrationAreaPreviewOpen ? "true" : undefined}
+          className="contents"
+        >
+          {form}
+        </div>
+        {registrationAreaPreviewOpen ? (
+          <div className={`${navMotionClass.push} kt-mobile-viewport fixed inset-0 z-[1300] overflow-hidden bg-white`}>
+            {registrationOneKmPreview}
+          </div>
+        ) : null}
+      </>
+    );
+  }
+
+  if (registrationAreaPreviewOpen && !(registrationOpen && registrationType)) {
     return renderWithAreaView(
       <div className={`${routePanelClass} kt-mobile-viewport`}>
-        <NearbyAreaScreen
-          onBack={closeRegistrationOneKmPreview}
-          onDone={closeRegistrationOneKmPreview}
-          mode="oneKmPreview"
-          backLabel={t("urride.transport.back.priceForm")}
-        />
+        {registrationOneKmPreview}
       </div>
     );
   }
@@ -1450,7 +1519,7 @@ export default function Transport({
     }
 
     if (registrationType === "company") {
-      return renderWithAreaView(
+      return renderWithAreaView(withRegistrationOneKmPreview(
         <div className={`${routePanelClass} kt-mobile-viewport`}>
           <CompanyRegistrationScreen
             existingCompany={companyAccount}
@@ -1475,10 +1544,10 @@ export default function Transport({
             }}
           />
         </div>
-      );
+      ));
     }
 
-    return renderWithAreaView(
+    return renderWithAreaView(withRegistrationOneKmPreview(
       <div className={`${routePanelClass} kt-mobile-viewport`}>
         <FleetRegistrationDrawer
           // Accepting a company invite finishes on this screen (the invite
@@ -1491,7 +1560,7 @@ export default function Transport({
           onComplete={finishOperatorRegistration}
         />
       </div>
-    );
+    ));
   }
 
   if (companyOperatorDashboardOpen && companyOperatorAccount) {
@@ -1875,6 +1944,7 @@ export default function Transport({
   // the dashboard cards. Nothing is shown until the accounts are known.
   const hasTransportCompany = Boolean(companyAccount?.id || companyAccount?.companyName || companyAccount?.companyCode);
   const transportAccountsLoading = operatorLoading || companyLoading || accountTypeLoading;
+  const accountHint = operatorLoading || companyLoading ? readAccountHint(userId) : null;
   const openBookingInHeader = !transportAccountsLoading && !canRegister && !operatorAccount && !hasTransportCompany;
   const openBookingInBody = !transportAccountsLoading && !openBookingInHeader;
 
@@ -1883,6 +1953,7 @@ export default function Transport({
       <Header
         active={active}
         accountTypeLoading={accountTypeLoading}
+        accountHint={accountHint}
         openBookingInHeader={openBookingInHeader}
         onOpenBooking={openOpenBooking}
         companyAccount={companyAccount}

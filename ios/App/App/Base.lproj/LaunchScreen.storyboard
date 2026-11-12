@@ -15,7 +15,20 @@
                     <view key="view" contentMode="scaleToFill" id="snD-IY-ifK">
                         <rect key="frame" x="0.0" y="0.0" width="375" height="667"/>
                         <autoresizingMask key="autoresizingMask" widthSizable="YES" heightSizable="YES"/>
+                        <subviews>
+                            <!-- The KunThai logo the moment KunThai is tapped (same image and
+                                 fill as the in-app logo cover, KunThaiBridgeViewController). -->
+                            <imageView clipsSubviews="YES" userInteractionEnabled="NO" contentMode="scaleAspectFill" horizontalHuggingPriority="251" verticalHuggingPriority="251" image="Splash" translatesAutoresizingMaskIntoConstraints="NO" id="Kt-Lg-Img">
+                                <rect key="frame" x="0.0" y="0.0" width="375" height="667"/>
+                            </imageView>
+                        </subviews>
                         <color key="backgroundColor" name="LaunchBackground"/>
+                        <constraints>
+                            <constraint firstItem="Kt-Lg-Img" firstAttribute="top" secondItem="snD-IY-ifK" secondAttribute="top" id="Kt-c1-top"/>
+                            <constraint firstItem="Kt-Lg-Img" firstAttribute="bottom" secondItem="snD-IY-ifK" secondAttribute="bottom" id="Kt-c2-bot"/>
+                            <constraint firstItem="Kt-Lg-Img" firstAttribute="leading" secondItem="snD-IY-ifK" secondAttribute="leading" id="Kt-c3-lead"/>
+                            <constraint firstItem="Kt-Lg-Img" firstAttribute="trailing" secondItem="snD-IY-ifK" secondAttribute="trailing" id="Kt-c4-trail"/>
+                        </constraints>
                     </view>
                 </viewController>
                 <placeholder placeholderIdentifier="IBFirstResponder" id="iYj-Kq-Ea1" userLabel="First Responder" sceneMemberID="firstResponder"/>
@@ -24,6 +37,7 @@
         </scene>
     </scenes>
     <resources>
+        <image name="Splash" width="2732" height="2732"/>
         <namedColor name="LaunchBackground">
             <color red="0.945" green="0.961" blue="0.976" alpha="1" colorSpace="custom" customColorSpace="sRGB"/>
         </namedColor>

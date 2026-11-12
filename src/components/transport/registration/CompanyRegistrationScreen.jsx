@@ -1340,7 +1340,9 @@ export default function CompanyRegistrationScreen({ existingCompany = null, focu
                     disabled={submitting}
                     className={`h-11 rounded-2xl px-5 text-sm font-black text-white disabled:opacity-60 ${rentalSubmission ? "bg-emerald-700 hover:bg-emerald-800" : "bg-blue-600 hover:bg-blue-700"}`}
                   >
-                    {submitting ? (rentalSubmission ? i18nText("ui.literals.k1ac16ae4b71a") : t("urride.companyReg.sendingRequest")) : rentalSubmission ? i18nText("ui.literals.k7af252cec249") : t("urride.companyReg.sendOperatorRequest")}
+                    {submitting
+                      ? (rentalSubmission ? i18nText("ui.literals.k1ac16ae4b71a") : addFleetMode ? t("urride.companyReg.addingFleet") : t("urride.companyReg.sendingRequest"))
+                      : rentalSubmission ? i18nText("ui.literals.k7af252cec249") : addFleetMode ? t("urride.companyReg.addFleet") : t("urride.companyReg.sendOperatorRequest")}
                   </button>
                 ) : step < steps.length - 1 ? (
                   <button

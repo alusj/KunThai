@@ -29,6 +29,7 @@ const SELLER_ACCOUNT_STORAGE_KEYS = [
   "kunthai.sellerOverview",
   "kunthai.marketplace.active-business-hint.v1",
   "marketplace-seller-registration-draft",
+  "kunthai.marketplace.has-business.v1",
 ];
 const SELLER_ACCOUNT_OWNER_KEY = "kunthai.marketplace.seller-account.v1";
 const accountResets = [];

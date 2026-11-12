@@ -40,12 +40,11 @@ public class MainActivity extends BridgeActivity {
 
     @Override
     public void onCreate(Bundle savedInstanceState) {
-        // The system splash is only the app's colour (no logo, see styles.xml).
-        // It stays until the web app has drawn its first screen (it reports in
-        // through KunThaiLaunchPlugin), so no blank screen shows while it
-        // loads; never longer than 8 s. A returning signed-in member gets the
-        // KunThai logo on top (showLogoSplash); a first-time visitor or a
-        // signed-out start goes straight to the sign-up screen.
+        // The system splash shows the KunThai logo the moment KunThai is tapped
+        // (styles.xml). It stays until the web app has drawn its first screen
+        // (it reports in through KunThaiLaunchPlugin), so no blank screen shows
+        // while it loads; never longer than 8 s. A returning signed-in member
+        // keeps the logo a little longer (showLogoSplash, same size and place).
         SplashScreen splashScreen = SplashScreen.installSplashScreen(this);
         KunThaiLaunchPlugin.reset();
         // Only a fresh start: Android rebuilding the screen when someone comes
@@ -77,7 +76,7 @@ public class MainActivity extends BridgeActivity {
             int appBackground = KunThaiLaunchPlugin.appBackground(this);
             getBridge().getWebView().setBackgroundColor(appBackground);
             getWindow().getDecorView().setBackgroundColor(appBackground);
-            if (logo) showLogoSplash(appBackground, splashStartedAt);
+            if (logo) showLogoSplash(appBackground, splashStartedAt, 1750);
             // Android may end the WebView's page process to free memory (a
             // 4 GB Galaxy A06 under load). Unhandled, that takes the whole app
             // down; handled, the screen is built again and the app restarts.
@@ -94,22 +93,35 @@ public class MainActivity extends BridgeActivity {
     // The KunThai logo over the app until it has drawn its first screen and at
     // least 1.75 s have passed (never more than 8 s), then it slides down and
     // away. Same timing and animation as the iPhone (KunThaiBridgeViewController).
-    private void showLogoSplash(int background, long startedAt) {
+    private void showLogoSplash(int background, long startedAt, long minimumMs) {
+        if (logoCover != null) return;
         final android.widget.FrameLayout cover = new android.widget.FrameLayout(this);
+        logoCover = cover;
         cover.setBackgroundColor(background);
         cover.setClickable(true);
         android.widget.ImageView icon = new android.widget.ImageView(this);
         icon.setImageResource(R.drawable.splash_icon);
-        int size = Math.round(240 * getResources().getDisplayMetrics().density);
+        // 288dp: the system splash's icon size, so the logo does not jump.
+        int size = Math.round(288 * getResources().getDisplayMetrics().density);
         cover.addView(icon, new android.widget.FrameLayout.LayoutParams(size, size, android.view.Gravity.CENTER));
         addContentView(cover, new android.view.ViewGroup.LayoutParams(
             android.view.ViewGroup.LayoutParams.MATCH_PARENT, android.view.ViewGroup.LayoutParams.MATCH_PARENT));
+        // Centre the logo on the whole screen, where the system splash put it,
+        // even when the cover starts below the status bar.
+        final android.widget.ImageView placedIcon = icon;
+        cover.post(() -> {
+            int[] at = new int[2];
+            cover.getLocationOnScreen(at);
+            int screenHeight = getWindow().getDecorView().getHeight();
+            if (screenHeight > 0) placedIcon.setTranslationY(screenHeight / 2f - (at[1] + cover.getHeight() / 2f));
+        });
         final Handler handler = new Handler(Looper.getMainLooper());
         handler.post(new Runnable() {
             @Override
             public void run() {
                 long elapsed = android.os.SystemClock.uptimeMillis() - startedAt;
-                if ((KunThaiLaunchPlugin.isWebReady() && elapsed >= 1750) || elapsed >= 8000) {
+                if ((KunThaiLaunchPlugin.isWebReady() && elapsed >= minimumMs) || elapsed >= 8000) {
+                    logoCover = null;
                     cover.animate()
                         .translationY(cover.getHeight())
                         .setDuration(420)
@@ -176,9 +188,23 @@ public class MainActivity extends BridgeActivity {
         }
     }
 
+    // Back after 15 minutes or more in the background: the logo shows at once
+    // and slides away (TikTok / Facebook style); the page carries on where it
+    // was. Shorter breaks carry straight on.
+    private static final long RESUME_LOGO_AFTER_MS = 15L * 60L * 1000L;
+    private static final long RESUME_LOGO_MS = 1200L;
+    private long stoppedAt = 0L;
+    private android.view.View logoCover;
+
     @Override
     public void onStart() {
         super.onStart();
+        long now = android.os.SystemClock.elapsedRealtime();
+        if (stoppedAt > 0L && now - stoppedAt >= RESUME_LOGO_AFTER_MS
+            && KunThaiLaunchPlugin.wasSignedIn(this) && getBridge() != null) {
+            showLogoSplash(KunThaiLaunchPlugin.appBackground(this), android.os.SystemClock.uptimeMillis(), RESUME_LOGO_MS);
+        }
+        stoppedAt = 0L;
         if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.UPSIDE_DOWN_CAKE) {
             if (screenCaptureObserver == null) {
                 screenCaptureObserver = new ScreenCaptureObserver(this);
@@ -189,6 +215,7 @@ public class MainActivity extends BridgeActivity {
 
     @Override
     public void onStop() {
+        stoppedAt = android.os.SystemClock.elapsedRealtime();
         if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.UPSIDE_DOWN_CAKE && screenCaptureObserver != null) {
             screenCaptureObserver.unregister();
         }

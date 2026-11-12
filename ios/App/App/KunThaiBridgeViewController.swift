@@ -34,6 +34,11 @@ class KunThaiBridgeViewController: CAPBridgeViewController {
     private static let splashSeconds: TimeInterval = 1.75
     private static let maxSplashSeconds: TimeInterval = 8
     private static let collapseDuration: TimeInterval = 0.42
+    // Back after this long in the background: the logo shows at once, like a
+    // fresh start (TikTok / Facebook style). Shorter breaks carry straight on.
+    private static let resumeLogoAfter: TimeInterval = 15 * 60
+    private static let resumeLogoSeconds: TimeInterval = 1.2
+    private var enteredBackgroundAt: Date?
     static let webReadyNotification = Notification.Name("KunThaiWebReady")
     static let appearanceNotification = Notification.Name("KunThaiAppearance")
     static let signedInKey = "KunThaiSignedIn"
@@ -71,11 +76,14 @@ class KunThaiBridgeViewController: CAPBridgeViewController {
         if Self.memberSignedIn {
             showSplash(minimum: max(0.2, Self.splashSeconds - Self.secondsSinceLaunch()), logo: true)
         } else {
-            showSplash(minimum: 0, logo: false)
+            // The launch screen already showed the logo: keep it (no flash to a
+            // plain colour) just until the page has drawn.
+            showSplash(minimum: 0, logo: true)
         }
 
         let center = NotificationCenter.default
         center.addObserver(self, selector: #selector(appWillEnterForeground), name: UIApplication.willEnterForegroundNotification, object: nil)
+        center.addObserver(self, selector: #selector(appDidEnterBackground), name: UIApplication.didEnterBackgroundNotification, object: nil)
         center.addObserver(self, selector: #selector(appWillResignActive), name: UIApplication.willResignActiveNotification, object: nil)
         center.addObserver(self, selector: #selector(appDidBecomeActive), name: UIApplication.didBecomeActiveNotification, object: nil)
         center.addObserver(self, selector: #selector(memoryWarning), name: UIApplication.didReceiveMemoryWarningNotification, object: nil)
@@ -245,7 +253,17 @@ class KunThaiBridgeViewController: CAPBridgeViewController {
     // No fresh start after a long time away (the 15-minute reload was
     // removed 2026-11-02: it restarted KunThai many times a day). KunThai
     // carries on where it was unless iOS cleared the page.
+    @objc private func appDidEnterBackground() {
+        enteredBackgroundAt = Date()
+    }
+
     @objc private func appWillEnterForeground() {
+        // Away 15 minutes or more: the logo is up before the app shows, then
+        // slides away (the page itself carries on where it was).
+        if let away = enteredBackgroundAt, Date().timeIntervalSince(away) >= Self.resumeLogoAfter, Self.memberSignedIn {
+            showSplash(minimum: Self.resumeLogoSeconds, logo: true)
+        }
+        enteredBackgroundAt = nil
         // Is the page still there? iOS may have cleared it in the background,
         // in which case it reloads: a plain cover (no logo) hides the blank page.
         guard let webView else { return }
