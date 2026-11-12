@@ -1021,17 +1021,24 @@ html.dark .kt-w-road { background: #1e293b; }
   -webkit-user-drag: none;
 }
 
-/* One diagonal light sweep across the logo once it has landed. */
+/* A diagonal light sweep across the logo once it has landed, again and
+   again (with a short rest between sweeps) until the intro moves on. */
 .kt-intro__sheen {
   position: absolute;
   inset: -20%;
   background: linear-gradient(105deg, transparent 38%, rgb(255 255 255 / 0.42) 50%, transparent 62%);
   transform: translate3d(-75%, 0, 0);
-  transition: transform 1100ms ease-in-out 780ms;
 }
 
 .kt-intro.is-in .kt-intro__sheen,
-.kt-intro.is-out .kt-intro__sheen { transform: translate3d(75%, 0, 0); }
+.kt-intro.is-out .kt-intro__sheen {
+  animation: kt-intro-sheen 2400ms ease-in-out 780ms infinite;
+}
+
+@keyframes kt-intro-sheen {
+  0% { transform: translate3d(-75%, 0, 0); }
+  46%, 100% { transform: translate3d(75%, 0, 0); }
+}
 
 /* Two gold ripples leave the logo once it has landed; until then they sit
    hidden behind it. */
@@ -1044,11 +1051,15 @@ html.dark .kt-w-road { background: #1e293b; }
   transform: scale(1);
 }
 
-.kt-intro.is-in .kt-intro__ring {
-  animation: kt-intro-ripple 1500ms var(--kt-intro-ease) 620ms both;
+/* The two ripples keep pulsing out, half a beat apart, until the intro
+   moves on. */
+.kt-intro.is-in .kt-intro__ring,
+.kt-intro.is-out .kt-intro__ring {
+  animation: kt-intro-ripple 1800ms var(--kt-intro-ease) 620ms infinite backwards;
 }
 
-.kt-intro.is-in .kt-intro__ring--late { animation-delay: 900ms; }
+.kt-intro.is-in .kt-intro__ring--late,
+.kt-intro.is-out .kt-intro__ring--late { animation-delay: 1520ms; }
 
 @keyframes kt-intro-ripple {
   0% { opacity: 0.7; transform: scale(1); }
