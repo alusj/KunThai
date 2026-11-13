@@ -1595,13 +1595,22 @@ export async function markBuyerMarketplaceConversationRead(conversation) {
   const sellerMessageIds = (conversation?.messages || [])
     .filter((message) => message.from === "seller" && message.id)
     .map((message) => message.id);
-  if (!sellerMessageIds.length) return;
+  const businessId = conversation?.businessId || "";
+  if (!businessId && !sellerMessageIds.length) return;
 
-  const { error } = await supabase
+  // Opening the chat reads everything the store sent this buyer, including a
+  // reply that arrived after the chat was loaded (or that only a
+  // notification knew about), so the Messages badge clears wherever the chat
+  // was opened.
+  let query = supabase
     .from("marketplace_customer_messages")
     .update({ unread: false })
     .eq("buyer_id", buyerId)
-    .in("id", sellerMessageIds);
+    .eq("unread", true);
+  query = businessId
+    ? query.eq("business_id", businessId).eq("sender_role", "seller")
+    : query.in("id", sellerMessageIds);
+  const { error } = await query;
 
   if (error) throw new Error(error.message);
   invalidateCache("buyer-messages");

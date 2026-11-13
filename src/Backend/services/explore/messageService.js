@@ -1342,6 +1342,9 @@ export async function markExploreConversationRead(conversationId, currentUserId,
   if (error && !isMissingMessageStore(error)) {
     throw error;
   }
+  // Saved on the server: badges re-read the inbox now (a re-read before this
+  // point still saw the messages as unread and brought the badge back).
+  window.dispatchEvent(new CustomEvent(EXPLORE_MESSAGE_EVENT, { detail: { type: "read-saved", conversationId, currentUserId } }));
 }
 
 export async function deleteExploreMessage(message, currentUserId, options = {}) {

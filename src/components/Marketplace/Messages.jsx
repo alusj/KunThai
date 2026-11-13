@@ -200,10 +200,12 @@ export default function Messages({ initialConversationId = "", onBack, onInitial
       // slid in a second time.
       setScreenAction("idle");
       setActiveId(conversation.id);
+      // Always: the saved list can be older than the notification that
+      // opened this chat (the server only touches still-unread rows).
       if (conversation.unread) {
         setMessages((current) => current.map((message) => message.id === conversation.id ? { ...message, unread: false } : message));
-        markBuyerMarketplaceConversationRead(conversation).catch(() => loadMessages({ silent: true }));
       }
+      markBuyerMarketplaceConversationRead(conversation).catch(() => loadMessages({ silent: true }));
     } else if (!serverLoadedRef.current) {
       // The saved list may not have this chat yet: wait for the server's.
       return;
@@ -227,8 +229,8 @@ export default function Messages({ initialConversationId = "", onBack, onInitial
     const conversation = messages.find((message) => message.id === messageId);
     if (conversation?.unread) {
       setMessages((current) => current.map((message) => message.id === messageId ? { ...message, unread: false } : message));
-      markBuyerMarketplaceConversationRead(conversation).catch(() => loadMessages({ silent: true }));
     }
+    if (conversation) markBuyerMarketplaceConversationRead(conversation).catch(() => loadMessages({ silent: true }));
     transitionTimerRef.current = window.setTimeout(() => {
       setScreenAction("idle");
       transitionTimerRef.current = null;

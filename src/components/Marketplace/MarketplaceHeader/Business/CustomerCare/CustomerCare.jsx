@@ -355,10 +355,8 @@ export default function CustomerCare({ onBack, initialChat = null } = {}) {
       transitionTimerRef.current = null;
     }, CONVERSATION_TRANSITION_MS);
 
-    if (!conversation.unread) {
-      return;
-    }
-
+    // Always (the server only touches still-unread rows): the list on screen
+    // can be older than the notification that opened this chat.
     try {
       await markSellerConversationRead(conversation);
       await reload?.();
