@@ -1043,8 +1043,8 @@ export default function FeedComposer({ profile, creating, onSubmit }) {
       if (!tooLarge) return;
       const reason = String(prepared.error || "").slice(0, 140);
       setFeedback(prepared.outputBytes
-        ? `This clip is ${formatVideoMb(bytes)} MB, over the ${MAX_EXPLORE_VIDEO_MB} MB limit. Trim a shorter part.`
-        : `This video (${formatVideoMb(bytes)} MB) could not be prepared on this phone. Trim a shorter part or choose another video.${reason ? ` (${reason})` : ""}`);
+        ? i18nText("videoScreening.tooLarge", { size: formatVideoMb(bytes), limit: MAX_EXPLORE_VIDEO_MB })
+        : `${i18nText("videoScreening.notPrepared", { size: formatVideoMb(bytes) })}${reason ? ` (${reason})` : ""}`);
     });
   }
 
@@ -2145,7 +2145,7 @@ if (!isMobileVideoDevice) {
         // A large pick is attached as a range for the phone to cut (above). If
         // that did not happen, the full original is still too big to post.
         if (videoUploadFile && videoUploadFile.size > MAX_EXPLORE_VIDEO_BYTES) {
-          throw new Error("This video could not be made small enough to post. Trim a shorter part and try again.");
+          throw new Error(i18nText("videoScreening.notSmallEnough"));
         }
 
         if (videoUploadFile) {

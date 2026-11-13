@@ -75,7 +75,7 @@ export default function PostMediaTile({ imagePreview = "", videoPreview = "", tr
           {videoCheck.status === "checking" ? (
             <span className="h-3 w-3 animate-spin rounded-full border-2 border-white/30 border-t-white" />
           ) : (
-            <span>{formatVideoMb(videoCheck.bytes)} MB</span>
+            <span>{formatVideoMb(videoCheck.bytes)} {t("ui.literals.k6e979f426b67")}</span>
           )}
         </span>
       ) : null}
