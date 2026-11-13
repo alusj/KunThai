@@ -83,6 +83,11 @@ export default function VideoTrimmerScreen({
   });
   const clipSeconds = Math.max(0, range.end - range.start);
   const clipTooLong = clipSeconds > maxSeconds + 0.05;
+  // About how much the chosen part weighs: its share of the file, and never
+  // more than the phone's compressor writes (video ~5 Mbps plus sound).
+  const clipShareBytes = duration > 0 ? (Number(file?.size) || 0) * Math.min(1, clipSeconds / duration) : 0;
+  const clipBytes = instantRangeAnySize ? Math.min(clipShareBytes, clipSeconds * 650_000) : clipShareBytes;
+  const clipTooHeavy = clipBytes > maxMb * 1024 * 1024;
   const ready = duration > 0;
 
   function handleLoadedMetadata(event) {
@@ -301,6 +306,11 @@ export default function VideoTrimmerScreen({
             <span>
               {i18nText("ui.literals.k2e0844789cb4")} <span className={clipTooLong ? "text-red-400" : "text-emerald-400"}>{formatClock(clipSeconds)}</span>
               {" "}{i18nText("ui.literals.kde04fa0e29f9")} {formatClock(duration)}
+              {ready ? (
+                <span className={clipTooHeavy ? "text-red-400" : "text-emerald-400"}>
+                  {" "}· ≈ {formatVideoMb(clipBytes)} {i18nText("ui.literals.k6e979f426b67")}
+                </span>
+              ) : null}
             </span>
             <span>
               {formatClock(range.start)} → {formatClock(range.end)}

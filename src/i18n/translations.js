@@ -31,6 +31,7 @@ import { VOICE_NOTES } from "./voiceNotes";
 import { APP_LOADING } from "./appLoading";
 import { WELCOME_SLIDES } from "./welcomeSlides";
 import { VOICE_POST_PHOTOS } from "./voicePostPhotos";
+import { VIDEO_SCREENING } from "./videoScreening";
 import { ADMIN_YOUR_VOICE } from "./adminYourVoice";
 import { ADMIN_CHURN } from "./adminChurn";
 import { URMALL_SETTINGS } from "./urmallSettings";
@@ -59828,6 +59829,12 @@ for (const [locale, section] of Object.entries(WELCOME_SLIDES)) {
 for (const [locale, section] of Object.entries(VOICE_POST_PHOTOS)) {
   if (TRANSLATIONS[locale]) {
     TRANSLATIONS[locale].voicePostPhotos = section;
+  }
+}
+
+for (const [locale, section] of Object.entries(VIDEO_SCREENING)) {
+  if (TRANSLATIONS[locale]) {
+    TRANSLATIONS[locale].videoScreening = section;
   }
 }
 

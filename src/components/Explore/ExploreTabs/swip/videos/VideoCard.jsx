@@ -855,8 +855,45 @@ export default function VideoCard({
       return video.paused && !video.ended;
     }
 
+    // Sound running on while the picture stands still (seen on iPhone: the
+    // clip keeps playing but no new frames are drawn): the clip is set to
+    // the moment it is at, which starts its picture again in step with the
+    // sound. Only trusted once this player has been seen drawing frames, so
+    // a phone that does not count them is left alone.
+    let framesBefore = -1;
+    let timeBefore = 0;
+    let framesCounted = false;
+    let frozenChecks = 0;
+    function framesDrawn() {
+      const quality = typeof video.getVideoPlaybackQuality === "function" ? video.getVideoPlaybackQuality() : null;
+      if (quality && Number.isFinite(quality.totalVideoFrames)) return quality.totalVideoFrames;
+      return Number.isFinite(video.webkitDecodedFrameCount) ? video.webkitDecodedFrameCount : -1;
+    }
+    function restartFrozenPicture() {
+      const frames = framesDrawn();
+      const playing = !video.paused && !video.seeking && video.readyState >= 3
+        && document.visibilityState === "visible" && !primingRef.current;
+      if (frames < 0 || !playing) {
+        framesBefore = -1;
+        frozenChecks = 0;
+        return;
+      }
+      const time = video.currentTime;
+      if (framesBefore >= 0 && frames > framesBefore) framesCounted = true;
+      const frozen = framesCounted && framesBefore >= 0 && frames === framesBefore && time - timeBefore > 0.4;
+      frozenChecks = frozen ? frozenChecks + 1 : 0;
+      framesBefore = frames;
+      timeBefore = time;
+      if (frozenChecks < 2) return;
+      frozenChecks = 0;
+      framesBefore = -1;
+      logSwipPlayback("picture stood still while the sound ran: restarted", { post_id: post.id });
+      video.currentTime = time;
+    }
+
     function resumeIfStuck() {
       if (shouldResume()) requestActivePlayback();
+      else restartFrozenPicture();
     }
 
     const timer = window.setInterval(resumeIfStuck, 700);
@@ -872,7 +909,7 @@ export default function VideoCard({
       window.removeEventListener("pageshow", onVisible);
       window.removeEventListener("focus", onVisible);
     };
-  }, [active, actionMenuOpen, commentOpen, quickDeckOpen, repostOpen, requestActivePlayback, settingsOpen]);
+  }, [active, actionMenuOpen, commentOpen, post.id, quickDeckOpen, repostOpen, requestActivePlayback, settingsOpen]);
 
   // A clip buffered ahead of time may already be playable when this card
   // mounts or becomes active.

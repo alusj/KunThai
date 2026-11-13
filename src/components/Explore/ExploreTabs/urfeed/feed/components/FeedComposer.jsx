@@ -35,6 +35,7 @@ import { startPendingVideoReviewJob } from "../../../../../../Backend/services/e
 import { fetchExploreTopics } from "../../../../../../Backend/services/explore/topicService";
 import Avatar from "../../../../shared/Avatar";
 import VideoTrimmerScreen from "../../../../../shared/VideoTrimmerScreen";
+import { formatVideoMb } from "../../../../../../Backend/services/media/videoTrimService";
 import { canCompressVideosNatively, compressVideoForUpload } from "../../../../../../Backend/services/media/nativeVideoCompression";
 import { beginHeavyUpload } from "../../../../../../Backend/services/uploadActivity";
 import { optimizeImageFile } from "../../../../../../Backend/services/marketplace/imageOptimization";
@@ -457,6 +458,17 @@ export default function FeedComposer({ profile, creating, onSubmit }) {
   const [composerMotionClass, setComposerMotionClass] = useState("kt-composer-sheet-enter-bottom");
 
   const fileInputRef = useRef(null);
+  // The attached clip's check (screenVideoClip): { status, bytes, seconds }
+  // for the post card, and the upload the phone is preparing from it.
+  const [videoCheck, setVideoCheck] = useState(null);
+  const videoPrepRef = useRef(null);
+  const videoPrepIdRef = useRef(0);
+  useEffect(() => {
+    if (videoPreview) return;
+    videoPrepIdRef.current += 1;
+    videoPrepRef.current = null;
+    setVideoCheck(null);
+  }, [videoPreview]);
   const voicePhotosInputRef = useRef(null);
   const textareaRef = useRef(null);
   const returnedFromAreaRef = useRef(false);
@@ -939,7 +951,10 @@ export default function FeedComposer({ profile, creating, onSubmit }) {
     // heavy, too long, or a format other than MP4/MOV/WebM — goes straight to
     // the shared full-screen trimmer, which re-encodes just the chosen part.
     // What gets uploaded is that trimmed file, never the full camera video.
-    if (file.size > MAX_EXPLORE_VIDEO_BYTES || !SUPPORTED_VIDEO_TYPES.includes(file.type)) {
+    // In the app the phone itself cuts, converts and shrinks the clip, so
+    // every pick goes straight to the post card (below).
+    const phonePrepares = canCompressVideosNatively();
+    if (!phonePrepares && (file.size > MAX_EXPLORE_VIDEO_BYTES || !SUPPORTED_VIDEO_TYPES.includes(file.type))) {
       openVideoTrimmer(file);
       return;
     }
@@ -955,28 +970,81 @@ export default function FeedComposer({ profile, creating, onSubmit }) {
       new Promise((resolve) => window.setTimeout(() => resolve(undefined), VIDEO_INSTANT_PROBE_MS)),
     ]);
     const fitsClip = (seconds) => Number.isFinite(seconds) && seconds > 0 && seconds <= MAX_VIDEO_SECONDS + 0.5;
-
-    if (quickDuration !== undefined) {
-      if (!fitsClip(quickDuration)) {
+    // One pick, then the post card: a longer video is attached with its
+    // first seconds chosen, and "Trim" on it picks another part. Only a
+    // video whose length cannot be read outside the app still opens the
+    // trimmer, which explains a file that cannot be played.
+    const attachPicked = (seconds) => {
+      sourceVideoFileRef.current = file;
+      if (fitsClip(seconds)) {
+        acceptVideoClip(file, seconds);
+        return;
+      }
+      const known = Number.isFinite(seconds) && seconds > 0;
+      if (!known && !phonePrepares) {
         openVideoTrimmer(file);
         return;
       }
-      sourceVideoFileRef.current = file;
-      acceptVideoClip(file, quickDuration);
+      acceptVideoClip(file, MAX_VIDEO_SECONDS, {
+        trimStart: 0,
+        trimEnd: MAX_VIDEO_SECONDS,
+        sourceDurationSeconds: known ? seconds : MAX_VIDEO_SECONDS,
+      });
+    };
+
+    if (quickDuration !== undefined) {
+      attachPicked(quickDuration);
       return;
     }
 
     // Slow to read: show the video now and finish the check behind it.
     sourceVideoFileRef.current = file;
-    acceptVideoClip(file, MAX_VIDEO_SECONDS);
+    acceptVideoClip(file, MAX_VIDEO_SECONDS, null, { provisional: true });
     const request = trimRequestRef.current;
     durationPromise.then((duration) => {
       if (trimRequestRef.current !== request || originalVideoFileRef.current !== file) return;
-      if (!fitsClip(duration)) {
-        openVideoTrimmer(file);
-        return;
-      }
-      acceptVideoClip(file, duration);
+      attachPicked(duration);
+    });
+  }
+
+  // Every attached clip is checked at once, so its real length and size show
+  // on the post card before "Post" is pressed. In the app the phone prepares
+  // the upload now (cut to the chosen part, shrunk, faststart) and posting
+  // uses that file; elsewhere the picked file is what gets uploaded.
+  function screenVideoClip(file, clipStart, clipEnd) {
+    const id = videoPrepIdRef.current + 1;
+    videoPrepIdRef.current = id;
+    const seconds = Math.max(0.5, clipEnd - clipStart);
+    if (!canCompressVideosNatively()) {
+      videoPrepRef.current = null;
+      setVideoCheck({ status: file.size > MAX_EXPLORE_VIDEO_BYTES ? "too-large" : "ready", bytes: file.size, seconds });
+      return;
+    }
+    setVideoCheck({ status: "checking", bytes: 0, seconds });
+    const prep = { id, file, start: clipStart, end: clipEnd, onProgress: null, promise: null };
+    prep.promise = compressVideoForUpload(file, {
+      trimStart: clipStart,
+      trimEnd: clipEnd,
+      maxBytes: MAX_EXPLORE_VIDEO_BYTES,
+      onProgress: (fraction) => prep.onProgress?.(fraction),
+    });
+    videoPrepRef.current = prep;
+    prep.promise.then((prepared) => {
+      if (videoPrepIdRef.current !== id) return;
+      const uploadBytes = prepared.file?.size || 0;
+      const tooLarge = uploadBytes > MAX_EXPLORE_VIDEO_BYTES;
+      // What the phone made, when that is what was over the limit.
+      const bytes = tooLarge && prepared.outputBytes ? prepared.outputBytes : uploadBytes;
+      setVideoCheck({
+        status: tooLarge ? "too-large" : "ready",
+        bytes,
+        seconds: prepared.compressed && prepared.durationSeconds ? prepared.durationSeconds : seconds,
+      });
+      if (!tooLarge) return;
+      const reason = String(prepared.error || "").slice(0, 140);
+      setFeedback(prepared.outputBytes
+        ? i18nText("videoScreening.tooLarge", { size: formatVideoMb(bytes), limit: MAX_EXPLORE_VIDEO_MB })
+        : `${i18nText("videoScreening.notPrepared", { size: formatVideoMb(bytes) })}${reason ? ` (${reason})` : ""}`);
     });
   }
 
@@ -994,7 +1062,7 @@ export default function FeedComposer({ profile, creating, onSubmit }) {
   // straight out of the trimmer), so it is attached exactly as it is.
   // `range` (instant trim): the file is the full original and only
   // trimStart..trimEnd of it is the clip; players show just that part.
-  function acceptVideoClip(file, duration, range = null) {
+  function acceptVideoClip(file, duration, range = null, { provisional = false } = {}) {
     // Never leave a trimmer mounted behind an attached clip.
     setTrimmerVideoFile(null);
     if (pendingVideoUrl) URL.revokeObjectURL(pendingVideoUrl);
@@ -1034,6 +1102,14 @@ export default function FeedComposer({ profile, creating, onSubmit }) {
     showComposer();
     setTrimError("");
     setFeedback(i18nText("ui.literals.kd59c47ab5c49", { value0: clipSeconds.toFixed(1) }));
+    // Not while the length is still being read: the clip is attached again.
+    if (provisional) {
+      videoPrepIdRef.current += 1;
+      videoPrepRef.current = null;
+      setVideoCheck({ status: "checking", bytes: 0, seconds: 0 });
+    } else {
+      screenVideoClip(file, clipStart, clipEnd);
+    }
   }
 
   // The post's photo (a voice post's first photo): shows at once from the
@@ -2024,16 +2100,26 @@ if (!isMobileVideoDevice) {
             progress: 8,
             message: "Preparing your video for smooth playback.",
           });
-          const prepared = await compressVideoForUpload(videoUploadFile, {
-            trimStart: postDraft.mediaMeta?.videoTrimStart || 0,
-            trimEnd: postDraft.mediaMeta?.videoTrimEnd,
-            maxBytes: MAX_EXPLORE_VIDEO_BYTES,
-            onProgress: (fraction) => {
-              const value = 8 + Math.round(Math.max(0, Math.min(1, fraction)) * 15);
-              setPostingProgress(value);
-              publishPostingUpdate({ status: "posting", stage: "uploading-media", progress: value });
-            },
-          });
+          const reportPrepProgress = (fraction) => {
+            const value = 8 + Math.round(Math.max(0, Math.min(1, fraction)) * 15);
+            setPostingProgress(value);
+            publishPostingUpdate({ status: "posting", stage: "uploading-media", progress: value });
+          };
+          const prepStart = postDraft.mediaMeta?.videoTrimStart || 0;
+          const prepEnd = postDraft.mediaMeta?.videoTrimEnd;
+          // Already prepared (or being prepared) when the clip was attached.
+          const earlyPrep = videoPrepRef.current;
+          const useEarlyPrep = Boolean(earlyPrep?.promise)
+            && earlyPrep.file === videoUploadFile && earlyPrep.start === prepStart && earlyPrep.end === prepEnd;
+          if (useEarlyPrep) earlyPrep.onProgress = reportPrepProgress;
+          const prepared = useEarlyPrep
+            ? await earlyPrep.promise
+            : await compressVideoForUpload(videoUploadFile, {
+              trimStart: prepStart,
+              trimEnd: prepEnd,
+              maxBytes: MAX_EXPLORE_VIDEO_BYTES,
+              onProgress: reportPrepProgress,
+            });
           if (await stopIfCancelled()) return;
           if (prepared.compressed) {
             videoUploadFile = prepared.file;
@@ -2059,7 +2145,7 @@ if (!isMobileVideoDevice) {
         // A large pick is attached as a range for the phone to cut (above). If
         // that did not happen, the full original is still too big to post.
         if (videoUploadFile && videoUploadFile.size > MAX_EXPLORE_VIDEO_BYTES) {
-          throw new Error("This video could not be made small enough to post. Trim a shorter part and try again.");
+          throw new Error(i18nText("videoScreening.notSmallEnough"));
         }
 
         if (videoUploadFile) {
@@ -2524,6 +2610,7 @@ if (!isMobileVideoDevice) {
                       imagePreview={imagePreview}
                       videoPreview={videoPreview}
                       trimStart={videoTrimStart}
+                      videoCheck={videoPreview ? videoCheck : null}
                       onPick={() => handleTool("media")}
                       onRemove={videoPreview ? clearVideoAttachment : clearImageAttachment}
                       onTrim={() => openVideoTrimmer(sourceVideoFileRef.current || originalVideoFileRef.current)}

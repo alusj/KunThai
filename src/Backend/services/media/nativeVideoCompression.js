@@ -136,7 +136,7 @@ export async function compressVideoForUpload(file, { trimStart = 0, trimEnd = nu
       forced: force,
       maxBytes,
     })) {
-      return { file, compressed: false, trimmed: false };
+      return { file, compressed: false, trimmed: false, outputBytes: blob.size };
     }
     onProgress?.(1);
     return {
@@ -145,8 +145,9 @@ export async function compressVideoForUpload(file, { trimStart = 0, trimEnd = nu
       trimmed: Boolean(result.trimmed),
       durationSeconds: Number(result.durationSeconds) || null,
     };
-  } catch {
-    return { file, compressed: false, trimmed: false };
+  } catch (error) {
+    // `error`: why the phone could not prepare it, for the post card.
+    return { file, compressed: false, trimmed: false, error: String(error?.message || error || "") };
   } finally {
     listener?.remove?.();
     if (outputPath) KunThaiVideo.deleteFile({ path: outputPath }).catch(() => {});

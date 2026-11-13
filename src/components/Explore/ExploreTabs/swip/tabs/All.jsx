@@ -21,12 +21,18 @@ const WHEEL_LOCK_MS = 720;
 export default function All({ active = true, standby = false, currentUserId = "", focusPostId = "", focusPost = null, focusRequest = null, onlyUserId = "", onReturnToRepost, onViewProfile, profile }) {
   const { t } = useI18n();
   const feed = useExploreFeed("swip");
-  const feedVideos = getSwipVideos(feed.posts, onlyUserId).filter(isRenderableSwipPost);
-  const focusedVideos = getSwipVideos(focusPost ? [focusPost] : [], onlyUserId).filter(isRenderableSwipPost);
+  // Clips removed here (deleted, or their video is gone) leave Swip at once
+  // and stay out. The feed drops them too, but a clip that was opened
+  // directly (just posted, a notification, a repost) is also held by that
+  // request, which kept a deleted clip on screen and playing.
+  const [removedIds, setRemovedIds] = useState(() => new Set());
+  const stillListed = (post) => !removedIds.has(post.id);
+  const feedVideos = getSwipVideos(feed.posts, onlyUserId).filter(isRenderableSwipPost).filter(stillListed);
+  const focusedVideos = getSwipVideos(focusPost ? [focusPost] : [], onlyUserId).filter(isRenderableSwipPost).filter(stillListed);
   // A post opened from a notification or a reaction (focusRequest) goes
   // first and Swip opens straight on it, instead of scrolling past the clips
   // before it. Until the post has arrived its place is a plain dark card.
-  const pinnedKey = focusRequest?.key && focusPostId ? focusRequest.key : "";
+  const pinnedKey = focusRequest?.key && focusPostId && !removedIds.has(focusPostId) ? focusRequest.key : "";
   const pinnedVideo = pinnedKey
     ? focusedVideos.find((post) => post.id === focusPostId) || feedVideos.find((post) => post.id === focusPostId) || null
     : null;
@@ -37,6 +43,27 @@ export default function All({ active = true, standby = false, currentUserId = ""
     videos = [focusedVideos[0], ...feedVideos];
   }
   const focusedVideoIndex = focusPostId ? videos.findIndex((post) => post.id === focusPostId) : -1;
+
+  function markRemoved(postId, removed = true) {
+    setRemovedIds((current) => {
+      if (current.has(postId) === removed) return current;
+      const next = new Set(current);
+      if (removed) next.add(postId);
+      else next.delete(postId);
+      return next;
+    });
+  }
+
+  // Gone from the screen the moment delete is confirmed: its player is
+  // stopped and unmounted now, and the next clip takes its place and plays.
+  // It only comes back if the delete itself fails.
+  async function deleteClip(postId) {
+    stopAllExploreMedia(null, { muteVideos: false });
+    markRemoved(postId);
+    const deleted = await feed.deletePost(postId, { confirm: false });
+    if (deleted === false) markRemoved(postId, false);
+    return deleted;
+  }
   const [activeIndex, setActiveIndex] = useState(0);
   const [fullscreen, setFullscreen] = useState(false);
   const scrollerRef = useRef(null);
@@ -556,8 +583,11 @@ export default function All({ active = true, standby = false, currentUserId = ""
             onLike={() => feed.toggleLike(post.id)}
             onSave={() => feed.toggleSave(post.id)}
             onComment={(delta) => feed.bumpCommentCount(post.id, delta)}
-            onDelete={() => feed.deletePost(post.id, { confirm: false })}
-            onMediaUnavailable={() => feed.dismissPostLocally(post.id)}
+            onDelete={() => deleteClip(post.id)}
+            onMediaUnavailable={() => {
+              markRemoved(post.id);
+              feed.dismissPostLocally(post.id);
+            }}
             onHide={() => feed.hidePost(post.id)}
             onMuteAdvertiser={() => feed.muteAdvertiser(post.id)}
             onReport={(reason) => feed.reportPost(post.id, reason)}
