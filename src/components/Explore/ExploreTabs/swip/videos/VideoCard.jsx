@@ -855,15 +855,20 @@ export default function VideoCard({
       return video.paused && !video.ended;
     }
 
-    // Sound running on while the picture stands still (seen on iPhone: the
-    // clip keeps playing but no new frames are drawn): the clip is set to
-    // the moment it is at, which starts its picture again in step with the
-    // sound. Only trusted once this player has been seen drawing frames, so
+    // Sound running on while the picture stands still (iPhone, often right
+    // after iOS warns the app about memory: no new frames are drawn while the
+    // sound plays on). Setting the clip to the moment it is already at did
+    // not bring the picture back (recorded 2026-11-13: it was tried every
+    // 2 s for 11 s and frames stayed at 0; only the loop back to the start,
+    // a real jump, did). So each try goes one step further: a short jump
+    // ahead, then a pause and play, then reloading the player at that
+    // moment. Only trusted once this player has been seen drawing frames, so
     // a phone that does not count them is left alone.
     let framesBefore = -1;
     let timeBefore = 0;
     let framesCounted = false;
     let frozenChecks = 0;
+    let recoveryStep = 0;
     function framesDrawn() {
       const quality = typeof video.getVideoPlaybackQuality === "function" ? video.getVideoPlaybackQuality() : null;
       if (quality && Number.isFinite(quality.totalVideoFrames)) return quality.totalVideoFrames;
@@ -879,7 +884,11 @@ export default function VideoCard({
         return;
       }
       const time = video.currentTime;
-      if (framesBefore >= 0 && frames > framesBefore) framesCounted = true;
+      if (framesBefore >= 0 && frames > framesBefore) {
+        framesCounted = true;
+        if (recoveryStep) recordLifecycle("swip-frozen", "recovered", `after step ${recoveryStep}`);
+        recoveryStep = 0;
+      }
       const frozen = framesCounted && framesBefore >= 0 && frames === framesBefore && time - timeBefore > 0.4;
       frozenChecks = frozen ? frozenChecks + 1 : 0;
       framesBefore = frames;
@@ -887,8 +896,30 @@ export default function VideoCard({
       if (frozenChecks < 2) return;
       frozenChecks = 0;
       framesBefore = -1;
-      logSwipPlayback("picture stood still while the sound ran: restarted", { post_id: post.id });
-      video.currentTime = time;
+      recoveryStep = Math.min(recoveryStep + 1, 3);
+      logSwipPlayback("picture stood still while the sound ran: restarted", { post_id: post.id, step: recoveryStep });
+      recordLifecycle("swip-frozen", "restart", `step ${recoveryStep} at ${time.toFixed(1)} s`);
+      // A jump that lands past the clip's end goes back to its start.
+      const ahead = time + 0.25 < clip.end - 0.3 ? time + 0.25 : clip.start;
+      if (recoveryStep === 1) {
+        video.currentTime = ahead;
+        return;
+      }
+      if (recoveryStep === 2) {
+        video.pause();
+        video.currentTime = ahead;
+        requestActivePlayback();
+        return;
+      }
+      // Last resort: the player is rebuilt at this moment.
+      const resumeAt = ahead;
+      const onLoaded = () => {
+        video.removeEventListener("loadedmetadata", onLoaded);
+        video.currentTime = resumeAt;
+        requestActivePlayback();
+      };
+      video.addEventListener("loadedmetadata", onLoaded);
+      video.load();
     }
 
     function resumeIfStuck() {
@@ -909,7 +940,7 @@ export default function VideoCard({
       window.removeEventListener("pageshow", onVisible);
       window.removeEventListener("focus", onVisible);
     };
-  }, [active, actionMenuOpen, commentOpen, post.id, quickDeckOpen, repostOpen, requestActivePlayback, settingsOpen]);
+  }, [active, actionMenuOpen, clip.end, clip.start, commentOpen, post.id, quickDeckOpen, repostOpen, requestActivePlayback, settingsOpen]);
 
   // A clip buffered ahead of time may already be playable when this card
   // mounts or becomes active.

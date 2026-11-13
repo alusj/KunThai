@@ -1,6 +1,7 @@
 // src/Explore/Explore.jsx
 import { memo, startTransition, useCallback, useDeferredValue, useEffect, useLayoutEffect, useRef, useState } from "react";
 import { createPortal } from "react-dom";
+import { Capacitor } from "@capacitor/core";
 //import { useAuth } from "../../Backend/hooks/useAuth";
 import { useBackSwipe } from "../../Backend/hooks/useBackSwipe";
 import { useBrowserBack } from "../../Backend/hooks/useBrowserBack";
@@ -128,7 +129,11 @@ const TAB_TAP_SLIDE_MS = 320;
 // section in the middle of the drag is what made the slide stop and start.
 // Connections is still built only when opened. Empty this list to go back
 // to one section at a time (should an iPhone run short of memory again).
-const KEEP_BUILT_TABS = ["UrFeed", "Swip"];
+// Android only. On the iPhone, with UrFeed and Swip both kept, iOS warned
+// KunThai about memory as Swip opened and the playing clip's picture froze
+// while its sound ran on (recorded 2026-11-13); the iPhone keeps one section
+// at a time, as before, and builds the next one during the slide.
+const KEEP_BUILT_TABS = Capacitor.getPlatform() === "ios" ? [] : ["UrFeed", "Swip"];
 // Quiet time on a tab before the other one is built in the background.
 const TAB_WARM_DELAY_MS = 1200;
 const LEFT_SIDE_MENU_SCREENS = new Set(["Menu", "Messages"]);
