@@ -3,6 +3,7 @@ import { friendlyErrorMessage, inlineErrorMessage, isConnectionFailure, shortErr
 import { announceConnectionTrouble } from "../services/networkService";
 
 import supabase from "../lib/supabaseClient";
+import { refreshPostsInPlace } from "../services/explore/refreshPostsInPlace.js";
 import {
   EXPLORE_CACHE_EVENT,
   getPostsStorageKey,
@@ -569,6 +570,9 @@ export function useExploreFeed(scope = "feed") {
     const loadId = loadIdRef.current + 1;
     loadIdRef.current = loadId;
     const force = Boolean(options.force);
+    // A quiet refresh (the 90-second timer, the app coming back to the front)
+    // never changes which posts are listed or their order: see below.
+    const background = Boolean(options.background);
     // The first page is already on its way (fetched at app start): use it.
     const prefetch = !force && FEED_PREFETCHES.get(feedMemoryKey(scope));
     if (prefetch) {
@@ -643,10 +647,19 @@ export function useExploreFeed(scope = "feed") {
       }));
       const nextPosts = mergePosts(rawPosts, pinnedOwnPosts)
         .map((post) => applyCurrentProfileToPost(post, currentProfile));
-      nextOffsetRef.current = rawPosts.length;
-      recentModeRef.current = rankedScope && rawPosts.length < FEED_PAGE_SIZE;
-      recentOffsetRef.current = 0;
-      setHasMore(rankedScope || rawPosts.length === FEED_PAGE_SIZE);
+      // A quiet refresh with posts on show only brings their details up to
+      // date. Swapping the list for the newly ranked first page dropped every
+      // page loaded by scrolling and put other posts under the reader: back
+      // from Swip, UrFeed looked reloaded, and Swip itself had moved to
+      // another clip that then had to load. New posts arrive with a pull to
+      // refresh or the next time Explore is opened.
+      const keepInPlace = background && postsRef.current.some((post) => !isLocalPost(post));
+      if (!keepInPlace) {
+        nextOffsetRef.current = rawPosts.length;
+        recentModeRef.current = rankedScope && rawPosts.length < FEED_PAGE_SIZE;
+        recentOffsetRef.current = 0;
+        setHasMore(rankedScope || rawPosts.length === FEED_PAGE_SIZE);
+      }
       setCurrentUserId(currentProfile?.id || "");
 
       const nextLikedPosts = buildRemoteReactionSet(reactions.likes);
@@ -658,6 +671,11 @@ export function useExploreFeed(scope = "feed") {
       writeStoredSet(SAVE_STORAGE_KEY, nextSavedPosts);
 
       setPosts((current) => {
+        if (keepInPlace && current.length) {
+          const refreshed = refreshPostsInPlace(current, nextPosts, hasPendingReactionSync);
+          if (refreshed !== current) writeStoredPosts(scope, refreshed);
+          return refreshed;
+        }
         const localPosts = (current.length ? current : readStoredPosts(scope))
           .filter((post) => (
             isLocalPost(post) ||
@@ -680,6 +698,9 @@ export function useExploreFeed(scope = "feed") {
         return;
       }
       if (currentProfile?.id) setCurrentUserId(currentProfile.id);
+      // A quiet refresh that failed leaves the posts on show exactly as they
+      // are (the saved copy holds fewer posts than a scrolled feed).
+      if (background && postsRef.current.length) return;
       const cachedPosts = readStoredPosts(scope).map((post) => applyCurrentProfileToPost(post, currentProfile));
       const visibleFallbackPosts = (cachedPosts.length ? cachedPosts : postsRef.current)
         .filter((post) => postBelongsInScope(post, scope))
