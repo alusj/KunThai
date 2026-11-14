@@ -934,12 +934,11 @@ export default function Login({ finishingSignIn = false }) {
         </div>
       ) : null}
       <div className="my-auto w-full max-w-md rounded-2xl border border-slate-200 bg-white p-4 shadow-sm sm:p-8">
-        <h1 className="text-center text-3xl font-bold leading-tight text-slate-900">
-          {t("auth.welcomeTitle")}
-        </h1>
+        {/* No heading: the welcome screen before this one already greets. */}
+        <h1 className="sr-only">{t("auth.welcomeTitle")}</h1>
 
         {mode === "signin" && (
-          <form onSubmit={handleSignInWithPhone} className="mt-6 space-y-4 sm:mt-8">
+          <form onSubmit={handleSignInWithPhone} className="space-y-4">
             <PhoneAccountInput
               country={selectedCountry}
               value={signInAccount}
@@ -1061,7 +1060,7 @@ export default function Login({ finishingSignIn = false }) {
         )}
 
         {mode === "signup" && signupStep === "details" && (
-          <form onSubmit={handleCreateAccount} className="mt-6 space-y-4 sm:mt-8">
+          <form onSubmit={handleCreateAccount} className="space-y-4">
             <PhoneInput
               country={selectedCountry}
               phone={phoneNumber}
@@ -1107,7 +1106,7 @@ export default function Login({ finishingSignIn = false }) {
         )}
 
         {mode === "signup" && signupStep === "otp" && (
-          <form onSubmit={handleVerifyPhoneOtp} className="mt-8 space-y-4">
+          <form onSubmit={handleVerifyPhoneOtp} className="space-y-4">
             <button
               type="button"
               onClick={() => {
@@ -1161,7 +1160,7 @@ export default function Login({ finishingSignIn = false }) {
         )}
 
         {mode === "recovery" && recoveryStep === "password" && (
-          <form onSubmit={handleRecoveryPasswordSubmit} className="mt-6 space-y-4 sm:mt-8">
+          <form onSubmit={handleRecoveryPasswordSubmit} className="space-y-4">
             <button
               type="button"
               onClick={() => switchMode("signin")}
@@ -1204,7 +1203,7 @@ export default function Login({ finishingSignIn = false }) {
         )}
 
         {mode === "recovery" && recoveryStep === "otp" && (
-          <form onSubmit={handleRecoveryOtpVerify} className="mt-8 space-y-4">
+          <form onSubmit={handleRecoveryOtpVerify} className="space-y-4">
             <button
               type="button"
               onClick={() => {

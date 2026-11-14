@@ -4,6 +4,8 @@
 // carry the same keys. Explore, UrFeed, Swip, UrMall and UrRide stay as they are.
 export const WELCOME_SLIDES = {
   en: {
+    introWelcome: "Welcome to",
+    introAi: "Get assisted with AI",
     skip: "Skip",
     next: "Next",
     getStarted: "Get started",
@@ -16,6 +18,8 @@ export const WELCOME_SLIDES = {
     urrideBody: "Book rides, send deliveries and reach trusted operators.",
   },
   fr: {
+    introWelcome: "Bienvenue sur",
+    introAi: "Laissez-vous aider par l'IA",
     skip: "Passer",
     next: "Suivant",
     getStarted: "Commencer",
@@ -28,6 +32,8 @@ export const WELCOME_SLIDES = {
     urrideBody: "Réservez des trajets, envoyez des livraisons et trouvez des opérateurs de confiance.",
   },
   es: {
+    introWelcome: "Bienvenido a",
+    introAi: "Recibe ayuda con IA",
     skip: "Omitir",
     next: "Siguiente",
     getStarted: "Empezar",
@@ -40,6 +46,8 @@ export const WELCOME_SLIDES = {
     urrideBody: "Reserva viajes, envía entregas y contacta con operadores de confianza.",
   },
   zh: {
+    introWelcome: "欢迎来到",
+    introAi: "AI 助你一臂之力",
     skip: "跳过",
     next: "下一步",
     getStarted: "开始使用",
@@ -52,6 +60,8 @@ export const WELCOME_SLIDES = {
     urrideBody: "预约出行、寄送包裹，联系可信赖的运营方。",
   },
   ar: {
+    introWelcome: "مرحبًا بك في",
+    introAi: "احصل على مساعدة بالذكاء الاصطناعي",
     skip: "تخطٍّ",
     next: "التالي",
     getStarted: "ابدأ الآن",
@@ -64,6 +74,8 @@ export const WELCOME_SLIDES = {
     urrideBody: "احجز الرحلات وأرسل الطرود وتواصل مع مشغّلين موثوقين.",
   },
   pt: {
+    introWelcome: "Bem-vindo ao",
+    introAi: "Receba ajuda com IA",
     skip: "Pular",
     next: "Próximo",
     getStarted: "Começar",
@@ -76,6 +88,8 @@ export const WELCOME_SLIDES = {
     urrideBody: "Reserve viagens, envie entregas e fale com operadores de confiança.",
   },
   hi: {
+    introWelcome: "आपका स्वागत है",
+    introAi: "AI से मदद पाएँ",
     skip: "छोड़ें",
     next: "आगे",
     getStarted: "शुरू करें",
@@ -88,6 +102,8 @@ export const WELCOME_SLIDES = {
     urrideBody: "राइड बुक करें, डिलीवरी भेजें और भरोसेमंद ऑपरेटरों तक पहुँचें।",
   },
   bn: {
+    introWelcome: "স্বাগতম",
+    introAi: "AI-এর সাহায্য নিন",
     skip: "এড়িয়ে যান",
     next: "পরবর্তী",
     getStarted: "শুরু করুন",
@@ -100,6 +116,8 @@ export const WELCOME_SLIDES = {
     urrideBody: "রাইড বুক করুন, ডেলিভারি পাঠান এবং বিশ্বস্ত অপারেটরদের কাছে পৌঁছান।",
   },
   id: {
+    introWelcome: "Selamat datang di",
+    introAi: "Dapatkan bantuan dengan AI",
     skip: "Lewati",
     next: "Berikutnya",
     getStarted: "Mulai",
@@ -112,6 +130,8 @@ export const WELCOME_SLIDES = {
     urrideBody: "Pesan perjalanan, kirim paket, dan hubungi operator tepercaya.",
   },
   ur: {
+    introWelcome: "خوش آمدید",
+    introAi: "AI سے مدد حاصل کریں",
     skip: "چھوڑیں",
     next: "اگلا",
     getStarted: "شروع کریں",
@@ -124,6 +144,8 @@ export const WELCOME_SLIDES = {
     urrideBody: "سواری بک کریں، ڈیلیوری بھیجیں اور قابلِ اعتماد آپریٹرز تک پہنچیں۔",
   },
   ru: {
+    introWelcome: "Добро пожаловать в",
+    introAi: "Помощь с ИИ",
     skip: "Пропустить",
     next: "Далее",
     getStarted: "Начать",
@@ -136,6 +158,8 @@ export const WELCOME_SLIDES = {
     urrideBody: "Заказывайте поездки, отправляйте посылки и связывайтесь с надёжными операторами.",
   },
   ja: {
+    introWelcome: "ようこそ",
+    introAi: "AI がサポートします",
     skip: "スキップ",
     next: "次へ",
     getStarted: "はじめる",
@@ -148,6 +172,8 @@ export const WELCOME_SLIDES = {
     urrideBody: "配車の予約、配達の依頼、信頼できるオペレーターへの連絡ができます。",
   },
   mr: {
+    introWelcome: "आपले स्वागत आहे",
+    introAi: "AI ची मदत घ्या",
     skip: "वगळा",
     next: "पुढे",
     getStarted: "सुरू करा",
@@ -160,6 +186,8 @@ export const WELCOME_SLIDES = {
     urrideBody: "राइड बुक करा, डिलिव्हरी पाठवा आणि विश्वासू ऑपरेटरपर्यंत पोहोचा.",
   },
   vi: {
+    introWelcome: "Chào mừng đến với",
+    introAi: "Được AI hỗ trợ",
     skip: "Bỏ qua",
     next: "Tiếp",
     getStarted: "Bắt đầu",
@@ -172,6 +200,8 @@ export const WELCOME_SLIDES = {
     urrideBody: "Đặt chuyến đi, gửi hàng và liên hệ nhà vận hành đáng tin cậy.",
   },
   de: {
+    introWelcome: "Willkommen bei",
+    introAi: "Lass dir von KI helfen",
     skip: "Überspringen",
     next: "Weiter",
     getStarted: "Los geht's",
