@@ -1540,9 +1540,13 @@ export default function Transport({
           {form}
         </div>
         {registrationAreaPreviewOpen ? (
-          <div className={`${navMotionClass.push} kt-mobile-viewport fixed inset-0 z-[1300] overflow-hidden bg-white`}>
-            {registrationOneKmPreview}
-          </div>
+          // Rendered at the top of the page: inside the sliding registration
+          // panel, a fixed full-screen layer is placed against that panel.
+          <AppPortal>
+            <div className={`${navMotionClass.push} kt-mobile-viewport fixed inset-0 z-[1300] overflow-hidden bg-white`}>
+              {registrationOneKmPreview}
+            </div>
+          </AppPortal>
         ) : null}
       </>
     );
