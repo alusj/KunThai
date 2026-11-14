@@ -2,7 +2,6 @@ import supabase from "../lib/supabaseClient";
 import { cachedQuery } from "../lib/queryCache";
 import { normalizeCountryIso } from "../../data/globalCountryProfiles";
 import { placeTypeForCategory } from "./nearbyPlaceTypes";
-import { applyOperatorFleets, groupFleetsByOperatorUser } from "./areaOperatorFleets";
 
 const OPERATOR_STALE_MINUTES = 10;
 const ACTIVE_OPERATOR_WINDOW_MS = OPERATOR_STALE_MINUTES * 60 * 1000;
@@ -611,31 +610,13 @@ export async function getMyNearbyAreaLocationReviews(limit = 12) {
   });
 }
 
-// The fleets of the operators on the map, by operator user id; null when they
-// cannot be read (then only a location row's own country can place it).
-async function fetchFleetsForOperatorUsers(userIds = []) {
-  const ids = Array.from(new Set(userIds.filter(Boolean)));
-  if (!ids.length) return new Map();
-  try {
-    const { data, error } = await supabase
-      .from("transport_fleets")
-      .select("id, fleet_type, country_iso, active_status, company_id, is_visible_to_passengers, transport_operators!inner(user_id)")
-      .in("transport_operators.user_id", ids);
-    if (error) return null;
-    return groupFleetsByOperatorUser(data || []);
-  } catch {
-    return null;
-  }
-}
-
 export async function getLiveOperators(options = {}) {
   const { center, limit } = normalizeAreaOptions(options);
   const staleCutoff = new Date(Date.now() - ACTIVE_OPERATOR_WINDOW_MS).toISOString();
-  // The user's current country is a HARD boundary: a radius circle can cross
-  // a border, and a foreign operator never shows just because it is closer.
-  // The country is the operator's FLEET country, as on "Available near you".
-  // It used to be read from the location row, which the app never fills in,
-  // so operators listed as available near the passenger were missing here.
+  // The user's current country is a HARD boundary. A radius circle can cross an
+  // international border, so when we know the country we filter by it in the
+  // query — never showing a foreign operator just because it is closer. A blank
+  // country_iso is excluded until validated.
   const countryIso = normalizeCountryIso(options.countryIso || options.country || "");
   return cachedQuery(
     areaCacheKey("live-operators", options),
@@ -649,14 +630,17 @@ export async function getLiveOperators(options = {}) {
           .order("last_seen_at", { ascending: false })
           .limit(limit);
 
+        if (countryIso) query = query.eq("country_iso", countryIso);
+
         query = applyLatLngBounds(query, bounds);
         return query;
       }, options);
 
       const normalized = dedupeById(rows.map(normalizeOperator).filter(Boolean));
-      const fleetsByUser = await fetchFleetsForOperatorUsers(normalized.map((operator) => operator.id));
-      // Country from the fleet, and the marker is the fleet's own vehicle.
-      const scoped = applyOperatorFleets(normalized, fleetsByUser, countryIso);
+      // Client-side safety net mirroring the DB filter.
+      const scoped = countryIso
+        ? normalized.filter((operator) => normalizeCountryIso(operator.countryCode) === countryIso)
+        : normalized;
       return sortByDistance(scoped, center);
     },
     CACHE_TTL.operators,

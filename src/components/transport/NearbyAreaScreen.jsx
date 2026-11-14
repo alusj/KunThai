@@ -27,7 +27,6 @@ import AppBackTab from "../shared/AppBackTab";
 import { useAutoCollapseCard } from "../shared/motionHooks";
 import NearbyAreaMap from "./area/NearbyAreaMap";
 import { fleetFocusBounds, operatorsWithinFleetRadius } from "./area/fleetFocus";
-import { MARKER_FAN_STEP_PX, fanOutOperatorPositions, metersPerPixel } from "../../Backend/services/areaOperatorFleets";
 import { toLngLatArray, toMapPoint } from "./area/mapCoordinates";
 import { useTransportPassengerSetting } from "./shared/useTransportPassengerSetting";
 import { formatPlaceDistance, resolveAddressLocation, searchLocations, withDistancesFrom } from "../../Backend/services/locationSearchService";
@@ -1149,28 +1148,6 @@ function NearbyAreaScreenContent({
     const reference = getAreaReferencePoint(userLocation, mapCenter);
     return operatorsWithinFleetRadius(liveOperators, reference);
   }, [activeCategory, liveOperators, mapCenter, shouldShowFleetLayer, showOperatorsOnAll, userLocation]);
-  // Vehicles on the same spot (one driver with a tricycle and a taxi, or
-  // drivers standing together) are drawn side by side, about one marker
-  // apart at the current zoom, instead of on top of each other.
-  const [mapZoom, setMapZoom] = useState(null);
-  useEffect(() => {
-    if (!mapInstance?.on) return undefined;
-    const readZoom = () => {
-      try {
-        setMapZoom(Math.round(mapInstance.getZoom() * 4) / 4);
-      } catch {
-        // The map is being torn down.
-      }
-    };
-    readZoom();
-    mapInstance.on("zoomend", readZoom);
-    return () => mapInstance.off?.("zoomend", readZoom);
-  }, [mapInstance]);
-  const mapOperatorLocations = useMemo(() => {
-    const lat = operatorLocations[0]?.lat;
-    const step = mapZoom == null ? 0 : metersPerPixel(mapZoom, lat) * MARKER_FAN_STEP_PX;
-    return fanOutOperatorPositions(operatorLocations, step);
-  }, [mapZoom, operatorLocations]);
   const smartTrafficSnapshots = useMemo(
     () =>
       buildTrafficIntelligence({
@@ -2314,11 +2291,7 @@ function NearbyAreaScreenContent({
     operatorProfilePendingRef.current = operatorUserId;
     haptics.light();
     try {
-      // A marker for one of the driver's vehicles opens that vehicle; the
-      // live profile lookup only knows the driver's main one.
-      const profile = operator.fleetId
-        ? { fleetId: operator.fleetId, companyId: operator.companyId || "" }
-        : await fetchLiveOperatorProfile({ ...operator, countryCode: operator.countryCode || areaCountryCode });
+      const profile = await fetchLiveOperatorProfile({ ...operator, countryCode: operator.countryCode || areaCountryCode });
       if (profile?.fleetId) {
         onOpenOperatorProfile(profile);
       } else {
@@ -2466,7 +2439,7 @@ function NearbyAreaScreenContent({
           selectedLocation={isSpecialMode ? null : selectedSearchLocation}
           routePlan={operatorRoutePlan}
           focusMode={isSpecialMode ? true : focusMode}
-          operatorLocations={isSpecialMode ? [] : mapOperatorLocations}
+          operatorLocations={isSpecialMode ? [] : operatorLocations}
           nearbyMapLocations={isSpecialMode ? [] : filteredMapLocations}
           reportLocations={isSpecialMode ? [] : liveReports}
           trafficSnapshots={isSpecialMode ? [] : smartTrafficSnapshots}
