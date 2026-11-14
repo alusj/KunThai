@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useLayoutEffect, useRef, useState } from "react";
+import { useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState } from "react";
 import {
   BadgeCheck,
   CarFront,
@@ -17,6 +17,7 @@ import {
 
 import { markWelcomeSeen } from "../../Backend/services/welcomeSlidesService";
 import { useI18n } from "../../i18n";
+import { introLinePieces } from "./welcomeIntroPieces";
 import "./WelcomeSlides.css";
 
 // Welcome slides shown once per install before sign-in: Explore, UrMall and
@@ -194,7 +195,11 @@ const ART = { explore: ExploreArt, urmall: UrMallArt, urride: UrRideArt };
 // The opening logo. "start" is the first paint (logo small and clear), "in"
 // zooms it in, "out" zooms it away; every step is a CSS transition.
 function WelcomeIntro({ reducedMotion, onLeave, onGone }) {
+  const { t, locale } = useI18n();
   const [phase, setPhase] = useState("start");
+  const aiLine = t("welcomeSlides.introAi");
+  // Shuffled once per line, so a re-render never reorders letters mid-way.
+  const aiPieces = useMemo(() => introLinePieces(aiLine), [aiLine]);
   const leftRef = useRef(false);
 
   const leave = useCallback(() => {
@@ -220,6 +225,19 @@ function WelcomeIntro({ reducedMotion, onLeave, onGone }) {
     <div className={`kt-intro is-${phase}`} aria-hidden="true">
       <div className="kt-intro__glow" />
       <div className="kt-intro__center">
+        {/* "Welcome to" follows the shape of the logo's outline: flat across
+            the top, rounding down at the ends. It sits above the furthest
+            reach of the gold ripples, so it never touches them. */}
+        <svg className="kt-intro__welcome" viewBox="0 0 300 92" lang={locale}>
+          <defs>
+            <path id="kt-intro-welcome-arc" d="M 4 92 C 6 50 52 30 118 28 L 182 28 C 248 30 294 50 296 92" />
+          </defs>
+          <text>
+            <textPath href="#kt-intro-welcome-arc" startOffset="50%" textAnchor="middle">
+              {t("welcomeSlides.introWelcome")}
+            </textPath>
+          </text>
+        </svg>
         <div className="kt-intro__mark">
           <span className="kt-intro__ring" />
           <span className="kt-intro__ring kt-intro__ring--late" />
@@ -229,8 +247,21 @@ function WelcomeIntro({ reducedMotion, onLeave, onGone }) {
           </div>
         </div>
         <div className="kt-intro__word">KunThai</div>
+        {/* One word at a time: Explore rises into place, UrMall comes in
+            from the right, UrRide drops down from above. */}
         <div className="kt-intro__tagline">
-          <span>Explore</span><i /><span>UrMall</span><i /><span>UrRide</span>
+          <span className="kt-intro__tag kt-intro__tag--up">Explore</span>
+          <i className="kt-intro__dot kt-intro__dot--first" />
+          <span className="kt-intro__tag kt-intro__tag--left">UrMall</span>
+          <i className="kt-intro__dot kt-intro__dot--second" />
+          <span className="kt-intro__tag kt-intro__tag--down">UrRide</span>
+        </div>
+        <div className="kt-intro__ai" lang={locale}>
+          {aiPieces.map((piece, index) => (piece.space ? (
+            <span key={index} className="kt-intro__ai-space">{piece.text}</span>
+          ) : (
+            <span key={index} className="kt-intro__ai-piece" style={{ transitionDelay: `${piece.delay}ms` }}>{piece.text}</span>
+          )))}
         </div>
       </div>
     </div>

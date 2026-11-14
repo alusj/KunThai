@@ -1067,7 +1067,8 @@ html.dark .kt-w-road { background: #1e293b; }
 }
 
 .kt-intro__word {
-  margin-top: 1.6rem;
+  /* Below the box the gold ripples sweep out to. */
+  margin-top: 4.4rem;
   background: linear-gradient(180deg, #f6e2a6 0%, #e0b85a 55%, #b8893a 100%);
   -webkit-background-clip: text;
   background-clip: text;
@@ -1089,6 +1090,38 @@ html.dark .kt-w-road { background: #1e293b; }
   text-indent: 0.06em;
 }
 
+/* Display serif for the intro's two lines: Didot on iPhone, Noto Serif /
+   the system serif on Android. */
+.kt-intro {
+  --kt-intro-display: "Didot", "Bodoni 72", "Playfair Display", "Noto Serif", Georgia, "Times New Roman", serif;
+}
+
+/* "Welcome to", shaped like the top of the logo's outline. The gold ripples
+   reach 1.9x the logo (about 3.8rem past its edge), so it stays above that. */
+.kt-intro__welcome {
+  width: 18rem;
+  height: auto;
+  margin-bottom: 2.6rem;
+  overflow: visible;
+  fill: #f3dc9c;
+  font-family: var(--kt-intro-display);
+  font-size: 31px;
+  font-weight: 700;
+  letter-spacing: 0.05em;
+  paint-order: stroke;
+  stroke: rgb(120 84 24 / 0.35);
+  stroke-width: 0.6px;
+  opacity: 0;
+  transform: translate3d(0, -0.6rem, 0);
+  transition: opacity 800ms ease 180ms, transform 1000ms var(--kt-intro-ease) 180ms;
+}
+
+.kt-intro.is-in .kt-intro__welcome,
+.kt-intro.is-out .kt-intro__welcome {
+  opacity: 1;
+  transform: none;
+}
+
 .kt-intro__tagline {
   display: flex;
   align-items: center;
@@ -1098,9 +1131,6 @@ html.dark .kt-w-road { background: #1e293b; }
   font-size: 0.8125rem;
   font-weight: 500;
   letter-spacing: 0.04em;
-  opacity: 0;
-  transform: translate3d(0, 0.5rem, 0);
-  transition: opacity 700ms ease 720ms, transform 900ms var(--kt-intro-ease) 720ms;
 }
 
 .kt-intro__tagline i {
@@ -1110,8 +1140,57 @@ html.dark .kt-w-road { background: #1e293b; }
   background: var(--kt-intro-gold);
 }
 
-.kt-intro.is-in .kt-intro__tagline,
-.kt-intro.is-out .kt-intro__tagline {
+/* Word by word, each from its own side. */
+.kt-intro__tag,
+.kt-intro__dot {
+  display: inline-block;
+  opacity: 0;
+  transition: opacity 600ms ease, transform 850ms var(--kt-intro-ease);
+}
+
+.kt-intro__tag--up { transform: translate3d(0, 1.4rem, 0); transition-delay: 900ms; }
+.kt-intro__tag--left { transform: translate3d(3rem, 0, 0); transition-delay: 1300ms; }
+.kt-intro__tag--down { transform: translate3d(0, -1.4rem, 0); transition-delay: 1700ms; }
+.kt-intro__dot { transform: scale(0.2); }
+.kt-intro__dot--first { transition-delay: 1150ms; }
+.kt-intro__dot--second { transition-delay: 1550ms; }
+
+.kt-intro.is-in .kt-intro__tag,
+.kt-intro.is-out .kt-intro__tag,
+.kt-intro.is-in .kt-intro__dot,
+.kt-intro.is-out .kt-intro__dot {
+  opacity: 1;
+  transform: none;
+}
+
+/* "Get assisted with AI": letters arrive one by one in a random order (each
+   letter's delay is set on it). */
+/* A slanted display face, larger and wider than the Explore / UrMall /
+   UrRide row above it. */
+.kt-intro__ai {
+  margin-top: 1rem;
+  padding: 0 1.25rem;
+  color: #f1d48c;
+  text-shadow: 0 0.12rem 0.9rem rgb(232 196 106 / 0.35);
+  font-family: var(--kt-intro-display);
+  font-size: 1.85rem;
+  font-style: italic;
+  font-weight: 700;
+  line-height: 1.25;
+  letter-spacing: 0.01em;
+  white-space: pre-wrap;
+  text-align: center;
+}
+
+.kt-intro__ai-piece {
+  display: inline-block;
+  opacity: 0;
+  transform: translate3d(0, 0.35rem, 0) scale(0.6);
+  transition: opacity 380ms ease, transform 520ms var(--kt-intro-ease);
+}
+
+.kt-intro.is-in .kt-intro__ai-piece,
+.kt-intro.is-out .kt-intro__ai-piece {
   opacity: 1;
   transform: none;
 }
