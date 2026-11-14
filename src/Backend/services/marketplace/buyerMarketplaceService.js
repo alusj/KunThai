@@ -5,6 +5,7 @@ import {
   fetchHiddenMarketplaceMessageIds,
   isMissingActionColumn,
   MESSAGE_ACTION_COLUMNS,
+  markMarketplaceMessagesDelivered,
   messageActionFields,
 } from "./marketplaceMessageActionsService";
 import {
@@ -1508,7 +1509,7 @@ function selectBuyerMessages(buyerId, withActions) {
     .from("marketplace_customer_messages")
     .select(
       `
-        id,business_id,product_id,buyer_name,topic,preview,product_name,message_type,unread,support_dispute,created_at,
+        id,business_id,product_id,buyer_name,topic,preview,product_name,message_type,unread,delivered_at,support_dispute,created_at,
         conversation_key,sender_role,media_url,media_type,${withActions ? `${MESSAGE_ACTION_COLUMNS},` : ""}
         marketplace_businesses (id,business_name,city,country,logo_url)
       `,
@@ -1518,6 +1519,8 @@ function selectBuyerMessages(buyerId, withActions) {
 }
 
 async function loadBuyerMessages(buyerId) {
+  // Loading the inbox means the store's replies reached this phone.
+  markMarketplaceMessagesDelivered();
   const [result, hiddenIds] = await Promise.all([
     selectBuyerMessages(buyerId, true),
     fetchHiddenMarketplaceMessageIds(),
@@ -1686,6 +1689,7 @@ export async function subscribeBuyerMarketplaceMessages(onMessage, options = {})
       { event: "INSERT", schema: "public", table: "marketplace_customer_messages", filter: `buyer_id=eq.${buyerId}` },
       (payload) => {
         invalidateCache("buyer-messages");
+        if (payload.new?.sender_role === "seller") markMarketplaceMessagesDelivered();
         onMessage?.(payload.new);
       },
     );

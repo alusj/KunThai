@@ -280,6 +280,8 @@ function normalizeMessage(row) {
     mediaUrl: row.media_url || row.mediaUrl || "",
     metadata: typeof row.metadata === "string" ? safeParse(row.metadata, {}) : row.metadata || {},
     read: Boolean(row.read),
+    // When the recipient's app received it (Sent → Delivered → Seen).
+    deliveredAt: row.delivered_at || row.deliveredAt || "",
     createdAt: row.created_at || row.createdAt || new Date().toISOString(),
     ...messageActionFields(row),
   };
@@ -595,8 +597,26 @@ export function readCachedExploreMessages(conversationId, currentUserId = "") {
   return readArray(MESSAGES_KEY, currentUserId).filter((message) => message.conversationId === conversationId);
 }
 
+// The recipient's app has these messages: stamp them delivered (Sent →
+// Delivered on the sender's bubble). Calls close together are merged.
+let deliveredTimer = null;
+let deliveredScope = undefined;
+export function markExploreMessagesDelivered(conversationId = null) {
+  if (typeof window === "undefined") return;
+  const id = isUuid(conversationId) ? conversationId : null;
+  // One conversation, or every one ("null") once any call asks for all.
+  deliveredScope = deliveredScope === undefined ? id : deliveredScope === id ? id : null;
+  window.clearTimeout(deliveredTimer);
+  deliveredTimer = window.setTimeout(() => {
+    const scope = deliveredScope;
+    deliveredScope = undefined;
+    supabase.rpc("mark_explore_messages_delivered", { p_conversation_id: scope }).then(() => {}, () => {});
+  }, 600);
+}
+
 export async function fetchExploreConversations(currentUserId) {
   if (!currentUserId) return [];
+  markExploreMessagesDelivered(null);
 
   const inboxRows = await fetchInboxRows();
   if (inboxRows) {
@@ -840,6 +860,7 @@ export async function startExploreSpaceConversation(currentProfile, space, optio
 // or those older than options.before. Messages this account hid are left out
 // by the server. Only the latest page is cached on the device.
 export async function fetchExploreMessagePage(conversationId, currentUserId = "", options = {}) {
+  markExploreMessagesDelivered(conversationId);
   const cachedMessages = () => readArray(MESSAGES_KEY, currentUserId).filter((message) => message.conversationId === conversationId);
   if (!conversationId) return { messages: [], hasMore: false };
   if (isLocalConversationId(conversationId)) return { messages: cachedMessages(), hasMore: false };

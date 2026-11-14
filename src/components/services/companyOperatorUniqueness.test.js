@@ -58,3 +58,27 @@ test("registration: one operator is never on two vehicles", () => {
   fleets[1].operators[0].id = "22222222-2222-2222-2222-222222222222";
   assert.equal(findOperatorOnSeveralFleets(fleets, { now, counts: (a, b) => !a.id || !b.id }), null);
 });
+
+test("findCompanyPlacement names an operator already on a vehicle, on the team, or the owner", async () => {
+  const { findCompanyPlacement } = await import("./companyOperatorUniqueness.js");
+  const company = {
+    members: [
+      { role: "owner", userId: "owner-1", publicId: "KTU-OWNER1" },
+      { role: "operator", status: "active", userId: "team-1", publicId: "KTU-TEAM01" },
+      { role: "operator", status: "removed", userId: "gone-1", publicId: "KTU-GONE01" },
+    ],
+    fleets: [
+      { id: "f1", fleetName: "Blue Keke", operators: [{ status: "accepted", userId: "drv-1", publicId: "KTU-DRV001" }] },
+      { id: "f2", fleetName: "Old bus", archivedAt: "2026-01-01", operators: [{ status: "accepted", userId: "old-1" }] },
+    ],
+    invites: [{ status: "pending", operator_user_id: "inv-1", created_at: new Date().toISOString() }],
+  };
+  assert.deepEqual(findCompanyPlacement(company, { userId: "owner-1" }), { kind: "owner" });
+  assert.equal(findCompanyPlacement(company, { publicId: "ktu drv001" })?.fleetName, "Blue Keke");
+  assert.equal(findCompanyPlacement(company, { publicId: "x", publicIdAliases: ["KTU-DRV001"] })?.kind, "vehicle");
+  assert.equal(findCompanyPlacement(company, { userId: "team-1" })?.kind, "team");
+  assert.equal(findCompanyPlacement(company, { userId: "inv-1" })?.pending, true);
+  assert.equal(findCompanyPlacement(company, { userId: "gone-1" }), null);
+  assert.equal(findCompanyPlacement(company, { userId: "old-1" }), null);
+  assert.equal(findCompanyPlacement(company, { userId: "new-1" }), null);
+});

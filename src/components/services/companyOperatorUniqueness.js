@@ -81,3 +81,55 @@ export class DuplicateCompanyOperatorError extends Error {
     this.fleetName = fleetName;
   }
 }
+
+// Every way one looked-up person can be written down: their KunThai ID and
+// each alias the lookup returned.
+function operatorVariants(operator = {}) {
+  const aliases = Array.isArray(operator.publicIdAliases) ? operator.publicIdAliases : [];
+  return [operator, ...aliases.filter(Boolean).map((publicId) => ({ publicId }))];
+}
+
+function matchesOperator(entry = {}, operator = {}) {
+  return operatorVariants(operator).some((variant) => isSameOperator(entry, variant));
+}
+
+/**
+ * Where a looked-up person already is in this company, or null.
+ *   { kind: "owner" }                       – the company's own owner
+ *   { kind: "vehicle", fleetId, fleetName } – on a vehicle (invited or accepted)
+ *   { kind: "team", pending }               – on the team without a vehicle
+ * Checked while the KunThai ID is typed, so a person already added is named
+ * before anything is sent.
+ */
+export function findCompanyPlacement(company = {}, operator = {}, now = Date.now()) {
+  if (!company || !operator) return null;
+  const members = company.members || [];
+  if (members.some((member) => member.role === "owner" && matchesOperator(member, operator))) return { kind: "owner" };
+
+  for (const fleet of company.fleets || []) {
+    if (fleet.archivedAt) continue;
+    const invite = (fleet.operators || []).find((entry) => isOpenOperatorInvite(entry, now) && matchesOperator(entry, operator));
+    if (invite) {
+      return {
+        kind: "vehicle",
+        fleetId: fleet.id || fleet.localId || "",
+        fleetName: fleet.fleetName || fleet.plateNumber || fleet.fleetCode || "",
+        pending: String(invite.status || "pending").toLowerCase() === "pending",
+      };
+    }
+  }
+
+  const teamInvite = (company.invites || []).find((invite) =>
+    !(invite.company_fleet_id || invite.companyFleetId)
+      && isOpenOperatorInvite(invite, now)
+      && matchesOperator(invite, operator));
+  if (teamInvite) return { kind: "team", pending: true };
+
+  const member = members.find((entry) =>
+    entry.role !== "owner"
+      && !["removed", "left", "declined", "rejected"].includes(String(entry.status || "").toLowerCase())
+      && String(entry.serviceStatus || "").toLowerCase() !== "removed"
+      && matchesOperator(entry, operator));
+  if (member) return { kind: "team", pending: String(member.status || "").toLowerCase() === "pending" };
+  return null;
+}

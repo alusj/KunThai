@@ -60,7 +60,7 @@ import {
 } from "../../../data/globalTransportCapabilities";
 import { useI18n, t } from "../../../i18n";
 import { fleetExampleKey } from "./fleetExamples";
-import { findFleetWithOperator, findOpenInviteForOperator } from "../../services/companyOperatorUniqueness";
+import { findCompanyPlacement, findFleetWithOperator, findOpenInviteForOperator } from "../../services/companyOperatorUniqueness";
 import { t as i18nText } from "../../../i18n/index";
 import { useAiScreen } from "../../../Backend/services/ai/aiScreenContext";
 import { buildCompanyRegistrationAiContext } from "./companyRegistrationAi";
@@ -317,6 +317,8 @@ export default function CompanyRegistrationScreen({ existingCompany = null, focu
   const transportOnlyMode = addOperatorMode || addFleetMode;
   const openingSource = existingCompany || null;
   const openingCompany = openingSource?.company || openingSource;
+  // The saved company with its vehicles, team and open invitations.
+  const companyTeamSource = openingSource?.fleets ? openingSource : openingCompany;
   const openingFleetForm = incrementalFleetMode && openingCompany
     ? {
         ...createCompanyForm(),
@@ -638,25 +640,48 @@ export default function CompanyRegistrationScreen({ existingCompany = null, focu
     clearStatus();
   }
 
-  function addOperatorInvite(fleetId, operator) {
+  // Why this person cannot be added to this vehicle, or "". Run as the
+  // KunThai ID is typed (so an operator already in the company is named at
+  // once) and again when Add is pressed.
+  function operatorInviteProblem(fleetId, operator) {
     if (compactPublicId(operator.publicId) && compactPublicId(operator.publicId) === compactPublicId(form.ownerPublicId)) {
-      showStatus(t("urride.companyReg.ownerIdError"), "error");
       return t("urride.companyReg.ownerIdError");
     }
 
     // A company adds an operator once: not on two vehicles, and not twice on
     // the same one.
-    const sameOperator = { operatorId: operator.id, userId: operator.userId, publicId: operator.publicId };
+    const sameOperator = { operatorId: operator.id, userId: operator.userId, publicId: operator.publicId, publicIdAliases: operator.publicIdAliases };
+    const name = operator.name || operator.publicId;
     const otherFleet = findFleetWithOperator(fleets, sameOperator, fleetId);
     const thisFleet = fleets.find((fleet) => fleet.localId === fleetId);
     const alreadyHere = findOpenInviteForOperator(thisFleet?.operators || [], sameOperator);
     if (otherFleet || alreadyHere) {
       const fleetName = (otherFleet || thisFleet)?.fleetName || (otherFleet || thisFleet)?.plateNumber || (otherFleet || thisFleet)?.fleetCode || "";
-      const message = fleetName
-        ? t("operatorDashboards.alreadyOnFleet", { name: operator.name || operator.publicId, fleet: fleetName })
-        : t("operatorDashboards.alreadyOnTeam", { name: operator.name || operator.publicId });
-      showStatus(message, "error");
-      return message;
+      return fleetName
+        ? t("operatorDashboards.alreadyOnFleet", { name, fleet: fleetName })
+        : t("operatorDashboards.alreadyOnTeam", { name });
+    }
+
+    // Adding a vehicle to a saved company: the form holds only the new
+    // vehicle, so the company's saved vehicles and team are checked too. A
+    // team member who has no vehicle yet may be given this one.
+    if (incrementalFleetMode && companyTeamSource) {
+      const placement = findCompanyPlacement(companyTeamSource, sameOperator);
+      if (placement?.kind === "owner") return t("urride.companyReg.ownerIdError");
+      if (placement?.kind === "vehicle") {
+        return placement.fleetName
+          ? t("operatorDashboards.alreadyOnFleet", { name, fleet: placement.fleetName })
+          : t("operatorDashboards.alreadyOnTeam", { name });
+      }
+    }
+    return "";
+  }
+
+  function addOperatorInvite(fleetId, operator) {
+    const problem = operatorInviteProblem(fleetId, operator);
+    if (problem) {
+      showStatus(problem, "error");
+      return problem;
     }
 
     const request = {
@@ -1189,6 +1214,7 @@ export default function CompanyRegistrationScreen({ existingCompany = null, focu
                       errors={fieldErrors}
                       onAddFleet={addFleet}
                       onInvite={addOperatorInvite}
+                      onCheckOperator={operatorInviteProblem}
                       onRemoveFleet={removeFleet}
                       onUpdateFleet={updateFleet}
                       onUploadFleetDocument={markFleetDocument}
@@ -1246,6 +1272,7 @@ export default function CompanyRegistrationScreen({ existingCompany = null, focu
                       errors={fieldErrors}
                       onAddFleet={addFleet}
                       onInvite={addOperatorInvite}
+                      onCheckOperator={operatorInviteProblem}
                       onRemoveFleet={removeFleet}
                       onUpdateFleet={updateFleet}
                       onUploadFleetDocument={markFleetDocument}
@@ -1288,6 +1315,7 @@ export default function CompanyRegistrationScreen({ existingCompany = null, focu
                 errors={fieldErrors}
                 onAddFleet={addFleet}
                 onInvite={addOperatorInvite}
+                      onCheckOperator={operatorInviteProblem}
                 onRemoveFleet={removeFleet}
                 onUpdateFleet={updateFleet}
                 onUploadFleetDocument={markFleetDocument}
@@ -1665,7 +1693,7 @@ function CompanyAreaViewStatus({ validation }) {
   );
 }
 
-function FleetBuilderStep({ acceptedOperators = [], allowMultiple = true, errors = {}, fleets, form, lockRentalCategory = false, transportOnly = false, withOperatorInvite = true, onAddFleet, onInvite, onRemoveFleet, onUpdateFleet, onUploadFleetDocument, onViewOneKmPreview }) {
+function FleetBuilderStep({ acceptedOperators = [], allowMultiple = true, errors = {}, fleets, form, lockRentalCategory = false, transportOnly = false, withOperatorInvite = true, onAddFleet, onCheckOperator, onInvite, onRemoveFleet, onUpdateFleet, onUploadFleetDocument, onViewOneKmPreview }) {
   useUiLocale();
   const acceptedPublicIds = acceptedOperators.map((operator) => compactPublicId(operator.publicId)).filter(Boolean);
   return (
@@ -1692,6 +1720,7 @@ function FleetBuilderStep({ acceptedOperators = [], allowMultiple = true, errors
             lockRentalCategory={lockRentalCategory}
             transportOnly={transportOnly}
             onInvite={onInvite}
+            onCheckOperator={onCheckOperator}
             onRemove={onRemoveFleet}
             onUpdate={onUpdateFleet}
             onUploadDocument={onUploadFleetDocument}
@@ -1704,11 +1733,13 @@ function FleetBuilderStep({ acceptedOperators = [], allowMultiple = true, errors
   );
 }
 
-function FleetCard({ acceptedPublicIds = [], errors = {}, fleet, form, index, lockRentalCategory = false, transportOnly = false, withOperatorInvite = true, onInvite, onRemove, onUpdate, onUploadDocument, onViewOneKmPreview, removable }) {
+function FleetCard({ acceptedPublicIds = [], errors = {}, fleet, form, index, lockRentalCategory = false, transportOnly = false, withOperatorInvite = true, onCheckOperator, onInvite, onRemove, onUpdate, onUploadDocument, onViewOneKmPreview, removable }) {
   useUiLocale();
   const [operatorId, setOperatorId] = useState("");
   const [lookupStatus, setLookupStatus] = useState("");
   const [operatorMatch, setOperatorMatch] = useState(null);
+  // The typed ID belongs to someone who cannot be added (already added, the owner…).
+  const [lookupBlocked, setLookupBlocked] = useState(false);
   const [, setLookingUp] = useState(false);
   const [activePricingGuide, setActivePricingGuide] = useState("");
   const acceptedPublicIdsKey = acceptedPublicIds.join("|");
@@ -1721,15 +1752,28 @@ function FleetCard({ acceptedPublicIds = [], errors = {}, fleet, form, index, lo
   const rentalDistanceNegotiable = Boolean(fleet.safetyAnswers?.rentalDistanceNegotiable);
   const rentalTimeNegotiable = Boolean(fleet.safetyAnswers?.rentalTimeNegotiable);
 
+  // Latest checker without re-running the lookup on every parent render.
+  const onCheckOperatorRef = useRef(onCheckOperator);
+  onCheckOperatorRef.current = onCheckOperator;
   const applyLookupResult = useCallback((match) => {
     if (match && acceptedPublicIdSet.has(compactPublicId(match.publicId))) {
       setOperatorMatch(null);
+      setLookupBlocked(true);
       setLookupStatus(t("urride.companyReg.lookupAlreadyAccepted"));
       return;
     }
+    // Already in this company (on a vehicle, or on this form): said at once.
+    const problem = match ? onCheckOperatorRef.current?.(fleet.localId, match) : "";
+    if (problem) {
+      setOperatorMatch(null);
+      setLookupBlocked(true);
+      setLookupStatus(problem);
+      return;
+    }
+    setLookupBlocked(!match);
     setOperatorMatch(match);
     setLookupStatus(match ? t("urride.companyReg.lookupAvailable", { name: match.name }) : t("urride.companyReg.lookupNotFound"));
-  }, [acceptedPublicIdSet]);
+  }, [acceptedPublicIdSet, fleet.localId]);
 
   useEffect(() => {
     const target = operatorId.trim();
@@ -1737,6 +1781,7 @@ function FleetCard({ acceptedPublicIds = [], errors = {}, fleet, form, index, lo
     if (!target) {
       setOperatorMatch(null);
       setLookupStatus("");
+      setLookupBlocked(false);
       setLookingUp(false);
       return undefined;
     }
@@ -1746,6 +1791,7 @@ function FleetCard({ acceptedPublicIds = [], errors = {}, fleet, form, index, lo
     if (!/^KTU/i.test(target.replace(/[^a-z0-9]/gi, ""))) {
       setOperatorMatch(null);
       setLookupStatus("");
+      setLookupBlocked(false);
       setLookingUp(false);
       return undefined;
     }
@@ -1756,6 +1802,7 @@ function FleetCard({ acceptedPublicIds = [], errors = {}, fleet, form, index, lo
       // keystroke — only reset once the field is clearly incomplete again.
       setOperatorMatch(null);
       setLookupStatus(t("urride.companyReg.lookupEnterComplete"));
+      setLookupBlocked(false);
       setLookingUp(false);
       return undefined;
     }
@@ -1764,12 +1811,16 @@ function FleetCard({ acceptedPublicIds = [], errors = {}, fleet, form, index, lo
     const timer = window.setTimeout(async () => {
       setLookingUp(true);
       setLookupStatus(t("urride.companyReg.lookupChecking"));
+      setLookupBlocked(false);
 
       try {
         const match = await lookupTransportOperatorByKunThaiId(target);
         if (alive) applyLookupResult(match);
       } catch (error) {
-        if (alive) setLookupStatus(inlineErrorMessage(error, t("urride.companyReg.lookupCheckError")));
+        if (alive) {
+          setLookupStatus(inlineErrorMessage(error, t("urride.companyReg.lookupCheckError")));
+          setLookupBlocked(true);
+        }
       } finally {
         if (alive) setLookingUp(false);
       }
@@ -1786,12 +1837,15 @@ function FleetCard({ acceptedPublicIds = [], errors = {}, fleet, form, index, lo
     // The parent refuses an operator already on this company's team.
     const problem = onInvite(fleet.localId, operatorMatch);
     if (problem) {
+      setOperatorMatch(null);
+      setLookupBlocked(true);
       setLookupStatus(problem);
       return;
     }
     setOperatorId("");
     setOperatorMatch(null);
     setLookupStatus(t("urride.companyReg.operatorAdded"));
+    setLookupBlocked(false);
   }
 
   function updateServiceCategory(value) {
@@ -1930,7 +1984,7 @@ function FleetCard({ acceptedPublicIds = [], errors = {}, fleet, form, index, lo
         </div>
         {errors[i18nText("ui.literals.k5c30e91aa380", { value0: fleet.localId })] ? <p className="mt-3 text-sm font-bold text-rose-700" role="alert">{errors[i18nText("ui.literals.k5c30e91aa380", { value0: fleet.localId })]}</p> : null}
         {lookupStatus ? (
-          <p aria-live="polite" className={`mt-3 text-sm font-bold ${operatorMatch ? "text-blue-700" : lookupStatus.includes("not found") || lookupStatus.includes("Unable") ? "text-rose-700" : "text-slate-600"}`}>
+          <p aria-live="polite" className={`mt-3 text-sm font-bold ${operatorMatch ? "text-blue-700" : lookupBlocked ? "text-rose-700" : "text-slate-600"}`}>
             {lookupStatus}
           </p>
         ) : null}

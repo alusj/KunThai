@@ -22,7 +22,22 @@ export function messageActionFields(row = {}) {
     replySnapshot: row.reply_snapshot || null,
     editedAt: row.edited_at || "",
     deletedAt: row.deleted_at || "",
+    // Receipts for the sender's bubble: the other side's app received it
+    // (delivered_at), then opened it (unread turned false).
+    deliveredAt: row.delivered_at || "",
+    seen: row.unread === false,
   };
+}
+
+// The other side's messages reached this app: stamp them delivered. Calls
+// close together are merged into one.
+let deliveredTimer = null;
+export function markMarketplaceMessagesDelivered() {
+  if (typeof window === "undefined") return;
+  window.clearTimeout(deliveredTimer);
+  deliveredTimer = window.setTimeout(() => {
+    supabase.rpc("mark_marketplace_messages_delivered").then(() => {}, () => {});
+  }, 600);
 }
 
 // The messages this account deleted for itself.

@@ -170,6 +170,7 @@ export default function CustomerCare({ onBack, initialChat = null } = {}) {
   useEffect(() => {
     let unsubscribe = null;
     let active = true;
+    let receiptReloadTimer = null;
 
     subscribeSellerMarketplaceMessages((row) => {
       // One thread per buyer: the buyer's message shows at once in it, and
@@ -177,9 +178,16 @@ export default function CustomerCare({ onBack, initialChat = null } = {}) {
       if (row?.buyer_id) setEchoes((current) => addDeliveredMessage(current, row.buyer_id, row, "seller"));
       reload?.();
     }, {
-      // Edits and deletes for everyone from the buyer (not read receipts).
+      // Edits and deletes for everyone from the buyer, and the receipts on
+      // the store's own replies (Delivered, Seen). Receipts come in bursts.
       onUpdate: (row) => {
-        if (row?.edited_at || row?.deleted_at) reload?.();
+        if (row?.edited_at || row?.deleted_at) {
+          reload?.();
+          return;
+        }
+        if (row?.sender_role !== "seller") return;
+        window.clearTimeout(receiptReloadTimer);
+        receiptReloadTimer = window.setTimeout(() => { if (active) reload?.(); }, 500);
       },
     })
       .then((cleanup) => {
@@ -195,6 +203,7 @@ export default function CustomerCare({ onBack, initialChat = null } = {}) {
 
     return () => {
       active = false;
+      window.clearTimeout(receiptReloadTimer);
       unsubscribe?.();
     };
   }, [reload, liveEpoch]);

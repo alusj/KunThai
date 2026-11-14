@@ -1,9 +1,8 @@
 import { useEffect, useRef } from "react";
-import { BellRing, ChevronRight, X } from "lucide-react";
+import { BellRing, ChevronRight } from "lucide-react";
 
 import { campaignContentFromRow } from "../../../Backend/services/campaigns/campaignModel";
 import {
-  archiveCampaignInboxItem,
   recordCampaignClick,
   recordCampaignRead,
   recordCampaignSeenInInbox,
@@ -48,11 +47,6 @@ export default function CampaignInboxSection({ inbox, title = "KunThai updates",
       recordCampaignRead(item).catch(() => {});
     }
     markLocally(item.id, { status: "read" });
-  }
-
-  function remove(item) {
-    archiveCampaignInboxItem(item).catch(() => {});
-    setItems((current) => current.filter((entry) => entry.id !== item.id));
   }
 
   return (
@@ -110,14 +104,6 @@ export default function CampaignInboxSection({ inbox, title = "KunThai updates",
                   ) : null}
                 </div>
               </div>
-              <button
-                type="button"
-                onClick={() => remove(item)}
-                aria-label={i18nText("ui.literals.ka2d40d3386fc", { value0: content.title })}
-                className="grid h-9 w-9 shrink-0 place-items-center rounded-xl text-gray-400 hover:bg-gray-100 hover:text-gray-700"
-              >
-                <X size={16} />
-              </button>
             </div>
           </article>
         );

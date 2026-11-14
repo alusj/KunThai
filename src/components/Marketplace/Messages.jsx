@@ -147,6 +147,7 @@ export default function Messages({ initialConversationId = "", onBack, onInitial
   useEffect(() => {
     let unsubscribe = null;
     let active = true;
+    let receiptReloadTimer = null;
 
     subscribeBuyerMarketplaceMessages((row) => {
       // The seller's message shows at once; the quiet reload confirms it.
@@ -154,9 +155,16 @@ export default function Messages({ initialConversationId = "", onBack, onInitial
       if (conversation) setEchoes((current) => addDeliveredMessage(current, conversation.id, row, "buyer"));
       loadMessages({ silent: true });
     }, {
-      // Edits and deletes for everyone from the seller (not read receipts).
+      // Edits and deletes for everyone from the seller, and the receipts on
+      // my own messages (Delivered, Seen). Receipts come in bursts: one reload.
       onUpdate: (row) => {
-        if (row?.edited_at || row?.deleted_at) loadMessages({ silent: true });
+        if (row?.edited_at || row?.deleted_at) {
+          loadMessages({ silent: true });
+          return;
+        }
+        if ((row?.sender_role || "buyer") !== "buyer") return;
+        window.clearTimeout(receiptReloadTimer);
+        receiptReloadTimer = window.setTimeout(() => { if (active) loadMessages({ silent: true }); }, 500);
       },
     })
       .then((cleanup) => {
@@ -172,6 +180,7 @@ export default function Messages({ initialConversationId = "", onBack, onInitial
 
     return () => {
       active = false;
+      window.clearTimeout(receiptReloadTimer);
       unsubscribe?.();
     };
     // Resubscribes when KunThai comes back (liveEpoch); loadMessages only

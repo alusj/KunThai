@@ -56,6 +56,7 @@ import { URRIDE_LOCATION_TRUST } from "./urrideLocationTrust";
 import { LIVE_SHARING } from "./liveSharing";
 import { OPERATOR_WORK_MODE } from "./operatorWorkMode";
 import { OPERATOR_DASHBOARDS } from "./operatorDashboards";
+import { MESSAGE_RECEIPTS } from "./messageReceipts";
 import { EXPLORE_SETTINGS_FIX } from "./exploreSettingsFix";
 import { EXPLORE_PROFILE_FIX } from "./exploreProfileFix";
 import { EXPLORE_MESSAGES_FIX } from "./exploreMessagesFix";
@@ -59661,6 +59662,12 @@ for (const [locale, section] of Object.entries(OPERATOR_WORK_MODE)) {
 for (const [locale, section] of Object.entries(OPERATOR_DASHBOARDS)) {
   if (TRANSLATIONS[locale]) {
     TRANSLATIONS[locale].operatorDashboards = section;
+  }
+}
+
+for (const [locale, section] of Object.entries(MESSAGE_RECEIPTS)) {
+  if (TRANSLATIONS[locale]) {
+    TRANSLATIONS[locale].messageReceipts = section;
   }
 }
 

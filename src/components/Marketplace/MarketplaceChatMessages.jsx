@@ -4,6 +4,9 @@ import MessageActionMenu from "../shared/messageActions/MessageActionMenu";
 import { DeleteMessageDialog, DeletedMessageBody, MessageReplyQuote, ReportSheet } from "../shared/messageActions/MessageActionParts";
 import { revealMessage } from "../shared/messageActions/messageActionDom.js";
 import { useMessageLongPress } from "../shared/messageActions/useMessageLongPress";
+import SwipeToReply from "../shared/messageActions/SwipeToReply";
+import MessageStatus from "../shared/messageActions/MessageStatus";
+import { messageReceiptState } from "../shared/messageActions/messageReceiptState.js";
 import { formatMessageTime } from "../../Backend/utils/formatMessageTime";
 import { t as i18nText } from "../../i18n/index";
 import { useI18n as useUiLocale } from "../../i18n/index.js";
@@ -12,13 +15,21 @@ import { useI18n as useUiLocale } from "../../i18n/index.js";
 // the long-press action menu. chat comes from useMarketplaceMessageActions.
 export default function MarketplaceChatMessages({ messages, myRole, chat, threadRef, attachmentAlt, sendingLabel }) {
   useUiLocale();
+  // My newest sent message carries the status word; the rest show ticks.
+  const lastOwnMessageId = [...messages].reverse().find((message) => message.from === myRole && !message.pending)?.id || "";
   return (
     <>
       {messages.map((message) => (
-        <MarketplaceChatBubble
+        <SwipeToReply
           key={message.id}
+          disabled={Boolean(message.pending || message.deletedAt || !chat.startReply)}
+          onReply={() => chat.startReply?.(message)}
+        >
+        <MarketplaceChatBubble
           message={message}
           mine={message.from === myRole}
+          receipt={message.from === myRole ? messageReceiptState({ pending: message.pending, deliveredAt: message.deliveredAt, seen: message.seen }) : ""}
+          showReceiptLabel={message.id === lastOwnMessageId}
           selected={chat.menu?.message?.id === message.id}
           quoteAuthor={message.replySnapshot ? chat.authorOf(message.replySnapshot.from) : ""}
           onLongPress={chat.openMenu}
@@ -26,6 +37,7 @@ export default function MarketplaceChatMessages({ messages, myRole, chat, thread
           attachmentAlt={attachmentAlt}
           sendingLabel={sendingLabel}
         />
+        </SwipeToReply>
       ))}
       <MessageActionMenu state={chat.menu} onClose={chat.closeMenu} onSelect={chat.runMenuAction} />
       <DeleteMessageDialog open={Boolean(chat.deleteTarget)} onClose={chat.closeDelete} onChoose={chat.chooseDelete} />
@@ -34,7 +46,7 @@ export default function MarketplaceChatMessages({ messages, myRole, chat, thread
   );
 }
 
-function MarketplaceChatBubble({ message, mine, selected, quoteAuthor, onLongPress, onOpenQuote, attachmentAlt, sendingLabel }) {
+function MarketplaceChatBubble({ message, mine, receipt = "", showReceiptLabel = false, selected, quoteAuthor, onLongPress, onOpenQuote, attachmentAlt, sendingLabel }) {
   useUiLocale();
   const press = useMessageLongPress((element) => onLongPress?.(message, element), { disabled: message.pending });
   const time = message.pending ? sendingLabel : formatMessageTime(message.createdAt);
@@ -79,6 +91,7 @@ function MarketplaceChatBubble({ message, mine, selected, quoteAuthor, onLongPre
       )}
       <span className={`mt-1 block text-[10px] font-bold ${mine ? "text-white/70" : "text-gray-400"}`}>
         {time}{edited}
+        {mine && receipt && !message.pending ? <MessageStatus state={receipt} showLabel={showReceiptLabel} tone="emerald" /> : null}
       </span>
     </div>
   );

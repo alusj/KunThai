@@ -138,6 +138,12 @@ export function useMarketplaceMessageActions({ myRole, otherName, threadKey, onC
     else if (key === "report") setReportTarget({ targetType: "marketplace_message", targetId: message.id });
   }
 
+  // Swiping a bubble left replies to it, like the menu's Reply.
+  function startReply(message) {
+    if (!message || message.pending || message.deletedAt) return;
+    setContext({ mode: "reply", message, author: authorOf(message.from), snapshot: snapshotOf(message) });
+  }
+
   function chooseDelete(choice) {
     const message = deleteTarget;
     setDeleteTarget(null);
@@ -197,6 +203,7 @@ export function useMarketplaceMessageActions({ myRole, otherName, threadKey, onC
     replyFields,
     runMenuAction,
     setContext,
+    startReply,
     submitEdit,
     visible,
   };

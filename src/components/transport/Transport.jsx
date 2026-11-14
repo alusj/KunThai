@@ -267,7 +267,31 @@ export default function Transport({
       return;
     }
 
-    openRegistrationChooser();
+    // An operator who joined a company (no solo account of their own) may
+    // have been loaded before they joined: read the account again before
+    // offering registration, so they land on their operator dashboard.
+    const companyOperator = Boolean(companyAccount?.access?.isActiveMember && !companyAccount?.access?.isOwner);
+    const check = ownSurfaceRecheckRef.current + 1;
+    ownSurfaceRecheckRef.current = check;
+    setRouteDirection("forward");
+    setOwnSurfaceRechecking(true);
+    const settle = (account) => {
+      // Backed out of the opening screen meanwhile: go nowhere.
+      if (ownSurfaceRecheckRef.current !== check) return;
+      ownSurfaceRecheckRef.current = check + 1;
+      setOwnSurfaceRechecking(false);
+      if (account) {
+        setOperatorAccount(account);
+        openOperatorDashboard("dashboard");
+      } else if (companyOperator) {
+        // Their company's "My Dashboard" (the operator view of Fleet HQ).
+        setCompanyWorkspaceInitialTab("Overview");
+        setCompanyWorkspaceOpen(true);
+      } else {
+        openRegistrationChooser();
+      }
+    };
+    getOperatorAccount().then(settle, () => settle(null));
   }
 
   // Header "My fleet" / "Fleet HQ". Always answers the tap at once: the
@@ -846,8 +870,14 @@ export default function Transport({
         },
       });
       setOperatorInviteDocumentsInvite(null);
-      await refreshOperatorCompanyInvites(operatorAccount);
+      // Joined: the operator profile and the company vehicle now exist, so the
+      // account is read again (the one read above predates the acceptance) and
+      // their operator dashboard for the company opens straight away.
+      const joinedAccount = await getOperatorAccount().catch(() => null);
+      if (joinedAccount) setOperatorAccount(joinedAccount);
+      await refreshOperatorCompanyInvites(joinedAccount || refreshedAccount || operatorAccount).catch(() => {});
       setOperatorInviteStatus(t("urride.transport.status.submitDocs", { company: updatedInvite.companyName || t("urride.transport.status.companyFallback") }));
+      if (joinedAccount) openOperatorDashboard("dashboard");
     } catch (error) {
       throw new Error(error.message || t("urride.transport.docs.submitError"));
     }
@@ -912,6 +942,9 @@ export default function Transport({
   // dashboard. The global network toast already covers a missing connection.
   const [operatorLoadKey, setOperatorLoadKey] = useState(0);
   const [pendingOwnSurface, setPendingOwnSurface] = useState("");
+  // The operator account is being read again before registration is offered.
+  const [ownSurfaceRechecking, setOwnSurfaceRechecking] = useState(false);
+  const ownSurfaceRecheckRef = useRef(0);
 
   useEffect(() => {
     if (!pendingOwnSurface || operatorLoading || companyLoading) return;
@@ -1568,7 +1601,9 @@ export default function Transport({
       return renderWithAreaView(withRegistrationOneKmPreview(
         <div className={`${routePanelClass} kt-mobile-viewport`}>
           <CompanyRegistrationScreen
-            existingCompany={companyAccount}
+            // A new registration never edits a company this person only works
+            // for: only its owner (or a manager adding vehicles) gets it here.
+            existingCompany={companyRegistrationMode === "full" && companyAccount && !companyAccount.access?.isOwner ? null : companyAccount}
             focusFleetId={companyRegistrationFleetId}
             mode={companyRegistrationMode}
             onBack={closeRegistrationFlow}
@@ -1991,14 +2026,16 @@ export default function Transport({
   // A tap on "My fleet" / "Fleet HQ" before the accounts have loaded opens
   // this screen at once (like UrMall's seller entrance) and becomes the
   // dashboard as soon as the account is known.
-  if (pendingOwnSurface) {
+  if (pendingOwnSurface || ownSurfaceRechecking) {
     return renderWithAreaView(
       <div className={routePanelClass}>
         <OwnSurfaceOpeningSkeleton
-          kind={pendingOwnSurface}
+          kind={pendingOwnSurface || "operator"}
           onBack={() => {
             setRouteDirection("backward");
             setPendingOwnSurface("");
+            ownSurfaceRecheckRef.current += 1;
+            setOwnSurfaceRechecking(false);
           }}
         />
       </div>,
@@ -2460,6 +2497,23 @@ function CompanyOperatorInvitePanel({ invites, loading, status, operatorHasDocum
 
 function CompanyOperatorInviteCard({ invite, operatorHasDocuments = false, onAccept, onCompleteRegistration, onDone, onReject }) {
   useI18n();
+  // Which button is working ("accept" / "reject"): it shows a spinner, both
+  // buttons wait, and the phone gives a short buzz on the tap.
+  const [busyAction, setBusyAction] = useState("");
+  const mountedRef = useRef(true);
+  useEffect(() => () => { mountedRef.current = false; }, []);
+  async function runAction(kind, action) {
+    if (busyAction) return;
+    haptics.medium("transport");
+    setBusyAction(kind);
+    try {
+      await action();
+    } catch {
+      haptics.error("transport");
+    } finally {
+      if (mountedRef.current) setBusyAction("");
+    }
+  }
   // An operator already verified (or with documents on file) is never asked
   // for documents again: accepting is all a company invitation needs.
   const needsDocuments = !operatorHasDocuments
@@ -2511,18 +2565,26 @@ function CompanyOperatorInviteCard({ invite, operatorHasDocuments = false, onAcc
         <div className="mt-4 grid gap-2 sm:grid-cols-2">
         <button
           type="button"
-          onClick={() => (needsDocuments ? onCompleteRegistration(invite) : onAccept(invite))}
-          className="flex h-11 items-center justify-center gap-2 rounded-2xl bg-blue-600 px-4 text-sm font-black text-white"
+          disabled={Boolean(busyAction)}
+          aria-busy={busyAction === "accept" || undefined}
+          onClick={() => runAction("accept", () => (needsDocuments ? onCompleteRegistration(invite) : onAccept(invite)))}
+          className="kt-pressable flex h-11 items-center justify-center gap-2 rounded-2xl bg-blue-600 px-4 text-sm font-black text-white transition active:scale-[0.97] disabled:opacity-70"
         >
-          {needsDocuments ? <FiFileText size={17} /> : <FiCheckCircle size={17} />}
+          {busyAction === "accept"
+            ? <span aria-hidden="true" className="h-4 w-4 animate-spin rounded-full border-2 border-white border-t-transparent" />
+            : needsDocuments ? <FiFileText size={17} /> : <FiCheckCircle size={17} />}
           {needsDocuments ? t("urride.transport.inviteCard.uploadDocs") : t("urride.transport.inviteCard.accept")}
         </button>
         <button
           type="button"
-          onClick={() => onReject(invite)}
-          className="flex h-11 items-center justify-center gap-2 rounded-2xl border border-rose-200 bg-white px-4 text-sm font-black text-rose-700"
+          disabled={Boolean(busyAction)}
+          aria-busy={busyAction === "reject" || undefined}
+          onClick={() => runAction("reject", () => onReject(invite))}
+          className="kt-pressable flex h-11 items-center justify-center gap-2 rounded-2xl border border-rose-200 bg-white px-4 text-sm font-black text-rose-700 transition active:scale-[0.97] disabled:opacity-70"
         >
-          <FiX size={17} />
+          {busyAction === "reject"
+            ? <span aria-hidden="true" className="h-4 w-4 animate-spin rounded-full border-2 border-rose-600 border-t-transparent" />
+            : <FiX size={17} />}
           {t("urride.transport.inviteCard.reject")}
         </button>
         </div>

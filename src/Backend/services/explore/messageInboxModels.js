@@ -144,6 +144,8 @@ export function normalizeMessageRow(row = {}) {
     mediaUrl: row.media_url || row.mediaUrl || "",
     metadata: parseMetadata(row.metadata),
     read: Boolean(row.read),
+    // When the recipient's app received it (Sent → Delivered → Seen).
+    deliveredAt: row.delivered_at || row.deliveredAt || "",
     createdAt: row.created_at || row.createdAt || new Date(0).toISOString(),
     ...messageActionFields(row),
   };
