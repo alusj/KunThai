@@ -55,7 +55,9 @@ export async function fetchSellerHeaderState() {
       unread: true,
       created_at: message.created_at || null,
     }));
-    const attentionNotificationItems = (attentionItems || []).map((item) => ({
+    // The notifications screen lists only urgent attention items, so only
+    // those count on its bell.
+    const attentionNotificationItems = (attentionItems || []).filter((item) => item.priority === "high").map((item) => ({
       id: `seller-alert:${item.id}`,
       unread: true,
       created_at: item.updated_at || item.updatedAt || item.created_at || item.createdAt || null,

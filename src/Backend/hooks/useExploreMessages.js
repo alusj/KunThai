@@ -12,6 +12,7 @@ import {
   fetchExploreConversations,
   findConversationSpaceId,
   fetchExploreMessagePage,
+  markExploreMessagesDelivered,
   fetchExploreSpaceConversations,
   EXPLORE_MESSAGE_EVENT,
   markExploreConversationRead,
@@ -105,6 +106,8 @@ function normalizeIncomingMessage(row = {}) {
     mediaUrl: row.media_url || row.mediaUrl || "",
     metadata: typeof row.metadata === "string" ? safeParseObject(row.metadata) : row.metadata || {},
     read: Boolean(row.read),
+    // When the recipient's app received it (Sent → Delivered → Seen).
+    deliveredAt: row.delivered_at || row.deliveredAt || "",
     createdAt: row.created_at || row.createdAt || new Date().toISOString(),
     ...messageActionFields(row),
   };
@@ -586,6 +589,10 @@ export function useExploreMessages(currentProfile, initialRecipient) {
 
     function applyIncomingMessage(incomingMessage) {
       if (!incomingMessage?.conversationId) return false;
+      // Received here: the sender's bubble moves from Sent to Delivered.
+      if (incomingMessage.senderId && incomingMessage.senderId !== currentUserId && !incomingMessage.instant) {
+        markExploreMessagesDelivered(incomingMessage.conversationId);
+      }
       const preview = getMessagePreview(incomingMessage);
       // An instant copy and then its saved row: the unread count goes up once.
       const alreadyCounted = countedIncomingRef.current.has(incomingMessage.id);

@@ -19,6 +19,8 @@ export function marketplaceMessageFromRow(row = {}) {
     replySnapshot: row.reply_snapshot || null,
     editedAt: row.edited_at || "",
     deletedAt: row.deleted_at || "",
+    deliveredAt: row.delivered_at || "",
+    seen: row.unread === false,
   };
 }
 

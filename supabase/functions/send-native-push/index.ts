@@ -53,6 +53,12 @@ const BATCH_SIZE = 100;
 const PARALLEL_ROWS = 10;
 const MAX_BATCHES = 5;
 const DRAIN_BUDGET_MS = 25_000;
+// After the queue looks empty, look again a couple of times before stopping:
+// a push queued a moment after this call started (inside the trigger's 2 s
+// kick throttle) then goes out within a second instead of waiting for the
+// once-a-minute safety net.
+const LINGER_POLLS = 2;
+const LINGER_MS = 1_000;
 const REQUEST_TIMEOUT_MS = 10_000;
 const APNS_PRODUCTION_HOST = "api.push.apple.com";
 const APNS_SANDBOX_HOST = "api.sandbox.push.apple.com";
@@ -143,7 +149,10 @@ const PUSH_SOUNDS: Record<string, PushSound> = {
   // UrRide horn: 29 s on iPhone (iOS custom push sounds stop at 30 s), 60 s on
   // Android; opening KunThai clears the notification, which stops it.
   horn: { sound: "kt_horn.wav", androidSound: "kt_horn", channel: "kunthai_horn", timeSensitive: true },
-  message: { sound: "kt_message.wav", androidSound: "kt_message", channel: "kunthai_messages", timeSensitive: false },
+  // Time-sensitive: a message from a person reaches the lock screen at once,
+  // even under Sleep or another Focus (each person can still turn this off in
+  // iOS Settings > Notifications > KunThai).
+  message: { sound: "kt_message.wav", androidSound: "kt_message", channel: "kunthai_messages", timeSensitive: true },
   order: { sound: "kt_order.wav", androidSound: "kt_order", channel: "kunthai_orders", timeSensitive: false },
   default: { sound: "default", androidSound: "default", channel: "kunthai_alerts", timeSensitive: false },
 };
@@ -447,7 +456,8 @@ Deno.serve(async (request) => {
   let closed = 0;
   const invalidTokens = new Set<string>();
 
-  for (let batch = 0; batch < MAX_BATCHES && Date.now() - startedAt < DRAIN_BUDGET_MS; batch += 1) {
+  let lingerLeft = LINGER_POLLS;
+  for (let batch = 0; batch < MAX_BATCHES + LINGER_POLLS && Date.now() - startedAt < DRAIN_BUDGET_MS; batch += 1) {
     const { data, error } = await admin.rpc("push_outbox_claim", { p_limit: BATCH_SIZE });
     if (error) {
       console.error("[send-native-push] could not claim the queue", error.code || "", error.message || "");
@@ -472,8 +482,13 @@ Deno.serve(async (request) => {
       }));
     }
 
-    // A short batch means the queue is empty (retries wait for their time).
-    if (rows.length < BATCH_SIZE) break;
+    // A short batch means the queue is empty (retries wait for their time):
+    // linger briefly for pushes queued in the meantime, then stop.
+    if (rows.length < BATCH_SIZE) {
+      if (lingerLeft <= 0) break;
+      lingerLeft -= 1;
+      await new Promise((resolve) => setTimeout(resolve, LINGER_MS));
+    }
   }
 
   if (invalidTokens.size) {

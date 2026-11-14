@@ -1,4 +1,4 @@
-import { useEffect, useRef, useState } from "react";
+import { useState } from "react";
 
 import { useSellerActivities } from "../../../../../Backend/hooks/useSellerActivities";
 import { useI18n, t } from "../../../../../i18n";
@@ -7,36 +7,10 @@ import { shortErrorToast } from "../../../../../Backend/services/friendlyErrorSe
 import ActivityItem from "./ActivityItem";
 import ActivitySummary from "./ActivitySummary";
 
-const ACTIVITY_WIPE_MS = 320;
-
 export default function BusinessActivity({ onViewProduct }) {
   useI18n();
-  const { activities, dismissActivity, summary, loading } = useSellerActivities();
-  const [dismissingIds, setDismissingIds] = useState(() => new Set());
+  const { activities, summary, loading } = useSellerActivities();
   const [actionBusyId, setActionBusyId] = useState("");
-  const timersRef = useRef([]);
-
-  useEffect(() => {
-    return () => {
-      timersRef.current.forEach((timerId) => window.clearTimeout(timerId));
-      timersRef.current = [];
-    };
-  }, []);
-
-  function handleDone(activity) {
-    if (!activity?.id || dismissingIds.has(activity.id)) return;
-
-    setDismissingIds((current) => new Set(current).add(activity.id));
-    const timerId = window.setTimeout(() => {
-      dismissActivity(activity.id);
-      setDismissingIds((current) => {
-        const next = new Set(current);
-        next.delete(activity.id);
-        return next;
-      });
-    }, ACTIVITY_WIPE_MS);
-    timersRef.current.push(timerId);
-  }
 
   async function handleAction(activity) {
     if (!activity?.actionLabel || actionBusyId) return;
@@ -71,9 +45,7 @@ export default function BusinessActivity({ onViewProduct }) {
             key={activity.id}
             actionBusy={actionBusyId === activity.id}
             activity={activity}
-            dismissing={dismissingIds.has(activity.id)}
             onAction={handleAction}
-            onDone={handleDone}
           />
         ))}
       </div>

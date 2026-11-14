@@ -29,9 +29,11 @@ function getCachedStatus(userId = "") {
   return MESSAGE_STATUS_CACHE.get(userId) || { conversations: [], loadedAt: 0 };
 }
 
-function loadStatusConversations(userId = "") {
+// force: a fresh read even while one is under way (that one may have started
+// before a read receipt was saved).
+function loadStatusConversations(userId = "", { force = false } = {}) {
   const pending = MESSAGE_STATUS_INFLIGHT.get(userId);
-  if (pending) return pending;
+  if (pending && !force) return pending;
   const request = fetchExploreConversations(userId)
     .then((items) => {
       const deduped = dedupeExploreConversations(items);
@@ -67,9 +69,9 @@ export function useExploreMessageStatus(currentUserId = "") {
   }), []);
 
   useEffect(() => {
-    function reloadMessages() {
+    function reloadMessages(options) {
       if (!currentUserId) return;
-      loadStatusConversations(currentUserId)
+      loadStatusConversations(currentUserId, options)
         .then(setConversations)
         .catch(() => {
           setConversations(getCachedStatus(currentUserId).conversations || []);
@@ -99,7 +101,23 @@ export function useExploreMessageStatus(currentUserId = "") {
     }
     reloadActivity();
     const unsubscribeRealtime = subscribeToExploreMessages(currentUserId, reloadMessages);
-    window.addEventListener(EXPLORE_MESSAGE_EVENT, reloadMessages);
+    // A chat opened anywhere (the inbox, a notification, a profile) and read:
+    // it leaves the badge at once, and the inbox is read again once the
+    // server has the receipt.
+    function handleMessageEvent(event) {
+      const detail = event?.detail || {};
+      if (detail.type === "read" && detail.conversationId) {
+        const zero = (items) => items.map((item) => (
+          item.id === detail.conversationId ? { ...item, unreadCount: 0 } : item
+        ));
+        const cached = getCachedStatus(currentUserId);
+        MESSAGE_STATUS_CACHE.set(currentUserId, { ...cached, conversations: zero(cached.conversations || []) });
+        setConversations((current) => zero(current));
+        return;
+      }
+      reloadMessages(detail.type === "read-saved" ? { force: true } : undefined);
+    }
+    window.addEventListener(EXPLORE_MESSAGE_EVENT, handleMessageEvent);
     window.addEventListener(EXPLORE_MESSAGE_ACTIVITY_EVENT, reloadActivity);
     window.addEventListener(EXPLORE_MESSAGE_CACHE_CLEARED_EVENT, clearMessageStatusCache);
     window.addEventListener("storage", reloadMessages);
@@ -109,7 +127,7 @@ export function useExploreMessageStatus(currentUserId = "") {
 
     return () => {
       unsubscribeRealtime();
-      window.removeEventListener(EXPLORE_MESSAGE_EVENT, reloadMessages);
+      window.removeEventListener(EXPLORE_MESSAGE_EVENT, handleMessageEvent);
       window.removeEventListener(EXPLORE_MESSAGE_ACTIVITY_EVENT, reloadActivity);
       window.removeEventListener(EXPLORE_MESSAGE_CACHE_CLEARED_EVENT, clearMessageStatusCache);
       window.removeEventListener("storage", reloadMessages);

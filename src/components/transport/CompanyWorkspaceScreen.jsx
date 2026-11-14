@@ -60,11 +60,11 @@ import { SlidePanel, useSlidePanel } from "../shared/SlideTransition";
 import { showToast } from "../../Backend/services/toastService";
 import { haptics } from "../../Backend/services/feedbackService";
 import {
-  dismissPlatformNotification,
   fetchCompanyPlatformNotifications,
   markSurfacePlatformNotificationRead,
   subscribeToCompanyPlatformNotifications,
 } from "../../Backend/services/surfaceNotificationService";
+import { findCompanyPlacement } from "../services/companyOperatorUniqueness";
 import {
   companyActivityNotificationEnabled,
   DEFAULT_COMPANY_NOTIFICATION_PREFERENCES,
@@ -1324,19 +1324,6 @@ export default function CompanyWorkspaceScreen({ company, initialTab = "Overview
                 }
               }
             }}
-            onDelete={(activity) => {
-              markNotificationsSeen(notificationDismissedScope, [activity]);
-              if (activity.platformNotificationId) dismissPlatformNotification(activity).then(() => {}, () => {});
-              setSeenVersion((version) => version + 1);
-            }}
-            onDeleteAll={() => {
-              markNotificationsSeen(notificationDismissedScope, companyNotificationItems);
-              companyNotificationItems
-                .filter((item) => item.platformNotificationId)
-                .forEach((item) => dismissPlatformNotification(item).then(() => {}, () => {}));
-              setSeenVersion((version) => version + 1);
-              showToast("All alerts deleted", "success");
-            }}
           />
           <CompanyBookingQueueDrawer
             bookings={visibleBookingQueue.map((booking) => ({
@@ -1537,6 +1524,7 @@ export default function CompanyWorkspaceScreen({ company, initialTab = "Overview
           /> : null}
           {invitationFleet ? <FleetOperatorInvitationDrawer
             candidates={operatorsWithoutVehicle}
+            company={company}
             fleet={invitationFleet}
             onClose={() => setInvitationFleet(null)}
             onSend={async (publicId) => {
@@ -3024,7 +3012,7 @@ function ActionSheetHeader({ eyebrow, icon, onClose, title }) {
   );
 }
 
-function CompanyActivityDrawer({ activities, company, notificationPreferences, onClose, onDelete, onDeleteAll, onMarkAllRead, onRead, onTogglePreference, onToggleSettings, open, settingsOpen }) {
+function CompanyActivityDrawer({ activities, company, notificationPreferences, onClose, onMarkAllRead, onRead, onTogglePreference, onToggleSettings, open, settingsOpen }) {
   useUiLocale();
   return (
     <FleetHqFullScreen label={t("urride.companyWs.notificationsLabel")} onClose={onClose} open={open}>
@@ -3042,16 +3030,6 @@ function CompanyActivityDrawer({ activities, company, notificationPreferences, o
               className="kt-touchable grid h-11 w-11 flex-none place-items-center rounded-2xl bg-blue-50 text-xl text-blue-700 transition hover:bg-blue-100"
             >
               <HiOutlineCheckCircle />
-            </button>
-            <button
-              type="button"
-              onClick={activities.length ? onDeleteAll : undefined}
-              disabled={!activities.length}
-              aria-label={t("urride.companyWs.deleteAllAria")}
-              title={t("urride.companyWs.deleteAllTitle")}
-              className="kt-touchable grid h-11 w-11 flex-none place-items-center rounded-2xl bg-rose-50 text-rose-600 transition hover:bg-rose-100 disabled:opacity-50"
-            >
-              <Trash2 size={19} />
             </button>
             <button
               type="button"
@@ -3098,18 +3076,6 @@ function CompanyActivityDrawer({ activities, company, notificationPreferences, o
                       <p className="mt-2 text-[11px] font-bold text-slate-400">{new Date(activity.created_at).toLocaleString()}</p>
                     ) : null}
                   </div>
-                  <button
-                    type="button"
-                    onClick={(event) => {
-                      event.stopPropagation();
-                      onDelete?.(activity);
-                    }}
-                    aria-label={t("urride.companyWs.deleteNotifAria")}
-                    title={t("urride.companyWs.deleteNotifTitle")}
-                    className="kt-touchable mt-0.5 grid h-9 w-9 shrink-0 place-items-center rounded-xl bg-white text-rose-500 shadow-sm transition hover:bg-rose-50 hover:text-rose-600"
-                  >
-                    <Trash2 size={16} />
-                  </button>
                 </div>
               </article>
             ))}
@@ -3377,7 +3343,22 @@ function FleetOperatorInvitationDrawer({ candidates = [], company = null, fleet 
     catch (failure) { setError(inlineErrorMessage(failure, i18nText("ui.literals.k6b73b3290cd3"))); setBusy(false); }
   }
 
-  const found = lookup.status === "found" ? lookup.operator : null;
+  // Someone already in this company is named as soon as the ID is checked,
+  // before anything is sent. A team member with no vehicle may still be given
+  // this vehicle; adding them to the team again is refused.
+  const placement = lookup.status === "found" ? findCompanyPlacement(company, lookup.operator) : null;
+  const blockedMessage = (() => {
+    if (!placement) return "";
+    const name = lookup.operator?.name || lookup.operator?.publicId || "";
+    if (placement.kind === "owner") return t("urride.companyReg.ownerIdError");
+    if (placement.kind === "vehicle") {
+      return placement.fleetName
+        ? t("operatorDashboards.alreadyOnFleet", { name, fleet: placement.fleetName })
+        : t("operatorDashboards.alreadyOnTeam", { name });
+    }
+    return fleet ? "" : t("operatorDashboards.alreadyOnTeam", { name });
+  })();
+  const found = lookup.status === "found" && !blockedMessage ? lookup.operator : null;
   const pickable = candidates.filter((operator) => operator.publicId && operator.serviceStatus !== "suspended");
 
   const title = fleet ? t("urrideFleetHq.assignOperator") : t("urrideAddMenu.operatorTitle");
@@ -3402,6 +3383,7 @@ function FleetOperatorInvitationDrawer({ candidates = [], company = null, fleet 
       </div>
       {lookup.status === "loading" ? <p className="text-sm font-bold text-slate-500">{t("urrideFleetHq.lookingUp")}</p> : null}
       {lookup.status === "missing" ? <p className="text-sm font-bold text-rose-600">{t("urrideFleetHq.idNotFound")}</p> : null}
+      {blockedMessage ? <p role="alert" className="rounded-2xl border border-rose-200 bg-rose-50 px-4 py-3 text-sm font-bold text-rose-700">{blockedMessage}</p> : null}
       {found ? (
         <div className="rounded-2xl border border-emerald-200 bg-emerald-50 p-4">
           <p className="text-xs font-black uppercase tracking-wide text-emerald-700">{t("urrideFleetHq.idBelongsTo")}</p>

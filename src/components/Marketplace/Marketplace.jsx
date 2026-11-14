@@ -285,9 +285,10 @@ export default function Marketplace({ active = true, nav, setNav, onActivityChan
     }
 
     setBusinessClosing(false);
+    // Orders and messages badges follow live counts. The notifications bell is
+    // left alone: it keeps its badge inside the dashboard until the seller opens it.
     sellerHeader.markSellerSectionSeen("orders");
     sellerHeader.markSellerSectionSeen("messages");
-    sellerHeader.markSellerSectionSeen("notifications");
     setNav({
       root: "marketplace",
       sub: "business",
@@ -331,7 +332,9 @@ export default function Marketplace({ active = true, nav, setNav, onActivityChan
     // triggers a re-render, so an object dep loops this effect infinitely.
     markSellerSectionSeen("orders");
     markSellerSectionSeen("messages");
-    markSellerSectionSeen("notifications");
+    // Not "notifications": a notice that arrives (or was waiting) while the
+    // seller is in the dashboard must show on the dashboard's bell, and only
+    // opening that bell clears it.
   }, [nav.sub, markSellerSectionSeen, sellerNotificationCount]);
 
   if (nav.sub === "business") {

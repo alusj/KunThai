@@ -15,6 +15,7 @@ import { shortErrorToast } from "../../../../Backend/services/friendlyErrorServi
 import LiveLocationMessage from "../../../shared/liveLocation/LiveLocationMessage";
 import { useMessageLongPress } from "../../../shared/messageActions/useMessageLongPress";
 import { DeletedMessageBody, MessageReplyQuote } from "../../../shared/messageActions/MessageActionParts";
+import MessageStatus from "../../../shared/messageActions/MessageStatus";
 
 // Location messages carry a text key so they read in the viewer's language.
 function locationText(message) {
@@ -34,7 +35,10 @@ export default function MessageBubble({
   onOpenSharedLocation,
   otherUserName,
   quoteAuthor = "",
-  seen = false,
+  // My message's status ("sent" / "delivered" / "seen"); the word shows on
+  // the newest of mine only.
+  receipt = "",
+  showReceiptLabel = false,
   selected = false,
   // Space inbox: which teammate sent one of "our" replies ("Sent by Aminata").
   senderLabel = "",
@@ -62,7 +66,13 @@ export default function MessageBubble({
   }`;
   const timeOnly = message.pending ? t("messages.sending") : new Date(message.createdAt).toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" });
   const editedLabel = message.editedAt && !message.deletedAt ? ` · ${i18nText("messageActions.edited")}` : "";
-  const timeLabel = `${timeOnly}${editedLabel}${seen && !message.pending ? ` · ${t("messages.seen")}` : ""}`;
+  const timeLabel = `${timeOnly}${editedLabel}`;
+  const timeLine = (
+    <p className={`mt-1 text-[10px] font-bold ${mine ? "text-white/55" : "text-slate-400"}`}>
+      {timeLabel}
+      {mine && receipt && !message.pending ? <MessageStatus state={receipt} showLabel={showReceiptLabel} tone="dark" /> : null}
+    </p>
+  );
   const pressProps = {
     ...press.handlers,
     "data-message-id": message.id,
@@ -104,9 +114,7 @@ export default function MessageBubble({
             <p className="mb-1 text-[10px] font-black uppercase tracking-[0.14em] text-white/60">{senderLabel}</p>
           ) : null}
           <DeletedMessageBody tone={mine ? "dark" : "light"} />
-          <p className={`mt-1 text-[10px] font-bold ${mine ? "text-white/55" : "text-slate-400"}`}>
-            {timeLabel}
-          </p>
+          {timeLine}
         </div>
       </div>
     );
@@ -158,9 +166,7 @@ export default function MessageBubble({
               </button>
             </div>
           ) : null}
-          <p className={`mt-1 text-[10px] font-bold ${mine ? "text-white/55" : "text-slate-400"}`}>
-            {timeLabel}
-          </p>
+          {timeLine}
         </div>
       </div>
     );
@@ -176,9 +182,7 @@ export default function MessageBubble({
             expiresAt={metadata.expiresAt}
             name={mine ? "" : metadata.sharerName || otherName}
           />
-          <p className={`mt-1 text-[10px] font-bold ${mine ? "text-white/55" : "text-slate-400"}`}>
-            {timeLabel}
-          </p>
+          {timeLine}
         </div>
       </div>
     );
@@ -210,9 +214,7 @@ export default function MessageBubble({
               {t("messages.openAreaView")}
             </button>
           ) : null}
-          <p className={`mt-1 text-[10px] font-bold ${mine ? "text-white/55" : "text-slate-400"}`}>
-            {timeLabel}
-          </p>
+          {timeLine}
         </div>
       </div>
     );
@@ -251,9 +253,7 @@ export default function MessageBubble({
           />
         ) : null}
         {message.body ? <p>{metadata.textKey === "locationDeclined" ? locationText(message) : message.body}</p> : mediaType === "audio" ? null : mediaType === "image" ? <p>{t("messages.photo")}</p> : mediaType === "video" ? <p>{i18nText("exploreMessagesFix.previewVideo")}</p> : null}
-        <p className={`mt-1 text-[10px] font-bold ${mine ? "text-white/55" : "text-slate-400"}`}>
-          {timeLabel}
-        </p>
+        {timeLine}
       </div>
     </div>
   );

@@ -855,40 +855,72 @@ export default function VideoCard({
       return video.paused && !video.ended;
     }
 
-    // Sound running on while the picture stands still (seen on iPhone: the
-    // clip keeps playing but no new frames are drawn): the clip is set to
-    // the moment it is at, which starts its picture again in step with the
-    // sound. Only trusted once this player has been seen drawing frames, so
-    // a phone that does not count them is left alone.
-    let framesBefore = -1;
-    let timeBefore = 0;
-    let framesCounted = false;
-    let frozenChecks = 0;
-    function framesDrawn() {
-      const quality = typeof video.getVideoPlaybackQuality === "function" ? video.getVideoPlaybackQuality() : null;
-      if (quality && Number.isFinite(quality.totalVideoFrames)) return quality.totalVideoFrames;
-      return Number.isFinite(video.webkitDecodedFrameCount) ? video.webkitDecodedFrameCount : -1;
+    // Sound running on while the picture stands still (iPhone, mostly as iOS
+    // warns KunThai about memory: no new frames reach the screen while the
+    // sound plays on). Detected from the frames really shown on screen
+    // (requestVideoFrameCallback), not from decoded-frame counts: the iPhone
+    // reports those in bursts, so a clip playing normally looked frozen and
+    // was nudged, which made playback visibly skip. Recovery: a jump of a
+    // twentieth of a second (setting the clip to the moment it is already at
+    // does not restart the picture), then, if the picture is still stuck,
+    // the player is reloaded at that moment. A phone without frame callbacks
+    // is left alone. Never while a sheet or menu covers the clip.
+    const FROZEN_AFTER_S = 1.5;
+    const canWatchFrames = typeof video.requestVideoFrameCallback === "function";
+    let frameCallbackId = 0;
+    let lastShown = null;
+    let lastRecoveryAt = 0;
+    let recoveryStep = 0;
+    const noteFrame = (now, metadata) => {
+      lastShown = { at: performance.now(), mediaTime: Number(metadata?.mediaTime) || video.currentTime };
+      if (recoveryStep) {
+        recordLifecycle("swip-frozen", "recovered", `after step ${recoveryStep}`);
+        recoveryStep = 0;
+      }
+      frameCallbackId = video.requestVideoFrameCallback(noteFrame);
+    };
+    // A jump, a loop or a fresh start begins a new count.
+    const restartCount = () => {
+      lastShown = lastShown ? { at: performance.now(), mediaTime: video.currentTime } : null;
+    };
+    if (canWatchFrames) {
+      frameCallbackId = video.requestVideoFrameCallback(noteFrame);
+      video.addEventListener("seeked", restartCount);
+      video.addEventListener("playing", restartCount);
     }
     function restartFrozenPicture() {
-      const frames = framesDrawn();
+      if (!canWatchFrames || !lastShown) return;
+      const covered = commentOpen || actionMenuOpen || quickDeckOpen || repostOpen || settingsOpen;
       const playing = !video.paused && !video.seeking && video.readyState >= 3
-        && document.visibilityState === "visible" && !primingRef.current;
-      if (frames < 0 || !playing) {
-        framesBefore = -1;
-        frozenChecks = 0;
+        && document.visibilityState === "visible" && !primingRef.current && !covered;
+      if (!playing) {
+        restartCount();
         return;
       }
       const time = video.currentTime;
-      if (framesBefore >= 0 && frames > framesBefore) framesCounted = true;
-      const frozen = framesCounted && framesBefore >= 0 && frames === framesBefore && time - timeBefore > 0.4;
-      frozenChecks = frozen ? frozenChecks + 1 : 0;
-      framesBefore = frames;
-      timeBefore = time;
-      if (frozenChecks < 2) return;
-      frozenChecks = 0;
-      framesBefore = -1;
-      logSwipPlayback("picture stood still while the sound ran: restarted", { post_id: post.id });
-      video.currentTime = time;
+      if (time < lastShown.mediaTime) {
+        restartCount();
+        return;
+      }
+      const now = performance.now();
+      const frozen = time - lastShown.mediaTime > FROZEN_AFTER_S && now - lastShown.at > FROZEN_AFTER_S * 1000;
+      if (!frozen || now - lastRecoveryAt < 2000) return;
+      lastRecoveryAt = now;
+      recoveryStep = recoveryStep ? 2 : 1;
+      recordLifecycle("swip-frozen", "restart", `step ${recoveryStep} at ${time.toFixed(1)} s`);
+      logSwipPlayback("picture stood still while the sound ran: restarted", { post_id: post.id, step: recoveryStep });
+      const resumeAt = Math.min(time + 0.05, Math.max(clip.start, clip.end - 0.1));
+      if (recoveryStep === 1) {
+        video.currentTime = resumeAt;
+        return;
+      }
+      const onLoaded = () => {
+        video.removeEventListener("loadedmetadata", onLoaded);
+        video.currentTime = resumeAt;
+        requestActivePlayback();
+      };
+      video.addEventListener("loadedmetadata", onLoaded);
+      video.load();
     }
 
     function resumeIfStuck() {
@@ -908,8 +940,13 @@ export default function VideoCard({
       document.removeEventListener("visibilitychange", onVisible);
       window.removeEventListener("pageshow", onVisible);
       window.removeEventListener("focus", onVisible);
+      if (canWatchFrames) {
+        video.cancelVideoFrameCallback?.(frameCallbackId);
+        video.removeEventListener("seeked", restartCount);
+        video.removeEventListener("playing", restartCount);
+      }
     };
-  }, [active, actionMenuOpen, commentOpen, post.id, quickDeckOpen, repostOpen, requestActivePlayback, settingsOpen]);
+  }, [active, actionMenuOpen, clip.end, clip.start, commentOpen, post.id, quickDeckOpen, repostOpen, requestActivePlayback, settingsOpen]);
 
   // A clip buffered ahead of time may already be playable when this card
   // mounts or becomes active.

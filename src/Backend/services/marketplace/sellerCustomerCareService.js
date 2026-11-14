@@ -2,7 +2,7 @@ import supabase from "../../lib/supabaseClient";
 import { t } from "../../../i18n";
 import { readRegisteredBusiness } from "./sellerRegistrationService";
 import { uploadMediaDataUrl } from "../explore/mediaService";
-import { fetchHiddenMarketplaceMessageIds, messageActionFields } from "./marketplaceMessageActionsService";
+import { fetchHiddenMarketplaceMessageIds, markMarketplaceMessagesDelivered, messageActionFields } from "./marketplaceMessageActionsService";
 
 function buildConversationKey(businessId, productId, topic = "") {
   return [businessId, productId || "marketplace", topic || "general"].join(":");
@@ -75,6 +75,8 @@ export async function fetchSellerCustomerCare() {
   if (!business) {
     return null;
   }
+  // Loading Customer Care means the buyers' messages reached this phone.
+  markMarketplaceMessagesDelivered();
 
   const [{ data, error }, hiddenIds] = await Promise.all([
     supabase
@@ -179,7 +181,10 @@ export async function subscribeSellerMarketplaceMessages(onMessage, options = {}
     .on(
       "postgres_changes",
       { event: "INSERT", schema: "public", table: "marketplace_customer_messages", filter: `business_id=eq.${business.id}` },
-      (payload) => onMessage?.(payload.new),
+      (payload) => {
+        if ((payload.new?.sender_role || "buyer") === "buyer") markMarketplaceMessagesDelivered();
+        onMessage?.(payload.new);
+      },
     );
   if (options.onUpdate) {
     channel.on(

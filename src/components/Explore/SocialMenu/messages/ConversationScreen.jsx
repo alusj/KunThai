@@ -11,6 +11,8 @@ import { useKeyboardAwareConversation } from "../../../../Backend/hooks/useKeybo
 import { useHideAiAssistant } from "../../../../Backend/services/ai/aiScreenContext";
 import { useI18n } from "../../../../i18n";
 import MessageBubble from "./MessageBubble";
+import SwipeToReply from "../../../shared/messageActions/SwipeToReply";
+import { messageReceiptState } from "../../../shared/messageActions/messageReceiptState.js";
 import MessageComposer from "./MessageComposer";
 import { t as i18nText } from "../../../../i18n/index";
 import MessagePrivacyNotice from "../../../shared/MessagePrivacyNotice";
@@ -141,9 +143,12 @@ export default function ConversationScreen({
     return () => { active = false; };
   }, [peerUserId]);
   const requestAnswers = useMemo(() => locationRequestAnswers(messages), [messages]);
-  const lastSeenOwnMessageId = receiptsEnabled
-    ? [...messages].reverse().find((message) => isMine(message) && message.read && !message.pending)?.id || ""
-    : "";
+  // My newest sent message carries the status word (Sent / Delivered / Seen);
+  // the others show the ticks only. Seen needs read receipts on both sides.
+  const lastOwnMessageId = [...messages].reverse().find((message) => isMine(message) && !message.pending)?.id || "";
+  const receiptOf = (message) => (isMine(message)
+    ? messageReceiptState({ pending: message.pending, deliveredAt: message.deliveredAt, seen: message.read, seenAllowed: receiptsEnabled })
+    : "");
   const presenceState = usePeerPresence(conversation?.id, user.userId, onActivity);
   const presenceLabel = presenceState ? i18nText(`exploreMessagesFix.${PRESENCE_LABEL_KEYS[presenceState]}`) : "";
   const typingIndicator = presenceState === "typing" || presenceState === "recording";
@@ -369,11 +374,16 @@ export default function ConversationScreen({
           </div>
         ) : null}
         {messages.map((message) => (
-          <MessageBubble
+          <SwipeToReply
             key={message.id}
+            disabled={Boolean(message.pending || message.deletedAt)}
+            onReply={() => setComposerContext({ mode: "reply", message, author: authorOf(message.senderId), snapshot: snapshotOf(message) })}
+          >
+          <MessageBubble
             message={translateUi(message)}
             mine={isMine(message)}
-            seen={message.id === lastSeenOwnMessageId}
+            receipt={receiptOf(message)}
+            showReceiptLabel={message.id === lastOwnMessageId}
             selected={menu?.message?.id === message.id}
             senderLabel={teammateLabel(message)}
             otherUserName={otherName}
@@ -385,6 +395,7 @@ export default function ConversationScreen({
             requestStatus={message.type === "location_request" ? requestAnswers[message.id] || "" : ""}
             onOpenSharedLocation={() => onAction?.("openSharedLocation", { message, userId: user.userId })}
           />
+          </SwipeToReply>
         ))}
       </div>
 
