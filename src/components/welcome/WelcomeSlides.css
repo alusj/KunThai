@@ -1067,7 +1067,8 @@ html.dark .kt-w-road { background: #1e293b; }
 }
 
 .kt-intro__word {
-  margin-top: 1.6rem;
+  /* Below the box the gold ripples sweep out to. */
+  margin-top: 4.4rem;
   background: linear-gradient(180deg, #f6e2a6 0%, #e0b85a 55%, #b8893a 100%);
   -webkit-background-clip: text;
   background-clip: text;
@@ -1089,16 +1090,27 @@ html.dark .kt-w-road { background: #1e293b; }
   text-indent: 0.06em;
 }
 
-/* "Welcome to", bent over the top of the logo. */
+/* Display serif for the intro's two lines: Didot on iPhone, Noto Serif /
+   the system serif on Android. */
+.kt-intro {
+  --kt-intro-display: "Didot", "Bodoni 72", "Playfair Display", "Noto Serif", Georgia, "Times New Roman", serif;
+}
+
+/* "Welcome to", shaped like the top of the logo's outline. The gold ripples
+   reach 1.9x the logo (about 3.8rem past its edge), so it stays above that. */
 .kt-intro__welcome {
-  width: 17rem;
+  width: 18rem;
   height: auto;
-  margin-bottom: -0.35rem;
+  margin-bottom: 2.6rem;
   overflow: visible;
   fill: #f3dc9c;
-  font-size: 30px;
+  font-family: var(--kt-intro-display);
+  font-size: 31px;
   font-weight: 700;
-  letter-spacing: 0.08em;
+  letter-spacing: 0.05em;
+  paint-order: stroke;
+  stroke: rgb(120 84 24 / 0.35);
+  stroke-width: 0.6px;
   opacity: 0;
   transform: translate3d(0, -0.6rem, 0);
   transition: opacity 800ms ease 180ms, transform 1000ms var(--kt-intro-ease) 180ms;
@@ -1153,12 +1165,19 @@ html.dark .kt-w-road { background: #1e293b; }
 
 /* "Get assisted with AI": letters arrive one by one in a random order (each
    letter's delay is set on it). */
+/* A slanted display face, larger and wider than the Explore / UrMall /
+   UrRide row above it. */
 .kt-intro__ai {
-  margin-top: 0.9rem;
-  color: #f3dc9c;
-  font-size: 0.9375rem;
-  font-weight: 600;
-  letter-spacing: 0.03em;
+  margin-top: 1rem;
+  padding: 0 1.25rem;
+  color: #f1d48c;
+  text-shadow: 0 0.12rem 0.9rem rgb(232 196 106 / 0.35);
+  font-family: var(--kt-intro-display);
+  font-size: 1.85rem;
+  font-style: italic;
+  font-weight: 700;
+  line-height: 1.25;
+  letter-spacing: 0.01em;
   white-space: pre-wrap;
   text-align: center;
 }

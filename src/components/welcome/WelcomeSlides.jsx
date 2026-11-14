@@ -225,10 +225,12 @@ function WelcomeIntro({ reducedMotion, onLeave, onGone }) {
     <div className={`kt-intro is-${phase}`} aria-hidden="true">
       <div className="kt-intro__glow" />
       <div className="kt-intro__center">
-        {/* "Welcome to" bends over the top of the logo. */}
+        {/* "Welcome to" follows the shape of the logo's outline: flat across
+            the top, rounding down at the ends. It sits above the furthest
+            reach of the gold ripples, so it never touches them. */}
         <svg className="kt-intro__welcome" viewBox="0 0 300 92" lang={locale}>
           <defs>
-            <path id="kt-intro-welcome-arc" d="M 24 86 Q 150 -10 276 86" />
+            <path id="kt-intro-welcome-arc" d="M 4 92 C 6 50 52 30 118 28 L 182 28 C 248 30 294 50 296 92" />
           </defs>
           <text>
             <textPath href="#kt-intro-welcome-arc" startOffset="50%" textAnchor="middle">
