@@ -14677,6 +14677,7 @@ export const URRIDE = {
       "hourBody": "Para reservas por hora, os clientes procuram confiança e valor. Escolha uma taxa horária justa que cubra o tempo de espera e a qualidade do serviço e, em seguida, mantenha a simplicidade. Um preço razoável pode gerar mais reservas repetidas do que uma tarifa alta que só funciona uma vez."
     },
     "companyReg": {
+      "addingFleet": "Adicionando frota...",
       "stepCompany": "Empresa",
       "stepLocation": "Localização",
       "stepFleets": "Frotas",
@@ -17347,6 +17348,7 @@ export const URRIDE = {
       "hourBody": "प्रति घंटे की बुकिंग के लिए, ग्राहक आत्मविश्वास और मूल्य की तलाश करते हैं। एक उचित प्रति घंटा दर चुनें जो प्रतीक्षा समय और सेवा की गुणवत्ता को कवर करती हो, फिर इसे सरल रखें। एक उचित कीमत उच्च दर की तुलना में अधिक बार-बार बुकिंग ला सकती है जो केवल एक बार काम करती है।"
     },
     "companyReg": {
+      "addingFleet": "फ़्लीट जोड़ा जा रहा है...",
       "stepCompany": "कंपनी",
       "stepLocation": "स्थान",
       "stepFleets": "बेड़े",
@@ -20017,6 +20019,7 @@ export const URRIDE = {
       "hourBody": "প্রতি ঘণ্টায় বুকিংয়ের জন্য, গ্রাহকরা আস্থা এবং মূল্যের সন্ধান করেন। অপেক্ষার সময় এবং পরিষেবার গুণমানকে কভার করে এমন একটি ন্যায্য ঘন্টার হার বেছে নিন, তারপরে এটি সহজ রাখুন। একটি যুক্তিসঙ্গত মূল্য একটি উচ্চ হারের চেয়ে বেশি পুনরাবৃত্তি বুকিং আনতে পারে যা শুধুমাত্র একবার কাজ করে।"
     },
     "companyReg": {
+      "addingFleet": "ফ্লিট যোগ করা হচ্ছে...",
       "stepCompany": "কোম্পানি",
       "stepLocation": "অবস্থান",
       "stepFleets": "নৌবহর",
@@ -22687,6 +22690,7 @@ export const URRIDE = {
       "hourBody": "Untuk pemesanan per jam, pelanggan mencari kepercayaan dan nilai. Pilih tarif per jam yang wajar yang mencakup waktu tunggu dan kualitas layanan, lalu tetap sederhana. Harga yang wajar dapat mendatangkan lebih banyak pemesanan berulang dibandingkan harga tinggi yang hanya berlaku satu kali."
     },
     "companyReg": {
+      "addingFleet": "Menambahkan armada...",
       "stepCompany": "Perusahaan",
       "stepLocation": "Lokasi",
       "stepFleets": "Armada",
@@ -25357,6 +25361,7 @@ export const URRIDE = {
       "hourBody": "فی گھنٹہ بکنگ کے لیے، گاہک اعتماد اور قدر کی تلاش کرتے ہیں۔ ایک منصفانہ فی گھنٹہ کی شرح کا انتخاب کریں جو انتظار کے وقت اور سروس کے معیار کا احاطہ کرے، پھر اسے سادہ رکھیں۔ ایک مناسب قیمت ایک اعلی شرح سے زیادہ دوبارہ بکنگ لا سکتی ہے جو صرف ایک بار کام کرتی ہے۔"
     },
     "companyReg": {
+      "addingFleet": "فلیٹ شامل کیا جا رہا ہے...",
       "stepCompany": "کمپنی",
       "stepLocation": "مقام",
       "stepFleets": "بیڑے",
@@ -28027,6 +28032,7 @@ export const URRIDE = {
       "hourBody": "При почасовом бронировании клиенты ищут уверенность и ценность. Выберите справедливую почасовую ставку, которая покрывает время ожидания и качество обслуживания, а затем сделайте ее простой. Разумная цена может принести больше повторных бронирований, чем высокая цена, которая работает только один раз."
     },
     "companyReg": {
+      "addingFleet": "Добавление автопарка...",
       "stepCompany": "Компания",
       "stepLocation": "Расположение",
       "stepFleets": "Флоты",
@@ -30698,6 +30704,7 @@ export const URRIDE = {
       "hourBody": "時間単位の予約の場合、顧客は信頼性と価値を求めます。待ち時間とサービスの質を考慮した適正な時給を選択し、シンプルにしてください。リーズナブルな価格は、1 回限りの高い料金よりもリピート予約を増やすことができます。"
     },
     "companyReg": {
+      "addingFleet": "フリートを追加しています...",
       "stepCompany": "会社名",
       "stepLocation": "場所",
       "stepFleets": "艦隊",
@@ -33368,6 +33375,7 @@ export const URRIDE = {
       "hourBody": "तासाभराच्या बुकिंगसाठी, ग्राहक आत्मविश्वास आणि मूल्य शोधतात. प्रतीक्षा वेळ आणि सेवा गुणवत्तेचा समावेश असणारा वाजवी तासाचा दर निवडा, नंतर ते सोपे ठेवा. वाजवी किंमत उच्च दरापेक्षा अधिक पुनरावृत्ती बुकिंग आणू शकते जी केवळ एकदाच कार्य करते."
     },
     "companyReg": {
+      "addingFleet": "फ्लीट जोडली जात आहे...",
       "stepCompany": "कंपनी",
       "stepLocation": "स्थान",
       "stepFleets": "फ्लीट्स",
@@ -36038,6 +36046,7 @@ export const URRIDE = {
       "hourBody": "Đối với các đặt phòng theo giờ, khách hàng tìm kiếm sự tin cậy và giá trị. Chọn mức giá theo giờ hợp lý bao gồm thời gian chờ đợi và chất lượng dịch vụ, sau đó giữ nó đơn giản. Một mức giá hợp lý có thể mang lại nhiều lượt đặt phòng lặp lại hơn là mức giá cao chỉ hiệu quả một lần."
     },
     "companyReg": {
+      "addingFleet": "Đang thêm đội xe...",
       "stepCompany": "Công ty",
       "stepLocation": "Vị trí",
       "stepFleets": "Hạm đội",
@@ -38708,6 +38717,7 @@ export const URRIDE = {
       "hourBody": "Bei stundenweisen Buchungen suchen Kunden nach Vertrauen und Mehrwert. Wählen Sie einen fairen Stundensatz, der Wartezeit und Servicequalität abdeckt, und halten Sie es dann einfach. Ein angemessener Preis kann zu mehr Wiederholungsbuchungen führen als ein hoher Tarif, der nur einmal funktioniert."
     },
     "companyReg": {
+      "addingFleet": "Flotte wird hinzugefügt...",
       "stepCompany": "Unternehmen",
       "stepLocation": "Standort",
       "stepFleets": "Flotten",
