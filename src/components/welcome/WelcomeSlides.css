@@ -1096,30 +1096,43 @@ html.dark .kt-w-road { background: #1e293b; }
   --kt-intro-display: "Didot", "Bodoni 72", "Playfair Display", "Noto Serif", Georgia, "Times New Roman", serif;
 }
 
-/* "Welcome to", shaped like the top of the logo's outline. The gold ripples
-   reach 1.9x the logo (about 3.8rem past its edge), so it stays above that. */
+/* "Welcome to", shaped like the top of the logo's outline, in the same
+   slanted gold serif as "Get assisted with AI" and a little larger. The gold
+   ripples reach 1.9x the logo (about 3.8rem past its edge), so it stays
+   above that. Its size per language is set on it (--kt-intro-welcome-size),
+   so long greetings still fit the arc. */
 .kt-intro__welcome {
-  width: 18rem;
+  width: 20rem;
+  max-width: calc(100vw - 2rem);
   height: auto;
   margin-bottom: 2.6rem;
   overflow: visible;
-  fill: #f3dc9c;
+  fill: #f1d48c;
   font-family: var(--kt-intro-display);
-  font-size: 31px;
+  font-size: var(--kt-intro-welcome-size, 35px);
+  font-style: italic;
   font-weight: 700;
-  letter-spacing: 0.05em;
-  paint-order: stroke;
-  stroke: rgb(120 84 24 / 0.35);
-  stroke-width: 0.6px;
+  letter-spacing: 0.01em;
+  filter: drop-shadow(0 0.12rem 0.9rem rgb(232 196 106 / 0.35));
   opacity: 0;
-  transform: translate3d(0, -0.6rem, 0);
-  transition: opacity 800ms ease 180ms, transform 1000ms var(--kt-intro-ease) 180ms;
+  transform: translate3d(0, -60vh, 0);
 }
 
+/* It drops from the top of the screen and settles on its spot with a small
+   bounce. */
 .kt-intro.is-in .kt-intro__welcome,
 .kt-intro.is-out .kt-intro__welcome {
-  opacity: 1;
-  transform: none;
+  animation: kt-intro-drop 1250ms 200ms both;
+}
+
+@keyframes kt-intro-drop {
+  0% { opacity: 0; transform: translate3d(0, -60vh, 0); animation-timing-function: cubic-bezier(0.5, 0, 0.9, 0.5); }
+  12% { opacity: 1; }
+  58% { transform: translate3d(0, 0, 0); animation-timing-function: cubic-bezier(0.2, 0.6, 0.4, 1); }
+  74% { transform: translate3d(0, -1.1rem, 0); animation-timing-function: cubic-bezier(0.6, 0, 0.8, 0.4); }
+  86% { transform: translate3d(0, 0, 0); animation-timing-function: cubic-bezier(0.2, 0.6, 0.4, 1); }
+  93% { transform: translate3d(0, -0.25rem, 0); }
+  100% { opacity: 1; transform: none; }
 }
 
 .kt-intro__tagline {
@@ -1207,4 +1220,9 @@ html.dark .kt-w-road { background: #1e293b; }
 
   .kt-intro__ring,
   .kt-intro__sheen { display: none; }
+
+  .kt-intro .kt-intro__welcome {
+    animation: none !important;
+    opacity: 1;
+  }
 }

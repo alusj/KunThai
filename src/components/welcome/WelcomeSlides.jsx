@@ -200,6 +200,10 @@ function WelcomeIntro({ reducedMotion, onLeave, onGone }) {
   const aiLine = t("welcomeSlides.introAi");
   // Shuffled once per line, so a re-render never reorders letters mid-way.
   const aiPieces = useMemo(() => introLinePieces(aiLine), [aiLine]);
+  const welcomeLine = t("welcomeSlides.introWelcome");
+  // The arc is about 330 units long; long greetings (e.g. Russian) shrink
+  // so the whole line still fits on it.
+  const welcomeSize = Math.min(35, Math.floor(330 / (Math.max(1, Array.from(welcomeLine).length) * 0.56)));
   const leftRef = useRef(false);
 
   const leave = useCallback(() => {
@@ -228,13 +232,13 @@ function WelcomeIntro({ reducedMotion, onLeave, onGone }) {
         {/* "Welcome to" follows the shape of the logo's outline: flat across
             the top, rounding down at the ends. It sits above the furthest
             reach of the gold ripples, so it never touches them. */}
-        <svg className="kt-intro__welcome" viewBox="0 0 300 92" lang={locale}>
+        <svg className="kt-intro__welcome" viewBox="0 0 300 92" lang={locale} style={{ "--kt-intro-welcome-size": `${welcomeSize}px` }}>
           <defs>
             <path id="kt-intro-welcome-arc" d="M 4 92 C 6 50 52 30 118 28 L 182 28 C 248 30 294 50 296 92" />
           </defs>
           <text>
             <textPath href="#kt-intro-welcome-arc" startOffset="50%" textAnchor="middle">
-              {t("welcomeSlides.introWelcome")}
+              {welcomeLine}
             </textPath>
           </text>
         </svg>
