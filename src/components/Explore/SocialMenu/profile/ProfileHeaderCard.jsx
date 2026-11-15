@@ -473,10 +473,12 @@ export default function ProfileHeaderCard({
   }
 
   return (
-    <section className="rounded-[28px] border border-slate-200 bg-white shadow-sm">
-      <div className="relative h-28 overflow-hidden rounded-t-[28px] bg-slate-100 sm:h-36" style={coverStyle}>
+    <section className="overflow-visible rounded-[28px] border border-slate-200 bg-white shadow-sm">
+      {/* The line under the cover is the boundary between it and the card:
+          the same with the mixed colours of no cover photo, or with a photo. */}
+      <div className="relative h-28 overflow-hidden rounded-t-[27px] border-b-[3px] border-amber-400 bg-slate-100 sm:h-36" style={coverStyle}>
         {editing && editable ? (
-          <div className="absolute inset-x-4 top-4 flex flex-wrap gap-2">
+          <div className="absolute inset-x-4 top-3 flex flex-wrap gap-2">
             {["gradient", "animated", "marketplace", "transport"].map((preset) => (
               <button
                 key={preset}
@@ -496,235 +498,253 @@ export default function ProfileHeaderCard({
             </button>
           </div>
         ) : null}
+        {/* Social links sit on the cover, each in its own ringed dark disc,
+            so they stand out over any photo. */}
+        {socialLinks.length ? (
+          <div className="absolute bottom-2 right-3 flex items-center gap-2">
+            {socialLinks.map((link) => {
+              const Icon = platformIcons[link.platform];
+              return Icon ? (
+                <a
+                  key={link.id}
+                  href={/^https?:\/\//i.test(link.url) ? link.url : `https://${link.url}`}
+                  target="_blank"
+                  rel="noreferrer"
+                  title={link.label || t("profile.socialProfile")}
+                  aria-label={link.label || t("profile.socialProfile")}
+                  className="kt-profile-social flex h-8 w-8 items-center justify-center rounded-full text-sm"
+                >
+                  <Icon />
+                </a>
+              ) : null;
+            })}
+          </div>
+        ) : null}
       </div>
       <div className="relative z-10 -mt-10 px-5 pb-5">
-        <div className="flex items-start justify-between gap-3">
-          <div className="min-w-0">
+        <div className="min-w-0">
+          <button
+            type="button"
+            onClick={() => editable && editing && fileInputRef.current?.click()}
+            className="inline-flex rounded-full border-[3px] border-amber-400 bg-white"
+            aria-label={editable && editing ? t("profile.changeProfileImage") : t("profile.profileImage")}
+          >
+            <Avatar name={values.displayName} src={values.avatarUrl} size="xl" />
+          </button>
+
+          {editable && editing ? (
             <button
               type="button"
-              onClick={() => editable && editing && fileInputRef.current?.click()}
-              className="inline-flex rounded-full bg-white p-1 shadow-sm ring-4 ring-white"
-              aria-label={editable && editing ? t("profile.changeProfileImage") : t("profile.profileImage")}
+              onClick={() => fileInputRef.current?.click()}
+              className="ml-2 inline-flex items-center gap-1 rounded-full bg-slate-100 px-2 py-1 text-[11px] font-bold text-slate-600"
             >
-              <Avatar name={values.displayName} src={values.avatarUrl} size="lg" />
+              <HiOutlinePhoto />
+              {t("profile.photo")}
             </button>
-            {editable && editing ? (
-              <button
-                type="button"
-                onClick={() => fileInputRef.current?.click()}
-                className="ml-2 inline-flex items-center gap-1 rounded-full bg-slate-100 px-2 py-1 text-[11px] font-bold text-slate-600"
-              >
-                <HiOutlinePhoto />
-                {t("profile.photo")}
-              </button>
-            ) : null}
-            <input ref={fileInputRef} type="file" accept="image/*" onChange={onAvatarChange} className="hidden" />
-            <input ref={coverInputRef} type="file" accept="image/*" onChange={onCoverChange} className="hidden" />
-          </div>
-
-          <div ref={menuRef} className="relative flex flex-col items-end gap-2 pt-10">
-            {socialLinks.length ? (
-              <div className="flex items-center justify-end gap-2">
-                {socialLinks.map((link) => {
-                  const Icon = platformIcons[link.platform];
-                  return Icon ? (
-                    <a
-                      key={link.id}
-                      href={/^https?:\/\//i.test(link.url) ? link.url : `https://${link.url}`}
-                      target="_blank"
-                      rel="noreferrer"
-                      title={link.label || t("profile.socialProfile")}
-                      aria-label={link.label || t("profile.socialProfile")}
-                      className="flex h-10 w-10 items-center justify-center rounded-2xl bg-slate-100 text-lg text-slate-700 transition hover:bg-sky-50 hover:text-sky-700"
-                    >
-                      <Icon />
-                    </a>
-                  ) : null;
-                })}
-              </div>
-            ) : null}
-
-            <div className="flex flex-wrap justify-end gap-2">
-              {editable && typeof onOpenDashboard === "function" ? (
-                <button
-                  type="button"
-                  onClick={onOpenDashboard}
-                  className="inline-flex h-10 items-center gap-2 rounded-2xl bg-sky-700 px-4 text-sm font-semibold text-white"
-                >
-                  <HiOutlineSquares2X2 />
-                  {t("screens.SpaceDashboardTitle")}
-                </button>
-              ) : null}
-              {editable ? (
-                <button
-                  type="button"
-                  onClick={onEdit}
-                  disabled={saving}
-                  className="inline-flex h-10 items-center gap-2 rounded-2xl bg-slate-950 px-4 text-sm font-semibold text-white disabled:opacity-60"
-                >
-                  <HiOutlinePencilSquare />
-                  {editing ? (saving ? t("profile.saving") : t("profile.save")) : t("profile.edit")}
-                </button>
-              ) : (
-                <>
-                  {!followed ? (
-                    <button
-                      type="button"
-                      onClick={onFollow}
-                    className="h-10 rounded-2xl bg-slate-950 px-4 text-sm font-semibold text-white"
-                  >
-                      {t("feed.connect")}
-                    </button>
-                  ) : null}
-                  <button
-                    type="button"
-                    onClick={onMessage}
-                    className="flex h-10 w-10 items-center justify-center rounded-2xl bg-sky-50 text-sky-700"
-                    aria-label={t("profile.messageProfile")}
-                  >
-                    <HiOutlineChatBubbleLeftRight />
-                  </button>
-                </>
-              )}
-              <button
-                type="button"
-                onClick={() => setMenuOpen((current) => !current)}
-                className="flex h-10 w-10 items-center justify-center rounded-2xl bg-slate-100 text-xl text-slate-700"
-                aria-label={t("profile.openActions")}
-                aria-expanded={menuOpen}
-              >
-                <HiOutlineEllipsisHorizontal />
-              </button>
-            </div>
-
-            {menuOpen ? (
-              <div className="absolute right-0 top-full z-20 mt-2 w-64 overflow-hidden rounded-2xl border border-slate-200 bg-white p-2 text-sm font-semibold shadow-xl">
-                {!editable && followed ? (
-                  <button
-                    type="button"
-                    onClick={() => runMenuAction(onFollow)}
-                    className="flex w-full items-center gap-3 rounded-xl px-4 py-3 text-left text-slate-700 hover:bg-slate-100"
-                  >
-                    <HiOutlineUserMinus className="text-lg" />
-                    {t("post.removeConnection")}
-                  </button>
-                ) : null}
-                {editable && !isSpace && typeof onCreateSpace === "function" ? (
-                  <button
-                    type="button"
-                    onClick={() => runMenuAction(onCreateSpace)}
-                    className="flex w-full items-center gap-3 rounded-xl px-4 py-3 text-left text-slate-700 hover:bg-slate-100"
-                  >
-                    <HiOutlineBuildingOffice2 className="text-lg" />
-                    {t("profile.createSpace")}
-                  </button>
-                ) : null}
-                <button
-                  type="button"
-                  onClick={() => runMenuAction(onShare)}
-                  className="flex w-full items-center gap-3 rounded-xl px-4 py-3 text-left text-slate-700 hover:bg-slate-100"
-                >
-                  <HiOutlineArrowTopRightOnSquare className="text-lg" />
-                  {isSpace ? t("profile.shareSpace") : t("profile.shareProfile")}
-                </button>
-                {!editable ? (
-                  <>
-                    <button
-                      type="button"
-                      onClick={() => runMenuAction(onReport)}
-                      className="flex w-full items-center gap-3 rounded-xl px-4 py-3 text-left text-slate-700 hover:bg-slate-100"
-                    >
-                    <HiOutlineFlag className="text-lg" />
-                      {isSpace ? t("profile.reportSpace") : t("profile.reportProfile")}
-                    </button>
-                    <button
-                      type="button"
-                      onClick={() => runMenuAction(onBlock)}
-                      className="flex w-full items-center gap-3 rounded-xl px-4 py-3 text-left text-rose-700 hover:bg-rose-50"
-                    >
-                    <HiOutlineNoSymbol className="text-lg" />
-                      {isSpace ? t("profile.blockSpace") : t("profile.blockProfile")}
-                    </button>
-                  </>
-                ) : (
-                  <button
-                    type="button"
-                    onClick={() => runMenuAction(onCopyLink || onShare)}
-                    className="flex w-full items-center gap-3 rounded-xl px-4 py-3 text-left text-slate-700 hover:bg-slate-100"
-                  >
-                    <HiOutlineArchiveBox className="text-lg" />
-                    {isSpace ? t("profile.copySpaceLink") : t("profile.copyPublicProfile")}
-                  </button>
-                )}
-              </div>
-            ) : null}
-          </div>
+          ) : null}
+          <input ref={fileInputRef} type="file" accept="image/*" onChange={onAvatarChange} className="hidden" />
+          <input ref={coverInputRef} type="file" accept="image/*" onChange={onCoverChange} className="hidden" />
         </div>
 
-        <div className="mt-3 min-w-0">
-          <div className="flex min-w-0 items-center gap-2">
-            <h3 className="truncate text-2xl font-semibold text-slate-950">{values.displayName || t("feed.profileFallback")}</h3>
+        <div className="mt-2 min-w-0">
+          <div className="flex min-w-0 items-center gap-1.5">
+            <h3 className="truncate text-xl font-black leading-7 text-slate-950">{values.displayName || t("feed.profileFallback")}</h3>
             {values.verified ? <HiOutlineCheckBadge className="flex-none text-xl text-sky-600" /> : null}
           </div>
-          <div className="mt-1 flex flex-wrap items-center gap-2">
-            {values.username ? <p className="text-sm font-bold text-slate-500">@{values.username}</p> : null}
+          <div className="flex flex-wrap items-center gap-2">
+            {values.username ? <p className="text-sm font-semibold text-slate-500">@{values.username}</p> : null}
             {isSpace ? (
-              <span className="rounded-full bg-sky-50 px-2.5 py-1 text-[11px] font-black uppercase tracking-[0.12em] text-sky-700">
+              <span className="rounded-full bg-sky-50 px-2.5 py-0.5 text-[11px] font-black uppercase tracking-[0.12em] text-sky-700">
                 {t("profile.aSpace")}
               </span>
             ) : null}
             {isSpace && values.categoryLabel ? (
-              <span className="rounded-full bg-slate-100 px-2.5 py-1 text-[11px] font-black text-slate-600">
+              <span className="rounded-full bg-slate-100 px-2.5 py-0.5 text-[11px] font-black text-slate-600">
                 {values.categoryLabel}
               </span>
             ) : null}
           </div>
-          <motion.div
-            initial={{ opacity: 0, y: 10 }}
-            animate={{ opacity: 1, y: 0 }}
-            transition={{ duration: 0.35, ease: "easeOut" }}
-            className="mt-3 flex w-fit max-w-full items-center gap-2 rounded-2xl border border-slate-200 bg-slate-50 px-3 py-2.5"
-          >
-            <span className="min-w-0 shrink-0 text-xs font-black uppercase tracking-wide text-slate-500">
+          {/* Public: visitors see and can copy the ID too. */}
+          <div className="mt-2 flex w-fit max-w-full items-center gap-1.5 rounded-full border border-slate-200 bg-slate-50 py-1 pl-3 pr-1">
+            <span className="shrink-0 text-[11px] font-bold text-slate-500">
               {isSpace ? t("profile.spaceIdLabel") : t("profile.kunthaiIdLabel")}
             </span>
-            <span className="min-w-0 flex-1 truncate text-sm font-black text-slate-950">{publicUserId}</span>
-            <motion.button
+            <span className="min-w-0 flex-1 truncate text-xs font-black text-slate-950">{publicUserId}</span>
+            <button
               type="button"
               onClick={copyPublicUserId}
-              whileHover={{ scale: 1.08 }}
-              whileTap={{ scale: 0.92 }}
-              className="flex h-8 w-8 shrink-0 items-center justify-center rounded-full bg-white text-slate-700 shadow-sm hover:text-sky-700"
+              className="kt-pressable flex h-7 w-7 shrink-0 items-center justify-center rounded-full bg-white text-slate-700 shadow-sm"
               aria-label={t("profile.copyId")}
               title={t("profile.copyId")}
             >
               <HiOutlineClipboardDocument />
-            </motion.button>
-            <motion.button
+            </button>
+            <button
               type="button"
               onClick={() => setPublicIdHelpOpen(true)}
-              whileHover={{ scale: 1.12, rotate: 6 }}
-              whileTap={{ scale: 0.9 }}
-              transition={{ type: "spring", stiffness: 400, damping: 15 }}
-              className="flex h-8 w-8 shrink-0 items-center justify-center rounded-full bg-gradient-to-br from-sky-500 to-sky-700 text-sm font-black text-white shadow-md shadow-sky-500/30"
+              className="kt-pressable flex h-7 w-7 shrink-0 items-center justify-center rounded-full bg-sky-700 text-xs font-black text-white"
               aria-label={t("profile.whyId")}
               title={t("profile.aboutId")}
             >
               ?
-            </motion.button>
-            {copiedPublicId ? <span className="shrink-0 text-xs font-black text-sky-700">{t("profile.copied")}</span> : null}
-          </motion.div>
+            </button>
+            {copiedPublicId ? <span className="shrink-0 pr-2 text-xs font-black text-sky-700">{t("profile.copied")}</span> : null}
+          </div>
+
+          {values.bio ? <p className="mt-2.5 max-w-2xl text-sm leading-6 text-slate-600">{values.bio}</p> : null}
+
+          <div className="mt-2.5 flex flex-wrap items-baseline gap-x-5 gap-y-1">
+            <StatInline label={t("profile.statConnections")} value={stats?.followers} loading={loadingStats} />
+            <StatInline label={isSpace ? t("profile.statTeam") : t("profile.statConnected")} value={isSpace ? stats?.team : stats?.following} loading={loadingStats} />
+          </div>
+
+          <div ref={menuRef} className="relative mt-3.5 flex items-center gap-2">
+            {editable && typeof onOpenDashboard === "function" ? (
+              <button
+                type="button"
+                onClick={onOpenDashboard}
+                className="kt-pressable inline-flex h-10 min-w-0 flex-1 items-center justify-center gap-2 rounded-full bg-sky-700 px-3 text-sm font-black text-white"
+              >
+                <HiOutlineSquares2X2 className="flex-none" />
+                <span className="truncate">{t("screens.SpaceDashboardTitle")}</span>
+              </button>
+            ) : null}
+            {editable ? (
+              <>
+                <button
+                  type="button"
+                  onClick={onEdit}
+                  disabled={saving}
+                  className="kt-pressable inline-flex h-10 min-w-0 flex-1 items-center justify-center gap-2 rounded-full bg-slate-950 px-3 text-sm font-black text-white disabled:opacity-60"
+                >
+                  <HiOutlinePencilSquare className="flex-none" />
+                  <span className="truncate">{editing ? (saving ? t("profile.saving") : t("profile.save")) : t("profile.edit")}</span>
+                </button>
+                {!editing && typeof onOpenDashboard !== "function" ? (
+                  <button
+                    type="button"
+                    onClick={onShare}
+                    className="kt-pressable inline-flex h-10 min-w-0 flex-1 items-center justify-center gap-2 rounded-full border border-slate-300 bg-white px-3 text-sm font-black text-slate-800"
+                  >
+                    <HiOutlineArrowTopRightOnSquare className="flex-none" />
+                    <span className="truncate">{t("post.share")}</span>
+                  </button>
+                ) : null}
+              </>
+            ) : (
+              <>
+                {!followed ? (
+                  <button
+                    type="button"
+                    onClick={onFollow}
+                    className="kt-pressable inline-flex h-10 min-w-0 flex-1 items-center justify-center gap-2 rounded-full bg-slate-950 px-3 text-sm font-black text-white"
+                  >
+                    <HiOutlineUserPlus className="flex-none" />
+                    <span className="truncate">{t("feed.connect")}</span>
+                  </button>
+                ) : null}
+                <button
+                  type="button"
+                  onClick={onMessage}
+                  className={`kt-pressable inline-flex h-10 items-center justify-center gap-2 rounded-full border border-slate-300 bg-white text-sm font-black text-slate-800 ${followed ? "min-w-0 flex-1 px-3" : "w-10 flex-none"}`}
+                  aria-label={t("profile.messageProfile")}
+                >
+                  <HiOutlineChatBubbleLeftRight className="flex-none text-base" />
+                  {followed ? <span className="truncate">{t("profile.messageProfile")}</span> : null}
+                </button>
+                <button
+                  type="button"
+                  onClick={onShare}
+                  className="kt-pressable flex h-10 w-10 flex-none items-center justify-center rounded-full border border-slate-300 bg-white text-base text-slate-800"
+                  aria-label={isSpace ? t("profile.shareSpace") : t("profile.shareProfile")}
+                >
+                  <HiOutlineArrowTopRightOnSquare />
+                </button>
+              </>
+            )}
+            <button
+              type="button"
+              onClick={() => setMenuOpen((current) => !current)}
+              className="kt-pressable flex h-10 w-10 flex-none items-center justify-center rounded-full border border-slate-300 bg-white text-xl text-slate-800"
+              aria-label={t("profile.openActions")}
+              aria-expanded={menuOpen}
+            >
+              <HiOutlineEllipsisHorizontal />
+            </button>
+
+          {menuOpen ? (
+            <div className="absolute right-0 top-full z-20 mt-2 w-64 overflow-hidden rounded-2xl border border-slate-200 bg-white p-2 text-sm font-semibold shadow-xl">
+              {!editable && followed ? (
+                <button
+                  type="button"
+                  onClick={() => runMenuAction(onFollow)}
+                  className="flex w-full items-center gap-3 rounded-xl px-4 py-3 text-left text-slate-700 hover:bg-slate-100"
+                >
+                  <HiOutlineUserMinus className="text-lg" />
+                  {t("post.removeConnection")}
+                </button>
+              ) : null}
+              {editable && !isSpace && typeof onCreateSpace === "function" ? (
+                <button
+                  type="button"
+                  onClick={() => runMenuAction(onCreateSpace)}
+                  className="flex w-full items-center gap-3 rounded-xl px-4 py-3 text-left text-slate-700 hover:bg-slate-100"
+                >
+                  <HiOutlineBuildingOffice2 className="text-lg" />
+                  {t("profile.createSpace")}
+                </button>
+              ) : null}
+              <button
+                type="button"
+                onClick={() => runMenuAction(onShare)}
+                className="flex w-full items-center gap-3 rounded-xl px-4 py-3 text-left text-slate-700 hover:bg-slate-100"
+              >
+                <HiOutlineArrowTopRightOnSquare className="text-lg" />
+                {isSpace ? t("profile.shareSpace") : t("profile.shareProfile")}
+              </button>
+              {!editable ? (
+                <>
+                  <button
+                    type="button"
+                    onClick={() => runMenuAction(onReport)}
+                    className="flex w-full items-center gap-3 rounded-xl px-4 py-3 text-left text-slate-700 hover:bg-slate-100"
+                  >
+                  <HiOutlineFlag className="text-lg" />
+                    {isSpace ? t("profile.reportSpace") : t("profile.reportProfile")}
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => runMenuAction(onBlock)}
+                    className="flex w-full items-center gap-3 rounded-xl px-4 py-3 text-left text-rose-700 hover:bg-rose-50"
+                  >
+                  <HiOutlineNoSymbol className="text-lg" />
+                    {isSpace ? t("profile.blockSpace") : t("profile.blockProfile")}
+                  </button>
+                </>
+              ) : (
+                <button
+                  type="button"
+                  onClick={() => runMenuAction(onCopyLink || onShare)}
+                  className="flex w-full items-center gap-3 rounded-xl px-4 py-3 text-left text-slate-700 hover:bg-slate-100"
+                >
+                  <HiOutlineArchiveBox className="text-lg" />
+                  {isSpace ? t("profile.copySpaceLink") : t("profile.copyPublicProfile")}
+                </button>
+              )}
+            </div>
+          ) : null}
+          </div>
 
           {showVisibilityCredits ? (
             <motion.div
               initial={{ opacity: 0, y: 14, scale: 0.98 }}
               animate={{ opacity: 1, y: 0, scale: 1 }}
               transition={{ duration: 0.4, ease: "easeOut", delay: 0.05 }}
-              className="kt-visibility-credit-card mt-3 w-full max-w-2xl rounded-[22px] border border-sky-200 bg-gradient-to-br from-sky-50 to-white p-4 shadow-sm"
+              className="kt-visibility-credit-card mt-3.5 w-full max-w-2xl rounded-[20px] border border-sky-200 bg-gradient-to-br from-sky-50 to-white px-4 py-3"
             >
-              <div className="flex items-start justify-between gap-3">
+              <div className="flex items-center justify-between gap-3">
                 <div className="min-w-0">
-                  <p className="text-xs font-black uppercase tracking-[0.16em] text-sky-700">{t("exploreProfileFix.visibilityCredits")}</p>
+                  <p className="text-[11px] font-black uppercase tracking-[0.16em] text-sky-700">{t("exploreProfileFix.visibilityCredits")}</p>
                   <p className="mt-1 flex items-baseline gap-1.5">
                     <CreditBalanceValue loading={creditLoading} value={Number(creditWallet.balance || 0)} />
                     <span className="text-xs font-bold text-slate-500">{t("profile.available")}</span>
@@ -738,7 +758,7 @@ export default function ProfileHeaderCard({
                     whileHover={{ scale: 1.08 }}
                     whileTap={{ scale: 0.92 }}
                     transition={{ type: "spring", stiffness: 400, damping: 18 }}
-                    className="flex h-10 w-10 shrink-0 items-center justify-center rounded-2xl bg-gradient-to-br from-sky-500 to-sky-700 text-xl text-white shadow-md shadow-sky-500/30"
+                    className="flex h-10 w-10 shrink-0 items-center justify-center rounded-full bg-sky-700 text-xl text-white"
                     aria-label={t("profile.openCreditActions")}
                     aria-expanded={creditMenuOpen}
                     aria-haspopup="menu"
@@ -806,14 +826,6 @@ export default function ProfileHeaderCard({
               </div>
             </motion.div>
           ) : null}
-          {values.bio ? <p className="mt-3 max-w-2xl text-sm leading-6 text-slate-600">{values.bio}</p> : null}
-
-          <div className="mt-4 grid grid-cols-4 gap-2 text-center">
-            <StatTile label={t("profile.tabFeed")} value={stats?.feed} loading={loadingStats} />
-            <StatTile label={t("exploreProfileFix.swip")} value={stats?.swip} loading={loadingStats} />
-            <StatTile label={t("profile.statConnections")} value={stats?.followers} loading={loadingStats} />
-            <StatTile label={isSpace ? t("profile.statTeam") : t("profile.statConnected")} value={isSpace ? stats?.team : stats?.following} loading={loadingStats} />
-          </div>
 
           {feedback ? <p className="mt-3 text-xs font-bold text-sky-700">{translateUi(feedback)}</p> : null}
         </div>
@@ -1420,17 +1432,18 @@ function formatPackagePrice(item) {
   }
 }
 
-function StatTile({ label, loading, value }) {
+// A count in the line under the bio: the number, then what it counts.
+function StatInline({ label, loading, value }) {
   useUiLocale();
   return (
-    <div className="rounded-2xl bg-slate-50 px-3 py-2">
+    <p className="flex items-baseline gap-1.5 text-sm font-semibold text-slate-500">
       {loading ? (
-        <div className="mx-auto h-6 w-8 animate-pulse rounded-full bg-slate-200" aria-label={i18nText("ui.literals.k4360a33c8dc2", { value0: label })} />
+        <span className="inline-block h-4 w-6 animate-pulse self-center rounded-full bg-slate-200" aria-label={i18nText("ui.literals.k4360a33c8dc2", { value0: label })} />
       ) : (
-        <p className="text-lg font-black text-slate-950">{Number(value || 0)}</p>
+        <span className="text-base font-black text-slate-950 tabular-nums">{Number(value || 0)}</span>
       )}
-      <p className="text-[11px] font-bold text-slate-500">{translateUi(label)}</p>
-    </div>
+      {translateUi(label)}
+    </p>
   );
 }
 
@@ -1438,18 +1451,19 @@ function getCoverStyle(coverUrl) {
   const value = coverUrl || "preset:gradient";
   const presets = {
     "preset:gradient": {
-      backgroundImage: "linear-gradient(120deg, #dff4ff 0%, #ffffff 50%, #eef2f7 100%)",
+      // No cover photo yet: KunThai's own mix of colours.
+      backgroundImage: "linear-gradient(120deg, #064e3b 0%, #0f766e 34%, #0369a1 68%, #6d28d9 100%)",
     },
     "preset:animated": {
-      backgroundImage: "linear-gradient(120deg, #e0f2fe 0%, #f8fafc 35%, #dbeafe 70%, #f0fdfa 100%)",
+      backgroundImage: "linear-gradient(120deg, #0c4a6e 0%, #0e7490 35%, #4338ca 70%, #0f766e 100%)",
       backgroundSize: "220% 220%",
       animation: "kuntai-cover-pan 12s ease-in-out infinite",
     },
     "preset:marketplace": {
-      backgroundImage: "linear-gradient(120deg, #ecfeff 0%, #fef9c3 48%, #e0f2fe 100%)",
+      backgroundImage: "linear-gradient(120deg, #7c2d12 0%, #d97706 45%, #be185d 100%)",
     },
     "preset:transport": {
-      backgroundImage: "linear-gradient(120deg, #f0fdf4 0%, #eff6ff 55%, #e2e8f0 100%)",
+      backgroundImage: "linear-gradient(120deg, #0f172a 0%, #1d4ed8 50%, #059669 100%)",
     },
   };
 

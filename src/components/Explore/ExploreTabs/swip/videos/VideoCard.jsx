@@ -33,6 +33,8 @@ import { inlineErrorMessage } from "../../../../../Backend/services/friendlyErro
 import { dropPostedVideoFile, notifyPostedVideoPlaying, postedVideoLocalUrl } from "../../../../../Backend/services/explore/postedVideoPlayback";
 import { recordLifecycle } from "../../../../../Backend/services/lifecycleAudit";
 import { SWIP_STARTUP_VIDEO_EVENT, dropSwipStartupVideo, swipStartupVideoUrl } from "../../../../../Backend/services/explore/swipStartupPrefetch";
+import { markSavedSwipClipWatched } from "../../../../../Backend/services/explore/swipSavedClips";
+import { probeConnectivity } from "../../../../../Backend/services/networkService";
 
 const MAX_SWIP_SECONDS = 15;
 
@@ -124,10 +126,38 @@ export default function VideoCard({
   // (postedVideoPlayback), so it starts at once; otherwise the uploaded copy.
   const [localCopyFailed, setLocalCopyFailed] = useState(false);
   const localCopyUrl = localCopyFailed ? "" : postedVideoLocalUrl(post.id);
-  // The first clips are downloaded at app start (swipStartupPrefetch), so
-  // Swip's first video plays at once. Chosen when the card appears (or when
-  // the download lands before this clip started), never mid-play.
-  const [startupCopyUrl, setStartupCopyUrl] = useState(() => swipStartupVideoUrl(post.id));
+  // A clip saved on the phone (swipSavedClips, iPhone) plays from its file:
+  // at once, and with no internet. Chosen when the card appears, never
+  // mid-play.
+  const [startupCopyUrl, setStartupCopyUrl] = useState(() => swipStartupVideoUrl(post.id, post.video_url));
+  // Watched clips are the first to make room for new ones.
+  useEffect(() => {
+    if (active) markSavedSwipClipWatched(post.id);
+  }, [active, post.id]);
+  // No connection: the clip waits here and loads again once it is back. (It
+  // used to be taken as a missing video and removed from Swip for good, so
+  // with no internet Swip emptied itself.)
+  const [waitingForConnection, setWaitingForConnection] = useState(false);
+  useEffect(() => {
+    if (!waitingForConnection) return undefined;
+    const retry = () => {
+      setWaitingForConnection(false);
+      setMediaError("");
+      setVideoLoading(true);
+      videoRef.current?.load();
+    };
+    window.addEventListener("online", retry);
+    // Wi-Fi that was on but not connected says nothing when it recovers.
+    const timer = window.setInterval(() => {
+      probeConnectivity().then((reachable) => {
+        if (reachable) retry();
+      });
+    }, 8000);
+    return () => {
+      window.removeEventListener("online", retry);
+      window.clearInterval(timer);
+    };
+  }, [waitingForConnection]);
   const videoSrc = localCopyUrl || startupCopyUrl || post.video_url;
   // The spinner waits a moment: a clip that starts quickly (already buffered,
   // or a short network hiccup) never flashes it.
@@ -410,11 +440,11 @@ export default function VideoCard({
       if (event.detail?.postId !== post.id) return;
       const video = videoRef.current;
       if (video && (video.currentTime > 0 || video.readyState >= 3)) return;
-      setStartupCopyUrl(swipStartupVideoUrl(post.id));
+      setStartupCopyUrl(swipStartupVideoUrl(post.id, post.video_url));
     }
     window.addEventListener(SWIP_STARTUP_VIDEO_EVENT, handleStartupCopy);
     return () => window.removeEventListener(SWIP_STARTUP_VIDEO_EVENT, handleStartupCopy);
-  }, [post.id]);
+  }, [post.id, post.video_url]);
 
   useEffect(() => {
     setMediaError("");
@@ -1063,8 +1093,16 @@ export default function VideoCard({
             return;
           }
           setVideoLoading(false);
-          setMediaError(i18nText("ui.literals.kb17dd3bd9917"));
-          onMediaUnavailable?.();
+          // Only a clip that fails while the internet works is really gone.
+          probeConnectivity().then((reachable) => {
+            if (!reachable) {
+              setMediaError(i18nText("common.offlineBanner"));
+              setWaitingForConnection(true);
+              return;
+            }
+            setMediaError(i18nText("ui.literals.kb17dd3bd9917"));
+            onMediaUnavailable?.();
+          });
         }}
         onCanPlay={() => {
           setVideoLoading(false);

@@ -15,14 +15,14 @@ export default function ProfileTabs({ active, editable, onChange }) {
   ];
 
   return (
-    <div className="flex gap-2 overflow-x-auto rounded-[24px] border border-slate-200 bg-white p-2 shadow-sm [scrollbar-width:none] [&::-webkit-scrollbar]:hidden">
+    <div className="flex overflow-x-auto border-b border-slate-200 [scrollbar-width:none] [&::-webkit-scrollbar]:hidden">
       {tabs.map((tab) => (
         <button
           key={tab.id}
           type="button"
           onClick={() => onChange(tab.id)}
-          className={`h-10 flex-1 rounded-2xl px-4 text-sm font-semibold transition ${
-            active === tab.id ? "bg-slate-950 text-white" : "text-slate-600 hover:bg-slate-100"
+          className={`-mb-px h-11 flex-1 whitespace-nowrap border-b-2 px-3 text-sm transition ${
+            active === tab.id ? "border-slate-950 font-black text-slate-950" : "border-transparent font-semibold text-slate-500"
           }`}
         >
           {translateUi(tab.label)}

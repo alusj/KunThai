@@ -1117,6 +1117,7 @@ export default function CompanyRegistrationScreen({ existingCompany = null, focu
       operatingAreas: String(areaText || "").split(",").map((area) => area.trim()).filter(Boolean),
       fleetCount: fleets.length,
       operatorCount: (existingCompany?.fleets || []).flatMap((fleet) => fleet.operators || []).filter((operator) => operator.status === "accepted").length,
+      documentRequirements: companyDocumentRequirements,
     }))
     : new Set();
 

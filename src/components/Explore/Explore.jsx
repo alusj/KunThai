@@ -136,6 +136,13 @@ const TAB_TAP_SLIDE_MS = 320;
 const KEEP_BUILT_TABS = Capacitor.getPlatform() === "ios" ? [] : ["UrFeed", "Swip"];
 // Quiet time on a tab before the other one is built in the background.
 const TAB_WARM_DELAY_MS = 1200;
+// UrFeed, Swip and Connections change by a tap on their tab only. A finger
+// slide across Explore belongs to the home screens: to the left it goes on
+// to UrMall from any tab (on UrFeed, to the right still opens the Social
+// menu). Set to true to bring back sliding between the tabs.
+const TAB_FINGER_SLIDE = false;
+// The longest a tapped tab's slide waits for that tab to be built.
+const TAB_BUILD_WAIT_MS = 450;
 const LEFT_SIDE_MENU_SCREENS = new Set(["Menu", "Messages"]);
 const COMMENT_TARGET_NOTIFICATION_TYPES = new Set(["comment", "reply", "creator_reply", "thread_reply", "mention"]);
 
@@ -540,6 +547,18 @@ export default function Explore({ active = true, onNavigateMain, onScreenModeCha
     entering.scrollTop = Math.max(0, scrolled - contentTop);
     tabWindowRef.current = activeTab;
   }, [activeTab]);
+
+  // A tab built for a slide (the iPhone keeps one section at a time) lands
+  // empty in its sliding window first, so the place it was left at could not
+  // be set then: it is set here, the moment its content is in. Without this
+  // UrFeed slid back in showing its top, then jumped to where it had been.
+  useLayoutEffect(() => {
+    if (!dragPreviewTab || dragPreviewTab === activeTab) return;
+    const node = tabPanelRefs.current[dragPreviewTab];
+    if (node && node.style.position === "fixed") node.scrollTop = tabScrollRef.current[dragPreviewTab] || 0;
+    // Only when the built tab changes.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [dragPreviewTab]);
 
   // The slide is over: the incoming tab goes back into the page at exactly the
   // offset its window shows, and the spacer goes.
@@ -1303,7 +1322,17 @@ export default function Explore({ active = true, onNavigateMain, onScreenModeCha
 
     const slide = { tab, frame: 0, timer: 0 };
     tabSlideRef.current = slide;
-    slide.frame = window.requestAnimationFrame(() => {
+    const askedAt = performance.now();
+    slide.frame = window.requestAnimationFrame(function whenBuilt() {
+      if (tabSlideRef.current !== slide) return;
+      // A tab still being built (iPhone) slides in once it is there, already
+      // at the place it was left at, rather than sliding in empty and filling
+      // in on the way. The tab bar has already answered the tap.
+      if (!toNode.firstElementChild && performance.now() - askedAt < TAB_BUILD_WAIT_MS) {
+        slide.frame = window.requestAnimationFrame(whenBuilt);
+        return;
+      }
+      toNode.scrollTop = tabScrollRef.current[tab] || 0;
       slide.frame = window.requestAnimationFrame(() => {
         if (tabSlideRef.current !== slide) return;
         // A standard ease, not the app's front-loaded one: phones that draw
@@ -1518,7 +1547,7 @@ export default function Explore({ active = true, onNavigateMain, onScreenModeCha
 
     const targetIndex = deltaX > 0 ? currentIndex - 1 : currentIndex + 1;
 
-    if (targetIndex >= 0 && targetIndex < EXPLORE_TAB_ORDER.length) {
+    if (TAB_FINGER_SLIDE && targetIndex >= 0 && targetIndex < EXPLORE_TAB_ORDER.length) {
       gesture.mode = "tabs";
       gesture.incomingTab = EXPLORE_TAB_ORDER[targetIndex];
       buildTabForSlide(gesture.incomingTab);
@@ -1530,8 +1559,8 @@ export default function Explore({ active = true, onNavigateMain, onScreenModeCha
     }
 
     if (deltaX < 0) {
-      // Last tab: no Explore panel to preview; the release hands over to
-      // UrMall like before, with light drag resistance for feedback.
+      // No Explore panel to preview; the release hands over to UrMall, with
+      // light drag resistance for feedback.
       gesture.mode = "exit";
     }
   }
@@ -2118,6 +2147,9 @@ export default function Explore({ active = true, onNavigateMain, onScreenModeCha
           {hideScreenHeader ? null : (
             <SocialScreenHeader
               title={t(`screens.${screenKey}Title`)}
+              // A profile opens straight onto the person: one slim bar, no
+              // heading block above them.
+              compact={screenKey === "Profile" || screenKey === "ViewedProfile"}
               subtitle={t(`screens.${screenKey}Subtitle`)}
               onBack={active || exiting ? (active ? goBackFullScreen : () => {}) : undefined}
             />

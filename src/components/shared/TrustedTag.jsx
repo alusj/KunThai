@@ -6,9 +6,14 @@ import { useBrowserBack } from "../../Backend/hooks/useBrowserBack";
 import { t } from "../../i18n/index";
 import { useI18n } from "../../i18n/index.js";
 
-// Shown on a store or fleet dashboard once every detail and document has been
-// submitted. Tapping it says what that means.
-export default function TrustedTag({ verified = false, className = "" }) {
+// Shown on a store or fleet profile card once every detail and every main
+// document has been submitted (the optional extras never count), even while
+// KunThai's review is still running. Tapping it says what that means.
+//
+// It is pinned to the top edge of its card (the card is `relative` and does
+// not clip), so it shares no row with the name or status chips: those stay
+// exactly where they are whether or not the card is Trusted.
+export default function TrustedTag({ verified = false, className = "absolute -top-3 right-5 z-10" }) {
   useI18n();
   const [open, setOpen] = useState(false);
   useBrowserBack(open, () => setOpen(false), "trusted-tag");
@@ -22,9 +27,9 @@ export default function TrustedTag({ verified = false, className = "" }) {
           setOpen(true);
         }}
         aria-haspopup="dialog"
-        className={`inline-flex min-h-7 items-center gap-1 rounded-full border border-emerald-200 bg-emerald-50 px-3 py-1 text-xs font-black text-emerald-700 ${className}`}
+        className={`kt-pressable inline-flex h-7 items-center gap-1.5 whitespace-nowrap rounded-full border-2 border-white bg-emerald-600 pl-2 pr-3 text-[11px] font-black uppercase tracking-wide text-white shadow-[0_4px_12px_-4px_rgba(5,150,105,0.55)] ${className}`}
       >
-        <ShieldCheck size={13} aria-hidden="true" />
+        <ShieldCheck size={14} strokeWidth={2.6} aria-hidden="true" />
         {t("setupStatus.trusted")}
       </button>
       {open

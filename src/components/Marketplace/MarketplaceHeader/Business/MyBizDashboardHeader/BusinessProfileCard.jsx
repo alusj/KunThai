@@ -141,8 +141,12 @@ export default function BusinessProfileCard({ business, setupComplete = false, s
   }
 
   return (
-    <section className="relative overflow-hidden rounded-[24px] border border-gray-200 bg-white p-5 shadow-sm">
-      <div className="pointer-events-none absolute inset-x-0 top-0 h-24 bg-gradient-to-br from-emerald-500/10 via-transparent to-sky-500/10" aria-hidden="true" />
+    <section className="relative rounded-[24px] border border-gray-200 bg-white p-5 shadow-sm">
+      {/* Rounded itself: the card does not clip, so the Trusted tag can sit on its top edge. */}
+      <div className="pointer-events-none absolute inset-x-0 top-0 h-24 rounded-t-[24px] bg-gradient-to-br from-emerald-500/10 via-transparent to-sky-500/10" aria-hidden="true" />
+      {isTrustedSetup(setupComplete, business.verificationStatus) ? (
+        <TrustedTag verified={Boolean(business.verified) || isVerifiedStatus(business.verificationStatus)} />
+      ) : null}
       {onOpenSection ? (
         <button
           type="button"
@@ -180,9 +184,6 @@ export default function BusinessProfileCard({ business, setupComplete = false, s
               verified={business.verified}
               onClick={openVerificationDetails}
             />
-            {isTrustedSetup(setupComplete, business.verificationStatus) ? (
-              <TrustedTag verified={Boolean(business.verified) || isVerifiedStatus(business.verificationStatus)} />
-            ) : null}
             <MarketplaceVerificationInline
               audience="seller"
               status={business.verificationStatus}

@@ -45,7 +45,9 @@ import OperatorTripAcceptedCard from "./live/OperatorTripAcceptedCard";
 import { OPERATOR_LIVE_TRIP_STATUSES } from "./live/operatorLiveTripStatuses";
 import HealthScoreCard from "../Marketplace/MarketplaceHeader/Business/MyBizDashboardHeader/HealthScoreCard";
 import TrustedTag from "../shared/TrustedTag";
-import { isTrustedSetup, isVerifiedStatus, operatorSetupChecklist, setupScore } from "../../Backend/services/setupStatus";
+import { isTrustedSetup, isVerifiedStatus, operatorDocumentsComplete, operatorSetupChecklist, setupScore } from "../../Backend/services/setupStatus";
+import useOperatorDocumentsOnFile from "./registration/useOperatorDocumentsOnFile";
+import { getUrRideDocumentRequirements } from "../../data/globalDocumentRequirements";
 import RequestAccountDeletionPage from "./shared/RequestAccountDeletionPage";
 import AppBackTab from "../shared/AppBackTab";
 import { useAiRoleContext } from "../../Backend/services/ai/aiSurfaceService";
@@ -316,21 +318,32 @@ export default function OperatorDashboardScreen({
     ? "notVerified"
     : dashboard?.verificationCenter?.status || account?.verificationStatus || "pending";
 
+  const documentsOnFile = useOperatorDocumentsOnFile(account?.savedAt || "");
+
   // Fleet setup completion, mirroring UrMall's store-setup widget so operators
   // can see and finish the details that improve trust and verification.
   const operatorHealth = useMemo(() => {
     // KunThai's review is not a setup step the operator can finish: it is shown
     // on its own badge (Fleet profile), so setup reaches 100% once the operator
     // has added every detail and document.
-    const checklist = operatorSetupChecklist(form, documentsSkipped).map((item) => ({ ...item, label: t(`urride.opDash.health.${item.id}`) }));
+    // Documents: every item of the main list KunThai holds (a refused one has
+    // to be sent again); the optional extras never count.
+    const documentsComplete = !documentsSkipped
+      && operatorDocumentsComplete({
+        requirements: getUrRideDocumentRequirements({ country: form.country, countryCode: form.countryCode, category: form.category }),
+        onFileByRequirement: documentsOnFile.byRequirement,
+      });
+    const checklist = operatorSetupChecklist(form, documentsComplete).map((item) => ({ ...item, label: t(`urride.opDash.health.${item.id}`) }));
     const score = setupScore(checklist);
     return {
       score,
       label: t("urride.opDash.health.label"),
       nextStep: score >= 100 ? t("urride.opDash.health.complete") : t("urride.opDash.health.nextStep"),
       missingItems: checklist.filter((item) => !item.complete).map((item) => item.label),
+      // Until the documents are known, neither the setup card nor Trusted shows.
+      known: !documentsOnFile.loading,
     };
-  }, [form, documentsSkipped, memoLocale]);
+  }, [form, documentsSkipped, documentsOnFile, memoLocale]);
   const verification =
     operatorVerificationStatuses[verificationStatus] || operatorVerificationStatuses.pending;
   // An operator who also drives for a company gets exactly the solo
@@ -952,13 +965,14 @@ export default function OperatorDashboardScreen({
           />
         ) : null}
 
-        {!dashboardReadOnly && canEditOwnFleet && operatorHealth.score < 100 ? (
+        {!dashboardReadOnly && canEditOwnFleet && operatorHealth.known && operatorHealth.score < 100 ? (
           <div className="mb-4">
             <HealthScoreCard health={operatorHealth} onEditProfile={onEditRegistration} />
           </div>
         ) : null}
 
-        <section className="mb-4 rounded-2xl border border-gray-100 bg-white p-4 shadow-sm">
+        <section className="relative mb-4 rounded-2xl border border-gray-100 bg-white p-4 shadow-sm">
+          {operatorHealth.known && isTrustedSetup(operatorHealth.score >= 100, verificationStatus) ? <TrustedTag verified={isVerifiedStatus(verificationStatus)} /> : null}
           <div className="flex flex-wrap items-center gap-2">
             <span className="rounded-full bg-green-50 px-3 py-1 text-xs font-black uppercase tracking-wide text-green-700">
               {t("urride.opDash.fleetProfile")}
@@ -970,7 +984,6 @@ export default function OperatorDashboardScreen({
             >
               {translateUi(verification.label)}
             </button>
-            {isTrustedSetup(operatorHealth.score >= 100, verificationStatus) ? <TrustedTag verified={isVerifiedStatus(verificationStatus)} /> : null}
           </div>
 
           <h2 className="mt-4 text-3xl font-black text-gray-950">{fleetName}</h2>

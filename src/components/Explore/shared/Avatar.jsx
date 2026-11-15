@@ -10,12 +10,13 @@ export default function Avatar({ name = "KunThai", src = "", size = "md" }) {
     sm: "h-9 w-9 text-sm",
     md: "h-11 w-11 text-base",
     lg: "h-14 w-14 text-lg",
+    xl: "h-[72px] w-[72px] text-2xl",
   };
 
   if (src && !failed) {
     return (
       <img
-        src={resizedImageUrl(src, { width: 128, quality: 70 })}
+        src={resizedImageUrl(src, { width: size === "xl" ? 256 : 128, quality: 70 })}
         alt={name}
         onError={() => setFailed(true)}
         className={`flex-none rounded-full object-cover ring-2 ring-white ${sizes[size] ?? sizes.md}`}

@@ -41,7 +41,7 @@ import usePhoneInUse from "../../../Backend/hooks/usePhoneInUse";
 import { useAiScreen } from "../../../Backend/services/ai/aiScreenContext";
 import { buildFleetRegistrationAiContext } from "./fleetRegistrationAi";
 import NeedsAttentionTag from "../../shared/NeedsAttentionTag";
-import { operatorSetupChecklist, sectionsNeedingAttention } from "../../../Backend/services/setupStatus";
+import { operatorDocumentsComplete, operatorSetupChecklist, sectionsNeedingAttention } from "../../../Backend/services/setupStatus";
 
 // Stored enum values stay English (saved on the account + compared); display is
 // localized via urride.fleetEdit.enum.<value>.
@@ -217,7 +217,12 @@ export default function FleetEditDrawer({ account, onBack, onSaved }) {
   const answeredCount = questions.filter((question) => answers[question.key] != null && answers[question.key] !== "").length;
 
   // Follows the form, so a section's label goes as soon as it is filled in.
-  const needsAttention = sectionsNeedingAttention(operatorSetupChecklist(form, Boolean(account.documentsSkipped)));
+  // Documents need every item of the main list; the optional extras never count.
+  const needsAttention = sectionsNeedingAttention(operatorSetupChecklist(form, operatorDocumentsComplete({
+    uploads,
+    onFileByRequirement: documentsOnFile.byRequirement,
+    requirements: documents,
+  })));
 
   const sections = [
     {

@@ -19,6 +19,7 @@ import {
 import { subscribeToCurrentUserReactions, subscribeToExplorePosts } from "../services/explore/realtimeService";
 import { haptics } from "../services/feedbackService";
 import { readExploreSettings } from "../services/explore/preferencesService";
+import { forgetSavedSwipClips } from "../services/explore/swipSavedClips";
 import { guardGuestAction } from "../services/guestModeService";
 import { canRunSafetyAction, contentHasModerationFlags, readBlockedUsers } from "../services/explore/safetyService";
 import { isPersonalPostOf } from "../services/explore/profileService";
@@ -297,6 +298,7 @@ export function clearFeedMemory(nextUserId = "") {
   } catch {
     // Storage can be unavailable; the in-memory reset still applies.
   }
+  forgetSavedSwipClips();
   if (typeof window !== "undefined") {
     window.dispatchEvent(new CustomEvent(EXPLORE_FEED_RESET_EVENT, { detail: { userId: feedMemoryUserId } }));
   }

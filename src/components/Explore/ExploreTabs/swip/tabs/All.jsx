@@ -14,6 +14,8 @@ import { readExploreSettings } from "../../../../../Backend/services/explore/pre
 import VideoCard from "../videos/VideoCard";
 import { getSwipContext, getVideoCategoryLabel, getSwipVideos, isRenderableSwipPost } from "../videos/swipUtils";
 import { uiText as translateUi } from "../../../../../i18n/index.js";
+import { isOnline } from "../../../../../Backend/services/networkService";
+import { SAVED_CLIPS_AHEAD, keepSwipClips, savedSwipClipsReady, savedSwipPosts } from "../../../../../Backend/services/explore/swipSavedClips";
 
 const WHEEL_THRESHOLD_PX = 70;
 const WHEEL_LOCK_MS = 720;
@@ -27,7 +29,25 @@ export default function All({ active = true, standby = false, currentUserId = ""
   // request, which kept a deleted clip on screen and playing.
   const [removedIds, setRemovedIds] = useState(() => new Set());
   const stillListed = (post) => !removedIds.has(post.id);
-  const feedVideos = getSwipVideos(feed.posts, onlyUserId).filter(isRenderableSwipPost).filter(stillListed);
+  // Opened with no internet: the clips saved on the phone (swipSavedClips)
+  // come first, as they are the ones that can play. Decided as Swip opens
+  // and kept, so the list never reorders under the person.
+  const [savedFirst, setSavedFirst] = useState(() => (isOnline() ? [] : savedSwipPosts()));
+  useEffect(() => {
+    if (isOnline()) return undefined;
+    let alive = true;
+    savedSwipClipsReady().then(() => {
+      if (alive) setSavedFirst((current) => (current.length ? current : savedSwipPosts()));
+    });
+    return () => {
+      alive = false;
+    };
+  }, []);
+  const savedIds = new Set(savedFirst.map((post) => String(post.id)));
+  const feedVideos = getSwipVideos(
+    savedFirst.length ? [...savedFirst, ...feed.posts.filter((post) => !savedIds.has(String(post.id)))] : feed.posts,
+    onlyUserId,
+  ).filter(isRenderableSwipPost).filter(stillListed);
   const focusedVideos = getSwipVideos(focusPost ? [focusPost] : [], onlyUserId).filter(isRenderableSwipPost).filter(stillListed);
   // A post opened from a notification or a reaction (focusRequest) goes
   // first and Swip opens straight on it, instead of scrolling past the clips
@@ -111,7 +131,8 @@ export default function All({ active = true, standby = false, currentUserId = ""
     : [];
   const warmKey = warmUrls.join("|");
   useEffect(() => {
-    if (!warmKey || swipBufferAhead() < SWIP_PRELOAD_AHEAD || readExploreSettings().video.reduceData) return undefined;
+    // Not on the iPhone: these clips are saved whole to the phone instead.
+    if (!warmKey || SAVES_CLIPS || swipBufferAhead() < SWIP_PRELOAD_AHEAD || readExploreSettings().video.reduceData) return undefined;
     const controller = new AbortController();
     const timer = window.setTimeout(async () => {
       for (const url of warmKey.split("|")) {
@@ -124,6 +145,25 @@ export default function All({ active = true, standby = false, currentUserId = ""
       controller.abort();
     };
   }, [warmKey]);
+
+  // iPhone: the clips after the next one are saved to the phone (the current
+  // and next clip are already streaming), so they play from disk when
+  // reached, and are there to watch should the internet go.
+  const keepKey = active
+    ? videos.slice(Math.max(0, activeIndex - 1), activeIndex + SWIP_PRELOAD_AHEAD + 1 + SAVED_CLIPS_AHEAD).map((post) => post.id).join("|")
+    : "";
+  useEffect(() => {
+    if (!keepKey) return undefined;
+    const timer = window.setTimeout(() => {
+      const from = activeIndex + SWIP_PRELOAD_AHEAD + 1;
+      keepSwipClips(videos.slice(from, from + SAVED_CLIPS_AHEAD), {
+        inUseIds: videos.slice(Math.max(0, activeIndex - 1), from).map((post) => post.id),
+      });
+    }, SWIP_WARM_DELAY_MS);
+    return () => window.clearTimeout(timer);
+    // keepKey names the clips around the current one.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [keepKey]);
 
   useEffect(() => {
     if (active && feed.hasMore && !feed.loadingMore && videos.length > 0 && activeIndex >= videos.length - 3) {
@@ -477,7 +517,7 @@ export default function All({ active = true, standby = false, currentUserId = ""
   }
   useEffect(() => () => window.clearTimeout(stillTimerRef.current), []);
 
-  if (feed.error) {
+  if (feed.error && !videos.length) {
     return (
       <div className="p-4">
         <ErrorState message={translateUi(feed.error)} onRetry={feed.reload} />
@@ -627,6 +667,7 @@ const SWIP_PRELOAD_AHEAD = 1;
 // snap-always already stops at every clip; there a hidden player would not
 // get its first frame ready, so the next clip started slower.
 const OWN_SWIPE = Capacitor.getPlatform() === "android";
+const SAVES_CLIPS = Capacitor.getPlatform() === "ios";
 const SWIP_WARM_AHEAD = 3;
 const SWIP_WARM_DELAY_MS = 1200;
 // A swipe moves one clip once it travels this far and is either this share

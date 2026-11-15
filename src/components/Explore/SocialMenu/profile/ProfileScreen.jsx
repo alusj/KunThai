@@ -395,11 +395,10 @@ export default function ProfileScreen({
       {!hideHeader ? (
         <SocialScreenHeader
           title={t("profile.headerTitle")}
-          subtitle={t("profile.headerSubtitle")}
         />
       ) : null}
 
-      <div className="w-full space-y-4 px-4 py-4 sm:px-6 lg:px-8">
+      <div className="w-full space-y-3 px-4 py-3 sm:px-6 lg:px-8">
         {loading && !profile ? (
           <p className="py-12 text-center text-sm font-bold text-slate-400">{t("profile.opening")}</p>
         ) : loadError ? (
@@ -457,37 +456,38 @@ export default function ProfileScreen({
             </button>
           </section>
         ) : null}
+        {/* One slim row: each Space is a chip that opens it. */}
         {editable && !isSpace && spaces.length ? (
-          <section className="rounded-[24px] border border-slate-200 bg-white p-4 shadow-sm">
-            <p className="text-xs font-black uppercase tracking-[0.18em] text-sky-700">{t("profile.yourSpaces")}</p>
-            <div className="mt-3 flex gap-3 overflow-x-auto pb-1 kuntai-scrollbar-none">
-              {spaces.map((space) => (
-                <div
-                  key={space.spaceId}
-                  className="flex min-w-[112px] flex-col items-center gap-2 rounded-2xl bg-slate-50 px-3 py-3 text-center"
+          <section className="flex items-center gap-2 overflow-x-auto kuntai-scrollbar-none">
+            <p className="flex-none text-xs font-bold text-slate-500">{t("profile.yourSpaces")}</p>
+            {spaces.map((space) => (
+              <div key={space.spaceId} className="flex flex-none items-center gap-1.5 rounded-full border border-slate-200 bg-white py-1 pl-1 pr-2 shadow-sm">
+                <button
+                  type="button"
+                  disabled={space.membershipStatus === "pending"}
+                  onClick={() => onSwitchIdentity?.(space, { openProfile: true })}
+                  className="kt-pressable flex items-center gap-2 disabled:cursor-default"
                 >
-                  <button type="button" disabled={space.membershipStatus === "pending"} onClick={() => onSwitchIdentity?.(space, { openProfile: true })} className="kt-pressable flex flex-col items-center gap-2 disabled:cursor-default">
-                    <span className="relative">
-                      <Avatar name={space.displayName} src={space.avatarUrl} size="md" />
-                      <SpaceActivityBadge activity={spaceActivity[space.spaceId]} className="absolute -right-2 -top-1" />
-                    </span>
-                    <span className="line-clamp-2 text-xs font-black leading-4 text-slate-700">{space.displayName}</span>
-                  </button>
-                  {space.membershipStatus === "pending" ? (
-                    <div className="grid w-full grid-cols-2 gap-1">
-                      <button type="button" onClick={() => respondToSpaceInvite(space, true)} className="h-8 rounded-xl bg-sky-700 text-[11px] font-black text-white">
-                        {t("profile.accept")}
-                      </button>
-                      <button type="button" onClick={() => respondToSpaceInvite(space, false)} className="h-8 rounded-xl bg-white text-[11px] font-black text-slate-600">
-                        {t("profile.decline")}
-                      </button>
-                    </div>
-                  ) : (
-                    <span className="rounded-full bg-white px-2 py-0.5 text-[10px] font-black text-sky-700">{space.memberRole || t("profile.member")}</span>
-                  )}
-                </div>
-              ))}
-            </div>
+                  <span className="relative flex-none">
+                    <Avatar name={space.displayName} src={space.avatarUrl} size="xs" />
+                    <SpaceActivityBadge activity={spaceActivity[space.spaceId]} className="absolute -right-2 -top-2" />
+                  </span>
+                  <span className="max-w-[9rem] truncate text-xs font-black text-slate-800">{space.displayName}</span>
+                </button>
+                {space.membershipStatus === "pending" ? (
+                  <>
+                    <button type="button" onClick={() => respondToSpaceInvite(space, true)} className="h-7 rounded-full bg-sky-700 px-2.5 text-[11px] font-black text-white">
+                      {t("profile.accept")}
+                    </button>
+                    <button type="button" onClick={() => respondToSpaceInvite(space, false)} className="h-7 rounded-full bg-slate-100 px-2.5 text-[11px] font-black text-slate-600">
+                      {t("profile.decline")}
+                    </button>
+                  </>
+                ) : (
+                  <span className="text-[11px] font-bold text-sky-700">{space.memberRole || t("profile.member")}</span>
+                )}
+              </div>
+            ))}
           </section>
         ) : null}
         <ProfileHeaderCard

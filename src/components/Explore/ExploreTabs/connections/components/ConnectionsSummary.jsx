@@ -27,17 +27,19 @@ export default function ConnectionsSummary({ activeTab = "mycircle", counts, loa
             role="tab"
             aria-selected={active}
             onClick={() => onSelect?.(item.id)}
-            className={`min-w-0 rounded-[20px] border p-4 text-left shadow-sm transition ${
+            className={`flex min-w-0 flex-col rounded-[20px] border px-3 py-3 text-left shadow-sm transition ${
               active ? "border-sky-200 bg-sky-50 text-sky-800 ring-2 ring-sky-100" : "border-slate-200 bg-white text-slate-600 hover:border-sky-100 hover:bg-sky-50/50"
             }`}
           >
             <Icon className={`text-xl ${active ? "text-sky-700" : "text-sky-700"}`} />
             {loading[item.id] ? (
-              <div className="mt-3 h-8 w-10 animate-pulse rounded-full bg-slate-100" />
+              <div className="mt-2 h-7 w-10 animate-pulse rounded-full bg-slate-100" />
             ) : (
-              <p className="mt-3 text-2xl font-black text-slate-950">{item.value}</p>
+              <p className="mt-2 text-2xl font-black leading-7 text-slate-950">{item.value}</p>
             )}
-            <p className={`truncate text-sm font-black ${active ? "text-sky-700" : "text-slate-500"}`}>{translateUi(item.label)}</p>
+            {/* The whole word always shows: it wraps onto a second line rather
+                than being cut short. */}
+            <p className={`mt-0.5 text-xs font-black leading-4 [overflow-wrap:anywhere] ${active ? "text-sky-700" : "text-slate-500"}`}>{translateUi(item.label)}</p>
           </button>
         );
       })}

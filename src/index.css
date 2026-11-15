@@ -2561,3 +2561,12 @@ html[data-kt-swip-open] [data-explore-chrome] {
   -webkit-backdrop-filter: none;
   backdrop-filter: none;
 }
+
+/* Social links on a profile's cover: a dark disc with a light ring, so the
+   icon stands out over any cover photo, in light and dark mode alike. */
+.kt-profile-social {
+  background: rgba(2, 6, 23, 0.72);
+  color: #fff;
+  border: 1.5px solid rgba(255, 255, 255, 0.92);
+  box-shadow: 0 1px 4px rgba(2, 6, 23, 0.35);
+}

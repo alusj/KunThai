@@ -78,7 +78,9 @@ export default function ImportContactsPanel({ onFollow, onViewProfile }) {
         <span className="grid h-11 w-11 flex-none place-items-center rounded-2xl bg-white text-sky-700 shadow-sm">
           <HiOutlineUserGroup className="text-2xl" />
         </span>
-        <div className="min-w-0 flex-1">
+        {/* Wide enough to read: on a narrow phone the button drops to its
+            own line instead of squeezing this into a thin column. */}
+        <div className="min-w-[11rem] flex-1">
           <p className="text-sm font-black text-slate-950">{t("importContacts.title")}</p>
           <p className="mt-0.5 text-xs font-semibold leading-5 text-slate-600">{t("importContacts.subtitle")}</p>
         </div>

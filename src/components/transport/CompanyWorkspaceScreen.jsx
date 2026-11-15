@@ -111,6 +111,7 @@ import { notificationDisplayText } from "../../Backend/services/notificationText
 import ExpandableText from "../shared/ExpandableText";
 import VerificationRequestNotice from "../shared/VerificationRequestNotice";
 import { verificationStatusLabel } from "../../Backend/services/marketplace/verificationStatusLabel";
+import { getUrRideCompanyDocumentRequirements } from "../../data/globalDocumentRequirements";
 
 const tabs = ["Overview", "Fleets", "Rentals", "Operators", "Requests", "Activity"];
 const DRAWER_TRANSITION_MS = 300;
@@ -374,6 +375,7 @@ export default function CompanyWorkspaceScreen({ company, initialTab = "Overview
       operatingAreas: company?.operatingAreas || [],
       fleetCount: fleets.length,
       operatorCount: acceptedOperators.length,
+      documentRequirements: getUrRideCompanyDocumentRequirements({ country: company?.country }),
     }).map((item) => ({ ...item, label: t(`urride.companyWs.health.${item.id}`) }));
     const score = setupScore(checklist);
     return {
@@ -996,7 +998,8 @@ export default function CompanyWorkspaceScreen({ company, initialTab = "Overview
               <HealthScoreCard health={companyHealth} onEditProfile={access.isOwner ? openCompanyEditor : undefined} />
             </div>
           ) : null}
-          <section className="rounded-3xl border border-blue-100 bg-white p-5 shadow-sm">
+          <section className="relative rounded-3xl border border-blue-100 bg-white p-5 shadow-sm">
+            {isTrustedSetup(companyHealth.score >= 100, company.verificationStatus) ? <TrustedTag verified={isVerifiedStatus(company.verificationStatus)} /> : null}
             <div className="flex flex-col items-center gap-2 text-center">
               <span className="flex h-14 w-14 items-center justify-center rounded-2xl bg-blue-50 text-blue-700"><Building2 size={28} /></span>
               <h2 className="max-w-full break-words text-2xl font-black leading-tight text-slate-950">{company.companyName}</h2>
@@ -1011,7 +1014,6 @@ export default function CompanyWorkspaceScreen({ company, initialTab = "Overview
                   <ShieldCheck size={12} aria-hidden="true" />
                   {companyVerificationText(company.verificationStatus, t("urride.companyWs.statusNotStarted"))}
                 </span>
-                {isTrustedSetup(companyHealth.score >= 100, company.verificationStatus) ? <TrustedTag verified={isVerifiedStatus(company.verificationStatus)} /> : null}
               </p>
               <p className="text-xs text-slate-500">{t("urride.companyWs.ownerId")}: {company.ownerPublicId}</p>
             </div>

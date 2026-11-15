@@ -2,6 +2,10 @@
 // section of their edit screen each missing item lives in. The dashboards
 // (setup card) and the edit screens ("This needs attention") read the same
 // rules, so they can never disagree.
+//
+// Document lists come in from the caller (getUrRideDocumentRequirements and
+// friends in data/globalDocumentRequirements), so this file stays plain and
+// unit-tested.
 
 const SELLER_SECTIONS = {
   "business-name": "identity",
@@ -33,7 +37,36 @@ export function sellerSectionsNeedingAttention(checklist = []) {
   return sections;
 }
 
-export function operatorSetupChecklist(form = {}, documentsSkipped = false) {
+/** A saved or picked upload (file, stored path/URL, or file name). */
+export function hasUpload(value) {
+  if (!value) return false;
+  if (typeof value === "string") return value.trim().length > 0;
+  if (typeof value !== "object") return Boolean(value);
+  return Boolean(value.file || value.path || value.fileUrl || value.url || value.publicUrl || value.name || value.fileName);
+}
+
+/**
+ * Every document in the main list is in. The optional "Additional documents"
+ * never count: they are extras an operator may add or leave out.
+ */
+export function allDocumentsSubmitted(requirements = [], isSubmitted = () => false) {
+  return requirements.every((requirement) => Boolean(isSubmitted(requirement)));
+}
+
+/**
+ * Every main UrRide document for the operator's country and service is
+ * uploaded on this screen (`uploads`) or already held by KunThai
+ * (`onFileByRequirement`, from getOperatorDocumentsOnFile).
+ */
+export function operatorDocumentsComplete({ requirements = [], uploads = {}, onFileByRequirement = {} } = {}) {
+  return allDocumentsSubmitted(requirements, (requirement) =>
+    Boolean(onFileByRequirement[requirement.key])
+      || hasUpload(uploads[`doc-${requirement.key}`])
+      || hasUpload(uploads[`doc-${requirement.legacyLabel || requirement.label}`]));
+}
+
+/** `documentsComplete`: every main UrRide document is uploaded or on file. */
+export function operatorSetupChecklist(form = {}, documentsComplete = false) {
   return [
     { id: "name", section: "operator", complete: Boolean(form.name) },
     { id: "phone", section: "operator", complete: Boolean(form.phone) },
@@ -42,15 +75,22 @@ export function operatorSetupChecklist(form = {}, documentsSkipped = false) {
     { id: "plate", section: "fleet", complete: Boolean(form.plateNumber) },
     { id: "makeModel", section: "fleet", complete: Boolean(form.make && form.model) },
     { id: "pricing", section: "fleet", complete: [form.baseFare, form.pricePerKm, form.pricePerHour].some((value) => Number(value || 0) > 0) },
-    { id: "documents", section: "documents", complete: !documentsSkipped },
+    { id: "documents", section: "documents", complete: Boolean(documentsComplete) },
   ];
 }
 
-export function companySetupChecklist({ company = {}, operatingAreas = [], fleetCount = 0, operatorCount = 0 } = {}) {
+// Company documents are saved under the requirement's (legacy) label.
+function companyDocumentValue(documents = {}, requirement = {}) {
+  return documents[requirement.legacyLabel] || documents[requirement.label] || documents[requirement.key];
+}
+
+/** `documentRequirements`: getUrRideCompanyDocumentRequirements for the company's country. */
+export function companySetupChecklist({ company = {}, operatingAreas = [], fleetCount = 0, operatorCount = 0, documentRequirements = [] } = {}) {
+  const documents = company.documents || {};
   return [
     { id: "name", section: "profile", complete: Boolean(company.companyName) },
     { id: "type", section: "profile", complete: Boolean(company.companyType) },
-    { id: "documents", section: "profile", complete: Object.keys(company.documents || {}).length > 0 },
+    { id: "documents", section: "profile", complete: allDocumentsSubmitted(documentRequirements, (requirement) => hasUpload(companyDocumentValue(documents, requirement))) },
     { id: "base", section: "base", complete: Boolean(company.city || company.address) },
     { id: "areas", section: "base", complete: operatingAreas.length > 0 },
     { id: "policy", section: "base", complete: Boolean(company.supportPolicy) },
