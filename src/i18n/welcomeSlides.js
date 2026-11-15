@@ -6,7 +6,7 @@ export const WELCOME_SLIDES = {
   en: {
     introWelcome: "Welcome to",
     introAi: "Get assisted with AI",
-    introGlobal: "With you anywhere in the world",
+    introGlobal: "Goes with you anywhere in the world",
     skip: "Skip",
     next: "Next",
     getStarted: "Get started",
@@ -21,7 +21,7 @@ export const WELCOME_SLIDES = {
   fr: {
     introWelcome: "Bienvenue sur",
     introAi: "Laissez-vous aider par l'IA",
-    introGlobal: "Avec vous partout dans le monde",
+    introGlobal: "Vous accompagne partout dans le monde",
     skip: "Passer",
     next: "Suivant",
     getStarted: "Commencer",
@@ -36,7 +36,7 @@ export const WELCOME_SLIDES = {
   es: {
     introWelcome: "Bienvenido a",
     introAi: "Recibe ayuda con IA",
-    introGlobal: "Contigo en cualquier lugar del mundo",
+    introGlobal: "Va contigo a cualquier lugar del mundo",
     skip: "Omitir",
     next: "Siguiente",
     getStarted: "Empezar",
@@ -51,7 +51,7 @@ export const WELCOME_SLIDES = {
   zh: {
     introWelcome: "欢迎来到",
     introAi: "AI 助你一臂之力",
-    introGlobal: "无论身在何处，随时相伴",
+    introGlobal: "陪你走遍世界每个角落",
     skip: "跳过",
     next: "下一步",
     getStarted: "开始使用",
@@ -66,7 +66,7 @@ export const WELCOME_SLIDES = {
   ar: {
     introWelcome: "مرحبًا بك في",
     introAi: "احصل على مساعدة بالذكاء الاصطناعي",
-    introGlobal: "معك في أي مكان في العالم",
+    introGlobal: "يرافقك إلى أي مكان في العالم",
     skip: "تخطٍّ",
     next: "التالي",
     getStarted: "ابدأ الآن",
@@ -81,7 +81,7 @@ export const WELCOME_SLIDES = {
   pt: {
     introWelcome: "Bem-vindo ao",
     introAi: "Receba ajuda com IA",
-    introGlobal: "Com você em qualquer lugar do mundo",
+    introGlobal: "Vai com você a qualquer lugar do mundo",
     skip: "Pular",
     next: "Próximo",
     getStarted: "Começar",
@@ -96,7 +96,7 @@ export const WELCOME_SLIDES = {
   hi: {
     introWelcome: "आपका स्वागत है",
     introAi: "AI से मदद पाएँ",
-    introGlobal: "दुनिया में कहीं भी, आपके साथ",
+    introGlobal: "दुनिया में कहीं भी, आपके साथ चलता है",
     skip: "छोड़ें",
     next: "आगे",
     getStarted: "शुरू करें",
@@ -111,7 +111,7 @@ export const WELCOME_SLIDES = {
   bn: {
     introWelcome: "স্বাগতম",
     introAi: "AI-এর সাহায্য নিন",
-    introGlobal: "বিশ্বের যেকোনো জায়গায়, আপনার সাথে",
+    introGlobal: "বিশ্বের যেকোনো জায়গায় আপনার সাথে যায়",
     skip: "এড়িয়ে যান",
     next: "পরবর্তী",
     getStarted: "শুরু করুন",
@@ -126,7 +126,7 @@ export const WELCOME_SLIDES = {
   id: {
     introWelcome: "Selamat datang di",
     introAi: "Dapatkan bantuan dengan AI",
-    introGlobal: "Bersama Anda di mana pun di dunia",
+    introGlobal: "Menemani Anda ke mana pun di dunia",
     skip: "Lewati",
     next: "Berikutnya",
     getStarted: "Mulai",
@@ -141,7 +141,7 @@ export const WELCOME_SLIDES = {
   ur: {
     introWelcome: "خوش آمدید",
     introAi: "AI سے مدد حاصل کریں",
-    introGlobal: "دنیا میں کہیں بھی، آپ کے ساتھ",
+    introGlobal: "دنیا میں کہیں بھی، آپ کے ساتھ چلتا ہے",
     skip: "چھوڑیں",
     next: "اگلا",
     getStarted: "شروع کریں",
@@ -156,7 +156,7 @@ export const WELCOME_SLIDES = {
   ru: {
     introWelcome: "Добро пожаловать в",
     introAi: "Помощь с ИИ",
-    introGlobal: "С вами в любой точке мира",
+    introGlobal: "Едет с вами в любую точку мира",
     skip: "Пропустить",
     next: "Далее",
     getStarted: "Начать",
@@ -171,7 +171,7 @@ export const WELCOME_SLIDES = {
   ja: {
     introWelcome: "ようこそ",
     introAi: "AI がサポートします",
-    introGlobal: "世界中どこでも、あなたと一緒に",
+    introGlobal: "世界中どこへでも、あなたと一緒に",
     skip: "スキップ",
     next: "次へ",
     getStarted: "はじめる",
@@ -186,7 +186,7 @@ export const WELCOME_SLIDES = {
   mr: {
     introWelcome: "आपले स्वागत आहे",
     introAi: "AI ची मदत घ्या",
-    introGlobal: "जगात कुठेही, तुमच्यासोबत",
+    introGlobal: "जगात कुठेही, तुमच्यासोबत येते",
     skip: "वगळा",
     next: "पुढे",
     getStarted: "सुरू करा",
@@ -201,7 +201,7 @@ export const WELCOME_SLIDES = {
   vi: {
     introWelcome: "Chào mừng đến với",
     introAi: "Được AI hỗ trợ",
-    introGlobal: "Đồng hành cùng bạn khắp thế giới",
+    introGlobal: "Theo bạn đến mọi nơi trên thế giới",
     skip: "Bỏ qua",
     next: "Tiếp",
     getStarted: "Bắt đầu",
@@ -216,7 +216,7 @@ export const WELCOME_SLIDES = {
   de: {
     introWelcome: "Willkommen bei",
     introAi: "Lass dir von KI helfen",
-    introGlobal: "Bei dir, überall auf der Welt",
+    introGlobal: "Begleitet dich überall auf der Welt",
     skip: "Überspringen",
     next: "Weiter",
     getStarted: "Los geht's",

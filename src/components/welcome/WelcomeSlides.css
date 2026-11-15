@@ -1209,7 +1209,7 @@ html.dark .kt-w-road { background: #1e293b; }
   transform: none;
 }
 
-/* "With you anywhere in the world": the last line. Once "Get assisted with
+/* "Goes with you anywhere in the world": the last line. Once "Get assisted with
    AI" has fully landed it rises in out of a soft blur while its letters
    close up, then a gold shimmer keeps sweeping across it and the small
    globe before it glows gently. */
@@ -1219,7 +1219,7 @@ html.dark .kt-w-road { background: #1e293b; }
   justify-content: center;
   gap: 0.55rem;
   margin-top: 0.9rem;
-  padding: 0 1.25rem;
+  padding: 0 1rem;
   text-align: center;
   opacity: 0;
   filter: blur(6px);
@@ -1244,9 +1244,11 @@ html.dark .kt-w-road { background: #1e293b; }
   background-clip: text;
   color: transparent;
   font-family: var(--kt-intro-display);
-  font-size: 1.2rem;
+  font-size: 1.0625rem;
   font-style: italic;
   font-weight: 700;
+  line-height: 1.3;
+  text-wrap: balance;
 }
 
 .kt-intro.is-in .kt-intro__global-text,
