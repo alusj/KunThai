@@ -5,6 +5,8 @@ import { deleteMyUrRideOperatorAccount } from "../../../Backend/services/account
 import { deleteWithReason, EMPTY_DELETION_REASON } from "../../../Backend/services/accountDeletionReasonService";
 import DeletionReasonPicker from "../../shared/DeletionReasonPicker";
 import { clearOperatorAccount } from "../../services/transportOperatorAccountService";
+import { stopOperatorLiveLocation } from "../../services/operatorLiveLocationService";
+import { forgetTransportCompanyAccount } from "../../services/transportCompanyService";
 import { useI18n, t } from "../../../i18n";
 import { uiText as translateUi } from "../../../i18n/index.js";
 import { inlineErrorMessage } from "../../../Backend/services/friendlyErrorService";
@@ -27,14 +29,20 @@ export default function RequestAccountDeletionPage() {
     setMessageIsError(false);
     try {
       await deleteWithReason({ surface: "urride_operator", reason: deleteReason }, deleteMyUrRideOperatorAccount);
+      // Deleted everywhere: no longer sharing a position, and no company
+      // dashboard is kept on this phone (the server ended every membership).
+      stopOperatorLiveLocation();
       await clearOperatorAccount().catch(() => {});
+      await forgetTransportCompanyAccount().catch(() => {});
       setDone(true);
       setMessage(t("urride.deletion.sentMessage"));
       // Reload so the app re-reads the now-removed operator account and returns
       // the user to the passenger/register state cleanly.
       window.setTimeout(() => window.location.reload(), 1600);
     } catch (error) {
-      setMessage(inlineErrorMessage(error, t("urride.deletion.errorMessage")));
+      setMessage(error?.code === "urride_trip_in_progress"
+        ? t("urrideDeleteCompany.deleteBusyTrip")
+        : inlineErrorMessage(error, t("urride.deletion.errorMessage")));
       setMessageIsError(true);
       setConfirming(false);
     } finally {

@@ -31,6 +31,7 @@ export const URRIDE_DELETE_COMPANY = {
     leaveFailed: "Couldn't leave company",
     leaveOwner: "The company creator cannot leave. Delete the company instead.",
     leaveBusyTrip: "You have a company trip in progress. Finish or cancel it before leaving.",
+    deleteBusyTrip: "You have a trip in progress. Finish or cancel it before deleting your UrRide account.",
     leaveUnavailable: "Leaving a company is not available yet. Please try again later.",
   },
   fr: {
@@ -62,6 +63,7 @@ export const URRIDE_DELETE_COMPANY = {
     leaveFailed: "Impossible de quitter l'entreprise",
     leaveOwner: "Le créateur de l'entreprise ne peut pas la quitter. Supprimez plutôt l'entreprise.",
     leaveBusyTrip: "Vous avez un trajet de l'entreprise en cours. Terminez-le ou annulez-le avant de partir.",
+    deleteBusyTrip: "Vous avez un trajet en cours. Terminez-le ou annulez-le avant de supprimer votre compte UrRide.",
     leaveUnavailable: "Quitter une entreprise n'est pas encore disponible. Réessayez plus tard.",
   },
   es: {
@@ -93,6 +95,7 @@ export const URRIDE_DELETE_COMPANY = {
     leaveFailed: "No se pudo salir de la empresa",
     leaveOwner: "El creador de la empresa no puede salir. Elimina la empresa en su lugar.",
     leaveBusyTrip: "Tienes un viaje de la empresa en curso. Termínalo o cancélalo antes de salir.",
+    deleteBusyTrip: "Tienes un viaje en curso. Termínalo o cancélalo antes de eliminar tu cuenta de UrRide.",
     leaveUnavailable: "Salir de una empresa aún no está disponible. Inténtalo más tarde.",
   },
   zh: {
@@ -124,6 +127,7 @@ export const URRIDE_DELETE_COMPANY = {
     leaveFailed: "无法退出公司",
     leaveOwner: "公司创建者不能退出。请改为删除公司。",
     leaveBusyTrip: "你有一个公司行程正在进行。请先完成或取消后再退出。",
+    deleteBusyTrip: "你有一个行程正在进行。请先完成或取消后再删除 UrRide 账户。",
     leaveUnavailable: "退出公司功能暂不可用，请稍后再试。",
   },
   ar: {
@@ -155,6 +159,7 @@ export const URRIDE_DELETE_COMPANY = {
     leaveFailed: "تعذّرت مغادرة الشركة",
     leaveOwner: "لا يمكن لمنشئ الشركة مغادرتها. احذف الشركة بدلاً من ذلك.",
     leaveBusyTrip: "لديك رحلة للشركة قيد التنفيذ. أنهِها أو ألغِها قبل المغادرة.",
+    deleteBusyTrip: "لديك رحلة قيد التنفيذ. أنهِها أو ألغِها قبل حذف حساب UrRide.",
     leaveUnavailable: "مغادرة الشركة غير متاحة بعد. حاول مرة أخرى لاحقًا.",
   },
   pt: {
@@ -186,6 +191,7 @@ export const URRIDE_DELETE_COMPANY = {
     leaveFailed: "Não foi possível sair da empresa",
     leaveOwner: "O criador da empresa não pode sair. Elimine a empresa em vez disso.",
     leaveBusyTrip: "Tem uma viagem da empresa em curso. Termine-a ou cancele-a antes de sair.",
+    deleteBusyTrip: "Tem uma viagem em curso. Termine-a ou cancele-a antes de eliminar a sua conta UrRide.",
     leaveUnavailable: "Sair de uma empresa ainda não está disponível. Tente mais tarde.",
   },
   hi: {
@@ -217,6 +223,7 @@ export const URRIDE_DELETE_COMPANY = {
     leaveFailed: "कंपनी छोड़ी नहीं जा सकी",
     leaveOwner: "कंपनी बनाने वाला इसे छोड़ नहीं सकता। इसके बजाय कंपनी हटाएँ।",
     leaveBusyTrip: "आपकी कंपनी की एक यात्रा चल रही है। छोड़ने से पहले उसे पूरा या रद्द करें।",
+    deleteBusyTrip: "आपकी एक यात्रा चल रही है। UrRide खाता हटाने से पहले उसे पूरा या रद्द करें।",
     leaveUnavailable: "कंपनी छोड़ना अभी उपलब्ध नहीं है। बाद में फिर कोशिश करें।",
   },
   bn: {
@@ -248,6 +255,7 @@ export const URRIDE_DELETE_COMPANY = {
     leaveFailed: "কোম্পানি ছাড়া যায়নি",
     leaveOwner: "কোম্পানির নির্মাতা ছাড়তে পারবেন না। এর বদলে কোম্পানি মুছুন।",
     leaveBusyTrip: "আপনার কোম্পানির একটি ট্রিপ চলছে। ছাড়ার আগে সেটি শেষ বা বাতিল করুন।",
+    deleteBusyTrip: "আপনার একটি ট্রিপ চলছে। UrRide অ্যাকাউন্ট মুছে ফেলার আগে সেটি শেষ বা বাতিল করুন।",
     leaveUnavailable: "কোম্পানি ছাড়া এখনও উপলব্ধ নয়। পরে আবার চেষ্টা করুন।",
   },
   id: {
@@ -279,6 +287,7 @@ export const URRIDE_DELETE_COMPANY = {
     leaveFailed: "Tidak dapat keluar dari perusahaan",
     leaveOwner: "Pembuat perusahaan tidak dapat keluar. Hapus perusahaan saja.",
     leaveBusyTrip: "Anda punya perjalanan perusahaan yang sedang berlangsung. Selesaikan atau batalkan sebelum keluar.",
+    deleteBusyTrip: "Anda punya perjalanan yang sedang berlangsung. Selesaikan atau batalkan sebelum menghapus akun UrRide.",
     leaveUnavailable: "Keluar dari perusahaan belum tersedia. Coba lagi nanti.",
   },
   ur: {
@@ -310,6 +319,7 @@ export const URRIDE_DELETE_COMPANY = {
     leaveFailed: "کمپنی نہیں چھوڑی جا سکی",
     leaveOwner: "کمپنی بنانے والا اسے نہیں چھوڑ سکتا۔ اس کے بجائے کمپنی حذف کریں۔",
     leaveBusyTrip: "آپ کا کمپنی کا ایک سفر جاری ہے۔ چھوڑنے سے پہلے اسے مکمل یا منسوخ کریں۔",
+    deleteBusyTrip: "آپ کا ایک سفر جاری ہے۔ UrRide اکاؤنٹ حذف کرنے سے پہلے اسے مکمل یا منسوخ کریں۔",
     leaveUnavailable: "کمپنی چھوڑنا ابھی دستیاب نہیں۔ بعد میں دوبارہ کوشش کریں۔",
   },
   ru: {
@@ -341,6 +351,7 @@ export const URRIDE_DELETE_COMPANY = {
     leaveFailed: "Не удалось выйти из компании",
     leaveOwner: "Создатель компании не может выйти из неё. Удалите компанию.",
     leaveBusyTrip: "У вас идёт поездка компании. Завершите или отмените её перед выходом.",
+    deleteBusyTrip: "У вас идёт поездка. Завершите или отмените её перед удалением аккаунта UrRide.",
     leaveUnavailable: "Выход из компании пока недоступен. Попробуйте позже.",
   },
   ja: {
@@ -372,6 +383,7 @@ export const URRIDE_DELETE_COMPANY = {
     leaveFailed: "会社から退出できませんでした",
     leaveOwner: "会社の作成者は退出できません。代わりに会社を削除してください。",
     leaveBusyTrip: "進行中の会社の乗車があります。退出する前に完了するかキャンセルしてください。",
+    deleteBusyTrip: "進行中の乗車があります。UrRideアカウントを削除する前に完了するかキャンセルしてください。",
     leaveUnavailable: "会社からの退出はまだ利用できません。後でもう一度お試しください。",
   },
   mr: {
@@ -403,6 +415,7 @@ export const URRIDE_DELETE_COMPANY = {
     leaveFailed: "कंपनी सोडता आली नाही",
     leaveOwner: "कंपनी तयार करणारे ती सोडू शकत नाहीत. त्याऐवजी कंपनी हटवा.",
     leaveBusyTrip: "तुमची कंपनीची एक ट्रिप सुरू आहे. सोडण्यापूर्वी ती पूर्ण किंवा रद्द करा.",
+    deleteBusyTrip: "तुमची एक ट्रिप सुरू आहे. UrRide खाते हटवण्यापूर्वी ती पूर्ण किंवा रद्द करा.",
     leaveUnavailable: "कंपनी सोडणे अजून उपलब्ध नाही. नंतर पुन्हा प्रयत्न करा.",
   },
   vi: {
@@ -434,6 +447,7 @@ export const URRIDE_DELETE_COMPANY = {
     leaveFailed: "Không thể rời công ty",
     leaveOwner: "Người tạo công ty không thể rời. Hãy xóa công ty thay vào đó.",
     leaveBusyTrip: "Bạn có chuyến đi của công ty đang diễn ra. Hãy hoàn tất hoặc hủy trước khi rời.",
+    deleteBusyTrip: "Bạn có chuyến đi đang diễn ra. Hãy hoàn tất hoặc hủy trước khi xóa tài khoản UrRide.",
     leaveUnavailable: "Chưa thể rời công ty. Vui lòng thử lại sau.",
   },
   de: {
@@ -465,6 +479,7 @@ export const URRIDE_DELETE_COMPANY = {
     leaveFailed: "Unternehmen konnte nicht verlassen werden",
     leaveOwner: "Der Ersteller des Unternehmens kann es nicht verlassen. Lösche stattdessen das Unternehmen.",
     leaveBusyTrip: "Du hast eine laufende Fahrt des Unternehmens. Beende oder storniere sie, bevor du gehst.",
+    deleteBusyTrip: "Du hast eine laufende Fahrt. Beende oder storniere sie, bevor du dein UrRide-Konto löschst.",
     leaveUnavailable: "Das Verlassen eines Unternehmens ist noch nicht verfügbar. Versuche es später erneut.",
   },
 };

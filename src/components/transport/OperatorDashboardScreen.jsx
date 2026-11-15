@@ -586,6 +586,12 @@ export default function OperatorDashboardScreen({
       return;
     }
     if (availabilityInFlightRef.current) return;
+    // A company member waiting for a vehicle has nothing to put online yet.
+    if (!account?.fleetId && !account?.companyFleetId) {
+      setDashboardError(t("urride.companyFix.noVehicleBody"));
+      showToast(t("urride.companyFix.noVehicleTitle"), "warning");
+      return;
+    }
 
     // Only one dashboard is online at a time: going online here while online
     // on another one (solo or a company) asks first; the server takes the

@@ -2513,18 +2513,20 @@ export async function leaveTransportCompany(companyAccount = null) {
     }
   }
 
-  await recordCompanyManagementActivity(
-    company.id,
-    user.id,
-    "operator_left_company",
-    "Operator left company",
-    `${access.fullName || "An operator"} left ${company.companyName || "the company"}. Their personal KunThai account was not deleted.`,
-    { memberId: access.memberId || null, operatorId: access.operatorId || null },
-  ).catch(() => null);
+  // The server records the "operator left" activity (and notifies the
+  // company): a former member can no longer write to the company.
 
   localStorage.removeItem(scopedKey(COMPANY_ACCOUNT_PREFIX, user.id));
   invalidateCache("operator-dashboard");
   return null;
+}
+
+// Drops the company kept on this phone, so the next read comes from the
+// server (after the operator account is deleted, memberships have ended).
+export async function forgetTransportCompanyAccount() {
+  const user = await getCurrentUser("Sign in to manage a transport company.");
+  localStorage.removeItem(scopedKey(COMPANY_ACCOUNT_PREFIX, user.id));
+  invalidateCache("operator-dashboard");
 }
 
 // Company creator only. The server checks ownership and the typed name, and

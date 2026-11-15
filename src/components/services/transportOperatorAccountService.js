@@ -767,7 +767,9 @@ export async function getOperatorAccount() {
   // its fleet was (a failed submit) is unfinished: the app offers the
   // registration again instead of an empty dashboard, and resubmitting
   // completes this same profile.
-  if (!personalFleet && !availableAssignment && operator.account_status === "submitted") {
+  // A company member waiting for a vehicle is not unfinished: they have their
+  // operator dashboard, which says no vehicle is assigned yet.
+  if (!personalFleet && !availableAssignment && !vehicleLessCompanies.length && operator.account_status === "submitted") {
     return null;
   }
 

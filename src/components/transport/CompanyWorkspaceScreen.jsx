@@ -80,9 +80,7 @@ import {
   readSeenNotificationIds,
   subscribeNotificationSeen,
 } from "../../Backend/services/notificationSeenStore";
-import { requestTransportTripStart, updateTransportTripStatus } from "../services/bookingService";
-import { collectParcel, deliverParcel } from "../services/parcelHandoverService";
-import { OperatorLiveTripHeaderCard, OperatorTripRequestCard } from "./OperatorDashboardScreen";
+import { OperatorTripRequestCard } from "./OperatorDashboardScreen";
 import LiveLocationViewer from "../shared/liveLocation/LiveLocationViewer";
 import {
   COMPANY_OPERATOR_ROLES,
@@ -93,19 +91,10 @@ import {
   lookupTransportOperatorByKunThaiId,
   pendingCompanyTeamInvites,
   deleteTransportCompany,
-  leaveTransportCompany,
   manageTransportCompanyFleet,
   manageTransportCompanyOperator,
-  resolveTransportCompanyOperatorAssignment,
-  updateTransportCompanyOperatorAvailability,
 } from "../services/transportCompanyService";
 import { listCompanyRentalActivity, listTransportRentals, subscribeRentalChanges } from "../services/transportRentalService";
-import { fetchOperatorDashboard, subscribeOperatorTrips } from "../services/transportOperatorAccountService";
-import {
-  startOperatorLiveLocation,
-  stopOperatorLiveLocation,
-  syncOperatorLiveBookedState,
-} from "../services/operatorLiveLocationService";
 import { t as i18nText } from "../../i18n/index";
 import BusinessPlanScreen from "../shared/BusinessPlanScreen";
 import CompanyRentals from "./rentals/CompanyRentals";
@@ -182,22 +171,20 @@ function roleDesc(roleId) {
     : COMPANY_OPERATOR_ROLES[roleId]?.description || "";
 }
 
-export default function CompanyWorkspaceScreen({ company, initialTab = "Overview", onAddFleet, onAddRentalFleet, onBack, onEditFleetDetails, onCompanyLeft, onCompanyUpdate, onEditCompany, onLocateArea, onOpenOperatorDashboard, onOpenPersonalDashboard, onRegisterCompany, statusMessage = "" }) {
+export default function CompanyWorkspaceScreen({ company, initialTab = "Overview", onAddFleet, onAddRentalFleet, onBack, onEditFleetDetails, onCompanyLeft, onCompanyUpdate, onEditCompany, onLocateArea, onOpenOperatorDashboard, onRegisterCompany, statusMessage = "" }) {
   // Saving actions here get a button spinner and a success vibration.
   useActionFeedbackScope();
   const { locale: memoLocale } = useI18n();
-  const basicOperator = Boolean(company?.access?.role === "operator" && !company?.access?.isOwner);
-  useAiRoleContext("urride", basicOperator ? "operator" : "company", { screen: "transport company workspace" });
+  // Fleet HQ is only for the owner and operators with a company responsibility.
+  // A basic operator works from their own operator dashboard (Transport never
+  // opens this screen for them).
+  useAiRoleContext("urride", "company", { screen: "transport company workspace" });
   // Company members (including company operators) receive company campaigns in this workspace.
   useCampaignSurfaceRole("transport", "company");
-  const companyOperatorAssignment = useMemo(
-    () => basicOperator ? resolveTransportCompanyOperatorAssignment(company) : null,
-    [basicOperator, company],
-  );
-  const availableTabs = useMemo(() => (basicOperator ? ["My Dashboard"] : tabs.filter((tab) => tab !== "Rentals" || company?.access?.isOwner || company?.access?.role === "admin")), [basicOperator, company?.access?.isOwner, company?.access?.role]);
-  const firstTab = basicOperator ? "My Dashboard" : availableTabs.includes(initialTab) ? initialTab : "Overview";
+  const availableTabs = useMemo(() => tabs.filter((tab) => tab !== "Rentals" || company?.access?.isOwner || company?.access?.role === "admin"), [company?.access?.isOwner, company?.access?.role]);
+  const firstTab = availableTabs.includes(initialTab) ? initialTab : "Overview";
   const [activeTab, setActiveTab] = useState(() => firstTab);
-  const [companyTabOpen, setCompanyTabOpen] = useState(() => !basicOperator && firstTab !== "Overview");
+  const [companyTabOpen, setCompanyTabOpen] = useState(() => firstTab !== "Overview");
   const [companyTabDirection, setCompanyTabDirection] = useState("forward");
   const [menuOpen, setMenuOpen] = useState(false);
   const [shareProfileOpen, setShareProfileOpen] = useState(false);
@@ -237,14 +224,9 @@ export default function CompanyWorkspaceScreen({ company, initialTab = "Overview
   const companyRef = useRef(company);
   companyRef.current = company;
   const bookingQueueLoadedForRef = useRef("");
-  const [operatorMenuOpen, setOperatorMenuOpen] = useState(false);
-  const [leaveCompanyOpen, setLeaveCompanyOpen] = useState(false);
   const [deleteCompanyOpen, setDeleteCompanyOpen] = useState(false);
   const [deleteCompanyBusy, setDeleteCompanyBusy] = useState(false);
   const [deleteCompanyError, setDeleteCompanyError] = useState("");
-  const [operatorAvailable, setOperatorAvailable] = useState(companyOperatorAssignment?.activeStatus === "active");
-  const [operatorDashboardData, setOperatorDashboardData] = useState(null);
-  const [availabilitySaving, setAvailabilitySaving] = useState(false);
   const [managementBusy, setManagementBusy] = useState(false);
   const [localStatus, setLocalStatus] = useState("");
   const [, setSeenVersion] = useState(0);
@@ -344,8 +326,7 @@ export default function CompanyWorkspaceScreen({ company, initialTab = "Overview
     ...activity,
     read: activity.unread === false,
   }));
-  const operatorTripRequests = operatorDashboardData?.waitingPassengers || [];
-  const visibleBookingQueue = basicOperator && operatorTripRequests.length ? operatorTripRequests : bookingQueue;
+  const visibleBookingQueue = bookingQueue;
   const bookingNotificationItems = visibleBookingQueue.map((booking) => ({
     id: `company-booking-${booking.id}`,
     createdAt: booking.createdAt || booking.time || "",
@@ -623,147 +604,6 @@ export default function CompanyWorkspaceScreen({ company, initialTab = "Overview
     }
   }, [bookingQueue.length, bookingQueueLoading, bookingQueueOpen]);
 
-  useEffect(() => {
-    setOperatorAvailable(companyOperatorAssignment?.activeStatus === "active");
-    setOperatorDashboardData(null);
-  }, [companyOperatorAssignment?.activeStatus, companyOperatorAssignment?.companyFleetId]);
-
-  useEffect(() => {
-    if (!basicOperator || !companyOperatorAssignment?.operatorId || !companyOperatorAssignment?.transportFleetId) return undefined;
-    let active = true;
-
-    async function refreshOperatorSummary() {
-      try {
-        const [nextDashboard, nextQueue] = await Promise.all([
-          fetchOperatorDashboard(
-            companyOperatorAssignment.operatorId,
-            companyOperatorAssignment.transportFleetId,
-            { fleetScoped: true },
-          ),
-          getTransportCompanyBookingQueue(companyRef.current).catch(() => null),
-        ]);
-        if (!active || !nextDashboard) return;
-        setOperatorDashboardData((current) => (sameJson(current, nextDashboard) ? current : nextDashboard));
-        if (nextQueue) setBookingQueue((current) => (sameJson(current, nextQueue) ? current : nextQueue));
-      } catch {
-        // Keep the last successful dashboard snapshot visible if a refresh fails.
-      }
-    }
-
-    refreshOperatorSummary();
-    const unsubscribe = companyOperatorAssignment.transportFleetId
-      ? subscribeOperatorTrips(companyOperatorAssignment.transportFleetId, refreshOperatorSummary)
-      : undefined;
-    return () => {
-      active = false;
-      unsubscribe?.();
-    };
-    // Keyed on ids: re-subscribing on every company re-fetch tore the realtime
-    // channel down and refetched over and over ("the dashboard keeps reloading").
-  }, [basicOperator, company?.id, companyOperatorAssignment?.operatorId, companyOperatorAssignment?.transportFleetId]);
-
-  const companyOperatorHasTrip = (operatorDashboardData?.waitingPassengers || []).some((trip) =>
-    ["accepted", "arrived", "start_requested", "in_progress", "paused"].includes(trip.status));
-  const companyTripRef = useRef(companyOperatorHasTrip);
-  companyTripRef.current = companyOperatorHasTrip;
-
-  // Company operators stream their live position into Area View while online,
-  // exactly like solo operators. Opening or leaving this screen never stops
-  // it (the share belongs to the operator, not to a screen); only switching
-  // off here does, once the server has saved it.
-  useEffect(() => {
-    if (!basicOperator || !operatorAvailable) return;
-    startOperatorLiveLocation({
-      displayName: companyOperatorAssignment?.operatorName || "Company operator",
-      fleetType: companyOperatorAssignment?.fleetType,
-      isBooked: () => companyTripRef.current,
-    });
-  }, [basicOperator, operatorAvailable, companyOperatorAssignment?.companyFleetId, companyOperatorAssignment?.operatorName, companyOperatorAssignment?.fleetType]);
-
-  useEffect(() => {
-    if (basicOperator) syncOperatorLiveBookedState();
-  }, [basicOperator, companyOperatorHasTrip]);
-
-  async function toggleOperatorAvailability() {
-    if (!companyOperatorAssignment?.companyFleetId || availabilitySaving) return;
-    const nextActive = !operatorAvailable;
-    // Paused by the plan limit: switching on would not show it to passengers.
-    const assignedFleet = (company?.fleets || []).find((fleet) => fleet.id === companyOperatorAssignment.companyFleetId);
-    if (nextActive && assignedFleet?.planSuspended) {
-      showToast(t("urrideAddMenu.pausedToast"), "warning");
-      return;
-    }
-    setOperatorAvailable(nextActive);
-    try {
-      setAvailabilitySaving(true);
-      const updatedFleet = await updateTransportCompanyOperatorAvailability(companyOperatorAssignment, nextActive);
-      const activeNow = updatedFleet?.active_status === "active";
-      setOperatorAvailable(activeNow);
-      if (!activeNow) stopOperatorLiveLocation();
-      setOperatorDashboardData((current) => current ? {
-        ...current,
-        fleet: { ...(current.fleet || {}), ...(updatedFleet || {}) },
-      } : current);
-      onCompanyUpdate?.({
-        ...company,
-        fleets: (company.fleets || []).map((fleet) => fleet.id === companyOperatorAssignment.companyFleetId ? {
-          ...fleet,
-          activeStatus: updatedFleet?.active_status || (activeNow ? "active" : "offline"),
-          isVisibleToPassengers: Boolean(updatedFleet?.is_visible_to_passengers ?? activeNow),
-          transportFleetId: updatedFleet?.id || fleet.transportFleetId,
-        } : fleet),
-      });
-      showToast(activeNow ? "Fleet is now visible" : "Fleet is now hidden", "success");
-    } catch (error) {
-      setOperatorAvailable(!nextActive);
-      showToast(shortErrorToast(error, "Visibility not updated"), "danger");
-    } finally {
-      setAvailabilitySaving(false);
-    }
-  }
-
-  async function refreshCompanyTripData() {
-    const [nextQueue, nextDashboard] = await Promise.all([
-      getTransportCompanyBookingQueue(company),
-      basicOperator && companyOperatorAssignment?.operatorId && companyOperatorAssignment?.transportFleetId
-        ? fetchOperatorDashboard(
-            companyOperatorAssignment.operatorId,
-            companyOperatorAssignment.transportFleetId,
-            { fleetScoped: true },
-          )
-        : Promise.resolve(null),
-    ]);
-    setBookingQueue((current) => (sameJson(current, nextQueue) ? current : nextQueue));
-    if (nextDashboard) setOperatorDashboardData(nextDashboard);
-  }
-
-  async function updateCompanyOperatorTrip(trip, status, patch = {}) {
-    if (!basicOperator) return;
-    try {
-      if (status === "start_requested") await requestTransportTripStart(trip.id);
-      else if (status === "parcel_collected" || status === "parcel_delivered") {
-        const outcome = await (status === "parcel_collected" ? collectParcel : deliverParcel)(trip.id, patch.code);
-        if (!outcome.ok) return outcome;
-      }
-      else await updateTransportTripStatus(trip.id, status, status === "cancelled" ? { ...patch, endedBy: "operator" } : patch);
-      showToast(
-        status === "accepted" ? "Booking has been accepted"
-          : status === "arrived" ? "Marked as arrived"
-            : status === "start_requested" ? "Trip start requested"
-              : status === "parcel_collected" ? t("urrideParcel.collectedToast")
-              : status === "parcel_delivered" ? t("urrideParcel.deliveredToast")
-              : status === "cancelled" ? "Booking was cancelled"
-                : "Trip has been updated",
-        "success",
-      );
-      await refreshCompanyTripData();
-      return { ok: true };
-    } catch (error) {
-      showToast(shortErrorToast(error, "Couldn't update trip"), "danger");
-      throw error;
-    }
-  }
-
   function openCompanyTripRoute(trip) {
     if (!trip?.pickup || !trip?.destination) return;
     const pickup = {
@@ -804,22 +644,6 @@ export default function CompanyWorkspaceScreen({ company, initialTab = "Overview
         dropoff,
       },
     }, { autoRoute: true });
-  }
-
-  async function confirmLeaveCompany() {
-    try {
-      setManagementBusy(true);
-      await leaveTransportCompany(company);
-      setLeaveCompanyOpen(false);
-      setOperatorMenuOpen(false);
-      onCompanyUpdate?.(null);
-      showToast(t("urrideDeleteCompany.leaveDone"), "success");
-      onCompanyLeft?.();
-    } catch (error) {
-      showToast(shortErrorToast(error, t("urrideDeleteCompany.leaveFailed")), "danger");
-    } finally {
-      setManagementBusy(false);
-    }
   }
 
   async function confirmDeleteCompany(typedName, reason) {
@@ -1088,7 +912,7 @@ export default function CompanyWorkspaceScreen({ company, initialTab = "Overview
               ) : null}
             </button>
           ) : null}
-          {company && !basicOperator && (canAddOperators || (canAddFleets && onAddFleet) || (canAddRentalFleets && onAddRentalFleet)) ? (
+          {company && (canAddOperators || (canAddFleets && onAddFleet) || (canAddRentalFleets && onAddRentalFleet)) ? (
             <button
               type="button"
               onClick={() => setAddMenuOpen(true)}
@@ -1099,7 +923,7 @@ export default function CompanyWorkspaceScreen({ company, initialTab = "Overview
               <Plus size={22} strokeWidth={3} />
             </button>
           ) : null}
-          {company && !basicOperator ? (
+          {company ? (
             <button
               type="button"
               onClick={() => setMenuOpen(true)}
@@ -1108,15 +932,6 @@ export default function CompanyWorkspaceScreen({ company, initialTab = "Overview
               className="kt-pressable flex h-11 w-11 shrink-0 items-center justify-center rounded-2xl bg-slate-950 text-white shadow-lg shadow-slate-950/15 transition hover:bg-slate-900"
             >
               <MenuIcon size={20} />
-            </button>
-          ) : company && basicOperator ? (
-            <button
-              type="button"
-              onClick={() => setOperatorMenuOpen(true)}
-              aria-label={t("urride.companyWs.operatorActionsAria")}
-              className="kt-pressable flex h-11 w-11 items-center justify-center rounded-2xl bg-slate-950 text-white shadow-lg shadow-slate-950/15 transition hover:bg-slate-900"
-            >
-              <MoreHorizontal size={21} />
             </button>
           ) : (
             <button
@@ -1162,7 +977,6 @@ export default function CompanyWorkspaceScreen({ company, initialTab = "Overview
         </main>
       ) : (
         <main className="w-full px-4 py-5 sm:px-6 lg:px-8">
-          {!basicOperator ? <>
           {pausedFleetCount > 0 ? (
             <div className="mb-4 rounded-3xl border border-amber-200 bg-amber-50 p-4" role="status">
               <p className="text-sm font-bold leading-6 text-amber-900">{t("urrideAddMenu.pausedBanner", { count: pausedFleetCount })}</p>
@@ -1209,10 +1023,9 @@ export default function CompanyWorkspaceScreen({ company, initialTab = "Overview
               ))}
             </div>
           </section>
-          </> : null}
 
-         <section className={basicOperator ? "" : "mt-4"}>
-            {company?.id && !basicOperator ? (
+         <section className="mt-4">
+            {company?.id ? (
               <EnforcementNoticeBanner targetTypes={["transport_company"]} targetId={company.id} className="mb-4" />
             ) : null}
             {statusMessage || localStatus ? (
@@ -1220,25 +1033,8 @@ export default function CompanyWorkspaceScreen({ company, initialTab = "Overview
                 {localStatus || statusMessage}
               </div>
             ) : null}
-            {activeTab === "My Dashboard" ? (
-              <BasicOperatorCompanyDashboard
-                bookingCount={visibleBookingQueue.length}
-                company={company}
-                dashboard={operatorDashboardData}
-                assignment={companyOperatorAssignment}
-                available={operatorAvailable}
-                availabilitySaving={availabilitySaving}
-                onOpenBookings={visibleBookingQueue.length ? () => setBookingQueueOpen(true) : undefined}
-                onToggleAvailability={toggleOperatorAvailability}
-                onViewRoute={openCompanyTripRoute}
-                onOpenEmergency={(trip) => onLocateArea?.(null, {
-                  emergency: { open: true, source: "operator-live-trip", tripId: trip?.id || "", tripTitle: trip?.title || "" },
-                })}
-              />
-            ) : null}
           </section>
 
-         {!basicOperator ? (
   <CompanyDashboardTabDrawer
     activeTab={activeTab}
     company={company}
@@ -1250,12 +1046,11 @@ export default function CompanyWorkspaceScreen({ company, initialTab = "Overview
   >
     {renderDashboardTab(activeTab)}
   </CompanyDashboardTabDrawer>
-) : null}
         </main>
       )}
       {company ? (
         <>
-          {!basicOperator ? <FleetHqMenuDrawer
+          <FleetHqMenuDrawer
             company={company}
             menuItems={menuItems}
             open={menuOpen}
@@ -1267,7 +1062,7 @@ export default function CompanyWorkspaceScreen({ company, initialTab = "Overview
             } : undefined}
             onNavigate={openMenuScreen}
             onShareProfile={company.id ? () => runAfterDrawerClose(() => setShareProfileOpen(true)) : undefined}
-          /> : null}
+          />
           <ShareProfileSheet
             open={shareProfileOpen}
             onClose={() => setShareProfileOpen(false)}
@@ -1331,38 +1126,15 @@ export default function CompanyWorkspaceScreen({ company, initialTab = "Overview
               read: readBookingIds.has(`company-booking-${booking.id}`),
             }))}
             company={company}
-            isActive={operatorAvailable}
             loading={bookingQueueLoading}
-            operatorMode={basicOperator}
             open={bookingQueueOpen}
             onClose={() => setBookingQueueOpen(false)}
             onRead={(booking) => {
               markNotificationsSeen(bookingReadScope, [{ id: `company-booking-${booking.id}` }]);
               setSeenVersion((version) => version + 1);
             }}
-            onUpdateTrip={updateCompanyOperatorTrip}
             onViewRoute={openCompanyTripRoute}
           />
-          {basicOperator ? (
-            <CompanyOperatorMenu
-              company={company}
-              onClose={() => setOperatorMenuOpen(false)}
-              onCopy={() => {
-                navigator.clipboard?.writeText(company?.companyCode || company?.companyName || "");
-                showToast(t("urride.companyWs.codeCopied"), "success");
-                setOperatorMenuOpen(false);
-              }}
-              onLeave={() => {
-                setOperatorMenuOpen(false);
-                window.setTimeout(() => setLeaveCompanyOpen(true), 150);
-              }}
-              onOpenPersonalDashboard={() => {
-                setOperatorMenuOpen(false);
-                onOpenPersonalDashboard?.();
-              }}
-              open={operatorMenuOpen}
-            />
-          ) : null}
           {access.isOwner ? (
             <DeleteCompanyDrawer
               busy={deleteCompanyBusy}
@@ -1376,13 +1148,6 @@ export default function CompanyWorkspaceScreen({ company, initialTab = "Overview
               open={deleteCompanyOpen}
             />
           ) : null}
-          <LeaveCompanyDrawer
-            busy={managementBusy}
-            company={company}
-            onClose={() => setLeaveCompanyOpen(false)}
-            onConfirm={confirmLeaveCompany}
-            open={leaveCompanyOpen}
-          />
           <LiveLocationViewer
             open={Boolean(trackedOperator)}
             onClose={() => setTrackedOperator(null)}
@@ -2098,299 +1863,6 @@ function Overview({ company, fleets, pendingRequests }) {
         <p className="mt-4 text-sm font-semibold leading-6 text-slate-600">{company.supportPolicy || t("urride.companyWs.noPolicy")}</p>
       </section>
     </div>
-  );
-}
-
-function BasicOperatorCompanyDashboard({ assignment, available, availabilitySaving, bookingCount = 0, company, dashboard, onOpenBookings, onOpenEmergency, onToggleAvailability, onViewRoute }) {
-  useUiLocale();
-  const access = company?.access || {};
-  const responsibilities = access.responsibilities || [];
-  const operatorName = assignment?.operatorName || access.fullName || t("urride.companyWs.operatorFallbackName");
-  const fleetName = assignment ? assignment.fleetName || assignment.fleetType || t("urride.companyWs.fleetPending") : t("urride.companyFix.noVehicleTitle");
-  const verification = String(assignment?.verificationStatus || "pending").replaceAll("_", " ");
-  const today = dashboard?.today || {};
-  const reviews = dashboard?.reviews || {};
-  const tripHistory = dashboard?.tripHistory || [];
-  const tripControls = dashboard?.tripControls || {};
-  const currency = dashboard?.fleet?.currency || "";
-  const liveTrip = (dashboard?.waitingPassengers || []).find((trip) =>
-    ["in_progress", "paused", "start_requested"].includes(trip.status),
-  );
-  const formatRate = (value, suffix = "") => {
-    const numeric = Number(value || 0);
-    if (!numeric) return t("urride.companyWs.notSet");
-    return `${currency ? `${currency} ` : ""}${numeric.toLocaleString()}${suffix}`;
-  };
-
-  // Removed from every fleet (or the fleet was deleted): say so plainly
-  // instead of showing an empty vehicle. A suspended member is told why.
-  const accessNotice = access.isActiveMember === false && !access.isOwner
-    ? { title: t("urride.companyFix.accessPausedTitle"), body: t("urride.companyFix.accessPausedBody") }
-    : !assignment
-      ? { title: t("urride.companyFix.noVehicleTitle"), body: t("urride.companyFix.noVehicleBody") }
-      : null;
-
-  return (
-    <div className="grid gap-4">
-      {accessNotice ? (
-        <section role="status" className="rounded-3xl border border-amber-200 bg-amber-50 p-5 shadow-sm">
-          <p className="text-sm font-black text-amber-900">{accessNotice.title}</p>
-          <p className="mt-1 text-sm font-semibold leading-6 text-amber-800">{accessNotice.body}</p>
-        </section>
-      ) : null}
-      {liveTrip ? (
-        <OperatorLiveTripHeaderCard
-          trip={liveTrip}
-          fleetName={fleetName}
-          onViewRoute={() => onViewRoute?.(liveTrip)}
-          onOpenEmergency={onOpenEmergency}
-        />
-      ) : null}
-
-      <section className="overflow-hidden rounded-[30px] border border-blue-100 bg-white shadow-sm">
-        <div className="bg-gradient-to-br from-slate-950 via-slate-900 to-blue-950 p-5 text-white sm:p-6">
-          <div className="flex items-start justify-between gap-4">
-            <div className="flex min-w-0 items-start gap-3">
-              <span className="grid h-12 w-12 flex-none place-items-center rounded-2xl bg-white/10 text-sky-200 backdrop-blur">
-                <Truck size={22} />
-              </span>
-              <div className="min-w-0">
-                <p className="text-xs font-black uppercase tracking-[0.18em] text-sky-300">{t("urride.companyWs.companyOperatorEyebrow")}</p>
-                <h2 className="mt-1 truncate text-2xl font-black">{operatorName}</h2>
-                <p className="mt-1 truncate text-sm font-bold text-white/65">{fleetName} · {company?.companyName || t("urride.companyWs.fleetHqFallback")}</p>
-              </div>
-            </div>
-            <button
-              type="button"
-              role="switch"
-              aria-checked={available}
-              aria-label={available ? t("urride.companyWs.goOffline") : t("urride.companyWs.goOnline")}
-              disabled={!assignment?.companyFleetId || availabilitySaving}
-              onClick={onToggleAvailability}
-              className={`relative h-8 w-14 flex-none rounded-full p-1 transition disabled:cursor-wait disabled:opacity-60 ${available ? "bg-emerald-400" : "bg-white/25"}`}
-            >
-              <span className={`block h-6 w-6 rounded-full bg-white shadow-lg transition-transform ${available ? "translate-x-6" : "translate-x-0"}`} />
-            </button>
-          </div>
-          <div className="mt-5 flex flex-wrap items-center gap-2">
-            <span className={`rounded-full px-3 py-1.5 text-xs font-black ${available ? "bg-emerald-400/15 text-emerald-200" : "bg-white/10 text-white/70"}`}>
-              {availabilitySaving ? t("urride.companyWs.updating") : available ? t("urride.companyWs.onlineVisible") : t("urride.companyWs.offlineHidden")}
-            </span>
-            <span className="rounded-full bg-white/10 px-3 py-1.5 text-xs font-black capitalize text-white/75">{verification}</span>
-          </div>
-        </div>
-
-        <div className="grid gap-3 p-5 sm:grid-cols-2 sm:p-6">
-          <ProfileFact label={t("urride.companyWs.factOperator")} value={operatorName} />
-          <ProfileFact label={t("urride.companyWs.factOperatorId")} value={assignment?.publicId || access.publicId || t("urride.companyWs.pending")} />
-          <ProfileFact label={t("urride.companyWs.factFleetCode")} value={assignment?.fleetCode || t("urride.companyWs.pending")} />
-          <ProfileFact label={t("urride.companyWs.factOperatingArea")} value={assignment?.operatingArea || company?.city || t("urride.companyWs.notAdded")} />
-          <ProfileFact label={t("urride.companyWs.factServiceStatus")} value={access.serviceStatus || "active"} />
-        </div>
-      </section>
-
-      <section className="grid grid-cols-2 gap-3 lg:grid-cols-4">
-        <CompanyOperatorMetric icon={CalendarClock} label={t("urride.companyWs.metricWaiting")} value={bookingCount} detail={t("urride.companyWs.metricWaitingDetail")} tone="emerald" />
-        <CompanyOperatorMetric icon={History} label={t("urride.companyWs.metricHistory")} value={tripHistory.length} detail={t("urride.companyWs.metricHistoryDetail")} tone="blue" />
-        <CompanyOperatorMetric icon={Star} label={t("urride.companyWs.metricRating")} value={Number(reviews.averageRating || 0).toFixed(1)} detail={t("urride.companyWs.metricRatingDetail", { n: reviews.count || 0 })} tone="amber" />
-        <CompanyOperatorMetric icon={Clock3} label={t("urride.companyWs.metricEarnings")} value={formatRate(dashboard?.earnings?.today)} detail={t("urride.companyWs.metricEarningsDetail", { n: today.trips || 0 })} tone="slate" />
-      </section>
-
-      <div className="grid gap-4 lg:grid-cols-[1.05fr_0.95fr]">
-        {bookingCount > 0 && onOpenBookings ? (
-          <button
-            type="button"
-            onClick={onOpenBookings}
-            className="kt-pressable flex items-center gap-4 rounded-3xl border border-emerald-100 bg-emerald-50 p-5 text-left shadow-sm"
-          >
-            <span className="grid h-12 w-12 flex-none place-items-center rounded-2xl bg-emerald-600 text-white"><CalendarClock size={22} /></span>
-            <span className="min-w-0 flex-1">
-              <span className="block text-xs font-black uppercase tracking-wide text-emerald-700">{t("urride.companyWs.waitingBookings")}</span>
-              <span className="mt-1 block text-xl font-black text-slate-950">{bookingCount === 1 ? t("urride.companyWs.passengersOne", { n: bookingCount }) : t("urride.companyWs.passengersMany", { n: bookingCount })}</span>
-              <span className="mt-1 block text-sm font-semibold text-slate-600">{t("urride.companyWs.openQueue")}</span>
-            </span>
-          </button>
-        ) : null}
-
-        <section className="rounded-3xl border border-slate-100 bg-white p-5 shadow-sm">
-          <p className="text-xs font-black uppercase tracking-wide text-emerald-700">{t("urride.companyWs.privateAccess")}</p>
-          <h3 className="mt-1 text-xl font-black text-slate-950">{t("urride.companyWs.privateAccessTitle")}</h3>
-          <p className="mt-2 text-sm font-semibold leading-6 text-slate-600">
-            {t("urride.companyWs.privateAccessBody")}
-          </p>
-          <div className="mt-4 flex flex-wrap gap-2">
-            {(responsibilities.length ? responsibilities : [t("urride.companyWs.operatorOnly")]).map((item) => (
-              <span key={item} className="rounded-full bg-emerald-50 px-3 py-1.5 text-xs font-black text-emerald-700">{item}</span>
-            ))}
-          </div>
-        </section>
-
-        <section className="rounded-3xl border border-slate-100 bg-white p-5 shadow-sm">
-          <p className="text-xs font-black uppercase tracking-wide text-blue-700">{t("urride.companyWs.companyMembership")}</p>
-          <h3 className="mt-1 text-xl font-black text-slate-950">{company?.companyName || t("urride.companyWs.fleetHqFallback")}</h3>
-          <p className="mt-2 text-sm font-semibold leading-6 text-slate-600">
-            {company?.companyType || t("urride.companyWs.transportCompany")} - {company?.city || assignment?.operatingArea || t("urride.companyWs.locationNotAdded")}
-          </p>
-          <p className="mt-4 text-xs font-black uppercase tracking-wide text-slate-400">{t("urride.companyWs.companyCodeLabel")}</p>
-          <p className="mt-1 font-black text-slate-950">{company?.companyCode || t("urride.companyWs.pending")}</p>
-        </section>
-      </div>
-
-      <div className="grid gap-4 xl:grid-cols-2">
-        <section className="rounded-3xl border border-slate-100 bg-white p-5 shadow-sm">
-          <div className="flex items-center gap-3">
-            <span className="grid h-11 w-11 place-items-center rounded-2xl bg-blue-50 text-blue-700"><ClipboardList size={20} /></span>
-            <div>
-              <p className="text-xs font-black uppercase tracking-wide text-blue-700">{t("urride.companyWs.ratesService")}</p>
-              <h3 className="mt-1 text-xl font-black text-slate-950">{t("urride.companyWs.passengerPricing")}</h3>
-            </div>
-          </div>
-          <div className="mt-4 grid gap-3 sm:grid-cols-3">
-            <ProfileFact label={t("urride.companyWs.baseFare")} value={formatRate(dashboard?.fleet?.base_fare)} />
-            <ProfileFact label={t("urride.companyWs.perKm")} value={formatRate(dashboard?.fleet?.price_per_km, t("urride.companyWs.perKmSuffix"))} />
-            <ProfileFact label={t("urride.companyWs.perHour")} value={formatRate(dashboard?.fleet?.price_per_hour, t("urride.companyWs.perHourSuffix"))} />
-          </div>
-          <div className="mt-4 flex flex-wrap gap-2">
-            {tripControls.acceptsRide ? <ServiceChip label={t("urride.companyWs.chipRides")} /> : null}
-            {tripControls.acceptsDelivery ? <ServiceChip label={t("urride.companyWs.chipDeliveries")} /> : null}
-            {tripControls.maxDistanceKm ? <ServiceChip label={t("urride.companyWs.chipUpToKm", { n: tripControls.maxDistanceKm })} /> : null}
-            {tripControls.startTime && tripControls.endTime ? <ServiceChip label={t("urride.companyWs.chipTimeRange", { start: tripControls.startTime, end: tripControls.endTime })} /> : null}
-          </div>
-        </section>
-
-        <section className="rounded-3xl border border-slate-100 bg-white p-5 shadow-sm">
-          <div className="flex items-center gap-3">
-            <span className="grid h-11 w-11 place-items-center rounded-2xl bg-amber-50 text-amber-700"><Star size={20} /></span>
-            <div>
-              <p className="text-xs font-black uppercase tracking-wide text-amber-700">{t("urride.companyWs.passengerTrust")}</p>
-              <h3 className="mt-1 text-xl font-black text-slate-950">{t("urride.companyWs.ratingsReviews")}</h3>
-            </div>
-          </div>
-          <div className="mt-4 flex items-end gap-3">
-            <span className="text-4xl font-black text-slate-950">{Number(reviews.averageRating || 0).toFixed(1)}</span>
-            <span className="pb-1 text-sm font-bold text-slate-500">{reviews.count === 1 ? t("urride.companyWs.fromReviewsOne", { n: reviews.count || 0 }) : t("urride.companyWs.fromReviewsMany", { n: reviews.count || 0 })}</span>
-          </div>
-          <div className="mt-4 grid gap-2">
-            {(reviews.items || []).slice(0, 2).map((review) => (
-              <article key={review.id} className="rounded-2xl bg-slate-50 px-4 py-3">
-                <div className="flex items-center justify-between gap-3">
-                  <p className="truncate text-sm font-black text-slate-900">{review.passengerName || t("urride.companyWs.passengerFallback")}</p>
-                  <span className="text-xs font-black text-amber-700">{Number(review.rating || 0).toFixed(1)} ★</span>
-                </div>
-                <p className="mt-1 line-clamp-2 text-xs font-semibold leading-5 text-slate-500">{review.reviewText || t("urride.companyWs.noWrittenReview")}</p>
-              </article>
-            ))}
-            {!reviews.items?.length ? <EmptyCompanyOperatorLine text={t("urride.companyWs.reviewsEmpty")} /> : null}
-          </div>
-        </section>
-      </div>
-
-      <section className="rounded-3xl border border-slate-100 bg-white p-5 shadow-sm">
-        <div className="flex items-center gap-3">
-          <span className="grid h-11 w-11 place-items-center rounded-2xl bg-emerald-50 text-emerald-700"><History size={20} /></span>
-          <div>
-            <p className="text-xs font-black uppercase tracking-wide text-emerald-700">{t("urride.companyWs.companyService")}</p>
-            <h3 className="mt-1 text-xl font-black text-slate-950">{t("urride.companyWs.tripHistory")}</h3>
-          </div>
-        </div>
-        <div className="mt-4 grid gap-3 lg:grid-cols-2">
-          {tripHistory.slice(0, 6).map((trip) => (
-            <article key={trip.id} className="rounded-2xl bg-slate-50 p-4">
-              <div className="flex items-start justify-between gap-3">
-                <div className="min-w-0">
-                  <p className="truncate text-sm font-black text-slate-950">{trip.name || trip.title || t("urride.companyWs.passengerTrip")}</p>
-                  <p className="mt-1 line-clamp-2 text-xs font-semibold leading-5 text-slate-500">{trip.route || t("urride.companyWs.tripRouteJoin", { pickup: trip.pickup, destination: trip.destination })}</p>
-                </div>
-                <span className="rounded-full bg-white px-2.5 py-1 text-[10px] font-black uppercase text-slate-600">{trip.status || t("urride.companyWs.completedStatus")}</span>
-              </div>
-              <div className="mt-3 flex items-center justify-between text-xs font-black">
-                <span className="text-slate-500">{trip.mode || t("urride.companyWs.rideMode")}</span>
-                <span className="text-emerald-700">{trip.fare || t("urride.companyWs.farePending")}</span>
-              </div>
-            </article>
-          ))}
-          {!tripHistory.length ? <EmptyCompanyOperatorLine text={t("urride.companyWs.tripHistoryEmpty")} /> : null}
-        </div>
-      </section>
-    </div>
-  );
-}
-
-function CompanyOperatorMetric({ detail, icon, label, tone, value }) {
-  useUiLocale();
-  const tones = {
-    emerald: "bg-emerald-50 text-emerald-700",
-    blue: "bg-blue-50 text-blue-700",
-    amber: "bg-amber-50 text-amber-700",
-    slate: "bg-slate-100 text-slate-700",
-  };
-  return (
-    <div className="rounded-3xl border border-slate-100 bg-white p-4 shadow-sm">
-      <span className={`grid h-10 w-10 place-items-center rounded-2xl ${tones[tone] || tones.slate}`}>{createElement(icon, { size: 18 })}</span>
-      <p className="mt-3 text-xs font-black uppercase tracking-wide text-slate-400">{translateUi(label)}</p>
-      <p className="mt-1 text-2xl font-black text-slate-950">{value}</p>
-      <p className="text-xs font-bold text-slate-500">{translateUi(detail)}</p>
-    </div>
-  );
-}
-
-function ServiceChip({ label }) {
-  useUiLocale();
-  return <span className="rounded-full bg-blue-50 px-3 py-1.5 text-xs font-black text-blue-700">{translateUi(label)}</span>;
-}
-
-function EmptyCompanyOperatorLine({ text }) {
-  useUiLocale();
-  return <p className="rounded-2xl bg-slate-50 px-4 py-5 text-center text-sm font-bold text-slate-500">{translateUi(text)}</p>;
-}
-
-function CompanyOperatorMenu({ company, onClose, onCopy, onLeave, onOpenPersonalDashboard, open }) {
-  useUiLocale();
-  return (
-    <FleetHqActionSheet label={t("urride.companyWs.operatorActionsSheet")} onClose={onClose} open={open}>
-      <ActionSheetHeader eyebrow={company?.companyName || t("urride.companyWs.fleetHqFallback")} icon={MoreHorizontal} onClose={onClose} title={t("urride.companyWs.operatorActionsTitle")} />
-      <div className="grid gap-3 bg-slate-50 p-4">
-        <OperatorActionButton
-          detail={t("urride.companyWs.personalDashboardDetail")}
-          icon={Truck}
-          label={t("urride.companyWs.personalDashboard")}
-          onClick={onOpenPersonalDashboard}
-        />
-        <OperatorActionButton
-          detail={t("urride.companyWs.copyCodeDetail")}
-          icon={Copy}
-          label={t("urride.companyWs.copyCode")}
-          onClick={onCopy}
-        />
-        <OperatorActionButton
-          danger
-          detail={t("urrideDeleteCompany.leaveDetail", { name: company?.companyName || t("urride.companyWs.companyFallback") })}
-          icon={LogOut}
-          label={t("urrideDeleteCompany.leaveButton")}
-          onClick={onLeave}
-        />
-      </div>
-    </FleetHqActionSheet>
-  );
-}
-
-function LeaveCompanyDrawer({ busy, company, onClose, onConfirm, open }) {
-  useUiLocale();
-  return (
-    <FleetHqActionSheet label={t("urrideDeleteCompany.leaveButton")} onClose={onClose} open={open}>
-      <ActionSheetHeader eyebrow={t("urride.companyWs.membershipEyebrow")} icon={LogOut} onClose={onClose} title={t("urrideDeleteCompany.leaveTitle", { name: company?.companyName || t("urride.companyWs.companyFallback") })} />
-      <div className="p-5">
-        <p className="rounded-2xl bg-rose-50 px-4 py-3 text-sm font-bold leading-6 text-rose-900">
-          {t("urrideDeleteCompany.leaveWarning")}
-        </p>
-        <div className="mt-4 grid grid-cols-2 gap-2">
-          <button type="button" disabled={busy} onClick={onClose} className="h-12 rounded-2xl border border-slate-200 bg-white text-sm font-black text-slate-700 disabled:opacity-60">{t("urrideDeleteCompany.leaveStay")}</button>
-          <button type="button" disabled={busy} onClick={onConfirm} className="h-12 rounded-2xl bg-rose-600 text-sm font-black text-white disabled:opacity-60">
-            {busy ? t("urrideDeleteCompany.leaving") : t("urrideDeleteCompany.leaveConfirm")}
-          </button>
-        </div>
-      </div>
-    </FleetHqActionSheet>
   );
 }
 
@@ -3139,7 +2611,9 @@ function CompanyNotificationSettings({ onToggle, settings = DEFAULT_COMPANY_NOTI
   );
 }
 
-function CompanyBookingQueueDrawer({ bookings, company, isActive, loading, onClose, onRead, onUpdateTrip, onViewRoute, open, operatorMode }) {
+// Fleet HQ sees every waiting booking read-only: each operator answers their
+// own on their operator dashboard.
+function CompanyBookingQueueDrawer({ bookings, company, loading, onClose, onRead, onViewRoute, open }) {
   useUiLocale();
   return (
     <FleetHqFullScreen label={t("urride.companyWs.waitingBookingsLabel")} onClose={onClose} open={open}>
@@ -3155,17 +2629,14 @@ function CompanyBookingQueueDrawer({ bookings, company, isActive, loading, onClo
                 onClick={() => onRead?.(booking)}
                 className={`rounded-3xl border p-2 transition ${booking.read ? "border-transparent bg-transparent" : "border-emerald-100 bg-emerald-50/90"}`}
               >
-                {!operatorMode ? (
-                  <p className="mb-2 rounded-2xl bg-blue-50 px-3 py-2 text-xs font-black text-blue-700">
-                    {booking.operatorName} · {booking.fleetName}
-                  </p>
-                ) : null}
+                <p className="mb-2 rounded-2xl bg-blue-50 px-3 py-2 text-xs font-black text-blue-700">
+                  {booking.operatorName} · {booking.fleetName}
+                </p>
                 <OperatorTripRequestCard
                   passenger={booking}
                   account={{ form: { country: company?.country, countryCode: company?.countryCode } }}
-                  isActive={operatorMode ? isActive : true}
-                  readOnly={!operatorMode}
-                  onUpdateTrip={onUpdateTrip}
+                  isActive
+                  readOnly
                   onViewRoute={() => onViewRoute?.(booking)}
                 />
               </div>

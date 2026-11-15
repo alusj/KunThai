@@ -148,8 +148,16 @@ export async function requestUrRideAccountDeletion(reason = "") {
 // request flow so operators can delete their own UrRide account immediately.
 export async function deleteMyUrRideOperatorAccount() {
   await getCurrentUser("Sign in to delete your UrRide account.");
+  // The server first takes the person out of every company they drive for
+  // (like "Leave company": vehicle offline, the company is told), then removes
+  // the operator profile. It refuses while a trip is under way.
   const { error } = await supabase.rpc("delete_my_transport_operator");
   if (error) {
+    if (String(error.message || "").includes("trip in progress")) {
+      const busy = new Error("trip in progress");
+      busy.code = "urride_trip_in_progress";
+      throw busy;
+    }
     throw new Error("KunThai could not delete your UrRide account right now. Please try again.");
   }
 }

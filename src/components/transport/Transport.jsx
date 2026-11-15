@@ -269,8 +269,8 @@ export default function Transport({
 
     // An operator who joined a company (no solo account of their own) may
     // have been loaded before they joined: read the account again before
-    // offering registration, so they land on their operator dashboard.
-    const companyOperator = Boolean(companyAccount?.access?.isActiveMember && !companyAccount?.access?.isOwner);
+    // offering registration, so they land on their operator dashboard. Every
+    // operator has that one dashboard; Fleet HQ has no operator page.
     const check = ownSurfaceRecheckRef.current + 1;
     ownSurfaceRecheckRef.current = check;
     setRouteDirection("forward");
@@ -283,10 +283,6 @@ export default function Transport({
       if (account) {
         setOperatorAccount(account);
         openOperatorDashboard("dashboard");
-      } else if (companyOperator) {
-        // Their company's "My Dashboard" (the operator view of Fleet HQ).
-        setCompanyWorkspaceInitialTab("Overview");
-        setCompanyWorkspaceOpen(true);
       } else {
         openRegistrationChooser();
       }
@@ -946,6 +942,18 @@ export default function Transport({
   const [ownSurfaceRechecking, setOwnSurfaceRechecking] = useState(false);
   const ownSurfaceRecheckRef = useRef(0);
 
+  // Fleet HQ is for the owner and operators with a company responsibility. If
+  // it is open for anyone else (a role or membership changed meanwhile), they
+  // go to their operator dashboard instead.
+  const companyHqDenied = Boolean(companyWorkspaceOpen && companyAccount && !companyAccount.access?.canViewCompanyHq);
+  useEffect(() => {
+    if (!companyHqDenied) return;
+    setCompanyWorkspaceOpen(false);
+    if (operatorAccount) openOperatorDashboard("dashboard");
+    // Only the denied state triggers this.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [companyHqDenied]);
+
   useEffect(() => {
     if (!pendingOwnSurface || operatorLoading || companyLoading) return;
     setPendingOwnSurface("");
@@ -1236,6 +1244,9 @@ export default function Transport({
     } else if (destination === "company-dashboard" && companyAccount && !companyAccount.access?.canViewCompanyHq && operatorAccount) {
       // A basic company operator has no Fleet HQ: their operator dashboard.
       openOperatorDashboard("dashboard");
+    } else if (destination === "company-dashboard" && companyAccount && !companyAccount.access?.canViewCompanyHq) {
+      // No Fleet HQ and no operator account loaded yet: their own surface.
+      openOwnSurface("operator");
     } else if (destination === "company-dashboard" && companyAccount && (!targetId || companyAccount.id === targetId)) {
       setCompanyWorkspaceInitialTab("Overview");
       setCompanyWorkspaceOpen(true);
@@ -1682,7 +1693,7 @@ export default function Transport({
     );
   }
 
-  if (companyWorkspaceOpen) {
+  if (companyWorkspaceOpen && !companyHqDenied) {
     return renderWithAreaView(
       <div
         className={`${registrationReveal?.target === "company" ? "" : routePanelClass} ${registrationRevealClass("company")} kt-mobile-viewport`}
@@ -1712,12 +1723,6 @@ export default function Transport({
           onBack={() => {
             setRouteDirection("backward");
             setCompanyWorkspaceOpen(false);
-          }}
-          onOpenPersonalDashboard={() => {
-            setRouteDirection("backward");
-            setCompanyWorkspaceOpen(false);
-            setOperatorDashboardView("dashboard");
-            setOperatorDashboardOpen(true);
           }}
           onOpenOperatorDashboard={openCompanyOperatorDashboard}
           onAddFleet={() => openCompanyRegistration("company-workspace", "addFleet")}
