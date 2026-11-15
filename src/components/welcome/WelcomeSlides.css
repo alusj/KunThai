@@ -1105,7 +1105,10 @@ html.dark .kt-w-road { background: #1e293b; }
   width: 21rem;
   max-width: calc(100vw - 1.5rem);
   height: auto;
-  margin-bottom: -0.4rem;
+  /* Moved down by the same amount it is pulled closer to KunThai, so
+     everything below stays where it was. */
+  margin-top: 1.75rem;
+  margin-bottom: -2.15rem;
   overflow: visible;
   fill: #f1d48c;
   font-family: var(--kt-intro-display);
