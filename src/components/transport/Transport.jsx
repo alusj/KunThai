@@ -29,7 +29,8 @@ import { getTransportCompanyDraft } from "../services/transportCompanyService";
 import VerificationDetailsModal from "./verification/VerificationDetailsModal";
 import PassengerLiveTripHeaderCard from "./live/PassengerLiveTripHeaderCard";
 import AppBackTab from "../shared/AppBackTab";
-import { fetchOperatorDashboard, getLegacyOperatorAccount, getOperatorAccount, writeOperatorWorkMode } from "../services/transportOperatorAccountService";
+import { fetchOperatorDashboard, getLegacyOperatorAccount, getOperatorAccount, getOperatorDocumentsOnFile, writeOperatorWorkMode } from "../services/transportOperatorAccountService";
+import { LICENCE_REQUIREMENT_KEY, NO_DOCUMENTS_ON_FILE } from "../services/operatorDocumentsOnFile";
 import { stopOperatorLiveLocation } from "../services/operatorLiveLocationService";
 import {
   getInvitedOperatorDefaultPhone,
@@ -190,6 +191,9 @@ export default function Transport({
   const [documentReuseInvite, setDocumentReuseInvite] = useState(null);
   const [companyAccessDecision, setCompanyAccessDecision] = useState(null);
   const [operatorInviteDocumentsInvite, setOperatorInviteDocumentsInvite] = useState(null);
+  // The documents KunThai already holds for this person's operator profile
+  // (kept when they leave a company), so an invitation never asks again.
+  const [operatorDocsOnFile, setOperatorDocsOnFile] = useState(NO_DOCUMENTS_ON_FILE);
   const [registrationInvite, setRegistrationInvite] = useState(null);
   const [routeDirection, setRouteDirection] = useState("forward");
   const [registrationReveal, setRegistrationReveal] = useState(null);
@@ -713,8 +717,15 @@ export default function Transport({
       currentOperator = await getOperatorAccount().catch(() => null);
       if (currentOperator?.id) setOperatorAccount(currentOperator);
     }
+    // Someone who left their only company has no dashboard but still has
+    // their operator profile and the documents on it.
+    let onFile = NO_DOCUMENTS_ON_FILE;
+    if (!currentOperator?.id) {
+      onFile = await getOperatorDocumentsOnFile();
+      setOperatorDocsOnFile(onFile);
+    }
     // Joining as a new operator is registering one: Business accounts only.
-    if (!currentOperator?.id && registrationBlocked()) return;
+    if (!currentOperator?.id && !onFile.operatorId && registrationBlocked()) return;
     if (!feeConfirmed && invite.status !== "accepted") {
       try {
         const quote = await getOperatorCompanyAccessQuote();
@@ -733,21 +744,23 @@ export default function Transport({
     // screen follows. Someone new to UrRide (any business account) gets the
     // documents screen first, with a phone number if their profile has none:
     // submitting it creates their operator profile and joins the company.
-    const alreadyOperator = Boolean(currentOperator?.id);
+    // A returning operator whose licence is on file is not asked for it again.
+    const returningOperator = !currentOperator?.id && Boolean(onFile.operatorId && onFile.licenceOnFile);
+    const alreadyOperator = Boolean(currentOperator?.id) || returningOperator;
     if (!alreadyOperator) {
       setCompanyAccessDecision(null);
       setRouteDirection("forward");
       setOperatorInviteDocumentsInvite({ ...invite, joining: true });
       return;
     }
-    const reuseDocuments = hasSubmittedOperatorDocuments(currentOperator);
+    const reuseDocuments = returningOperator || hasSubmittedOperatorDocuments(currentOperator);
 
     try {
       const now = new Date().toISOString();
       await respondToOperatorInvite(invite, {
         status: "accepted",
-        operatorId: currentOperator?.id || invite.operatorId,
-        userId: currentOperator?.userId || invite.userId,
+        operatorId: currentOperator?.id || onFile.operatorId || invite.operatorId,
+        userId: currentOperator?.userId || onFile.userId || invite.userId,
         documents: reuseDocuments
           ? { reuseNotice: t("urride.transport.status.reuseNotice"), reusedExistingDocuments: true, reusedAt: now }
           : {
@@ -763,6 +776,8 @@ export default function Transport({
       if (refreshedAccount) setOperatorAccount(refreshedAccount);
       await refreshOperatorCompanyInvites(refreshedAccount || currentOperator).catch(() => {});
       showToast("Request accepted", "success");
+      // Back in a company with nothing else to operate: their dashboard opens.
+      if (returningOperator && refreshedAccount) openOperatorDashboard("dashboard");
     } catch (error) {
       setOperatorInviteStatus(inlineErrorMessage(error, t("urride.transport.status.acceptError")));
       showToast(shortErrorToast(error, t("urride.transport.status.acceptToast")), "danger");
@@ -954,6 +969,20 @@ export default function Transport({
     // Only the denied state triggers this.
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [companyHqDenied]);
+
+  // Read once there is an invitation to answer (and again when the operator
+  // account changes), so the card can say the licence is already on file.
+  const hasOperatorInvites = operatorCompanyInvites.length > 0;
+  useEffect(() => {
+    if (!hasOperatorInvites) return undefined;
+    let alive = true;
+    getOperatorDocumentsOnFile().then((onFile) => {
+      if (alive) setOperatorDocsOnFile(onFile);
+    });
+    return () => {
+      alive = false;
+    };
+  }, [hasOperatorInvites, operatorAccount?.id]);
 
   useEffect(() => {
     if (!pendingOwnSurface || operatorLoading || companyLoading) return;
@@ -1577,6 +1606,7 @@ export default function Transport({
       <div className={`${routePanelClass} kt-mobile-viewport`}>
         <OperatorInviteDocumentsScreen
           invite={operatorInviteDocumentsInvite}
+          onFile={operatorDocsOnFile}
           onBack={() => {
             setRouteDirection("backward");
             setOperatorInviteDocumentsInvite(null);
@@ -2115,7 +2145,7 @@ export default function Transport({
       />
       <CompanyOperatorInvitePanel
         invites={operatorCompanyInvites}
-        operatorHasDocuments={hasSubmittedOperatorDocuments(operatorAccount)}
+        operatorHasDocuments={hasSubmittedOperatorDocuments(operatorAccount) || operatorDocsOnFile.licenceOnFile}
         loading={operatorInviteLoading}
         status={operatorInviteStatus}
         onAccept={acceptOperatorCompanyInvite}
@@ -2171,7 +2201,7 @@ export default function Transport({
           key={companyAccessDecision.invite.id || companyAccessDecision.invite.requestId}
           invite={companyAccessDecision.invite}
           quote={companyAccessDecision.quote}
-          existingOperator={Boolean(operatorAccount?.id)}
+          existingOperator={Boolean(operatorAccount?.id || operatorDocsOnFile.operatorId)}
           onClose={() => setCompanyAccessDecision(null)}
           onConfirm={(invite) => acceptOperatorCompanyInvite(invite, true)}
         />
@@ -2205,10 +2235,10 @@ function hasSubmittedOperatorDocuments(account) {
 // A new operator joining a company only adds their driving licence: the
 // fleet, its photos and documents come from the company.
 const operatorInviteDocumentFields = [
-  { key: "license", labelKey: "urride.transport.docs.licenseLabel", detailKey: "urride.transport.docs.licenseDetail" },
+  { key: "license", requirementKey: LICENCE_REQUIREMENT_KEY, labelKey: "urride.transport.docs.licenseLabel", detailKey: "urride.transport.docs.licenseDetail" },
 ];
 
-function OperatorInviteDocumentsScreen({ invite, onBack, onSkip, onSubmit }) {
+function OperatorInviteDocumentsScreen({ invite, onBack, onFile = NO_DOCUMENTS_ON_FILE, onSkip, onSubmit }) {
   useI18n();
   const [documents, setDocuments] = useState({});
   // A new operator needs a phone number on their operator profile. It starts
@@ -2237,7 +2267,9 @@ function OperatorInviteDocumentsScreen({ invite, onBack, onSkip, onSubmit }) {
   const phoneCheck = phoneCountry ? validateCountryPhone(phone, phoneCountry) : null;
   const [status, setStatus] = useState("");
   const [submitting, setSubmitting] = useState(false);
-  const requiredDocuments = operatorInviteDocumentFields.filter((field) => !field.optional);
+  // A document KunThai already holds is shown as received and not asked for.
+  const receivedField = (field) => Boolean(onFile.byRequirement?.[field.requirementKey]);
+  const requiredDocuments = operatorInviteDocumentFields.filter((field) => !field.optional && !receivedField(field));
 
   function markDocument(field, file) {
     setDocuments((current) => ({
@@ -2338,6 +2370,22 @@ function OperatorInviteDocumentsScreen({ invite, onBack, onSkip, onSubmit }) {
           ) : null}
           {operatorInviteDocumentFields.map((field) => {
             const selected = documents[field.key]?.fileName;
+            if (receivedField(field) && !selected) {
+              return (
+                <div key={field.key} className="rounded-[24px] border border-emerald-200 bg-emerald-50 p-4 shadow-sm">
+                  <div className="flex items-start justify-between gap-3">
+                    <div className="min-w-0">
+                      <p className="text-sm font-black text-slate-950">{t(field.labelKey)}</p>
+                      <p className="mt-1 text-xs font-semibold leading-5 text-emerald-800">{t("urrideDocsOnFile.onFileHint")}</p>
+                    </div>
+                    <span className="flex h-8 flex-none items-center gap-1.5 rounded-full bg-emerald-600 px-3 text-xs font-black text-white">
+                      <FiCheckCircle size={14} />
+                      {t("urrideDocsOnFile.received")}
+                    </span>
+                  </div>
+                </div>
+              );
+            }
             return (
               <label key={field.key} className="block rounded-[24px] border border-slate-200 bg-white p-4 shadow-sm">
                 <div className="flex items-start justify-between gap-3">
@@ -2542,6 +2590,9 @@ function CompanyOperatorInviteCard({ invite, operatorHasDocuments = false, onAcc
   const accepted = invite.status === "accepted" && !needsDocuments;
   const rejected = invite.status === "rejected";
   const expired = Boolean(invite.expired) && !accepted && !needsDocuments;
+  // Still to answer, and the licence is already with KunThai: say so, and
+  // offer only Accept or Decline.
+  const licenceOnFile = operatorHasDocuments && !accepted && !rejected && !expired;
   const statusLabel = needsDocuments ? t("urride.transport.inviteCard.statusAccepted") : accepted ? t("urride.transport.inviteCard.statusAccepted") : rejected ? t("urride.transport.inviteCard.statusDeclined") : expired ? t("urride.companyFix.inviteExpired") : t("urride.transport.inviteCard.statusPending");
   const statusTone = needsDocuments || accepted
     ? "bg-blue-100 text-blue-700"
@@ -2577,8 +2628,22 @@ function CompanyOperatorInviteCard({ invite, operatorHasDocuments = false, onAcc
               ? t("urride.transport.inviteCard.bodyRejected")
               : expired
                 ? t("urride.companyFix.inviteExpiredBody")
-                : t("urride.transport.inviteCard.bodyPending")}
+                : licenceOnFile
+                  ? t("urrideDocsOnFile.inviteBody", { company: invite.companyName || t("urride.transport.inviteCard.companyFallback") })
+                  : t("urride.transport.inviteCard.bodyPending")}
       </p>
+      {licenceOnFile ? (
+        <div className="mt-3 flex items-center justify-between gap-3 rounded-2xl border border-emerald-200 bg-emerald-50 px-4 py-3">
+          <div className="min-w-0">
+            <p className="text-xs font-black uppercase tracking-wide text-emerald-700">{t("urrideDocsOnFile.inviteTitle")}</p>
+            <p className="mt-0.5 text-sm font-black text-slate-950">{t("urrideDocsOnFile.licenceLabel")}</p>
+          </div>
+          <span className="flex h-8 flex-none items-center gap-1.5 rounded-full bg-emerald-600 px-3 text-xs font-black text-white">
+            <FiCheckCircle size={14} />
+            {t("urrideDocsOnFile.received")}
+          </span>
+        </div>
+      ) : null}
       {!accepted && !rejected && !expired ? (
         <InviteLocationNotice companyName={invite.companyName} />
       ) : null}
@@ -2606,7 +2671,7 @@ function CompanyOperatorInviteCard({ invite, operatorHasDocuments = false, onAcc
           {busyAction === "reject"
             ? <span aria-hidden="true" className="h-4 w-4 animate-spin rounded-full border-2 border-rose-600 border-t-transparent" />
             : <FiX size={17} />}
-          {t("urride.transport.inviteCard.reject")}
+          {licenceOnFile ? t("urrideDocsOnFile.decline") : t("urride.transport.inviteCard.reject")}
         </button>
         </div>
       ) : accepted ? (

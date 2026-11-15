@@ -1,8 +1,9 @@
-import { useEffect, useState } from "react";
+import { useState } from "react";
 import {
   FiAlertTriangle,
   FiCamera,
   FiCheckCircle,
+  FiLock,
   FiChevronUp,
   FiEdit2,
   FiFileText,
@@ -11,6 +12,7 @@ import {
   FiTruck,
   FiUser,
 } from "react-icons/fi";
+import useOperatorDocumentsOnFile from "./useOperatorDocumentsOnFile";
 
 import AppBackTab from "../../shared/AppBackTab";
 import { ScreenSlideTransition } from "../../shared/motion";
@@ -103,6 +105,7 @@ export default function FleetEditDrawer({ account, onBack, onSaved }) {
   const phoneOwnership = usePhoneInUse(form.phone, form.countryCode || form.country, { initialPhone: account?.form?.phone || "" });
   const [answers, setAnswers] = useState(() => ({ ...(account?.answers || {}) }));
   const [uploads, setUploads] = useState(() => ({ ...(account?.uploads || {}) }));
+  const documentsOnFile = useOperatorDocumentsOnFile();
   const [openIndex, setOpenIndex] = useState(-1);
   const [savedIndex, setSavedIndex] = useState(-1);
   const [savingIndex, setSavingIndex] = useState(-1);
@@ -110,30 +113,16 @@ export default function FleetEditDrawer({ account, onBack, onSaved }) {
 
   const formCountry = form.currency || form.countryCode || form.country;
 
-  const categoryOptions = getPersonalServiceCategoryOptions(form);
-  const fleetTypeOptions = getPersonalFleetTypeOptions(form, form.category);
+  // A registered vehicle keeps its type (the server refuses a change too), so
+  // only the services that type can offer are listed.
+  const categoryOptions = getPersonalServiceCategoryOptions(form)
+    .filter((category) => category === form.category || getPersonalFleetTypeOptions(form, category).includes(form.fleetType));
+  const fleetTypeOptions = [form.fleetType].filter(Boolean);
   const fleetImageRequirements = getUrRideFleetImageRequirements({ country: form.country, countryCode: form.countryCode, category: form.category });
   const documents = getUrRideDocumentRequirements({ country: form.country, countryCode: form.countryCode, category: form.category });
   const questions = fleetQuestions[form.fleetType] || [];
   const fleetImageCount = fleetImageRequirements.filter((requirement) => getRequirementUpload(uploads, "fleet", requirement)).length;
 
-  // Keep category and fleet type valid together when the category changes, the
-  // same reconciliation the registration wizard performs.
-  useEffect(() => {
-    setForm((current) => {
-      const nextCategories = getPersonalServiceCategoryOptions(current);
-      const fallbackCategory = current.fleetType === "Motorcycle" ? "Delivery" : "Transport";
-      const category = nextCategories.includes(current.category)
-        ? current.category
-        : nextCategories.includes(fallbackCategory)
-          ? fallbackCategory
-          : nextCategories[0] || "Transport";
-      const nextFleetTypes = getPersonalFleetTypeOptions(current, category);
-      const fleetType = nextFleetTypes.includes(current.fleetType) ? current.fleetType : nextFleetTypes[0] || "Car";
-      if (category === current.category && fleetType === current.fleetType) return current;
-      return { ...current, category, fleetType };
-    });
-  }, [form.category, form.country, form.countryCode]);
 
   const update = (field, value) => setForm((current) => ({ ...current, [field]: value }));
   const updateAnswer = (key, value) => setAnswers((current) => ({ ...current, [key]: value }));
@@ -253,7 +242,7 @@ export default function FleetEditDrawer({ account, onBack, onSaved }) {
       body: (
         <div className="grid gap-4 md:grid-cols-2">
           <SelectField label={t("urride.fleetEdit.categoryLabel")} options={categoryOptions} value={form.category} onChange={(value) => update("category", value)} helper={t("urride.fleetEdit.categoryHelper")} />
-          <SelectField label={t("urride.fleetEdit.fleetTypeLabel")} options={fleetTypeOptions} value={form.fleetType} onChange={(value) => update("fleetType", value)} helper={t("urride.fleetEdit.fleetTypeHelper")} />
+          <LockedField label={t("urride.fleetEdit.fleetTypeLabel")} value={translateUi(form.fleetType)} helper={t("urrideDocsOnFile.fleetTypeLocked")} />
         </div>
       ),
     },
@@ -376,6 +365,7 @@ export default function FleetEditDrawer({ account, onBack, onSaved }) {
                   key={requirement.key}
                   label={formatDocumentRequirementLabel(requirement)}
                   value={getRequirementUpload(uploads, "doc", requirement)}
+                  received={Boolean(documentsOnFile.byRequirement[requirement.key])}
                   imageOnly={requirement.publicMediaRole === "operator_photo"}
                   onChange={(file) => markUpload(requirementUploadKey("doc", requirement), file)}
                 />
@@ -538,6 +528,21 @@ function FormInput({ label, value, onChange, type = "text", placeholder = "", he
   );
 }
 
+// A value that is shown but cannot be changed here.
+function LockedField({ label, value, helper = "" }) {
+  useUiLocale();
+  return (
+    <div>
+      <span className="mb-2 block text-sm font-semibold text-gray-800">{translateUi(label)}</span>
+      <div className="flex h-12 w-full items-center justify-between gap-3 rounded-2xl border border-gray-200 bg-gray-100 px-4 text-sm font-semibold text-gray-600" aria-readonly="true">
+        <span className="truncate">{value}</span>
+        <FiLock size={15} className="shrink-0 text-gray-400" />
+      </div>
+      {helper ? <span className="mt-1.5 block text-xs font-semibold leading-5 text-gray-500">{helper}</span> : null}
+    </div>
+  );
+}
+
 function SelectField({ label, options, value, onChange, helper = "", optionLabels }) {
   useUiLocale();
   return (
@@ -564,7 +569,7 @@ function isImageFile(file) {
   return !file || String(file.type || "").startsWith("image/");
 }
 
-function UploadField({ label, value, onChange, imageOnly = false }) {
+function UploadField({ label, value, onChange, imageOnly = false, received = false }) {
   useUiLocale();
   const [typeError, setTypeError] = useState("");
   const selectedName = typeof value === "string" ? value : value?.fileName || value?.name || "";
@@ -592,7 +597,14 @@ function UploadField({ label, value, onChange, imageOnly = false }) {
         </span>
         <span className="min-w-0">
           <span className="block text-sm font-semibold text-gray-900">{translateUi(label)}</span>
-          <span className="block truncate text-xs text-gray-500">{selectedName || t("urride.fleetEdit.uploadPhoto")}</span>
+          {!selectedName && received ? (
+            <span className="mt-0.5 flex items-center gap-1 text-xs font-bold text-green-700">
+              <FiCheckCircle size={13} className="shrink-0" />
+              <span className="truncate">{t("urrideDocsOnFile.received")} · {t("urrideDocsOnFile.onFileHint")}</span>
+            </span>
+          ) : (
+            <span className="block truncate text-xs text-gray-500">{selectedName || t("urride.fleetEdit.uploadPhoto")}</span>
+          )}
         </span>
       </span>
       {typeError ? <span className="mt-3 block text-xs font-bold leading-5 text-red-600" role="alert">{typeError}</span> : null}

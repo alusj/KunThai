@@ -211,6 +211,19 @@ function OverviewTab({ targetType, detail, ownerId, onOpenCase }) {
             ]}
           />
         </section>
+        {detail.companies?.length ? (
+          <section>
+            <p className="mb-2 text-[11px] font-black uppercase tracking-wide text-zinc-400">Companies</p>
+            <SimpleTable rows={detail.companies} empty="Not in a company" columns={[
+              { key: "company", label: "Company" },
+              { key: "role", label: "Role", render: (row) => titleize(row.role) },
+              { key: "status", label: "Membership", render: (row) => titleize(row.status) },
+              { key: "joinedAt", label: "Joined", render: (row) => formatDate(row.joinedAt) },
+              // Joined on the documents already held: nothing new to review.
+              { key: "documentsReused", label: "Documents", render: (row) => (row.documentsReused ? "On file, no new review" : "—") },
+            ]} />
+          </section>
+        ) : null}
         {detail.documents?.length ? (
           <section>
             <p className="mb-2 text-[11px] font-black uppercase tracking-wide text-zinc-400">Documents</p>
@@ -219,6 +232,9 @@ function OverviewTab({ targetType, detail, ownerId, onOpenCase }) {
               { key: "status", label: "Status", render: (row) => titleize(row.status) },
               { key: "uploadedAt", label: "Uploaded", render: (row) => formatDate(row.uploadedAt) },
             ]} />
+            <p className="mt-2 text-xs font-medium leading-5 text-zinc-500">
+              These documents belong to the operator and are uploaded once. Joining or rejoining a company uses them as they are: no new upload and no new verification case.
+            </p>
           </section>
         ) : null}
         <OwnerCard owner={detail.owner} />

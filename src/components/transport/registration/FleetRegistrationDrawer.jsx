@@ -11,6 +11,7 @@ import {
   FiTruck,
   FiUser,
 } from "react-icons/fi";
+import useOperatorDocumentsOnFile from "./useOperatorDocumentsOnFile";
 import AppBackTab from "../../shared/AppBackTab";
 import CancelRegistrationButton from "../../shared/CancelRegistrationButton";
 import AccountSetupLoader from "../../shared/AccountSetupLoader";
@@ -195,6 +196,7 @@ export default function FleetRegistrationDrawer({ onClose, onCancelRegistration,
   const [answers, setAnswers] = useState(restored?.answers || {});
   const [uploads, setUploads] = useState(restored?.uploads || {});
   const [documentsSkipped, setDocumentsSkipped] = useState(Boolean(restored?.documentsSkipped));
+  const documentsOnFile = useOperatorDocumentsOnFile();
   const [showSkipWarning, setShowSkipWarning] = useState(false);
   const [showSafetyWarning, setShowSafetyWarning] = useState(false);
   const [showReviewSaveWarning, setShowReviewSaveWarning] = useState(false);
@@ -473,8 +475,10 @@ export default function FleetRegistrationDrawer({ onClose, onCancelRegistration,
 
   const buildPayload = (status = "draft") => {
     // Every document is "if applicable": any one uploaded is a submission.
+    // A document KunThai already holds (from an earlier registration or a
+    // company invitation) counts: it is not asked for again.
     const hasVerificationDocument = documents.some((requirement) =>
-      getRequirementUpload(uploads, "doc", requirement)
+      getRequirementUpload(uploads, "doc", requirement) || documentsOnFile.byRequirement[requirement.key]
     );
     const verificationDeferred = documentsSkipped || !hasVerificationDocument;
     return {
@@ -943,6 +947,7 @@ export default function FleetRegistrationDrawer({ onClose, onCancelRegistration,
                       key={requirement.key}
                       label={formatDocumentRequirementLabel(requirement)}
                       value={getRequirementUpload(uploads, "doc", requirement)}
+                      received={Boolean(documentsOnFile.byRequirement[requirement.key])}
                       error={fieldErrors[requirementUploadKey("doc", requirement)]}
                       imageOnly={requirement.publicMediaRole === "operator_photo"}
                       onChange={(file) => markUpload(requirementUploadKey("doc", requirement), file)}
@@ -1309,7 +1314,7 @@ function isImageFile(file) {
   return !file || String(file.type || "").startsWith("image/");
 }
 
-function UploadField({ error = "", label, value, onChange, imageOnly = false }) {
+function UploadField({ error = "", label, value, onChange, imageOnly = false, received = false }) {
   useUiLocale();
   const [typeError, setTypeError] = useState("");
   const selectedName = typeof value === "string" ? value : value?.fileName || value?.name || "";
@@ -1338,7 +1343,14 @@ function UploadField({ error = "", label, value, onChange, imageOnly = false }) 
         </span>
         <span className="min-w-0">
           <span className="block text-sm font-semibold text-gray-900">{translateUi(label)}</span>
-          <span className="block truncate text-xs text-gray-500">{selectedName || t("urride.fleetEdit.uploadPhoto")}</span>
+          {!selectedName && received ? (
+            <span className="mt-0.5 flex items-center gap-1 text-xs font-bold text-green-700">
+              <FiCheckCircle size={13} className="shrink-0" />
+              <span className="truncate">{t("urrideDocsOnFile.received")} · {t("urrideDocsOnFile.onFileHint")}</span>
+            </span>
+          ) : (
+            <span className="block truncate text-xs text-gray-500">{selectedName || t("urride.fleetEdit.uploadPhoto")}</span>
+          )}
         </span>
       </span>
       {shownError ? <span className="mt-3 block text-xs font-bold leading-5 text-red-600" role="alert">{translateUi(shownError)}</span> : null}

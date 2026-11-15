@@ -25,6 +25,8 @@ import {
   URRIDE_FLEET_IMAGE_REQUIREMENTS,
 } from "../../data/globalDocumentRequirements";
 
+import { NO_DOCUMENTS_ON_FILE, summarizeDocumentsOnFile } from "./operatorDocumentsOnFile";
+
 const DRAFT_KEY = "kuntai.transport.operatorDraft";
 const DRAFT_KEY_PREFIX = `${DRAFT_KEY}.`;
 
@@ -668,6 +670,30 @@ export async function readOperatorOnlineFleets() {
     return { soloActive, companies };
   } catch {
     return { soloActive: false, companies: [] };
+  }
+}
+
+// The signed-in person's operator profile and the documents KunThai already
+// holds for it, whether or not they have a dashboard right now (someone who
+// left their only company keeps their profile and documents). Used so no
+// screen asks for a document twice. Never throws: nothing on file is the
+// answer when it cannot be read.
+export async function getOperatorDocumentsOnFile() {
+  try {
+    const userId = await getCurrentUserId();
+    const { data: operator } = await supabase
+      .from("transport_operators")
+      .select("id, phone")
+      .eq("user_id", userId)
+      .maybeSingle();
+    if (!operator?.id) return NO_DOCUMENTS_ON_FILE;
+    const { data: rows } = await supabase
+      .from("transport_operator_documents")
+      .select("document_type, file_name, file_url, document_url, status, metadata, uploaded_at")
+      .eq("operator_id", operator.id);
+    return { operatorId: operator.id, userId, phone: operator.phone || "", ...summarizeDocumentsOnFile(rows || []) };
+  } catch {
+    return NO_DOCUMENTS_ON_FILE;
   }
 }
 

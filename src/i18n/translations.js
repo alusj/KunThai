@@ -26,6 +26,7 @@ import { LOCATION_REQUEST_REPLY } from "./locationRequestReply";
 import { POST_AUDIENCE_AGE } from "./postAudienceAge";
 import { URRIDE_SEATS_TRIP } from "./urrideSeatsTrip";
 import { URRIDE_COMPANY_ALERTS } from "./urrideCompanyAlerts";
+import { URRIDE_DOCS_ON_FILE } from "./urrideDocsOnFile";
 import { AUTH_TERMS } from "./authTerms";
 import { VOICE_NOTES } from "./voiceNotes";
 import { APP_LOADING } from "./appLoading";
@@ -59806,6 +59807,12 @@ for (const [locale, section] of Object.entries(URRIDE_SEATS_TRIP)) {
 for (const [locale, section] of Object.entries(URRIDE_COMPANY_ALERTS)) {
   if (TRANSLATIONS[locale]) {
     TRANSLATIONS[locale].urrideCompanyAlerts = section;
+  }
+}
+
+for (const [locale, section] of Object.entries(URRIDE_DOCS_ON_FILE)) {
+  if (TRANSLATIONS[locale]) {
+    TRANSLATIONS[locale].urrideDocsOnFile = section;
   }
 }
 

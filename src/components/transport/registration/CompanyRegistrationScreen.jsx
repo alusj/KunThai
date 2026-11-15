@@ -1889,7 +1889,14 @@ function FleetCard({ acceptedPublicIds = [], errors = {}, fleet, form, index, lo
           <p className="text-xs font-black uppercase tracking-wide text-blue-600">{t("urride.companyReg.uniqueCode")}</p>
           <p className="mt-1 font-black text-slate-950">{fleet.fleetCode}</p>
         </div>
-        <SelectField label={t("urride.companyReg.fleetTypeLabel")} value={fleet.fleetType} options={fleetTypeOptions} onChange={(value) => onUpdate(fleet.localId, { fleetType: value, safetyAnswers: { ...createSafetyAnswers(value, fleet.serviceCategory), ...(fleet.serviceCategory === "Rental" ? { rentalDistanceNegotiable, rentalTimeNegotiable } : {}) } })} />
+        {SAVED_FLEET_ID.test(String(fleet.id || "")) ? (
+          // A registered vehicle keeps its type (the server refuses a change too).
+          <div className="rounded-2xl border border-slate-200 bg-white px-4 py-3">
+            <p className="text-xs font-black uppercase tracking-wide text-slate-400">{t("urride.companyReg.fleetTypeLabel")}</p>
+            <p className="mt-1 font-black text-slate-950">{translateUi(fleet.fleetType)}</p>
+            <p className="mt-1 text-xs font-semibold leading-5 text-slate-500">{t("urrideDocsOnFile.fleetTypeLocked")}</p>
+          </div>
+        ) : <SelectField label={t("urride.companyReg.fleetTypeLabel")} value={fleet.fleetType} options={fleetTypeOptions} onChange={(value) => onUpdate(fleet.localId, { fleetType: value, safetyAnswers: { ...createSafetyAnswers(value, fleet.serviceCategory), ...(fleet.serviceCategory === "Rental" ? { rentalDistanceNegotiable, rentalTimeNegotiable } : {}) } })} />}
         {lockRentalCategory ? <div className="rounded-2xl border border-emerald-200 bg-emerald-50 px-4 py-3"><p className="text-xs font-black uppercase tracking-wide text-emerald-700">{i18nText("ui.literals.k9c995cd13e56")}</p><p className="mt-1 font-black text-slate-950">{i18nText("ui.literals.k9f86f85e4649")}</p></div> : <SelectField label={t("urride.companyReg.serviceCategoryLabel")} value={fleet.serviceCategory} options={serviceCategoryOptions} onChange={updateServiceCategory} />}
         <FormInput label={fleet.serviceCategory === "Rental" ? i18nText("ui.literals.k03b8a85b895f") : t("urride.companyReg.fleetNameLabel")} value={fleet.fleetName} onChange={(value) => onUpdate(fleet.localId, { fleetName: value })} placeholder={fleet.serviceCategory === "Rental" ? t("registrationExamples.urride.rentalName") : t(fleetExampleKey("fleetName", fleet.fleetType, fleet.serviceCategory))} error={errors[`${fleet.localId}-fleetName`]} />
         <FormInput label={t("urride.companyReg.plateLabel")} value={fleet.plateNumber} onChange={(value) => onUpdate(fleet.localId, { plateNumber: value.toUpperCase() })} placeholder={t(fleetExampleKey("plate", fleet.fleetType, fleet.serviceCategory))} error={errors[`${fleet.localId}-plateNumber`]} />
