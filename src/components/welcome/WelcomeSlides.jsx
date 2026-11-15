@@ -31,8 +31,10 @@ import "./WelcomeSlides.css";
 const SLIDES = ["explore", "urmall", "urride"];
 const AUTO_ADVANCE_MS = 4000;
 const LEAVE_MS = 320;
-// From mount to zooming out: about 1 s to land, then 5 s on screen.
-const INTRO_HOLD_MS = 6000;
+// From mount to zooming out: everything has settled by about 6.2 s (the
+// last "Get assisted with AI" letter lands at 5.7 s + 0.5 s), then it stays
+// still for 3 s before the slides come in.
+const INTRO_HOLD_MS = 9300;
 const INTRO_LEAVE_MS = 700;
 const LOGO_SRC = "/brand/kunthai-launch-logo.webp";
 
@@ -203,7 +205,7 @@ function WelcomeIntro({ reducedMotion, onLeave, onGone }) {
   const welcomeLine = t("welcomeSlides.introWelcome");
   // The arc is about 330 units long; long greetings (e.g. Russian) shrink
   // so the whole line still fits on it.
-  const welcomeSize = Math.min(35, Math.floor(330 / (Math.max(1, Array.from(welcomeLine).length) * 0.56)));
+  const welcomeSize = Math.min(42, Math.floor(330 / (Math.max(1, Array.from(welcomeLine).length) * 0.56)));
   const leftRef = useRef(false);
 
   const leave = useCallback(() => {

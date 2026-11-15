@@ -2,7 +2,7 @@
 // spread over this window (ms after the intro starts). Scripts whose letters
 // join up (Arabic, Urdu, Devanagari, Bengali) come in word by word instead,
 // since splitting them into separate letters would break their shapes.
-const AI_LINE_START_MS = 2100;
+const AI_LINE_START_MS = 4200;
 const AI_LINE_SPREAD_MS = 1500;
 const JOINED_SCRIPT = /[\p{Script=Arabic}\p{Script=Devanagari}\p{Script=Bengali}]/u;
 
