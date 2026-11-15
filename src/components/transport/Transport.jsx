@@ -30,6 +30,7 @@ import VerificationDetailsModal from "./verification/VerificationDetailsModal";
 import PassengerLiveTripHeaderCard from "./live/PassengerLiveTripHeaderCard";
 import AppBackTab from "../shared/AppBackTab";
 import { fetchOperatorDashboard, getLegacyOperatorAccount, getOperatorAccount, writeOperatorWorkMode } from "../services/transportOperatorAccountService";
+import { stopOperatorLiveLocation } from "../services/operatorLiveLocationService";
 import {
   getInvitedOperatorDefaultPhone,
   getOperatorCompanyInvites,
@@ -1801,8 +1802,19 @@ export default function Transport({
               setCompanyAccount(null);
             }
             setCompanyOperationBadgeCount(0);
-            const nextAccount = await getOperatorAccount().catch(() => null);
-            if (nextAccount) setOperatorAccount(nextAccount);
+            // undefined: the account could not be read, so keep what is shown.
+            const nextAccount = await getOperatorAccount().catch(() => undefined);
+            if (nextAccount) {
+              setOperatorAccount(nextAccount);
+            } else if (nextAccount === null) {
+              // They drove only for that company: nothing is left to operate,
+              // so they are back on UrRide as a passenger.
+              stopOperatorLiveLocation();
+              setOperatorAccount(null);
+              setOperatorDashboardOpen(false);
+              setOperatorDashboardClosing(false);
+              setRouteDirection("backward");
+            }
             showToast(t("urrideDeleteCompany.leaveDone"), "success");
           }}
           onRegisterCompany={() => openCompanyRegistration("operator-dashboard")}

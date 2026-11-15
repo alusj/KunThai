@@ -4,10 +4,11 @@ import {
   companyActivityNotificationEnabled,
   DEFAULT_COMPANY_NOTIFICATION_PREFERENCES,
   getCompanyActivityPreferenceKey,
+  isCompanyInboxActivity,
   normalizePreferences,
 } from "./transportCompanyNotificationModels.js";
 
-export { companyActivityNotificationEnabled, DEFAULT_COMPANY_NOTIFICATION_PREFERENCES, getCompanyActivityPreferenceKey };
+export { companyActivityNotificationEnabled, DEFAULT_COMPANY_NOTIFICATION_PREFERENCES, getCompanyActivityPreferenceKey, isCompanyInboxActivity };
 
 const TABLE = "transport_company_notification_preferences";
 const STORAGE_PREFIX = "kuntai.transport.companyNotifications.";

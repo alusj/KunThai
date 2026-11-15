@@ -5,6 +5,7 @@
 export const DEFAULT_COMPANY_NOTIFICATION_PREFERENCES = {
   newBookings: true,
   operatorInvitations: true,
+  operatorDepartures: true,
   bookingAccepted: true,
   operatorArrived: true,
   startApproval: true,
@@ -14,6 +15,15 @@ export const DEFAULT_COMPANY_NOTIFICATION_PREFERENCES = {
   tripCancelled: true,
   otherTripUpdates: true,
 };
+
+export const COMPANY_DEPARTURE_ACTIVITY_TYPES = ["operator_left_company", "operator_deleted_account"];
+
+// Shown in Fleet HQ > Company notifications (new bookings are listed from the
+// booking queue instead).
+export function isCompanyInboxActivity(activity = {}) {
+  const type = String(activity.activity_type || activity.activityType || "");
+  return type.startsWith("operator_invite_") || type === "trip_status_updated" || COMPANY_DEPARTURE_ACTIVITY_TYPES.includes(type);
+}
 
 export function normalizePreferences(settings = {}) {
   return { ...DEFAULT_COMPANY_NOTIFICATION_PREFERENCES, ...(settings || {}) };
@@ -31,6 +41,8 @@ function parseMetadata(value) {
 export function getCompanyActivityPreferenceKey(activity = {}) {
   const type = String(activity.activity_type || activity.activityType || "");
   if (type.startsWith("operator_invite_")) return "operatorInvitations";
+  // An operator left the company or deleted their UrRide account.
+  if (COMPANY_DEPARTURE_ACTIVITY_TYPES.includes(type)) return "operatorDepartures";
   // A new booking on a company fleet (push only; the app lists bookings from
   // its booking queue).
   if (type === "trip_requested") return "newBookings";

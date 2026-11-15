@@ -5,6 +5,7 @@ import {
   companyActivityNotificationEnabled,
   DEFAULT_COMPANY_NOTIFICATION_PREFERENCES,
   getCompanyActivityPreferenceKey,
+  isCompanyInboxActivity,
 } from "./transportCompanyNotificationModels.js";
 
 // Must match push_company_activity_preference_key in the database
@@ -22,4 +23,17 @@ test("new bookings are on by default and follow their switch", () => {
   const booking = { activity_type: "trip_requested" };
   assert.equal(companyActivityNotificationEnabled(booking, {}), true);
   assert.equal(companyActivityNotificationEnabled(booking, { newBookings: false }), false);
+});
+
+test("an operator leaving or deleting their account has its own switch and shows in the company inbox", () => {
+  for (const type of ["operator_left_company", "operator_deleted_account"]) {
+    const activity = { activity_type: type };
+    assert.equal(getCompanyActivityPreferenceKey(activity), "operatorDepartures");
+    assert.equal(isCompanyInboxActivity(activity), true);
+    assert.equal(companyActivityNotificationEnabled(activity, {}), true);
+    assert.equal(companyActivityNotificationEnabled(activity, { operatorDepartures: false }), false);
+  }
+  assert.equal(isCompanyInboxActivity({ activity_type: "operator_invite_accepted" }), true);
+  assert.equal(isCompanyInboxActivity({ activity_type: "trip_status_updated" }), true);
+  assert.equal(isCompanyInboxActivity({ activity_type: "trip_requested" }), false);
 });

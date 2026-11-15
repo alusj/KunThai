@@ -769,7 +769,10 @@ export async function getOperatorAccount() {
   // completes this same profile.
   // A company member waiting for a vehicle is not unfinished: they have their
   // operator dashboard, which says no vehicle is assigned yet.
-  if (!personalFleet && !availableAssignment && !vehicleLessCompanies.length && operator.account_status === "submitted") {
+  // The same for a profile left with nothing to operate (no vehicle of their
+  // own and no company): there is no dashboard to show.
+  if (!personalFleet && !availableAssignment && !vehicleLessCompanies.length) {
+    localStorage.removeItem(LEGACY_ACCOUNT_KEY);
     return null;
   }
 

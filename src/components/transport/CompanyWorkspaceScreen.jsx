@@ -69,6 +69,7 @@ import {
   companyActivityNotificationEnabled,
   DEFAULT_COMPANY_NOTIFICATION_PREFERENCES,
   fetchCompanyNotificationPreferences,
+  isCompanyInboxActivity,
   readCompanyNotificationPreferences,
   updateCompanyNotificationPreferences,
 } from "../../Backend/services/transportCompanyNotificationPreferences";
@@ -297,11 +298,8 @@ export default function CompanyWorkspaceScreen({ company, initialTab = "Overview
   const canViewBookingQueue = Boolean(canViewAllBookings || access.operatorId);
   const canViewCompanyNotifications = Boolean(access.isOwner || access.canViewCompanyActivity);
   const [planState, setPlanState] = useState(null);
-  const companyNotifications = (company?.activities || []).filter((activity) => {
-    const type = String(activity.activity_type || activity.activityType || "");
-    const supported = type.startsWith("operator_invite_") || type === "trip_status_updated";
-    return supported && companyActivityNotificationEnabled(activity, companyNotificationPreferences);
-  });
+  const companyNotifications = (company?.activities || []).filter((activity) =>
+    isCompanyInboxActivity(activity) && companyActivityNotificationEnabled(activity, companyNotificationPreferences));
   // Rental updates for the company (platform_notifications in the company
   // workspace) share this inbox with company activity.
   const [companyPlatformNotifications, setCompanyPlatformNotifications] = useState([]);
@@ -2563,6 +2561,7 @@ function CompanyActivityDrawer({ activities, company, notificationPreferences, o
 const COMPANY_NOTIFICATION_OPTIONS = [
   ["newBookings", "urrideCompanyAlerts.newBookingsTitle", "urrideCompanyAlerts.newBookingsDesc"],
   ["operatorInvitations", "urride.companyWs.optInvitationsTitle", "urride.companyWs.optInvitationsDesc"],
+  ["operatorDepartures", "urrideCompanyAlerts.departuresTitle", "urrideCompanyAlerts.departuresDesc"],
   ["bookingAccepted", "urride.companyWs.optBookingAcceptedTitle", "urride.companyWs.optBookingAcceptedDesc"],
   ["operatorArrived", "urride.companyWs.optArrivedTitle", "urride.companyWs.optArrivedDesc"],
   ["startApproval", "urride.companyWs.optStartTitle", "urride.companyWs.optStartDesc"],
