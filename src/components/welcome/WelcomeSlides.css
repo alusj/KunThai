@@ -1067,8 +1067,8 @@ html.dark .kt-w-road { background: #1e293b; }
 }
 
 .kt-intro__word {
-  /* Below the box the gold ripples sweep out to. */
-  margin-top: 4.4rem;
+  /* Under "Welcome to", above the box the gold ripples sweep out to. */
+  margin-bottom: 4.3rem;
   background: linear-gradient(180deg, #f6e2a6 0%, #e0b85a 55%, #b8893a 100%);
   -webkit-background-clip: text;
   background-clip: text;
@@ -1105,7 +1105,7 @@ html.dark .kt-w-road { background: #1e293b; }
   width: 21rem;
   max-width: calc(100vw - 1.5rem);
   height: auto;
-  margin-bottom: 2.6rem;
+  margin-bottom: -0.4rem;
   overflow: visible;
   fill: #f1d48c;
   font-family: var(--kt-intro-display);
@@ -1139,7 +1139,8 @@ html.dark .kt-w-road { background: #1e293b; }
   display: flex;
   align-items: center;
   gap: 0.6rem;
-  margin-top: 0.75rem;
+  /* Below the box the gold ripples sweep out to. */
+  margin-top: 4.2rem;
   color: rgb(236 242 240 / 0.86);
   font-size: 1.0625rem;
   font-weight: 700;

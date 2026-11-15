@@ -245,6 +245,8 @@ function WelcomeIntro({ reducedMotion, onLeave, onGone }) {
             </textPath>
           </text>
         </svg>
+        {/* The name sits right under "Welcome to", above the logo. */}
+        <div className="kt-intro__word">KunThai</div>
         <div className="kt-intro__mark">
           <span className="kt-intro__ring" />
           <span className="kt-intro__ring kt-intro__ring--late" />
@@ -253,7 +255,6 @@ function WelcomeIntro({ reducedMotion, onLeave, onGone }) {
             <span className="kt-intro__sheen" />
           </div>
         </div>
-        <div className="kt-intro__word">KunThai</div>
         {/* One word at a time: Explore rises into place, UrMall comes in
             from the right, UrRide drops down from above. */}
         <div className="kt-intro__tagline">
