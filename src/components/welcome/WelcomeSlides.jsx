@@ -31,10 +31,11 @@ import "./WelcomeSlides.css";
 const SLIDES = ["explore", "urmall", "urride"];
 const AUTO_ADVANCE_MS = 4000;
 const LEAVE_MS = 320;
-// From mount to zooming out: everything has settled by about 6.2 s (the
-// last "Get assisted with AI" letter lands at 5.7 s + 0.5 s), then it stays
+// From mount to zooming out: everything has settled by about 7.2 s (the
+// last "Get assisted with AI" letter lands at 5.7 s + 0.5 s, then the
+// "anywhere in the world" line rises in from 6.3 s to 7.2 s), then it stays
 // still for 3 s before the slides come in.
-const INTRO_HOLD_MS = 9300;
+const INTRO_HOLD_MS = 10200;
 const INTRO_LEAVE_MS = 700;
 const LOGO_SRC = "/brand/kunthai-launch-logo.webp";
 
@@ -268,6 +269,11 @@ function WelcomeIntro({ reducedMotion, onLeave, onGone }) {
           ) : (
             <span key={index} className="kt-intro__ai-piece" style={{ transitionDelay: `${piece.delay}ms` }}>{piece.text}</span>
           )))}
+        </div>
+        {/* Rises in once the last AI letter has landed. */}
+        <div className="kt-intro__global" lang={locale}>
+          <span className="kt-intro__globe" />
+          <span className="kt-intro__global-text">{t("welcomeSlides.introGlobal")}</span>
         </div>
       </div>
     </div>

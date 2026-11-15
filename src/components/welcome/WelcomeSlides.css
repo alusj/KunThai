@@ -1209,6 +1209,75 @@ html.dark .kt-w-road { background: #1e293b; }
   transform: none;
 }
 
+/* "With you anywhere in the world": the last line. Once "Get assisted with
+   AI" has fully landed it rises in out of a soft blur while its letters
+   close up, then a gold shimmer keeps sweeping across it and the small
+   globe before it glows gently. */
+.kt-intro__global {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 0.55rem;
+  margin-top: 0.9rem;
+  padding: 0 1.25rem;
+  text-align: center;
+  opacity: 0;
+  filter: blur(6px);
+  letter-spacing: 0.3em;
+  transform: translate3d(0, 1rem, 0);
+  transition: opacity 800ms ease 6300ms, filter 900ms ease 6300ms, letter-spacing 1100ms var(--kt-intro-ease) 6300ms, transform 1000ms var(--kt-intro-ease) 6300ms;
+}
+
+.kt-intro.is-in .kt-intro__global,
+.kt-intro.is-out .kt-intro__global {
+  opacity: 1;
+  filter: none;
+  letter-spacing: 0.04em;
+  transform: none;
+}
+
+.kt-intro__global-text {
+  background: linear-gradient(100deg, #c99a45 0%, #f1d48c 30%, #fff6dc 45%, #f1d48c 60%, #c99a45 100%);
+  background-size: 250% 100%;
+  background-position: 100% 0;
+  -webkit-background-clip: text;
+  background-clip: text;
+  color: transparent;
+  font-family: var(--kt-intro-display);
+  font-size: 1.2rem;
+  font-style: italic;
+  font-weight: 700;
+}
+
+.kt-intro.is-in .kt-intro__global-text,
+.kt-intro.is-out .kt-intro__global-text {
+  animation: kt-intro-shimmer 2800ms ease-in-out 7000ms infinite;
+}
+
+@keyframes kt-intro-shimmer {
+  0% { background-position: 100% 0; }
+  60%, 100% { background-position: 0% 0; }
+}
+
+.kt-intro.is-in .kt-intro__globe,
+.kt-intro.is-out .kt-intro__globe {
+  animation: kt-intro-globe 2800ms ease-in-out 7000ms infinite;
+}
+
+@keyframes kt-intro-globe {
+  0%, 100% { transform: scale(1); filter: drop-shadow(0 0 0 rgb(232 196 106 / 0)); }
+  50% { transform: scale(1.15); filter: drop-shadow(0 0 0.35rem rgb(232 196 106 / 0.8)); }
+}
+
+.kt-intro__globe {
+  flex: none;
+  width: 1.05rem;
+  height: 1.05rem;
+  background: var(--kt-intro-gold);
+  -webkit-mask: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='black' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'%3E%3Ccircle cx='12' cy='12' r='10'/%3E%3Cpath d='M2 12h20'/%3E%3Cpath d='M12 2a15.3 15.3 0 0 1 4 10 15.3 15.3 0 0 1-4 10 15.3 15.3 0 0 1-4-10 15.3 15.3 0 0 1 4-10z'/%3E%3C/svg%3E") center / contain no-repeat;
+  mask: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='black' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'%3E%3Ccircle cx='12' cy='12' r='10'/%3E%3Cpath d='M2 12h20'/%3E%3Cpath d='M12 2a15.3 15.3 0 0 1 4 10 15.3 15.3 0 0 1-4 10 15.3 15.3 0 0 1-4-10 15.3 15.3 0 0 1 4-10z'/%3E%3C/svg%3E") center / contain no-repeat;
+}
+
 @media (prefers-reduced-motion: reduce) {
   .kt-intro *,
   .kt-intro__center,
@@ -1221,6 +1290,11 @@ html.dark .kt-w-road { background: #1e293b; }
 
   .kt-intro__ring,
   .kt-intro__sheen { display: none; }
+
+  .kt-intro .kt-intro__global-text,
+  .kt-intro .kt-intro__globe { animation: none !important; }
+
+  .kt-intro .kt-intro__global { filter: none; }
 
   .kt-intro .kt-intro__welcome {
     animation: none !important;
