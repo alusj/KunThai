@@ -154,6 +154,10 @@ export function sanitizeUserMessage(message) {
   // 20261027120000_urride_company_adds_operator_once.sql, in the reader's language.
   const repeatedOperator = text.match(/^(.+) is already on your team\. A company can add an operator only once\.$/);
   if (repeatedOperator) return t("operatorDashboards.alreadyOnTeam", { name: repeatedOperator[1] });
+  // A plan limit refused by the database arrives as a code
+  // ("KUNTHAI_PLAN_LIMIT|urride|admins|1|1|pro"). Screens that know the limit
+  // explain it in full; anywhere else it is at least never shown raw.
+  if (text.includes("KUNTHAI_PLAN_LIMIT")) return t("urrideTeamOperators.roleLimitToast");
   const lower = text.toLowerCase();
   if (NETWORK_ERROR_PATTERNS.some((pattern) => lower.includes(pattern))) {
     return t("common.networkLost");

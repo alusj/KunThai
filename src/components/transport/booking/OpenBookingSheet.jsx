@@ -28,7 +28,6 @@ import { haptics, sounds } from "../../../Backend/services/feedbackService";
 import { showToast } from "../../../Backend/services/toastService";
 import { inlineErrorMessage, shortErrorToast } from "../../../Backend/services/friendlyErrorService";
 import {
-  constrainCountryPhoneInput,
   formatCountryMoney,
   getActiveCountryProfile,
   getCountryPhoneHint,
@@ -563,7 +562,8 @@ export default function OpenBookingSheet({ open, draft = null, onClose, onOpenTr
                           icon={FiPhone}
                           label={t("urride.booking.phone")}
                           value={form.phone}
-                          onChange={(value) => updateForm({ phone: constrainCountryPhoneInput(value, "", { international: true }) })}
+                          dialCountry=""
+                          onChange={(value) => updateForm({ phone: value })}
                           placeholder={getCountryPhoneHint()}
                         />
                       </div>

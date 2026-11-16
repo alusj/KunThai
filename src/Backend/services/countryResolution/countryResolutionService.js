@@ -118,7 +118,9 @@ function getCurrentPosition() {
     navigator.geolocation.getCurrentPosition(
       (position) => resolve(position),
       () => resolve(null),
-      { enableHighAccuracy: true, maximumAge: 0, timeout: 15000 },
+      // A fix from the last minute is still "here"; waiting 15 s for a brand-new
+      // one left the emergency card without numbers for that long.
+      { enableHighAccuracy: true, maximumAge: 60000, timeout: 10000 },
     );
   });
 }

@@ -1169,7 +1169,7 @@ export default function ProfileHeaderCard({
                   autoComplete="tel"
                   value={momoPhone}
                   onChange={(event) => setMomoPhone(event.target.value.replace(/[^\d+\s]/g, ""))}
-                  placeholder="076 123 456"
+                  placeholder="+232 76 123 456"
                   className="mt-2 h-12 w-full rounded-2xl border border-slate-300 px-4 text-sm font-black text-slate-950 focus:border-orange-400 focus:outline-none"
                 />
                 <p className="mt-2 text-xs font-semibold leading-5 text-slate-500">

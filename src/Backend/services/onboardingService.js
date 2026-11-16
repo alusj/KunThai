@@ -3,7 +3,7 @@ import { markStartupOffline, startupLooksOffline } from "./startupConnection";
 import { isMissingColumn, isMissingTable } from "./explore/errors";
 import { readStoredProfile, writeStoredProfile } from "./explore/profileStorage";
 import { normalizeSocialLinks } from "./explore/socialLinks";
-import { getActiveCountryProfile, storeCountryContext } from "../../data/globalCountryProfiles";
+import { getActiveCountryProfile, restoreAccountCountryContext, storeCountryContext } from "../../data/globalCountryProfiles";
 import { consumeOAuthFlow } from "./sessionService";
 import { hasUsableReturningProfile } from "./returningProfileRules";
 import { NAME_PREFILL_PROVIDERS, providerNameParts } from "./providerNames";
@@ -97,7 +97,7 @@ export function buildProfileFromUser(user) {
     onboardingComplete: Boolean(metadata.onboarding_complete),
     onboardingStep: Number(metadata.onboarding_step ?? 1),
   };
-  if (profile.country) storeCountryContext(profile.country);
+  if (profile.country) restoreAccountCountryContext(profile.country);
   return profile;
 }
 
@@ -593,13 +593,16 @@ export async function saveAccountCountry(value) {
   );
   if (error) throw error;
 
+  const savedProfile = data?.user ? buildProfileFromUser(data.user) : null;
+  // After buildProfileFromUser: a country saved on purpose always wins here,
+  // even while the phone is in another country.
   storeCountryContext(profile.iso2);
   if (typeof window !== "undefined") {
     window.dispatchEvent(new CustomEvent(ACCOUNT_COUNTRY_CHANGED_EVENT, { detail: { iso2: profile.iso2 } }));
     // UrMall keeps per-session catalogues; drop them so the new market loads.
     window.dispatchEvent(new CustomEvent("kunthai-urmall-retention-updated"));
   }
-  return data?.user ? buildProfileFromUser(data.user) : null;
+  return savedProfile;
 }
 
 export async function markOnboardingComplete(profile) {

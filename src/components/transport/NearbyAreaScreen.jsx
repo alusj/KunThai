@@ -1,3 +1,4 @@
+import DialCodeInput from "../shared/DialCodeInput";
 import { memo, useCallback, useEffect, useMemo, useRef, useState } from "react";
 import AreaViewErrorBoundary from "./area/AreaViewErrorBoundary";
 import { getPreciseCurrentPosition } from "../../Backend/utils/precisePosition";
@@ -45,9 +46,8 @@ import {
   subscribeToAreaViewLiveData,
   subscribeToMyNearbyAreaLocationReviews,
 } from "../../Backend/services/nearbyAreaLiveService";
-import { detectCountryFromCoords } from "../../Backend/utils/detectCountry";
+import { lookupCountryIso } from "../../Backend/utils/detectCountry";
 import {
-  constrainCountryPhoneInput,
   getActiveCountryProfile,
   getCountryPhoneHint,
   normalizeCountryIso,
@@ -1274,23 +1274,34 @@ function NearbyAreaScreenContent({
     [areaCountryCode],
   );
 
-  const updateAreaCountryFromPoint = useCallback(async (position) => {
+  // `physical` is true only for the phone's own GPS position. Dragging the map
+  // to look at another country changes what the map shows there, but must not
+  // move the app (currency, phone format, market) or the emergency numbers to
+  // a country the person is not in.
+  const updateAreaCountryFromPoint = useCallback(async (position, { physical = false } = {}) => {
     const point = normalizePosition(position);
     if (!point) return;
 
-    const detectionKey = `${point.lat.toFixed(2)},${point.lng.toFixed(2)}`;
+    const detectionKey = `${physical ? "gps" : "map"}:${point.lat.toFixed(2)},${point.lng.toFixed(2)}`;
     if (areaCountryDetectionRef.current === detectionKey) return;
     areaCountryDetectionRef.current = detectionKey;
 
-    const detected = await detectCountryFromCoords(point.lat, point.lng);
-    const nextCountryCode = normalizeCountryIso(detected?.countryCode);
+    // Country lookup only: storing it is decided below.
+    const nextCountryCode = await lookupCountryIso(point.lat, point.lng);
     if (!nextCountryCode) return;
 
     setAreaCountryCode(nextCountryCode);
+    if (!physical) return;
+
     setDetectedCountryCode(nextCountryCode);
     cacheSosCountryCode(nextCountryCode);
     // Records where the passenger is, but keeps a country picked in Settings.
-    storeDetectedCountryContext(nextCountryCode);
+    const previousIso = getActiveCountryProfile().iso2;
+    const storedIso = storeDetectedCountryContext(nextCountryCode);
+    if (storedIso && storedIso !== previousIso) {
+      // UrMall keeps per-session catalogues; drop them so the new market loads.
+      window.dispatchEvent(new CustomEvent("kunthai-urmall-retention-updated"));
+    }
   }, []);
 
   useEffect(() => {
@@ -1338,7 +1349,7 @@ function NearbyAreaScreenContent({
 
     userLocationRef.current = nextPosition;
     if (!isDropPinPositioningRef.current) mapCenterRef.current = nextPosition;
-    updateAreaCountryFromPoint(nextPosition);
+    updateAreaCountryFromPoint(nextPosition, { physical: true });
 
     const previousPosition = lastPublishedCenterRef.current;
     const movedMeters = distanceInMeters(previousPosition, nextPosition);
@@ -2153,26 +2164,32 @@ function NearbyAreaScreenContent({
       setDetectedCountryCode(cachedCountryCode);
     }
 
-    const position = userLocationRef.current || mapCenterRef.current || userLocation || mapCenter;
+    // Emergency numbers follow the phone's own position only. The map centre
+    // can have been dragged to another country, so it is never used here.
+    const position = userLocationRef.current || userLocation;
+    // Read now, not when this screen's code first loaded: the account's
+    // country may have been restored (or changed in Settings) since then.
+    const fallbackCountryCode = cachedCountryCode || getActiveCountryProfile().iso2;
     if (position?.lat == null || position?.lng == null) {
-      setDetectedCountryCode(cachedCountryCode || SOS_FALLBACK_COUNTRY);
+      setDetectedCountryCode(fallbackCountryCode);
       setDetectingSosCountry(false);
       return;
     }
 
     setDetectingSosCountry(true);
 
-    const detected = await detectCountryFromCoords(position.lat, position.lng);
-    const nextCountryCode = String(detected?.countryCode || SOS_FALLBACK_COUNTRY).toUpperCase();
+    const lookedUp = await lookupCountryIso(position.lat, position.lng);
 
     if (sosDetectionRequestRef.current !== requestId) {
       return;
     }
 
-    setDetectedCountryCode(nextCountryCode);
-    cacheSosCountryCode(nextCountryCode);
+    // A failed lookup (no signal) keeps the last country this phone was
+    // really in rather than replacing it with a guess.
+    setDetectedCountryCode(lookedUp || fallbackCountryCode);
+    if (lookedUp) cacheSosCountryCode(lookedUp);
     setDetectingSosCountry(false);
-  }, [mapCenter, userLocation]);
+  }, [userLocation]);
 
   const handleEmergencyNearbySearch = useCallback(async (type) => {
     const action = emergencySearchActions[type] || {
@@ -3629,7 +3646,8 @@ function AddLocationPanel({
           <FormInput
             label={t("urride.areaView.fPhone")}
             value={draft.phone}
-            onChange={(value) => onChange("phone", constrainCountryPhoneInput(value, "", { international: true }))}
+            dialCountry=""
+            onChange={(value) => onChange("phone", value)}
             placeholder={getCountryPhoneHint()}
           />
           <FormInput
@@ -3740,12 +3758,15 @@ function AddLocationPanel({
     </div>
   );
 }
-function FormInput({ label, onChange, placeholder, value }) {
+function FormInput({ label, onChange, placeholder, value, dialCountry }) {
   useUiLocale();
+  // A phone field: the country code is fixed text and only the number is typed.
+  const InputTag = dialCountry !== undefined ? DialCodeInput : "input";
   return (
     <label className="block">
       <span className="mb-2 block text-sm font-bold text-slate-700">{translateUi(label)}</span>
-      <input
+      <InputTag
+        {...(dialCountry !== undefined ? { dialCountry } : {})}
         placeholder={translateUi(placeholder)}
         value={value || ""}
         onChange={(event) => onChange?.(event.target.value)}

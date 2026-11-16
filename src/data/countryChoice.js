@@ -67,6 +67,20 @@ export function pickLegalCountry({ detected, timeZoneIso = "", now = Date.now() 
   return fresh ? detectedIso : cleanIso(timeZoneIso);
 }
 
+// The country to use instead of the account's saved one because the phone is
+// somewhere else: GPS recently placed it in another country AND the phone's
+// time zone agrees. Both must match, so one stray reading never moves the app,
+// and the app returns to the account's country as soon as the phone is home.
+// Returns "" when the account's country should be used.
+export function pickTravelCountry({ accountIso = "", detected, timeZoneIso = "", now = Date.now() } = {}) {
+  const account = cleanIso(accountIso);
+  const detectedIso = cleanIso(detected?.iso2);
+  if (!detectedIso || detectedIso === account) return "";
+  const fresh = Number.isFinite(Number(detected?.at)) && now - Number(detected.at) <= DETECTED_COUNTRY_MAX_AGE_MS;
+  if (!fresh) return "";
+  return cleanIso(timeZoneIso) === detectedIso ? detectedIso : "";
+}
+
 // --- Storage -----------------------------------------------------------------
 
 export function readCountryChoice() {

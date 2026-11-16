@@ -7,7 +7,7 @@ import { getPreciseCurrentPosition } from "../../utils/precisePosition";
 import { requestPreciseLocation } from "../../../components/services/preciseLocationAccess";
 import { cleanAddressString } from "../../utils/geoAddress";
 import { getOnboardingProfile } from "../onboardingService";
-import { formatCountryMoney, getActiveCountryProfile, validateCountryPhone } from "../../../data/globalCountryProfiles";
+import { formatCountryMoney, getActiveCountryProfile, getCountryPhoneHint, validateCountryPhone } from "../../../data/globalCountryProfiles";
 import { getTransportCapabilities } from "../../../data/globalTransportCapabilities";
 import { getTransportSavedPlaces } from "../../../components/services/passengerTransportService";
 import { findBookableFleetByCode } from "../../../components/services/transportFleetService";
@@ -302,10 +302,10 @@ function handle(step, value, option, { typed = false } = {}) {
     case "name":
       if (String(value).trim().length < 2) return ask("name", tripText("askName"), { input: { type: "text", placeholder: tripText("namePlaceholder") } });
       setData({ passengerName: String(value).trim().slice(0, 80) });
-      return ask("phone", tripText("askPhone"), { input: { type: "tel", placeholder: tripText("phonePlaceholder") } });
+      return ask("phone", tripText("askPhone"), { input: { type: "tel", placeholder: getCountryPhoneHint() } });
     case "phone": {
       const check = validateCountryPhone(value);
-      if (!check.valid) return ask("phone", check.message || tripText("askPhone"), { input: { type: "tel", placeholder: tripText("phonePlaceholder") } });
+      if (!check.valid) return ask("phone", check.message || tripText("askPhone"), { input: { type: "tel", placeholder: getCountryPhoneHint() } });
       setData({ phone: String(value).trim() });
       return askNote();
     }

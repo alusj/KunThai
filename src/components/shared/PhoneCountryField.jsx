@@ -124,7 +124,7 @@ export default function PhoneCountryField({
         value={nationalPart(phone, country)}
         onChange={(event) => onPhoneChange(event.target.value)}
         readOnly={readOnly}
-        placeholder={country ? placeholder : i18nText("ui.literals.k07be7c544463")}
+        placeholder={country ? nationalPart(placeholder, country) : i18nText("ui.literals.k07be7c544463")}
         disabled={!country}
         aria-invalid={invalid ? "true" : undefined}
         className={`min-w-0 flex-1 rounded-[20px] border bg-slate-50 px-4 py-3 outline-none focus:border-sky-400 disabled:cursor-not-allowed disabled:opacity-60 ${

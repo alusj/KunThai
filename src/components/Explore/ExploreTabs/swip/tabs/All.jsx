@@ -1,4 +1,4 @@
-import { Component, useCallback, useEffect, useLayoutEffect, useRef, useState } from "react";
+import { Component, useCallback, useEffect, useLayoutEffect, useRef, useState, useSyncExternalStore } from "react";
 import { ArrowLeft, Share2 } from "lucide-react";
 import { Capacitor } from "@capacitor/core";
 
@@ -15,6 +15,7 @@ import VideoCard from "../videos/VideoCard";
 import { getSwipContext, getVideoCategoryLabel, getSwipVideos, isRenderableSwipPost } from "../videos/swipUtils";
 import { uiText as translateUi } from "../../../../../i18n/index.js";
 import { isOnline } from "../../../../../Backend/services/networkService";
+import { subscribeSwipStreamCalm, swipStreamIsCalm, whenSwipStreamCalm } from "../../../../../Backend/services/explore/swipStreamPriority";
 import { SAVED_CLIPS_AHEAD, keepSwipClips, savedSwipClipsReady, savedSwipPosts } from "../../../../../Backend/services/explore/swipSavedClips";
 
 const WHEEL_THRESHOLD_PX = 70;
@@ -27,6 +28,9 @@ export default function All({ active = true, standby = false, currentUserId = ""
   // and stay out. The feed drops them too, but a clip that was opened
   // directly (just posted, a notification, a repost) is also held by that
   // request, which kept a deleted clip on screen and playing.
+  // True once the clip being watched has enough loaded ahead (or plays from
+  // the phone); the next clip waits for it before it starts loading.
+  const streamCalm = useSyncExternalStore(subscribeSwipStreamCalm, swipStreamIsCalm, swipStreamIsCalm);
   const [removedIds, setRemovedIds] = useState(() => new Set());
   const stillListed = (post) => !removedIds.has(post.id);
   // Opened with no internet: the clips saved on the phone (swipSavedClips)
@@ -137,6 +141,8 @@ export default function All({ active = true, standby = false, currentUserId = ""
     const timer = window.setTimeout(async () => {
       for (const url of warmKey.split("|")) {
         if (controller.signal.aborted) return;
+        // Only once the clip being watched has enough loaded ahead.
+        if (!(await whenSwipStreamCalm(() => controller.signal.aborted))) return;
         await warmSwipClip(url, controller.signal);
       }
     }, SWIP_WARM_DELAY_MS);
@@ -592,8 +598,12 @@ export default function All({ active = true, standby = false, currentUserId = ""
   // only, the clip Swip will open on, loaded and with its first frame ready,
   // so it plays the moment Swip is entered.
   const shouldMountVideo = standby ? offset === 0 : offset >= -1 && offset <= SWIP_PRELOAD_AHEAD;
-  const preloadMode = offset >= 0 && offset <= swipBufferAhead() ? "auto" : "metadata";
-  const prime = swipBufferAhead() >= 1 && (standby ? offset === 0 : active && offset === 1);
+  // The next clip starts loading only once the one being watched has enough
+  // ahead of it (swipStreamPriority.js); until then the whole connection is
+  // the playing clip's, so it does not stop to load.
+  const nextMayLoad = offset === 0 || streamCalm;
+  const preloadMode = offset >= 0 && offset <= swipBufferAhead() && nextMayLoad ? "auto" : "metadata";
+  const prime = swipBufferAhead() >= 1 && (standby ? offset === 0 : active && offset === 1 && streamCalm);
 
   return (
     <section

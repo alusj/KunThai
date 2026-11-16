@@ -29,6 +29,7 @@ import { GLOBAL_COUNTRY_CODES } from "./data/globalCountryCodes";
 import {
   constrainCountryPhoneInput,
   storeCountryContext,
+  stripNationalTrunkZero,
 } from "./data/globalCountryProfiles";
 import {
   clearOAuthFlow,
@@ -284,7 +285,9 @@ const normalizePhoneDigits = (value, country) => {
     return digits.slice(1);
   }
 
-  return digits;
+  // Countries without a curated number plan: the local leading "0" is dropped
+  // after the country code, or the sign-in code cannot be delivered.
+  return stripNationalTrunkZero(digits, country);
 };
 
 const buildPhoneForAuth = (value, country) => {

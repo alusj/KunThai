@@ -2,6 +2,7 @@ import { Capacitor } from "@capacitor/core";
 
 import { readExploreSettings } from "./preferencesService";
 import { recordLifecycle } from "../lifecycleAudit";
+import { whenSwipStreamCalm } from "./swipStreamPriority";
 
 // A few Swip clips kept as files on the phone, so Swip still has something
 // to play with no internet (and the next clips start at once with it).
@@ -206,6 +207,9 @@ async function fill({ posts, inUseIds, topUp }) {
     while (entries.length >= SAVED_CLIPS_AHEAD && removable.length) {
       dropSavedSwipClip(removable.shift().id);
     }
+    // The clip being watched has the connection first: a whole-file download
+    // beside it made it stop and load on slower connections.
+    if (!(await whenSwipStreamCalm(() => Boolean(request)))) return;
     await saveClip(post);
   }
 }

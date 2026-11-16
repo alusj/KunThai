@@ -34,6 +34,7 @@ import { dropPostedVideoFile, notifyPostedVideoPlaying, postedVideoLocalUrl } fr
 import { recordLifecycle } from "../../../../../Backend/services/lifecycleAudit";
 import { SWIP_STARTUP_VIDEO_EVENT, dropSwipStartupVideo, swipStartupVideoUrl } from "../../../../../Backend/services/explore/swipStartupPrefetch";
 import { markSavedSwipClipWatched } from "../../../../../Backend/services/explore/swipSavedClips";
+import { endSwipStream, readBufferState, reportSwipStream } from "../../../../../Backend/services/explore/swipStreamPriority";
 import { probeConnectivity } from "../../../../../Backend/services/networkService";
 
 const MAX_SWIP_SECONDS = 15;
@@ -830,6 +831,36 @@ export default function VideoCard({
     const timer = window.setTimeout(() => setShowSpinner(true), 450);
     return () => window.clearTimeout(timer);
   }, [videoLoading]);
+
+  // While this clip is on screen it says how its stream is doing, so Swip's
+  // other downloads (the next clip, saved clips) wait until it has enough
+  // loaded ahead and step back when it has to stop and load.
+  useEffect(() => {
+    const video = videoRef.current;
+    if (!video || !active) return undefined;
+    const streamId = `${post.id}:${videoSrc}`;
+    const needsNetwork = /^https?:/i.test(videoSrc) && !/^https?:\/\/localhost\b/i.test(videoSrc);
+    const report = (stalled = false) => reportSwipStream(streamId, { needsNetwork, ...readBufferState(video), stalled });
+    const onProgress = () => report(false);
+    // "waiting" is the player stopping for lack of data. ("stalled" also
+    // fires on the iPhone while a clip plays fine, so it is not used.)
+    const onWaiting = () => {
+      if (!primingRef.current && video.currentTime > 0.3) report(true);
+      else report(false);
+    };
+    report(false);
+    video.addEventListener("progress", onProgress);
+    video.addEventListener("canplaythrough", onProgress);
+    video.addEventListener("waiting", onWaiting);
+    const timer = window.setInterval(onProgress, 1000);
+    return () => {
+      video.removeEventListener("progress", onProgress);
+      video.removeEventListener("canplaythrough", onProgress);
+      video.removeEventListener("waiting", onWaiting);
+      window.clearInterval(timer);
+      endSwipStream(streamId);
+    };
+  }, [active, post.id, videoSrc]);
 
   // Prime the next clip(s): play muted until the first frame is shown, then
   // pause. Once per clip; never for the clip on screen, never with reduced data.

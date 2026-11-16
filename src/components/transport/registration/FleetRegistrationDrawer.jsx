@@ -1,3 +1,4 @@
+import DialCodeInput from "../../shared/DialCodeInput";
 import { useEffect, useMemo, useRef, useState } from "react";
 import {
   FiAlertTriangle,
@@ -755,6 +756,7 @@ export default function FleetRegistrationDrawer({ onClose, onCancelRegistration,
               <FormInput
                 label={t("urride.fleetEdit.phoneLabel")}
                 type="tel"
+                dialCountry={form.countryCode || form.country || ""}
                 value={form.phone}
                 onChange={(value) => update("phone", constrainCountryPhoneInput(value, form.countryCode || form.country, { international: true }))}
                 placeholder={getCountryPhoneHint(form.countryCode || form.country)}
@@ -772,6 +774,7 @@ export default function FleetRegistrationDrawer({ onClose, onCancelRegistration,
               <FormInput
                 label={t("urride.fleetEdit.emergencyLabel")}
                 type="tel"
+                dialCountry={form.countryCode || form.country || ""}
                 value={form.emergencyContact}
                 onChange={(value) => update("emergencyContact", constrainCountryPhoneInput(value, form.countryCode || form.country, { international: true }))}
                 placeholder={getCountryPhoneHint(form.countryCode || form.country)}
@@ -1246,12 +1249,15 @@ function PricingGuide({ type, open, onToggle, onViewOneKm, disabled = false }) {
   );
 }
 
-function FormInput({ error = "", label, value, onChange, type = "text", placeholder = "", helper = "", ...props }) {
+function FormInput({ error = "", label, value, onChange, type = "text", placeholder = "", helper = "", dialCountry, ...props }) {
   useUiLocale();
+  // A phone field: the country code is fixed text and only the number is typed.
+  const InputTag = dialCountry !== undefined ? DialCodeInput : "input";
+  if (dialCountry !== undefined) props.dialCountry = dialCountry;
   return (
     <label className="block" data-field-error={error ? "true" : undefined}>
       <span className="mb-2 block text-sm font-semibold text-gray-800">{translateUi(label)}</span>
-      <input
+      <InputTag
         {...props}
         type={type}
         value={value}

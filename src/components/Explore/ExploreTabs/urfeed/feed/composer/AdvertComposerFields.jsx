@@ -1,3 +1,4 @@
+import DialCodeInput from "../../../../../shared/DialCodeInput";
 import { useEffect, useLayoutEffect, useRef, useState } from "react";
 import {
   ArrowLeft,
@@ -507,7 +508,7 @@ function CreativeFields({
 
       <label className="block">
         <span className="flex items-center gap-2 text-xs font-black uppercase tracking-[0.14em] text-slate-500"><Phone size={14} /> {i18nText("ui.literals.k8961d3bf56ef")}</span>
-        <input value={advert.phone} onChange={(event) => onChange("phone", event.target.value)} placeholder={translateUi("Example: {value0}", { value0: getCountryPhonePlaceholder() })} inputMode="tel" autoComplete="tel" maxLength={32} className="mt-2 h-12 w-full rounded-2xl border border-slate-200 bg-white px-4 text-sm font-bold text-slate-900 outline-none focus:border-amber-300 focus:ring-4 focus:ring-amber-100" />
+        <DialCodeInput value={advert.phone} onChange={(event) => onChange("phone", event.target.value)} maxLength={32} className="mt-2 h-12 w-full rounded-2xl border border-slate-200 bg-white px-4 text-sm font-bold text-slate-900 outline-none focus:border-amber-300 focus:ring-4 focus:ring-amber-100" />
         <span className="mt-2 block text-xs font-bold leading-5 text-slate-500">{i18nText("ui.literals.k6457c92e34ae")}</span>
       </label>
 

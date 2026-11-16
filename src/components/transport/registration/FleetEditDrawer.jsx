@@ -1,3 +1,4 @@
+import DialCodeInput from "../../shared/DialCodeInput";
 import { useState } from "react";
 import {
   FiAlertTriangle,
@@ -233,9 +234,9 @@ export default function FleetEditDrawer({ account, onBack, onSaved }) {
       body: (
         <div className="grid gap-4 md:grid-cols-2">
           <FormInput label={t("urride.fleetEdit.nameLabel")} value={form.name} onChange={(value) => update("name", value)} placeholder={t("registrationExamples.urride.operatorName")} helper={t("urride.fleetEdit.nameHelper")} />
-          <FormInput label={t("urride.fleetEdit.phoneLabel")} type="tel" value={form.phone} onChange={(value) => update("phone", constrainCountryPhoneInput(value, form.countryCode || form.country, { international: true }))} placeholder={getCountryPhoneHint(form.countryCode || form.country)} helper={t("urride.fleetEdit.phoneHelper")} error={phoneOwnership.taken ? phoneOwnership.message : undefined} />
+          <FormInput label={t("urride.fleetEdit.phoneLabel")} type="tel" dialCountry={form.countryCode || form.country || ""} value={form.phone} onChange={(value) => update("phone", constrainCountryPhoneInput(value, form.countryCode || form.country, { international: true }))} placeholder={getCountryPhoneHint(form.countryCode || form.country)} helper={t("urride.fleetEdit.phoneHelper")} error={phoneOwnership.taken ? phoneOwnership.message : undefined} />
           <FormInput label={t("urride.fleetEdit.cityLabel")} value={form.city} onChange={(value) => update("city", value)} placeholder={t("urride.fleetEdit.cityLabel")} />
-          <FormInput label={t("urride.fleetEdit.emergencyLabel")} type="tel" value={form.emergencyContact} onChange={(value) => update("emergencyContact", constrainCountryPhoneInput(value, form.countryCode || form.country, { international: true }))} placeholder={getCountryPhoneHint(form.countryCode || form.country)} helper={t("urride.fleetEdit.emergencyHelper")} />
+          <FormInput label={t("urride.fleetEdit.emergencyLabel")} type="tel" dialCountry={form.countryCode || form.country || ""} value={form.emergencyContact} onChange={(value) => update("emergencyContact", constrainCountryPhoneInput(value, form.countryCode || form.country, { international: true }))} placeholder={getCountryPhoneHint(form.countryCode || form.country)} helper={t("urride.fleetEdit.emergencyHelper")} />
         </div>
       ),
     },
@@ -514,12 +515,15 @@ export default function FleetEditDrawer({ account, onBack, onSaved }) {
   );
 }
 
-function FormInput({ label, value, onChange, type = "text", placeholder = "", helper = "", error = "", ...props }) {
+function FormInput({ label, value, onChange, type = "text", placeholder = "", helper = "", error = "", dialCountry, ...props }) {
   useUiLocale();
+  // A phone field: the country code is fixed text and only the number is typed.
+  const InputTag = dialCountry !== undefined ? DialCodeInput : "input";
+  if (dialCountry !== undefined) props.dialCountry = dialCountry;
   return (
     <label className="block">
       <span className="mb-2 block text-sm font-semibold text-gray-800">{translateUi(label)}</span>
-      <input
+      <InputTag
         {...props}
         type={type}
         value={value ?? ""}

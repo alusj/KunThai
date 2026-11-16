@@ -1,3 +1,4 @@
+import DialCodeInput from "../../../../shared/DialCodeInput";
 import { useCallback, useEffect, useRef } from "react";
 import { FiChevronDown, FiChevronUp, FiPlus, FiTrash2 } from "react-icons/fi";
 
@@ -14,9 +15,7 @@ import {
 } from "../../../../shared/AddressAreaValidation";
 import { useAutoCollapseCard } from "../../../../shared/motionHooks";
 import {
-  constrainCountryPhoneInput,
   getActiveCountryProfile,
-  getCountryPhoneHint,
   validateCountryPhone,
   GLOBAL_COUNTRY_PROFILES,
 } from "../../../../../data/globalCountryProfiles";
@@ -242,10 +241,11 @@ export default function LocationContactStep({ registration }) {
 
       <div className="grid gap-4 sm:grid-cols-2">
         <RegistrationField label={t("urmall.detail.phoneNumber")} error={phoneOwnership ? phoneOwnership.fieldError(errors.phone) : errors.phone}>
-          <RegistrationInput
+          <DialCodeInput
+            inputComponent={RegistrationInput}
+            dialCountry={countryProfile?.iso2 || ""}
             value={form.location.phone}
-            onChange={(event) => updateSection("location", { phone: constrainCountryPhoneInput(event.target.value, countryProfile, { international: true }) })}
-            placeholder={getCountryPhoneHint(countryProfile)}
+            onChange={(event) => updateSection("location", { phone: event.target.value })}
             autoComplete="tel"
           />
           {!phoneValidation.valid ? (
@@ -283,10 +283,11 @@ export default function LocationContactStep({ registration }) {
       />
       {form.location.whatsappEnabled ? (
         <RegistrationField label={t("urmall.biz.reg.whatsappNumber")}>
-          <RegistrationInput
+          <DialCodeInput
+            inputComponent={RegistrationInput}
+            dialCountry={countryProfile?.iso2 || ""}
             value={form.location.whatsapp}
-            onChange={(event) => updateSection("location", { whatsapp: constrainCountryPhoneInput(event.target.value, countryProfile, { international: true }) })}
-            placeholder={getCountryPhoneHint(countryProfile)}
+            onChange={(event) => updateSection("location", { whatsapp: event.target.value })}
           />
         </RegistrationField>
       ) : null}

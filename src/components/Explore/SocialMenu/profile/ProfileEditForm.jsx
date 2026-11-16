@@ -2,6 +2,7 @@ import { FaFacebookF, FaInstagram, FaTiktok, FaTwitter, FaWhatsapp, FaYoutube } 
 
 import { detectSocialPlatform, normalizeSocialLinks } from "../../../../Backend/services/explore/socialLinks";
 import { useI18n } from "../../../../i18n";
+import DialCodeInput from "../../../shared/DialCodeInput";
 
 const platformIcons = {
   facebook: FaFacebookF,
@@ -111,12 +112,10 @@ export default function ProfileEditForm({ onChange, values }) {
         />
       </FormField>
       <FormField label={isSpace ? t("exploreProfileFix.phonePublicLabel") : t("exploreProfileFix.phonePrivateLabel")} className="sm:col-span-2">
-        <input
-          type="tel"
+        <DialCodeInput
           value={values.phone || ""}
           onChange={(event) => onChange("phone", event.target.value)}
           className={fieldClass}
-          placeholder={t("profile.phone")}
         />
       </FormField>
       <div className="grid gap-3 sm:col-span-2 lg:grid-cols-3">

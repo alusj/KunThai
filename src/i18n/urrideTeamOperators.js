@@ -13,6 +13,9 @@ export const URRIDE_TEAM_OPERATORS = {
     detachDetail: "{name} stays on your team without a vehicle. The vehicle goes offline until someone is assigned.",
     detachWarning: "The operator stays on your team and can be given another vehicle. This vehicle goes offline until you assign an operator.",
     detachedStatus: "Operator taken off the vehicle. They are still on your team.",
+    roleLimitToast: "Plan limit reached",
+    roleLimitNone: "Your {plan} plan does not include the {dispatcher}, {manager} or {admin} roles. To give someone one of these roles, upgrade in Plans & capacity.",
+    roleLimitFull: "{dispatcher}, {manager} and {admin} share the same places on your plan. Your {plan} plan has {limit}, and every place is taken. To give this role, first set another person back to {operator}, or upgrade in Plans & capacity.",
   },
   fr: {
     addOperatorDetail: "Invitez un chauffeur ou un livreur par son identifiant KunThai à rejoindre votre équipe. Attribuez-lui un véhicule quand vous voulez.",
@@ -24,6 +27,9 @@ export const URRIDE_TEAM_OPERATORS = {
     detachDetail: "{name} reste dans votre équipe sans véhicule. Le véhicule est hors ligne jusqu'à ce qu'un opérateur soit attribué.",
     detachWarning: "L'opérateur reste dans votre équipe et peut recevoir un autre véhicule. Ce véhicule est hors ligne jusqu'à ce que vous attribuiez un opérateur.",
     detachedStatus: "Opérateur retiré du véhicule. Il fait toujours partie de votre équipe.",
+    roleLimitToast: "Limite du forfait atteinte",
+    roleLimitNone: "Votre forfait {plan} n'inclut pas les rôles {dispatcher}, {manager} ou {admin}. Pour donner l'un de ces rôles, passez à un forfait supérieur dans Forfaits et capacité.",
+    roleLimitFull: "{dispatcher}, {manager} et {admin} partagent les mêmes places sur votre forfait. Votre forfait {plan} en compte {limit}, et toutes sont prises. Pour donner ce rôle, remettez d'abord une autre personne sur {operator}, ou passez à un forfait supérieur dans Forfaits et capacité.",
   },
   es: {
     addOperatorDetail: "Invita a un conductor o repartidor por su ID de KunThai a unirse a tu equipo. Asígnale un vehículo cuando quieras.",
@@ -35,6 +41,9 @@ export const URRIDE_TEAM_OPERATORS = {
     detachDetail: "{name} sigue en tu equipo sin vehículo. El vehículo queda fuera de línea hasta que se asigne a alguien.",
     detachWarning: "El operador sigue en tu equipo y puede recibir otro vehículo. Este vehículo queda fuera de línea hasta que asignes un operador.",
     detachedStatus: "Operador quitado del vehículo. Sigue en tu equipo.",
+    roleLimitToast: "Límite del plan alcanzado",
+    roleLimitNone: "Tu plan {plan} no incluye los roles {dispatcher}, {manager} ni {admin}. Para dar uno de estos roles, mejora tu plan en Planes y capacidad.",
+    roleLimitFull: "{dispatcher}, {manager} y {admin} comparten los mismos puestos de tu plan. Tu plan {plan} tiene {limit}, y todos están ocupados. Para dar este rol, primero vuelve a poner a otra persona en {operator}, o mejora tu plan en Planes y capacidad.",
   },
   zh: {
     addOperatorDetail: "通过 KunThai ID 邀请司机或骑手加入你的团队，之后可随时为其分配车辆。",
@@ -46,6 +55,9 @@ export const URRIDE_TEAM_OPERATORS = {
     detachDetail: "{name} 仍留在你的团队中，但没有车辆。在分配新的操作员之前，该车辆将处于离线状态。",
     detachWarning: "该操作员仍留在你的团队中，可以分配其他车辆。在你分配操作员之前，此车辆将处于离线状态。",
     detachedStatus: "已将操作员从车辆移除，对方仍在你的团队中。",
+    roleLimitToast: "已达到套餐上限",
+    roleLimitNone: "您的 {plan} 套餐不包含{dispatcher}、{manager}或{admin}角色。要分配这些角色，请在“套餐与容量”中升级。",
+    roleLimitFull: "{dispatcher}、{manager}和{admin}共用套餐中的同一组名额。您的 {plan} 套餐共有 {limit} 个名额，已全部占用。要分配此角色，请先将另一位成员改回{operator}，或在“套餐与容量”中升级。",
   },
   ar: {
     addOperatorDetail: "ادعُ سائقًا أو مندوبًا عبر معرّف KunThai للانضمام إلى فريقك، وخصّص له مركبة في أي وقت.",
@@ -57,6 +69,9 @@ export const URRIDE_TEAM_OPERATORS = {
     detachDetail: "يبقى {name} في فريقك بلا مركبة، وتبقى المركبة غير متصلة حتى يُعيَّن لها مشغّل.",
     detachWarning: "يبقى المشغّل في فريقك ويمكن منحه مركبة أخرى، وتبقى هذه المركبة غير متصلة حتى تعيّن مشغّلًا.",
     detachedStatus: "أُزيل المشغّل من المركبة، وما زال ضمن فريقك.",
+    roleLimitToast: "تم بلوغ حد الباقة",
+    roleLimitNone: "باقتك {plan} لا تشمل أدوار {dispatcher} أو {manager} أو {admin}. لمنح أحد هذه الأدوار، قم بالترقية من الباقات والسعة.",
+    roleLimitFull: "{dispatcher} و{manager} و{admin} تتشارك الأماكن نفسها في باقتك. باقتك {plan} فيها {limit}، وكلها مشغولة. لمنح هذا الدور، أعد أولاً شخصاً آخر إلى {operator}، أو قم بالترقية من الباقات والسعة.",
   },
   pt: {
     addOperatorDetail: "Convide um motorista ou entregador pelo ID KunThai para entrar na sua equipe. Atribua um veículo quando quiser.",
@@ -68,6 +83,9 @@ export const URRIDE_TEAM_OPERATORS = {
     detachDetail: "{name} continua na sua equipe sem veículo. O veículo fica offline até alguém ser atribuído.",
     detachWarning: "O operador continua na sua equipe e pode receber outro veículo. Este veículo fica offline até você atribuir um operador.",
     detachedStatus: "Operador removido do veículo. Ele continua na sua equipe.",
+    roleLimitToast: "Limite do plano atingido",
+    roleLimitNone: "O seu plano {plan} não inclui as funções {dispatcher}, {manager} ou {admin}. Para atribuir uma destas funções, faça upgrade em Planos e capacidade.",
+    roleLimitFull: "{dispatcher}, {manager} e {admin} partilham os mesmos lugares do seu plano. O seu plano {plan} tem {limit}, e todos estão ocupados. Para atribuir esta função, primeiro volte a colocar outra pessoa em {operator}, ou faça upgrade em Planos e capacidade.",
   },
   hi: {
     addOperatorDetail: "किसी ड्राइवर या राइडर को KunThai ID से अपनी टीम में आमंत्रित करें। उन्हें कभी भी वाहन सौंपें।",
@@ -79,6 +97,9 @@ export const URRIDE_TEAM_OPERATORS = {
     detachDetail: "{name} बिना वाहन के आपकी टीम में बने रहेंगे। किसी को सौंपे जाने तक वाहन ऑफ़लाइन रहेगा।",
     detachWarning: "ऑपरेटर आपकी टीम में बना रहता है और उसे दूसरा वाहन दिया जा सकता है। ऑपरेटर सौंपे जाने तक यह वाहन ऑफ़लाइन रहेगा।",
     detachedStatus: "ऑपरेटर को वाहन से हटा दिया गया। वे अब भी आपकी टीम में हैं।",
+    roleLimitToast: "प्लान की सीमा पूरी हो गई",
+    roleLimitNone: "आपके {plan} प्लान में {dispatcher}, {manager} या {admin} भूमिकाएँ शामिल नहीं हैं। इनमें से कोई भूमिका देने के लिए प्लान और क्षमता में अपग्रेड करें।",
+    roleLimitFull: "{dispatcher}, {manager} और {admin} आपके प्लान की एक ही जगहें साझा करते हैं। आपके {plan} प्लान में {limit} जगह है, और सभी भरी हुई हैं। यह भूमिका देने के लिए पहले किसी और को वापस {operator} पर करें, या प्लान और क्षमता में अपग्रेड करें।",
   },
   bn: {
     addOperatorDetail: "KunThai ID দিয়ে একজন চালক বা রাইডারকে আপনার দলে যোগ দিতে আমন্ত্রণ জানান। যেকোনো সময় তাঁকে যানবাহন দিন।",
@@ -90,6 +111,9 @@ export const URRIDE_TEAM_OPERATORS = {
     detachDetail: "{name} যানবাহন ছাড়াই আপনার দলে থাকবেন। কাউকে দেওয়া না পর্যন্ত যানবাহনটি অফলাইন থাকবে।",
     detachWarning: "অপারেটর আপনার দলে থাকবেন এবং অন্য যানবাহন পেতে পারেন। অপারেটর না দেওয়া পর্যন্ত এই যানবাহনটি অফলাইন থাকবে।",
     detachedStatus: "অপারেটরকে যানবাহন থেকে সরানো হয়েছে। তিনি এখনো আপনার দলে আছেন।",
+    roleLimitToast: "প্ল্যানের সীমা পূর্ণ হয়েছে",
+    roleLimitNone: "আপনার {plan} প্ল্যানে {dispatcher}, {manager} বা {admin} ভূমিকা নেই। এই ভূমিকাগুলোর একটি দিতে প্ল্যান ও ধারণক্ষমতা থেকে আপগ্রেড করুন।",
+    roleLimitFull: "{dispatcher}, {manager} এবং {admin} আপনার প্ল্যানের একই জায়গা ভাগ করে। আপনার {plan} প্ল্যানে {limit}টি জায়গা আছে, এবং সবগুলো পূর্ণ। এই ভূমিকা দিতে আগে অন্য কাউকে {operator}-এ ফিরিয়ে দিন, অথবা প্ল্যান ও ধারণক্ষমতা থেকে আপগ্রেড করুন।",
   },
   id: {
     addOperatorDetail: "Undang pengemudi atau kurir dengan ID KunThai untuk bergabung dengan tim Anda. Tetapkan kendaraan kapan saja.",
@@ -101,6 +125,9 @@ export const URRIDE_TEAM_OPERATORS = {
     detachDetail: "{name} tetap di tim Anda tanpa kendaraan. Kendaraan offline sampai ada yang ditetapkan.",
     detachWarning: "Operator tetap di tim Anda dan bisa diberi kendaraan lain. Kendaraan ini offline sampai Anda menetapkan operator.",
     detachedStatus: "Operator dilepas dari kendaraan. Mereka masih di tim Anda.",
+    roleLimitToast: "Batas paket tercapai",
+    roleLimitNone: "Paket {plan} Anda tidak mencakup peran {dispatcher}, {manager}, atau {admin}. Untuk memberikan salah satu peran ini, tingkatkan paket di Paket & kapasitas.",
+    roleLimitFull: "{dispatcher}, {manager}, dan {admin} memakai tempat yang sama di paket Anda. Paket {plan} Anda memiliki {limit}, dan semuanya sudah terisi. Untuk memberikan peran ini, kembalikan dulu orang lain ke {operator}, atau tingkatkan paket di Paket & kapasitas.",
   },
   ur: {
     addOperatorDetail: "KunThai ID کے ذریعے کسی ڈرائیور یا رائیڈر کو اپنی ٹیم میں مدعو کریں۔ انہیں کسی بھی وقت گاڑی دیں۔",
@@ -112,6 +139,9 @@ export const URRIDE_TEAM_OPERATORS = {
     detachDetail: "{name} بغیر گاڑی کے آپ کی ٹیم میں رہیں گے۔ کسی کو مقرر ہونے تک گاڑی آف لائن رہے گی۔",
     detachWarning: "آپریٹر آپ کی ٹیم میں رہتا ہے اور اسے دوسری گاڑی دی جا سکتی ہے۔ آپریٹر مقرر ہونے تک یہ گاڑی آف لائن رہے گی۔",
     detachedStatus: "آپریٹر کو گاڑی سے ہٹا دیا گیا۔ وہ اب بھی آپ کی ٹیم میں ہیں۔",
+    roleLimitToast: "پلان کی حد پوری ہو گئی",
+    roleLimitNone: "آپ کے {plan} پلان میں {dispatcher}، {manager} یا {admin} کے کردار شامل نہیں ہیں۔ ان میں سے کوئی کردار دینے کے لیے پلانز اور گنجائش میں اپ گریڈ کریں۔",
+    roleLimitFull: "{dispatcher}، {manager} اور {admin} آپ کے پلان کی ایک ہی جگہیں استعمال کرتے ہیں۔ آپ کے {plan} پلان میں {limit} جگہ ہے، اور سب بھری ہوئی ہیں۔ یہ کردار دینے کے لیے پہلے کسی اور کو واپس {operator} پر کریں، یا پلانز اور گنجائش میں اپ گریڈ کریں۔",
   },
   ru: {
     addOperatorDetail: "Пригласите водителя или курьера по KunThai ID в свою команду. Назначьте ему транспорт в любое время.",
@@ -123,6 +153,9 @@ export const URRIDE_TEAM_OPERATORS = {
     detachDetail: "{name} остаётся в команде без транспорта. Транспорт будет офлайн, пока кто-то не будет назначен.",
     detachWarning: "Оператор остаётся в команде, и ему можно назначить другой транспорт. Этот транспорт будет офлайн, пока вы не назначите оператора.",
     detachedStatus: "Оператор снят с транспорта. Он по-прежнему в вашей команде.",
+    roleLimitToast: "Достигнут лимит тарифа",
+    roleLimitNone: "Ваш тариф {plan} не включает роли {dispatcher}, {manager} и {admin}. Чтобы назначить одну из этих ролей, перейдите на тариф выше в разделе «Тарифы и лимиты».",
+    roleLimitFull: "Роли {dispatcher}, {manager} и {admin} занимают одни и те же места в тарифе. В вашем тарифе {plan} таких мест: {limit}, и все они заняты. Чтобы назначить эту роль, сначала верните другого человека на роль {operator} или перейдите на тариф выше в разделе «Тарифы и лимиты».",
   },
   ja: {
     addOperatorDetail: "KunThai ID でドライバーやライダーをチームに招待します。車両はいつでも割り当てられます。",
@@ -134,6 +167,9 @@ export const URRIDE_TEAM_OPERATORS = {
     detachDetail: "{name}さんは車両なしでチームに残ります。誰かが割り当てられるまで車両はオフラインになります。",
     detachWarning: "オペレーターはチームに残り、別の車両を割り当てられます。オペレーターを割り当てるまで、この車両はオフラインになります。",
     detachedStatus: "オペレーターを車両から外しました。チームには残っています。",
+    roleLimitToast: "プランの上限に達しました",
+    roleLimitNone: "{plan} プランには{dispatcher}、{manager}、{admin}の役割は含まれていません。これらの役割を割り当てるには、「プランと上限」でアップグレードしてください。",
+    roleLimitFull: "{dispatcher}、{manager}、{admin}はプランの同じ枠を共有します。{plan} プランの枠は {limit} で、すべて使用中です。この役割を割り当てるには、まず別の人を{operator}に戻すか、「プランと上限」でアップグレードしてください。",
   },
   mr: {
     addOperatorDetail: "KunThai ID द्वारे ड्रायव्हर किंवा रायडरला तुमच्या टीममध्ये आमंत्रित करा. त्यांना कधीही वाहन द्या.",
@@ -145,6 +181,9 @@ export const URRIDE_TEAM_OPERATORS = {
     detachDetail: "{name} वाहनाशिवाय तुमच्या टीममध्ये राहतील. कोणी नेमले जाईपर्यंत वाहन ऑफलाइन राहील.",
     detachWarning: "ऑपरेटर तुमच्या टीममध्ये राहतो आणि त्याला दुसरे वाहन देता येते. ऑपरेटर नेमेपर्यंत हे वाहन ऑफलाइन राहील.",
     detachedStatus: "ऑपरेटरला वाहनावरून काढले. ते अजूनही तुमच्या टीममध्ये आहेत.",
+    roleLimitToast: "प्लॅनची मर्यादा पूर्ण झाली",
+    roleLimitNone: "तुमच्या {plan} प्लॅनमध्ये {dispatcher}, {manager} किंवा {admin} या भूमिका नाहीत. यापैकी एखादी भूमिका देण्यासाठी प्लॅन आणि क्षमता मध्ये अपग्रेड करा.",
+    roleLimitFull: "{dispatcher}, {manager} आणि {admin} तुमच्या प्लॅनमधील त्याच जागा वापरतात. तुमच्या {plan} प्लॅनमध्ये {limit} जागा आहे, आणि सर्व भरलेल्या आहेत. ही भूमिका देण्यासाठी आधी दुसऱ्या व्यक्तीला परत {operator} वर ठेवा, किंवा प्लॅन आणि क्षमता मध्ये अपग्रेड करा.",
   },
   vi: {
     addOperatorDetail: "Mời tài xế hoặc người giao hàng tham gia đội của bạn bằng ID KunThai. Giao xe cho họ bất cứ lúc nào.",
@@ -156,6 +195,9 @@ export const URRIDE_TEAM_OPERATORS = {
     detachDetail: "{name} vẫn ở trong đội nhưng không có xe. Phương tiện sẽ ngoại tuyến cho đến khi có người được giao.",
     detachWarning: "Người vận hành vẫn ở trong đội và có thể được giao xe khác. Phương tiện này ngoại tuyến cho đến khi bạn giao người vận hành.",
     detachedStatus: "Đã gỡ người vận hành khỏi phương tiện. Họ vẫn ở trong đội của bạn.",
+    roleLimitToast: "Đã đạt giới hạn của gói",
+    roleLimitNone: "Gói {plan} của bạn không bao gồm vai trò {dispatcher}, {manager} hoặc {admin}. Để trao một trong các vai trò này, hãy nâng cấp trong Gói và dung lượng.",
+    roleLimitFull: "{dispatcher}, {manager} và {admin} dùng chung số chỗ trong gói của bạn. Gói {plan} của bạn có {limit} chỗ và tất cả đã được dùng. Để trao vai trò này, trước tiên hãy chuyển một người khác về {operator}, hoặc nâng cấp trong Gói và dung lượng.",
   },
   de: {
     addOperatorDetail: "Lade einen Fahrer oder Kurier per KunThai-ID in dein Team ein. Ein Fahrzeug kannst du jederzeit zuweisen.",
@@ -167,5 +209,8 @@ export const URRIDE_TEAM_OPERATORS = {
     detachDetail: "{name} bleibt ohne Fahrzeug in deinem Team. Das Fahrzeug ist offline, bis jemand zugewiesen wird.",
     detachWarning: "Der Fahrer bleibt in deinem Team und kann ein anderes Fahrzeug bekommen. Dieses Fahrzeug ist offline, bis du einen Fahrer zuweist.",
     detachedStatus: "Fahrer vom Fahrzeug genommen. Er ist weiterhin in deinem Team.",
+    roleLimitToast: "Tariflimit erreicht",
+    roleLimitNone: "Dein {plan}-Tarif enthält die Rollen {dispatcher}, {manager} und {admin} nicht. Um eine dieser Rollen zu vergeben, upgrade unter Tarife & Kapazität.",
+    roleLimitFull: "{dispatcher}, {manager} und {admin} teilen sich dieselben Plätze in deinem Tarif. Dein {plan}-Tarif hat {limit}, und alle sind belegt. Um diese Rolle zu vergeben, setze zuerst eine andere Person zurück auf {operator} oder upgrade unter Tarife & Kapazität.",
   },
 };

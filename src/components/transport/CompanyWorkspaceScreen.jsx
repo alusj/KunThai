@@ -103,6 +103,7 @@ import {
   BUSINESS_PLAN_UPDATED_EVENT,
   fetchBusinessSubscription,
   getCapacityStatus,
+  parseBusinessPlanError,
 } from "../../Backend/services/businessSubscriptionService";
 import { uiText as translateUi, useI18n as useUiLocale } from "../../i18n/index.js";
 import { inlineErrorMessage, shortErrorToast } from "../../Backend/services/friendlyErrorService";
@@ -695,6 +696,22 @@ export default function CompanyWorkspaceScreen({ company, initialTab = "Overview
         "success",
       );
     } catch (error) {
+      // A plan limit is explained in plain words, never as the database code
+      // ("KUNTHAI_PLAN_LIMIT|urride|admins|…").
+      const planError = parseBusinessPlanError(error);
+      if (planError?.code === "KUNTHAI_PLAN_LIMIT" && planError.resource === "admins") {
+        const planCode = String(planError.planCode || "free");
+        setOperatorActionError(t(planError.limit > 0 ? "urrideTeamOperators.roleLimitFull" : "urrideTeamOperators.roleLimitNone", {
+          plan: planCode.charAt(0).toUpperCase() + planCode.slice(1),
+          limit: planError.limit ?? 0,
+          dispatcher: roleLabel("dispatcher"),
+          manager: roleLabel("fleet_manager"),
+          admin: roleLabel("admin"),
+          operator: roleLabel("operator"),
+        }));
+        showToast(t("urrideTeamOperators.roleLimitToast"), "danger");
+        return;
+      }
       setOperatorActionError(inlineErrorMessage(error, "This operator could not be updated. Refresh Fleet HQ and try again."));
       showToast(shortErrorToast(error, "Couldn't update operator"), "danger");
     } finally {
@@ -3127,7 +3144,7 @@ function ResponsibilityDrawer({ busy, error = "", onAssign, onClose, open, opera
         <p className="mb-3 text-sm font-semibold leading-6 text-slate-600">
           {t("urride.companyWs.chooseRole")}
         </p>
-        {error ? <p role="alert" className="mb-3 rounded-2xl border border-rose-200 bg-rose-50 px-4 py-3 text-sm font-bold leading-6 text-rose-800">{translateUi(error)}</p> : null}
+        {error ? <p role="alert" className="mb-3 rounded-2xl border border-rose-200 bg-rose-50 break-words px-4 py-3 text-sm font-bold leading-6 text-rose-800">{translateUi(error)}</p> : null}
         <div className="grid gap-3">
           {Object.keys(COMPANY_OPERATOR_ROLES).map((role) => {
             // The stored role value, never a translated word.

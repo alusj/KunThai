@@ -1,3 +1,4 @@
+import DialCodeInput from "../../shared/DialCodeInput";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import {
   FiAlertTriangle,
@@ -1573,6 +1574,7 @@ function CompanyIdentityStep({ documentRequirements = [], errors = {}, form, onC
         <FormInput
           label={t("urride.companyReg.supportPhoneLabel")}
           type="tel"
+          dialCountry={countryProfile?.iso2 || ""}
           value={form.phone}
           onChange={(value) => onChange("phone", constrainCountryPhoneInput(value, countryProfile, { international: true }))}
           placeholder={getCountryPhoneHint(countryProfile)}
@@ -2290,12 +2292,15 @@ function PricingGuide({ type, open, onToggle, onViewOneKm }) {
   );
 }
 
-function FormInput({ disabled = false, error = "", helper = "", label, onChange, placeholder = "", type = "text", value }) {
+function FormInput({ dialCountry, disabled = false, error = "", helper = "", label, onChange, placeholder = "", type = "text", value }) {
   useUiLocale();
+  // A phone field: the country code is fixed text and only the number is typed.
+  const InputTag = dialCountry !== undefined ? DialCodeInput : "input";
   return (
     <label className="block" data-field-error={error ? "true" : undefined}>
       <span className="mb-2 block text-sm font-bold text-slate-700">{translateUi(label)}</span>
-      <input
+      <InputTag
+        {...(dialCountry !== undefined ? { dialCountry } : {})}
         type={type}
         min={type === "number" ? "0" : undefined}
         disabled={disabled}

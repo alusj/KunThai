@@ -1,3 +1,4 @@
+import DialCodeInput from "../../shared/DialCodeInput";
 import { createElement, useEffect, useMemo, useRef, useState } from "react";
 import {
   FiAlertTriangle,
@@ -29,7 +30,6 @@ import NearbyAreaScreen from "../NearbyAreaScreen";
 import { searchLocations } from "../../../Backend/services/locationSearchService";
 import { getOnboardingProfile } from "../../../Backend/services/onboardingService";
 import {
-  constrainCountryPhoneInput,
   getCountryPhoneHint,
   validateCountryPhone,
 } from "../../../data/globalCountryProfiles";
@@ -786,7 +786,8 @@ export default function TransportBookingDrawer({ open, target, onClose, onCreate
                   icon={FiPhone}
                   label={t("urride.booking.phone")}
                   value={form.phone}
-                  onChange={(value) => updateForm({ phone: constrainCountryPhoneInput(value, "", { international: true }) })}
+                  dialCountry=""
+                  onChange={(value) => updateForm({ phone: value })}
                   placeholder={getCountryPhoneHint()}
                 />
               </div>
@@ -846,8 +847,9 @@ export default function TransportBookingDrawer({ open, target, onClose, onCreate
                     icon={FiPhone}
                     label={t("urrideParcel.receiverPhone")}
                     value={form.receiverPhone}
-                    onChange={(value) => updateForm({ receiverPhone: constrainCountryPhoneInput(value, "", { international: true }) })}
-                    placeholder={t("urrideParcel.receiverPhoneHint")}
+                    dialCountry=""
+                    onChange={(value) => updateForm({ receiverPhone: value })}
+                    placeholder={getCountryPhoneHint()}
                   />
                 </>
               ) : (
@@ -1184,8 +1186,10 @@ export function AddressSuggestionInput({ icon, label, value, selectedPoint, cent
   );
 }
 
-export function FormInput({ icon, label, value, onChange, placeholder }) {
+export function FormInput({ icon, label, value, onChange, placeholder, dialCountry }) {
   useUiLocale();
+  // A phone field: the country code is fixed text and only the number is typed.
+  const InputTag = dialCountry !== undefined ? DialCodeInput : "input";
   return (
     <label className="space-y-1">
       <span className="text-xs font-black uppercase text-gray-500">{translateUi(label)}</span>
@@ -1194,7 +1198,8 @@ export function FormInput({ icon, label, value, onChange, placeholder }) {
           size: 17,
           className: "absolute left-3 top-1/2 -translate-y-1/2 text-gray-400",
         })}
-        <input
+        <InputTag
+          {...(dialCountry !== undefined ? { dialCountry } : {})}
           value={value}
           onChange={(event) => onChange(event.target.value)}
           placeholder={translateUi(placeholder)}

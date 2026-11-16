@@ -9,6 +9,7 @@
 //   { id, category, customCategory, fullName, phone, street, note,
 //     frontPictureUrl, detectedAddress, coordinates: { latitude, longitude } }
 
+import DialCodeInput from "../DialCodeInput";
 import { createElement, useEffect, useMemo, useRef, useState } from "react";
 import {
   Camera,
@@ -45,7 +46,6 @@ import {
   getAddressShareText,
   getAddressText,
 } from "./savedAddressModel";
-import { getCountryPhoneHint } from "../../../data/globalCountryProfiles";
 import { haptics } from "../../../Backend/services/feedbackService";
 
 // Long enough that the saving animation reads as a deliberate step even when
@@ -241,12 +241,9 @@ function SavedAddressForm({ initial, categories, pickerLabels, pickerBackLabel, 
         </label>
         <label className="space-y-1">
           <FieldLabel>{t("addressBook.phone")}</FieldLabel>
-          <input
+          <DialCodeInput
             value={draft.phone}
-            onChange={(event) => update({ phone: constrainAddressPhone(event.target.value) })}
-            placeholder={getCountryPhoneHint(phoneCountry)}
-            inputMode="tel"
-            autoComplete="tel"
+            onChange={(event) => update({ phone: event.target.value })}
             className={inputClass}
           />
           <span className="block text-[11px] font-semibold text-gray-500">

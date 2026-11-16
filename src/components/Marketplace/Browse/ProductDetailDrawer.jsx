@@ -32,7 +32,8 @@ import {
   useAddressAreaValidation,
 } from "../../shared/AddressAreaValidation";
 import SavedAddressSuggestions from "../../shared/savedAddresses/SavedAddressSuggestions";
-import { constrainAddressPhone, getAddressPhoneCountry, getSavedAddressContact } from "../../shared/savedAddresses/savedAddressModel";
+import DialCodeInput from "../../shared/DialCodeInput";
+import { constrainAddressPhone, getSavedAddressContact } from "../../shared/savedAddresses/savedAddressModel";
 import NearbyAreaScreen from "../../transport/NearbyAreaScreen";
 import useBodyScrollLock from "../../shared/useBodyScrollLock";
 import MediaGalleryViewer from "../../shared/MediaGalleryViewer";
@@ -1304,13 +1305,11 @@ export default function ProductDetailDrawer({
                   placeholder={t("urmall.detail.fullName")}
                   className="h-11 min-w-0 rounded-lg border border-gray-200 px-3 text-sm font-semibold outline-none focus:border-emerald-500"
                 />
-                <input
+                <DialCodeInput
                   value={orderForm.phone}
-                  onChange={(event) => updateOrderForm({ phone: constrainAddressPhone(event.target.value) })}
-                  placeholder={`${t("urmall.detail.phoneNumber")} · ${getAddressPhoneCountry(orderForm.phone).dialCode}`}
-                  inputMode="tel"
-                  autoComplete="tel"
-                  className="h-11 min-w-0 rounded-lg border border-gray-200 px-3 text-sm font-semibold outline-none focus:border-emerald-500"
+                  onChange={(event) => updateOrderForm({ phone: event.target.value })}
+                  wrapperClassName="min-w-0"
+                  className="h-11 w-full min-w-0 rounded-lg border border-gray-200 px-3 text-sm font-semibold outline-none focus:border-emerald-500"
                 />
                 {isBooking ? (
                   <>

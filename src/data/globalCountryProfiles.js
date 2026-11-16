@@ -9,7 +9,7 @@ export const DEFAULT_COUNTRY_ISO = "US";
 import { getEmergencyContacts } from "./emergencyContacts.js";
 import { INTERNATIONAL_COUNTRY_DIALING_PROFILES } from "./internationalCountryDialingProfiles.js";
 import { TIMEZONE_COUNTRIES } from "./timezoneCountries.js";
-import { hasCountryChoice, rememberDetectedCountry } from "./countryChoice.js";
+import { hasCountryChoice, pickTravelCountry, readDetectedCountry, rememberDetectedCountry } from "./countryChoice.js";
 
 const CURATED_GLOBAL_COUNTRY_PROFILES = [
   {
@@ -28,11 +28,12 @@ const CURATED_GLOBAL_COUNTRY_PROFILES = [
     addressExample: "15 Siaka Stevens Street",
     mapCenter: { lat: 8.4657, lng: -13.2317, label: "Freetown, Sierra Leone" },
     nearbyCountries: ["LR", "GN"],
+    // Same numbers as emergencyContacts.js, which the emergency card reads.
     emergency: {
-      police: ["999", "112", "911"],
-      ambulance: ["999", "112", "911"],
-      fire: ["019", "112", "911"],
-      notes: "Use another listed number if your mobile network does not connect the first number.",
+      police: ["900"],
+      ambulance: ["117"],
+      fire: ["999"],
+      notes: "",
     },
   },
   {
@@ -614,6 +615,36 @@ function buildGenericPhonePlaceholder(maxLength) {
   return "000 000 000 000";
 }
 
+// Exact phone number rules for large countries that do not have a full
+// curated profile above: the example shown in the box, and the shortest and
+// longest national number (mobile and landline, without the country code or
+// the local trunk prefix). `trunk` is the prefix dialled only inside the
+// country ("0" almost everywhere, "8" in Russia); it is dropped after the
+// country code. "" means national numbers are written in full.
+const PHONE_PLANS = {
+  AR: { placeholder: "00 0000 0000", minLength: 10, maxLength: 11, trunk: "0" },
+  BD: { placeholder: "0000 000000", minLength: 8, maxLength: 10, trunk: "0" },
+  CH: { placeholder: "00 000 00 00", minLength: 9, maxLength: 9, trunk: "0" },
+  CN: { placeholder: "000 0000 0000", minLength: 10, maxLength: 11, trunk: "0" },
+  EG: { placeholder: "00 0000 0000", minLength: 8, maxLength: 10, trunk: "0" },
+  ES: { placeholder: "000 000 000", minLength: 9, maxLength: 9, trunk: "" },
+  ID: { placeholder: "000 0000 0000", minLength: 8, maxLength: 12, trunk: "0" },
+  // Italian numbers keep their leading zero abroad (+39 06 …).
+  IT: { placeholder: "000 000 0000", minLength: 6, maxLength: 11, trunk: "" },
+  KR: { placeholder: "00 0000 0000", minLength: 8, maxLength: 10, trunk: "0" },
+  MX: { placeholder: "00 0000 0000", minLength: 10, maxLength: 10, trunk: "" },
+  MY: { placeholder: "00 000 0000", minLength: 8, maxLength: 10, trunk: "0" },
+  NL: { placeholder: "00 000 0000", minLength: 9, maxLength: 9, trunk: "0" },
+  PH: { placeholder: "000 000 0000", minLength: 8, maxLength: 10, trunk: "0" },
+  PK: { placeholder: "000 0000000", minLength: 9, maxLength: 10, trunk: "0" },
+  PL: { placeholder: "000 000 000", minLength: 9, maxLength: 9, trunk: "" },
+  RU: { placeholder: "000 000 00 00", minLength: 10, maxLength: 10, trunk: "8" },
+  SA: { placeholder: "00 000 0000", minLength: 9, maxLength: 9, trunk: "0" },
+  SG: { placeholder: "0000 0000", minLength: 8, maxLength: 8, trunk: "" },
+  TR: { placeholder: "000 000 00 00", minLength: 10, maxLength: 10, trunk: "0" },
+  VN: { placeholder: "00 000 0000", minLength: 9, maxLength: 10, trunk: "0" },
+};
+
 function buildGenericCountryProfile(country) {
   const dialDigits = String(country.dialCode || "").replace(/\D/g, "");
   const maxLength = country.dialCode === "+1"
@@ -628,6 +659,18 @@ function buildGenericCountryProfile(country) {
     placeholder: buildGenericPhonePlaceholder(maxLength),
     minLength: Math.min(4, maxLength),
     maxLength,
+    // No curated number plan: lengths are loose, so the trunk "0" cannot be
+    // recognised by length (see stripNationalTrunkZero).
+    genericPhoneRules: true,
+    ...(PHONE_PLANS[country.iso2]
+      ? {
+        placeholder: PHONE_PLANS[country.iso2].placeholder,
+        minLength: PHONE_PLANS[country.iso2].minLength,
+        maxLength: PHONE_PLANS[country.iso2].maxLength,
+        genericPhoneRules: false,
+        phoneTrunk: PHONE_PLANS[country.iso2].trunk,
+      }
+      : {}),
     currency: {
       code: country.currencyCode || "USD",
       name: country.currencyCode || "USD",
@@ -745,12 +788,23 @@ export function normalizeCountryIso(value) {
   const exact = COUNTRY_ALIASES.get(normalized);
   if (exact) return exact;
 
+  // Free text such as an address. The country is written last, and one name
+  // can sit inside another ("Guinea" in "Guinea-Bissau" and "Papua New
+  // Guinea", "Georgia" / "Jersey" / "Mexico" in US addresses), so the name
+  // that ends furthest right wins, and the longer one on a tie.
   const padded = ` ${normalized} `;
+  let best = null;
   for (const [alias, iso2] of COUNTRY_TEXT_ALIASES.entries()) {
-    if (alias.length > 2 && padded.includes(` ${alias} `)) return iso2;
+    if (alias.length <= 2) continue;
+    const at = padded.lastIndexOf(` ${alias} `);
+    if (at < 0) continue;
+    const end = at + alias.length;
+    if (!best || end > best.end || (end === best.end && alias.length > best.length)) {
+      best = { iso2, end, length: alias.length };
+    }
   }
 
-  return "";
+  return best?.iso2 || "";
 }
 
 export function getCountryProfile(value = "") {
@@ -811,6 +865,25 @@ export function storeDetectedCountryContext(value) {
   return storeCountryContext(iso2);
 }
 
+// Called when the account is loaded. The account's saved country is the app's
+// country, except while the phone is really in another country (see
+// pickTravelCountry) and the person has not picked one by hand in Settings.
+// Before this, every launch put a traveller back in their home market until
+// they opened the UrRide map again.
+export function restoreAccountCountryContext(value) {
+  const accountIso = normalizeCountryIso(value);
+  if (!accountIso) return "";
+  if (!hasCountryChoice()) {
+    const travelIso = pickTravelCountry({
+      accountIso,
+      detected: readDetectedCountry(),
+      timeZoneIso: detectDeviceCountryIso(),
+    });
+    if (travelIso && COUNTRY_BY_ISO.has(travelIso)) return storeCountryContext(travelIso);
+  }
+  return storeCountryContext(accountIso);
+}
+
 // The browser's language region is deliberately NOT used as a country: most
 // English devices and desktop apps report "en-US" wherever they are, and
 // trusting it saved accounts in other countries as "United States". Order:
@@ -866,16 +939,51 @@ export function getCountryPhoneDigitCount(value = "") {
   return profile.maxLength;
 }
 
-// Placeholder for phone inputs. The country code is left out: it is shown by
-// the country picker, or added to the value automatically as the person types
-// (constrainCountryPhoneInput with { international: true }).
+// Placeholder for phone inputs: always the country code followed by the
+// number pattern ("+232 00 000 000"), so an empty field already shows which
+// country the number belongs to and looks like the value that will be typed
+// (constrainCountryPhoneInput with { international: true }). A field that
+// sits beside a country picker (PhoneCountryField) shows the code in the
+// picker and drops it from its own placeholder.
 export function getCountryPhoneHint(value = "") {
-  return getCountryPhonePlaceholder(value, { includeDialCode: false });
+  return getCountryPhonePlaceholder(value, { includeDialCode: true });
 }
 
 export function getCountryAddressPlaceholder(value = "") {
   const profile = getActiveCountryProfile(value);
   return profile.popularArea || profile.addressExample || profile.cityPlaceholder;
+}
+
+// Countries whose national numbers really begin with 0 — the zero is dialled
+// from abroad too (+39 06…, +242 06…), so it is never a trunk prefix.
+const KEEPS_LEADING_ZERO_ISOS = new Set(["IT", "SM", "VA", "CG"]);
+
+// Most of the world writes a local number with a leading "0" that is dropped
+// after the country code (Vietnam 0912 345 678 -> +84 912 345 678). Keeping it
+// produces a number no network can deliver a sign-in code to.
+// Curated countries know their exact length, so one extra leading zero is the
+// trunk prefix; countries on the generic plan have loose lengths, so a leading
+// zero is always the trunk prefix there.
+export function stripNationalTrunkZero(digits = "", country = "") {
+  const value = String(digits || "");
+  const iso2 = typeof country === "object" && country?.iso2 ? country.iso2 : normalizeCountryIso(country);
+  const profile = COUNTRY_BY_ISO.get(iso2);
+  if (!profile) return value;
+  // Countries with an exact plan (PHONE_PLANS) name their trunk prefix.
+  if (typeof profile.phoneTrunk === "string") {
+    if (!profile.phoneTrunk || !value.startsWith(profile.phoneTrunk)) return value;
+    // "0" never starts a national number in these countries, so it is always
+    // the trunk prefix. Any other prefix (Russia's "8") can also be a real
+    // first digit, so it is dropped only from a number one digit too long.
+    if (profile.phoneTrunk === "0" || value.length === profile.maxLength + 1) return value.slice(1);
+    return value;
+  }
+  if (!value.startsWith("0")) return value;
+  if (KEEPS_LEADING_ZERO_ISOS.has(profile.iso2)) return value;
+  if (profile.genericPhoneRules) return value.slice(1);
+  // Benin's current ten-digit plan intentionally keeps its leading zero.
+  if (profile.iso2 !== "BJ" && value.length === profile.maxLength + 1) return value.slice(1);
+  return value;
 }
 
 export function normalizeCountryPhoneDigits(phone = "", country = "") {
@@ -890,13 +998,7 @@ export function normalizeCountryPhoneDigits(phone = "", country = "") {
     digits = digits.slice(dialDigits.length);
   }
 
-  // Countries with a domestic trunk zero commonly show one extra local digit.
-  // Benin's current ten-digit plan intentionally keeps its leading zero.
-  if (profile.iso2 !== "BJ" && digits.startsWith("0") && digits.length === profile.maxLength + 1) {
-    digits = digits.slice(1);
-  }
-
-  return digits;
+  return stripNationalTrunkZero(digits, profile);
 }
 
 export function validateCountryPhone(phone = "", country = "", { required = true } = {}) {

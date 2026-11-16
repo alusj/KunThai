@@ -1,3 +1,4 @@
+import DialCodeInput from "../../shared/DialCodeInput";
 import { useCallback, useEffect, useState } from "react";
 import { MapPin, Phone } from "lucide-react";
 import AppBackTab from "../../shared/AppBackTab";
@@ -84,7 +85,7 @@ export default function RentalDetailsScreen({ rentalId, onBack, onOpenCompany })
             <Field label={i18nText("ui.literals.k0c44fe802100")} type="datetime-local" value={form.startsAt} onChange={(value) => change("startsAt", value)} />
             <Field label={i18nText("ui.literals.k234a97ae3838")} type="datetime-local" value={form.endsAt} onChange={(value) => change("endsAt", value)} />
             <Field label={i18nText("ui.literals.kd9047642f7c4")} value={form.name} onChange={(value) => change("name", value)} />
-            <Field label={i18nText("ui.literals.kdfeab78cf75a")} type="tel" value={form.phone} onChange={(value) => change("phone", value)} />
+            <Field label={i18nText("ui.literals.kdfeab78cf75a")} type="tel" dialCountry="" value={form.phone} onChange={(value) => change("phone", value)} />
             {canBookByTime && <label className="text-sm font-bold">{i18nText("ui.literals.k3a9c736b3175")}<select value={form.unit} onChange={(event) => change("unit", event.target.value)} className="kt-registration-input mt-2 w-full rounded-xl border border-slate-300 bg-white p-3">{fixedTimeRates.map(([key]) => <option key={key} value={key}>{i18nText("ui.literals.kf6604e6e83be")} {key}</option>)}</select></label>}
             <Field label={i18nText("ui.literals.k07912304aad4")} value={form.note} required={false} onChange={(value) => change("note", value)} />
           </div>
@@ -100,7 +101,9 @@ export default function RentalDetailsScreen({ rentalId, onBack, onOpenCompany })
   </div>;
 }
 
-function Field({ label, value, onChange, type = "text", required = true }) {
+function Field({ label, value, onChange, type = "text", required = true, placeholder = "", dialCountry }) {
   useUiLocale();
-  return <label className="block text-sm font-bold text-slate-800">{translateUi(label)}<input required={required} type={type} value={value} onChange={(event) => onChange(event.target.value)} className="kt-registration-input mt-2 w-full rounded-xl border border-slate-300 bg-white p-3 text-slate-950" /></label>;
+  // A phone field: the country code is fixed text and only the number is typed.
+  const InputTag = dialCountry !== undefined ? DialCodeInput : "input";
+  return <label className="block text-sm font-bold text-slate-800">{translateUi(label)}<InputTag {...(dialCountry !== undefined ? { dialCountry } : {})} required={required} type={type} value={value} placeholder={placeholder || undefined} onChange={(event) => onChange(event.target.value)} className="kt-registration-input mt-2 w-full rounded-xl border border-slate-300 bg-white p-3 text-slate-950" /></label>;
 }
